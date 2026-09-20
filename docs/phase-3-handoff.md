@@ -34,7 +34,7 @@ DAG recompute → exactly one Undo step; Undo restores the previous size.
 
 - OCCT 8 makers are lazy: explicit `Build()` before `IsDone()`.
 - One TNaming evolution kind per builder (`Modify`+`Generated` conflict).
-- OCCT includes must precede `namespace intentcad`.
+- OCCT includes must precede `namespace kreoda`.
 - `TopoDS_Shape::Location()` is a getter; copy before transforming.
 - Zustand selectors must return stable references (memoize derivations).
 - three.js non-indexed `LineSegments` raycast reports the segment's start

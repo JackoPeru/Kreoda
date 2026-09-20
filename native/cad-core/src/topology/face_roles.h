@@ -3,20 +3,20 @@
 #include <string>
 #include <vector>
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <TopoDS_Edge.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 // Phase-1 role classifier (§4, step 2: explicit feature-role reference).
 // Derives a stable role string per face from geometry (type + orientation),
 // so the id survives parameter edits. OCAF/TNaming becomes the primary
 // mechanism in Phase 2 (§3); roles remain as the documented fallback.
 // Order follows the explorer sequence of the tessellator call.
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 std::vector<std::string> ClassifyFaceRoles(const TopoDS_Shape& shape,
                                            const std::string& featureType,
                                            const std::string& featureId);
@@ -51,4 +51,4 @@ bool FindEdgeByRole(const TopoDS_Shape& shape, const std::string& featureId,
                     TopoDS_Edge* out);
 #endif
 
-}  // namespace intentcad
+}  // namespace kreoda

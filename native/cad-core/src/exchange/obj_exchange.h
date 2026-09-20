@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
 // OBJ exchange via OCCT DataExchange (DEOBJ_Provider), Phase 8 (§61).
 // OBJ is unitless triangles: export pre-meshes every solid at export
@@ -19,4 +19,4 @@ bool ExportObj(const std::string& path, std::string* error);
 bool ImportObj(const std::string& path, std::vector<std::string>* createdIds,
                std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

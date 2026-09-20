@@ -6,7 +6,7 @@
 #include "model/shapes.h"
 #include "features/sketch/sketch_store.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
@@ -21,9 +21,9 @@
 #include "persistence/ocaf_live.h"
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 namespace {
 
 const char* OpType(const std::string& op) {
@@ -218,4 +218,4 @@ bool RebuildBooleanFromStore(const std::string&, std::string* error) {
 
 #endif
 
-}  // namespace intentcad
+}  // namespace kreoda

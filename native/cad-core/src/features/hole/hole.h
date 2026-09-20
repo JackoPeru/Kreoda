@@ -2,12 +2,12 @@
 
 #include <string>
 
-#if INTENTCAD_WITH_OCCT
-// NOTE: OCCT includes must stay OUTSIDE namespace intentcad.
+#if KREODA_WITH_OCCT
+// NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
 #include <TopoDS_Shape.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 // Parametric hole (§20 Tier 5): cylindrical cut into a target solid through
 // a persistent face reference. Position is face-local 2D (xMm, yMm) in the
@@ -24,7 +24,7 @@ bool CreateHoleFeature(const std::string& featureId,
 // DAG recompute step (features/rebuild.cpp calls this).
 bool RebuildHoleFromStore(const std::string& featureId, std::string* error);
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 // Pure build (no commit): target shape + face role + dims → holed solid.
 bool BuildHoleShape(const TopoDS_Shape& target, const std::string& targetId,
                     const std::string& targetType, const std::string& faceRole,
@@ -38,4 +38,4 @@ bool BuildHoleShape(const TopoDS_Shape& target, const std::string& targetId,
 bool DecodeHoleRef(const std::string& ref, std::string* faceRole, double* x,
                    double* y, std::string* mode);
 
-}  // namespace intentcad
+}  // namespace kreoda

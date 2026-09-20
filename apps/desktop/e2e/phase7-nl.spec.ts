@@ -41,9 +41,9 @@ test("command bar: plate, corner holes, views, honest fallback", async () => {
       window.evaluate(() =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
       );
     const input = window.getByTestId("command-input");
 
@@ -91,9 +91,9 @@ test("command bar: plate, corner holes, views, honest fallback", async () => {
     const dir = (await window.evaluate(() =>
       (
         window as unknown as {
-          __intentcad_test: { viewDir: () => [number, number, number] };
+          __kreoda_test: { viewDir: () => [number, number, number] };
         }
-      ).__intentcad_test.viewDir(),
+      ).__kreoda_test.viewDir(),
     )) as [number, number, number];
     expect(dir[1]).toBeGreaterThan(0.99);
 

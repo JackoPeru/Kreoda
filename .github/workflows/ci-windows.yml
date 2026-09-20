@@ -45,14 +45,14 @@ jobs:
 
       - name: Native self-test + gtest
         run: >
-          ./native/cad-core/build/Release/intentcad-core.exe --self-test;
+          ./native/cad-core/build/Release/kreoda-core.exe --self-test;
           ctest --test-dir native/cad-core/build -C Release --output-on-failure
 
       - name: Build desktop shell
-        run: pnpm --filter @intentcad/desktop build
+        run: pnpm --filter @kreoda/desktop build
 
       - name: E2E (Electron + sidecar)
-        run: pnpm --filter @intentcad/desktop exec playwright test
+        run: pnpm --filter @kreoda/desktop exec playwright test
 
       - name: Upload E2E screenshots
         if: always()

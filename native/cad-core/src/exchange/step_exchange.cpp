@@ -5,8 +5,8 @@
 #include "exchange/sew.h"
 #include "model/shapes.h"
 
-#if INTENTCAD_WITH_OCCT
-// NOTE: OCCT includes must stay OUTSIDE namespace intentcad.
+#if KREODA_WITH_OCCT
+// NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
 #include <BRep_Builder.hxx>
 #include <DESTEP_ConfigurationNode.hxx>
 #include <DESTEP_Provider.hxx>
@@ -19,10 +19,10 @@
 #include <TopAbs_ShapeEnum.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 bool ExportStep(const std::string& path, std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (path.empty()) {
     if (error) *error = "path is required";
     return false;
@@ -64,7 +64,7 @@ bool ExportStep(const std::string& path, std::string* error) {
 
 bool ImportStep(const std::string& path, std::vector<std::string>* createdIds,
                 std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (path.empty()) {
     if (error) *error = "path is required";
     return false;
@@ -109,4 +109,4 @@ bool ImportStep(const std::string& path, std::vector<std::string>* createdIds,
 #endif
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

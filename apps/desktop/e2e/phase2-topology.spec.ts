@@ -8,7 +8,7 @@ import os from "node:os";
 
 const HERE = import.meta.dirname;
 const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
-const ICAD = path.join(os.tmpdir(), "intentcad-phase2-e2e.icad");
+const ICAD = path.join(os.tmpdir(), "kreoda-phase2-e2e.icad");
 
 interface BodySnapshot {
   id: string;
@@ -43,16 +43,16 @@ async function hook(
     "evaluate" | "getByRole" | "getByText" | "screenshot" | "waitForLoadState" | "on"
   >,
 ): Promise<TestHook> {
-  type Hook = { __intentcad_test: TestHook };
+  type Hook = { __kreoda_test: TestHook };
   return {
     snapshot: () =>
       window.evaluate<Snapshot>(
-        () => (window as unknown as Hook).__intentcad_test.snapshot(),
+        () => (window as unknown as Hook).__kreoda_test.snapshot(),
       ),
     selectFace: (featureId, role) =>
       window.evaluate<Snapshot, { f: string; r: string }>(
         ({ f, r }) =>
-          (window as unknown as Hook).__intentcad_test.selectFace(f, r),
+          (window as unknown as Hook).__kreoda_test.selectFace(f, r),
         { f: featureId, r: role },
       ),
     setParam: (featureId, paramName, valueMm) =>
@@ -61,19 +61,19 @@ async function hook(
         { f: string; p: string; v: number }
       >(
         ({ f, p, v }) =>
-          (window as unknown as Hook).__intentcad_test.setParam(f, p, v),
+          (window as unknown as Hook).__kreoda_test.setParam(f, p, v),
         { f: featureId, p: paramName, v: valueMm },
       ),
     saveIcad: (p) =>
       window.evaluate<Snapshot, { icad: string }>(
         ({ icad }) =>
-          (window as unknown as Hook).__intentcad_test.saveIcad(icad),
+          (window as unknown as Hook).__kreoda_test.saveIcad(icad),
         { icad: p },
       ),
     openIcad: (p) =>
       window.evaluate<Snapshot, { icad: string }>(
         ({ icad }) =>
-          (window as unknown as Hook).__intentcad_test.openIcad(icad),
+          (window as unknown as Hook).__kreoda_test.openIcad(icad),
         { icad: p },
       ),
   };

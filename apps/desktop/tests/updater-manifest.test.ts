@@ -8,7 +8,7 @@ import {
 
 const good = {
   version: "0.2.0",
-  url: "https://example.com/intentcad-0.2.0.exe",
+  url: "https://example.com/kreoda-0.2.0.exe",
   sha256: "a".repeat(64),
   signature: "c2ln",
 };
@@ -46,7 +46,7 @@ describe("update manifest", () => {
   it("signs deterministic bytes", () => {
     const bytes = signedPayloadBytes(good);
     expect(new TextDecoder().decode(bytes)).toBe(
-      `0.2.0\nhttps://example.com/intentcad-0.2.0.exe\n${"a".repeat(64)}`,
+      `0.2.0\nhttps://example.com/kreoda-0.2.0.exe\n${"a".repeat(64)}`,
     );
   });
 });

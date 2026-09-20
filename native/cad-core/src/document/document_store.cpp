@@ -5,7 +5,7 @@
 #include "features/sketch/sketch_store.h"
 #include "persistence/ocaf_live.h"
 
-namespace intentcad {
+namespace kreoda {
 
 DocumentStore& DocumentStore::instance() {
   static DocumentStore store;
@@ -17,7 +17,7 @@ void DocumentStore::create(const std::string& documentId) {
   documentId_ = documentId.empty() ? "doc-bootstrap" : documentId;
   ShapeStore::instance().clear();  // new document owns an empty model (§9)
   SketchStore::instance().clear();  // sketches are part of the model (§21)
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   OcafLive::instance().Reset();  // live OCAF mirrors the empty model (§3)
 #endif
   TheFeatureGraph().clear();  // no nodes, no dirty state (§53)
@@ -54,4 +54,4 @@ bool DocumentStore::hasFeature(const std::string& featureId) const {
   return features_.count(featureId) > 0;
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

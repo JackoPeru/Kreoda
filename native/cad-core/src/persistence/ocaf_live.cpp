@@ -9,7 +9,7 @@
 #include "../features/sketch/sketch_json.h"
 #include "../features/sketch/sketch_store.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <BinXCAFDrivers.hxx>
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepBndLib.hxx>
@@ -43,14 +43,14 @@
 #include "../topology/face_roles.h"
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 OcafLive& OcafLive::instance() {
   static OcafLive live;
   return live;
 }
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 struct OcafLive::Ocaf {
   Handle(TDocStd_Application) app;
   Handle(TDocStd_Document) doc;
@@ -201,7 +201,7 @@ ShapeRecord RecordFromLabel(const TDF_Label& label,
 #endif
 
 void OcafLive::Reset() {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   delete ocaf_;
   ocaf_ = new Ocaf();
   ocaf_->app = new TDocStd_Application;
@@ -220,7 +220,7 @@ void OcafLive::Reset() {
 }
 
 bool OcafLive::BeginCommand(std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (!ocaf_ || ocaf_->doc.IsNull()) Reset();
   if (ocaf_->doc->HasOpenCommand()) {
     if (error) *error = "nested OCAF command (single queue, §40)";
@@ -237,7 +237,7 @@ bool OcafLive::BeginCommand(std::string* error) {
 }
 
 bool OcafLive::CommitCommand(bool* hadDelta, std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (!ocaf_ || !ocaf_->doc->HasOpenCommand()) {
     if (error) *error = "no open OCAF command";
     return false;
@@ -253,13 +253,13 @@ bool OcafLive::CommitCommand(bool* hadDelta, std::string* error) {
 }
 
 void OcafLive::AbortCommand() {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (ocaf_ && ocaf_->doc->HasOpenCommand()) ocaf_->doc->AbortCommand();
 #endif
 }
 
 bool OcafLive::Undo(std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (!ocaf_ || ocaf_->doc.IsNull()) {
     if (error) *error = "no live document";
     return false;
@@ -280,7 +280,7 @@ bool OcafLive::Undo(std::string* error) {
 }
 
 bool OcafLive::Redo(std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (!ocaf_ || ocaf_->doc.IsNull()) {
     if (error) *error = "no live document";
     return false;
@@ -301,7 +301,7 @@ bool OcafLive::Redo(std::string* error) {
 }
 
 int OcafLive::AvailableUndos() const {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (!ocaf_ || ocaf_->doc.IsNull()) return 0;
   return ocaf_->doc->GetAvailableUndos();
 #else
@@ -310,7 +310,7 @@ int OcafLive::AvailableUndos() const {
 }
 
 int OcafLive::AvailableRedos() const {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (!ocaf_ || ocaf_->doc.IsNull()) return 0;
   return ocaf_->doc->GetAvailableRedos();
 #else
@@ -319,7 +319,7 @@ int OcafLive::AvailableRedos() const {
 }
 
 bool OcafLive::ResyncStore(std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (!ocaf_ || ocaf_->doc.IsNull()) {
     if (error) *error = "no live document";
     return false;
@@ -390,7 +390,7 @@ bool OcafLive::ResyncStore(std::string* error) {
 
 bool OcafLive::UpsertFeature(const ShapeRecord& rec, bool isNew,
                              std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   try {
     if (!ocaf_ || ocaf_->doc.IsNull()) Reset();
     if (ocaf_->doc.IsNull()) {
@@ -473,7 +473,7 @@ bool OcafLive::UpsertFeature(const ShapeRecord& rec, bool isNew,
 bool OcafLive::UpsertSketch(const std::string& sketchId,
                             const std::string& sketchJson,
                             std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   try {
     if (!ocaf_ || ocaf_->doc.IsNull()) Reset();
     if (ocaf_->doc.IsNull() || ocaf_->sketchesRoot.IsNull()) {
@@ -507,7 +507,7 @@ bool OcafLive::UpsertSketch(const std::string& sketchId,
 
 bool OcafLive::SketchLabelEntries(
     std::vector<std::pair<std::string, std::string>>* out) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (!ocaf_ || ocaf_->sketchesRoot.IsNull() || !out) return false;
   for (TDF_ChildIterator it(ocaf_->sketchesRoot, Standard_False); it.More();
        it.Next()) {
@@ -528,7 +528,7 @@ bool OcafLive::SketchLabelEntries(
 
 bool OcafLive::SelectFace(const std::string& featureId, const std::string& role,
                           FaceSelection* out, std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   try {
     if (!ocaf_ || ocaf_->featureLabels.count(featureId) == 0) {
       if (error) *error = "unknown feature " + featureId;
@@ -576,7 +576,7 @@ bool OcafLive::SelectFace(const std::string& featureId, const std::string& role,
 
 OcafLive::ResolveResult OcafLive::ResolveSelection(const FaceSelection& sel) {
   ResolveResult result;
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (ocaf_ && !ocaf_->doc.IsNull()) {
     try {
       TDF_Label lab;
@@ -633,7 +633,7 @@ OcafLive::ResolveResult OcafLive::ResolveSelection(const FaceSelection& sel) {
 }
 
 bool OcafLive::Save(const std::string& xbfPath, std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   try {
     if (!ocaf_ || ocaf_->doc.IsNull()) {
       if (error) *error = "OCAF: nothing to save";
@@ -661,7 +661,7 @@ bool OcafLive::Load(const std::string& xbfPath,
                     std::vector<ShapeRecord>* records,
                     std::vector<std::string>* sketchJsons,
                     std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   try {
     Reset();
   if (ocaf_->app->Open(TCollection_ExtendedString(xbfPath.c_str()),
@@ -737,4 +737,4 @@ bool OcafLive::Load(const std::string& xbfPath,
   return Load(xbfPath, records, nullptr, error);
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

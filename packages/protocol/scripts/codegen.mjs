@@ -1,4 +1,4 @@
-// INTENT-CAD Phase 8: flatc codegen (C++ + TypeScript together, §61).
+// Kreoda Phase 8: flatc codegen (C++ + TypeScript together, §61).
 // Generates FlatBuffers bindings from schemas/cad_protocol.fbs using the
 // vcpkg flatc (fallback: flatc on PATH). Transport stays JSON until the
 // migration slice — this only wires generation + parity checks.
@@ -34,7 +34,7 @@ const vcpkgFlatc =
       );
 
 const flatc = existsSync(vcpkgFlatc) ? vcpkgFlatc : "flatc";
-const outDir = mkdtempSync(join(tmpdir(), "intentcad-flatc-"));
+const outDir = mkdtempSync(join(tmpdir(), "kreoda-flatc-"));
 
 try {
   execFileSync(flatc, ["--version"], { stdio: "inherit" });
@@ -55,12 +55,14 @@ try {
     force: true,
   });
 
-  const tsSrc = join(outDir, "intent-cad");
+  const tsSrc = join(outDir, "kreoda");
   const tsDstRoot = join(repoRoot, "packages", "protocol", "src", "generated");
-  // Keep the "intent-cad/" root: generated files import each other via
-  // relative "../../intent-cad/..." paths, so the folder name must survive.
+  // Keep the "kreoda/" root: generated files import each other via
+  // relative "../../kreoda/..." paths, so the folder name must survive.
+  // Drop the pre-rename "intent-cad/" tree if it is still around.
+  rmSync(join(tsDstRoot, "kreoda"), { recursive: true, force: true });
   rmSync(join(tsDstRoot, "intent-cad"), { recursive: true, force: true });
-  cpSync(tsSrc, join(tsDstRoot, "intent-cad"), { recursive: true });
+  cpSync(tsSrc, join(tsDstRoot, "kreoda"), { recursive: true });
   console.log(`flatc codegen ok:
   C++ -> native/cad-core/src/protocol/generated/cad_protocol_generated.h
   TS  -> packages/protocol/src/generated/`);

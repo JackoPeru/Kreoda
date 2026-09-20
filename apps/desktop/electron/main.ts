@@ -49,11 +49,11 @@ async function initSidecar(): Promise<void> {
   sidecar.onCrash((code) => {
     // §51: freeze editing (renderer shows banner), restart the engine,
     // restore from autosave (Phase 8), rehydrate viewport.
-    void mainWindow?.webContents.send("intentcad:core-crashed", { code });
+    void mainWindow?.webContents.send("kreoda:core-crashed", { code });
     console.error(`[main] geometry engine exited (${code}) — restarting`);
     void sidecar
       ?.start()
-      .then(() => mainWindow?.webContents.send("intentcad:core-restarted", {}))
+      .then(() => mainWindow?.webContents.send("kreoda:core-restarted", {}))
       .catch((err) => console.error("[main] sidecar restart failed", err));
   });
   try {
@@ -72,30 +72,30 @@ app.whenReady().then(() => {
   }, 5000);
 
   // Typed IPC routing main ⇄ sidecar (§7-§8). Renderer never spawns processes.
-  ipcMain.handle("intentcad:invoke", async (_event, framedBase64: string) => {
+  ipcMain.handle("kreoda:invoke", async (_event, framedBase64: string) => {
     if (!sidecar) throw new Error("geometry engine not running");
     const bytes = Buffer.from(framedBase64, "base64");
     const response = await sidecar.invoke(bytes);
     return Buffer.from(response).toString("base64");
   });
 
-  ipcMain.handle("intentcad:core-info", async () => {
+  ipcMain.handle("kreoda:core-info", async () => {
     if (!sidecar) return { running: false };
     return { running: sidecar.isRunning(), pid: sidecar.pid() };
   });
 
-  // Signed updates (Phase 8 §61): inert unless INTENTCAD_UPDATE_FEED points
+  // Signed updates (Phase 8 §61): inert unless KREODA_UPDATE_FEED points
   // at a manifest feed. Renderer can trigger a check; downloads only land
   // after Ed25519 verification + sha256 pinning (see updater.ts).
-  ipcMain.handle("intentcad:check-updates", async () => {
-    const feed = process.env["INTENTCAD_UPDATE_FEED"];
+  ipcMain.handle("kreoda:check-updates", async () => {
+    const feed = process.env["KREODA_UPDATE_FEED"];
     if (!feed) return { available: false as const, reason: "no-feed" };
     try {
       const { available, manifest } = await checkFeed(feed, app.getVersion());
       if (!available || !manifest) return { available: false as const };
       // C13: never announce an unverified manifest — the renderer banner is
       // a trust signal, so verification happens HERE, before availability.
-      const pubkey = process.env["INTENTCAD_UPDATE_PUBKEY"] ?? "";
+      const pubkey = process.env["KREODA_UPDATE_PUBKEY"] ?? "";
       if (!pubkey || !verifyManifest(manifest, pubkey)) {
         console.error("[updater] check-updates: manifest unverified");
         return { available: false as const, reason: "unverified" };
@@ -111,15 +111,15 @@ app.whenReady().then(() => {
   });
 
   async function maybeAutoUpdate(): Promise<void> {
-    const feed = process.env["INTENTCAD_UPDATE_FEED"];
+    const feed = process.env["KREODA_UPDATE_FEED"];
     if (!feed || !mainWindow) return;
     try {
       const { available, manifest } = await checkFeed(feed, app.getVersion());
       if (!available || !manifest) return;
-      const pubkey = process.env["INTENTCAD_UPDATE_PUBKEY"] ?? "";
+      const pubkey = process.env["KREODA_UPDATE_PUBKEY"] ?? "";
       if (!pubkey) {
         console.error(
-          "[updater] feed set but no INTENTCAD_UPDATE_PUBKEY — refusing unsigned update",
+          "[updater] feed set but no KREODA_UPDATE_PUBKEY — refusing unsigned update",
         );
         return;
       }
@@ -127,7 +127,7 @@ app.whenReady().then(() => {
         console.error("[updater] manifest signature INVALID — refusing");
         return;
       }
-      mainWindow.webContents.send("intentcad:update-available", {
+      mainWindow.webContents.send("kreoda:update-available", {
         version: manifest.version,
       });
       const { response } = await dialog.showMessageBox(mainWindow, {
@@ -142,7 +142,7 @@ app.whenReady().then(() => {
         manifest,
         path.join(app.getPath("userData"), "updates"),
       );
-      mainWindow.webContents.send("intentcad:update-downloaded", {
+      mainWindow.webContents.send("kreoda:update-downloaded", {
         path: dest,
       });
       const { response: reveal } = await dialog.showMessageBox(mainWindow, {
@@ -164,20 +164,20 @@ app.whenReady().then(() => {
   // Crash recovery (Phase 8): renderer-driven autosave snapshots. The main
   // process only owns the path — content flows through the typed core path
   // (Save/OpenDocument), never through fs in the renderer (§48).
-  // INTENTCAD_RECOVERY_DIR overrides the location (E2E isolation).
+  // KREODA_RECOVERY_DIR overrides the location (E2E isolation).
   const recoveryDir =
-    process.env["INTENTCAD_RECOVERY_DIR"] ||
+    process.env["KREODA_RECOVERY_DIR"] ||
     path.join(app.getPath("userData"), "recovery");
   const recoveryFile = path.join(recoveryDir, "autosave.icad");
 
-  ipcMain.handle("intentcad:recovery-path", async () => {
+  ipcMain.handle("kreoda:recovery-path", async () => {
     fs.mkdirSync(recoveryDir, { recursive: true });
     return recoveryFile;
   });
 
-  ipcMain.handle("intentcad:recovery-exists", async () => fs.existsSync(recoveryFile));
+  ipcMain.handle("kreoda:recovery-exists", async () => fs.existsSync(recoveryFile));
 
-  ipcMain.handle("intentcad:recovery-clear", async () => {
+  ipcMain.handle("kreoda:recovery-clear", async () => {
     try {
       fs.unlinkSync(recoveryFile);
     } catch {
@@ -192,7 +192,7 @@ app.whenReady().then(() => {
   // Pass includeModel=true (explicit banner checkbox) to attach the full
   // summary for hard geometry bugs.
   ipcMain.handle(
-    "intentcad:crash-bundle",
+    "kreoda:crash-bundle",
     async (_event, snapshotJson: string, includeModel?: boolean) => {
       let snapshot: unknown = null;
       try {
@@ -258,7 +258,7 @@ app.whenReady().then(() => {
     },
   );
 
-  ipcMain.handle("intentcad:save-dialog", async (_event, filename: string) => {
+  ipcMain.handle("kreoda:save-dialog", async (_event, filename: string) => {
     const res = await dialog.showSaveDialog(mainWindow!, {
       defaultPath: filename,
       filters: [
@@ -273,7 +273,7 @@ app.whenReady().then(() => {
     return res.filePath ?? null;
   });
 
-  ipcMain.handle("intentcad:open-dialog", async () => {
+  ipcMain.handle("kreoda:open-dialog", async () => {
     const res = await dialog.showOpenDialog(mainWindow!, {
       filters: [
         { name: "Kreoda project", extensions: ["icad"] },

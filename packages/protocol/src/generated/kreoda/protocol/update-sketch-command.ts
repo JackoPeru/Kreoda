@@ -4,7 +4,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
-import { SketchModel } from '../../intent-cad/protocol/sketch-model.js';
+import { SketchModel } from '../../kreoda/protocol/sketch-model.js';
 
 
 export class UpdateSketchCommand {

@@ -5,13 +5,13 @@
 
 #include "tessellation/mesh.h"
 
-#if INTENTCAD_WITH_OCCT
-// NOTE: OCCT includes must stay OUTSIDE namespace intentcad (an include
+#if KREODA_WITH_OCCT
+// NOTE: OCCT includes must stay OUTSIDE namespace kreoda (an include
 // inside the namespace injects all of OCCT into it and breaks std headers).
 #include <TopoDS_Shape.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 // Primitive evaluators — Phase 1: real OCCT B-Rep (BRepPrimAPI_*).
 // Validation gate (§41): null-shape + BRepCheck_Analyzer, never a fake mesh.
@@ -23,7 +23,7 @@ bool CreateCylinderFeature(const std::string& featureId, double radiusMm,
 bool CreateSphereFeature(const std::string& featureId, double radiusMm,
                          std::string* error);
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 // Split build/commit (§13 preview): build the B-Rep without touching any
 // store; commitShape validates + registers + mirrors to live OCAF.
 bool BuildBoxShape(double widthMm, double heightMm, double depthMm,
@@ -53,4 +53,4 @@ bool BuildPreviewMesh(const std::string& featureId,
                       const std::string& paramName, double valueMm,
                       CoreMesh* out, std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

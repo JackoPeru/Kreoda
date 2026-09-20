@@ -8,8 +8,8 @@ import os from "node:os";
 
 const HERE = import.meta.dirname;
 const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
-const STEP = path.join(os.tmpdir(), "intentcad-phase8-e2e.step");
-const ICAD = path.join(os.tmpdir(), "intentcad-phase8-e2e.icad");
+const STEP = path.join(os.tmpdir(), "kreoda-phase8-e2e.step");
+const ICAD = path.join(os.tmpdir(), "kreoda-phase8-e2e.icad");
 
 interface BodySnapshot {
   id: string;
@@ -39,9 +39,9 @@ test("STEP export → import → persist", async () => {
       window.evaluate(() =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
       );
     const input = window.getByTestId("command-input");
 
@@ -62,9 +62,9 @@ test("STEP export → import → persist", async () => {
       ({ step }) =>
         (
           window as unknown as {
-            __intentcad_test: { saveIcad: (p: string) => Promise<Snapshot> };
+            __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> };
           }
-        ).__intentcad_test.saveIcad(step),
+        ).__kreoda_test.saveIcad(step),
       { step: STEP },
     );
 
@@ -73,9 +73,9 @@ test("STEP export → import → persist", async () => {
       ({ step }) =>
         (
           window as unknown as {
-            __intentcad_test: { openIcad: (p: string) => Promise<Snapshot> };
+            __kreoda_test: { openIcad: (p: string) => Promise<Snapshot> };
           }
-        ).__intentcad_test.openIcad(step),
+        ).__kreoda_test.openIcad(step),
       { step: STEP },
     )) as Snapshot;
     expect(imported.bodies).toHaveLength(1);
@@ -88,18 +88,18 @@ test("STEP export → import → persist", async () => {
       ({ icad }) =>
         (
           window as unknown as {
-            __intentcad_test: { saveIcad: (p: string) => Promise<Snapshot> };
+            __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> };
           }
-        ).__intentcad_test.saveIcad(icad),
+        ).__kreoda_test.saveIcad(icad),
       { icad: ICAD },
     );
     const reopened = (await window.evaluate(
       ({ icad }) =>
         (
           window as unknown as {
-            __intentcad_test: { openIcad: (p: string) => Promise<Snapshot> };
+            __kreoda_test: { openIcad: (p: string) => Promise<Snapshot> };
           }
-        ).__intentcad_test.openIcad(icad),
+        ).__kreoda_test.openIcad(icad),
       { icad: ICAD },
     )) as Snapshot;
     expect(reopened.bodies).toHaveLength(1);
@@ -113,18 +113,18 @@ test("STEP export → import → persist", async () => {
       ({ id }) =>
         (
           window as unknown as {
-            __intentcad_test: {
+            __kreoda_test: {
               selectFace: (f: string, role: string) => unknown;
             };
           }
-        ).__intentcad_test.selectFace(id, "box.+Z"),
+        ).__kreoda_test.selectFace(id, "box.+Z"),
       { id: target },
     );
     await window.evaluate(
       ({ id }) =>
         (
           window as unknown as {
-            __intentcad_test: {
+            __kreoda_test: {
               makeHole: (
                 t: string,
                 role: string,
@@ -134,16 +134,16 @@ test("STEP export → import → persist", async () => {
               ) => Promise<Snapshot>;
             };
           }
-        ).__intentcad_test.makeHole(id, "box.+Z", 50, 30, 8),
+        ).__kreoda_test.makeHole(id, "box.+Z", 50, 30, 8),
       { id: target },
     );
     const holed = (await window.evaluate(
       () =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
     )) as Snapshot;
     expect(holed.bodies).toHaveLength(2);
     const hole = holed.bodies.find((b) => b.type === "Hole");

@@ -39,9 +39,9 @@ test("crash bundle contains versions, log tail and snapshot", async () => {
     const bundle = (await window.evaluate(() =>
       (
         window as unknown as {
-          __intentcad_test: { crashBundle: () => Promise<Bundle> };
+          __kreoda_test: { crashBundle: () => Promise<Bundle> };
         }
-      ).__intentcad_test.crashBundle(),
+      ).__kreoda_test.crashBundle(),
     )) as Bundle;
     expect(bundle.bytes).toBeGreaterThan(200);
     expect(bundle.path).toMatch(/crash-bundle-.*\.json$/);

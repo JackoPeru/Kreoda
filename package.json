@@ -1,19 +1,19 @@
 {
-  "name": "intentcad",
+  "name": "kreoda",
   "version": "0.1.0",
   "private": true,
-  "description": "INTENT-CAD — hybrid native/web desktop CAD (Electron + React + OCCT sidecar)",
+  "description": "Kreoda — hybrid native/web desktop CAD (Electron + React + OCCT sidecar)",
   "packageManager": "pnpm@10.34.5",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "dev": "pnpm --filter @intentcad/desktop dev",
+    "dev": "pnpm --filter @kreoda/desktop dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
-    "start": "pnpm --filter @intentcad/desktop start",
-    "make": "pnpm --filter @intentcad/desktop make"
+    "start": "pnpm --filter @kreoda/desktop start",
+    "make": "pnpm --filter @kreoda/desktop make"
   },
   "devDependencies": {
     "typescript": "~5.9.3"

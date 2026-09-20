@@ -17,7 +17,7 @@
 #include "../src/model/shapes.h"
 #include "../src/topology/face_roles.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepBndLib.hxx>
 #include <Bnd_Box.hxx>
@@ -37,29 +37,29 @@ constexpr double kPlateVol = 60000.0;
 constexpr double kHoleVol = 16.0 * 3.141592653589793 * 10.0;
 
 bool makePlate(std::string* err) {
-  intentcad::DocumentStore::instance().create("topo-import-doc");
-  return intentcad::CreateBoxFeature("topo-plate", 100, 60, 10, err);
+  kreoda::DocumentStore::instance().create("topo-import-doc");
+  return kreoda::CreateBoxFeature("topo-plate", 100, 60, 10, err);
 }
 
 bool holeCenter(const std::string& holeId, const std::string& targetId,
                 std::string* err) {
-  return intentcad::CreateHoleFeature(holeId, targetId, "box.+Z", 50, 30, 8,
+  return kreoda::CreateHoleFeature(holeId, targetId, "box.+Z", 50, 30, 8,
                                       "throughAll", 0, err);
 }
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 // Face-local center through the ACTUAL face frame (what the UI's centroid
 // mapping does): role picks the face, the frame picks the point. Canonical
 // (50, 30) only holds for native MakeBox frames.
 bool holeAtFaceCenter(const std::string& holeId, const std::string& targetId,
                       const std::string& type, std::string* err) {
-  intentcad::ShapeRecord rec;
-  if (!intentcad::ShapeStore::instance().get(targetId, &rec)) {
+  kreoda::ShapeRecord rec;
+  if (!kreoda::ShapeStore::instance().get(targetId, &rec)) {
     if (err) *err = "unknown target";
     return false;
   }
   TopoDS_Face face;
-  if (!intentcad::FindFaceByRole(rec.shape, targetId, type, "box.+Z",
+  if (!kreoda::FindFaceByRole(rec.shape, targetId, type, "box.+Z",
                                  &face)) {
     if (err) *err = "role not found";
     return false;
@@ -78,18 +78,18 @@ bool holeAtFaceCenter(const std::string& holeId, const std::string& targetId,
                    (c.Z() - loc.Z()) * nx.Z();
   const double y = (c.X() - loc.X()) * ny.X() + (c.Y() - loc.Y()) * ny.Y() +
                    (c.Z() - loc.Z()) * ny.Z();
-  return intentcad::CreateHoleFeature(holeId, targetId, "box.+Z", x, y, 8,
+  return kreoda::CreateHoleFeature(holeId, targetId, "box.+Z", x, y, 8,
                                       "throughAll", 0, err);
 }
 
 // Role uniqueness: unified imports expose one face per plane (native-like).
 int countRole(const std::string& targetId, const std::string& type,
               const std::string& role) {
-  intentcad::ShapeRecord rec;
-  if (!intentcad::ShapeStore::instance().get(targetId, &rec)) return -1;
+  kreoda::ShapeRecord rec;
+  if (!kreoda::ShapeStore::instance().get(targetId, &rec)) return -1;
   int n = 0;
   for (const std::string& full :
-       intentcad::ClassifyFaceRoles(rec.shape, type, targetId)) {
+       kreoda::ClassifyFaceRoles(rec.shape, type, targetId)) {
     if (full == targetId + ":" + role) ++n;
   }
   return n;
@@ -97,8 +97,8 @@ int countRole(const std::string& targetId, const std::string& type,
 #endif
 
 double volumeOf(const std::string& id) {
-  intentcad::ShapeRecord rec;
-  if (!intentcad::ShapeStore::instance().get(id, &rec)) return -1.0;
+  kreoda::ShapeRecord rec;
+  if (!kreoda::ShapeStore::instance().get(id, &rec)) return -1.0;
   return rec.volumeMm3;
 }
 
@@ -108,12 +108,12 @@ TEST(TopologyImports, HoleOnStepImportFace) {
   std::string err;
   ASSERT_TRUE(makePlate(&err)) << err;
   const fs::path file =
-      fs::temp_directory_path() / "intentcad-topo-hole.step";
+      fs::temp_directory_path() / "kreoda-topo-hole.step";
   std::error_code ec;
-  ASSERT_TRUE(intentcad::ExportStep(file.string(), &err)) << err;
-  intentcad::DocumentStore::instance().create("topo-import-doc");
+  ASSERT_TRUE(kreoda::ExportStep(file.string(), &err)) << err;
+  kreoda::DocumentStore::instance().create("topo-import-doc");
   std::vector<std::string> ids;
-  ASSERT_TRUE(intentcad::ImportStep(file.string(), &ids, &err)) << err;
+  ASSERT_TRUE(kreoda::ImportStep(file.string(), &ids, &err)) << err;
   ASSERT_EQ(ids.size(), 1u);
   ASSERT_TRUE(holeCenter("topo-hole-step", ids[0], &err)) << err;
   EXPECT_NEAR(volumeOf("topo-hole-step"), kPlateVol - kHoleVol, 1.0);
@@ -124,14 +124,14 @@ TEST(TopologyImports, HoleOnMeshImportFace) {
   std::string err;
   ASSERT_TRUE(makePlate(&err)) << err;
   const fs::path file =
-      fs::temp_directory_path() / "intentcad-topo-hole.3mf";
+      fs::temp_directory_path() / "kreoda-topo-hole.3mf";
   std::error_code ec;
-  ASSERT_TRUE(intentcad::ExportThreeMF(file.string(), &err)) << err;
-  intentcad::DocumentStore::instance().create("topo-import-doc");
+  ASSERT_TRUE(kreoda::ExportThreeMF(file.string(), &err)) << err;
+  kreoda::DocumentStore::instance().create("topo-import-doc");
   std::vector<std::string> ids;
-  ASSERT_TRUE(intentcad::ImportThreeMF(file.string(), &ids, &err)) << err;
+  ASSERT_TRUE(kreoda::ImportThreeMF(file.string(), &ids, &err)) << err;
   ASSERT_EQ(ids.size(), 1u);
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   // UnifySameDomain merged the sewn triangles: one top face, one role.
   EXPECT_EQ(countRole(ids[0], "MeshImport", "box.+Z"), 1);
   ASSERT_TRUE(holeAtFaceCenter("topo-hole-mesh", ids[0], "MeshImport", &err))

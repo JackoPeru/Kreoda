@@ -29,45 +29,45 @@ double ExtractVolume(const std::string& response) {
 }  // namespace
 
 TEST(Persistence, SaveReopenRoundTrip) {
-#if INTENTCAD_WITH_OCCT && INTENTCAD_WITH_MINIZIP
-  ASSERT_NE(intentcad_test::rpcText(
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+  ASSERT_NE(kreoda_test::rpcText(
                 R"({"protocolVersion":1,"requestId":"p1","documentId":"dp","type":2})")
                 .find("\"status\":\"ok\""),
             std::string::npos);
   const std::string mk =
       R"({"protocolVersion":1,"requestId":"p2","documentId":"dp","type":3,"featureId":"persist-box","widthMm":100,"heightMm":50,"depthMm":20})";
-  const std::string created = intentcad_test::rpcText(mk);
+  const std::string created = kreoda_test::rpcText(mk);
   ASSERT_NE(created.find("\"status\":\"ok\""), std::string::npos);
   EXPECT_NEAR(ExtractVolume(created), 100000.0, 1.0);
 
   const fs::path icad =
-      fs::temp_directory_path() / "intentcad-roundtrip.icad";
+      fs::temp_directory_path() / "kreoda-roundtrip.icad";
   const std::string save =
       std::string(
           R"({"protocolVersion":1,"requestId":"p3","documentId":"dp","type":10,"path":")") +
       icad.string() + "\"}";
-  const std::string saved = intentcad_test::rpcText(save);
+  const std::string saved = kreoda_test::rpcText(save);
   ASSERT_NE(saved.find("\"status\":\"ok\""), std::string::npos)
       << saved;
   ASSERT_TRUE(fs::exists(icad));
 
   // Fresh document, then reopen: identical solid must come back.
-  intentcad_test::rpcText(
+  kreoda_test::rpcText(
       R"({"protocolVersion":1,"requestId":"p4","documentId":"dp2","type":2})");
   const std::string open =
       std::string(
           R"({"protocolVersion":1,"requestId":"p5","documentId":"dp2","type":11,"path":")") +
       icad.string() + "\"}";
-  const std::string opened = intentcad_test::rpcText(open);
+  const std::string opened = kreoda_test::rpcText(open);
   ASSERT_NE(opened.find("\"status\":\"ok\""), std::string::npos) << opened;
   EXPECT_NE(opened.find("persist-box"), std::string::npos);
   EXPECT_NEAR(ExtractVolume(opened), 100000.0, 1.0) << opened;
 
   // Mesh after reopen: same 12 triangles, persistent face still mapped (§8).
-  const std::vector<uint8_t> meshed = intentcad_test::rpcBytes(
+  const std::vector<uint8_t> meshed = kreoda_test::rpcBytes(
       R"({"protocolVersion":1,"requestId":"p6","documentId":"dp2","type":12,"featureId":"persist-box","lod":1})");
-#ifdef INTENTCAD_WITH_FLATBUFFERS
-  const auto* update = intentcad_test::meshRoot(meshed);
+#ifdef KREODA_WITH_FLATBUFFERS
+  const auto* update = kreoda_test::meshRoot(meshed);
   ASSERT_NE(update, nullptr);
   EXPECT_EQ(update->indices_count() / 3, 12u);
   ASSERT_NE(update->faces(), nullptr);
@@ -96,6 +96,6 @@ TEST(Persistence, SaveReopenRoundTrip) {
 TEST(Persistence, OpenMissingFileFailsHonestly) {
   const std::string open =
       R"({"protocolVersion":1,"requestId":"p7","documentId":"dp","type":11,"path":"Z:/definitely/not/here.icad"})";
-  EXPECT_NE(intentcad_test::rpcText(open).find("\"status\":\"error\""),
+  EXPECT_NE(kreoda_test::rpcText(open).find("\"status\":\"error\""),
             std::string::npos);
 }

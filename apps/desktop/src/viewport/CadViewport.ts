@@ -4,7 +4,7 @@
 
 import * as THREE from "three";
 import { MeshBVH, acceleratedRaycast } from "three-mesh-bvh";
-import type { CoreMeshData } from "@intentcad/protocol";
+import type { CoreMeshData } from "@kreoda/protocol";
 import { CameraController } from "./CameraController";
 
 (THREE.Mesh.prototype as unknown as { raycast: unknown }).raycast =

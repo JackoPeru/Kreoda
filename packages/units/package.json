@@ -1,5 +1,5 @@
 {
-  "name": "@intentcad/units",
+  "name": "@kreoda/units",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",

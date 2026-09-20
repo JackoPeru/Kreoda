@@ -1,6 +1,6 @@
 #include "solver.h"
 
-namespace intentcad {
+namespace kreoda {
 
 namespace {
 
@@ -24,4 +24,4 @@ std::unique_ptr<ISketchSolver> CreateSketchSolver() {
   return std::make_unique<UnavailableSolver>();
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

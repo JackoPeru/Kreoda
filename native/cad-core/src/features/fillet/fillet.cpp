@@ -10,7 +10,7 @@
 #include "topology/face_roles.h"
 #include "features/sketch/sketch_store.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
@@ -21,7 +21,7 @@
 #include "persistence/ocaf_live.h"
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 // Pure codec (no OCCT): available in all configs for previews.
 std::vector<std::string> SplitEdgeIds(const std::string& s) {
@@ -38,7 +38,7 @@ std::vector<std::string> SplitEdgeIds(const std::string& s) {
   return out;
 }
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 namespace {
 
 std::string JoinIds(const std::vector<std::string>& ids) {
@@ -340,4 +340,4 @@ bool RebuildChamferFromStore(const std::string&, std::string* error) {
 
 #endif
 
-}  // namespace intentcad
+}  // namespace kreoda

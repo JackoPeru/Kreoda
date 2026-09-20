@@ -79,13 +79,13 @@ Full verification is green in a single clean pass (see bottom).
 - Full strict-DOM envelope parsing (C3 follow-up); per-op journal
   (snapshots cover correctness); silent auto-install (no signed install
   pipeline — verified bits revealed instead); mesh LRU / single-action
-  hydration (works, tested); `__intentcad_test` in prod (the E2E seam);
+  hydration (works, tested); `__kreoda_test` in prod (the E2E seam);
   AbortSignal hydration cancel; `mesh_body`/C++ base64 header removal
   (done: mesh_body deleted); nested-glTF stress files beyond the suite.
 
 ## Verified (single clean pass)
 
 - `pnpm -r lint/test/build` green (protocol 14, desktop 44).
-- ctest 73/73 + `intentcad-core --self-test OK`.
+- ctest 73/73 + `kreoda-core --self-test OK`.
 - Playwright 17/17 (23.8 s). The phase5 regression from the first C5 cut
   is fixed by the epoch design and green.

@@ -13,14 +13,14 @@
 #include "model/commit.h"
 #include "model/shapes.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <TopoDS_Shape.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 bool RebuildNodeFromStore(const std::string& featureId, std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   // Sketch nodes live in SketchStore (no B-Rep of their own): re-validate
   // by re-solving; dependent solids rebuild in their own steps (§53).
   if (SketchStore::instance().contains(featureId)) {
@@ -72,4 +72,4 @@ bool RebuildNodeFromStore(const std::string& featureId, std::string* error) {
 #endif
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

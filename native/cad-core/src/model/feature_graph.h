@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
 // Feature dependency DAG (§53–§54). Nodes are features (by stable UUID),
 // edges point from a dependency to its dependent. Dirty flags propagate
@@ -61,4 +61,4 @@ class FeatureGraph {
 // Cleared on CreateDocument/OpenDocument alongside the stores.
 FeatureGraph& TheFeatureGraph();
 
-}  // namespace intentcad
+}  // namespace kreoda

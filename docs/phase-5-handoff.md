@@ -50,7 +50,7 @@ in the UI: 100×50×10 block + 8 mm hole, undo, reopen identical.
   comparisons.
 - Anonymous-namespace hygiene: exposing a builder means moving it out of
   `namespace{}` AND deleting the old closing brace — a stray `}` silently
-  closes `intentcad` and cascades into nonsense errors.
+  closes `kreoda` and cascades into nonsense errors.
 - Fillet/chamfer `Add()` takes `(value, edge)`; `MakeRevol`-style `Build()`
   before `IsDone()` applies to dress-ups too.
 

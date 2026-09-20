@@ -16,8 +16,8 @@
 #include "features/sketch/sketch_store.h"
 #include "persistence/ocaf_live.h"
 
-#if INTENTCAD_WITH_OCCT
-// NOTE: OCCT includes must stay OUTSIDE namespace intentcad.
+#if KREODA_WITH_OCCT
+// NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakePolygon.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
@@ -41,9 +41,9 @@
 #include <gp_Trsf.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 namespace {
 
 std::string MintImportId(const std::string& prefix) {
@@ -312,4 +312,4 @@ bool ExtractTriangles(const TopoDS_Shape& shape, std::vector<float>* verts,
 }
 #endif
 
-}  // namespace intentcad
+}  // namespace kreoda

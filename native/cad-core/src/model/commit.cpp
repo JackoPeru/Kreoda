@@ -3,7 +3,7 @@
 #include "document/document_store.h"
 #include "model/feature_graph.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <BRepBndLib.hxx>
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepGProp.hxx>
@@ -13,9 +13,9 @@
 #include "persistence/ocaf_live.h"
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 bool CommitShape(const std::string& featureId, const std::string& type,
                  std::vector<double> params, std::vector<std::string> deps,
                  std::string refExtra, const TopoDS_Shape& shape,
@@ -94,4 +94,4 @@ bool CommitShape(const std::string& featureId, const std::string& type,
 }
 #endif
 
-}  // namespace intentcad
+}  // namespace kreoda

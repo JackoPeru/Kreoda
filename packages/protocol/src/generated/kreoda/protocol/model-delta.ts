@@ -4,9 +4,9 @@
 
 import * as flatbuffers from 'flatbuffers';
 
-import { EntitySummary } from '../../intent-cad/protocol/entity-summary.js';
-import { MeshUpdate } from '../../intent-cad/protocol/mesh-update.js';
-import { SelectionRemap } from '../../intent-cad/protocol/selection-remap.js';
+import { EntitySummary } from '../../kreoda/protocol/entity-summary.js';
+import { MeshUpdate } from '../../kreoda/protocol/mesh-update.js';
+import { SelectionRemap } from '../../kreoda/protocol/selection-remap.js';
 
 
 export class ModelDelta {

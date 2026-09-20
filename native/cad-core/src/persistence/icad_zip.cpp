@@ -1,6 +1,6 @@
 #include "icad_zip.h"
 
-#if INTENTCAD_WITH_MINIZIP
+#if KREODA_WITH_MINIZIP
 // minizip-ng ships a compat layer (MZ_COMPAT=ON): classic zip/unzip API.
 #include <minizip-ng/unzip.h>
 #include <minizip-ng/zip.h>
@@ -9,9 +9,9 @@
 #include <cstdio>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
-#if INTENTCAD_WITH_MINIZIP
+#if KREODA_WITH_MINIZIP
 
 namespace {
 
@@ -125,7 +125,7 @@ bool ReadIcad(const std::string& icadPath, const std::string& outDir,
   }
   unzClose(uf);
   if (manifest.empty() || xbf.empty()) {
-    if (error) *error = "not an intentcad project (manifest/document missing)";
+    if (error) *error = "not an kreoda project (manifest/document missing)";
     return false;
   }
   const std::string xbfPath = (outDir.empty() ? std::string(".") : outDir) +
@@ -162,4 +162,4 @@ bool ReadIcad(const std::string&, const std::string&, std::string*,
 
 #endif
 
-}  // namespace intentcad
+}  // namespace kreoda

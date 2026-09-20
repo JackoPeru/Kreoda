@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace intentcad {
+namespace kreoda {
 
 // .icad container (§30, Phase-1 subset): ZIP with manifest.json + document.xbf.
 // Thumbnail + assets + recovery journal arrive in later phases.
@@ -17,4 +17,4 @@ bool ReadIcad(const std::string& icadPath, const std::string& outDir,
               std::string* manifestJsonOut, std::string* xbfPathOut,
               std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

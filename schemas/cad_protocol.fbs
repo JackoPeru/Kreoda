@@ -1,10 +1,10 @@
-// INTENT-CAD binary IPC protocol — FlatBuffers schema, protocolVersion = 1.
+// Kreoda binary IPC protocol — FlatBuffers schema, protocolVersion = 1.
 // Transport (§8): uint32 LE payloadLength + FlatBuffer payload over stdio.
 // Canonical units (§43): mm for length, rad for angle. All doubles in IPC
 // document their units explicitly (suffix Mm / Rad / Mm3 ...).
 // Never persist face/edge array indices (§0.2) — only persistent string IDs.
 
-namespace IntentCad.Protocol;
+namespace Kreoda.Protocol;
 
 enum CommandType : ushort {
   None,

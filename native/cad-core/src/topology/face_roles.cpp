@@ -1,6 +1,6 @@
 #include "face_roles.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
 #include <BRep_Tool.hxx>
@@ -19,7 +19,7 @@
 #include <gp_Dir.hxx>
 #include <gp_Pln.hxx>
 
-namespace intentcad {
+namespace kreoda {
 
 namespace {
 
@@ -224,5 +224,5 @@ bool FaceFrameInfo(const TopoDS_Shape& shape, const std::string& featureId,
   return true;
 }
 
-}  // namespace intentcad
+}  // namespace kreoda
 #endif

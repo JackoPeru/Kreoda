@@ -4,7 +4,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
-import { Vec3 } from '../../intent-cad/protocol/vec3.js';
+import { Vec3 } from '../../kreoda/protocol/vec3.js';
 
 
 export class ManipulatorDescriptor {

@@ -2,27 +2,27 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
-import { CreateBooleanCommand } from '../../intent-cad/protocol/create-boolean-command.js';
-import { CreateBoxCommand } from '../../intent-cad/protocol/create-box-command.js';
-import { CreateChamferCommand } from '../../intent-cad/protocol/create-chamfer-command.js';
-import { CreateCylinderCommand } from '../../intent-cad/protocol/create-cylinder-command.js';
-import { CreateDocumentRequest } from '../../intent-cad/protocol/create-document-request.js';
-import { CreateExtrudeCommand } from '../../intent-cad/protocol/create-extrude-command.js';
-import { CreateFilletCommand } from '../../intent-cad/protocol/create-fillet-command.js';
-import { CreateHoleCommand } from '../../intent-cad/protocol/create-hole-command.js';
-import { CreateRevolveCommand } from '../../intent-cad/protocol/create-revolve-command.js';
-import { CreateSketchCommand } from '../../intent-cad/protocol/create-sketch-command.js';
-import { CreateSphereCommand } from '../../intent-cad/protocol/create-sphere-command.js';
-import { DeleteFeatureCommand } from '../../intent-cad/protocol/delete-feature-command.js';
-import { GetCoreInfoRequest } from '../../intent-cad/protocol/get-core-info-request.js';
-import { OpenDocumentRequest } from '../../intent-cad/protocol/open-document-request.js';
-import { PreviewSketchRequest } from '../../intent-cad/protocol/preview-sketch-request.js';
-import { RequestFaceInfoCommand } from '../../intent-cad/protocol/request-face-info-command.js';
-import { RequestMeshRequest } from '../../intent-cad/protocol/request-mesh-request.js';
-import { RequestSketchRequest } from '../../intent-cad/protocol/request-sketch-request.js';
-import { SaveDocumentRequest } from '../../intent-cad/protocol/save-document-request.js';
-import { SetFeatureParameterCommand } from '../../intent-cad/protocol/set-feature-parameter-command.js';
-import { UpdateSketchCommand } from '../../intent-cad/protocol/update-sketch-command.js';
+import { CreateBooleanCommand } from '../../kreoda/protocol/create-boolean-command.js';
+import { CreateBoxCommand } from '../../kreoda/protocol/create-box-command.js';
+import { CreateChamferCommand } from '../../kreoda/protocol/create-chamfer-command.js';
+import { CreateCylinderCommand } from '../../kreoda/protocol/create-cylinder-command.js';
+import { CreateDocumentRequest } from '../../kreoda/protocol/create-document-request.js';
+import { CreateExtrudeCommand } from '../../kreoda/protocol/create-extrude-command.js';
+import { CreateFilletCommand } from '../../kreoda/protocol/create-fillet-command.js';
+import { CreateHoleCommand } from '../../kreoda/protocol/create-hole-command.js';
+import { CreateRevolveCommand } from '../../kreoda/protocol/create-revolve-command.js';
+import { CreateSketchCommand } from '../../kreoda/protocol/create-sketch-command.js';
+import { CreateSphereCommand } from '../../kreoda/protocol/create-sphere-command.js';
+import { DeleteFeatureCommand } from '../../kreoda/protocol/delete-feature-command.js';
+import { GetCoreInfoRequest } from '../../kreoda/protocol/get-core-info-request.js';
+import { OpenDocumentRequest } from '../../kreoda/protocol/open-document-request.js';
+import { PreviewSketchRequest } from '../../kreoda/protocol/preview-sketch-request.js';
+import { RequestFaceInfoCommand } from '../../kreoda/protocol/request-face-info-command.js';
+import { RequestMeshRequest } from '../../kreoda/protocol/request-mesh-request.js';
+import { RequestSketchRequest } from '../../kreoda/protocol/request-sketch-request.js';
+import { SaveDocumentRequest } from '../../kreoda/protocol/save-document-request.js';
+import { SetFeatureParameterCommand } from '../../kreoda/protocol/set-feature-parameter-command.js';
+import { UpdateSketchCommand } from '../../kreoda/protocol/update-sketch-command.js';
 
 
 export enum CommandPayload {

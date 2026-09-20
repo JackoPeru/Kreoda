@@ -111,7 +111,7 @@ export function Toolbar({
   const save = async (): Promise<void> => {
     setOpError(null);
     try {
-      const path = await window.intentcad.saveDialog("project.icad");
+      const path = await window.kreoda.saveDialog("project.icad");
       if (!path) return;
       await coreClient.saveDocument(path);
       recordEvent("document_saved", {});
@@ -125,7 +125,7 @@ export function Toolbar({
   const open = async (): Promise<void> => {
     setOpError(null);
     try {
-      const path = await window.intentcad.openDialog();
+      const path = await window.kreoda.openDialog();
       if (!path) return;
       const { features: list, sketches, revision } =
         await coreClient.openDocument(path);

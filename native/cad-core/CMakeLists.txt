@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(intentcad-core VERSION 0.1.0 LANGUAGES CXX)
+project(kreoda-core VERSION 0.1.0 LANGUAGES CXX)
 
 # §2.1: C++17 baseline (OCCT 8.0.x establishes it). MSVC / Clang / GCC.
 set(CMAKE_CXX_STANDARD 17)
@@ -50,9 +50,9 @@ find_package(minizip-ng CONFIG QUIET)
 if(NOT minizip-ng_FOUND)
   find_package(minizip CONFIG QUIET)
 endif()
-set(INTENTCAD_HAVE_MINIZIP OFF)
+set(KREODA_HAVE_MINIZIP OFF)
 if(minizip-ng_FOUND OR minizip_FOUND)
-  set(INTENTCAD_HAVE_MINIZIP ON)
+  set(KREODA_HAVE_MINIZIP ON)
 endif()
 
 set(CORE_SOURCES
@@ -141,60 +141,60 @@ if(HAVE_PLANEGCS)
   endif()
 endif()
 
-add_executable(intentcad-core ${CORE_SOURCES})
+add_executable(kreoda-core ${CORE_SOURCES})
 
-target_include_directories(intentcad-core PRIVATE
+target_include_directories(kreoda-core PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 if(HAVE_PLANEGCS)
-  target_compile_definitions(intentcad-core PRIVATE INTENTCAD_WITH_PLANEGCS=1)
-  target_link_libraries(intentcad-core PRIVATE planegcs)
+  target_compile_definitions(kreoda-core PRIVATE KREODA_WITH_PLANEGCS=1)
+  target_link_libraries(kreoda-core PRIVATE planegcs)
 else()
-  target_compile_definitions(intentcad-core PRIVATE INTENTCAD_WITH_PLANEGCS=0)
+  target_compile_definitions(kreoda-core PRIVATE KREODA_WITH_PLANEGCS=0)
 endif()
 
 if(OpenCASCADE_FOUND)
-  target_compile_definitions(intentcad-core PRIVATE INTENTCAD_WITH_OCCT=1)
-  target_link_libraries(intentcad-core PRIVATE
+  target_compile_definitions(kreoda-core PRIVATE KREODA_WITH_OCCT=1)
+  target_link_libraries(kreoda-core PRIVATE
     TKernel TKMath TKCDF TKLCAF TKCAF TKBin TKBinL TKBinXCAF TKXCAF
     TKBRep TKTopAlgo TKGeomAlgo TKGeomBase TKG3d TKG2d TKPrim TKBO
     TKMesh TKShHealing TKXSBase TKFillet TKDE TKDESTEP TKDESTL TKDEOBJ
   )
 else()
-  target_compile_definitions(intentcad-core PRIVATE INTENTCAD_WITH_OCCT=0)
+  target_compile_definitions(kreoda-core PRIVATE KREODA_WITH_OCCT=0)
 endif()
 
-if(INTENTCAD_HAVE_MINIZIP)
-  target_compile_definitions(intentcad-core PRIVATE INTENTCAD_WITH_MINIZIP=1)
+if(KREODA_HAVE_MINIZIP)
+  target_compile_definitions(kreoda-core PRIVATE KREODA_WITH_MINIZIP=1)
   if(TARGET MINIZIP::minizip-ng)
-    target_link_libraries(intentcad-core PRIVATE MINIZIP::minizip-ng)
+    target_link_libraries(kreoda-core PRIVATE MINIZIP::minizip-ng)
   elseif(TARGET minizip-ng::minizip-ng)
-    target_link_libraries(intentcad-core PRIVATE minizip-ng::minizip-ng)
+    target_link_libraries(kreoda-core PRIVATE minizip-ng::minizip-ng)
   elseif(TARGET unofficial::minizip::minizip)
-    target_link_libraries(intentcad-core PRIVATE unofficial::minizip::minizip)
+    target_link_libraries(kreoda-core PRIVATE unofficial::minizip::minizip)
   endif()
 else()
-  target_compile_definitions(intentcad-core PRIVATE INTENTCAD_WITH_MINIZIP=0)
+  target_compile_definitions(kreoda-core PRIVATE KREODA_WITH_MINIZIP=0)
 endif()
 
 if(flatbuffers_FOUND)
-  target_compile_definitions(intentcad-core PRIVATE INTENTCAD_WITH_FLATBUFFERS=1)
-  target_link_libraries(intentcad-core PRIVATE flatbuffers::flatbuffers)
+  target_compile_definitions(kreoda-core PRIVATE KREODA_WITH_FLATBUFFERS=1)
+  target_link_libraries(kreoda-core PRIVATE flatbuffers::flatbuffers)
 endif()
 
 # 3MF exchange (Phase 8 §61): lib3mf C++ API + shared lib via vcpkg.
 if(lib3mf_FOUND)
-  target_compile_definitions(intentcad-core PRIVATE INTENTCAD_WITH_LIB3MF=1)
-  target_link_libraries(intentcad-core PRIVATE lib3mf::lib3mf)
+  target_compile_definitions(kreoda-core PRIVATE KREODA_WITH_LIB3MF=1)
+  target_link_libraries(kreoda-core PRIVATE lib3mf::lib3mf)
 else()
-  target_compile_definitions(intentcad-core PRIVATE INTENTCAD_WITH_LIB3MF=0)
+  target_compile_definitions(kreoda-core PRIVATE KREODA_WITH_LIB3MF=0)
 endif()
 
 # Phase 8 flatc codegen (§61): regenerate C++ bindings from the canonical
 # schema whenever it changes. TS bindings come from the same schema via
-# `pnpm --filter @intentcad/protocol codegen` (same flatc, C++ + TS together).
+# `pnpm --filter @kreoda/protocol codegen` (same flatc, C++ + TS together).
 # Transport stays JSON until the migration slice — this only keeps the
 # generated header fresh; test_codegen.cpp guards value parity either way.
 set(CAD_PROTOCOL_FBS "${CMAKE_CURRENT_SOURCE_DIR}/../../schemas/cad_protocol.fbs")
@@ -223,8 +223,8 @@ if(EXISTS "${CAD_PROTOCOL_FBS}")
       DEPENDS "${CAD_PROTOCOL_FBS}"
       COMMENT "flatc: regenerating cad_protocol bindings"
       VERBATIM)
-    add_custom_target(intentcad-protocol-codegen DEPENDS "${CAD_PROTOCOL_GENERATED}")
-    add_dependencies(intentcad-core intentcad-protocol-codegen)
+    add_custom_target(kreoda-protocol-codegen DEPENDS "${CAD_PROTOCOL_GENERATED}")
+    add_dependencies(kreoda-core kreoda-protocol-codegen)
   else()
     message(STATUS "flatc not found — using committed cad_protocol_generated.h (run pnpm codegen to refresh)")
   endif()
@@ -232,9 +232,9 @@ endif()
 
 # Warnings as errors on CI-worthy paths (MSVC / GCC / Clang).
 if(MSVC)
-  target_compile_options(intentcad-core PRIVATE /W4 /permissive-)
+  target_compile_options(kreoda-core PRIVATE /W4 /permissive-)
 else()
-  target_compile_options(intentcad-core PRIVATE -Wall -Wextra -Wpedantic)
+  target_compile_options(kreoda-core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 if(BUILD_TESTING)
@@ -247,4 +247,4 @@ if(BUILD_TESTING)
   endif()
 endif()
 
-install(TARGETS intentcad-core RUNTIME DESTINATION bin)
+install(TARGETS kreoda-core RUNTIME DESTINATION bin)

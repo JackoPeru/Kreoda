@@ -1,4 +1,4 @@
-import type { CoreMeshData } from "@intentcad/protocol";
+import type { CoreMeshData } from "@kreoda/protocol";
 
 /** Role class: role stem with axis signs stripped ("box.+X" → "box.X"). */
 export function roleClass(persistentId: string): string {

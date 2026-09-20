@@ -6,7 +6,7 @@
 
 #include "../model/shapes.h"
 
-namespace intentcad {
+namespace kreoda {
 
 // Live OCAF document (§3): one BinXCAF document for the process lifetime.
 // Every feature owns a label (UUID name + params comment + XCAF shape).
@@ -77,11 +77,11 @@ class OcafLive {
   OcafLive(const OcafLive&) = delete;
   OcafLive& operator=(const OcafLive&) = delete;
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   struct Ocaf;
   Ocaf* ocaf_ = nullptr;  // pimpl: OCCT handles stay out of the header
 #endif
   std::string documentId_ = "doc-bootstrap";
 };
 
-}  // namespace intentcad
+}  // namespace kreoda

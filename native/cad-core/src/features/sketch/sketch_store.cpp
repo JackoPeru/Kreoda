@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace intentcad {
+namespace kreoda {
 
 SketchStore& SketchStore::instance() {
   static SketchStore store;
@@ -107,4 +107,4 @@ SolveResult SolveStoredSketch(const std::string& id, const SolveOptions& opts,
   return r;
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

@@ -8,7 +8,7 @@
 #include "model/shapes.h"
 #include "features/sketch/sketch_store.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <BRepBndLib.hxx>
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepGProp.hxx>
@@ -27,9 +27,9 @@
 #include "persistence/ocaf_live.h"
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 bool BuildRevolveShape(const std::string& sketchId, double angleDeg,
                        TopoDS_Shape* out, std::string* error) {
   SketchFeature sketch;
@@ -125,4 +125,4 @@ bool CreateRevolveFeature(const std::string&, const std::string&, double,
 
 #endif
 
-}  // namespace intentcad
+}  // namespace kreoda

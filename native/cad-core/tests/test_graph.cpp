@@ -12,7 +12,7 @@
 
 namespace {
 
-std::vector<std::string> OrderOf(intentcad::FeatureGraph& g) {
+std::vector<std::string> OrderOf(kreoda::FeatureGraph& g) {
   std::vector<std::string> order;
   std::string err;
   EXPECT_TRUE(g.dirtyOrder(&order, &err)) << err;
@@ -22,7 +22,7 @@ std::vector<std::string> OrderOf(intentcad::FeatureGraph& g) {
 }  // namespace
 
 TEST(Graph, TopologicalOrderFollowsDependencies) {
-  intentcad::FeatureGraph g;
+  kreoda::FeatureGraph g;
   g.addFeature("C", {"B"});
   g.addFeature("A");
   g.addFeature("B", {"A"});
@@ -30,7 +30,7 @@ TEST(Graph, TopologicalOrderFollowsDependencies) {
 }
 
 TEST(Graph, DirtyPropagatesToDependentsOnly) {
-  intentcad::FeatureGraph g;
+  kreoda::FeatureGraph g;
   g.addFeature("A");
   g.addFeature("B", {"A"});
   g.addFeature("C", {"B"});
@@ -44,7 +44,7 @@ TEST(Graph, DirtyPropagatesToDependentsOnly) {
 }
 
 TEST(Graph, RecomputeSkipsFailedBranchButRunsSiblings) {
-  intentcad::FeatureGraph g;
+  kreoda::FeatureGraph g;
   g.addFeature("good");
   g.addFeature("bad");
   g.addFeature("childOfBad", {"bad"});
@@ -69,7 +69,7 @@ TEST(Graph, RecomputeSkipsFailedBranchButRunsSiblings) {
 }
 
 TEST(Graph, CycleIsRejectedBeforeKernel) {
-  intentcad::FeatureGraph g;
+  kreoda::FeatureGraph g;
   g.addFeature("A", {"B"});
   g.addFeature("B", {"A"});
   std::vector<std::string> order;
@@ -82,7 +82,7 @@ TEST(Graph, CycleIsRejectedBeforeKernel) {
 }
 
 TEST(Graph, TessellationOnlyDirtySkipsGeometryRecompute) {
-  intentcad::FeatureGraph g;
+  kreoda::FeatureGraph g;
   g.addFeature("A");
   g.clearDirty("A");
   g.markTessellationDirty("A");
@@ -95,7 +95,7 @@ TEST(Graph, TessellationOnlyDirtySkipsGeometryRecompute) {
 }
 
 TEST(Graph, RemoveDropsEdges) {
-  intentcad::FeatureGraph g;
+  kreoda::FeatureGraph g;
   g.addFeature("A");
   g.addFeature("B", {"A"});
   g.removeFeature("A");

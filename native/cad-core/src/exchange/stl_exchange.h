@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
 // STL exchange via OCCT DataExchange (DESTL_Provider), Phase 8 (§61).
 // STL is unitless triangles: export writes binary STL of every solid
@@ -19,4 +19,4 @@ bool ExportStl(const std::string& path, std::string* error);
 bool ImportStl(const std::string& path, std::vector<std::string>* createdIds,
                std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

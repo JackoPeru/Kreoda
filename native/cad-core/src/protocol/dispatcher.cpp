@@ -45,14 +45,14 @@
 #include "persistence/ocaf_store.h"
 #include "tessellation/mesh.h"
 
-namespace intentcad {
+namespace kreoda {
 
 namespace fs = std::filesystem;
 
 namespace {
 
 // Per-operation temp dirs (M10): autosave (15 s) and explicit save/open can
-// overlap in flight — fixed shared names (`intentcad-save/document.xbf`)
+// overlap in flight — fixed shared names (`kreoda-save/document.xbf`)
 // would clobber each other mid-stream.
 std::string uniqueTempDir(const std::string& base, std::error_code& ec) {
   static std::atomic<unsigned long> counter{0};
@@ -214,7 +214,7 @@ std::string feature_list_body() {
 std::string manifest_json(const std::string& documentId) {
   std::ostringstream os;
   os << std::setprecision(17);
-  os << "{\"format\":\"intentcad-project\",\"schemaVersion\":1,"
+  os << "{\"format\":\"kreoda-project\",\"schemaVersion\":1,"
      << "\"appVersion\":\"0.1.0\",\"documentId\":\"" << escape(documentId)
      << "\",\"units\":\"mm\"}";
   return os.str();
@@ -236,7 +236,7 @@ void SyncGraphFromStore() {
 }
 
 std::string undo_counts_body() {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   std::ostringstream os;
   os << std::setprecision(17);
   os << "\"undos\":" << OcafLive::instance().AvailableUndos()
@@ -302,7 +302,7 @@ std::map<std::string, CoreMesh>& MeshCache() {
 std::vector<uint8_t> mesh_success(const std::string& requestId,
                                   const std::string& featureId, int lod,
                                   const CoreMesh& mesh, std::string* error) {
-#if INTENTCAD_WITH_FLATBUFFERS
+#if KREODA_WITH_FLATBUFFERS
   std::vector<uint8_t> fb = BuildMeshUpdateFb(
       featureId, lod, mesh, DocumentStore::instance().revision(), requestId,
       error);
@@ -356,7 +356,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
     case kGetCoreInfo: {
       std::ostringstream body;
       body << "\"coreVersion\":\"0.1.0\",\"occtVersion\":\""
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
            << "8.0.1-native"
 #else
            << "stub-unlinked"
@@ -552,7 +552,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         return make_response(requestId, "ok", body.str());
       }
       std::error_code ec;
-      const std::string tmp = uniqueTempDir("intentcad-save", ec);
+      const std::string tmp = uniqueTempDir("kreoda-save", ec);
       if (tmp.empty()) {
         return make_response(requestId, "error",
                              error_body("IO_ERROR", "no temp dir"));
@@ -676,7 +676,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         return make_response(requestId, "ok", body.str());
       }
       std::error_code ec;
-      const std::string tmp = uniqueTempDir("intentcad-open", ec);
+      const std::string tmp = uniqueTempDir("kreoda-open", ec);
       if (tmp.empty()) {
         return make_response(requestId, "error",
                              error_body("IO_ERROR", "no temp dir"));
@@ -1157,4 +1157,4 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
   }
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

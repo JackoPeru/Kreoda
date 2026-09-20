@@ -1,5 +1,5 @@
-import { COMMANDS } from "@intentcad/command-schema";
-import type { FaceRange } from "@intentcad/protocol";
+import { COMMANDS } from "@kreoda/command-schema";
+import type { FaceRange } from "@kreoda/protocol";
 import { coreClient } from "../ipc/coreClient";
 import { executeValidatedCommand } from "../commands/execute";
 import {

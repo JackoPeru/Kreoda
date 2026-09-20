@@ -4,7 +4,7 @@ import {
   roleClass,
   similarFaceIds,
 } from "../src/interaction/selectSimilar";
-import type { CoreMeshData } from "@intentcad/protocol";
+import type { CoreMeshData } from "@kreoda/protocol";
 
 const mesh = (
   faces: string[],

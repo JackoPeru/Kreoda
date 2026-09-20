@@ -10,12 +10,12 @@ import {
   decodeMeshUpdateFb,
   isJsonResponse,
 } from "./index.js";
-import { CommandEnvelope } from "./generated/intent-cad/protocol/command-envelope.js";
-import { CommandPayload } from "./generated/intent-cad/protocol/command-payload.js";
-import { CommandType as Generated } from "./generated/intent-cad/protocol/command-type.js";
-import { CreateBoxCommand } from "./generated/intent-cad/protocol/create-box-command.js";
-import { MeshUpdate } from "./generated/intent-cad/protocol/mesh-update.js";
-import { FaceRange } from "./generated/intent-cad/protocol/face-range.js";
+import { CommandEnvelope } from "./generated/kreoda/protocol/command-envelope.js";
+import { CommandPayload } from "./generated/kreoda/protocol/command-payload.js";
+import { CommandType as Generated } from "./generated/kreoda/protocol/command-type.js";
+import { CreateBoxCommand } from "./generated/kreoda/protocol/create-box-command.js";
+import { MeshUpdate } from "./generated/kreoda/protocol/mesh-update.js";
+import { FaceRange } from "./generated/kreoda/protocol/face-range.js";
 
 describe("flatc codegen parity (§61)", () => {
   it("generated CommandType matches the handwritten registry", () => {

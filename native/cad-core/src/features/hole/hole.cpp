@@ -11,7 +11,7 @@
 #include "topology/face_roles.h"
 #include "features/sketch/sketch_store.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepBndLib.hxx>
@@ -34,7 +34,7 @@
 #include "persistence/ocaf_live.h"
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 // Pure string codec (no OCCT): available in all configs for previews.
 namespace {
@@ -72,7 +72,7 @@ bool DecodeHoleRef(const std::string& ref, std::string* faceRole, double* x,
   return true;
 }
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 namespace {
 
 // refExtra layout for holes: "face=<role>;x=<x>;y=<y>;mode=<mode>"
@@ -298,4 +298,4 @@ bool RebuildHoleFromStore(const std::string&, std::string* error) {
 
 #endif
 
-}  // namespace intentcad
+}  // namespace kreoda

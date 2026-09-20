@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-namespace intentcad::protocol {
+namespace kreoda::protocol {
 
 std::vector<uint8_t> frame(const std::vector<uint8_t>& payload) {
   std::vector<uint8_t> out;
@@ -39,4 +39,4 @@ std::vector<std::vector<uint8_t>> FrameDecoder::pop() {
   return out;
 }
 
-}  // namespace intentcad::protocol
+}  // namespace kreoda::protocol

@@ -45,9 +45,9 @@ test("beginner layer: onboard, context tools, views, chips, suggestion", async (
       window.evaluate(() =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
       );
 
     // 1. Onboarding over the empty document (§56).
@@ -70,11 +70,11 @@ test("beginner layer: onboard, context tools, views, chips, suggestion", async (
       ({ f }) =>
         (
           window as unknown as {
-            __intentcad_test: {
+            __kreoda_test: {
               selectFace: (id: string, role: string) => unknown;
             };
           }
-        ).__intentcad_test.selectFace(f, "box.+Z"),
+        ).__kreoda_test.selectFace(f, "box.+Z"),
       { f: boxId },
     );
     const ctxBar = window.getByTestId("context-toolbar");
@@ -88,9 +88,9 @@ test("beginner layer: onboard, context tools, views, chips, suggestion", async (
       window.evaluate(() =>
         (
           window as unknown as {
-            __intentcad_test: { viewDir: () => [number, number, number] };
+            __kreoda_test: { viewDir: () => [number, number, number] };
           }
-        ).__intentcad_test.viewDir(),
+        ).__kreoda_test.viewDir(),
       );
     await window
       .getByTestId("view-cube")
@@ -146,7 +146,7 @@ test("beginner layer: onboard, context tools, views, chips, suggestion", async (
         ({ t, xx, dd }) =>
           (
             window as unknown as {
-              __intentcad_test: {
+              __kreoda_test: {
                 makeHole: (
                   target: string,
                   role: string,
@@ -156,7 +156,7 @@ test("beginner layer: onboard, context tools, views, chips, suggestion", async (
                 ) => Promise<Snapshot>;
               };
             }
-          ).__intentcad_test.makeHole(t, "box.+Z", xx, 25, dd),
+          ).__kreoda_test.makeHole(t, "box.+Z", xx, 25, dd),
         { t: boxId, xx: x, dd: d },
       );
     await makeHole(30, 8);
@@ -204,9 +204,9 @@ test("dismiss paths persist; similar select; chip edit commits", async () => {
       window.evaluate(() =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
       );
 
     // T4: onboarding Dismiss persists across reload.
@@ -238,11 +238,11 @@ test("dismiss paths persist; similar select; chip edit commits", async () => {
       ({ f }) =>
         (
           window as unknown as {
-            __intentcad_test: {
+            __kreoda_test: {
               selectFace: (id: string, role: string) => unknown;
             };
           }
-        ).__intentcad_test.selectFace(f, "box.+Z"),
+        ).__kreoda_test.selectFace(f, "box.+Z"),
       { f: boxId },
     );
     await window
@@ -261,11 +261,11 @@ test("dismiss paths persist; similar select; chip edit commits", async () => {
       ({ f }) =>
         (
           window as unknown as {
-            __intentcad_test: {
+            __kreoda_test: {
               selectFace: (id: string, role: string) => unknown;
             };
           }
-        ).__intentcad_test.selectFace(f, "box.+Z"),
+        ).__kreoda_test.selectFace(f, "box.+Z"),
       { f: boxId },
     );
     const chipW = window
@@ -290,7 +290,7 @@ test("dismiss paths persist; similar select; chip edit commits", async () => {
         ({ t, xx, dd }) =>
           (
             window as unknown as {
-              __intentcad_test: {
+              __kreoda_test: {
                 makeHole: (
                   target: string,
                   role: string,
@@ -300,7 +300,7 @@ test("dismiss paths persist; similar select; chip edit commits", async () => {
                 ) => Promise<Snapshot>;
               };
             }
-          ).__intentcad_test.makeHole(t, "box.+Z", xx, 25, dd),
+          ).__kreoda_test.makeHole(t, "box.+Z", xx, 25, dd),
         { t: boxId, xx: x, dd: d },
       );
     await makeHole(30, 8);
@@ -312,7 +312,7 @@ test("dismiss paths persist; similar select; chip edit commits", async () => {
     // Dismissal persists in the profile (reload would show a fresh UI
     // store, so assert the stored key directly).
     const stored = (await window.evaluate(
-      () => localStorage.getItem("intentcad.dismissedSuggestions"),
+      () => localStorage.getItem("kreoda.dismissedSuggestions"),
     )) as string | null;
     expect(stored).toContain("equalSize");
   } finally {

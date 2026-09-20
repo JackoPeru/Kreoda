@@ -10,7 +10,7 @@ import {
   frameMessage,
   isJsonResponse,
   FrameDecoder,
-} from "@intentcad/protocol";
+} from "@kreoda/protocol";
 import { z } from "zod";
 import { useDocumentUiStore } from "../stores";
 
@@ -309,7 +309,7 @@ export class CoreClient {
 
   async createSketch(params: {
     planeKind: "XY" | "XZ" | "YZ";
-    model: import("@intentcad/protocol").SketchModel;
+    model: import("@kreoda/protocol").SketchModel;
   }): Promise<{ featureId: string; revision: number }> {
     const featureId = newFeatureId("sk");
     const parsed = await this.invoke(
@@ -325,14 +325,14 @@ export class CoreClient {
 
   async updateSketch(params: {
     featureId: string;
-    model: import("@intentcad/protocol").SketchModel;
+    model: import("@kreoda/protocol").SketchModel;
     isPreview?: boolean;
     dragPointId?: string;
     dragX?: number;
     dragY?: number;
   }): Promise<{
     revision?: number;
-    solved?: import("@intentcad/protocol").SketchModel;
+    solved?: import("@kreoda/protocol").SketchModel;
     residual?: number;
     dofs?: number;
     conflicting?: string[];
@@ -343,7 +343,7 @@ export class CoreClient {
       { ...params },
     );
     const sketch = parsed.sketch as {
-      model?: import("@intentcad/protocol").SketchModel;
+      model?: import("@kreoda/protocol").SketchModel;
     } | undefined;
     return {
       revision: parsed.revision as number | undefined,
@@ -356,7 +356,7 @@ export class CoreClient {
 
   async requestSketch(
     featureId: string,
-  ): Promise<import("@intentcad/protocol").SketchModel & { planeKind: string }> {
+  ): Promise<import("@kreoda/protocol").SketchModel & { planeKind: string }> {
     const parsed = await this.invoke(
       CommandType.RequestSketch,
       this.documentId,
@@ -364,11 +364,11 @@ export class CoreClient {
     );
     const sketch = parsed.sketch as {
       planeKind?: string;
-      model?: import("@intentcad/protocol").SketchModel;
+      model?: import("@kreoda/protocol").SketchModel;
     };
     if (!sketch?.model) throw new Error("sketch response missing model");
     return { ...(sketch.model as object), planeKind: sketch.planeKind ?? "XY" } as
-      import("@intentcad/protocol").SketchModel & { planeKind: string };
+      import("@kreoda/protocol").SketchModel & { planeKind: string };
   }
 
   async createExtrude(params: {
@@ -531,7 +531,7 @@ export class CoreClient {
   private async roundTrip(envelope: unknown): Promise<Uint8Array> {
     const bytes = new TextEncoder().encode(JSON.stringify(envelope));
     const framed = frameMessage(bytes);
-    const resB64 = await window.intentcad.invoke(b64encode(framed));
+    const resB64 = await window.kreoda.invoke(b64encode(framed));
     return b64decode(resB64);
   }
 }

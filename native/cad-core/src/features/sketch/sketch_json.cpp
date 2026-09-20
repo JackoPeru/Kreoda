@@ -5,7 +5,7 @@
 #include <sstream>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
 namespace {
 
@@ -457,4 +457,4 @@ bool ParseSketchFeature(const std::string& json, SketchFeature* out,
   return true;
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

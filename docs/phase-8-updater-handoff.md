@@ -4,7 +4,7 @@ Signed updates are wired end to end up to the honest boundary: feed fetch,
 Ed25519 manifest verification, version compare, sha256-pinned download.
 Install itself stays manual (verified bits revealed to the user) — silent
 auto-install without a signed install pipeline would be theater. Inert
-without `INTENTCAD_UPDATE_FEED`; unsigned feeds always refused.
+without `KREODA_UPDATE_FEED`; unsigned feeds always refused.
 
 ## What landed
 
@@ -15,7 +15,7 @@ without `INTENTCAD_UPDATE_FEED`; unsigned feeds always refused.
   `fetchManifest` (15 s timeout, 64 KiB cap, https-or-loopback), Ed25519
   `verifyManifest` (PEM SPKI, must be ed25519), `checkFeed`, `downloadPinned`
   (2 GiB cap, sha256 pin, 0600 file mode, `..` filename guard).
-- `main.ts`: `intentcad:check-updates` handler + 5 s delayed auto-check when
+- `main.ts`: `kreoda:check-updates` handler + 5 s delayed auto-check when
   a feed is configured; verified-version dialog → download → reveal flow;
   missing pubkey / bad signature refuse with logged errors, never install.
 - `preload.ts`: `checkForUpdates` + `onUpdateAvailable`; App status bar
@@ -36,7 +36,7 @@ without `INTENTCAD_UPDATE_FEED`; unsigned feeds always refused.
 
 - Node's `createVerify` REQUIRES a string algorithm (throws on null) — for
   Ed25519 use one-shot `verify(null, data, key, sig)`, not the object form.
-- Trust anchor is env-only (`INTENTCAD_UPDATE_PUBKEY`, PEM SPKI) — no dev
+- Trust anchor is env-only (`KREODA_UPDATE_PUBKEY`, PEM SPKI) — no dev
   key shipped. Production still needs: release key provisioning, HTTPS feed
   hosting, and a signed install pipeline (Squirrel/NSIS); the verify-then-
   reveal flow is ready for it.

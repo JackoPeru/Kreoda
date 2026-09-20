@@ -3,12 +3,12 @@
 #include <string>
 #include <vector>
 
-#if INTENTCAD_WITH_OCCT
-// NOTE: OCCT includes must stay OUTSIDE namespace intentcad.
+#if KREODA_WITH_OCCT
+// NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
 #include <TopoDS_Shape.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 // Rounded edges (§20 Tier 3): constant-radius fillet over persistent edge
 // references. Edge ids are full persistent ids ("<target>:edge.…", comma
@@ -30,7 +30,7 @@ bool CreateChamferFeature(const std::string& featureId,
 bool RebuildFilletFromStore(const std::string& featureId, std::string* error);
 bool RebuildChamferFromStore(const std::string& featureId, std::string* error);
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 // Pure builds (no commit): shared by create, recompute and preview paths.
 bool BuildFilletShape(const TopoDS_Shape& target, const std::string& targetId,
                       const std::string& targetType,
@@ -45,4 +45,4 @@ bool BuildChamferShape(const TopoDS_Shape& target, const std::string& targetId,
 // refExtra codec (comma-joined full edge ids): pure, all configs.
 std::vector<std::string> SplitEdgeIds(const std::string& s);
 
-}  // namespace intentcad
+}  // namespace kreoda

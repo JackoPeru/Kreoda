@@ -1,4 +1,4 @@
-# INTENT-CAD — Technical Architecture & Build Specification
+# Kreoda — Technical Architecture & Build Specification
 
 > **Purpose of this document**  
 > This is the implementation specification for a desktop CAD/modeling application designed around **direct manipulation, intent inference, invisible parametrization, progressive disclosure, and optional natural-language control**.  
@@ -493,7 +493,7 @@ A sidecar gives:
 The sidecar should be an executable such as:
 
 ```text
-intentcad-core.exe
+kreoda-core.exe
 ```
 
 Electron starts it with `child_process.spawn`.
@@ -1501,7 +1501,7 @@ project.icad
 
 ```json
 {
-  "format": "intentcad-project",
+  "format": "kreoda-project",
   "schemaVersion": 1,
   "appVersion": "0.1.0",
   "createdAt": "...",
@@ -1733,7 +1733,7 @@ native/cad-core/
 Use pnpm workspaces.
 
 ```text
-intentcad/
+kreoda/
 ├ apps/
 │  └ desktop/
 ├ native/
@@ -1972,7 +1972,7 @@ Plugin cannot directly access filesystem or native core unless capability grante
 Example:
 
 ```ts
-intentcad.registerCommand({
+kreoda.registerCommand({
   id: "plugin.gear.create",
   parameterSchema: ...,
   execute: async (ctx, params) => {
@@ -2751,7 +2751,7 @@ Only after Task 12 is reliable should feature count expand rapidly.
 Conceptual FlatBuffers schema:
 
 ```fbs
-namespace IntentCad.Protocol;
+namespace Kreoda.Protocol;
 
 enum CommandType : ushort {
   None,

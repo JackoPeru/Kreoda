@@ -9,7 +9,7 @@
 namespace {
 
 std::string rpc(const std::string& body) {
-  return intentcad_test::rpcText(body);
+  return kreoda_test::rpcText(body);
 }
 
 bool ok(const std::string& r) {
@@ -20,18 +20,18 @@ bool has(const std::string& r, const std::string& s) {
   return r.find(s) != std::string::npos;
 }
 
-#ifdef INTENTCAD_WITH_FLATBUFFERS
+#ifdef KREODA_WITH_FLATBUFFERS
 // Mesh successes are FlatBuffers MeshUpdate tables (§8). The byte vector
 // must outlive the decoded view — never parse a temporary.
 double meshVolume(const std::string& body) {
-  const std::vector<uint8_t> bytes = intentcad::handle_command(body);
-  const auto* update = intentcad_test::meshRoot(bytes);
+  const std::vector<uint8_t> bytes = kreoda::handle_command(body);
+  const auto* update = kreoda_test::meshRoot(bytes);
   return update ? update->volume_mm3() : -1.0;
 }
 
 uint32_t meshTriangles(const std::string& body) {
-  const std::vector<uint8_t> bytes = intentcad::handle_command(body);
-  const auto* update = intentcad_test::meshRoot(bytes);
+  const std::vector<uint8_t> bytes = kreoda::handle_command(body);
+  const auto* update = kreoda_test::meshRoot(bytes);
   return update ? update->indices_count() / 3 : 0;
 }
 #endif
@@ -43,7 +43,7 @@ TEST(UndoRedo, CreateUndoRedoRoundTrip) {
       R"({"protocolVersion":1,"requestId":"u0","documentId":"ud1","type":2})")));
   ASSERT_TRUE(ok(rpc(
       R"({"protocolVersion":1,"requestId":"u1","documentId":"ud1","type":3,"featureId":"ubox","widthMm":100,"heightMm":50,"depthMm":20})")));
-#ifdef INTENTCAD_WITH_FLATBUFFERS
+#ifdef KREODA_WITH_FLATBUFFERS
   EXPECT_EQ(meshTriangles(
                 R"({"protocolVersion":1,"requestId":"u2","documentId":"ud1","type":12,"featureId":"ubox","lod":1})"),
             12u);
@@ -63,7 +63,7 @@ TEST(UndoRedo, CreateUndoRedoRoundTrip) {
   const std::string redo2 = rpc(
       R"({"protocolVersion":1,"requestId":"u6","documentId":"ud1","type":9})");
   ASSERT_TRUE(ok(redo2)) << redo2;
-#ifdef INTENTCAD_WITH_FLATBUFFERS
+#ifdef KREODA_WITH_FLATBUFFERS
   EXPECT_EQ(meshTriangles(
                 R"({"protocolVersion":1,"requestId":"u7","documentId":"ud1","type":12,"featureId":"ubox","lod":1})"),
             12u);
@@ -87,7 +87,7 @@ TEST(UndoRedo, ParameterEditUndoRestoresVolume) {
 
   ASSERT_TRUE(ok(rpc(
       R"({"protocolVersion":1,"requestId":"w3","documentId":"ud2","type":8})")));
-#ifdef INTENTCAD_WITH_FLATBUFFERS
+#ifdef KREODA_WITH_FLATBUFFERS
   EXPECT_NEAR(meshVolume(
                   R"({"protocolVersion":1,"requestId":"w4","documentId":"ud2","type":12,"featureId":"wbox","lod":1})"),
               100000.0, 0.5);
@@ -97,7 +97,7 @@ TEST(UndoRedo, ParameterEditUndoRestoresVolume) {
 
   ASSERT_TRUE(ok(rpc(
       R"({"protocolVersion":1,"requestId":"w5","documentId":"ud2","type":9})")));
-#ifdef INTENTCAD_WITH_FLATBUFFERS
+#ifdef KREODA_WITH_FLATBUFFERS
   EXPECT_NEAR(meshVolume(
                   R"({"protocolVersion":1,"requestId":"w6","documentId":"ud2","type":12,"featureId":"wbox","lod":1})"),
               150000.0, 0.5);

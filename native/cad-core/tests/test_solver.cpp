@@ -9,8 +9,8 @@
 
 namespace {
 
-intentcad::SketchModel RectSketch(double x0, double y0, double w, double h) {
-  using namespace intentcad;
+kreoda::SketchModel RectSketch(double x0, double y0, double w, double h) {
+  using namespace kreoda;
   SketchModel m;
   m.points = {
       {"p0", x0, y0}, {"p1", x0 + w, y0}, {"p2", x0 + w, y0 + h}, {"p3", x0, y0 + h},
@@ -33,9 +33,9 @@ intentcad::SketchModel RectSketch(double x0, double y0, double w, double h) {
 }  // namespace
 
 TEST(Solver, RectangleSolvesToExactDimensions) {
-  auto solver = intentcad::CreateSketchSolver();
+  auto solver = kreoda::CreateSketchSolver();
   ASSERT_NE(solver, nullptr);
-  intentcad::SolveOptions opts;
+  kreoda::SolveOptions opts;
   const auto r = solver->solve(RectSketch(0, 0, 100, 50), opts);
   ASSERT_TRUE(r.ok) << r.error;
   EXPECT_NEAR(r.points.at("p1").first, 100.0, 1e-3);
@@ -45,7 +45,7 @@ TEST(Solver, RectangleSolvesToExactDimensions) {
 }
 
 TEST(Solver, CircleRadiusDimension) {
-  using namespace intentcad;
+  using namespace kreoda;
   auto solver = CreateSketchSolver();
   SketchModel m;
   m.points = {{"c", 5, 5}};
@@ -60,7 +60,7 @@ TEST(Solver, CircleRadiusDimension) {
 }
 
 TEST(Solver, DragTargetMovesSketchRigidly) {
-  using namespace intentcad;
+  using namespace kreoda;
   auto solver = CreateSketchSolver();
   SolveOptions opts;
   opts.hasDragTarget = true;
@@ -77,7 +77,7 @@ TEST(Solver, DragTargetMovesSketchRigidly) {
 }
 
 TEST(Solver, ConflictingDimensionsDiagnosed) {
-  using namespace intentcad;
+  using namespace kreoda;
   auto solver = CreateSketchSolver();
   SketchModel m = RectSketch(0, 0, 100, 50);
   m.constraints.push_back(
@@ -92,7 +92,7 @@ TEST(Solver, ConflictingDimensionsDiagnosed) {
 }
 
 TEST(Solver, UnderConstrainedReportsDofs) {
-  using namespace intentcad;
+  using namespace kreoda;
   auto solver = CreateSketchSolver();
   SketchModel m;
   m.points = {{"a", 0, 0}, {"b", 10, 0}};

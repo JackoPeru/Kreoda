@@ -2,15 +2,15 @@
 
 #include "protocol/mesh_fb.h"
 
-#if INTENTCAD_WITH_FLATBUFFERS
+#if KREODA_WITH_FLATBUFFERS
 #include <flatbuffers/flatbuffers.h>
 
 #include "protocol/generated/cad_protocol_generated.h"
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
-#if INTENTCAD_WITH_FLATBUFFERS
+#if KREODA_WITH_FLATBUFFERS
 std::vector<uint8_t> BuildMeshUpdateFb(const std::string& featureId, int lod,
                                        const CoreMesh& mesh, int64_t revision,
                                        const std::string& requestId,
@@ -36,23 +36,23 @@ std::vector<uint8_t> BuildMeshUpdateFb(const std::string& featureId, int lod,
                              mesh.indices.size() * sizeof(uint32_t));
     const auto edges = bytesOf(mesh.edgeVertices.data(),
                                mesh.edgeVertices.size() * sizeof(float));
-    std::vector<flatbuffers::Offset<IntentCad::Protocol::FaceRange>> faces;
+    std::vector<flatbuffers::Offset<Kreoda::Protocol::FaceRange>> faces;
     faces.reserve(mesh.faces.size());
     for (const auto& f : mesh.faces) {
-      faces.push_back(IntentCad::Protocol::CreateFaceRange(
+      faces.push_back(Kreoda::Protocol::CreateFaceRange(
           fbb, fbb.CreateString(f.persistentFaceId), f.triangleStart,
           f.triangleCount));
     }
-    std::vector<flatbuffers::Offset<IntentCad::Protocol::EdgeRange>> eranges;
+    std::vector<flatbuffers::Offset<Kreoda::Protocol::EdgeRange>> eranges;
     eranges.reserve(mesh.edges.size());
     for (const auto& e : mesh.edges) {
-      eranges.push_back(IntentCad::Protocol::CreateEdgeRange(
+      eranges.push_back(Kreoda::Protocol::CreateEdgeRange(
           fbb, fbb.CreateString(e.persistentEdgeId), e.vertexStart,
           e.vertexCount));
     }
     const double bbox[6] = {mesh.bboxMm[0], mesh.bboxMm[1], mesh.bboxMm[2],
                             mesh.bboxMm[3], mesh.bboxMm[4], mesh.bboxMm[5]};
-    const auto update = IntentCad::Protocol::CreateMeshUpdate(
+    const auto update = Kreoda::Protocol::CreateMeshUpdate(
         fbb, fid, bid, static_cast<int8_t>(lod), rid,
         static_cast<uint32_t>(mesh.positions.size()),
         static_cast<uint32_t>(mesh.normals.size()),
@@ -69,4 +69,4 @@ std::vector<uint8_t> BuildMeshUpdateFb(const std::string& featureId, int lod,
 }
 #endif
 
-}  // namespace intentcad
+}  // namespace kreoda

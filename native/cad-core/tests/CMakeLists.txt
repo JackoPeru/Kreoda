@@ -3,7 +3,7 @@ if(NOT GTest_FOUND)
   return()
 endif()
 
-add_executable(intentcad-core-tests
+add_executable(kreoda-core-tests
   test_box.cpp
   test_codegen.cpp
   test_framing.cpp
@@ -56,59 +56,59 @@ add_executable(intentcad-core-tests
 )
 
 if(HAVE_PLANEGCS)
-  target_sources(intentcad-core-tests PRIVATE
+  target_sources(kreoda-core-tests PRIVATE
     test_solver.cpp
     ../src/constraints/planegcs_solver.cpp
   )
-  target_link_libraries(intentcad-core-tests PRIVATE planegcs)
-  target_compile_definitions(intentcad-core-tests PRIVATE
-    INTENTCAD_WITH_PLANEGCS=1)
+  target_link_libraries(kreoda-core-tests PRIVATE planegcs)
+  target_compile_definitions(kreoda-core-tests PRIVATE
+    KREODA_WITH_PLANEGCS=1)
 else()
-  target_sources(intentcad-core-tests PRIVATE
+  target_sources(kreoda-core-tests PRIVATE
     ../src/constraints/solver_stub.cpp
   )
-  target_compile_definitions(intentcad-core-tests PRIVATE
-    INTENTCAD_WITH_PLANEGCS=0)
+  target_compile_definitions(kreoda-core-tests PRIVATE
+    KREODA_WITH_PLANEGCS=0)
 endif()
 
-target_include_directories(intentcad-core-tests PRIVATE
+target_include_directories(kreoda-core-tests PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
   ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
-target_compile_definitions(intentcad-core-tests PRIVATE
-  INTENTCAD_WITH_OCCT=$<BOOL:${OpenCASCADE_FOUND}>
-  INTENTCAD_WITH_MINIZIP=$<BOOL:${INTENTCAD_HAVE_MINIZIP}>
-  INTENTCAD_WITH_FLATBUFFERS=$<BOOL:${flatbuffers_FOUND}>
+target_compile_definitions(kreoda-core-tests PRIVATE
+  KREODA_WITH_OCCT=$<BOOL:${OpenCASCADE_FOUND}>
+  KREODA_WITH_MINIZIP=$<BOOL:${KREODA_HAVE_MINIZIP}>
+  KREODA_WITH_FLATBUFFERS=$<BOOL:${flatbuffers_FOUND}>
 )
 if(flatbuffers_FOUND)
-  target_link_libraries(intentcad-core-tests PRIVATE flatbuffers::flatbuffers)
+  target_link_libraries(kreoda-core-tests PRIVATE flatbuffers::flatbuffers)
 endif()
 if(lib3mf_FOUND)
-  target_compile_definitions(intentcad-core-tests PRIVATE
-    INTENTCAD_WITH_LIB3MF=1)
-  target_link_libraries(intentcad-core-tests PRIVATE lib3mf::lib3mf)
+  target_compile_definitions(kreoda-core-tests PRIVATE
+    KREODA_WITH_LIB3MF=1)
+  target_link_libraries(kreoda-core-tests PRIVATE lib3mf::lib3mf)
 else()
-  target_compile_definitions(intentcad-core-tests PRIVATE
-    INTENTCAD_WITH_LIB3MF=0)
+  target_compile_definitions(kreoda-core-tests PRIVATE
+    KREODA_WITH_LIB3MF=0)
 endif()
 if(OpenCASCADE_FOUND)
-  target_link_libraries(intentcad-core-tests PRIVATE
+  target_link_libraries(kreoda-core-tests PRIVATE
     TKernel TKMath TKCDF TKLCAF TKCAF TKBin TKBinL TKBinXCAF TKXCAF
     TKBRep TKTopAlgo TKGeomAlgo TKGeomBase TKG3d TKG2d TKPrim TKBO
     TKMesh TKShHealing TKXSBase TKFillet TKDE TKDESTEP TKDESTL TKDEOBJ
   )
 endif()
 if(TARGET MINIZIP::minizip-ng)
-  target_link_libraries(intentcad-core-tests PRIVATE MINIZIP::minizip-ng)
+  target_link_libraries(kreoda-core-tests PRIVATE MINIZIP::minizip-ng)
 elseif(TARGET minizip-ng::minizip-ng)
-  target_link_libraries(intentcad-core-tests PRIVATE minizip-ng::minizip-ng)
+  target_link_libraries(kreoda-core-tests PRIVATE minizip-ng::minizip-ng)
 elseif(TARGET unofficial::minizip::minizip)
-  target_link_libraries(intentcad-core-tests PRIVATE unofficial::minizip::minizip)
+  target_link_libraries(kreoda-core-tests PRIVATE unofficial::minizip::minizip)
 endif()
-target_link_libraries(intentcad-core-tests PRIVATE GTest::gtest GTest::gtest_main)
-if(TARGET intentcad-protocol-codegen)
-  add_dependencies(intentcad-core-tests intentcad-protocol-codegen)
+target_link_libraries(kreoda-core-tests PRIVATE GTest::gtest GTest::gtest_main)
+if(TARGET kreoda-protocol-codegen)
+  add_dependencies(kreoda-core-tests kreoda-protocol-codegen)
 endif()
 
 include(GoogleTest)
-gtest_discover_tests(intentcad-core-tests)
+gtest_discover_tests(kreoda-core-tests)

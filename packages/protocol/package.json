@@ -1,5 +1,5 @@
 {
-  "name": "@intentcad/protocol",
+  "name": "@kreoda/protocol",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",

@@ -9,11 +9,11 @@
 #include "model/feature_graph.h"
 #include "model/shapes.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include "persistence/ocaf_live.h"
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 namespace {
 
@@ -175,7 +175,7 @@ bool CreateSketchFeature(const std::string& sketchId,
     const auto it = r.radii.find(a.id);
     if (it != r.radii.end()) a.r = it->second;
   }
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (!OcafLive::instance().BeginCommand(error)) return false;
   SketchStore::instance().put(sketch);
   const std::string js = SerializeSketchFeature(sketch);
@@ -231,7 +231,7 @@ bool UpdateSketchFeature(const std::string& sketchId,
     const auto it = r.radii.find(a.id);
     if (it != r.radii.end()) a.r = it->second;
   }
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   // Snapshot the dirty closure (sketch + dependent solids) for rollback.
   if (!TheFeatureGraph().hasFeature(sketchId)) {
     TheFeatureGraph().addFeature(sketchId);
@@ -286,4 +286,4 @@ bool PutSketchDirect(const SketchFeature& sketch) {
   return true;
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

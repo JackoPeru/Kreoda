@@ -9,36 +9,36 @@
 
 #include "../src/protocol/dispatcher.h"
 
-#ifdef INTENTCAD_WITH_FLATBUFFERS
+#ifdef KREODA_WITH_FLATBUFFERS
 #include <flatbuffers/flatbuffers.h>
 
 #include "../src/protocol/generated/cad_protocol_generated.h"
 #endif
 
-namespace intentcad_test {
+namespace kreoda_test {
 
 // JSON responses (everything except mesh successes) as text.
 inline std::string rpcText(const std::string& body) {
-  const std::vector<uint8_t> v = intentcad::handle_command(body);
+  const std::vector<uint8_t> v = kreoda::handle_command(body);
   return std::string(v.begin(), v.end());
 }
 
 // Raw bytes (mesh responses).
 inline std::vector<uint8_t> rpcBytes(const std::string& body) {
-  return intentcad::handle_command(body);
+  return kreoda::handle_command(body);
 }
 
 inline bool rpcOk(const std::string& body) {
   return rpcText(body).find("\"status\":\"ok\"") != std::string::npos;
 }
 
-#ifdef INTENTCAD_WITH_FLATBUFFERS
+#ifdef KREODA_WITH_FLATBUFFERS
 // Verified-decode of a mesh response (nullptr when the bytes are not one).
-inline const IntentCad::Protocol::MeshUpdate* meshRoot(
+inline const Kreoda::Protocol::MeshUpdate* meshRoot(
     const std::vector<uint8_t>& bytes) {
   if (bytes.size() < 16) return nullptr;
   const auto* update =
-      flatbuffers::GetRoot<IntentCad::Protocol::MeshUpdate>(bytes.data());
+      flatbuffers::GetRoot<Kreoda::Protocol::MeshUpdate>(bytes.data());
   if (!update) return nullptr;
   flatbuffers::Verifier verifier(bytes.data(), bytes.size());
   if (!update->Verify(verifier)) return nullptr;
@@ -46,4 +46,4 @@ inline const IntentCad::Protocol::MeshUpdate* meshRoot(
 }
 #endif
 
-}  // namespace intentcad_test
+}  // namespace kreoda_test

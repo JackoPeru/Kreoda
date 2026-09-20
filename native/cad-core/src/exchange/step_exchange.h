@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
 // STEP AP214 exchange, Phase 8 (§61). Transport-neutral B-Rep round-trip:
 // every solid in the store exports as one product; every solid in the file
@@ -19,4 +19,4 @@ bool ExportStep(const std::string& path, std::string* error);
 bool ImportStep(const std::string& path, std::vector<std::string>* createdIds,
                 std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

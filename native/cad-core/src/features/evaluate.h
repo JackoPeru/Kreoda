@@ -5,7 +5,7 @@
 
 #include "../model/shapes.h"
 
-namespace intentcad {
+namespace kreoda {
 
 // DAG evaluation entry points (§53). Pure validation shared by commit and
 // preview paths; node rebuilds used by FeatureGraph::recompute.
@@ -20,4 +20,4 @@ bool ResolveParamsForEdit(const ShapeRecord& rec, const std::string& paramName,
 // Handles Box/Cylinder/Sphere/Sketch/Extrude/Revolve.
 bool RebuildNodeFromStore(const std::string& featureId, std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

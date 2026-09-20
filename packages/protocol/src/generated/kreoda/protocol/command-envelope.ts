@@ -4,8 +4,8 @@
 
 import * as flatbuffers from 'flatbuffers';
 
-import { CommandPayload, unionToCommandPayload, unionListToCommandPayload } from '../../intent-cad/protocol/command-payload.js';
-import { CommandType } from '../../intent-cad/protocol/command-type.js';
+import { CommandPayload, unionToCommandPayload, unionListToCommandPayload } from '../../kreoda/protocol/command-payload.js';
+import { CommandType } from '../../kreoda/protocol/command-type.js';
 
 
 export class CommandEnvelope {

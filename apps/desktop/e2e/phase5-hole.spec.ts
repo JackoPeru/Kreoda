@@ -8,7 +8,7 @@ import os from "node:os";
 
 const HERE = import.meta.dirname;
 const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
-const ICAD = path.join(os.tmpdir(), "intentcad-phase5-e2e.icad");
+const ICAD = path.join(os.tmpdir(), "kreoda-phase5-e2e.icad");
 
 interface BodySnapshot {
   id: string;
@@ -40,9 +40,9 @@ test("beginner block with 8mm hole, undo, reopen identical", async () => {
       window.evaluate(() =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
       );
 
     // 1. Add Box 100×50×10 through the real dialog (no tutorial needed).
@@ -66,11 +66,11 @@ test("beginner block with 8mm hole, undo, reopen identical", async () => {
       ({ f }) =>
         (
           window as unknown as {
-            __intentcad_test: {
+            __kreoda_test: {
               selectFace: (id: string, role: string) => unknown;
             };
           }
-        ).__intentcad_test.selectFace(f, "box.+Z"),
+        ).__kreoda_test.selectFace(f, "box.+Z"),
       { f: boxId },
     );
     // Hole dialog works from the face selection; drive the typed path with
@@ -79,7 +79,7 @@ test("beginner block with 8mm hole, undo, reopen identical", async () => {
       ({ target }) =>
         (
           window as unknown as {
-            __intentcad_test: {
+            __kreoda_test: {
               makeHole: (
                 t: string,
                 role: string,
@@ -89,7 +89,7 @@ test("beginner block with 8mm hole, undo, reopen identical", async () => {
               ) => Promise<Snapshot>;
             };
           }
-        ).__intentcad_test.makeHole(target, "box.+Z", 50, 25, 8),
+        ).__kreoda_test.makeHole(target, "box.+Z", 50, 25, 8),
       { target: boxId },
     )) as Snapshot;
     expect(s1.bodies).toHaveLength(2);
@@ -117,18 +117,18 @@ test("beginner block with 8mm hole, undo, reopen identical", async () => {
       ({ icad }) =>
         (
           window as unknown as {
-            __intentcad_test: { saveIcad: (p: string) => Promise<Snapshot> };
+            __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> };
           }
-        ).__intentcad_test.saveIcad(icad),
+        ).__kreoda_test.saveIcad(icad),
       { icad: ICAD },
     );
     const s4 = (await window.evaluate(
       ({ icad }) =>
         (
           window as unknown as {
-            __intentcad_test: { openIcad: (p: string) => Promise<Snapshot> };
+            __kreoda_test: { openIcad: (p: string) => Promise<Snapshot> };
           }
-        ).__intentcad_test.openIcad(icad),
+        ).__kreoda_test.openIcad(icad),
       { icad: ICAD },
     )) as Snapshot;
     expect(s4.bodies).toHaveLength(2);
@@ -140,7 +140,7 @@ test("beginner block with 8mm hole, undo, reopen identical", async () => {
       ({ target }) =>
         (
           window as unknown as {
-            __intentcad_test: {
+            __kreoda_test: {
               makeHole: (
                 t: string,
                 role: string,
@@ -152,7 +152,7 @@ test("beginner block with 8mm hole, undo, reopen identical", async () => {
               ) => Promise<Snapshot>;
             };
           }
-        ).__intentcad_test.makeHole(target, "box.+Z", 20, 20, 8, "blind", 5),
+        ).__kreoda_test.makeHole(target, "box.+Z", 20, 20, 8, "blind", 5),
       { target: boxId },
     )) as Snapshot;
     const blind = s5.bodies.find(

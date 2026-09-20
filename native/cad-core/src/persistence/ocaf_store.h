@@ -5,7 +5,7 @@
 
 #include "../model/shapes.h"
 
-namespace intentcad {
+namespace kreoda {
 
 // OCAF binary persistence (§30: document.xbf inside .icad).
 // Thin wrappers over the live OCAF document (persistence/ocaf_live.h):
@@ -14,4 +14,4 @@ bool SaveXbf(const std::string& xbfPath, std::string* error);
 bool LoadXbf(const std::string& xbfPath, std::vector<ShapeRecord>* records,
              std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

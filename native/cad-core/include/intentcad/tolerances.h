@@ -3,7 +3,7 @@
 // Centralized geometric tolerances (§42). No scattered 1e-6 / 0.0001.
 // Model-space vs kernel vs UI-snapping vs screen-picking stay separate.
 
-namespace intentcad {
+namespace kreoda {
 
 struct GeometryTolerancePolicy {
   double linearModelToleranceMm = 1e-4;   // model-space coincidence
@@ -18,4 +18,4 @@ inline const GeometryTolerancePolicy& tolerances() {
   return kPolicy;
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

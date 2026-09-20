@@ -4,7 +4,7 @@
 
 #include "model/shapes.h"
 #include "tessellation/box_tessellator.h"
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include "topology/face_roles.h"
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepBndLib.hxx>
@@ -27,11 +27,11 @@
 #include <gp_Vec.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 namespace {
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 void appendFaceTriangles(CoreMesh& mesh, const TopoDS_Face& face,
                          const std::string& role) {
   TopLoc_Location loc;
@@ -110,7 +110,7 @@ CoreMesh TessellateFeature(const std::string& featureId, int lod,
 CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
                           std::string* error) {
   const std::string& featureId = rec.featureId;
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (rec.shape.IsNull()) {
     if (error) *error = "feature has no B-Rep shape";
     return {};
@@ -204,4 +204,4 @@ CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
 #endif
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

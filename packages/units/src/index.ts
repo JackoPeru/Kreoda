@@ -1,4 +1,4 @@
-// @intentcad/units — canonical units (§43): mm internal, rad angles.
+// @kreoda/units — canonical units (§43): mm internal, rad angles.
 // Never infer from locale. All IPC numerics carry explicit units.
 
 export type LengthUnit = "mm" | "cm" | "m" | "inch";

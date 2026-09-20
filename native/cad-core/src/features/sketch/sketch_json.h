@@ -5,7 +5,7 @@
 #include "../../constraints/solver.h"
 #include "sketch_store.h"
 
-namespace intentcad {
+namespace kreoda {
 
 // Minimal JSON (de)serialization for sketches — no external dep in core.
 // The wire format mirrors the TS types (SketchModel JSON):
@@ -29,4 +29,4 @@ std::string ConstraintKindToString(SketchConstraintKind kind);
 bool ExtractJsonValue(const std::string& json, const std::string& key,
                       std::string* rawOut);
 
-}  // namespace intentcad
+}  // namespace kreoda

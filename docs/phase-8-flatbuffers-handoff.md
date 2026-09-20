@@ -20,7 +20,7 @@ sides with the same flatc.
   remove when nothing includes it).
 - `main.cpp`: byte framing in the loop; self-test verifies the mesh via the
   generated C++ bindings (12 tris, `box-1:box.+Z`).
-- `@intentcad/protocol`: `decodeMeshUpdateFb` (count cross-checks, triplet
+- `@kreoda/protocol`: `decodeMeshUpdateFb` (count cross-checks, triplet
   checks, safe revision) + `isJsonResponse` sniff (`{` = JSON legacy/error).
 - `coreClient`: `requestMesh` + preview path sniff (errors stay JSON).
 - Tests: `tests/rpc_text.h` (`rpcText`/`rpcBytes`/`meshRoot` verified-decode);
@@ -44,7 +44,7 @@ sides with the same flatc.
   doctrine long ago; same rule for FB `volume_mm3`).
 - Face ORDER is tessellator-defined: assert role presence by scan, never by
   index (`Get(1)` is `box.+X` here, `box.+Z` elsewhere).
-- A stale `intentcad-core.exe` once masked a missing branch by round-tripping
+- A stale `kreoda-core.exe` once masked a missing branch by round-tripping
   a misnamed zip — always check exe timestamp + link exit code after native
   edits (same lesson as the STL slice).
 - One full-suite E2E flake (phase5, 39 s loaded run) cleared on clean re-run;

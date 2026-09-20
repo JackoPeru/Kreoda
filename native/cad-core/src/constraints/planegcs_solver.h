@@ -2,7 +2,7 @@
 
 #include "solver.h"
 
-namespace intentcad {
+namespace kreoda {
 
 // PlaneGCS-backed ISketchSolver (FreeCAD Sketcher, LGPL-2.1-or-later).
 // The GCS System is rebuilt from scratch per solve (sketches are small):
@@ -14,4 +14,4 @@ class PlaneGcsSolver : public ISketchSolver {
   SolverDiagnostics diagnose(const SketchModel& model) override;
 };
 
-}  // namespace intentcad
+}  // namespace kreoda

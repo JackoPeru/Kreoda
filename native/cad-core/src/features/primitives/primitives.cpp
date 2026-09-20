@@ -15,7 +15,7 @@
 
 #include <map>
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
@@ -28,7 +28,7 @@
 #include "persistence/ocaf_live.h"
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 namespace {
 
@@ -69,7 +69,7 @@ bool checkPositive(double v, const char* what, std::string* error) {
 
 }  // namespace
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 bool BuildBoxShape(double w, double h, double d, TopoDS_Shape* out,
                    std::string* error) {
   if (!checkPositive(w, "width", error) || !checkPositive(h, "height", error) ||
@@ -136,7 +136,7 @@ bool BuildSphereShape(double r, TopoDS_Shape* out, std::string* error) {
 bool CreateBoxFeature(const std::string& featureId, double widthMm,
                       double heightMm, double depthMm, std::string* error) {
   if (!checkIdFree(featureId, error)) return false;
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   TopoDS_Shape shape;
   if (!BuildBoxShape(widthMm, heightMm, depthMm, &shape, error)) return false;
   if (!OcafLive::instance().BeginCommand(error)) return false;
@@ -164,7 +164,7 @@ bool CreateBoxFeature(const std::string& featureId, double widthMm,
 bool CreateCylinderFeature(const std::string& featureId, double radiusMm,
                            double heightMm, std::string* error) {
   if (!checkIdFree(featureId, error)) return false;
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   TopoDS_Shape shape;
   if (!BuildCylinderShape(radiusMm, heightMm, &shape, error)) return false;
   if (!OcafLive::instance().BeginCommand(error)) return false;
@@ -193,7 +193,7 @@ bool CreateCylinderFeature(const std::string& featureId, double radiusMm,
 bool CreateSphereFeature(const std::string& featureId, double radiusMm,
                          std::string* error) {
   if (!checkIdFree(featureId, error)) return false;
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   TopoDS_Shape shape;
   if (!BuildSphereShape(radiusMm, &shape, error)) return false;
   if (!OcafLive::instance().BeginCommand(error)) return false;
@@ -284,7 +284,7 @@ bool BuildPreviewMesh(const std::string& featureId,
   if (!ResolveParamsForEdit(rec, paramName, valueMm, &newParams, error)) {
     return false;
   }
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   TopoDS_Shape candidate;
   bool built = false;
   if (rec.type == "Box") {
@@ -366,7 +366,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
   if (!ResolveParamsForEdit(rec, paramName, valueMm, &newParams, error)) {
     return false;
   }
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   // DAG recompute (§53): stage new params, mark the closure dirty, rebuild
   // in topological order inside ONE OCAF command (one Undo step, §12).
   // Snapshot first (pre-images for rollback); params staged after.
@@ -410,4 +410,4 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
 #endif
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

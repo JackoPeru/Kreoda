@@ -35,7 +35,7 @@ plus save/reopen; picking works per body/face/edge with stable backend ids.
 - One TNaming evolution kind per builder: `Modify` + `Generated` on the same
   label conflicts ("not same evolution") — rebuilds record per-face
   `Generated` pairs only.
-- OCCT includes must precede `namespace intentcad` (an include inside the
+- OCCT includes must precede `namespace kreoda` (an include inside the
   namespace injects OCCT into it and breaks `<iostream>` with /permissive-).
 - `TopoDS_Shape::Location()` is a getter; copy the edge before transforming.
 - Zustand selectors must return stable references (see phase-1 notes).

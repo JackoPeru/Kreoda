@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
 // Sketch model for constraint solving (§21, §5). Local 2D coordinates (mm);
 // the sketch plane maps them to 3D. Stable string ids throughout.
@@ -114,4 +114,4 @@ class ISketchSolver {
 // reports "unavailable" instead of faking results (§41).
 std::unique_ptr<ISketchSolver> CreateSketchSolver();
 
-}  // namespace intentcad
+}  // namespace kreoda

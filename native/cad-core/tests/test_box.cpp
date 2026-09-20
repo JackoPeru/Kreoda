@@ -8,9 +8,9 @@
 
 TEST(Box, ExactDimensionsAndVolume) {
   std::string err;
-  EXPECT_TRUE(intentcad::CreateBoxFeature("box-test-1", 100, 50, 20, &err))
+  EXPECT_TRUE(kreoda::CreateBoxFeature("box-test-1", 100, 50, 20, &err))
       << err;
-  const auto mesh = intentcad::TessellateBoxExact(100, 50, 20);
+  const auto mesh = kreoda::TessellateBoxExact(100, 50, 20);
   EXPECT_EQ(mesh.indices.size(), 36u);  // 12 triangles
   EXPECT_EQ(mesh.faces.size(), 6u);
   EXPECT_DOUBLE_EQ(mesh.volumeMm3, 100 * 50 * 20);
@@ -21,7 +21,7 @@ TEST(Box, ExactDimensionsAndVolume) {
 
 TEST(Box, RejectsNonPositive) {
   std::string err;
-  EXPECT_FALSE(intentcad::CreateBoxFeature("box-bad", -5, 50, 20, &err));
+  EXPECT_FALSE(kreoda::CreateBoxFeature("box-bad", -5, 50, 20, &err));
   EXPECT_FALSE(err.empty());
-  EXPECT_FALSE(intentcad::ValidateCommittedShape(0, 50, 20));
+  EXPECT_FALSE(kreoda::ValidateCommittedShape(0, 50, 20));
 }

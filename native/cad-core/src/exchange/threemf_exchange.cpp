@@ -6,18 +6,18 @@
 #include "tessellation/mesh.h"
 #include "exchange/sew.h"
 
-#if defined(INTENTCAD_WITH_LIB3MF) && INTENTCAD_WITH_OCCT
-// NOTE: OCCT includes must stay OUTSIDE namespace intentcad.
+#if defined(KREODA_WITH_LIB3MF) && KREODA_WITH_OCCT
+// NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
 #include <Bindings/Cpp/lib3mf_implicit.hpp>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Solid.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 namespace {
 
-#if defined(INTENTCAD_WITH_LIB3MF) && INTENTCAD_WITH_OCCT
+#if defined(KREODA_WITH_LIB3MF) && KREODA_WITH_OCCT
 // 3MF model unit → mm scale factor (export always writes millimeters).
 // Unknown future units fail LOUDLY (M17): silently assuming mm would
 // import meter-scale parts 1000× off with an "ok" status.
@@ -45,7 +45,7 @@ double UnitToMm(Lib3MF::eModelUnit unit, bool* ok) {
 }  // namespace
 
 bool ExportThreeMF(const std::string& path, std::string* error) {
-#if defined(INTENTCAD_WITH_LIB3MF) && INTENTCAD_WITH_OCCT
+#if defined(KREODA_WITH_LIB3MF) && KREODA_WITH_OCCT
   if (path.empty()) {
     if (error) *error = "path is required";
     return false;
@@ -115,7 +115,7 @@ bool ExportThreeMF(const std::string& path, std::string* error) {
 bool ImportThreeMF(const std::string& path,
                    std::vector<std::string>* createdIds,
                    std::string* error) {
-#if defined(INTENTCAD_WITH_LIB3MF) && INTENTCAD_WITH_OCCT
+#if defined(KREODA_WITH_LIB3MF) && KREODA_WITH_OCCT
   if (path.empty()) {
     if (error) *error = "path is required";
     return false;
@@ -191,4 +191,4 @@ bool ImportThreeMF(const std::string& path,
 #endif
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

@@ -6,7 +6,7 @@
 
 #include "planegcs/GCS.h"
 
-namespace intentcad {
+namespace kreoda {
 
 namespace {
 
@@ -381,4 +381,4 @@ std::unique_ptr<ISketchSolver> CreateSketchSolver() {
   return std::make_unique<PlaneGcsSolver>();
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Box, Cylinder, Pencil } from "lucide-react";
 import { executeCommand } from "../commands/execute";
 
-const HIDE_KEY = "intentcad.onboardingHidden";
-const HINT_KEY = "intentcad.hintPullLearned";
+const HIDE_KEY = "kreoda.onboardingHidden";
+const HINT_KEY = "kreoda.hintPullLearned";
 
 export function shouldShowOnboarding(): boolean {
   try {

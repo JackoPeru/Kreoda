@@ -1,4 +1,4 @@
-# Kreoda (INTENT-CAD) — build outputs, deps and local artifacts are not committed.
+# Kreoda — build outputs, deps and local artifacts are not committed.
 
 # Dependencies
 node_modules/

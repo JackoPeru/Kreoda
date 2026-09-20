@@ -1,14 +1,14 @@
-// @intentcad/protocol — framed binary IPC (§8) + validation (§63.10).
+// @kreoda/protocol — framed binary IPC (§8) + validation (§63.10).
 // Transport: uint32 LE payloadLength + payload bytes over stdio/named pipe.
 // protocolVersion = 1. Payload schema is schemas/cad_protocol.fbs; generated
 // bindings live in src/generated (Phase 8 flatc codegen, `pnpm codegen`).
 // This module keeps the handwritten framing + zod envelope validation as the
 // transport truth until the FlatBuffers migration slice.
-// Canonical units: mm (length), rad (angle) — see @intentcad/units.
+// Canonical units: mm (length), rad (angle) — see @kreoda/units.
 
 import { z } from "zod";
 import * as flatbuffers from "flatbuffers";
-import { MeshUpdate } from "./generated/intent-cad/protocol.js";
+import { MeshUpdate } from "./generated/kreoda/protocol.js";
 
 export const PROTOCOL_VERSION = 1 as const;
 

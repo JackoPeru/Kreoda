@@ -1,4 +1,4 @@
-// Sidecar lifecycle (§7, §51): spawn intentcad-core.exe, binary framed IPC,
+// Sidecar lifecycle (§7, §51): spawn kreoda-core.exe, binary framed IPC,
 // crash detection + restart. Renderer thread never blocks on geometry (§40).
 
 import { ChildProcess, spawn } from "node:child_process";
@@ -9,11 +9,11 @@ import {
   FrameDecoder,
   frameMessage,
   responseRequestId,
-} from "@intentcad/protocol";
+} from "@kreoda/protocol";
 
 function resolveSidecarPath(): string {
   const exe =
-    process.platform === "win32" ? "intentcad-core.exe" : "intentcad-core";
+    process.platform === "win32" ? "kreoda-core.exe" : "kreoda-core";
   const candidates = [
     // packaged extraResource
     process.resourcesPath

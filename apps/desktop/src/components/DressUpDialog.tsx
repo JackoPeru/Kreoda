@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { parseLengthToMm } from "@intentcad/units";
+import { parseLengthToMm } from "@kreoda/units";
 import { executeCommand } from "../commands/execute";
 import { isSketchId, useSelectionStore } from "../stores";
 

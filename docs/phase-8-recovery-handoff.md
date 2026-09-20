@@ -8,9 +8,9 @@ design — both restore. This fulfills the crash banner's promise (§51).
 
 ## What landed
 
-- `electron/main.ts`: `intentcad:recovery-path/exists/clear` handlers; the
+- `electron/main.ts`: `kreoda:recovery-path/exists/clear` handlers; the
   main process owns the path only (`<userData>/recovery/autosave.icad`,
-  `INTENTCAD_RECOVERY_DIR` override for E2E). Crash comment de-journaled.
+  `KREODA_RECOVERY_DIR` override for E2E). Crash comment de-journaled.
 - `electron/preload.ts`: narrow `recoveryPath/Exists/Clear` API (§48, no
   renderer fs).
 - `src/recovery/autosave.ts`: `autosaveNow` (revision-gated, skips

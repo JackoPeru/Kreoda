@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace intentcad {
+namespace kreoda {
 
 ShapeStore& ShapeStore::instance() {
   static ShapeStore store;
@@ -65,4 +65,4 @@ bool ShapeStore::ValidFeatureId(const std::string& id) {
   return true;
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

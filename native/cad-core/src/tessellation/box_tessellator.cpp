@@ -1,6 +1,6 @@
 #include "box_tessellator.h"
 
-namespace intentcad {
+namespace kreoda {
 
 BoxMesh TessellateBoxExact(double wMm, double hMm, double dMm) {
   BoxMesh m;
@@ -33,4 +33,4 @@ BoxMesh TessellateBoxExact(double wMm, double hMm, double dMm) {
   return m;
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

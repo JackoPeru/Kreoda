@@ -7,19 +7,19 @@ comes later and must keep every E2E below green while swapping the wire.
 
 ## What landed
 
-- `packages/protocol/scripts/codegen.mjs` (`pnpm --filter @intentcad/protocol codegen`):
+- `packages/protocol/scripts/codegen.mjs` (`pnpm --filter @kreoda/protocol codegen`):
   resolves vcpkg `flatc.exe` (flatc 25.12.19, fallback: PATH), emits `--cpp --ts`,
   copies `cad_protocol_generated.h` → `native/cad-core/src/protocol/generated/`
-  and the `intent-cad/` TS tree → `packages/protocol/src/generated/intent-cad/`.
-  The `intent-cad/` root is preserved — generated files import each other via
-  relative `../../intent-cad/...` paths, so flattening breaks them.
+  and the `kreoda/` TS tree → `packages/protocol/src/generated/kreoda/`.
+  The `kreoda/` root is preserved — generated files import each other via
+  relative `../../kreoda/...` paths, so flattening breaks them.
 - `packages/protocol/src/codegen.test.ts`: generated `CommandType` equals the
   handwritten registry for every key; a CreateBox `CommandEnvelope` round-trips
   (fields + union payload) through the generated builders. 10/10 package tests.
 - `native/cad-core/tests/test_codegen.cpp`: 23 `static_assert`s (`.fbs`
   `CommandType` vs `dispatcher.h` `CommandId`) + gtest envelope round-trip.
-  Guarded by `INTENTCAD_WITH_FLATBUFFERS` (skips cleanly without flatbuffers).
-- CMake: `intentcad-protocol-codegen` custom target regenerates the header when
+  Guarded by `KREODA_WITH_FLATBUFFERS` (skips cleanly without flatbuffers).
+- CMake: `kreoda-protocol-codegen` custom target regenerates the header when
   the `.fbs` changes (probes build-dir + manifest-root vcpkg layouts, then PATH;
   warns and uses the committed file if flatc is absent). Core + tests depend on it.
 - `tsconfig.build.json` split: `build` emits without `**/*.test.ts`, `lint`

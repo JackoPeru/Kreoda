@@ -6,13 +6,13 @@
 import {
   COMMANDS,
   type CommandContext,
-} from "@intentcad/command-schema";
+} from "@kreoda/command-schema";
 import {
   coreClient,
   type CreatedFeature,
   type FeatureSummary,
 } from "../ipc/coreClient";
-import type { CoreMeshData } from "@intentcad/protocol";
+import type { CoreMeshData } from "@kreoda/protocol";
 import {
   pullFeatureMesh,
   syncFromCoreList,
@@ -25,7 +25,7 @@ import {
   usePreferencesStore,
   useSelectionStore,
 } from "../stores";
-import type { SketchModel } from "@intentcad/protocol";
+import type { SketchModel } from "@kreoda/protocol";
 
 function commandContext(): CommandContext {
   const sel = useSelectionStore.getState();

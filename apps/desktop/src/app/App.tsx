@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { CoreMeshData, SketchModel } from "@intentcad/protocol";
+import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
 import { Toolbar } from "../components/Toolbar";
 import { ObjectTree } from "../components/ObjectTree";
 import { PropertiesPanel } from "../components/PropertiesPanel";
@@ -66,13 +66,13 @@ export function App() {
     preview: string;
   }> => {
     const hook = (
-      window as unknown as { __intentcad_test: { snapshot: () => unknown } }
-    ).__intentcad_test;
+      window as unknown as { __kreoda_test: { snapshot: () => unknown } }
+    ).__kreoda_test;
     const payload = JSON.stringify({
       snapshot: hook.snapshot(),
       coreVersion: useDocumentUiStore.getState().coreVersion,
     });
-    const result = await window.intentcad.crashBundle(
+    const result = await window.kreoda.crashBundle(
       payload,
       bundleFullModelRef.current,
     );
@@ -121,17 +121,17 @@ export function App() {
     refresh();
     // A recovery file at boot means the previous session kept unsaved work.
     checkRecovery();
-    const offCrash = window.intentcad?.onCoreCrashed?.((info) => {
+    const offCrash = window.kreoda?.onCoreCrashed?.((info) => {
       setCrashed(info.code);
       setCoreStatus(false, null);
     });
     // Post-crash restart brings an EMPTY engine: the autosave (written by
     // the interval before the crash) is the way back — re-check it.
-    const offRestart = window.intentcad?.onCoreRestarted?.(() => {
+    const offRestart = window.kreoda?.onCoreRestarted?.(() => {
       refresh();
       checkRecovery();
     });
-    const offUpdate = window.intentcad?.onUpdateAvailable?.((info) => {
+    const offUpdate = window.kreoda?.onUpdateAvailable?.((info) => {
       if (!cancelled) setUpdateVersion(info.version);
     });
     return () => {
@@ -155,9 +155,9 @@ export function App() {
     // No Node/fs access — store summary only.
     (
       window as unknown as {
-        __intentcad_test?: unknown;
+        __kreoda_test?: unknown;
       }
-    ).__intentcad_test = {
+    ).__kreoda_test = {
       snapshot: () => {
         const s = useDocumentUiStore.getState();
         return {
@@ -188,8 +188,8 @@ export function App() {
       saveIcad: async (path: string) => {
         await coreClient.saveDocument(path);
         return (
-          window as unknown as { __intentcad_test: { snapshot: () => unknown } }
-        ).__intentcad_test.snapshot();
+          window as unknown as { __kreoda_test: { snapshot: () => unknown } }
+        ).__kreoda_test.snapshot();
       },
       openIcad: async (path: string) => {
         const { features: list, sketches, revision } =
@@ -200,8 +200,8 @@ export function App() {
         useDocumentUiStore.getState().resetDocument(coreClient.documentId);
         await syncFromCoreList(list, revision, sketches);
         return (
-          window as unknown as { __intentcad_test: { snapshot: () => unknown } }
-        ).__intentcad_test.snapshot();
+          window as unknown as { __kreoda_test: { snapshot: () => unknown } }
+        ).__kreoda_test.snapshot();
       },
       // Crash-recovery E2E: drive the same routine the interval uses.
       autosaveNow: () => autosaveNow(),
@@ -213,8 +213,8 @@ export function App() {
         const id = `${featureId}:${role}`;
         useSelectionStore.getState().select(id, false);
         return (
-          window as unknown as { __intentcad_test: { snapshot: () => unknown } }
-        ).__intentcad_test.snapshot();
+          window as unknown as { __kreoda_test: { snapshot: () => unknown } }
+        ).__kreoda_test.snapshot();
       },
       setParam: async (featureId: string, paramName: string, valueMm: number) => {
         const updated = await coreClient.setFeatureParameter(
@@ -231,8 +231,8 @@ export function App() {
           );
         }
         return (
-          window as unknown as { __intentcad_test: { snapshot: () => unknown } }
-        ).__intentcad_test.snapshot();
+          window as unknown as { __kreoda_test: { snapshot: () => unknown } }
+        ).__kreoda_test.snapshot();
       },
       faceScreenPoint: (featureId: string, role: string) =>
         faceScreenPoint(featureId, role),
@@ -261,22 +261,22 @@ export function App() {
         );
         useSelectionStore.getState().select(featureId, false);
         const hook = (
-          window as unknown as { __intentcad_test: { snapshot: () => unknown } }
-        ).__intentcad_test;
+          window as unknown as { __kreoda_test: { snapshot: () => unknown } }
+        ).__kreoda_test;
         return hook.snapshot();
       },
       openSketch: (featureId: string) => {
         setEditingSketch(featureId);
         const hook = (
-          window as unknown as { __intentcad_test: { snapshot: () => unknown } }
-        ).__intentcad_test;
+          window as unknown as { __kreoda_test: { snapshot: () => unknown } }
+        ).__kreoda_test;
         return hook.snapshot();
       },
       extrudeSketch: async (sketchId: string, distanceMm: number) => {
         await executeCommand("CreateExtrude", { sketchId, distanceMm });
         const hook = (
-          window as unknown as { __intentcad_test: { snapshot: () => unknown } }
-        ).__intentcad_test;
+          window as unknown as { __kreoda_test: { snapshot: () => unknown } }
+        ).__kreoda_test;
         return hook.snapshot();
       },
       // Scenario A (§62): hole through a named face at face-local (x, y).
@@ -300,8 +300,8 @@ export function App() {
           depthMm,
         });
         const hook = (
-          window as unknown as { __intentcad_test: { snapshot: () => unknown } }
-        ).__intentcad_test;
+          window as unknown as { __kreoda_test: { snapshot: () => unknown } }
+        ).__kreoda_test;
         return hook.snapshot();
       },
     };

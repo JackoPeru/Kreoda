@@ -2,7 +2,7 @@
 // Renderer owns UI/camera/selection state + read-only ModelProjection (§9).
 
 import { create } from "zustand";
-import type { CoreMeshData, SketchModel } from "@intentcad/protocol";
+import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 
 export interface SketchEntry extends SketchSummary {
@@ -255,8 +255,8 @@ interface PrefsState {
 function storedLlm(): { endpoint: string; model: string } {
   try {
     return {
-      endpoint: localStorage.getItem("intentcad.llmEndpoint") ?? "",
-      model: localStorage.getItem("intentcad.llmModel") ?? "",
+      endpoint: localStorage.getItem("kreoda.llmEndpoint") ?? "",
+      model: localStorage.getItem("kreoda.llmModel") ?? "",
     };
   } catch {
     return { endpoint: "", model: "" };
@@ -265,7 +265,7 @@ function storedLlm(): { endpoint: string; model: string } {
 
 function storedTelemetry(): boolean {
   try {
-    return localStorage.getItem("intentcad.telemetry") === "1";
+    return localStorage.getItem("kreoda.telemetry") === "1";
   } catch {
     return false;
   }
@@ -282,8 +282,8 @@ export const usePreferencesStore = create<PrefsState>((set) => ({
   llmModel: initialLlm.model,
   setLlm: (endpoint, model) => {
     try {
-      localStorage.setItem("intentcad.llmEndpoint", endpoint);
-      localStorage.setItem("intentcad.llmModel", model);
+      localStorage.setItem("kreoda.llmEndpoint", endpoint);
+      localStorage.setItem("kreoda.llmModel", model);
     } catch {
       // Best-effort persistence.
     }
@@ -292,7 +292,7 @@ export const usePreferencesStore = create<PrefsState>((set) => ({
   telemetryEnabled: storedTelemetry(),
   setTelemetry: (enabled) => {
     try {
-      localStorage.setItem("intentcad.telemetry", enabled ? "1" : "0");
+      localStorage.setItem("kreoda.telemetry", enabled ? "1" : "0");
     } catch {
       // Best-effort persistence.
     }

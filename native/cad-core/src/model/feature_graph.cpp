@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <set>
 
-namespace intentcad {
+namespace kreoda {
 
 void FeatureGraph::addFeature(const std::string& id,
                               const std::vector<std::string>& dependsOn) {
@@ -172,4 +172,4 @@ FeatureGraph::RecomputeReport FeatureGraph::recompute(const RecomputeFn& fn) {
   return report;
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

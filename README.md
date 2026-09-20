@@ -1,6 +1,6 @@
 # Kreoda
 
-Hybrid native/web desktop CAD — **B-Rep parametric core, direct manipulation, intent inference** (see `INTENT_CAD_ARCHITECTURE_AND_BUILD_SPEC.md`, the architecture contract).
+Hybrid native/web desktop CAD — **B-Rep parametric core, direct manipulation, intent inference** (see `KREODA_ARCHITECTURE_AND_BUILD_SPEC.md`, the architecture contract).
 
 ```
 Electron 44 + React 19.3 + Vite 8 + Tailwind 4 + Three.js
@@ -12,7 +12,7 @@ C++17 cad-core sidecar — OCCT 8.0.1 + OCAF/TNaming + PlaneGCS + lib3mf
 ## Layout (§38)
 
 ```
-intentcad/
+kreoda/
 ├ apps/desktop/          # Electron + React + Three.js viewport
 ├ native/cad-core/       # C++17 sidecar (owns canonical model, §9)
 ├ packages/
@@ -36,20 +36,20 @@ intentcad/
 
 ```powershell
 pnpm install
-pnpm --filter @intentcad/desktop dev     # Vite renderer only
-pnpm --filter @intentcad/desktop start   # Electron + sidecar
+pnpm --filter @kreoda/desktop dev     # Vite renderer only
+pnpm --filter @kreoda/desktop start   # Electron + sidecar
 
 # Native core (first configure downloads OCCT 8.0.1 — large, one-time):
 cmake -S native/cad-core -B native/cad-core/build -DCMAKE_BUILD_TYPE=Release
 cmake --build native/cad-core/build --config Release
-.\native\cad-core\build\Release\intentcad-core.exe --self-test
+.\native\cad-core\build\Release\kreoda-core.exe --self-test
 ```
 
 ## Release packaging
 
 ```powershell
-pnpm --filter @intentcad/desktop package
-pnpm --filter @intentcad/desktop make
+pnpm --filter @kreoda/desktop package
+pnpm --filter @kreoda/desktop make
 ```
 
 `electron-forge package/make` requires a hoisted install layout with pnpm:

@@ -1,4 +1,4 @@
-// @intentcad/command-schema — central command registry types (§19).
+// @kreoda/command-schema — central command registry types (§19).
 // One definition drives toolbar, context menu, palette, shortcuts, AI tools.
 
 import { z } from "zod";

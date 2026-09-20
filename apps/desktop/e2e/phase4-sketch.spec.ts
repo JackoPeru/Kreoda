@@ -9,7 +9,7 @@ import os from "node:os";
 
 const HERE = import.meta.dirname;
 const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
-const ICAD = path.join(os.tmpdir(), "intentcad-phase4-e2e.icad");
+const ICAD = path.join(os.tmpdir(), "kreoda-phase4-e2e.icad");
 
 interface BodySnapshot {
   id: string;
@@ -46,9 +46,9 @@ test("sketch plate extruded to exact solid, downstream update, reopen", async ()
       window.evaluate(() =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
       );
 
     // 1. Dimensioned sketch (100×50) through the real solver path.
@@ -56,11 +56,11 @@ test("sketch plate extruded to exact solid, downstream update, reopen", async ()
       ({ w, h }) =>
         (
           window as unknown as {
-            __intentcad_test: {
+            __kreoda_test: {
               createRectSketch: (w: number, h: number) => Promise<Snapshot>;
             };
           }
-        ).__intentcad_test.createRectSketch(w, h),
+        ).__kreoda_test.createRectSketch(w, h),
       { w: 100, h: 50 },
     )) as Snapshot;
     expect(s1.sketches).toHaveLength(1);
@@ -73,11 +73,11 @@ test("sketch plate extruded to exact solid, downstream update, reopen", async ()
       ({ sk }) =>
         (
           window as unknown as {
-            __intentcad_test: {
+            __kreoda_test: {
               extrudeSketch: (sk: string, d: number) => Promise<Snapshot>;
             };
           }
-        ).__intentcad_test.extrudeSketch(sk, 20),
+        ).__kreoda_test.extrudeSketch(sk, 20),
       { sk: sketchId },
     )) as Snapshot;
     expect(s2.bodies).toHaveLength(1);
@@ -92,9 +92,9 @@ test("sketch plate extruded to exact solid, downstream update, reopen", async ()
       ({ sk }) =>
         (
           window as unknown as {
-            __intentcad_test: { openSketch: (id: string) => unknown };
+            __kreoda_test: { openSketch: (id: string) => unknown };
           }
-        ).__intentcad_test.openSketch(sk),
+        ).__kreoda_test.openSketch(sk),
       { sk: sketchId },
     );
     const canvas = window.getByTestId("sketch-canvas");
@@ -124,18 +124,18 @@ test("sketch plate extruded to exact solid, downstream update, reopen", async ()
       ({ icad }) =>
         (
           window as unknown as {
-            __intentcad_test: { saveIcad: (p: string) => Promise<Snapshot> };
+            __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> };
           }
-        ).__intentcad_test.saveIcad(icad),
+        ).__kreoda_test.saveIcad(icad),
       { icad: ICAD },
     );
     const s4 = (await window.evaluate(
       ({ icad }) =>
         (
           window as unknown as {
-            __intentcad_test: { openIcad: (p: string) => Promise<Snapshot> };
+            __kreoda_test: { openIcad: (p: string) => Promise<Snapshot> };
           }
-        ).__intentcad_test.openIcad(icad),
+        ).__kreoda_test.openIcad(icad),
       { icad: ICAD },
     )) as Snapshot;
     expect(s4.sketches).toHaveLength(1);

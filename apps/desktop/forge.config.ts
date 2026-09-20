@@ -12,7 +12,7 @@ const config: ForgeConfig = {
     name: "Kreoda",
     // Kreoda mark (apps/desktop/assets/icon.ico + platform siblings).
     icon: "./assets/icon",
-    extraResource: ["../../native/cad-core/build/Release/intentcad-core.exe"],
+    extraResource: ["../../native/cad-core/build/Release/kreoda-core.exe"],
   },
   rebuildConfig: {},
   makers: [

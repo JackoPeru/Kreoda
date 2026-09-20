@@ -1,7 +1,7 @@
 // Signed updater, main-process half (Phase 8 §61). No electron imports:
 // pure Node (https/crypto/fs) so the fetch→verify→download path stays
 // testable outside Electron. Trust model: manifests are Ed25519-signed;
-// the public key comes from INTENTCAD_UPDATE_PUBKEY (PEM SPKI) — no key,
+// the public key comes from KREODA_UPDATE_PUBKEY (PEM SPKI) — no key,
 // no update, ever. Downloads are sha256-pinned. Install itself stays manual
 // (verified bits revealed to the user) until a signed install pipeline
 // exists — silent auto-install without one would be theater, not security.

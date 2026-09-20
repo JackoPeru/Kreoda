@@ -1,4 +1,4 @@
-// @intentcad/plugin-sdk — sandboxed JS plugins (§47).
+// @kreoda/plugin-sdk — sandboxed JS plugins (§47).
 // V1: no native loading. Plugins register commands/panels/generators and
 // invoke only the typed core API. No fs/network unless capability granted.
 

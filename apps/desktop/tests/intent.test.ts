@@ -32,7 +32,7 @@ const box: FeatureSummary = {
 describe("IntentEngine equal-holes (§27)", () => {
   afterEach(() => {
     // Test hygiene: dismissal persists in real localStorage.
-    localStorage.removeItem("intentcad.dismissedSuggestions");
+    localStorage.removeItem("kreoda.dismissedSuggestions");
   });
   it("stays silent with fewer than two holes", () => {
     expect(suggestEqualHoles([box, hole("h1", 8)])).toBeNull();

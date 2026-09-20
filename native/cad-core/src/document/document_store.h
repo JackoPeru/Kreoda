@@ -5,7 +5,7 @@
 #include <mutex>
 #include <string>
 
-namespace intentcad {
+namespace kreoda {
 
 // Serialized per-document mutation queue owner (§40). OCAF document +
 // transactions back this in Phase 3; Phase 0 keeps revision + registry so the
@@ -33,4 +33,4 @@ class DocumentStore {
   std::map<std::string, std::string> features_;
 };
 
-}  // namespace intentcad
+}  // namespace kreoda

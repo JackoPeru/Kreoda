@@ -4,10 +4,10 @@
 
 import * as flatbuffers from 'flatbuffers';
 
-import { Diagnostic } from '../../intent-cad/protocol/diagnostic.js';
-import { ManipulatorDescriptor } from '../../intent-cad/protocol/manipulator-descriptor.js';
-import { ModelDelta } from '../../intent-cad/protocol/model-delta.js';
-import { StatusCode } from '../../intent-cad/protocol/status-code.js';
+import { Diagnostic } from '../../kreoda/protocol/diagnostic.js';
+import { ManipulatorDescriptor } from '../../kreoda/protocol/manipulator-descriptor.js';
+import { ModelDelta } from '../../kreoda/protocol/model-delta.js';
+import { StatusCode } from '../../kreoda/protocol/status-code.js';
 
 
 export class ResponseEnvelope {

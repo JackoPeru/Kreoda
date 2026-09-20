@@ -4,7 +4,7 @@ import {
   CreateChamferPayloadSchema,
   CreateFilletPayloadSchema,
   CreateHolePayloadSchema,
-} from "@intentcad/protocol";
+} from "@kreoda/protocol";
 import {
   commandAvailability,
   visibleCommands,

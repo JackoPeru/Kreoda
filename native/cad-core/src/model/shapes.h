@@ -6,11 +6,11 @@
 #include <string>
 #include <vector>
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <TopoDS_Shape.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 // Canonical in-memory feature record (§9–§10). The B-Rep shape lives here;
 // OCAF persistence serializes it in Phase 1 (§30), the feature DAG and
@@ -23,7 +23,7 @@ struct ShapeRecord {
   // Non-numeric reference payload (§10): hole face role, fillet edge-id list
   // (comma-joined full persistent ids), boolean op name. Never an index.
   std::string refExtra;
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   TopoDS_Shape shape;
 #endif
   double volumeMm3 = 0.0;
@@ -57,4 +57,4 @@ class ShapeStore {
   std::vector<std::string> order_;
 };
 
-}  // namespace intentcad
+}  // namespace kreoda

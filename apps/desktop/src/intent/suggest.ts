@@ -71,7 +71,7 @@ export function suggestIntent(
   return suggestEqualHoles(features);
 }
 
-const DISMISSED_KEY = "intentcad.dismissedSuggestions";
+const DISMISSED_KEY = "kreoda.dismissedSuggestions";
 
 export function dismissedIds(): string[] {
   try {

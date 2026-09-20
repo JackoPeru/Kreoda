@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
 // glTF 2.0 mesh exchange (hand-written mesh profile, no external dep),
 // Phase 8 (§61). Units follow the glTF convention (meters); the model is
@@ -28,4 +28,4 @@ bool ExportGlb(const std::string& path, std::string* error);
 bool ImportGltf(const std::string& path, std::vector<std::string>* createdIds,
                 std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

@@ -6,7 +6,7 @@
 
 #include "../model/shapes.h"
 
-namespace intentcad {
+namespace kreoda {
 
 // Render-neutral mesh DTO (§67): core has no Three.js awareness.
 // Binary float32 positions/normals + uint32 indices + persistent FaceRanges
@@ -42,4 +42,4 @@ CoreMesh TessellateFeature(const std::string& featureId, int lod,
 CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
                           std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

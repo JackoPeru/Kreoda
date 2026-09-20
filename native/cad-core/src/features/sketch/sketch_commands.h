@@ -4,7 +4,7 @@
 
 #include "sketch_store.h"
 
-namespace intentcad {
+namespace kreoda {
 
 // Sketch CRUD with solve-before-commit (§21, §41).
 // Every mutation solves first; unsolvable edits are rejected with the
@@ -19,4 +19,4 @@ bool UpdateSketchFeature(const std::string& sketchId,
 // Full-replace used by open/resync paths (model already validated).
 bool PutSketchDirect(const SketchFeature& sketch);
 
-}  // namespace intentcad
+}  // namespace kreoda

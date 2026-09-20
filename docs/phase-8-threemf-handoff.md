@@ -17,7 +17,7 @@ back into faceted `MeshImport` solids inside a single Undo step.
   `UNSUPPORTED_YET`); `.3mf` imports in `kOpenDocument` (fresh baseline +
   graph sync + revision, like STEP). Both import branches now read the type
   back from the store instead of hardcoding it.
-- CMake: `find_package(lib3mf CONFIG)`, `INTENTCAD_WITH_LIB3MF`, link
+- CMake: `find_package(lib3mf CONFIG)`, `KREODA_WITH_LIB3MF`, link
   `lib3mf::lib3mf` (core + tests); without it, honest stub errors.
 - C++ `tests/test_threemf.cpp`: round-trip volume/bbox (60000 mm³, 1e-4
   bbox), tessellation non-empty, Undo/Redo atomicity, empty-export honesty.

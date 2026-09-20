@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace intentcad::protocol {
+namespace kreoda::protocol {
 
 // Framed transport (§8): uint32 LE length + payload bytes.
 constexpr uint32_t kProtocolVersion = 1;
@@ -23,4 +23,4 @@ class FrameDecoder {
   std::vector<uint8_t> buf_;
 };
 
-}  // namespace intentcad::protocol
+}  // namespace kreoda::protocol

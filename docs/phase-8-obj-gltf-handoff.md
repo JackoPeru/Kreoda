@@ -35,7 +35,7 @@ conversion both ways. Shared import/commit/mute helpers now live in `sew.*`.
   STEP transfers B-Rep and does not.
 - Core target treats warnings as errors (`/WX`): `int`→`signed char`
   narrowing in the base64 decoder blocked the link while the tests target
-  passed — a stale `intentcad-core.exe` then round-tripped a misnamed zip
+  passed — a stale `kreoda-core.exe` then round-tripped a misnamed zip
   (Box came back from ".obj"), masking the missing branch. Always check the
   exe timestamp + build exit status after native edits.
 - glTF Y-up/meters conversions are exact inverses; normals rotate only.

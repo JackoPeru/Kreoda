@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
 // Boolean composition (§20 Tier 3): Fuse (combine), Cut (subtract), Common
 // (keep overlap) of exactly two existing solids. Multi-input DAG deps;
@@ -16,4 +16,4 @@ bool CreateBooleanFeature(const std::string& featureId, const std::string& op,
 // DAG recompute step (features/rebuild.cpp calls this).
 bool RebuildBooleanFromStore(const std::string& featureId, std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

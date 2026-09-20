@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SketchModel } from "@intentcad/protocol";
+import type { SketchModel } from "@kreoda/protocol";
 import { coreClient } from "../ipc/coreClient";
 import { updateFeatureSummary } from "../model/sync";
 import { useDocumentUiStore } from "../stores";

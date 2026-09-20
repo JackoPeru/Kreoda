@@ -8,7 +8,7 @@ import os from "node:os";
 
 const HERE = import.meta.dirname;
 const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
-const ICAD = path.join(os.tmpdir(), "intentcad-phase1-e2e.icad");
+const ICAD = path.join(os.tmpdir(), "kreoda-phase1-e2e.icad");
 
 interface BodySnapshot {
   id: string;
@@ -44,9 +44,9 @@ test("exact box → save → reopen identical", async () => {
       () =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
     )) as Snapshot;
     expect(before.bodies).toHaveLength(1);
     expect(before.bodies[0]!.type).toBe("Box");
@@ -60,9 +60,9 @@ test("exact box → save → reopen identical", async () => {
       () =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
     )) as Snapshot;
     expect(selected.selectedIds).toContain(before.bodies[0]!.id);
 
@@ -71,18 +71,18 @@ test("exact box → save → reopen identical", async () => {
       ({ icad }) =>
         (
           window as unknown as {
-            __intentcad_test: { saveIcad: (p: string) => Promise<Snapshot> };
+            __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> };
           }
-        ).__intentcad_test.saveIcad(icad),
+        ).__kreoda_test.saveIcad(icad),
       { icad: ICAD },
     );
     const after = (await window.evaluate(
       ({ icad }) =>
         (
           window as unknown as {
-            __intentcad_test: { openIcad: (p: string) => Promise<Snapshot> };
+            __kreoda_test: { openIcad: (p: string) => Promise<Snapshot> };
           }
-        ).__intentcad_test.openIcad(icad),
+        ).__kreoda_test.openIcad(icad),
       { icad: ICAD },
     )) as Snapshot;
 

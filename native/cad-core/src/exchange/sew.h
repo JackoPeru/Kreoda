@@ -4,18 +4,18 @@
 #include <string>
 #include <vector>
 
-#if INTENTCAD_WITH_OCCT
-// NOTE: OCCT includes must stay OUTSIDE namespace intentcad.
+#if KREODA_WITH_OCCT
+// NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
 #include <TopoDS_Shape.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 // Shared helpers for faceted imports (3MF, STL, OBJ, glTF — Phase 8 §61).
 // Mesh formats carry triangles, not topology: one triangle soup in, closed
 // solids out. Open or degenerate-only meshes fail honestly (never a silent
 // partial solid).
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 // Sew flat vertex/index soup (mm) into closed solids.
 bool SewTrianglesToSolids(const std::vector<float>& verts,
                           const std::vector<uint32_t>& indices,
@@ -49,4 +49,4 @@ class ScopedMute {
 };
 #endif
 
-}  // namespace intentcad
+}  // namespace kreoda

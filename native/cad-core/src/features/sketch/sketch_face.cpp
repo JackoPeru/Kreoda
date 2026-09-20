@@ -1,6 +1,6 @@
 #include "sketch_face.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
@@ -21,7 +21,7 @@
 
 #include <cmath>
 
-namespace intentcad {
+namespace kreoda {
 
 void SketchToModel(const SketchPlane& plane, double x, double y,
                    double out3[3]) {
@@ -30,7 +30,7 @@ void SketchToModel(const SketchPlane& plane, double x, double y,
   out3[2] = plane.origin[2] + x * plane.xAxis[2] + y * plane.yAxis[2];
 }
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 namespace {
 
 gp_Pnt ToPnt(const SketchPlane& plane, double x, double y) {
@@ -290,4 +290,4 @@ bool BuildFaceFromSketch(const SketchFeature& sketch, TopoDS_Face* out,
 
 #endif
 
-}  // namespace intentcad
+}  // namespace kreoda

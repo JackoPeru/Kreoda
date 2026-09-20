@@ -4,8 +4,8 @@
 
 import * as flatbuffers from 'flatbuffers';
 
-import { EdgeRange } from '../../intent-cad/protocol/edge-range.js';
-import { FaceRange } from '../../intent-cad/protocol/face-range.js';
+import { EdgeRange } from '../../kreoda/protocol/edge-range.js';
+import { FaceRange } from '../../kreoda/protocol/face-range.js';
 
 
 export class MeshUpdate {

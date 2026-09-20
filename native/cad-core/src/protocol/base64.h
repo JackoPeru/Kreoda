@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
 // Minimal base64 (transfer encoding for binary mesh buffers inside the
 // JSON interim envelope — bytes stay float32/uint32 LE, never per-vertex
@@ -37,4 +37,4 @@ inline std::string Base64EncodeU32(const std::vector<uint32_t>& v) {
                       v.size() * sizeof(uint32_t));
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

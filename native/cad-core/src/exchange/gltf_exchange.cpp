@@ -13,11 +13,11 @@
 #include "model/shapes.h"
 #include "tessellation/mesh.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <TopoDS_Shape.hxx>
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
 namespace {
 
@@ -583,7 +583,7 @@ inline void ToModel(double x, double y, double z, float* ox, float* oy,
 
 }  // namespace
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 namespace {
 
 // Column-major 4x4 product (glTF node hierarchy, C7).
@@ -725,7 +725,7 @@ bool ReadMeshNode(const Json& root, const GltfDoc& doc, const Mat4& world,
 }  // namespace
 #endif
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 namespace {
 
 // Shared .gltf/.glb document builder (minor: .glb write removes the
@@ -834,7 +834,7 @@ std::string BuildJsonText(const std::vector<Block>& blocks,
                           const std::string& binUri) {
   std::ostringstream json;
   json << std::setprecision(9);
-  json << "{\"asset\":{\"version\":\"2.0\",\"generator\":\"INTENT-CAD\"},";
+  json << "{\"asset\":{\"version\":\"2.0\",\"generator\":\"Kreoda\"},";
   json << "\"scene\":0,\"scenes\":[{\"nodes\":[";
   for (size_t i = 0; i < blocks.size(); ++i) json << (i ? "," : "") << i;
   json << "]}],\"nodes\":[";
@@ -917,7 +917,7 @@ std::string StemOf(const std::string& path) {
 #endif
 
 bool ExportGltf(const std::string& path, std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (path.empty()) {
     if (error) *error = "path is required";
     return false;
@@ -951,7 +951,7 @@ bool ExportGltf(const std::string& path, std::string* error) {
 }
 
 bool ExportGlb(const std::string& path, std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (path.empty()) {
     if (error) *error = "path is required";
     return false;
@@ -1003,7 +1003,7 @@ bool ExportGlb(const std::string& path, std::string* error) {
 
 bool ImportGltf(const std::string& path, std::vector<std::string>* createdIds,
                 std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   if (path.empty()) {
     if (error) *error = "path is required";
     return false;
@@ -1242,4 +1242,4 @@ bool ImportGltf(const std::string& path, std::vector<std::string>* createdIds,
 #endif
 }
 
-}  // namespace intentcad
+}  // namespace kreoda

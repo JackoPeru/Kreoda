@@ -38,7 +38,7 @@ export async function autosaveNow(): Promise<"saved" | "skipped"> {
     lastSavedRevision = before.revision;
     return "skipped";
   }
-  const path = await window.intentcad.recoveryPath();
+  const path = await window.kreoda.recoveryPath();
   await coreClient.saveDocument(path);
   // Re-read AFTER the await (M10): an explicit save/open that landed while
   // we were in flight owns the truth now — stamping the stale value would
@@ -50,12 +50,12 @@ export async function autosaveNow(): Promise<"saved" | "skipped"> {
 }
 
 export async function recoveryAvailable(): Promise<boolean> {
-  return window.intentcad.recoveryExists();
+  return window.kreoda.recoveryExists();
 }
 
 /** Restore the autosave snapshot through the real Open path (no shortcuts). */
 export async function restoreRecovery(): Promise<void> {
-  const path = await window.intentcad.recoveryPath();
+  const path = await window.kreoda.recoveryPath();
   const { features: list, sketches, revision } =
     await coreClient.openDocument(path);
   // Document replacement = new epoch (C5): core revisions reset.
@@ -67,7 +67,7 @@ export async function restoreRecovery(): Promise<void> {
 }
 
 export async function discardRecovery(): Promise<void> {
-  await window.intentcad.recoveryClear();
+  await window.kreoda.recoveryClear();
   // Fresh prompt logic afterwards: an empty boot must not recreate the file
   // until this session dirties something again.
   savedThisSession = false;
@@ -76,7 +76,7 @@ export async function discardRecovery(): Promise<void> {
 /** Explicit user save makes recovery redundant — clear it (non-fatal). */
 export async function clearRecoveryAfterSave(): Promise<void> {
   try {
-    await window.intentcad.recoveryClear();
+    await window.kreoda.recoveryClear();
   } catch {
     // Autosave recreates it if the doc is still dirty; never block saving.
   }

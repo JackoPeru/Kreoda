@@ -7,7 +7,7 @@
 
 #include "../../constraints/solver.h"
 
-namespace intentcad {
+namespace kreoda {
 
 // Sketch feature (§21): local 2D coords + plane frame + solved state.
 // The SketchModel holds CURRENT (solved) coordinates; every mutation
@@ -53,4 +53,4 @@ SketchPlane PrincipalPlane(const std::string& kind);
 SolveResult SolveStoredSketch(const std::string& id, const SolveOptions& opts,
                               std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

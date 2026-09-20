@@ -4,11 +4,11 @@
 
 import * as flatbuffers from 'flatbuffers';
 
-import { SketchArc } from '../../intent-cad/protocol/sketch-arc.js';
-import { SketchCircle } from '../../intent-cad/protocol/sketch-circle.js';
-import { SketchConstraint } from '../../intent-cad/protocol/sketch-constraint.js';
-import { SketchLine } from '../../intent-cad/protocol/sketch-line.js';
-import { SketchPoint } from '../../intent-cad/protocol/sketch-point.js';
+import { SketchArc } from '../../kreoda/protocol/sketch-arc.js';
+import { SketchCircle } from '../../kreoda/protocol/sketch-circle.js';
+import { SketchConstraint } from '../../kreoda/protocol/sketch-constraint.js';
+import { SketchLine } from '../../kreoda/protocol/sketch-line.js';
+import { SketchPoint } from '../../kreoda/protocol/sketch-point.js';
 
 
 export class SketchModel {

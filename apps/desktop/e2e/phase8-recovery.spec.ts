@@ -11,7 +11,7 @@ import fs from "node:fs";
 
 const HERE = import.meta.dirname;
 const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
-const RECOVERY_DIR = path.join(os.tmpdir(), "intentcad-phase8-recovery-e2e");
+const RECOVERY_DIR = path.join(os.tmpdir(), "kreoda-phase8-recovery-e2e");
 
 interface BodySnapshot {
   id: string;
@@ -35,7 +35,7 @@ async function boot(env: Record<string, string>) {
 
 test("crash recovery: autosave → restore → discard", async () => {
   fs.rmSync(RECOVERY_DIR, { recursive: true, force: true });
-  const env = { ...process.env, INTENTCAD_RECOVERY_DIR: RECOVERY_DIR };
+  const env = { ...process.env, KREODA_RECOVERY_DIR: RECOVERY_DIR };
 
   // Session 1: model a plate, autosave, vanish without saving.
   {
@@ -54,9 +54,9 @@ test("crash recovery: autosave → restore → discard", async () => {
               (await window.evaluate(() =>
                 (
                   window as unknown as {
-                    __intentcad_test: { snapshot: () => Snapshot };
+                    __kreoda_test: { snapshot: () => Snapshot };
                   }
-                ).__intentcad_test.snapshot(),
+                ).__kreoda_test.snapshot(),
               )) as Snapshot
             ).bodies.length,
           { timeout: 30000 },
@@ -65,9 +65,9 @@ test("crash recovery: autosave → restore → discard", async () => {
       await window.evaluate(() =>
         (
           window as unknown as {
-            __intentcad_test: { autosaveNow: () => Promise<string> };
+            __kreoda_test: { autosaveNow: () => Promise<string> };
           }
-        ).__intentcad_test.autosaveNow(),
+        ).__kreoda_test.autosaveNow(),
       );
       expect(
         fs.existsSync(path.join(RECOVERY_DIR, "autosave.icad")),
@@ -91,9 +91,9 @@ test("crash recovery: autosave → restore → discard", async () => {
               (await window.evaluate(() =>
                 (
                   window as unknown as {
-                    __intentcad_test: { snapshot: () => Snapshot };
+                    __kreoda_test: { snapshot: () => Snapshot };
                   }
-                ).__intentcad_test.snapshot(),
+                ).__kreoda_test.snapshot(),
               )) as Snapshot
             ).bodies.length,
           { timeout: 30000 },
@@ -102,9 +102,9 @@ test("crash recovery: autosave → restore → discard", async () => {
       const snap = (await window.evaluate(() =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
       )) as Snapshot;
       expect(snap.bodies[0]!.type).toBe("Box");
       expect(snap.bodies[0]!.volumeMm3).toBeCloseTo(60000, 3);
@@ -128,9 +128,9 @@ test("crash recovery: autosave → restore → discard", async () => {
       const snap = (await window.evaluate(() =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
       )) as Snapshot;
       expect(snap.bodies).toHaveLength(0);
       expect(

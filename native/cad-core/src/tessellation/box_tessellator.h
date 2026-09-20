@@ -6,7 +6,7 @@
 
 #include "tessellation/mesh.h"
 
-namespace intentcad {
+namespace kreoda {
 
 struct BoxMesh {
   std::vector<float> positions;  // xyz * N, mm
@@ -20,4 +20,4 @@ struct BoxMesh {
 // LODs (coarse/interactive/export) once OCCT is linked (§14).
 BoxMesh TessellateBoxExact(double wMm, double hMm, double dMm);
 
-}  // namespace intentcad
+}  // namespace kreoda

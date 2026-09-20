@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { parseAngleToDeg, parseLengthToMm } from "@intentcad/units";
+import { parseAngleToDeg, parseLengthToMm } from "@kreoda/units";
 import { executeCommand } from "../commands/execute";
 import { selectionKindOf, useDocumentUiStore, useSelectionStore } from "../stores";
 

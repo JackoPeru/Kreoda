@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
 // 3MF exchange via lib3mf, Phase 8 (§61). Mesh-based round-trip at export LOD:
 // every solid exports tessellated (millimeters) as one mesh object; every
@@ -18,4 +18,4 @@ bool ExportThreeMF(const std::string& path, std::string* error);
 bool ImportThreeMF(const std::string& path, std::vector<std::string>* createdIds,
                    std::string* error);
 
-}  // namespace intentcad
+}  // namespace kreoda

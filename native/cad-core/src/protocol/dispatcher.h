@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace intentcad {
+namespace kreoda {
 
 // Minimal JSON field extraction for Phase-1 envelopes (no JSON dep in core).
 // Full validation moves to FlatBuffers codegen (schemas/cad_protocol.fbs).
@@ -24,7 +24,7 @@ std::vector<uint8_t> make_response(const std::string& requestId,
 std::vector<uint8_t> handle_command(const std::string& requestJson);
 
 // Command ids (§65 + Phase-1 extension + Phase-4 sketches + Phase-5 solids;
-// mirrored in cad_protocol.fbs and @intentcad/protocol — keep in sync).
+// mirrored in cad_protocol.fbs and @kreoda/protocol — keep in sync).
 enum CommandId {
   kGetCoreInfo = 1,
   kCreateDocument = 2,
@@ -51,4 +51,4 @@ enum CommandId {
   kRequestFaceInfo = 23,
 };
 
-}  // namespace intentcad
+}  // namespace kreoda

@@ -33,7 +33,7 @@ engine auto-restarts, UI banner + re-query).
 - `pnpm start` — production `dist/` + sidecar.
 - `pnpm -r lint|test|build` — all green. `test:e2e` (Playwright) boots the
   real shell and asserts `core 0.1.0` in the footer.
-- `native/cad-core/build/Release/intentcad-core.exe --self-test` — framing +
+- `native/cad-core/build/Release/kreoda-core.exe --self-test` — framing +
   GetCoreInfo/CreateDocument/CreateBox over real stdio pipes.
 
 ## Known Phase 0 limits (by design)
@@ -42,7 +42,7 @@ engine auto-restarts, UI banner + re-query).
   `flatbuffers`, `gtest`, `lib3mf`, `manifold`, but no vcpkg configure has run
   (large one-time download). Build with
   `-DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake` to get the
-  real kernel; `#if INTENTCAD_WITH_OCCT` marks every wiring point
+  real kernel; `#if KREODA_WITH_OCCT` marks every wiring point
   (`feature_graph.cpp`, tessellator → `BRepMesh_IncrementalMesh`,
   OCAF/`BinXCAF` persistence, STEP export).
 - **IPC payload is JSON inside the §8 frame** (`[u32 LE len][payload]`).

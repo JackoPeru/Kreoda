@@ -17,27 +17,27 @@
 namespace fs = std::filesystem;
 
 TEST(Obj, ExportImportRoundTrip) {
-  intentcad::DocumentStore::instance().create("obj-test-doc");
+  kreoda::DocumentStore::instance().create("obj-test-doc");
   std::string err;
-  ASSERT_TRUE(intentcad::CreateBoxFeature("obj-box", 100, 60, 10, &err))
+  ASSERT_TRUE(kreoda::CreateBoxFeature("obj-box", 100, 60, 10, &err))
       << err;
 
   const fs::path file =
-      fs::temp_directory_path() / "intentcad-obj-roundtrip.obj";
+      fs::temp_directory_path() / "kreoda-obj-roundtrip.obj";
   std::error_code ec;
   fs::remove(file, ec);
-  ASSERT_TRUE(intentcad::ExportObj(file.string(), &err)) << err;
+  ASSERT_TRUE(kreoda::ExportObj(file.string(), &err)) << err;
   EXPECT_TRUE(fs::exists(file));
   EXPECT_GT(fs::file_size(file, ec), 200u);
 
   // Fresh document, like OpenDocument: import replaces the model.
-  intentcad::DocumentStore::instance().create("obj-test-doc");
+  kreoda::DocumentStore::instance().create("obj-test-doc");
   std::vector<std::string> ids;
-  ASSERT_TRUE(intentcad::ImportObj(file.string(), &ids, &err)) << err;
+  ASSERT_TRUE(kreoda::ImportObj(file.string(), &ids, &err)) << err;
   ASSERT_EQ(ids.size(), 1u);
 
-  intentcad::ShapeRecord rec;
-  ASSERT_TRUE(intentcad::ShapeStore::instance().get(ids[0], &rec));
+  kreoda::ShapeRecord rec;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get(ids[0], &rec));
   EXPECT_EQ(rec.type, "MeshImport");
   EXPECT_NEAR(rec.volumeMm3, 60000.0, 0.5);
   EXPECT_NEAR(rec.bboxMm[0], 0.0, 1e-4);
@@ -47,24 +47,24 @@ TEST(Obj, ExportImportRoundTrip) {
   EXPECT_NEAR(rec.bboxMm[4], 60.0, 1e-4);
   EXPECT_NEAR(rec.bboxMm[5], 10.0, 1e-4);
 
-  const intentcad::CoreMesh mesh =
-      intentcad::TessellateFeature(ids[0], 1, &err);
+  const kreoda::CoreMesh mesh =
+      kreoda::TessellateFeature(ids[0], 1, &err);
   EXPECT_FALSE(mesh.indices.empty()) << err;
   EXPECT_FALSE(mesh.faces.empty());
 
   // One Undo step removes the whole import (single OCAF command).
-  ASSERT_TRUE(intentcad::OcafLive::instance().Undo(&err)) << err;
-  EXPECT_FALSE(intentcad::ShapeStore::instance().contains(ids[0]));
-  ASSERT_TRUE(intentcad::OcafLive::instance().Redo(&err)) << err;
-  EXPECT_TRUE(intentcad::ShapeStore::instance().contains(ids[0]));
+  ASSERT_TRUE(kreoda::OcafLive::instance().Undo(&err)) << err;
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains(ids[0]));
+  ASSERT_TRUE(kreoda::OcafLive::instance().Redo(&err)) << err;
+  EXPECT_TRUE(kreoda::ShapeStore::instance().contains(ids[0]));
 
   fs::remove(file, ec);
 }
 
 TEST(Obj, EmptyDocumentExportFailsHonestly) {
-  intentcad::DocumentStore::instance().create("obj-test-empty");
+  kreoda::DocumentStore::instance().create("obj-test-empty");
   std::string err;
-  EXPECT_FALSE(intentcad::ExportObj(
-      "C:\\Windows\\Temp\\intentcad-empty.obj", &err));
+  EXPECT_FALSE(kreoda::ExportObj(
+      "C:\\Windows\\Temp\\kreoda-empty.obj", &err));
   EXPECT_FALSE(err.empty());
 }

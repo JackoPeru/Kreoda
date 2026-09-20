@@ -44,9 +44,9 @@ test("pull face resizes solid in one undo step", async () => {
     const snap0 = (await window.evaluate(() =>
       (
         window as unknown as {
-          __intentcad_test: { snapshot: () => Snapshot };
+          __kreoda_test: { snapshot: () => Snapshot };
         }
-      ).__intentcad_test.snapshot(),
+      ).__kreoda_test.snapshot(),
     )) as Snapshot;
     const boxId = snap0.bodies[0]!.id;
 
@@ -55,11 +55,11 @@ test("pull face resizes solid in one undo step", async () => {
       ({ f }) =>
         (
           window as unknown as {
-            __intentcad_test: {
+            __kreoda_test: {
               faceScreenPoint: (id: string, role: string) => Anchor | null;
             };
           }
-        ).__intentcad_test.faceScreenPoint(f, "box.+Z"),
+        ).__kreoda_test.faceScreenPoint(f, "box.+Z"),
       { f: boxId },
     )) as Anchor | null;
     expect(anchor).not.toBeNull();
@@ -80,9 +80,9 @@ test("pull face resizes solid in one undo step", async () => {
       window.evaluate(() =>
         (
           window as unknown as {
-            __intentcad_test: { snapshot: () => Snapshot };
+            __kreoda_test: { snapshot: () => Snapshot };
           }
-        ).__intentcad_test.snapshot(),
+        ).__kreoda_test.snapshot(),
       );
 
     // Width grew through the source parameter (depth for the +Z cap).

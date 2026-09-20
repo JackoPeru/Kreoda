@@ -8,7 +8,7 @@
 #include "model/shapes.h"
 #include "features/sketch/sketch_store.h"
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 #include <BRepBndLib.hxx>
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepGProp.hxx>
@@ -25,9 +25,9 @@
 #include "persistence/ocaf_live.h"
 #endif
 
-namespace intentcad {
+namespace kreoda {
 
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
 bool BuildExtrudeShape(const std::string& sketchId, double distanceMm,
                        TopoDS_Shape* out, std::string* error) {
   if (!(distanceMm > 0 && distanceMm <= 100000)) {
@@ -76,7 +76,7 @@ bool CreateExtrudeFeature(const std::string& featureId,
     if (error) *error = "id already exists: " + featureId;
     return false;
   }
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   TopoDS_Shape shape;
   if (!BuildExtrudeShape(sketchId, distanceMm, &shape, error)) return false;
   if (!OcafLive::instance().BeginCommand(error)) return false;
@@ -99,7 +99,7 @@ bool CreateExtrudeFeature(const std::string& featureId,
 
 // DAG recompute step (features/rebuild.cpp calls this).
 bool RebuildExtrudeFromStore(const std::string& featureId, std::string* error) {
-#if INTENTCAD_WITH_OCCT
+#if KREODA_WITH_OCCT
   ShapeRecord rec;
   if (!ShapeStore::instance().get(featureId, &rec)) {
     if (error) *error = "unknown feature " + featureId;
@@ -123,4 +123,4 @@ bool RebuildExtrudeFromStore(const std::string& featureId, std::string* error) {
 #endif
 }
 
-}  // namespace intentcad
+}  // namespace kreoda
