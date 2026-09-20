@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Quest spatial-client foundation (§12), engine-agnostic slice: scene
+       representation over persistent IDs, CAD↔display placement math, and
+       LOD policy. No UnityEngine dependency — compiles and tests with plain
+       dotnet; the Unity player consumes these types through thin adapters
+       (Mesh → Unity Mesh, transform → GameObject) in a later slice. -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+</Project>
