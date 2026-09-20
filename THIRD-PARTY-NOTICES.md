@@ -1,4 +1,4 @@
-# Third-party notices — INTENT-CAD (Phase 8 §61)
+# Third-party notices — Kreoda (Phase 8 §61)
 
 Versions verified against `pnpm-lock.yaml` and the vcpkg install tree
 (`native/cad-core/vcpkg.json`, builtin-baseline `e6f9e70a`). Per-package
@@ -33,7 +33,7 @@ SBOMs ship with vcpkg (`share/*/vcpkg.spdx.json`).
 
 ## Telemetry
 
-None. INTENT-CAD collects no usage data; the in-app telemetry switch
+None. Kreoda collects no usage data; the in-app telemetry switch
 (CommandBar ⚙) defaults OFF, and no collection backend is wired — enabling
 it records nothing. Network traffic is limited to the user-configured
 optional LLM endpoint, if any.

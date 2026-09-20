@@ -8,6 +8,8 @@ import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-nati
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    // Product identity: installers and executables ship as Kreoda.
+    name: "Kreoda",
     // Kreoda mark (apps/desktop/assets/icon.ico + platform siblings).
     icon: "./assets/icon",
     extraResource: ["../../native/cad-core/build/Release/intentcad-core.exe"],

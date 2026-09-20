@@ -1,4 +1,4 @@
-# INTENT-CAD
+# Kreoda
 
 Hybrid native/web desktop CAD — **B-Rep parametric core, direct manipulation, intent inference** (see `INTENT_CAD_ARCHITECTURE_AND_BUILD_SPEC.md`, the architecture contract).
 

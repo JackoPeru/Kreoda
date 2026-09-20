@@ -46,7 +46,7 @@ test("crash bundle contains versions, log tail and snapshot", async () => {
     expect(bundle.bytes).toBeGreaterThan(200);
     expect(bundle.path).toMatch(/crash-bundle-.*\.json$/);
     // Preview carries the head of the bundle: app id, versions, snapshot.
-    expect(bundle.preview).toContain("INTENT-CAD");
+    expect(bundle.preview).toContain("Kreoda");
     expect(bundle.preview).toContain("coreVersion");
   } finally {
     await app.close();

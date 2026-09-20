@@ -20,7 +20,7 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
-    title: "INTENT-CAD",
+    title: "Kreoda",
     // Kreoda mark: .vite/build → apps/desktop/assets/icon.ico.
     icon: path.join(__dirname, "../../assets/icon.ico"),
     webPreferences: {
@@ -132,7 +132,7 @@ app.whenReady().then(() => {
       });
       const { response } = await dialog.showMessageBox(mainWindow, {
         type: "question",
-        message: `INTENT-CAD ${manifest.version} is available (signature verified).`,
+        message: `Kreoda ${manifest.version} is available (signature verified).`,
         detail: "Download the verified installer now?",
         buttons: ["Download", "Later"],
         defaultId: 1,
@@ -232,7 +232,7 @@ app.whenReady().then(() => {
         return home ? line.split(home).join("~") : line;
       };
       const bundle = {
-        app: "INTENT-CAD",
+        app: "Kreoda",
         appVersion: app.getVersion(),
         electron: process.versions.electron ?? null,
         node: process.versions.node ?? null,
@@ -262,12 +262,12 @@ app.whenReady().then(() => {
     const res = await dialog.showSaveDialog(mainWindow!, {
       defaultPath: filename,
       filters: [
-        { name: "INTENT-CAD project", extensions: ["icad"] },
+        { name: "Kreoda project", extensions: ["icad"] },
         { name: "STEP", extensions: ["step", "stp"] },
         { name: "3MF", extensions: ["3mf"] },
         { name: "STL", extensions: ["stl"] },
         { name: "OBJ", extensions: ["obj"] },
-        { name: "glTF", extensions: ["gltf", "glb"] },
+        { name: "glTF", extensions: ["gltf"] },
       ],
     });
     return res.filePath ?? null;
@@ -276,7 +276,7 @@ app.whenReady().then(() => {
   ipcMain.handle("intentcad:open-dialog", async () => {
     const res = await dialog.showOpenDialog(mainWindow!, {
       filters: [
-        { name: "INTENT-CAD project", extensions: ["icad"] },
+        { name: "Kreoda project", extensions: ["icad"] },
         { name: "STEP", extensions: ["step", "stp"] },
         { name: "3MF", extensions: ["3mf"] },
         { name: "STL", extensions: ["stl"] },
