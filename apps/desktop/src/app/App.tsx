@@ -421,7 +421,7 @@ export function App() {
           )}
           {!coreRunning && (
             <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-black/60 px-2.5 py-1.5 text-xs text-white/75">
-              cad-core: not connected — build native sidecar (§61 Task 4–6)
+              kreoda-core: not connected — build native sidecar (§61 Task 4–6)
               {coreVersion ? ` · ${coreVersion}` : ""}
             </div>
           )}

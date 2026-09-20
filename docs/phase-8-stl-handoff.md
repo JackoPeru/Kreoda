@@ -7,11 +7,11 @@ it through the shared faceted path into `MeshImport` solids (one Undo step).
 
 ## What landed
 
-- `native/cad-core/src/exchange/sew.{h,cpp}` (new, shared):
+- `native/kreoda-core/src/exchange/sew.{h,cpp}` (new, shared):
   `SewTrianglesToSolids` (flat soup → closed solids, 1e-6 sewing) and
   `ExtractTriangles` (triangulated faces + locations → flat soup, mm).
   `threemf_exchange.cpp` now uses it (3MF behavior unchanged, ctest proves).
-- `native/cad-core/src/exchange/stl_exchange.{h,cpp}` (new): `ExportStl`
+- `native/kreoda-core/src/exchange/stl_exchange.{h,cpp}` (new): `ExportStl`
   (compound → export-deflection pre-mesh → binary `DESTL_Provider::Write`)
   and `ImportStl` (read → extract → sew → `MeshImport` per solid, one OCAF
   command, `stl-<12hex>` ids). Same stdout `MuteMessenger` guard as STEP.

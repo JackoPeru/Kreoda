@@ -20,9 +20,9 @@ function resolveSidecarPath(): string {
       ? path.join(process.resourcesPath, exe)
       : undefined,
     // dev: <repo>/native/... from the desktop package root
-    path.join(app.getAppPath(), "..", "..", "native", "cad-core", "build", "Release", exe),
-    path.join(process.cwd(), "..", "..", "native", "cad-core", "build", "Release", exe),
-    path.join(process.cwd(), "native", "cad-core", "build", "Release", exe),
+    path.join(app.getAppPath(), "..", "..", "native", "kreoda-core", "build", "Release", exe),
+    path.join(process.cwd(), "..", "..", "native", "kreoda-core", "build", "Release", exe),
+    path.join(process.cwd(), "native", "kreoda-core", "build", "Release", exe),
   ].filter((c): c is string => !!c);
   return candidates.find((c) => fs.existsSync(c)) ?? candidates[0]!;
 }
@@ -52,7 +52,7 @@ export class SidecarManager {
     this.proc.stdout?.on("data", (chunk: Buffer) => this.handleStdout(chunk));
     this.proc.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
-      console.error("[cad-core]", text);
+      console.error("[kreoda-core]", text);
       for (const line of text.split(/\r?\n/)) {
         if (line.length === 0) continue;
         this.stderrTail.push(line.slice(0, 2000));
@@ -102,7 +102,7 @@ export class SidecarManager {
     return new Promise<Uint8Array>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error("cad-core request timed out"));
+        reject(new Error("kreoda-core request timed out"));
       }, timeoutMs);
       if (this.pending.has(id)) {
         clearTimeout(timer);

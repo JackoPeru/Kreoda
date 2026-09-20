@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Configure + build cad-core with MSVC + vcpkg manifest mode (§2, §39).
+  Configure + build kreoda-core with MSVC + vcpkg manifest mode (§2, §39).
 #>
 param(
   [string]$BuildType = "Release",
@@ -9,7 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$core = Join-Path $PSScriptRoot "..\native\cad-core"
+$core = Join-Path $PSScriptRoot "..\native\kreoda-core"
 $build = Join-Path $core "build"
 
 $args = @("-S", $core, "-B", $build, "-DCMAKE_BUILD_TYPE=$BuildType")

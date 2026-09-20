@@ -9,14 +9,14 @@ comes later and must keep every E2E below green while swapping the wire.
 
 - `packages/protocol/scripts/codegen.mjs` (`pnpm --filter @kreoda/protocol codegen`):
   resolves vcpkg `flatc.exe` (flatc 25.12.19, fallback: PATH), emits `--cpp --ts`,
-  copies `cad_protocol_generated.h` → `native/cad-core/src/protocol/generated/`
+  copies `cad_protocol_generated.h` → `native/kreoda-core/src/protocol/generated/`
   and the `kreoda/` TS tree → `packages/protocol/src/generated/kreoda/`.
   The `kreoda/` root is preserved — generated files import each other via
   relative `../../kreoda/...` paths, so flattening breaks them.
 - `packages/protocol/src/codegen.test.ts`: generated `CommandType` equals the
   handwritten registry for every key; a CreateBox `CommandEnvelope` round-trips
   (fields + union payload) through the generated builders. 10/10 package tests.
-- `native/cad-core/tests/test_codegen.cpp`: 23 `static_assert`s (`.fbs`
+- `native/kreoda-core/tests/test_codegen.cpp`: 23 `static_assert`s (`.fbs`
   `CommandType` vs `dispatcher.h` `CommandId`) + gtest envelope round-trip.
   Guarded by `KREODA_WITH_FLATBUFFERS` (skips cleanly without flatbuffers).
 - CMake: `kreoda-protocol-codegen` custom target regenerates the header when

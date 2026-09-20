@@ -70,7 +70,7 @@ export class CadViewport {
     this.scene.add(grid);
 
     // Phase 1: scene starts EMPTY. Every body mesh arrives exclusively from
-    // cad-core tessellation via syncMeshes() (§9, §67) — the viewport never
+    // kreoda-core tessellation via syncMeshes() (§9, §67) — the viewport never
     // builds CAD geometry itself (grid/lights are display helpers only).
 
     this.renderer.domElement.addEventListener("pointermove", (e) =>

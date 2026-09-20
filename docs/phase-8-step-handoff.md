@@ -8,7 +8,7 @@ persist in `.icad`, and undo/redo atomically.
 
 ## What landed
 
-- `native/cad-core/src/exchange/step_exchange.{h,cpp}`: `ExportStep` (all
+- `native/kreoda-core/src/exchange/step_exchange.{h,cpp}`: `ExportStep` (all
   store solids → one compound → `DESTEP_Provider::Write`, AP214) and
   `ImportStep` (read → explode solids → `CommitShape` each as `StepImport`
   with core-minted `step-<12hex>` ids, one OCAF command). Stub core: honest

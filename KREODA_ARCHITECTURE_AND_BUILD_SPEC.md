@@ -1695,7 +1695,7 @@ apps/desktop/
 # 37. Native core folder structure
 
 ```text
-native/cad-core/
+native/kreoda-core/
 ├ CMakeLists.txt
 ├ vcpkg.json
 ├ src/

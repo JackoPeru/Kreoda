@@ -7,7 +7,7 @@ back into faceted `MeshImport` solids inside a single Undo step.
 
 ## What landed
 
-- `native/cad-core/src/exchange/threemf_exchange.{h,cpp}`: `ExportThreeMF`
+- `native/kreoda-core/src/exchange/threemf_exchange.{h,cpp}`: `ExportThreeMF`
   (solids → `TessellateRecord(LOD 2)` → one lib3mf mesh object + build item
   each, unit MilliMeter) and `ImportThreeMF` (unit-scaled vertices →
   per-triangle faces → `BRepBuilderAPI_Sewing(1e-6)` → one `MeshImport`

@@ -6,7 +6,7 @@ Hybrid native/web desktop CAD — **B-Rep parametric core, direct manipulation, 
 Electron 44 + React 19.3 + Vite 8 + Tailwind 4 + Three.js
         │  FlatBuffers framed IPC (stdin/stdout, protocolVersion = 1)
         ▼
-C++17 cad-core sidecar — OCCT 8.0.1 + OCAF/TNaming + PlaneGCS + lib3mf
+C++17 kreoda-core sidecar — OCCT 8.0.1 + OCAF/TNaming + PlaneGCS + lib3mf
 ```
 
 ## Layout (§38)
@@ -14,7 +14,7 @@ C++17 cad-core sidecar — OCCT 8.0.1 + OCAF/TNaming + PlaneGCS + lib3mf
 ```
 kreoda/
 ├ apps/desktop/          # Electron + React + Three.js viewport
-├ native/cad-core/       # C++17 sidecar (owns canonical model, §9)
+├ native/kreoda-core/       # C++17 sidecar (owns canonical model, §9)
 ├ packages/
 │  ├ protocol/           # TS framing + zod validation + types
 │  ├ command-schema/     # typed command registry schemas (§19)
@@ -29,7 +29,7 @@ kreoda/
 
 - Node.js 22+, pnpm 10 (`npm install -g pnpm`)
 - CMake 3.28+, MSVC 2022 (BuildTools ok) + Windows SDK
-- vcpkg (manifest mode, baseline committed in `native/cad-core/vcpkg.json`)
+- vcpkg (manifest mode, baseline committed in `native/kreoda-core/vcpkg.json`)
 - FlatBuffers compiler `flatc` (via vcpkg / pip) for regenerating IPC bindings
 
 ## Quick start (Phase 0 bootstrap)
@@ -40,9 +40,9 @@ pnpm --filter @kreoda/desktop dev     # Vite renderer only
 pnpm --filter @kreoda/desktop start   # Electron + sidecar
 
 # Native core (first configure downloads OCCT 8.0.1 — large, one-time):
-cmake -S native/cad-core -B native/cad-core/build -DCMAKE_BUILD_TYPE=Release
-cmake --build native/cad-core/build --config Release
-.\native\cad-core\build\Release\kreoda-core.exe --self-test
+cmake -S native/kreoda-core -B native/kreoda-core/build -DCMAKE_BUILD_TYPE=Release
+cmake --build native/kreoda-core/build --config Release
+.\native\kreoda-core\build\Release\kreoda-core.exe --self-test
 ```
 
 ## Release packaging

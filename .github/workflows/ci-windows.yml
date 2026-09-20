@@ -31,22 +31,22 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
-          vcpkgJsonGlob: native/cad-core/vcpkg.json
+          vcpkgJsonGlob: native/kreoda-core/vcpkg.json
           additionalArguments: --triplet=x64-windows-release --clean-after-build
 
       - name: Configure native core
         run: >
-          cmake -S native/cad-core -B native/cad-core/build
+          cmake -S native/kreoda-core -B native/kreoda-core/build
           "-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_MANIFEST_MODE=ON
 
       - name: Build native core
-        run: cmake --build native/cad-core/build --config Release
+        run: cmake --build native/kreoda-core/build --config Release
 
       - name: Native self-test + gtest
         run: >
-          ./native/cad-core/build/Release/kreoda-core.exe --self-test;
-          ctest --test-dir native/cad-core/build -C Release --output-on-failure
+          ./native/kreoda-core/build/Release/kreoda-core.exe --self-test;
+          ctest --test-dir native/kreoda-core/build -C Release --output-on-failure
 
       - name: Build desktop shell
         run: pnpm --filter @kreoda/desktop build

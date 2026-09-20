@@ -33,7 +33,7 @@ engine auto-restarts, UI banner + re-query).
 - `pnpm start` — production `dist/` + sidecar.
 - `pnpm -r lint|test|build` — all green. `test:e2e` (Playwright) boots the
   real shell and asserts `core 0.1.0` in the footer.
-- `native/cad-core/build/Release/kreoda-core.exe --self-test` — framing +
+- `native/kreoda-core/build/Release/kreoda-core.exe --self-test` — framing +
   GetCoreInfo/CreateDocument/CreateBox over real stdio pipes.
 
 ## Known Phase 0 limits (by design)

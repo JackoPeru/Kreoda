@@ -11,7 +11,7 @@ build-stub/
 vcpkg_installed/
 
 # vcpkg toolchain clone (~1.4GB): reinstall with the vcpkg bootstrap and
-# point CMAKE_TOOLCHAIN_FILE at it (see native/cad-core build docs).
+# point CMAKE_TOOLCHAIN_FILE at it (see native/kreoda-core build docs).
 vcpkg/
 
 # Native/editor binaries and intermediates

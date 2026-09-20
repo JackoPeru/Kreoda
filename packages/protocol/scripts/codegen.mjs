@@ -15,7 +15,7 @@ const vcpkgFlatc =
     ? join(
         repoRoot,
         "native",
-        "cad-core",
+        "kreoda-core",
         "vcpkg_installed",
         "x64-windows",
         "tools",
@@ -25,7 +25,7 @@ const vcpkgFlatc =
     : join(
         repoRoot,
         "native",
-        "cad-core",
+        "kreoda-core",
         "vcpkg_installed",
         "x64-windows",
         "tools",
@@ -46,7 +46,7 @@ try {
   const cppDstDir = join(
     repoRoot,
     "native",
-    "cad-core",
+    "kreoda-core",
     "src",
     "protocol",
     "generated",
@@ -64,7 +64,7 @@ try {
   rmSync(join(tsDstRoot, "intent-cad"), { recursive: true, force: true });
   cpSync(tsSrc, join(tsDstRoot, "kreoda"), { recursive: true });
   console.log(`flatc codegen ok:
-  C++ -> native/cad-core/src/protocol/generated/cad_protocol_generated.h
+  C++ -> native/kreoda-core/src/protocol/generated/cad_protocol_generated.h
   TS  -> packages/protocol/src/generated/`);
 } finally {
   rmSync(outDir, { recursive: true, force: true });

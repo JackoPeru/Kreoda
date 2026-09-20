@@ -252,23 +252,36 @@ interface PrefsState {
   setTelemetry: (enabled: boolean) => void;
 }
 
-function storedLlm(): { endpoint: string; model: string } {
+/**
+ * Read with one-time migration from pre-rename keys (dev-stage courtesy):
+ * first launch after the rename carries `kreoda.*` forward and drops the
+ * legacy `intentcad.*` entry, so endpoint/model/opt-in survive the update.
+ */
+function storedString(newKey: string, oldKey: string): string {
   try {
-    return {
-      endpoint: localStorage.getItem("kreoda.llmEndpoint") ?? "",
-      model: localStorage.getItem("kreoda.llmModel") ?? "",
-    };
+    const current = localStorage.getItem(newKey);
+    if (current !== null) return current;
+    const legacy = localStorage.getItem(oldKey);
+    if (legacy !== null) {
+      localStorage.setItem(newKey, legacy);
+      localStorage.removeItem(oldKey);
+      return legacy;
+    }
+    return "";
   } catch {
-    return { endpoint: "", model: "" };
+    return "";
   }
 }
 
+function storedLlm(): { endpoint: string; model: string } {
+  return {
+    endpoint: storedString("kreoda.llmEndpoint", "intentcad.llmEndpoint"),
+    model: storedString("kreoda.llmModel", "intentcad.llmModel"),
+  };
+}
+
 function storedTelemetry(): boolean {
-  try {
-    return localStorage.getItem("kreoda.telemetry") === "1";
-  } catch {
-    return false;
-  }
+  return storedString("kreoda.telemetry", "intentcad.telemetry") === "1";
 }
 
 const initialLlm = storedLlm();

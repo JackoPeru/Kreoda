@@ -1,7 +1,7 @@
 # Third-party notices — Kreoda (Phase 8 §61)
 
 Versions verified against `pnpm-lock.yaml` and the vcpkg install tree
-(`native/cad-core/vcpkg.json`, builtin-baseline `e6f9e70a`). Per-package
+(`native/kreoda-core/vcpkg.json`, builtin-baseline `e6f9e70a`). Per-package
 SBOMs ship with vcpkg (`share/*/vcpkg.spdx.json`).
 
 ## Runtime — geometry kernel (native sidecar)
