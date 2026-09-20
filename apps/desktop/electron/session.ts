@@ -258,6 +258,9 @@ export class SessionRelay {
       if (clientId) {
         this.clients.delete(clientId);
         this.selections.delete(clientId);
+        for (const [id, p] of this.previews) {
+          if (p.clientId === clientId) this.previews.delete(id);
+        }
         // A dead owner must not wedge the core: best-effort rollback of its
         // open unit (recoverable via txnStatus/txnForceRollback if lost).
         this.autoRollback(clientId);

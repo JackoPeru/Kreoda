@@ -5,8 +5,9 @@ namespace Kreoda.QuestFoundation;
 /// scene or array positions owned by the renderer.</summary>
 public sealed record FaceRange(string PersistentFaceId, int TriangleStart, int TriangleCount);
 
-/// <summary>Render-neutral edge range: persistent edge id + segment span
-/// over the edge-vertex polyline (segment s covers vertices 2s, 2s+1).</summary>
+/// <summary>Render-neutral edge range: persistent edge id + vertex span of
+/// a consecutive polyline (segment s covers vertices VertexStart+s and
+/// VertexStart+s+1, mirroring the viewport's segToEdge build).</summary>
 public sealed record EdgeRange(string PersistentEdgeId, int VertexStart, int VertexCount);
 
 /// <summary>One body's render-neutral mesh (§12.3): flat buffers plus the

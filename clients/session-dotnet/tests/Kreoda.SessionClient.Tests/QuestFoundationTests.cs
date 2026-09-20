@@ -40,6 +40,21 @@ public sealed class QuestFoundationTests
     }
 
     [Fact]
+    public void SegmentResolvesToPersistentEdge()
+    {
+        // Consecutive-polyline layout (mirrors viewport segToEdge): edge one
+        // owns segments 0-1, edge two starts at vertex 2.
+        var mesh = new BodyMesh("e", new float[4 * 3], new float[4 * 3],
+            new uint[3], new List<FaceRange>(),
+            new List<EdgeRange> { new("e:one", 0, 3), new("e:two", 2, 2) });
+        Assert.Equal("e:one", mesh.ResolveEdge(0));
+        Assert.Equal("e:one", mesh.ResolveEdge(1));
+        Assert.Equal("e:two", mesh.ResolveEdge(2));
+        Assert.Null(mesh.ResolveEdge(3));
+        Assert.Null(mesh.ResolveEdge(-1));
+    }
+
+    [Fact]
     public void RegistryUpsertsAndDropsPerBody()
     {
         var scene = new SceneRegistry();

@@ -131,7 +131,16 @@ public sealed class SessionClient : IAsyncDisposable
         IDictionary<string, object?> @params,
         CancellationToken ct = default)
     {
-        if (_ws.State != WebSocketState.Open)
+        bool open;
+        try
+        {
+            open = _disposed == 0 && _ws.State == WebSocketState.Open;
+        }
+        catch (ObjectDisposedException)
+        {
+            open = false;
+        }
+        if (!open)
             throw new SessionException("NOT_CONNECTED", "session socket is not open");
         var requestId = $"cs-{Interlocked.Increment(ref _seq)}";
         var tcs = new TaskCompletionSource<JsonElement>(

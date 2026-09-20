@@ -206,4 +206,23 @@ public sealed class SessionClientTests
         var ex = await Assert.ThrowsAsync<SessionException>(() => pending);
         Assert.Equal("CLOSED", ex.Code);
     }
+
+    [Fact]
+    public async Task CallAfterDisposeThrowsSessionException()
+    {
+        await using var server = new LoopbackWsServer(static req =>
+            JsonSerializer.Serialize(new Dictionary<string, object?>
+            {
+                ["requestId"] = req.GetProperty("requestId").GetString(),
+                ["ok"] = true,
+                ["clientId"] = "client-1",
+                ["revision"] = 0,
+            }));
+        server.Start();
+        var client = await BootAsync(server);
+        await client.DisposeAsync();
+        var ex = await Assert.ThrowsAsync<SessionException>(() =>
+            client.QueryAsync("late", new Dictionary<string, object?>()));
+        Assert.Equal("NOT_CONNECTED", ex.Code);
+    }
 }
