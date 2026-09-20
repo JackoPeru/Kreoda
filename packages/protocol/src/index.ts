@@ -39,6 +39,10 @@ export const CommandType = {
   RequestFaceInfo: 23,
   CreateInstance: 24,
   CreateHolePattern: 25,
+  RequestSnapshot: 26,
+  BeginTransaction: 27,
+  CommitTransaction: 28,
+  RollbackTransaction: 29,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 

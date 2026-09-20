@@ -4,7 +4,9 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { randomUUID } from "node:crypto";
 import { SidecarManager } from "./sidecar";
+import { SessionRelay, type SessionDelta } from "./session";
 import {
   checkFeed,
   downloadPinned,
@@ -13,6 +15,9 @@ import {
 
 let mainWindow: BrowserWindow | null = null;
 let sidecar: SidecarManager | null = null;
+// Phase 11b: unified session relay (Quest/agent/second-client front for the
+// local authoritative core). Null unless KREODA_SESSION_PORT is set.
+let sessionRelay: SessionRelay | null = null;
 
 const isDev = !app.isPackaged;
 
@@ -51,6 +56,8 @@ async function initSidecar(): Promise<void> {
     // restore from autosave (Phase 8), rehydrate viewport.
     void mainWindow?.webContents.send("kreoda:core-crashed", { code });
     console.error(`[main] geometry engine exited (${code}) — restarting`);
+    // Phase 11b: session clients drop in-flight state and resync by revision.
+    sessionRelay?.onSidecarCrashed();
     void sidecar
       ?.start()
       .then(() => mainWindow?.webContents.send("kreoda:core-restarted", {}))
@@ -66,6 +73,33 @@ async function initSidecar(): Promise<void> {
 app.whenReady().then(() => {
   createWindow();
   void initSidecar();
+  // Phase 11b session relay: inert unless KREODA_SESSION_PORT is set (§11.16:
+  // loopback by default, LAN only via KREODA_SESSION_HOST, token-gated).
+  // KREODA_SESSION_TOKEN pins the pairing token (tests/isolation); otherwise
+  // a one-time token is printed for manual pairing (Quest UI lands later).
+  const sessionPort = Number(process.env["KREODA_SESSION_PORT"] ?? "");
+  if (Number.isInteger(sessionPort) && sessionPort > 0) {
+    const token = process.env["KREODA_SESSION_TOKEN"] ?? randomUUID();
+    if (!process.env["KREODA_SESSION_TOKEN"]) {
+      console.log(`[session] one-time pairing token: ${token}`);
+    }
+    sessionRelay = new SessionRelay(
+      () => sidecar,
+      (delta: SessionDelta) => {
+        mainWindow?.webContents.send("kreoda:session-delta", delta);
+      },
+    );
+    try {
+      sessionRelay.start({
+        port: sessionPort,
+        host: process.env["KREODA_SESSION_HOST"] ?? "127.0.0.1",
+        token,
+      });
+    } catch (e) {
+      console.error("[session] relay failed to start", e);
+      sessionRelay = null;
+    }
+  }
   // Signed-update check runs after boot; inert without a feed (§61).
   setTimeout(() => {
     void maybeAutoUpdate();
@@ -83,6 +117,31 @@ app.whenReady().then(() => {
     if (!sidecar) return { running: false };
     return { running: sidecar.isRunning(), pid: sidecar.pid() };
   });
+
+  // Phase 11b: renderer-committed mutations ping the session relay (which
+  // the renderer's own toolbar/palette/AI paths would otherwise bypass),
+  // so remote clients observe the same delta stream. No-op when disabled.
+  ipcMain.handle(
+    "kreoda:session-note",
+    async (
+      _event,
+      documentId: unknown,
+      revision: unknown,
+      features: unknown,
+      sketches: unknown,
+    ) => {
+      if (!sessionRelay) return;
+      if (typeof documentId !== "string" || typeof revision !== "number") {
+        return;
+      }
+      await sessionRelay.noteLocal(
+        documentId,
+        revision,
+        Array.isArray(features) ? features : undefined,
+        Array.isArray(sketches) ? sketches : undefined,
+      );
+    },
+  );
 
   // Signed updates (Phase 8 §61): inert unless KREODA_UPDATE_FEED points
   // at a manifest feed. Renderer can trigger a check; downloads only land
@@ -371,11 +430,13 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
+    sessionRelay?.stop();
     sidecar?.stop();
     app.quit();
   }
 });
 
 app.on("before-quit", () => {
+  sessionRelay?.stop();
   sidecar?.stop();
 });

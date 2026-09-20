@@ -32,6 +32,19 @@ class OcafLive {
   bool CommitCommand(bool* hadDelta, std::string* error);
   void AbortCommand();
 
+  // Multi-command session transactions (§11.12): N typed commands become
+  // one Undo step. While open, feature Begin/Commit calls join the open
+  // OCAF command and Abort only taints; Commit on a tainted transaction
+  // rolls everything back instead of keeping partial work. Owner-checked;
+  // Reset() always clears (no half-open command survives a fresh doc).
+  bool BeginTransaction(const std::string& transactionId, std::string* error);
+  bool CommitTransaction(const std::string& transactionId, bool* hadDelta,
+                         std::string* error);
+  bool RollbackTransaction(const std::string& transactionId,
+                           std::string* error);
+  bool InTransaction() const { return joinTxn_; }
+  std::string TransactionOwner() const { return txnOwner_; }
+
   bool Undo(std::string* error);
   bool Redo(std::string* error);
   int AvailableUndos() const;
@@ -91,6 +104,12 @@ class OcafLive {
   OcafLive() = default;
   OcafLive(const OcafLive&) = delete;
   OcafLive& operator=(const OcafLive&) = delete;
+
+  // Session-transaction state (§11.12): plain members (no OCCT), so Reset()
+  // clears them on every fresh document even in stub builds.
+  bool joinTxn_ = false;
+  bool txnTainted_ = false;
+  std::string txnOwner_;
 
 #if KREODA_WITH_OCCT
   struct Ocaf;

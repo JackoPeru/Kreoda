@@ -56,6 +56,10 @@ enum CommandId {
   kRequestFaceInfo = 23,
   kCreateInstance = 24,
   kCreateHolePattern = 25,
+  kRequestSnapshot = 26,
+  kBeginTransaction = 27,
+  kCommitTransaction = 28,
+  kRollbackTransaction = 29,
 };
 
 }  // namespace kreoda

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- §11.2: C# bindings for the Quest (Unity) and agent clients, generated
+       from the single schema source (schemas/cad_protocol.fbs). Regenerate
+       with pnpm codegen. Never hand-edit Generated/. Hand-written helpers,
+       if ever needed, go beside it. -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- NuGet tracks its own versioning (25.2.10); the generated code only
+         uses the stable builder/table surface, verified by this build. -->
+    <PackageReference Include="Google.FlatBuffers" Version="25.2.10" />
+  </ItemGroup>
+
+</Project>

@@ -59,6 +59,9 @@ importers:
       three-mesh-bvh:
         specifier: ^0.9.2
         version: 0.9.15(three@0.186.0)
+      ws:
+        specifier: ^8.21.3
+        version: 8.21.3
       xstate:
         specifier: ^5.24.0
         version: 5.33.2
@@ -105,6 +108,9 @@ importers:
       '@types/three':
         specifier: ^0.186.0
         version: 0.186.0
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       '@vitejs/plugin-react':
         specifier: ^6.1.1
         version: 6.1.1(vite@8.3.0(@types/node@26.6.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
@@ -1258,6 +1264,9 @@ packages:
 
   '@types/wrap-ansi@3.0.0':
     resolution: {integrity: sha512-ltIpx+kM7g/MLRZfkbL7EsCEjfzCcScLpkg37eXEtx5kmrAKBkTJwd1GIAjDSL8wTpM6Hzn5YO4pSb91BEwu1g==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@types/yauzl@2.10.3':
     resolution: {integrity: sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q==}
@@ -4663,6 +4672,10 @@ snapshots:
   '@types/webxr@0.5.24': {}
 
   '@types/wrap-ansi@3.0.0': {}
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 26.6.1
 
   '@types/yauzl@2.10.3':
     dependencies:

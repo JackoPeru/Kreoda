@@ -32,7 +32,11 @@ enum CommandType : ushort {
   CreateChamfer,
   RequestFaceInfo,
   CreateInstance,
-  CreateHolePattern
+  CreateHolePattern,
+  RequestSnapshot,
+  BeginTransaction,
+  CommitTransaction,
+  RollbackTransaction
 }
 
 enum StatusCode : byte {

@@ -162,6 +162,34 @@ export function App() {
     loadPluginsFromHost().catch(() => {});
   }, []);
 
+  // Phase 11b session deltas: authoritative changes from other session
+  // clients (Quest/agent/second desktop) land here. Own mutations already
+  // synced at their current revision, so stale/duplicate deltas drop inside
+  // syncFromCoreList (revision guards) — never a loop, never a rollback.
+  useEffect(() => {
+    const off = window.kreoda?.onSessionDelta?.((delta) => {
+      void (async () => {
+        try {
+          const store = useDocumentUiStore.getState();
+          if (delta.documentId !== store.documentId) {
+            store.resetDocument(delta.documentId);
+          }
+          const { syncFromCoreList } = await import("../model/sync");
+          await syncFromCoreList(
+            delta.features as Parameters<typeof syncFromCoreList>[0],
+            delta.revision,
+            delta.sketches as Parameters<typeof syncFromCoreList>[2],
+          );
+        } catch (e) {
+          console.warn("[session] delta apply failed", e);
+        }
+      })();
+    });
+    return () => {
+      off?.();
+    };
+  }, []);
+
   useEffect(() => {
     // Read-only diagnostics hook for E2E + support bundles (§49–§50).
     // No Node/fs access — store summary only.

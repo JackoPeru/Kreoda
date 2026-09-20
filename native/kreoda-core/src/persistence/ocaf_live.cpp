@@ -257,10 +257,18 @@ void OcafLive::Reset() {
   ocaf_->expressionsRoot = ocaf_->doc->Main().NewChild();
   TDataStd_Name::Set(ocaf_->expressionsRoot, "Expressions");
 #endif
+  // A fresh document owns no transaction (crash-safe by construction:
+  // Reset drops the OCAF doc, so no half-open command can survive it).
+  joinTxn_ = false;
+  txnTainted_ = false;
+  txnOwner_.clear();
 }
 
 bool OcafLive::BeginCommand(std::string* error) {
 #if KREODA_WITH_OCCT
+  // §11.12: inside a session transaction every feature op joins the one
+  // open OCAF command instead of opening its own (one Undo step for N ops).
+  if (joinTxn_) return true;
   if (!ocaf_ || ocaf_->doc.IsNull()) Reset();
   if (ocaf_->doc->HasOpenCommand()) {
     if (error) *error = "nested OCAF command (single queue, §40)";
@@ -278,6 +286,11 @@ bool OcafLive::BeginCommand(std::string* error) {
 
 bool OcafLive::CommitCommand(bool* hadDelta, std::string* error) {
 #if KREODA_WITH_OCCT
+  // §11.12: joined ops defer the real commit to CommitTransaction.
+  if (joinTxn_) {
+    if (hadDelta) *hadDelta = false;
+    return true;
+  }
   if (!ocaf_ || !ocaf_->doc->HasOpenCommand()) {
     if (error) *error = "no open OCAF command";
     return false;
@@ -294,7 +307,114 @@ bool OcafLive::CommitCommand(bool* hadDelta, std::string* error) {
 
 void OcafLive::AbortCommand() {
 #if KREODA_WITH_OCCT
+  // §11.12: a failed step inside a transaction must NOT abort the whole
+  // command (the client decides commit vs rollback); it only taints, so a
+  // later commit auto-rolls-back instead of silently keeping partial work.
+  // Store-level pre-images are still restored by the failing op itself.
+  if (joinTxn_) {
+    txnTainted_ = true;
+    return;
+  }
   if (ocaf_ && ocaf_->doc->HasOpenCommand()) ocaf_->doc->AbortCommand();
+#endif
+}
+
+bool OcafLive::BeginTransaction(const std::string& transactionId,
+                                std::string* error) {
+#if KREODA_WITH_OCCT
+  if (transactionId.empty()) {
+    if (error) *error = "transactionId is required";
+    return false;
+  }
+  if (joinTxn_) {
+    if (error) {
+      *error = "transaction already open (" + txnOwner_ +
+               ") — commit or roll it back first";
+    }
+    return false;
+  }
+  if (!ocaf_ || ocaf_->doc.IsNull()) Reset();
+  if (ocaf_->doc->HasOpenCommand()) {
+    if (error) *error = "nested OCAF command (single queue, §40)";
+    return false;
+  }
+  // One user-level action == one Undo delta: clear redos once, at the edge.
+  ocaf_->doc->ClearRedos();
+  ocaf_->doc->OpenCommand();
+  joinTxn_ = true;
+  txnTainted_ = false;
+  txnOwner_ = transactionId;
+  return true;
+#else
+  (void)transactionId;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+bool OcafLive::CommitTransaction(const std::string& transactionId,
+                                 bool* hadDelta, std::string* error) {
+#if KREODA_WITH_OCCT
+  if (!joinTxn_) {
+    if (error) *error = "no open transaction";
+    return false;
+  }
+  if (transactionId != txnOwner_) {
+    if (error) *error = "not the transaction owner";
+    return false;
+  }
+  joinTxn_ = false;
+  const bool tainted = txnTainted_;
+  txnTainted_ = false;
+  txnOwner_.clear();
+  if (tainted) {
+    // A step failed mid-transaction: never commit partial work — roll the
+    // whole command back and say so honestly.
+    if (ocaf_ && ocaf_->doc->HasOpenCommand()) ocaf_->doc->AbortCommand();
+    std::string rsErr;
+    ResyncStore(&rsErr);
+    if (error) *error = "transaction had a failed step — rolled back";
+    if (hadDelta) *hadDelta = false;
+    return false;
+  }
+  if (!ocaf_ || !ocaf_->doc->HasOpenCommand()) {
+    if (error) *error = "no open OCAF command";
+    return false;
+  }
+  const bool added = ocaf_->doc->CommitCommand();
+  if (hadDelta) *hadDelta = added;
+  return true;
+#else
+  (void)transactionId;
+  (void)hadDelta;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+bool OcafLive::RollbackTransaction(const std::string& transactionId,
+                                   std::string* error) {
+#if KREODA_WITH_OCCT
+  if (!joinTxn_) {
+    if (error) *error = "no open transaction";
+    return false;
+  }
+  if (transactionId != txnOwner_) {
+    if (error) *error = "not the transaction owner";
+    return false;
+  }
+  joinTxn_ = false;
+  txnTainted_ = false;
+  txnOwner_.clear();
+  if (ocaf_ && ocaf_->doc->HasOpenCommand()) ocaf_->doc->AbortCommand();
+  // Uncommitted store puts from joined ops must go too: rebuild the store
+  // (and label maps) from the live doc like any other abort path (C7).
+  if (!ResyncStore(error)) return false;
+  return true;
+#else
+  (void)transactionId;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
 #endif
 }
 

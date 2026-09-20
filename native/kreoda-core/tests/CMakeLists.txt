@@ -19,6 +19,7 @@ add_executable(kreoda-core-tests
   test_undo.cpp
   test_hole_pattern.cpp
   test_torture_phase10.cpp
+  test_session11.cpp
   test_sketch.cpp
   test_solids.cpp
   test_step.cpp

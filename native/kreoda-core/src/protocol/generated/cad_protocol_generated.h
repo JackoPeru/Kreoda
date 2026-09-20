@@ -163,11 +163,15 @@ enum CommandType : uint16_t {
   CommandType_RequestFaceInfo = 23,
   CommandType_CreateInstance = 24,
   CommandType_CreateHolePattern = 25,
+  CommandType_RequestSnapshot = 26,
+  CommandType_BeginTransaction = 27,
+  CommandType_CommitTransaction = 28,
+  CommandType_RollbackTransaction = 29,
   CommandType_MIN = CommandType_None,
-  CommandType_MAX = CommandType_CreateHolePattern
+  CommandType_MAX = CommandType_RollbackTransaction
 };
 
-inline const CommandType (&EnumValuesCommandType())[26] {
+inline const CommandType (&EnumValuesCommandType())[30] {
   static const CommandType values[] = {
     CommandType_None,
     CommandType_GetCoreInfo,
@@ -194,13 +198,17 @@ inline const CommandType (&EnumValuesCommandType())[26] {
     CommandType_CreateChamfer,
     CommandType_RequestFaceInfo,
     CommandType_CreateInstance,
-    CommandType_CreateHolePattern
+    CommandType_CreateHolePattern,
+    CommandType_RequestSnapshot,
+    CommandType_BeginTransaction,
+    CommandType_CommitTransaction,
+    CommandType_RollbackTransaction
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandType() {
-  static const char * const names[27] = {
+  static const char * const names[31] = {
     "None",
     "GetCoreInfo",
     "CreateDocument",
@@ -227,13 +235,17 @@ inline const char * const *EnumNamesCommandType() {
     "RequestFaceInfo",
     "CreateInstance",
     "CreateHolePattern",
+    "RequestSnapshot",
+    "BeginTransaction",
+    "CommitTransaction",
+    "RollbackTransaction",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandType(CommandType e) {
-  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_CreateHolePattern)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_RollbackTransaction)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandType()[index];
 }

@@ -587,6 +587,44 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
     return true;
   };
 
+  // §11.12 transaction fence: while a session transaction is open, only
+  // joined mutating commands (carrying the owner's transactionId), the
+  // transaction control commands, read-only queries and transient previews
+  // may run. Document-lifecycle and history commands (create/undo/redo/
+  // save/open) are always fenced — they would entangle the atomic unit.
+  // Everything else is rejected honestly instead of silently joining
+  // another client's transaction.
+  if (OcafLive::instance().InTransaction() && type != kBeginTransaction &&
+      type != kCommitTransaction && type != kRollbackTransaction) {
+    const bool readOnly =
+        type == kGetCoreInfo || type == kRequestMesh ||
+        type == kRequestSketch || type == kPreviewSketch ||
+        type == kRequestFaceInfo || type == kRequestSnapshot ||
+        type == kDeleteFeature;  // answers NOT_IMPLEMENTED deterministically
+    const bool preview =
+        (type == kSetFeatureParameter || type == kUpdateSketch) &&
+        (json_string_field(requestJson, "isPreview", "") == "true" ||
+         json_int_field(requestJson, "isPreview", 0) == 1);
+      const bool lifecycle =
+          type == kCreateDocument || type == kUndo || type == kRedo ||
+          type == kSaveDocument || type == kOpenDocument;
+      // Read-only queries and transient previews always pass (they observe
+      // the document without joining the atomic unit). Lifecycle/history
+      // commands are always fenced; other mutating commands must carry the
+      // owner's transactionId.
+      if (!readOnly && !preview) {
+        const std::string tid =
+            json_string_field(requestJson, "transactionId", "");
+        if (lifecycle || tid.empty() ||
+            tid != OcafLive::instance().TransactionOwner()) {
+          return make_response(requestId, "error",
+                               error_body("TRANSACTION_OPEN",
+                                          "a session transaction is in progress — "
+                                          "join it with its transactionId or wait"));
+        }
+      }
+  }
+
   switch (type) {
     case kGetCoreInfo: {
       std::ostringstream body;
@@ -1463,6 +1501,100 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       body << feature_list_body();
       return make_response(requestId, "ok", body.str());
     }
+    case kRequestSnapshot: {
+      // §11.7 session snapshot: the authoritative feature/sketch lists at
+      // the current revision. Read-only: no transaction, no revision bump,
+      // safe to call between mutations (callers use revision for deltas).
+      std::ostringstream body;
+      body << "\"documentId\":\"" << escape(documentId) << "\","
+           << feature_list_body();
+      return make_response(requestId, "ok", body.str());
+    }
+    case kBeginTransaction: {
+      // §11.12: open one Undo step for N subsequent joined commands.
+      const std::string tid =
+          json_string_field(requestJson, "transactionId", "");
+      if (tid.empty() || !cleanId(tid)) {
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS",
+                                        "transactionId must match [A-Za-z0-9_-]"));
+      }
+      if (OcafLive::instance().InTransaction()) {
+        return make_response(requestId, "error",
+                             error_body("TRANSACTION_BUSY",
+                                        "a transaction is already open — commit or roll it back first"));
+      }
+      std::string error;
+      if (!OcafLive::instance().BeginTransaction(tid, &error)) {
+        return make_response(requestId, "error",
+                             error_body("TRANSACTION_FAILED", error));
+      }
+      std::ostringstream body;
+      body << "\"transactionId\":\"" << escape(tid) << "\","
+           << feature_list_body();
+      return make_response(requestId, "ok", body.str());
+    }
+    case kCommitTransaction: {
+      const std::string tid =
+          json_string_field(requestJson, "transactionId", "");
+      if (!OcafLive::instance().InTransaction()) {
+        return make_response(requestId, "error",
+                             error_body("NO_TRANSACTION", "no open transaction"));
+      }
+      if (tid != OcafLive::instance().TransactionOwner()) {
+        return make_response(requestId, "error",
+                             error_body("NOT_OWNER",
+                                        "only the transaction owner can commit it"));
+      }
+      // A successful commit is exactly one Undo delta: bump the revision
+      // once so deltas converge (§11.6).
+      bool hadDelta = false;
+      std::string error;
+      if (!OcafLive::instance().CommitTransaction(tid, &hadDelta, &error)) {
+        // Tainted (a step failed): everything already rolled back inside —
+        // rebuild the graph (phantom nodes from joined ops) and report the
+        // post-rollback list so clients converge instead of diverging.
+        SyncGraphFromStore();
+        std::ostringstream body;
+        body << "\"transactionId\":\"" << escape(tid) << "\","
+             << feature_list_body();
+        return make_response(requestId, "error",
+                             error_body("TRANSACTION_TAINTED", error) + "," +
+                                 body.str());
+      }
+      SyncGraphFromStore();
+      DocumentStore::instance().commit();
+      std::ostringstream body;
+      body << "\"transactionId\":\"" << escape(tid) << "\","
+           << feature_list_body();
+      return make_response(requestId, "ok", body.str());
+    }
+    case kRollbackTransaction: {
+      const std::string tid =
+          json_string_field(requestJson, "transactionId", "");
+      if (!OcafLive::instance().InTransaction()) {
+        return make_response(requestId, "error",
+                             error_body("NO_TRANSACTION", "no open transaction"));
+      }
+      if (tid != OcafLive::instance().TransactionOwner()) {
+        return make_response(requestId, "error",
+                             error_body("NOT_OWNER",
+                                        "only the transaction owner can roll it back"));
+      }
+      std::string error;
+      if (!OcafLive::instance().RollbackTransaction(tid, &error)) {
+        return make_response(requestId, "error",
+                             error_body("TRANSACTION_FAILED", error));
+      }
+      // Store + label maps were rebuilt from the live doc; the graph keeps
+      // phantom nodes from joined ops — rebuild it too. No revision bump:
+      // nothing committed, but the list below lets clients converge.
+      SyncGraphFromStore();
+      std::ostringstream body;
+      body << "\"transactionId\":\"" << escape(tid) << "\","
+           << feature_list_body();
+      return make_response(requestId, "ok", body.str());
+    }
     case kCreateFillet:
     case kCreateChamfer: {
       const bool isFillet = (type == kCreateFillet);
@@ -1667,7 +1799,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       return make_response(requestId, "error",
                            error_body("UNKNOWN_COMMAND",
                                       "unsupported type (core 0.1.0 "
-                                      "implements 1-25; delete arrives separately as NOT_IMPLEMENTED)"));
+                                      "implements 1-26; delete arrives separately as NOT_IMPLEMENTED)"));
   }
 }
 

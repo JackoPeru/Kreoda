@@ -25,6 +25,42 @@ export interface KreodaApi {
   onUpdateAvailable: (cb: (info: { version: string }) => void) => () => void;
   onCoreCrashed: (cb: (info: { code: number | null }) => void) => () => void;
   onCoreRestarted: (cb: () => void) => () => void;
+  // Phase 11b: authoritative model deltas from other session clients
+  // (Quest/agent/second desktop). The renderer applies them when their
+  // revision is newer than the local projection (§11.6).
+  onSessionDelta: (
+    cb: (delta: {
+      originClientId: string;
+      documentId: string;
+      revision: number;
+      features: {
+        featureId: string;
+        type: string;
+        paramsMm: number[];
+        volumeMm3: number;
+        dependsOn: string[];
+        refExtra: string;
+        expressions: Record<string, string>;
+      }[];
+      sketches: {
+        featureId: string;
+        planeKind: string;
+        points: number;
+        lines: number;
+        circles: number;
+        constraints: number;
+      }[];
+    }) => void,
+  ) => () => void;
+  // Phase 11b: the renderer tells the session relay about mutations it
+  // committed itself (toolbar/palette/AI paths bypass the relay socket), so
+  // remote clients get the same delta broadcast. No-op when disabled.
+  sessionNote: (
+    documentId: string,
+    revision: number,
+    features?: unknown[],
+    sketches?: unknown[],
+  ) => Promise<void>;
 }
 
 const api: KreodaApi = {
@@ -113,6 +149,27 @@ const api: KreodaApi = {
         listener as (...args: unknown[]) => void,
       );
   },
+  onSessionDelta: (cb) => {
+    const listener = (_event: unknown, delta: Parameters<typeof cb>[0]): void =>
+      cb(delta);
+    ipcRenderer.on(
+      "kreoda:session-delta",
+      listener as (...args: unknown[]) => void,
+    );
+    return () =>
+      ipcRenderer.removeListener(
+        "kreoda:session-delta",
+        listener as (...args: unknown[]) => void,
+      );
+  },
+  sessionNote: (documentId, revision, features, sketches) =>
+    ipcRenderer.invoke(
+      "kreoda:session-note",
+      documentId,
+      revision,
+      features ?? [],
+      sketches ?? [],
+    ) as Promise<void>,
 };
 
 contextBridge.exposeInMainWorld("kreoda", api);
