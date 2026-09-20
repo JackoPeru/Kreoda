@@ -17,6 +17,7 @@ const hole = (
   paramsMm: [diameter, 0],
   dependsOn: ["box-1"],
   refExtra: "",
+  expressions: {},
   volumeMm3: 1000,
 });
 
@@ -26,6 +27,7 @@ const box: FeatureSummary = {
   paramsMm: [100, 50, 10],
   dependsOn: [],
   refExtra: "",
+  expressions: {},
   volumeMm3: 50000,
 };
 

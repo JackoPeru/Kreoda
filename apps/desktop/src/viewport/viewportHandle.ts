@@ -17,6 +17,9 @@ interface ViewportHandle {
   projectPoint: (p: [number, number, number]) => { x: number; y: number } | null;
   /** Normalized camera view direction (target − position); null if unready. */
   viewDir: () => [number, number, number] | null;
+  /** Next two clicks on a reference plane as image pixels (§29 Stage A). */
+  beginReferenceMeasure: (id: string) => Promise<[number, number][] | null>;
+  cancelReferenceMeasure: () => void;
 }
 
 let handle: ViewportHandle | null = null;
@@ -46,4 +49,15 @@ export function viewportProjectPoint(
 
 export function viewportViewDir(): [number, number, number] | null {
   return handle?.viewDir() ?? null;
+}
+
+export function viewportBeginReferenceMeasure(
+  id: string,
+): Promise<[number, number][] | null> {
+  if (!handle) return Promise.resolve(null);
+  return handle.beginReferenceMeasure(id);
+}
+
+export function viewportCancelReferenceMeasure(): void {
+  handle?.cancelReferenceMeasure();
 }

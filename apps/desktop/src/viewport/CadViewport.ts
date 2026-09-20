@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { MeshBVH, acceleratedRaycast } from "three-mesh-bvh";
 import type { CoreMeshData } from "@kreoda/protocol";
 import { CameraController } from "./CameraController";
+import type { ReferencePlane } from "../reference/store";
 
 (THREE.Mesh.prototype as unknown as { raycast: unknown }).raycast =
   acceleratedRaycast;
@@ -40,6 +41,17 @@ export class CadViewport {
   private onResize = (): void => this.resize();
   private edgeSelectedLines: THREE.LineSegments | null = null;
   private previewMesh: THREE.Mesh | null = null;
+  // Reference image planes (§29 Stage A): view aids, never CAD state.
+  private refPlanes = new Map<string, THREE.Mesh>();
+  // M6: texture-load generation per plane — a stale load finishing after a
+  // newer one is dropped instead of overwriting it. Cleared with the plane.
+  private refTexSeq = new Map<string, number>();
+  private refMeasure: {
+    id: string;
+    points: [number, number][];
+    resolve: (pts: [number, number][] | null) => void;
+  } | null = null;
+  private refMeasureTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private container: HTMLElement,
@@ -76,9 +88,11 @@ export class CadViewport {
     this.renderer.domElement.addEventListener("pointermove", (e) =>
       this.pick(e, false),
     );
-    this.renderer.domElement.addEventListener("click", (e) =>
-      this.pick(e, true),
-    );
+    this.renderer.domElement.addEventListener("click", (e) => {
+      // Calibration capture runs before normal picking (§29 Stage A).
+      if (this.refMeasure && this.captureMeasureClick(e)) return;
+      this.pick(e, true);
+    });
     window.addEventListener("resize", this.onResize);
     this.loop();
   }
@@ -99,6 +113,286 @@ export class CadViewport {
 
   setPickMode(mode: PickMode): void {
     this.pickMode = mode;
+  }
+
+  /**
+   * Reference image planes (§29 Stage A): reconcile textured quads sized in
+   * mm on their principal plane. Display helpers only — never CAD state.
+   */
+  syncReferencePlanes(planes: ReferencePlane[]): void {
+    const seen = new Set<string>();
+    // C9 second layer: store already caps, but a crafted plane must never
+    // OOM the GPU (16k² PNG → ~1 GiB RGBA) or scale beyond camera.far.
+    const safe = planes
+      .filter(
+        (p) =>
+          Number.isFinite(p.widthMm) &&
+          Number.isFinite(p.heightMm) &&
+          p.widthMm > 0 &&
+          p.heightMm > 0 &&
+          p.widthMm <= 1000000 &&
+          p.heightMm <= 1000000 &&
+          Number.isFinite(p.imageW) &&
+          Number.isFinite(p.imageH) &&
+          p.imageW > 0 &&
+          p.imageH > 0 &&
+          p.imageW <= 8192 &&
+          p.imageH <= 8192 &&
+          p.imageW * p.imageH <= 16000000,
+      )
+      .slice(0, 8);
+    for (const p of safe) {
+      seen.add(p.id);
+      let mesh = this.refPlanes.get(p.id);
+      if (!mesh) {
+        const geo = new THREE.PlaneGeometry(1, 1);
+        const mat = new THREE.MeshBasicMaterial({
+          transparent: true,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+        mesh = new THREE.Mesh(geo, mat);
+        mesh.renderOrder = -1;
+        mesh.userData.refId = p.id;
+        // C9: downscale before GPU upload (16k² PNG → ~1 GiB RGBA otherwise).
+        // Full-res dataUrl stays in the store; only the texture is capped
+        // (max 2048px per side). M6: the load carries a generation — a stale
+        // load finishing after a newer one is dropped instead of overwriting
+        // it. M7: failures drop the quad.
+        const generation = (this.refTexSeq.get(p.id) ?? 0) + 1;
+        this.refTexSeq.set(p.id, generation);
+        void this.loadReferenceTexture(p.dataUrl, p.id).then(
+          (tex) => {
+            if (this.refTexSeq.get(p.id) !== generation) {
+              tex.dispose();
+              return;
+            }
+            const m = this.refPlanes.get(p.id);
+            if (!m) {
+              tex.dispose();
+              return;
+            }
+            const old = (m.material as THREE.MeshBasicMaterial).map;
+            (m.material as THREE.MeshBasicMaterial).map = tex;
+            (m.material as THREE.MeshBasicMaterial).needsUpdate = true;
+            if (old) old.dispose();
+            this.requestRender();
+          },
+          () => {
+            // Drop the untextured quad so failure is visible (dialog error
+            // surfaces via the store path; here we never leave white quads).
+            const m = this.refPlanes.get(p.id);
+            if (m) {
+              this.scene.remove(m);
+              m.geometry.dispose();
+              (m.material as THREE.MeshBasicMaterial).dispose();
+              this.refPlanes.delete(p.id);
+              this.requestRender();
+            }
+            console.error(`[reference] texture failed for ${p.id}`);
+          },
+        );
+        this.scene.add(mesh);
+        this.refPlanes.set(p.id, mesh);
+      }
+      mesh.scale.set(p.widthMm, p.heightMm, 1);
+      mesh.userData.imageSize = [p.imageW, p.imageH] as [number, number];
+      mesh.position.set(0, 0, 0);
+      mesh.rotation.set(0, 0, 0);
+      if (p.plane === "XY") {
+        mesh.position.set(p.widthMm / 2, p.heightMm / 2, -1);
+      } else if (p.plane === "XZ") {
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(p.widthMm / 2, -1, p.heightMm / 2);
+      } else {
+        mesh.rotation.y = Math.PI / 2;
+        mesh.position.set(-1, p.widthMm / 2, p.heightMm / 2);
+      }
+      const mat = mesh.material as THREE.MeshBasicMaterial;
+      mat.opacity = p.opacity;
+    }
+    for (const [id, mesh] of [...this.refPlanes]) {
+      if (seen.has(id)) continue;
+      this.scene.remove(mesh);
+      mesh.geometry.dispose();
+      const mat = mesh.material as THREE.MeshBasicMaterial;
+      if (mat.map) mat.map.dispose();
+      mat.dispose();
+      this.refPlanes.delete(id);
+      // M6: invalidate in-flight loads so a late texture never resurrects
+      // a deleted plane (the generation check drops it on arrival).
+      this.refTexSeq.delete(id);
+    }
+    this.requestRender();
+  }
+
+  /**
+   * C9: decode + downscale before GPU upload. The store keeps the full-res
+   * dataUrl (calibration uses full-res pixels); the texture is capped at
+   * 2048px per side so a 16k² image never hits the GPU at 1 GiB.
+   * M6: every decoded bitmap is drawn into a canvas and closed by the caller
+   * immediately afterwards — the GL texture never retains the CPU
+   * ImageBitmap (up to 16 MiB per load), uniformly on both paths. toTexture
+   * itself never closes (ownership stays with the caller). Rejects on
+   * corrupt data (M7: caller drops the quad).
+   */
+  private loadReferenceTexture(
+    dataUrl: string,
+    id: string,
+  ): Promise<THREE.Texture> {
+    const MAX_TEX = 2048;
+    const toTexture = (
+      source: CanvasImageSource,
+      w: number,
+      h: number,
+    ): THREE.Texture => {
+      const scale = Math.min(1, MAX_TEX / Math.max(w, h));
+      if (scale >= 1 && source instanceof HTMLImageElement) {
+        const tex = new THREE.CanvasTexture(source);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(w * scale));
+      canvas.height = Math.max(1, Math.round(h * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("no 2d context");
+      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    };
+    return (async (): Promise<THREE.Texture> => {
+      // Fast path: createImageBitmap decodes off the main thread.
+      // NOTE: data: URLs are decoded manually (no fetch) so CSP
+      // connect-src 'self' never blocks the texture path (img-src already
+      // allows data:/blob:).
+      const dataUrlToBlob = (url: string): Blob | null => {
+        // m16: fast path handles base64 only — percent-encoded data URLs
+        // would decode to UTF-16 text instead of bytes, so they fall
+        // through to the Image path below (which loads them correctly).
+        const m = url.match(/^data:([^;,]+)?;base64,(.*)$/s);
+        if (!m) return null;
+        const mime = m[1] || "image/png";
+        try {
+          const bin = atob(m[2] ?? "");
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          return new Blob([bytes.buffer as ArrayBuffer], { type: mime });
+        } catch {
+          return null;
+        }
+      };
+      try {
+        if (typeof createImageBitmap !== "undefined") {
+          const blob = dataUrlToBlob(dataUrl);
+          if (blob) {
+            const bmp = await createImageBitmap(blob);
+            try {
+              return toTexture(bmp, bmp.width, bmp.height);
+            } finally {
+              bmp.close();
+            }
+          }
+        }
+      } catch {
+        // Fall through to the Image path below (still honest errors).
+      }
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = () => reject(new Error(`cannot decode image for ${id}`));
+        im.src = dataUrl;
+      });
+      if (img.naturalWidth <= 0 || img.naturalHeight <= 0) {
+        throw new Error("image has no pixels");
+      }
+      return toTexture(img, img.naturalWidth, img.naturalHeight);
+    })();
+  }
+
+  /**
+   * Capture the next two clicks on one reference plane as IMAGE PIXELS
+   * (UV-mapped, no scale math involved). Resolves null on cancel.
+   * C10: auto-cancels after 60 s so a forgotten measure never hijacks
+   * the viewport forever.
+   */
+  beginReferenceMeasure(id: string): Promise<[number, number][] | null> {
+    const mesh = this.refPlanes.get(id);
+    if (!mesh) return Promise.resolve(null);
+    if (this.refMeasure) this.refMeasure.resolve(null);
+    if (this.refMeasureTimer) {
+      clearTimeout(this.refMeasureTimer);
+      this.refMeasureTimer = null;
+    }
+    return new Promise((resolve) => {
+      this.refMeasure = { id, points: [], resolve };
+      this.refMeasureTimer = setTimeout(() => {
+    if (this.refMeasure) {
+      this.refMeasure.resolve(null);
+      this.refMeasure = null;
+    }
+    this.refTexSeq.clear();
+        this.refMeasureTimer = null;
+      }, 60000);
+    });
+  }
+
+  cancelReferenceMeasure(): void {
+    if (this.refMeasureTimer) {
+      clearTimeout(this.refMeasureTimer);
+      this.refMeasureTimer = null;
+    }
+    if (this.refMeasure) {
+      this.refMeasure.resolve(null);
+      this.refMeasure = null;
+    }
+  }
+
+  /** Calibration click capture; true when the click was consumed. */
+  private captureMeasureClick(e: MouseEvent): boolean {
+    const m = this.refMeasure;
+    if (!m) return false;
+    const mesh = this.refPlanes.get(m.id);
+    if (!mesh) {
+      m.resolve(null);
+      this.refMeasure = null;
+      if (this.refMeasureTimer) {
+        clearTimeout(this.refMeasureTimer);
+        this.refMeasureTimer = null;
+      }
+      return true;
+    }
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(ndc, this.camera);
+    const hits = this.raycaster.intersectObject(mesh, false);
+    const uv = hits[0]?.uv;
+    // C10: a miss must NOT swallow the click — orbit/pick stay alive while
+    // measuring (the dialog shows "click on the image or Cancel").
+    if (!uv) return false;
+    const img = this.refImageSize(m.id);
+    m.points.push([uv.x * img[0], (1 - uv.y) * img[1]]);
+    if (m.points.length >= 2) {
+      const pts = m.points;
+      m.resolve(pts as [number, number][]);
+      this.refMeasure = null;
+      if (this.refMeasureTimer) {
+        clearTimeout(this.refMeasureTimer);
+        this.refMeasureTimer = null;
+      }
+    }
+    return true;
+  }
+
+  private refImageSize(id: string): [number, number] {
+    // Stored alongside the mesh userData at sync time (below).
+    const mesh = this.refPlanes.get(id);
+    const size = mesh?.userData.imageSize as [number, number] | undefined;
+    return size ?? [1, 1];
   }
 
   setCameraInputEnabled(on: boolean): void {
@@ -432,6 +726,14 @@ export class CadViewport {
     this.disposed = true;
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.onResize);
+    if (this.refMeasureTimer) {
+      clearTimeout(this.refMeasureTimer);
+      this.refMeasureTimer = null;
+    }
+    if (this.refMeasure) {
+      this.refMeasure.resolve(null);
+      this.refMeasure = null;
+    }
     for (const id of [...this.bodies.keys()]) this.removeBodyMesh(id);
     this.showPreviewMesh(null);
     if (this.edgeSelectedLines) {

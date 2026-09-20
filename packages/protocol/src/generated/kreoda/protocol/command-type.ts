@@ -26,5 +26,7 @@ export enum CommandType {
   CreateHole = 20,
   CreateFillet = 21,
   CreateChamfer = 22,
-  RequestFaceInfo = 23
+  RequestFaceInfo = 23,
+  CreateInstance = 24,
+  CreateHolePattern = 25
 }

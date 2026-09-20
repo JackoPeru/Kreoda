@@ -35,8 +35,17 @@ bool BuildSphereShape(double radiusMm, TopoDS_Shape* out, std::string* error);
 
 // Rebuild an existing feature with changed params, same UUID (Phase 2).
 // paramName must be a canonical mm parameter for the feature type.
+// A non-empty expression replaces the bare value: it is validated, stored
+// core-side (OCAF-mirrored) and evaluated before the DAG recompute (Phase 9a).
 bool RebuildFeature(const std::string& featureId, const std::string& paramName,
-                    double valueMm, std::string* error);
+                    double valueMm,
+                    const std::string& expression, std::string* error);
+inline bool RebuildFeature(const std::string& featureId,
+                           const std::string& paramName, double valueMm,
+                           std::string* error) {
+  // Bare-value path (no formula): existing callers keep working unchanged.
+  return RebuildFeature(featureId, paramName, valueMm, std::string(), error);
+}
 
 // Pure param validation shared by commit + preview paths (no state touched).
 bool ResolveParamsForEdit(const ShapeRecord& rec, const std::string& paramName,

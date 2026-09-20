@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
 import { Toolbar } from "../components/Toolbar";
+import { PluginsDialog } from "../components/PluginsDialog";
+import { ReferenceDialog } from "../components/ReferenceDialog";
+import { InstanceDialog } from "../components/InstanceDialog";
 import { ObjectTree } from "../components/ObjectTree";
 import { PropertiesPanel } from "../components/PropertiesPanel";
 import { ContextToolbar } from "../components/ContextToolbar";
@@ -24,6 +27,7 @@ import {
 } from "../components/AddPrimitiveDialog";
 import { useDocumentUiStore, useSelectionStore } from "../stores";
 import { coreClient } from "../ipc/coreClient";
+import { loadPluginsFromHost } from "../plugins/loader";
 import {
   AUTOSAVE_MS,
   autosaveNow,
@@ -45,8 +49,7 @@ export function App() {
   const features = useDocumentUiStore((s) => s.features);
   const sketches = useDocumentUiStore((s) => s.sketches);
   const meshes = useDocumentUiStore((s) => s.meshes);
-  const [crashed, setCrashed] = useState<number | null>(null);
-  // Crash recovery (Phase 8): autosave snapshot from a previous session.
+  const [crashed, setCrashed] = useState<number | null>(null);  // Crash recovery (Phase 8): autosave snapshot from a previous session.
   const [showRecovery, setShowRecovery] = useState(false);
   // Crash bundle (§61): where the last saved bundle went (shown, not stored).
   const [bundlePath, setBundlePath] = useState<string | null>(null);
@@ -84,6 +87,9 @@ export function App() {
   const [extruding, setExtruding] = useState(false);
   const [holing, setHoling] = useState(false);
   const [dressUp, setDressUp] = useState<"fillet" | "chamfer" | null>(null);
+  const [showPlugins, setShowPlugins] = useState(false);
+  const [showReference, setShowReference] = useState(false);
+  const [showInstance, setShowInstance] = useState(false);
   // First-run onboarding (§56): shown over an empty document until dismissed.
   const [showOnboarding, setShowOnboarding] = useState<boolean>(() =>
     shouldShowOnboarding(),
@@ -150,6 +156,12 @@ export function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // Plugin auto-load (§47): host dir sources spawn sandboxed workers.
+  // Fire-and-forget per file; failures log, never block boot.
+  useEffect(() => {
+    loadPluginsFromHost().catch(() => {});
+  }, []);
+
   useEffect(() => {
     // Read-only diagnostics hook for E2E + support bundles (§49–§50).
     // No Node/fs access — store summary only.
@@ -176,6 +188,7 @@ export function App() {
               type: f.type,
               paramsMm: f.paramsMm,
               volumeMm3: f.volumeMm3,
+              expressions: f.expressions ?? {},
               triangles: mesh ? mesh.indices.length / 3 : -1,
               faces: mesh ? mesh.faces.map((r) => r.persistentFaceId) : [],
               edgeCount: mesh ? mesh.edges.length : -1,
@@ -207,10 +220,65 @@ export function App() {
       autosaveNow: () => autosaveNow(),
       // Crash-bundle E2E: same path as the banner button (works anytime).
       crashBundle: () => saveCrashBundle(),
+      // Plugin E2E: register from source + run without touching the host dir.
+      loadPluginSource: async (source: string) => {
+        const { loadPlugin } = await import("../plugins/loader");
+        return loadPlugin(source, "<e2e>");
+      },
+      runPlugin: async (pluginId: string, commandId: string, params: unknown) => {
+        const { runPluginCommand } = await import("../plugins/loader");
+        return runPluginCommand(pluginId, commandId, params);
+      },
+      // Reference E2E: inject planes + calibrate without native dialogs.
+      addReference: async (dataUrl: string, imageW: number, imageH: number) => {
+        const { addReferencePlane } = await import("../reference/store");
+        return addReferencePlane({
+          name: "<e2e>",
+          dataUrl,
+          imageW,
+          imageH,
+        });
+      },
+      calibrateReference: async (
+        id: string,
+        p1: [number, number],
+        p2: [number, number],
+        realMm: number,
+      ) => {
+        const { calibrateSize, updateReferencePlane, useReferenceStore } =
+          await import("../reference/store");
+        const plane = useReferenceStore
+          .getState()
+          .planes.find((p) => p.id === id);
+        if (!plane) throw new Error("no such reference plane");
+        const size = calibrateSize(
+          plane.imageW,
+          plane.imageH,
+          p1,
+          p2,
+          realMm,
+        );
+        updateReferencePlane(id, {
+          widthMm: size.widthMm,
+          heightMm: size.heightMm,
+          mmPerPx: size.mmPerPx,
+        });
+        return useReferenceStore
+          .getState()
+          .planes.find((p) => p.id === id);
+      },
       // Phase 2 topology acceptance: persistent face pick + typed dimension
       // edit through the real core path (not store-only shortcuts).
       selectFace: (featureId: string, role: string) => {
         const id = `${featureId}:${role}`;
+        useSelectionStore.getState().select(id, false);
+        return (
+          window as unknown as { __kreoda_test: { snapshot: () => unknown } }
+        ).__kreoda_test.snapshot();
+      },
+      // Phase 10 golden-A: persistent edge pick (fillet/chamfer acceptance).
+      selectEdge: (featureId: string, edgeSuffix: string) => {
+        const id = `${featureId}:${edgeSuffix}`;
         useSelectionStore.getState().select(id, false);
         return (
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
@@ -223,12 +291,24 @@ export function App() {
           valueMm,
         );
         if (!("positions" in updated)) {
-          await pullFeatureMesh(featureId, updated.revision);
-          updateFeatureSummary(
-            featureId,
-            { paramsMm: updated.paramsMm, volumeMm3: updated.volumeMm3 },
-            updated.revision,
-          );
+          // C2: same full-list sync as execute.ts (expressions move others).
+          const list = (updated as { features?: { featureId: string; type: string; paramsMm: number[]; volumeMm3: number; dependsOn: string[]; refExtra: string; expressions: Record<string, string> }[] }).features;
+          if (list && list.length > 0) {
+            const { syncFromCoreList } = await import("../model/sync");
+            const sketches = (updated as { sketches?: { featureId: string; planeKind: string; points: number; lines: number; circles: number; constraints: number }[] }).sketches ?? [];
+            await syncFromCoreList(list, updated.revision, sketches);
+          } else {
+            await pullFeatureMesh(featureId, updated.revision);
+            updateFeatureSummary(
+              featureId,
+              {
+                paramsMm: updated.paramsMm,
+                volumeMm3: updated.volumeMm3,
+                expressions: updated.expressions ?? {},
+              },
+              updated.revision,
+            );
+          }
         }
         return (
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
@@ -332,6 +412,9 @@ export function App() {
         onExtrude={() => setExtruding(true)}
         onHole={() => setHoling(true)}
         onDressUp={(kind) => setDressUp(kind)}
+        onPlugins={() => setShowPlugins(true)}
+        onReference={() => setShowReference(true)}
+        onInstance={() => setShowInstance(true)}
       />
       {showRecovery && (
         <div
@@ -452,6 +535,13 @@ export function App() {
           sketchId={editingSketch}
           onClose={() => setEditingSketch(null)}
         />
+      )}
+      {showPlugins && <PluginsDialog onClose={() => setShowPlugins(false)} />}
+      {showReference && (
+        <ReferenceDialog onClose={() => setShowReference(false)} />
+      )}
+      {showInstance && (
+        <InstanceDialog onClose={() => setShowInstance(false)} />
       )}
       {extruding && <ExtrudeDialog onClose={() => setExtruding(false)} />}
       {holing && <HoleDialog onClose={() => setHoling(false)} />}

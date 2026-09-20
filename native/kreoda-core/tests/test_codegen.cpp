@@ -39,6 +39,7 @@ static_assert(CommandType_CreateHole == kreoda::kCreateHole, "codegen drift");
 static_assert(CommandType_CreateFillet == kreoda::kCreateFillet, "codegen drift");
 static_assert(CommandType_CreateChamfer == kreoda::kCreateChamfer, "codegen drift");
 static_assert(CommandType_RequestFaceInfo == kreoda::kRequestFaceInfo, "codegen drift");
+static_assert(CommandType_CreateInstance == kreoda::kCreateInstance, "codegen drift");
 
 TEST(Codegen, CreateBoxEnvelopeRoundTrips) {
   flatbuffers::FlatBufferBuilder fbb(256);

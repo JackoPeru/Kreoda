@@ -20,6 +20,9 @@ importers:
       '@kreoda/command-schema':
         specifier: workspace:*
         version: link:../../packages/command-schema
+      '@kreoda/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
       '@kreoda/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

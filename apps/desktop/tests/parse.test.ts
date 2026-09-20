@@ -86,6 +86,10 @@ describe("local command parser (§57)", () => {
     expect(planOf("set widthMm 150").steps[0]).toMatchObject({
       command: "SetDimension",
     });
+    expect(planOf("set widthMm =heightMm * 2").steps[0]).toMatchObject({
+      command: "SetDimension",
+      params: { paramName: "widthMm", expression: "heightMm * 2" },
+    });
     expect(planOf("undo").steps[0]!.command).toBe("Undo");
     expect(planOf("view front").steps[0]).toMatchObject({
       command: "View",

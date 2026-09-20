@@ -21,7 +21,16 @@ const CHIP_SLOTS: Record<string, { param: string; short: string }[]> = {
   Hole: [{ param: "diameterMm", short: "⌀" }],
   Fillet: [{ param: "radiusMm", short: "R" }],
   Chamfer: [{ param: "distanceMm", short: "C" }],
+  // M4: Instance placement chips (signed, zero-tolerant).
+  Instance: [
+    { param: "txMm", short: "X" },
+    { param: "tyMm", short: "Y" },
+    { param: "tzMm", short: "Z" },
+  ],
 };
+
+const CHIP_ANGLE = new Set(["angleDeg", "rxDeg", "ryDeg", "rzDeg"]);
+const CHIP_SIGNED = new Set(["txMm", "tyMm", "tzMm", "rxDeg", "ryDeg", "rzDeg"]);
 
 /** Face centroid in world mm from the committed mesh (display only). */
 function faceCentroidWorld(
@@ -109,16 +118,45 @@ export function DimensionChips() {
             if (editingRef.current === node) return;
             editingRef.current = node!;
             const param = node!.dataset.param!;
-            const isAngle = param === "angleDeg";
+            const isAngle = CHIP_ANGLE.has(param);
+            const signed = CHIP_SIGNED.has(param);
             node!.textContent = "";
             const input = document.createElement("input");
             input.value = "";
             input.placeholder = isAngle ? "deg" : "mm";
             input.className = "w-16 bg-transparent text-black outline-none";
+            // M5: silent drops (typo 0/-5 vanishes, chip keeps old value)
+            // become honest inline errors.
+            const showInlineError = (msg: string): void => {
+              input.value = "";
+              input.placeholder = msg.slice(0, 12);
+              input.title = msg;
+              node!.title = msg;
+            };
             input.addEventListener("keydown", (kev) => {
               kev.stopPropagation();
               if (kev.key === "Enter") {
                 const raw = input.value;
+                const fid = node!.dataset.feature!;
+                editingRef.current = null;
+                // Formula entry (Phase 9a): "=..." commits an expression,
+                // anything else a bare dimension.
+                if (raw.trimStart().startsWith("=")) {
+                  const expr = raw.slice(raw.indexOf("=") + 1);
+                  if (!expr.trim()) {
+                    showInlineError("empty formula");
+                    return;
+                  }
+                  void executeCommand("SetDimension", {
+                    featureId: fid,
+                    paramName: param,
+                    expression: expr.trim(),
+                  }).catch((e: unknown) => {
+                    // Core reports unknown refs/cycles honestly; surface it.
+                    node!.title = e instanceof Error ? e.message : "formula failed";
+                  });
+                  return;
+                }
                 let v: number;
                 try {
                   v = isAngle
@@ -126,18 +164,21 @@ export function DimensionChips() {
                     : parseLengthToMm(raw);
                 } catch {
                   editingRef.current = null;
+                  showInlineError("not a number");
                   return;
                 }
-                if (!(v > 0)) {
+                // M4: placement params accept 0/negatives; dimensions stay >0.
+                if (!Number.isFinite(v) || (!signed && !(v > 0))) {
                   editingRef.current = null;
+                  showInlineError(signed ? "not finite" : "must be > 0");
                   return;
                 }
-                const fid = node!.dataset.feature!;
-                editingRef.current = null;
                 void executeCommand("SetDimension", {
                   featureId: fid,
                   paramName: param,
                   valueMm: v,
+                }).catch((e: unknown) => {
+                  node!.title = e instanceof Error ? e.message : "edit failed";
                 });
               } else if (kev.key === "Escape") {
                 editingRef.current = null;
@@ -180,7 +221,14 @@ export function DimensionChips() {
         );
         const value = feature.paramsMm[paramIndex];
         if (editingRef.current !== node) {
-          node.textContent = `${slot.short} ${value ?? "?"}`;
+          // Formula-driven params show a ƒ marker + the formula on hover.
+          const expr = feature.expressions?.[slot.param];
+          node.textContent =
+            expr !== undefined ? `ƒ${slot.short} ${value ?? "?"}` : `${slot.short} ${value ?? "?"}`;
+          node.title =
+            expr !== undefined
+              ? `${slot.param} = ${expr} (formula — edit with =...)`
+              : `${slot.param} (type =formula to link)`;
         }
         const world =
           face && body ? faceCentroidWorld(body, face.persistentFaceId) : null;

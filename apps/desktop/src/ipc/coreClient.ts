@@ -28,6 +28,7 @@ export interface CreatedFeature {
   paramsMm: number[];
   dependsOn: string[];
   refExtra: string;
+  expressions: Record<string, string>;
   volumeMm3: number;
   bboxMm: [number, number, number, number, number, number];
   revision: number;
@@ -40,6 +41,8 @@ export interface FeatureSummary {
   volumeMm3: number;
   dependsOn: string[];
   refExtra: string;
+  /** Formulas per parameter (§22): {} when the feature is fully numeric. */
+  expressions: Record<string, string>;
 }
 
 export interface SketchSummary {
@@ -73,6 +76,7 @@ const CreatedFeatureSchema = z.object({
   paramsMm: z.array(z.number()).default([]),
   dependsOn: z.array(z.string()).default([]),
   refExtra: z.string().default(""),
+  expressions: z.record(z.string(), z.string()).default({}),
   volumeMm3: z.number(),
   bboxMm: z.tuple([
     z.number(),
@@ -101,6 +105,7 @@ const FeatureListSchema = z.object({
         volumeMm3: z.number(),
         dependsOn: z.array(z.string()).default([]),
         refExtra: z.string().default(""),
+        expressions: z.record(z.string(), z.string()).default({}),
       }),
     )
     .default([]),
@@ -201,13 +206,16 @@ export class CoreClient {
   /**
    * Typed dimension edit (§12, §22). Commits exactly one transaction unless
    * isPreview, which returns the would-be mesh without touching the model.
+   * C2: the commit response carries the edited record PLUS the full
+   * feature list (cross-feature expressions / instance reflow move others).
    */
   async setFeatureParameter(
     featureId: string,
     paramName: string,
     valueMm: number,
     isPreview = false,
-  ): Promise<CreatedFeature | CoreMeshData> {
+    expression = "",
+  ): Promise<(CreatedFeature & { features?: FeatureSummary[]; sketches?: SketchSummary[] }) | CoreMeshData> {
     const raw = await this.roundTrip({
       protocolVersion: PROTOCOL_VERSION,
       requestId: `req-${++this.seq}`,
@@ -217,15 +225,28 @@ export class CoreClient {
       paramName,
       valueMm,
       isPreview,
+      ...(expression ? { expression } : {}),
     });
     // Preview meshes are FlatBuffers (§8); errors + commits stay JSON.
     if (isPreview) return decodeMeshFrame(raw);
     const parsed = JSON.parse(new TextDecoder().decode(raw));
-    if (isPreview) return decodeMeshResponse(parsed);
     if (parsed.status === "error") {
       throw new Error(parsed.errorMessage ?? "set parameter failed");
     }
-    return CreatedFeatureSchema.parse(parsed);
+    const base = CreatedFeatureSchema.parse(parsed);
+    // Optional full-list sidecar (C2) — validated leniently, never fatal.
+    let features: FeatureSummary[] | undefined;
+    let sketches: SketchSummary[] | undefined;
+    try {
+      const list = FeatureListSchema.parse(parsed);
+      if (Array.isArray(list.features) && list.features.length > 0) {
+        features = list.features;
+      }
+      if (Array.isArray(list.sketches)) sketches = list.sketches;
+    } catch {
+      // Old core without the list: single-id path still works.
+    }
+    return { ...base, ...(features ? { features } : {}), ...(sketches ? { sketches } : {}) };
   }
 
   async saveDocument(path: string): Promise<{
@@ -431,6 +452,63 @@ export class CoreClient {
     return CreatedFeatureSchema.parse(parsed);
   }
 
+  /**
+   * M11: 1–4 holes in exactly one core transaction (one Undo step).
+   * Frontend owns the ids (same `ho-uuid` scheme); points are flat
+   * [x0,y0,…] with 2 entries per id. Returns the full list for sync.
+   */
+  async createHolePattern(params: {
+    targetId: string;
+    faceRole: string;
+    points: [number, number][];
+    diameterMm: number;
+    depthMode: "throughAll" | "blind";
+    depthMm: number;
+    featureIds?: string[];
+  }): Promise<{
+    features: FeatureSummary[];
+    sketches: SketchSummary[];
+    revision: number;
+  }> {
+    if (params.points.length < 1 || params.points.length > 4) {
+      throw new Error("hole pattern needs 1..4 points");
+    }
+    // M2: frontend owns the ids — a caller mismatch is a bug, never
+    // silently papered over with fresh ids (the caller would sync ids it
+    // never owned).
+    if (params.featureIds !== undefined &&
+        params.featureIds.length !== params.points.length) {
+      throw new Error("hole pattern featureIds must match points 1:1");
+    }
+    const featureIds =
+      params.featureIds ?? params.points.map(() => newFeatureId("ho"));
+    const pointsMm = params.points.flat();
+    const parsed = await this.invoke(
+      CommandType.CreateHolePattern,
+      this.documentId,
+      {
+        targetId: params.targetId,
+        faceRole: params.faceRole,
+        featureIds,
+        points: pointsMm,
+        diameterMm: params.diameterMm,
+        depthMode: params.depthMode,
+        depthMm: params.depthMm,
+      },
+    );
+    const checked = FeatureListSchema.parse(parsed);
+    if (checked.status !== "ok") {
+      throw new Error(
+        (parsed as { errorMessage?: string }).errorMessage ?? "hole pattern failed",
+      );
+    }
+    return {
+      features: checked.features,
+      sketches: checked.sketches,
+      revision: checked.revision,
+    };
+  }
+
   async createFillet(params: {
     targetId: string;
     edgeIds: string[];
@@ -453,6 +531,25 @@ export class CoreClient {
     const featureId = newFeatureId("ch");
     const parsed = await this.invoke(
       CommandType.CreateChamfer,
+      this.documentId,
+      { featureId, ...params },
+    );
+    return CreatedFeatureSchema.parse(parsed);
+  }
+
+  /** Rigid placed copy of a solid (Phase 9d): translation mm + ZYX degrees. */
+  async createInstance(params: {
+    targetId: string;
+    txMm?: number;
+    tyMm?: number;
+    tzMm?: number;
+    rxDeg?: number;
+    ryDeg?: number;
+    rzDeg?: number;
+  }): Promise<CreatedFeature> {
+    const featureId = newFeatureId("in");
+    const parsed = await this.invoke(
+      CommandType.CreateInstance,
       this.documentId,
       { featureId, ...params },
     );

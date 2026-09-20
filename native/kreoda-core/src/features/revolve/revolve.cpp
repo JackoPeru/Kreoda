@@ -107,6 +107,11 @@ bool RebuildRevolveFromStore(const std::string& featureId, std::string* error) {
     if (error) *error = "cannot rebuild " + rec.type;
     return false;
   }
+  // M2: formulas must not bypass the create-time (0,360] gate.
+  if (!(rec.paramsMm[0] > 0 && rec.paramsMm[0] <= 360)) {
+    if (error) *error = "revolve angle must be in (0, 360] deg";
+    return false;
+  }
   TopoDS_Shape shape;
   if (!BuildRevolveShape(rec.dependsOn[0], rec.paramsMm[0], &shape, error)) {
     return false;

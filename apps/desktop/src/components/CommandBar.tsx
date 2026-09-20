@@ -97,9 +97,10 @@ export function CommandBar() {
           `Stopped after ${result.executed} step${result.executed === 1 ? "" : "s"}: ${result.errors[0]}`,
         );
       } else {
+        // M11: hole patterns are one core transaction (one Undo step).
         const suffix =
-          plan.steps[0]?.command === "CreateHolesCorners" && result.executed > 1
-            ? ` (${result.executed} holes — Undo ${result.executed} times to revert)`
+          plan.steps[0]?.command === "CreateHolesCorners"
+            ? ` (hole pattern — one Undo to revert)`
             : "";
         setStatus(
           `Done: ${result.executed} step${result.executed === 1 ? "" : "s"} committed${suffix}.`,

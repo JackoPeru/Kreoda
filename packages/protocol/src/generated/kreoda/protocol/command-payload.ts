@@ -10,6 +10,8 @@ import { CreateDocumentRequest } from '../../kreoda/protocol/create-document-req
 import { CreateExtrudeCommand } from '../../kreoda/protocol/create-extrude-command.js';
 import { CreateFilletCommand } from '../../kreoda/protocol/create-fillet-command.js';
 import { CreateHoleCommand } from '../../kreoda/protocol/create-hole-command.js';
+import { CreateHolePatternCommand } from '../../kreoda/protocol/create-hole-pattern-command.js';
+import { CreateInstanceCommand } from '../../kreoda/protocol/create-instance-command.js';
 import { CreateRevolveCommand } from '../../kreoda/protocol/create-revolve-command.js';
 import { CreateSketchCommand } from '../../kreoda/protocol/create-sketch-command.js';
 import { CreateSphereCommand } from '../../kreoda/protocol/create-sphere-command.js';
@@ -47,13 +49,15 @@ export enum CommandPayload {
   CreateHoleCommand = 18,
   CreateFilletCommand = 19,
   CreateChamferCommand = 20,
-  RequestFaceInfoCommand = 21
+  RequestFaceInfoCommand = 21,
+  CreateInstanceCommand = 22,
+  CreateHolePatternCommand = 23
 }
 
 export function unionToCommandPayload(
   type: CommandPayload,
-  accessor: (obj:CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand) => CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand|null
-): CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand|null {
+  accessor: (obj:CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateHolePatternCommand|CreateInstanceCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand) => CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateHolePatternCommand|CreateInstanceCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand|null
+): CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateHolePatternCommand|CreateInstanceCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand|null {
   switch(CommandPayload[type]) {
     case 'NONE': return null; 
     case 'GetCoreInfoRequest': return accessor(new GetCoreInfoRequest())! as GetCoreInfoRequest;
@@ -77,15 +81,17 @@ export function unionToCommandPayload(
     case 'CreateFilletCommand': return accessor(new CreateFilletCommand())! as CreateFilletCommand;
     case 'CreateChamferCommand': return accessor(new CreateChamferCommand())! as CreateChamferCommand;
     case 'RequestFaceInfoCommand': return accessor(new RequestFaceInfoCommand())! as RequestFaceInfoCommand;
+    case 'CreateInstanceCommand': return accessor(new CreateInstanceCommand())! as CreateInstanceCommand;
+    case 'CreateHolePatternCommand': return accessor(new CreateHolePatternCommand())! as CreateHolePatternCommand;
     default: return null;
   }
 }
 
 export function unionListToCommandPayload(
   type: CommandPayload, 
-  accessor: (index: number, obj:CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand) => CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand|null, 
+  accessor: (index: number, obj:CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateHolePatternCommand|CreateInstanceCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand) => CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateHolePatternCommand|CreateInstanceCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand|null, 
   index: number
-): CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand|null {
+): CreateBooleanCommand|CreateBoxCommand|CreateChamferCommand|CreateCylinderCommand|CreateDocumentRequest|CreateExtrudeCommand|CreateFilletCommand|CreateHoleCommand|CreateHolePatternCommand|CreateInstanceCommand|CreateRevolveCommand|CreateSketchCommand|CreateSphereCommand|DeleteFeatureCommand|GetCoreInfoRequest|OpenDocumentRequest|PreviewSketchRequest|RequestFaceInfoCommand|RequestMeshRequest|RequestSketchRequest|SaveDocumentRequest|SetFeatureParameterCommand|UpdateSketchCommand|null {
   switch(CommandPayload[type]) {
     case 'NONE': return null; 
     case 'GetCoreInfoRequest': return accessor(index, new GetCoreInfoRequest())! as GetCoreInfoRequest;
@@ -109,6 +115,8 @@ export function unionListToCommandPayload(
     case 'CreateFilletCommand': return accessor(index, new CreateFilletCommand())! as CreateFilletCommand;
     case 'CreateChamferCommand': return accessor(index, new CreateChamferCommand())! as CreateChamferCommand;
     case 'RequestFaceInfoCommand': return accessor(index, new RequestFaceInfoCommand())! as RequestFaceInfoCommand;
+    case 'CreateInstanceCommand': return accessor(index, new CreateInstanceCommand())! as CreateInstanceCommand;
+    case 'CreateHolePatternCommand': return accessor(index, new CreateHolePatternCommand())! as CreateHolePatternCommand;
     default: return null;
   }
 }

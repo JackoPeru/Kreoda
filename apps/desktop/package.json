@@ -19,6 +19,7 @@
   "dependencies": {
     "@floating-ui/react": "^0.27.16",
     "@kreoda/command-schema": "workspace:*",
+    "@kreoda/plugin-sdk": "workspace:*",
     "@kreoda/protocol": "workspace:*",
     "@kreoda/units": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.15",

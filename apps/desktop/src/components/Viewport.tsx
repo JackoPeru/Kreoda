@@ -6,6 +6,7 @@ import { coreClient } from "../ipc/coreClient";
 import { executeCommand } from "../commands/execute";
 import { setViewportHandle } from "../viewport/viewportHandle";
 import { markPullLearned } from "./Onboarding";
+import { useReferenceStore } from "../reference/store";
 
 interface PullSession {
   featureId: string;
@@ -34,6 +35,7 @@ export function Viewport() {
   const activeTool = useToolStore((s) => s.activeTool);
   const meshes = useDocumentUiStore((s) => s.meshes);
   const meshRevision = useDocumentUiStore((s) => s.meshRevision);
+  const refPlanes = useReferenceStore((s) => s.planes);
   const [pullHint, setPullHint] = useState<string | null>(null);
 
   useEffect(() => {
@@ -56,8 +58,16 @@ export function Viewport() {
       setView: (name) => vpRef.current?.setView(name),
       projectPoint: (p) => vpRef.current?.projectPoint(p) ?? null,
       viewDir: () => vpRef.current?.viewDir() ?? null,
+      beginReferenceMeasure: (id) =>
+        vpRef.current?.beginReferenceMeasure(id) ?? Promise.resolve(null),
+      cancelReferenceMeasure: () => vpRef.current?.cancelReferenceMeasure(),
     });
     return () => {
+      try {
+        vpRef.current?.cancelReferenceMeasure();
+      } catch {
+        // Best-effort: unmount must never throw.
+      }
       setViewportHandle(null);
       vp.dispose();
       vpRef.current = null;
@@ -69,6 +79,11 @@ export function Viewport() {
   useEffect(() => {
     vpRef.current?.syncMeshes(meshes);
   }, [meshes, meshRevision]);
+
+  // Reference planes (§29 Stage A): view aids, reconciled like meshes.
+  useEffect(() => {
+    vpRef.current?.syncReferencePlanes(refPlanes);
+  }, [refPlanes]);
 
   useEffect(() => {
     vpRef.current?.setSelected(selectedIds);
@@ -170,7 +185,12 @@ export function Viewport() {
           (mesh) => {
             if ("positions" in mesh) vp.showPreviewMesh(mesh);
           },
-          () => {},
+          (err: unknown) => {
+            // M13: throttled previews swallow transient PREVIEW_FAILED (e.g.
+            // hole target vanished) — debug-log so the commit path still
+            // surfaces it honestly via executeCommand.
+            console.debug("[preview] failed:", err instanceof Error ? err.message : err);
+          },
         );
     };
 

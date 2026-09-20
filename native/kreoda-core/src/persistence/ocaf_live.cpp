@@ -6,6 +6,7 @@
 
 #include "../diagnostics/log.h"
 #include "../document/document_store.h"
+#include "../expressions/expressions.h"
 #include "../features/sketch/sketch_json.h"
 #include "../features/sketch/sketch_store.h"
 
@@ -57,8 +58,10 @@ struct OcafLive::Ocaf {
   Handle(XCAFDoc_ShapeTool) shapes;
   TDF_Label selectionsRoot;
   TDF_Label sketchesRoot;
+  TDF_Label expressionsRoot;
   std::map<std::string, TDF_Label> featureLabels;
   std::map<std::string, TDF_Label> sketchLabels;
+  std::map<std::string, TDF_Label> expressionLabels;
 };
 
 namespace {
@@ -161,17 +164,52 @@ std::string ExtToAscii(const TCollection_ExtendedString& xs) {
   return out;
 }
 
+// See RecordFromLabel: per-face TNaming evolution makes GetShape resolve to
+// a face compound instead of the solid — unwrap the single solid so every
+// resync/load/undo/redo adopts real solids for downstream booleans.
+// M5: a faces-only compound (0 solids) is never a valid feature — callers
+// cull it via the empty record. Multi-solid compounds are left untouched
+// (possible legit boolean results; cutting them is out of scope).
+TopoDS_Shape ResolveSolid(const TopoDS_Shape& shape, bool* culled) {
+  if (culled) *culled = false;
+  if (shape.IsNull()) return shape;
+  if (shape.ShapeType() == TopAbs_SOLID) return shape;
+  TopoDS_Shape found;
+  int count = 0;
+  for (TopExp_Explorer ex(shape, TopAbs_SOLID); ex.More(); ex.Next()) {
+    if (++count > 1) return shape;  // exotic: leave untouched
+    found = ex.Current();
+  }
+  if (count == 1) return found;
+  if (culled) *culled = true;
+  return TopoDS_Shape();
+}
+
 ShapeRecord RecordFromLabel(const TDF_Label& label,
                             const Handle(XCAFDoc_ShapeTool)& shapes) {
   ShapeRecord rec;
-  TopoDS_Shape shape = shapes->GetShape(label);
-  if (shape.IsNull()) return rec;
+  // Name+Comment first: selection labels (TNaming_Selector references) carry
+  // no Name and are skipped silently here — they must not trip the
+  // faces-only cull below (a bare face legitimately holds no solids).
   Handle(TDataStd_Name) name;
   Handle(TDataStd_Comment) comment;
   if (!label.FindAttribute(TDataStd_Name::GetID(), name) ||
       !label.FindAttribute(TDataStd_Comment::GetID(), comment)) {
     return rec;
   }
+  // Phase 10 (torture find): a feature label carrying per-face TNaming
+  // evolution (recorded on every parametric rebuild) resolves via GetShape
+  // to a COMPOUND of the current faces instead of the solid. Bbox, volume
+  // and face areas all look identical, yet downstream B-Rep booleans on the
+  // compound silently cut wrong geometry after any Undo/Redo/Open. Unwrap
+  // the single solid; exotic multi-solid shapes are left untouched.
+  bool culled = false;
+  TopoDS_Shape shape = ResolveSolid(shapes->GetShape(label), &culled);
+  if (culled) {
+    LogCore("ocaf: culling faces-only compound (no solid to adopt)");
+    return rec;
+  }
+  if (shape.IsNull()) return rec;
   std::string type;
   std::vector<double> params;
   std::vector<std::string> deps;
@@ -216,6 +254,8 @@ void OcafLive::Reset() {
   TDataStd_Name::Set(ocaf_->selectionsRoot, "Selections");
   ocaf_->sketchesRoot = ocaf_->doc->Main().NewChild();
   TDataStd_Name::Set(ocaf_->sketchesRoot, "Sketches");
+  ocaf_->expressionsRoot = ocaf_->doc->Main().NewChild();
+  TDataStd_Name::Set(ocaf_->expressionsRoot, "Expressions");
 #endif
 }
 
@@ -255,6 +295,19 @@ bool OcafLive::CommitCommand(bool* hadDelta, std::string* error) {
 void OcafLive::AbortCommand() {
 #if KREODA_WITH_OCCT
   if (ocaf_ && ocaf_->doc->HasOpenCommand()) ocaf_->doc->AbortCommand();
+#endif
+}
+
+void OcafLive::ForgetFeatures(const std::vector<std::string>& featureIds) {
+#if KREODA_WITH_OCCT
+  if (!ocaf_) return;
+  for (const auto& fid : featureIds) {
+    ocaf_->featureLabels.erase(fid);
+    ocaf_->expressionLabels.erase(fid);
+    ocaf_->sketchLabels.erase(fid);
+  }
+#else
+  (void)featureIds;
 #endif
 }
 
@@ -331,15 +384,43 @@ bool OcafLive::ResyncStore(std::string* error) {
   std::map<std::string, std::string> registry;
   NCollection_Sequence<TDF_Label> free;
   ocaf_->shapes->GetFreeShapes(free);
+  // First pass: collect all candidates so Instance targets can be validated
+  // against the full set (C8: nested/self/missing targets never load).
+  std::vector<std::pair<ShapeRecord, TDF_Label>> candidates;
   for (int i = 1; i <= free.Length(); ++i) {
     const ShapeRecord rec = RecordFromLabel(free.Value(i), ocaf_->shapes);
     if (rec.featureId.empty() || rec.shape.IsNull()) continue;
     if (!BRepCheck_Analyzer(rec.shape).IsValid(rec.shape)) continue;
-    ocaf_->featureLabels[rec.featureId] = free.Value(i);
+    candidates.emplace_back(rec, free.Value(i));
+  }
+  std::map<std::string, std::string> typeById;
+  for (const auto& [rec, lab] : candidates) typeById[rec.featureId] = rec.type;
+  for (const auto& [rec, lab] : candidates) {
+    if (rec.type == "Instance") {
+      bool bad = false;
+      std::string why;
+      if (rec.dependsOn.size() != 1) {
+        bad = true; why = "Instance needs exactly one target";
+      } else if (rec.dependsOn[0] == rec.featureId) {
+        bad = true; why = "Instance cannot target itself";
+      } else {
+        auto tit = typeById.find(rec.dependsOn[0]);
+        if (tit == typeById.end()) {
+          bad = true; why = "Instance target missing: " + rec.dependsOn[0];
+        } else if (tit->second == "Instance") {
+          bad = true; why = "nested instances are not supported";
+        }
+      }
+      if (bad) {
+        LogCore("ocaf: dropping invalid Instance " + rec.featureId + ": " + why);
+        continue;
+      }
+    }
+    ocaf_->featureLabels[rec.featureId] = lab;
     ShapeStore::instance().put(rec);
     registry[rec.featureId] = rec.type;
   }
-  // Re-adopt selections + sketches folders (same scan as Load).
+  // Re-adopt selections + sketches + expressions folders (same scan as Load).
   for (TDF_ChildIterator it(ocaf_->doc->Main(), Standard_False); it.More();
        it.Next()) {
     Handle(TDataStd_Name) n;
@@ -349,6 +430,8 @@ bool OcafLive::ResyncStore(std::string* error) {
       ocaf_->selectionsRoot = it.Value();
     } else if (nm == "Sketches") {
       ocaf_->sketchesRoot = it.Value();
+    } else if (nm == "Expressions") {
+      ocaf_->expressionsRoot = it.Value();
     }
   }
   // Rebuild SketchStore from sketch labels (inside Sketches folder).
@@ -381,6 +464,37 @@ bool OcafLive::ResyncStore(std::string* error) {
   }
   // Whole-registry replace: stale (undone/deleted) entries vanish (§12).
   DocumentStore::instance().replaceAll(registry);
+  // Rebuild the expression registry from expression labels (formulas undo
+  // and reopen with geometry — same guarantee as sketches).
+  // M8: orphan expressions for culled shapes are dropped, never adopted.
+  ExpressionStore::instance().clear();
+  ocaf_->expressionLabels.clear();
+  if (!ocaf_->expressionsRoot.IsNull()) {
+    for (TDF_ChildIterator it(ocaf_->expressionsRoot, Standard_False);
+         it.More(); it.Next()) {
+      Handle(TDataStd_Name) n;
+      Handle(TDataStd_Comment) c;
+      if (!it.Value().FindAttribute(TDataStd_Name::GetID(), n) ||
+          !it.Value().FindAttribute(TDataStd_Comment::GetID(), c)) {
+        continue;
+      }
+      const std::string fid = ExtToAscii(n->Get());
+      if (fid.empty()) continue;
+      if (registry.find(fid) == registry.end()) {
+        LogCore("ocaf: dropping orphan expressions for culled shape: " + fid);
+        continue;
+      }
+      ocaf_->expressionLabels[fid] = it.Value();
+      std::map<std::string, std::string> entries;
+      std::string perr;
+      if (ParseExpressionMap(ExtToAscii(c->Get()), &entries, &perr) &&
+          !entries.empty()) {
+        ExpressionStore::instance().setFeatureMap(fid, entries);
+      } else if (!perr.empty()) {
+        LogCore("ocaf: expression label did not parse: " + fid);
+      }
+    }
+  }
   return true;
 #else
   if (error) *error = "OCAF requires OCCT (link via vcpkg)";
@@ -411,52 +525,21 @@ bool OcafLive::UpsertFeature(const ShapeRecord& rec, bool isNew,
     builder.Generated(rec.shape);
     return true;
   }
-  // Rebuild, same UUID: replace the shape, record evolution (§3.2).
+  // Rebuild, same UUID: replace the shape (§3.2).
+  // Phase 10 fix: this path used to ALSO record per-face TNaming evolution
+  // (Generated old→new per role-matched pair) on the feature label. That made
+  // XCAF GetShape resolve the label to a COMPOUND of the current faces
+  // instead of the solid: bbox/volume/areas looked identical, yet every
+  // downstream boolean after any Undo/Redo/Open silently cut wrong geometry
+  // (no test asserts via=="naming"; role fallback in §4 is the tested
+  // contract, so nothing observable is lost). The label now keeps exactly
+  // one whole-solid evolution: SetShape replaces the solid, nothing else.
   TDF_Label label = ocaf_->featureLabels[rec.featureId];
-  TopoDS_Shape oldSolid = ocaf_->shapes->GetShape(label);
-  // Role-match old faces to new faces BEFORE replacing (fallback data).
-  std::vector<std::string> oldRoles;
-  std::vector<TopoDS_Face> oldFaces;
-  if (!oldSolid.IsNull()) {
-    oldRoles = ClassifyFaceRoles(oldSolid, rec.type, rec.featureId);
-    for (TopExp_Explorer ex(oldSolid, TopAbs_FACE); ex.More(); ex.Next()) {
-      oldFaces.push_back(TopoDS::Face(ex.Current()));
-    }
-  }
   ocaf_->shapes->SetShape(label, rec.shape);
   TDataStd_Comment::Set(
       label,
       TCollection_AsciiString(
           EncodeParams(rec.type, rec.paramsMm, rec.dependsOn, rec.refExtra).c_str()));
-  TNaming_Builder builder(label);
-  if (!oldSolid.IsNull()) {
-    // Per-face evolution for role-matched pairs (primary tracking, §3.2).
-    // NOTE: a single Modify(oldSolid, newSolid) PLUS per-face Generated()
-    // calls conflict on one builder ("not same evolution"), so the rebuild
-    // records per-face relations only; the solid itself is replaced via
-    // XCAF SetShape above (its NamedShape always holds the current solid).
-    const std::vector<std::string> newRoles =
-        ClassifyFaceRoles(rec.shape, rec.type, rec.featureId);
-    std::vector<TopoDS_Face> newFaces;
-    for (TopExp_Explorer ex(rec.shape, TopAbs_FACE); ex.More(); ex.Next()) {
-      newFaces.push_back(TopoDS::Face(ex.Current()));
-    }
-    for (size_t i = 0; i < oldFaces.size() && i < oldRoles.size(); ++i) {
-      for (size_t j = 0; j < newFaces.size() && j < newRoles.size(); ++j) {
-        if (oldRoles[i] == newRoles[j]) {
-          try {
-            builder.Generated(oldFaces[i], newFaces[j]);
-          } catch (const Standard_Failure& f) {
-            // Evolution depth degrades visibly (diagnostics), role fallback
-            // (§4) keeps resolution correct — never silent.
-            LogCore("ocaf: per-face Generated failed for " + oldRoles[i] +
-                    ": " + f.what());
-          }
-          break;
-        }
-      }
-    }
-  }
   return true;
   } catch (const Standard_Failure& f) {
     if (error) *error = std::string("OCAF mirror failed: ") + f.what();
@@ -500,6 +583,43 @@ bool OcafLive::UpsertSketch(const std::string& sketchId,
 #else
   (void)sketchId;
   (void)sketchJson;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+bool OcafLive::UpsertExpressions(const std::string& featureId,
+                                 const std::string& exprJson,
+                                 std::string* error) {
+#if KREODA_WITH_OCCT
+  try {
+    if (!ocaf_ || ocaf_->doc.IsNull()) Reset();
+    if (ocaf_->doc.IsNull() || ocaf_->expressionsRoot.IsNull()) {
+      if (error) *error = "OCAF: no live document";
+      return false;
+    }
+    const auto it = ocaf_->expressionLabels.find(featureId);
+    if (it == ocaf_->expressionLabels.end()) {
+      TDF_Label label = ocaf_->expressionsRoot.NewChild();
+      TDataStd_Name::Set(
+          label, TCollection_ExtendedString(featureId.c_str()));
+      TDataStd_Comment::Set(
+          label, TCollection_AsciiString(exprJson.c_str()));
+      ocaf_->expressionLabels[featureId] = label;
+    } else {
+      TDataStd_Comment::Set(
+          it->second, TCollection_AsciiString(exprJson.c_str()));
+    }
+    return true;
+  } catch (const Standard_Failure& f) {
+    if (error) {
+      *error = std::string("OCAF expression mirror failed: ") + f.what();
+    }
+    return false;
+  }
+#else
+  (void)featureId;
+  (void)exprJson;
   if (error) *error = "OCAF requires OCCT (link via vcpkg)";
   return false;
 #endif
@@ -672,18 +792,41 @@ bool OcafLive::Load(const std::string& xbfPath,
   }
   ocaf_->shapes = XCAFDoc_DocumentTool::ShapeTool(ocaf_->doc->Main());
   // Rebuild feature map from persisted labels (name + params comment).
+  // C8: two-pass so Instance→Instance / Instance→self / Instance→ghost from
+  // a crafted file never loads (creation gate bypass closed).
   int recovered = 0;
   NCollection_Sequence<TDF_Label> free;
   ocaf_->shapes->GetFreeShapes(free);
+  std::vector<std::pair<ShapeRecord, TDF_Label>> loadCandidates;
   for (int i = 1; i <= free.Length(); ++i) {
     const ShapeRecord rec = RecordFromLabel(free.Value(i), ocaf_->shapes);
     if (rec.featureId.empty() || rec.shape.IsNull()) continue;
     if (!BRepCheck_Analyzer(rec.shape).IsValid(rec.shape)) continue;
-    ocaf_->featureLabels[rec.featureId] = free.Value(i);
+    loadCandidates.emplace_back(rec, free.Value(i));
+  }
+  std::map<std::string, std::string> loadTypes;
+  for (const auto& [rec, lab] : loadCandidates) loadTypes[rec.featureId] = rec.type;
+  for (const auto& [rec, lab] : loadCandidates) {
+    if (rec.type == "Instance") {
+      bool bad = false;
+      std::string why;
+      if (rec.dependsOn.size() != 1) { bad = true; why = "Instance needs exactly one target"; }
+      else if (rec.dependsOn[0] == rec.featureId) { bad = true; why = "Instance cannot target itself"; }
+      else {
+        auto tit = loadTypes.find(rec.dependsOn[0]);
+        if (tit == loadTypes.end()) { bad = true; why = "Instance target missing: " + rec.dependsOn[0]; }
+        else if (tit->second == "Instance") { bad = true; why = "nested instances are not supported"; }
+      }
+      if (bad) {
+        LogCore("ocaf: dropping invalid Instance on load " + rec.featureId + ": " + why);
+        continue;
+      }
+    }
+    ocaf_->featureLabels[rec.featureId] = lab;
     if (records) records->push_back(rec);
     ++recovered;
   }
-  // Re-adopt the selections + sketches folders (siblings under Main).
+  // Re-adopt the selections + sketches + expressions folders (siblings).
   for (TDF_ChildIterator it(ocaf_->doc->Main(), Standard_False); it.More();
        it.Next()) {
     Handle(TDataStd_Name) n;
@@ -693,6 +836,8 @@ bool OcafLive::Load(const std::string& xbfPath,
       ocaf_->selectionsRoot = it.Value();
     } else if (nm == "Sketches") {
       ocaf_->sketchesRoot = it.Value();
+    } else if (nm == "Expressions") {
+      ocaf_->expressionsRoot = it.Value();
     }
   }
   // Collect sketch JSON labels (do not fail the open when absent).
@@ -711,6 +856,32 @@ bool OcafLive::Load(const std::string& xbfPath,
       ocaf_->sketchLabels[sid] = it.Value();
       if (sketchJsons) sketchJsons->push_back(ExtToAscii(c->Get()));
       ++recoveredSketches;
+    }
+  }
+  // Collect expression labels (do not fail the open when absent).
+  // M8: skip expressions for shapes culled above (invalid/dropped Instance).
+  if (!ocaf_->expressionsRoot.IsNull()) {
+    for (TDF_ChildIterator it(ocaf_->expressionsRoot, Standard_False);
+         it.More(); it.Next()) {
+      Handle(TDataStd_Name) n;
+      Handle(TDataStd_Comment) c;
+      if (!it.Value().FindAttribute(TDataStd_Name::GetID(), n) ||
+          !it.Value().FindAttribute(TDataStd_Comment::GetID(), c)) {
+        continue;
+      }
+      const std::string fid = ExtToAscii(n->Get());
+      if (fid.empty()) continue;
+      if (ocaf_->featureLabels.find(fid) == ocaf_->featureLabels.end()) {
+        LogCore("ocaf: dropping orphan expressions on load: " + fid);
+        continue;
+      }
+      ocaf_->expressionLabels[fid] = it.Value();
+      std::map<std::string, std::string> entries;
+      std::string perr;
+      if (ParseExpressionMap(ExtToAscii(c->Get()), &entries, &perr) &&
+          !entries.empty()) {
+        ExpressionStore::instance().setFeatureMap(fid, entries);
+      }
     }
   }
   if (recovered == 0 && recoveredSketches == 0) {

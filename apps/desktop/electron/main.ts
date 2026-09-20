@@ -185,6 +185,44 @@ app.whenReady().then(() => {
     }
   });
 
+  // Plugin sources (§47, Phase 9b): the main process owns the plugins dir;  // the renderer never touches fs. Bounded: 20 files × 256 KiB, .js only.
+  // KREODA_PLUGINS_DIR overrides the location (E2E isolation).
+  ipcMain.handle("kreoda:plugins-list", async () => {
+    const dir =
+      process.env["KREODA_PLUGINS_DIR"] ||
+      path.join(app.getPath("userData"), "plugins");
+    let names: string[];
+    try {
+      names = fs
+        .readdirSync(dir)
+        .filter((n) => n.endsWith(".js"))
+        .slice(0, 20);
+    } catch {
+      return [];
+    }
+    const out: { filename: string; source: string }[] = [];
+    for (const name of names) {
+      try {
+        const full = path.join(dir, name);
+        // M10: readdir basenames block ../ but a symlink evil.js → /etc/passwd
+        // would still load via statSync (follows). Reject symlinks outright
+        // and confine the real path to the plugins dir.
+        const lst = fs.lstatSync(full);
+        if (lst.isSymbolicLink()) continue;
+        const real = fs.realpathSync(full);
+        const realDir = fs.realpathSync(dir);
+        if (real !== path.join(realDir, name)) continue;
+        if (!real.startsWith(realDir + path.sep) && real !== path.join(realDir, name)) continue;
+        const stat = fs.statSync(full);
+        if (!stat.isFile() || stat.size > 256 * 1024) continue;
+        out.push({ filename: name, source: fs.readFileSync(full, "utf8") });
+      } catch {
+        // One unreadable plugin must not block the rest.
+      }
+    }
+    return out;
+  });
+
   // Crash/support bundle (§61): versions + sidecar log tail + a MODEL-FREE
   // summary in one file the user can attach to a bug report. The snapshot
   // arrives as an opaque string — main never interprets model content, and
@@ -286,6 +324,44 @@ app.whenReady().then(() => {
       properties: ["openFile"],
     });
     return res.filePaths[0] ?? null;
+  });
+
+  // Reference image import (§29 Stage A, Phase 9c): file → data URL.
+  // Bounded (8 MiB); the renderer decodes dimensions itself. mime comes
+  // from the picked extension, never sniffed.
+  ipcMain.handle("kreoda:reference-import", async () => {
+    const res = await dialog.showOpenDialog(mainWindow!, {
+      filters: [
+        {
+          name: "Images",
+          extensions: ["png", "jpg", "jpeg", "bmp"],
+        },
+      ],
+      properties: ["openFile"],
+    });
+    const file = res.filePaths[0];
+    if (!file) return null;
+    const ext = path.extname(file).toLowerCase();
+    const mime =
+      ext === ".png"
+        ? "image/png"
+        : ext === ".bmp"
+          ? "image/bmp"
+          : "image/jpeg";
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(file);
+    } catch {
+      return null;
+    }
+    if (!stat.isFile() || stat.size > 8 * 1024 * 1024 || stat.size === 0) {
+      return null;
+    }
+    const bytes = fs.readFileSync(file);
+    return {
+      name: path.basename(file),
+      dataUrl: `data:${mime};base64,${bytes.toString("base64")}`,
+    };
   });
 
   app.on("activate", () => {

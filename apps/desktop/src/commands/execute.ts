@@ -47,11 +47,21 @@ function commandContext(): CommandContext {
 }
 
 function appendFeature(entry: FeatureSummary, revision: number): void {
+  // Minor race: two parallel pullAndAppend (CreateBox ×2) used a
+  // revision-gated replace that could drop the loser's entry (winner's
+  // snapshot predates loser). Merge keyed + ignore stale revisions.
   const s = useDocumentUiStore.getState();
-  s.setFeatures(
-    [...s.features.filter((f) => f.featureId !== entry.featureId), entry],
-    revision,
-  );
+  if (revision < s.revision) {
+    // Stale revision: still ensure the entry exists (never drop), but don't
+    // roll the revision back.
+    if (!s.features.some((f) => f.featureId === entry.featureId)) {
+      s.setFeatures([...s.features, entry], s.revision);
+    }
+    return;
+  }
+  const byId = new Map(s.features.map((f) => [f.featureId, f]));
+  byId.set(entry.featureId, entry);
+  s.setFeatures([...byId.values()], revision);
 }
 
 async function pullAndAppend(created: CreatedFeature): Promise<void> {
@@ -63,6 +73,7 @@ async function pullAndAppend(created: CreatedFeature): Promise<void> {
       paramsMm: created.paramsMm,
       dependsOn: created.dependsOn ?? [],
       refExtra: created.refExtra ?? "",
+      expressions: created.expressions ?? {},
       volumeMm3: created.volumeMm3,
     },
     created.revision,
@@ -192,6 +203,41 @@ async function dispatchCommand(
       await pullAndAppend(created);
       return { kind: "created", feature: created };
     }
+    case "CreateHolePattern": {
+      // M11: one core transaction for the whole pattern (one Undo step).
+      const { targetId, faceRole, pointsMm, diameterMm, depthMode, depthMm, featureIds } =
+        p as {
+          targetId: string;
+          faceRole: string;
+          pointsMm: number[];
+          diameterMm: number;
+          depthMode: "throughAll" | "blind";
+          depthMm: number;
+          featureIds: string[];
+        };
+      if (pointsMm.length % 2 !== 0) throw new Error("pointsMm must be [x,y] pairs");
+      // m11: fail fast locally (no wasted round-trip) when ids don't match
+      // points 1:1 — the core re-checks and answers BAD_PARAMS anyway.
+      if (featureIds.length * 2 !== pointsMm.length) {
+        throw new Error("hole pattern featureIds must match points 1:1");
+      }
+      const points: [number, number][] = [];
+      for (let i = 0; i < pointsMm.length; i += 2) {
+        points.push([pointsMm[i]!, pointsMm[i + 1]!]);
+      }
+      const { features, sketches, revision } =
+        await coreClient.createHolePattern({
+          targetId,
+          faceRole,
+          points,
+          diameterMm,
+          depthMode,
+          depthMm,
+          featureIds,
+        });
+      await syncFromCoreList(features, revision, sketches);
+      return { kind: "list", features, revision };
+    }
     case "CreateFillet": {
       const created = await coreClient.createFillet(
         p as { targetId: string; edgeIds: string[]; radiusMm: number },
@@ -206,32 +252,61 @@ async function dispatchCommand(
       await pullAndAppend(created);
       return { kind: "created", feature: created };
     }
+    case "CreateInstance": {
+      const created = await coreClient.createInstance(
+        p as {
+          targetId: string;
+          txMm?: number;
+          tyMm?: number;
+          tzMm?: number;
+          rxDeg?: number;
+          ryDeg?: number;
+          rzDeg?: number;
+        },
+      );
+      await pullAndAppend(created);
+      return { kind: "created", feature: created };
+    }
     case "SetDimension": {
-      const { featureId, paramName, valueMm } = p as {
+      const { featureId, paramName, valueMm, expression } = p as {
         featureId: string;
         paramName: string;
-        valueMm: number;
+        valueMm?: number;
+        expression?: string;
       };
       const updated = await coreClient.setFeatureParameter(
         featureId,
         paramName,
-        valueMm,
+        valueMm ?? 0,
+        false,
+        expression ?? "",
       );
       if ("positions" in updated) {
         // Preview meshes never commit — no store update by design (§13).
         return { kind: "mesh", mesh: updated };
       }
-      await pullFeatureMesh(featureId, updated.revision);
-      updateFeatureSummary(
-        featureId,
-        {
-          paramsMm: updated.paramsMm,
-          dependsOn: updated.dependsOn ?? [],
-          refExtra: updated.refExtra ?? "",
-          volumeMm3: updated.volumeMm3,
-        },
-        updated.revision,
-      );
+      // C2: cross-feature expressions / instance reflow move OTHER features —
+      // sync every summary from the full list, pull meshes for all that moved.
+      const list = (updated as { features?: FeatureSummary[] }).features;
+      if (list && list.length > 0) {
+        const { syncFromCoreList } = await import("../model/sync");
+        const sketches =
+          (updated as { sketches?: import("../ipc/coreClient").SketchSummary[] }).sketches ?? [];
+        await syncFromCoreList(list, updated.revision, sketches);
+      } else {
+        await pullFeatureMesh(featureId, updated.revision);
+        updateFeatureSummary(
+          featureId,
+          {
+            paramsMm: updated.paramsMm,
+            dependsOn: updated.dependsOn ?? [],
+            refExtra: updated.refExtra ?? "",
+            expressions: updated.expressions ?? {},
+            volumeMm3: updated.volumeMm3,
+          },
+          updated.revision,
+        );
+      }
       return { kind: "created", feature: updated };
     }
     case "Undo": {

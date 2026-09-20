@@ -32,7 +32,22 @@ export type PlanStep =
     }
   | { command: "CreateFillet"; params: { radiusMm: number } }
   | { command: "CreateChamfer"; params: { distanceMm: number } }
-  | { command: "SetDimension"; params: { paramName: string; valueMm: number } }
+  | {
+      command: "CreateInstance";
+      params: {
+        targetId?: string;
+        txMm?: number;
+        tyMm?: number;
+        tzMm?: number;
+        rxDeg?: number;
+        ryDeg?: number;
+        rzDeg?: number;
+      };
+    }
+  | {
+      command: "SetDimension";
+      params: { paramName: string; valueMm?: number; expression?: string };
+    }
   | { command: "Undo"; params: Record<string, never> }
   | { command: "Redo"; params: Record<string, never> }
   | { command: "View"; params: { name: string } }
@@ -379,8 +394,38 @@ export function parseCommand(input: string): ParseResult {
     // Preserve camelCase: tokens() lowercases, so take paramName from raw input.
     const raw = rawTokens(input);
     const param = raw[1];
+    if (!param) {
+      return {
+        ok: false,
+        reason: "invalid",
+        message: `Usage: set <parameter> <value> — e.g. “set widthMm 150”.`,
+      };
+    }
+    // Formula form (Phase 9a): everything after the first `=` is the
+    // expression, case-preserved from the raw input.
+    const eq = input.indexOf("=");
+    if (eq >= 0) {
+      const expr = input.slice(eq + 1).trim();
+      if (!expr) {
+        return {
+          ok: false,
+          reason: "invalid",
+          message: `Usage: set <parameter> =<formula> — e.g. “set widthMm =heightMm * 2”.`,
+        };
+      }
+      return {
+        ok: true,
+        plan: {
+          steps: [
+            { command: "SetDimension", params: { paramName: param, expression: expr } },
+          ],
+          source: "local",
+          text: input.trim(),
+        },
+      };
+    }
     const v = num(t[2]);
-    if (!param || v === null || t.length > 3) {
+    if (v === null || t.length > 3) {
       return {
         ok: false,
         reason: "invalid",
@@ -491,8 +536,17 @@ export function describeStep(step: PlanStep): string {
       return `Fillet R${step.params.radiusMm} on selected edges`;
     case "CreateChamfer":
       return `Chamfer ${step.params.distanceMm} on selected edges`;
+    case "CreateInstance": {
+      const p = step.params;
+      const t = [p.txMm ?? 0, p.tyMm ?? 0, p.tzMm ?? 0]
+        .map((v) => (Number.isInteger(v) ? String(v) : v.toFixed(2)))
+        .join(", ");
+      return `Instance at (${t})`;
+    }
     case "SetDimension":
-      return `Set ${step.params.paramName} = ${step.params.valueMm}`;
+      return step.params.expression !== undefined
+        ? `Set ${step.params.paramName} = ${step.params.expression} (formula)`
+        : `Set ${step.params.paramName} = ${step.params.valueMm}`;
     case "Undo":
       return "Undo";
     case "Redo":
@@ -506,4 +560,4 @@ export function describeStep(step: PlanStep): string {
 
 /** Short-command cheat sheet for help/hints. */
 export const HELP_TEXT =
-  "box 100 50 20 · cylinder 20 60 · sphere 25 · hole 8 [blind 5] · holes 6 4 corners 8 · fillet 3 · chamfer 2 · set widthMm 150 · undo · redo · view front · help";
+  "box 100 50 20 · cylinder 20 60 · sphere 25 · hole 8 [blind 5] · holes 6 4 corners 8 · fillet 3 · chamfer 2 · set widthMm 150 · set widthMm =heightMm * 2 · undo · redo · view front · help";

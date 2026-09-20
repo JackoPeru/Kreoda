@@ -31,6 +31,7 @@ export function updateFeatureSummary(
     paramsMm?: number[];
     dependsOn?: string[];
     refExtra?: string;
+    expressions?: Record<string, string>;
     volumeMm3?: number;
   },
   revision: number,

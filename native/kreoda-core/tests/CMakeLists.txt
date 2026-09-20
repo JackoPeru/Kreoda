@@ -6,8 +6,10 @@ endif()
 add_executable(kreoda-core-tests
   test_box.cpp
   test_codegen.cpp
+  test_expressions.cpp
   test_framing.cpp
   test_gltf.cpp
+  test_instance.cpp
   test_meshcache.cpp
   test_obj.cpp
   test_persistence.cpp
@@ -15,6 +17,8 @@ add_executable(kreoda-core-tests
   test_topology_imports.cpp
   test_graph.cpp
   test_undo.cpp
+  test_hole_pattern.cpp
+  test_torture_phase10.cpp
   test_sketch.cpp
   test_solids.cpp
   test_step.cpp
@@ -30,6 +34,7 @@ add_executable(kreoda-core-tests
   ../src/exchange/step_exchange.cpp
   ../src/exchange/stl_exchange.cpp
   ../src/exchange/threemf_exchange.cpp
+  ../src/expressions/expressions.cpp
   ../src/model/feature_graph.cpp
   ../src/model/shapes.cpp
   ../src/model/commit.cpp
@@ -43,6 +48,7 @@ add_executable(kreoda-core-tests
   ../src/features/revolve/revolve.cpp
   ../src/features/booleans/boolean.cpp
   ../src/features/hole/hole.cpp
+  ../src/features/instance/instance.cpp
   ../src/features/fillet/fillet.cpp
   ../src/topology/persistent_refs.cpp
   ../src/topology/face_roles.cpp

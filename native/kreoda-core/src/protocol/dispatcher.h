@@ -10,6 +10,11 @@ namespace kreoda {
 // Full validation moves to FlatBuffers codegen (schemas/cad_protocol.fbs).
 std::string json_string_field(const std::string& json, const char* key,
                               const std::string& fallback = "");
+// Strict variant honoring backslash escapes inside quoted strings.
+std::string json_string_field_strict(const std::string& json, const char* key,
+                              const std::string& fallback = "");
+bool json_has_key(const std::string& json, const char* key);
+bool json_double_strict(const std::string& json, const char* key, double* out);
 int json_int_field(const std::string& json, const char* key, int fallback = 0);
 double json_double_field(const std::string& json, const char* key,
                          double fallback = 0.0);
@@ -49,6 +54,8 @@ enum CommandId {
   kCreateFillet = 21,
   kCreateChamfer = 22,
   kRequestFaceInfo = 23,
+  kCreateInstance = 24,
+  kCreateHolePattern = 25,
 };
 
 }  // namespace kreoda

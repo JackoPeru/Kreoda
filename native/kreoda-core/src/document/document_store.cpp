@@ -2,6 +2,7 @@
 
 #include "model/feature_graph.h"
 #include "model/shapes.h"
+#include "expressions/expressions.h"
 #include "features/sketch/sketch_store.h"
 #include "persistence/ocaf_live.h"
 
@@ -17,6 +18,7 @@ void DocumentStore::create(const std::string& documentId) {
   documentId_ = documentId.empty() ? "doc-bootstrap" : documentId;
   ShapeStore::instance().clear();  // new document owns an empty model (§9)
   SketchStore::instance().clear();  // sketches are part of the model (§21)
+  ExpressionStore::instance().clear();  // formulas are part of the model (§22)
 #if KREODA_WITH_OCCT
   OcafLive::instance().Reset();  // live OCAF mirrors the empty model (§3)
 #endif
@@ -52,6 +54,30 @@ void DocumentStore::replaceAll(
 bool DocumentStore::hasFeature(const std::string& featureId) const {
   std::lock_guard<std::mutex> lock(mutex_);
   return features_.count(featureId) > 0;
+}
+
+std::map<std::string, std::string> DocumentStore::snapshotRegistry() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return features_;
+}
+
+int64_t DocumentStore::snapshotRevision() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return revision_;
+}
+
+std::string DocumentStore::snapshotDocumentId() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return documentId_;
+}
+
+void DocumentStore::restoreSnapshot(
+    const std::string& documentId, int64_t revision,
+    const std::map<std::string, std::string>& entries) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  documentId_ = documentId;
+  revision_ = revision;
+  features_ = entries;
 }
 
 }  // namespace kreoda

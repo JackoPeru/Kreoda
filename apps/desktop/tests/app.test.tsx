@@ -9,6 +9,7 @@ vi.mock("../src/viewport/CadViewport", () => ({
     setSelected = vi.fn();
     setPickMode = vi.fn();
     syncMeshes = vi.fn();
+    syncReferencePlanes = vi.fn();
     requestRender = vi.fn();
     dispose = vi.fn();
   },

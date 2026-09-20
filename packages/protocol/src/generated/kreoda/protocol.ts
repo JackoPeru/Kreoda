@@ -13,6 +13,8 @@ export { CreateDocumentRequest } from './protocol/create-document-request.js';
 export { CreateExtrudeCommand } from './protocol/create-extrude-command.js';
 export { CreateFilletCommand } from './protocol/create-fillet-command.js';
 export { CreateHoleCommand } from './protocol/create-hole-command.js';
+export { CreateHolePatternCommand } from './protocol/create-hole-pattern-command.js';
+export { CreateInstanceCommand } from './protocol/create-instance-command.js';
 export { CreateRevolveCommand } from './protocol/create-revolve-command.js';
 export { CreateSketchCommand } from './protocol/create-sketch-command.js';
 export { CreateSphereCommand } from './protocol/create-sphere-command.js';

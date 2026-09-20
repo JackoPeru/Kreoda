@@ -56,10 +56,38 @@ export interface IntentModelProvider {
 const ALLOWED_DIM_PARAMS = new Set([
   "widthMm", "heightMm", "depthMm", "radiusMm",
   "distanceMm", "diameterMm", "depthMm",
+  // Instance placement (Phase 9d): translations + ZYX euler degrees.
+  "txMm", "tyMm", "tzMm", "rxDeg", "ryDeg", "rzDeg",
 ]);
 
 function finitePositive(v: unknown, max = 100000): boolean {
   return typeof v === "number" && Number.isFinite(v) && v > 0 && v <= max;
+}
+
+const PLACEMENT_PARAMS = new Set(["txMm", "tyMm", "tzMm"]);
+const ANGLE_PARAMS = new Set(["rxDeg", "ryDeg", "rzDeg", "angleDeg"]);
+
+function validSetDimensionValue(paramName: string, v: unknown): boolean {
+  if (typeof v !== "number" || !Number.isFinite(v)) return false;
+  if (PLACEMENT_PARAMS.has(paramName)) return v >= -1000000 && v <= 1000000;
+  if (ANGLE_PARAMS.has(paramName)) {
+    // C3/M2: angles accept 0/negative (placement); revolve angleDeg range
+    // is enforced core-side ((0,360]) with an honest error.
+    return true;
+  }
+  return (v as number) > 0 && (v as number) <= 100000;
+}
+
+const EXPR_RE = /^[0-9A-Za-z_+*/(). \t-]+$/;
+function validExpression(expr: unknown): boolean {
+  // Minor: whitespace-only passes the charset but fails core — require trim.
+  return (
+    typeof expr === "string" &&
+    expr.length > 0 &&
+    expr.length <= 256 &&
+    expr.trim().length > 0 &&
+    EXPR_RE.test(expr)
+  );
 }
 
 /** Validate a plan before anything touches the core (§28, §63.10). */
@@ -80,9 +108,11 @@ export function validatePlan(plan: IntentPlan): void {
     }
     // Local shorthand steps resolve context at execution; still range-check
     // every numeric field present so parser bugs can't reach the core.
+    // C3: SetDimension valueMm range depends on paramName (placement allows
+    // 0/negative, angles allow any finite) — core owns the final gate.
     if (plan.source === "local") {
       const p = params as Record<string, unknown>;
-      for (const k of ["widthMm", "heightMm", "depthMm", "radiusMm", "diameterMm", "distanceMm", "insetMm", "depthMm", "valueMm", "xMm", "yMm"]) {
+      for (const k of ["widthMm", "heightMm", "depthMm", "radiusMm", "diameterMm", "distanceMm", "insetMm", "depthMm", "xMm", "yMm"]) {
         if (p[k] !== undefined && p[k] !== null) {
           const isXY = k === "xMm" || k === "yMm";
           // depthMm 0 = throughAll (valid); all other dims must be > 0.
@@ -100,6 +130,24 @@ export function validatePlan(plan: IntentPlan): void {
         if (!ALLOWED_DIM_PARAMS.has(pn)) {
           throw new Error(`Unknown parameter “${pn}” — try widthMm, heightMm, depthMm, radiusMm.`);
         }
+        // C3: per-param value gate (txMm=0/-50, rxDeg=0/-90 legal).
+        if (p["valueMm"] !== undefined && p["valueMm"] !== null) {
+          if (!validSetDimensionValue(pn, p["valueMm"])) {
+            throw new Error(`Bad valueMm for ${pn} — out of range for that parameter.`);
+          }
+        }
+        // Formulas ride the same path (Phase 9a): charset + length checked
+        // here, semantics validated core-side.
+        const expr = p["expression"];
+        if (expr !== undefined && expr !== null) {
+          if (!validExpression(expr)) {
+            throw new Error(
+              "Bad expression — numbers, parameter names and + - * / ( ) only.",
+            );
+          }
+        } else if (p["valueMm"] === undefined || p["valueMm"] === null) {
+          throw new Error("SetDimension needs valueMm or an expression.");
+        }
       }
       if (step.command === "CreateHolesCorners") {
         const c = (p["count"] as number) ?? 0;
@@ -112,6 +160,13 @@ export function validatePlan(plan: IntentPlan): void {
     // Zod validation of every field (§63.10) — unknown target ids and bad
     // types are rejected here, before anything touches the core.
     const parsed = def.parameterSchema.parse(params) as Record<string, unknown>;
+    // M12: LLM SetDimension.expression needs the same charset/length gate
+    // as local (zod only caps length) — fail fast before the round-trip.
+    if (step.command === "SetDimension" && parsed["expression"] !== undefined && parsed["expression"] !== null) {
+      if (!validExpression(parsed["expression"])) {
+        throw new Error("Bad expression — numbers, parameter names and + - * / ( ) only.");
+      }
+    }
     // LLM semantic checks: ids must resolve against the live document.
     if (store && typeof parsed["targetId"] === "string") {
       const tid = parsed["targetId"] as string;
@@ -182,6 +237,7 @@ export class HttpLlmProvider implements IntentModelProvider {
         "CreateHole",
         "CreateFillet",
         "CreateChamfer",
+        "CreateInstance",
         "SetDimension",
         "Undo",
         "Redo",
@@ -211,7 +267,8 @@ export class HttpLlmProvider implements IntentModelProvider {
                   faceRole: { type: "string" },
                   xMm: { type: "number" },
                   yMm: { type: "number" },
-                  diameterMm: numProp(0.01, 50000),
+                  // M7: cap matches the core gate (0, 100000].
+                  diameterMm: numProp(0.01, 100000),
                   depthMode: { type: "string", enum: ["throughAll", "blind"] },
                   depthMm: numProp(0, 100000),
                 }
@@ -226,19 +283,41 @@ export class HttpLlmProvider implements IntentModelProvider {
               edgeIds: { type: "array", items: { type: "string" } },
               distanceMm: numProp(0.01, 50000),
             } : {}),
+            ...(c.id === "CreateInstance" ? {
+              targetId: { type: "string" },
+              txMm: { type: "number" },
+              tyMm: { type: "number" },
+              tzMm: { type: "number" },
+              rxDeg: { type: "number" },
+              ryDeg: { type: "number" },
+              rzDeg: { type: "number" },
+            } : {}),
             ...(c.id === "SetDimension" ? {
               featureId: { type: "string" },
               paramName: { type: "string", enum: [...ALLOWED_DIM_PARAMS] },
-              valueMm: numProp(0.01, 100000),
+              // C3: value range is param-dependent (txMm=0/-50 legal) — the
+              // model sends any finite number, core + validatePlan own gates.
+              valueMm: { type: "number" },
+              expression: { type: "string", maxLength: 256, pattern: "^[0-9A-Za-z_+*/(). \\t-]+$" },
             } : {}),
           },
           required: c.id === "CreateBox"
             ? ["widthMm", "heightMm", "depthMm"]
             : c.id === "CreateHole"
               ? ["targetId", "faceRole", "xMm", "yMm", "diameterMm", "depthMode"]
-              : c.id === "SetDimension"
-                ? ["featureId", "paramName", "valueMm"]
-                : [],
+              : c.id === "CreateInstance"
+                ? ["targetId"]
+                : c.id === "SetDimension"
+                  ? ["featureId", "paramName"]
+                  : [],
+          ...(c.id === "SetDimension"
+            ? {
+                anyOf: [
+                  { required: ["featureId", "paramName", "valueMm"] },
+                  { required: ["featureId", "paramName", "expression"] },
+                ],
+              }
+            : {}),
         },
       },
     }));
@@ -421,6 +500,30 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
         case "CreateSphere":
           await executeValidatedCommand(step.command, step.params);
           break;
+        case "CreateInstance": {
+          const p = step.params as {
+            targetId?: string;
+            txMm?: number;
+            tyMm?: number;
+            tzMm?: number;
+            rxDeg?: number;
+            ryDeg?: number;
+            rzDeg?: number;
+          };
+          // Explicit target wins; otherwise the live body selection.
+          const targetId = p.targetId ?? selectedBody();
+          if (!targetId) throw new Error("Select a solid body first");
+          await executeValidatedCommand("CreateInstance", {
+            targetId,
+            txMm: p.txMm ?? 0,
+            tyMm: p.tyMm ?? 0,
+            tzMm: p.tzMm ?? 0,
+            rxDeg: p.rxDeg ?? 0,
+            ryDeg: p.ryDeg ?? 0,
+            rzDeg: p.rzDeg ?? 0,
+          });
+          break;
+        }
         case "CreateHole": {
           const face = selectedFace();
           if (!face) throw new Error("Select a face first");
@@ -546,18 +649,19 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
                   [x0 + p.insetMm, y1 - p.insetMm],
                   [x1 - p.insetMm, y1 - p.insetMm],
                 ];
-          // Pattern commits N holes: document as N steps (Undo N times).
-          for (const [hx, hy] of pts) {
-            await executeValidatedCommand("CreateHole", {
-              targetId,
-              faceRole,
-              xMm: hx as number,
-              yMm: hy as number,
-              diameterMm: p.diameterMm,
-              depthMode: p.depthMode,
-              depthMm: p.depthMm,
-            });
-          }
+          // M11: one core transaction (one Undo step) via CreateHolePattern.
+          const flat: number[] = (pts as number[][]).flat();
+          await executeValidatedCommand("CreateHolePattern", {
+            targetId,
+            faceRole,
+            featureIds: (pts as unknown[]).map(
+              () => `ho-${crypto.randomUUID()}`,
+            ),
+            pointsMm: flat,
+            diameterMm: p.diameterMm,
+            depthMode: p.depthMode,
+            depthMm: p.depthMm,
+          });
           break;
         }
         case "CreateFillet":
@@ -580,10 +684,16 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
         case "SetDimension": {
           const body = selectedBody();
           if (!body) throw new Error("Select a solid body first");
+          const sp = step.params as {
+            paramName: string;
+            valueMm?: number;
+            expression?: string;
+          };
           await executeValidatedCommand("SetDimension", {
             featureId: body,
-            paramName: (step.params as { paramName: string }).paramName,
-            valueMm: (step.params as { valueMm: number }).valueMm,
+            paramName: sp.paramName,
+            ...(sp.valueMm !== undefined ? { valueMm: sp.valueMm } : {}),
+            ...(sp.expression ? { expression: sp.expression } : {}),
           });
           break;
         }

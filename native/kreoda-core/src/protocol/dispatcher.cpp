@@ -26,11 +26,13 @@
 #include "exchange/step_exchange.h"
 #include "exchange/stl_exchange.h"
 #include "exchange/threemf_exchange.h"
+#include "expressions/expressions.h"
 #include "features/booleans/boolean.h"
 #include "features/evaluate.h"
 #include "features/extrusion/extrude.h"
 #include "features/fillet/fillet.h"
 #include "features/hole/hole.h"
+#include "features/instance/instance.h"
 #include "features/primitives/primitives.h"
 #include "features/revolve/revolve.h"
 #include "features/sketch/sketch_commands.h"
@@ -138,7 +140,18 @@ std::string shape_body(const ShapeRecord& rec) {
     if (i) os << ",";
     os << "\"" << escape(rec.dependsOn[i]) << "\"";
   }
-  os << "],\"refExtra\":\"" << escape(rec.refExtra) << "\""
+  os << "],\"expressions\":{";
+  {
+    bool efirst = true;
+    for (const auto& [param, expr] :
+         ExpressionStore::instance().forFeature(rec.featureId)) {
+      if (!efirst) os << ",";
+      efirst = false;
+      os << "\"" << escape(param) << "\":\"" << escape(expr) << "\"";
+    }
+  }
+  os << "}";
+  os << ",\"refExtra\":\"" << escape(rec.refExtra) << "\""
      << ",\"revision\":" << DocumentStore::instance().revision() << ","
      << undo_counts_body() << ",\"volumeMm3\":" << rec.volumeMm3
      << ",\"bboxMm\":[" << rec.bboxMm[0] << "," << rec.bboxMm[1] << ","
@@ -191,7 +204,19 @@ std::string feature_list_body() {
       if (i) os << ",";
       os << "\"" << escape(rec.dependsOn[i]) << "\"";
     }
-    os << "],\"refExtra\":\"" << escape(rec.refExtra)
+    // Formulas ride the summaries so the tree/chips can show ƒ markers (§22).
+    os << "],\"expressions\":{";
+    {
+      bool efirst = true;
+      for (const auto& [param, expr] :
+           ExpressionStore::instance().forFeature(rec.featureId)) {
+        if (!efirst) os << ",";
+        efirst = false;
+        os << "\"" << escape(param) << "\":\"" << escape(expr) << "\"";
+      }
+    }
+    os << "}";
+    os << ",\"refExtra\":\"" << escape(rec.refExtra)
        << "\",\"volumeMm3\":" << rec.volumeMm3 << "}";
   }
   os << "],\"sketches\":[";
@@ -247,12 +272,222 @@ std::string undo_counts_body() {
 #endif
 }
 
+// C5: a failed Open/Import must not destroy the current document.
+// Snapshot everything create() would clear (stores + registry + OCAF backup)
+// and restore it on any fallible step.
+struct DocSnapshot {
+  std::vector<ShapeRecord> shapes;
+  std::vector<SketchFeature> sketches;
+  std::vector<ExpressionEntry> exprs;
+  std::map<std::string, std::string> registry;
+  int64_t revision = 0;
+  std::string docId;
+  std::string ocafBackupDir;
+  std::string ocafBackupXbf;
+  bool hasOcafBackup = false;
+};
+
+DocSnapshot takeDocSnapshot(const std::string& docId) {
+  DocSnapshot s;
+  s.shapes = ShapeStore::instance().listInOrder();
+  s.sketches = SketchStore::instance().listInOrder();
+  s.exprs = ExpressionStore::instance().listInOrder();
+  s.registry = DocumentStore::instance().snapshotRegistry();
+  s.revision = DocumentStore::instance().snapshotRevision();
+  s.docId = DocumentStore::instance().snapshotDocumentId();
+  (void)docId;
+#if KREODA_WITH_OCCT
+  if (!s.shapes.empty() || !s.sketches.empty()) {
+    std::error_code ec;
+    std::string tmp = uniqueTempDir("kreoda-backup", ec);
+    if (!tmp.empty()) {
+      std::string xbf = (fs::path(tmp) / "backup.xbf").string();
+      std::string err;
+      if (OcafLive::instance().Save(xbf, &err)) {
+        s.ocafBackupDir = tmp;
+        s.ocafBackupXbf = xbf;
+        s.hasOcafBackup = true;
+      } else {
+        fs::remove_all(tmp, ec);
+      }
+    }
+  }
+#endif
+  return s;
+}
+
+void restoreDocSnapshot(const DocSnapshot& s) {
+  ShapeStore::instance().clear();
+  for (const auto& r : s.shapes) ShapeStore::instance().put(r);
+  SketchStore::instance().clear();
+  for (const auto& sk : s.sketches) SketchStore::instance().put(sk);
+  ExpressionStore::instance().clear();
+  for (const auto& e : s.exprs) ExpressionStore::instance().set(e.featureId, e.paramName, e.expression);
+  DocumentStore::instance().restoreSnapshot(s.docId, s.revision, s.registry);
+#if KREODA_WITH_OCCT
+  if (s.hasOcafBackup) {
+    std::vector<ShapeRecord> recs;
+    std::vector<std::string> sks;
+    std::string err;
+    // Reload the backup into the live doc, then rebuild maps.
+    if (OcafLive::instance().Load(s.ocafBackupXbf, &recs, &sks, &err)) {
+      std::string rsErr;
+      OcafLive::instance().ResyncStore(&rsErr);
+    } else {
+      std::string rsErr;
+      OcafLive::instance().ResyncStore(&rsErr);
+    }
+    std::error_code ec;
+    fs::remove_all(s.ocafBackupDir, ec);
+  } else {
+    // Was empty before: Reset is already the right OCAF state; just rebuild
+    // maps so aborted labels never dangle (C7).
+    std::string rsErr;
+    OcafLive::instance().ResyncStore(&rsErr);
+  }
+#endif
+  SyncGraphFromStore();
+}
+
+void discardDocSnapshot(const DocSnapshot& s) {
+  if (s.hasOcafBackup) {
+    std::error_code ec;
+    fs::remove_all(s.ocafBackupDir, ec);
+  }
+}
+
+// Phase 10.5 (crash recovery): a killed save must never leave a partially
+// written project behind. Writers produce a temp sibling in the SAME
+// directory (same filesystem → atomic rename); the destination is replaced
+// only by a complete file. On any failure the previous file is untouched.
+template <typename Writer>
+bool saveAtomically(const std::string& finalPath, Writer&& write,
+                    std::string* error) {
+  std::error_code ec;
+  fs::create_directories(fs::path(finalPath).parent_path(), ec);
+  // m8: pid-qualified temp names — a second sidecar process (or a restart
+  // after a kill) restarts the counter at 0, so the counter alone would
+  // clobber another process's in-flight temp. Same-dir sibling keeps the
+  // rename on one filesystem (atomic publish). A kill between write and
+  // rename can still leave a <name>.tmp-<pid>-<n> sibling behind (litter,
+  // never corruption — the destination is only ever replaced whole).
+  static std::atomic<unsigned long> saveCounter{0};
+#ifdef _WIN32
+  const unsigned long pid = static_cast<unsigned long>(GetCurrentProcessId());
+#else
+  const unsigned long pid = static_cast<unsigned long>(getpid());
+#endif
+  std::ostringstream tmpName;
+  tmpName << fs::path(finalPath).filename().string() << ".tmp-" << pid << "-"
+          << saveCounter.fetch_add(1);
+  const std::string tmpPath =
+      (fs::path(finalPath).parent_path() / tmpName.str()).string();
+  if (!write(tmpPath, error)) {
+    std::error_code rm;
+    fs::remove(tmpPath, rm);
+    return false;
+  }
+  fs::rename(tmpPath, finalPath, ec);
+  if (ec) {
+    // m9: no remove+rename fallback by design — if the destination is locked
+    // (viewer/AV), a fallback could remove the good file and then fail the
+    // rename, destroying data. The honest error below leaves the previous
+    // file untouched and cleans the temp (proven by the atomic-overwrite
+    // torture test).
+    if (error) *error = "save: publish failed: " + ec.message();
+    std::error_code rm;
+    fs::remove(tmpPath, rm);
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 std::string json_string_field(const std::string& json, const char* key,
                               const std::string& fallback) {
+  // Minor: naive quote scan breaks on escaped \" — delegate quoted values
+  // to the escape-aware parser (ids/paths gate via cleanId/cleanPath too).
+  const std::string pat = std::string("\"") + key + "\"";
+  const auto pos = json.find(pat);
+  if (pos == std::string::npos) return fallback;
+  const auto colon = json.find(':', pos + pat.size());
+  if (colon == std::string::npos) return fallback;
+  const auto start = json.find_first_not_of(" \t", colon + 1);
+  if (start == std::string::npos) return fallback;
+  if (json[start] == '"') return json_string_field_strict(json, key, fallback);
   const auto v = find_raw(json, key);
   return v.empty() ? fallback : v;
+}
+
+// Minor: find_raw's naive quote scan breaks on escaped \" inside strings.
+// Handle backslash escapes when extracting a quoted value.
+std::string json_string_field_strict(const std::string& json, const char* key,
+                              const std::string& fallback) {
+  const std::string pat = std::string("\"") + key + "\"";
+  const auto pos = json.find(pat);
+  if (pos == std::string::npos) return fallback;
+  const auto colon = json.find(':', pos + pat.size());
+  if (colon == std::string::npos) return fallback;
+  auto start = json.find_first_not_of(" \t", colon + 1);
+  if (start == std::string::npos) return fallback;
+  if (json[start] != '"') return find_raw(json, key).empty() ? fallback : find_raw(json, key);
+  std::string out;
+  for (size_t i = start + 1; i < json.size(); ++i) {
+    char c = json[i];
+    if (c == '\\' && i + 1 < json.size()) {
+      char n = json[i + 1];
+      if (n == '"' || n == '\\' || n == '/') { out.push_back(n); ++i; }
+      else if (n == 'n') { out.push_back('\n'); ++i; }
+      else if (n == 't') { out.push_back('\t'); ++i; }
+      else if (n == 'r') { out.push_back('\r'); ++i; }
+      else { out.push_back(c); }
+    } else if (c == '"') {
+      return out;
+    } else {
+      out.push_back(c);
+    }
+  }
+  return fallback;
+}
+
+bool json_has_key(const std::string& json, const char* key) {
+  const std::string pat = std::string("\"") + key + "\"";
+  const auto pos = json.find(pat);
+  if (pos == std::string::npos) return false;
+  const auto colon = json.find(':', pos + pat.size());
+  return colon != std::string::npos;
+}
+
+// M3: strict numeric parse — a present-but-non-numeric value (e.g.
+// "txMm":"evil" or txMm:"oops") must be BAD_PARAMS, never silent 0.
+bool json_double_strict(const std::string& json, const char* key, double* out) {
+  const auto v = find_raw(json, key);
+  if (v.empty()) return false;
+  // Quoted strings are never numbers (find_raw strips quotes, so "evil"
+  // arrives as evil — reject unless the raw JSON had a bare number).
+  const std::string pat = std::string("\"") + key + "\"";
+  const auto pos = json.find(pat);
+  if (pos == std::string::npos) return false;
+  const auto colon = json.find(':', pos + pat.size());
+  if (colon == std::string::npos) return false;
+  const auto start = json.find_first_not_of(" \t", colon + 1);
+  if (start == std::string::npos) return false;
+  if (json[start] == '"') return false;
+  try {
+    size_t len = 0;
+    double d = std::stod(v, &len);
+    // Trailing garbage (e.g. "12abc") is not a number.
+    std::string tail = v.substr(len);
+    // find_raw truncates at , or }, so tail should be whitespace only.
+    for (char c : tail) {
+      if (c != ' ' && c != '\t' && c != '\n' && c != '\r') return false;
+    }
+    if (out) *out = d;
+    return true;
+  } catch (...) {
+    return false;
+  }
 }
 
 int json_int_field(const std::string& json, const char* key, int fallback) {
@@ -480,10 +715,13 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       std::string ext = fs::path(path).extension().string();
       for (char& c : ext) c = static_cast<char>(std::tolower(c));
       if (ext == ".step" || ext == ".stp") {
-        std::error_code ec;
-        fs::create_directories(fs::path(path).parent_path(), ec);
         std::string error;
-        if (!ExportStep(path, &error)) {
+        if (!saveAtomically(
+                path,
+                [](const std::string& tmp, std::string* e) {
+                  return ExportStep(tmp, e);
+                },
+                &error)) {
           return make_response(requestId, "error",
                                error_body("EXPORT_FAILED", error));
         }
@@ -492,10 +730,13 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         return make_response(requestId, "ok", body.str());
       }
       if (ext == ".3mf") {
-        std::error_code ec;
-        fs::create_directories(fs::path(path).parent_path(), ec);
         std::string error;
-        if (!ExportThreeMF(path, &error)) {
+        if (!saveAtomically(
+                path,
+                [](const std::string& tmp, std::string* e) {
+                  return ExportThreeMF(tmp, e);
+                },
+                &error)) {
           return make_response(requestId, "error",
                                error_body("EXPORT_FAILED", error));
         }
@@ -504,10 +745,13 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         return make_response(requestId, "ok", body.str());
       }
       if (ext == ".stl") {
-        std::error_code ec;
-        fs::create_directories(fs::path(path).parent_path(), ec);
         std::string error;
-        if (!ExportStl(path, &error)) {
+        if (!saveAtomically(
+                path,
+                [](const std::string& tmp, std::string* e) {
+                  return ExportStl(tmp, e);
+                },
+                &error)) {
           return make_response(requestId, "error",
                                error_body("EXPORT_FAILED", error));
         }
@@ -516,10 +760,13 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         return make_response(requestId, "ok", body.str());
       }
       if (ext == ".obj") {
-        std::error_code ec;
-        fs::create_directories(fs::path(path).parent_path(), ec);
         std::string error;
-        if (!ExportObj(path, &error)) {
+        if (!saveAtomically(
+                path,
+                [](const std::string& tmp, std::string* e) {
+                  return ExportObj(tmp, e);
+                },
+                &error)) {
           return make_response(requestId, "error",
                                error_body("EXPORT_FAILED", error));
         }
@@ -528,10 +775,13 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         return make_response(requestId, "ok", body.str());
       }
       if (ext == ".gltf") {
-        std::error_code ec;
-        fs::create_directories(fs::path(path).parent_path(), ec);
         std::string error;
-        if (!ExportGltf(path, &error)) {
+        if (!saveAtomically(
+                path,
+                [](const std::string& tmp, std::string* e) {
+                  return ExportGltf(tmp, e);
+                },
+                &error)) {
           return make_response(requestId, "error",
                                error_body("EXPORT_FAILED", error));
         }
@@ -540,10 +790,13 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         return make_response(requestId, "ok", body.str());
       }
       if (ext == ".glb") {
-        std::error_code ec;
-        fs::create_directories(fs::path(path).parent_path(), ec);
         std::string error;
-        if (!ExportGlb(path, &error)) {
+        if (!saveAtomically(
+                path,
+                [](const std::string& tmp, std::string* e) {
+                  return ExportGlb(tmp, e);
+                },
+                &error)) {
           return make_response(requestId, "error",
                                error_body("EXPORT_FAILED", error));
         }
@@ -565,7 +818,13 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
                              error_body("SAVE_FAILED", error));
       }
       fs::create_directories(fs::path(path).parent_path(), ec);
-      if (!WriteIcad(path, manifest_json(documentId), xbf, &error)) {
+      const std::string manifest = manifest_json(documentId);
+      if (!saveAtomically(
+              path,
+              [&](const std::string& tmp, std::string* e) {
+                return WriteIcad(tmp, manifest, xbf, e);
+              },
+              &error)) {
         fs::remove_all(tmp, ec);
         return make_response(requestId, "error",
                              error_body("SAVE_FAILED", error));
@@ -583,7 +842,9 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       }
       std::string ext = fs::path(path).extension().string();
       for (char& c : ext) c = static_cast<char>(std::tolower(c));
-      MeshCache().clear();  // open replaces the doc in every branch below
+      // C5: snapshot BEFORE any create() — every branch below replaces the
+      // document, and a corrupt file must not destroy current work.
+      DocSnapshot backup = takeDocSnapshot(documentId);
       if (ext == ".step" || ext == ".stp") {
         // STEP import replaces the document (same as Open): fresh baseline,
         // one StepImport feature per solid in a single Undo step.
@@ -591,6 +852,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         std::vector<std::string> created;
         DocumentStore::instance().create(documentId);
         if (!ImportStep(path, &created, &error)) {
+          restoreDocSnapshot(backup);
           return make_response(requestId, "error",
                                error_body("OPEN_FAILED", error));
         }
@@ -602,6 +864,8 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         }
         SyncGraphFromStore();
         DocumentStore::instance().commit();
+        MeshCache().clear();
+        discardDocSnapshot(backup);
         std::ostringstream body;
         body << "\"path\":\"" << escape(path) << "\"," << feature_list_body();
         return make_response(requestId, "ok", body.str());
@@ -613,6 +877,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         std::vector<std::string> created;
         DocumentStore::instance().create(documentId);
         if (!ImportThreeMF(path, &created, &error)) {
+          restoreDocSnapshot(backup);
           return make_response(requestId, "error",
                                error_body("OPEN_FAILED", error));
         }
@@ -624,6 +889,8 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         }
         SyncGraphFromStore();
         DocumentStore::instance().commit();
+        MeshCache().clear();
+        discardDocSnapshot(backup);
         std::ostringstream body;
         body << "\"path\":\"" << escape(path) << "\"," << feature_list_body();
         return make_response(requestId, "ok", body.str());
@@ -635,6 +902,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         std::vector<std::string> created;
         DocumentStore::instance().create(documentId);
         if (!ImportStl(path, &created, &error)) {
+          restoreDocSnapshot(backup);
           return make_response(requestId, "error",
                                error_body("OPEN_FAILED", error));
         }
@@ -646,6 +914,8 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         }
         SyncGraphFromStore();
         DocumentStore::instance().commit();
+        MeshCache().clear();
+        discardDocSnapshot(backup);
         std::ostringstream body;
         body << "\"path\":\"" << escape(path) << "\"," << feature_list_body();
         return make_response(requestId, "ok", body.str());
@@ -660,6 +930,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
                       ? ImportObj(path, &created, &error)
                       : ImportGltf(path, &created, &error);
         if (!ok) {
+          restoreDocSnapshot(backup);
           return make_response(requestId, "error",
                                error_body("OPEN_FAILED", error));
         }
@@ -671,6 +942,8 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         }
         SyncGraphFromStore();
         DocumentStore::instance().commit();
+        MeshCache().clear();
+        discardDocSnapshot(backup);
         std::ostringstream body;
         body << "\"path\":\"" << escape(path) << "\"," << feature_list_body();
         return make_response(requestId, "ok", body.str());
@@ -693,13 +966,33 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       // Fresh baseline BEFORE load (clears stores + OCAF); Load then opens
       // the file into the live doc with all labels (solids, sketches,
       // selections, evolution) intact — no re-mirroring needed.
+      // C5: backup already taken above; restore it if Load fails.
+      // C8: validate adopted Instances (nested/self/missing never open).
       DocumentStore::instance().create(documentId);
       if (!OcafLive::instance().Load(xbf, &records, &sketchJsons, &error)) {
         fs::remove_all(tmp, ec);
+        restoreDocSnapshot(backup);
         return make_response(requestId, "error",
                              error_body("OPEN_FAILED", error));
       }
       // Adopt into in-memory stores + graph (OCAF already holds the truth).
+      // C8 belt-and-braces: Load already drops bad Instances, but a future
+      // path must never adopt Instance→Instance/self/ghost either.
+      {
+        std::map<std::string, std::string> t;
+        for (auto& r : records) t[r.featureId] = r.type;
+        std::vector<ShapeRecord> kept;
+        for (auto& r : records) {
+          if (r.type == "Instance") {
+            bool bad = r.dependsOn.size() != 1 || r.dependsOn[0] == r.featureId ||
+                       t.find(r.dependsOn[0]) == t.end() ||
+                       t[r.dependsOn[0]] == "Instance";
+            if (bad) continue;
+          }
+          kept.push_back(r);
+        }
+        records.swap(kept);
+      }
       for (auto& rec : records) {
         ShapeStore::instance().put(rec);
         DocumentStore::instance().noteFeature(rec.featureId, rec.type);
@@ -714,6 +1007,8 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       }
       SyncGraphFromStore();
       DocumentStore::instance().commit();
+      MeshCache().clear();
+      discardDocSnapshot(backup);
       fs::remove_all(tmp, ec);
       std::ostringstream body;
       body << "\"path\":\"" << escape(path) << "\"," << feature_list_body();
@@ -726,27 +1021,51 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
           json_string_field(requestJson, "featureId", "");
       const std::string paramName =
           json_string_field(requestJson, "paramName", "");
-      const int hasValue =
-          requestJson.find("\"valueMm\"") != std::string::npos ||
-          requestJson.find("\"value\"") != std::string::npos;
-      const double value = json_double_field(requestJson, "valueMm",
-                                             json_double_field(requestJson,
-                                                               "value", 0));
+      // M3: a present-but-garbage valueMm ("evil") must be BAD_PARAMS, not
+      // silent 0. hasValue is key presence; strict parse validates numerics.
+      const int hasValue = json_has_key(requestJson, "valueMm") ||
+                           json_has_key(requestJson, "value");
+      double value = 0;
+      if (hasValue) {
+        bool parsed = json_double_strict(requestJson, "valueMm", &value);
+        if (!parsed) parsed = json_double_strict(requestJson, "value", &value);
+        if (!parsed) {
+          return make_response(requestId, "error",
+                               error_body("BAD_PARAMS",
+                                          "valueMm must be a JSON number"));
+        }
+      }
       const bool isPreview =
           json_string_field(requestJson, "isPreview", "") == "true" ||
           json_int_field(requestJson, "isPreview", 0) == 1;
-      if (featureId.empty() || paramName.empty() || !hasValue) {
+      // Phase 9a: an expression replaces the bare value (validated + stored
+      // core-side; evaluated before the DAG recompute).
+      const std::string expression =
+          json_string_field(requestJson, "expression", "");
+      if (featureId.empty() || paramName.empty() ||
+          (!hasValue && expression.empty())) {
         return make_response(requestId, "error",
                              error_body("BAD_PARAMS",
                                         "featureId, paramName and valueMm "
-                                        "are required"));
+                                        "(or expression) are required"));
       }
       if (isPreview) {
         // Transient preview (§13): resolved + built + tessellated WITHOUT
         // touching stores, revision, or OCAF. Never committed.
+        // A formula previews at its evaluated value (read-only evaluation).
+        double previewValue = value;
+        if (!expression.empty()) {
+          std::string evalErr;
+          if (!EvaluateOneExpression(featureId, paramName, expression,
+                                     &previewValue, &evalErr)) {
+            return make_response(requestId, "error",
+                                 error_body("PREVIEW_FAILED", evalErr));
+          }
+        }
         std::string error;
         CoreMesh mesh;
-        if (!BuildPreviewMesh(featureId, paramName, value, &mesh, &error) ||
+        if (!BuildPreviewMesh(featureId, paramName, previewValue, &mesh,
+                              &error) ||
             mesh.indices.empty()) {
           return make_response(requestId, "error",
                                error_body("PREVIEW_FAILED",
@@ -763,13 +1082,18 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         return preview;
       }
       std::string error;
-      if (!RebuildFeature(featureId, paramName, value, &error)) {
+      if (!RebuildFeature(featureId, paramName, value, expression, &error)) {
         return make_response(requestId, "error",
                              error_body("REBUILD_FAILED", error));
       }
+      // C2: cross-feature expressions / instance reflow can move OTHER
+      // features — the response must carry the full list so the renderer
+      // never goes stale. shape_body keeps the edited record for the old
+      // single-id path; feature_list_body carries every summary.
       ShapeRecord rec;
       ShapeStore::instance().get(featureId, &rec);
-      return make_response(requestId, "ok", shape_body(rec));
+      return make_response(requestId, "ok",
+                           shape_body(rec) + "," + feature_list_body());
     }
     case kUndo:
     case kRedo: {
@@ -983,6 +1307,162 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       ShapeStore::instance().get(featureId, &rec);
       return make_response(requestId, "ok", shape_body(rec));
     }
+    case kCreateHolePattern: {
+      // M11: 1..4 holes in exactly one OCAF transaction (one Undo step).
+      const std::string targetId =
+          json_string_field(requestJson, "targetId", "");
+      std::string faceRole = json_string_field(requestJson, "faceRole", "");
+      if (faceRole.empty()) {
+        const std::string faceId = json_string_field(requestJson, "faceId", "");
+        const size_t cut = faceId.find(':');
+        faceRole = (cut == std::string::npos) ? faceId : faceId.substr(cut + 1);
+      }
+      double dia = 0;
+      if (!json_double_strict(requestJson, "diameterMm", &dia) &&
+          !json_double_strict(requestJson, "diameter", &dia)) {
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS",
+                                        "diameterMm must be a JSON number"));
+      }
+      const std::string mode =
+          json_string_field(requestJson, "depthMode", "throughAll");
+      // m17: an unknown depthMode is a parameter error, reported here as
+      // BAD_PARAMS like the other numeric gates (not HOLE_FAILED).
+      if (mode != "throughAll" && mode != "blind") {
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS",
+                                        "depthMode must be throughAll|blind"));
+      }
+      double depth = 0;
+      if (json_has_key(requestJson, "depthMm") || json_has_key(requestJson, "depth")) {
+        if (!json_double_strict(requestJson, "depthMm", &depth) &&
+            !json_double_strict(requestJson, "depth", &depth)) {
+          return make_response(requestId, "error",
+                               error_body("BAD_PARAMS",
+                                          "depthMm must be a JSON number"));
+        }
+      }
+      // featureIds: ["ho-…", …] (1..4, frontend-owned ids).
+      // m10: empties are preserved (not dropped) so validation below blames
+      // the right field; duplicates are BAD_PARAMS here, not HOLE_FAILED.
+      std::vector<std::string> featureIds;
+      {
+        std::string raw;
+        if (ExtractJsonValue(requestJson, "featureIds", &raw)) {
+          size_t pos = 0;
+          while (pos < raw.size()) {
+            while (pos < raw.size() && (raw[pos] == ' ' || raw[pos] == '\t' ||
+                                        raw[pos] == '\n' || raw[pos] == '\r' ||
+                                        raw[pos] == '[' || raw[pos] == ']' ||
+                                        raw[pos] == ',')) {
+              ++pos;
+            }
+            if (pos >= raw.size()) break;
+            if (raw[pos] == '"') {
+              ++pos;
+              std::string id;
+              while (pos < raw.size() && raw[pos] != '"') {
+                if (raw[pos] == '\\' && pos + 1 < raw.size()) {
+                  ++pos;
+                  id.push_back(raw[pos]);
+                } else {
+                  id.push_back(raw[pos]);
+                }
+                ++pos;
+              }
+              if (pos < raw.size() && raw[pos] == '"') ++pos;
+              featureIds.push_back(id);
+            } else {
+              break;
+            }
+          }
+        }
+      }
+      // points: flat [x0,y0,x1,y1,…] (2..8 numbers).
+      // M3: same strictness as diameter/depth — any character outside a
+      // JSON number array is BAD_PARAMS, never silent truncation
+      // ("12abc" used to parse as 12, "12abc34" as two numbers).
+      std::vector<double> nums;
+      {
+        std::string raw;
+        if (ExtractJsonValue(requestJson, "points", &raw)) {
+          for (char c : raw) {
+            const bool numeric = (c >= '0' && c <= '9') || c == '-' ||
+                                 c == '+' || c == '.' || c == 'e' || c == 'E';
+            const bool structural = c == '[' || c == ']' || c == ',' ||
+                                    c == ' ' || c == '\t' || c == '\n' ||
+                                    c == '\r';
+            if (!numeric && !structural) {
+              return make_response(requestId, "error",
+                                   error_body("BAD_PARAMS",
+                                              "points must be JSON numbers"));
+            }
+          }
+          std::string cur;
+          for (size_t i = 0; i <= raw.size(); ++i) {
+            char c = (i < raw.size()) ? raw[i] : ',';
+            if ((c >= '0' && c <= '9') || c == '-' || c == '+' || c == '.' ||
+                c == 'e' || c == 'E') {
+              cur.push_back(c);
+            } else if (!cur.empty()) {
+              try {
+                nums.push_back(std::stod(cur));
+              } catch (...) {
+                return make_response(requestId, "error",
+                                     error_body("BAD_PARAMS",
+                                                "points must be JSON numbers"));
+              }
+              cur.clear();
+            }
+          }
+        }
+      }
+      if (featureIds.empty() || featureIds.size() > 4) {
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS",
+                                        "featureIds must have 1..4 entries"));
+      }
+      {
+        std::set<std::string> seen;
+        for (const auto& fid : featureIds) {
+          if (fid.empty() || !ShapeStore::ValidFeatureId(fid)) {
+            return make_response(requestId, "error",
+                                 error_body("BAD_PARAMS",
+                                            "featureIds must match [A-Za-z0-9_-]"));
+          }
+          if (!seen.insert(fid).second) {
+            return make_response(requestId, "error",
+                                 error_body("BAD_PARAMS",
+                                            "duplicate featureId in pattern"));
+          }
+        }
+      }
+      if (nums.size() != featureIds.size() * 2) {
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS",
+                                        "points must be [x,y] per featureId"));
+      }
+      std::vector<std::pair<double, double>> pts;
+      for (size_t i = 0; i < featureIds.size(); ++i) {
+        pts.emplace_back(nums[2 * i], nums[2 * i + 1]);
+      }
+      std::string error;
+      std::vector<std::string> created;
+      if (!CreateHolePatternFeature(targetId, faceRole, pts, dia, mode, depth,
+                                    featureIds, &created, &error)) {
+        return make_response(requestId, "error",
+                             error_body("HOLE_FAILED", error));
+      }
+      for (const auto& id : created) {
+        ShapeRecord rec;
+        DocumentStore::instance().noteFeature(
+            id, ShapeStore::instance().get(id, &rec) ? rec.type : "Hole");
+      }
+      SyncGraphFromStore();
+      std::ostringstream body;
+      body << feature_list_body();
+      return make_response(requestId, "ok", body.str());
+    }
     case kCreateFillet:
     case kCreateChamfer: {
       const bool isFillet = (type == kCreateFillet);
@@ -1052,6 +1532,35 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
                              error_body(isFillet ? "FILLET_FAILED"
                                                 : "CHAMFER_FAILED",
                                         error));
+      }
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateInstance: {
+      const std::string featureId =
+          json_string_field(requestJson, "featureId", "");
+      const std::string targetId =
+          json_string_field(requestJson, "targetId", "");
+      // M3: placement garbage ("txMm":"evil") must be BAD_PARAMS, not 0.
+      std::vector<double> placement(6, 0.0);
+      const char* keys[6] = {"txMm", "tyMm", "tzMm", "rxDeg", "ryDeg", "rzDeg"};
+      for (int i = 0; i < 6; ++i) {
+        if (json_has_key(requestJson, keys[i])) {
+          double v = 0;
+          if (!json_double_strict(requestJson, keys[i], &v)) {
+            return make_response(requestId, "error",
+                                 error_body("BAD_PARAMS",
+                                            std::string(keys[i]) +
+                                            " must be a JSON number"));
+          }
+          placement[static_cast<size_t>(i)] = v;
+        }
+      }
+      std::string error;
+      if (!CreateInstanceFeature(featureId, targetId, placement, &error)) {
+        return make_response(requestId, "error",
+                             error_body("INSTANCE_FAILED", error));
       }
       ShapeRecord rec;
       ShapeStore::instance().get(featureId, &rec);
@@ -1149,11 +1658,16 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
            << DocumentStore::instance().revision() << "," << undo_counts_body();
       return make_response(requestId, "ok", body.str());
     }
+    case kDeleteFeature:
+      return make_response(requestId, "error",
+                           error_body("NOT_IMPLEMENTED",
+                                      "delete arrives separately (no delete path yet — "
+                                      "instances of deleted targets only via crafted files, guarded)"));
     default:
       return make_response(requestId, "error",
                            error_body("UNKNOWN_COMMAND",
                                       "unsupported type (core 0.1.0 "
-                                      "implements 1-23)"));
+                                      "implements 1-25; delete arrives separately as NOT_IMPLEMENTED)"));
   }
 }
 

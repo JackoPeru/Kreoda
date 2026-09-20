@@ -10,10 +10,13 @@ namespace kreoda {
 
 // Live OCAF document (§3): one BinXCAF document for the process lifetime.
 // Every feature owns a label (UUID name + params comment + XCAF shape).
-// Rebuilds record TNaming evolution (Modify at solid level, Generated per
-// role-matched face); face selections persist as TNaming_Selector references
-// under a dedicated folder, resolved via TNaming_Tool::CurrentShape first
-// and the semantic role fallback second (§4).
+// Rebuilds replace the label solid via SetShape (one whole-solid evolution);
+// face selections persist as TNaming_Selector references under a dedicated
+// folder, resolved via TNaming_Tool::CurrentShape first and the semantic
+// role fallback second (§4, the tested contract — no reader asserts the
+// naming path). Per-face Generated evolution on feature labels was removed
+// in Phase 10: it made GetShape resolve to a face compound, silently
+// corrupting downstream booleans after Undo/Redo/Open.
 class OcafLive {
  public:
   static OcafLive& instance();
@@ -38,6 +41,18 @@ class OcafLive {
 
   // Mirror a created (isNew) or rebuilt feature into OCAF + TNaming.
   bool UpsertFeature(const ShapeRecord& rec, bool isNew, std::string* error);
+
+  // M4: drop in-memory label-map entries for ids that were never committed
+  // (aborted transaction + failed resync). The OCAF document already rolled
+  // back via AbortCommand; without this the maps point at detached labels
+  // and the next Upsert takes the rebuild path on a ghost label.
+  void ForgetFeatures(const std::vector<std::string>& featureIds);
+  // Expression labels (§22/Phase 9a): one label per feature carrying
+  // formulas, name=feature UUID + comment=JSON object {param: expression}.
+  // Mirrors the sketch pattern: mutations run inside the caller's OCAF
+  // command so Undo/Redo restores formulas with geometry.
+  bool UpsertExpressions(const std::string& featureId,
+                         const std::string& exprJson, std::string* error);
 
   // Sketch labels (§21): sketches live under a Sketches folder as
   // name=sketch UUID + comment=serialized SketchFeature JSON. Mutations run

@@ -67,6 +67,7 @@ set(CORE_SOURCES
   src/exchange/step_exchange.cpp
   src/exchange/stl_exchange.cpp
   src/exchange/threemf_exchange.cpp
+  src/expressions/expressions.cpp
   src/model/feature_graph.cpp
   src/model/shapes.cpp
   src/model/commit.cpp
@@ -80,6 +81,7 @@ set(CORE_SOURCES
   src/features/revolve/revolve.cpp
   src/features/booleans/boolean.cpp
   src/features/hole/hole.cpp
+  src/features/instance/instance.cpp
   src/features/fillet/fillet.cpp
   src/topology/persistent_refs.cpp
   src/topology/face_roles.cpp

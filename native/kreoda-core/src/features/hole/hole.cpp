@@ -2,7 +2,10 @@
 
 #include <cmath>
 #include <iomanip>
+#include <set>
 #include <sstream>
+#include <utility>
+#include <vector>
 
 #include "document/document_store.h"
 #include "model/commit.h"
@@ -245,6 +248,136 @@ bool CreateHoleFeature(const std::string& featureId,
   bool hadDelta = false;
   OcafLive::instance().CommitCommand(&hadDelta, nullptr);
   return true;
+}
+
+bool CreateHolePatternFeature(
+    const std::string& targetId, const std::string& faceRole,
+    const std::vector<std::pair<double, double>>& points, double diameterMm,
+    const std::string& depthMode, double depthMm,
+    const std::vector<std::string>& featureIds,
+    std::vector<std::string>* createdIds, std::string* error) {
+  if (targetId.empty() || faceRole.empty()) {
+    if (error) *error = "targetId and faceRole are required";
+    return false;
+  }
+  if (points.empty() || points.size() > 4) {
+    if (error) *error = "hole pattern needs 1..4 points";
+    return false;
+  }
+  if (featureIds.size() != points.size()) {
+    if (error) *error = "featureIds must match points (1..4)";
+    return false;
+  }
+  if (!(diameterMm > 0 && diameterMm <= 100000)) {
+    if (error) *error = "hole diameter must be in (0, 100000] mm";
+    return false;
+  }
+  if (depthMode != "throughAll" && depthMode != "blind") {
+    if (error) *error = "depthMode must be throughAll|blind";
+    return false;
+  }
+  if (depthMode == "blind" && !(depthMm > 0 && depthMm <= 100000)) {
+    if (error) *error = "blind depth must be in (0, 100000] mm";
+    return false;
+  }
+  for (const auto& fid : featureIds) {
+    if (fid.empty()) {
+      if (error) *error = "featureId is required";
+      return false;
+    }
+    if (!ShapeStore::ValidFeatureId(fid)) {
+      if (error) *error = "featureId must match [A-Za-z0-9_-]: " + fid;
+      return false;
+    }
+    if (ShapeStore::instance().contains(fid) ||
+        SketchStore::instance().contains(fid)) {
+      if (error) *error = "id already exists: " + fid;
+      return false;
+    }
+  }
+  {
+    std::set<std::string> seen;
+    for (const auto& fid : featureIds) {
+      if (!seen.insert(fid).second) {
+        if (error) *error = "duplicate featureId in pattern: " + fid;
+        return false;
+      }
+    }
+  }
+  for (const auto& [x, y] : points) {
+    if (!std::isfinite(x) || !std::isfinite(y)) {
+      if (error) *error = "hole position must be finite numbers";
+      return false;
+    }
+  }
+#if KREODA_WITH_OCCT
+  ShapeRecord target;
+  if (!ShapeStore::instance().get(targetId, &target) ||
+      target.shape.IsNull()) {
+    if (error) *error = "unknown target " + targetId;
+    return false;
+  }
+  // Validate ALL positions against the base before opening the transaction
+  // (first failure aborts with nothing created — atomic).
+  std::vector<TopoDS_Shape> shapes;
+  std::vector<std::string> refs;
+  shapes.reserve(points.size());
+  refs.reserve(points.size());
+  for (const auto& [x, y] : points) {
+    TopoDS_Shape shape;
+    if (!BuildHoleShape(target.shape, targetId, target.type, faceRole, x, y,
+                        diameterMm, depthMode, depthMm, &shape, error)) {
+      return false;
+    }
+    std::string ref;
+    if (!EncodeHoleRef(faceRole, x, y, depthMode, &ref)) {
+      if (error) *error = "invalid face role characters";
+      return false;
+    }
+    shapes.push_back(shape);
+    refs.push_back(ref);
+  }
+  if (!OcafLive::instance().BeginCommand(error)) return false;
+  std::vector<std::string> created;
+  for (size_t i = 0; i < points.size(); ++i) {
+    const bool ok = CommitShape(
+        featureIds[i], "Hole", {diameterMm, depthMm}, {targetId}, refs[i],
+        shapes[i], nullptr, false, error);
+    if (!ok) {
+      for (const auto& cid : created) {
+        ShapeStore::instance().remove(cid);
+        TheFeatureGraph().removeFeature(cid);
+      }
+      OcafLive::instance().AbortCommand();
+      // M4: CommitShape already inserted featureLabels for isNew ids inside
+      // the aborted transaction — Abort rolls back the document but not the
+      // in-memory maps. Resync rebuilds them; if THAT fails, erase the
+      // never-committed entries explicitly so no ghost label survives.
+      {
+        std::string rsErr;
+        if (!OcafLive::instance().ResyncStore(&rsErr)) {
+          OcafLive::instance().ForgetFeatures(created);
+          if (error) {
+            *error += " (resync failed: " + rsErr + ")";
+          }
+        }
+      }
+      return false;
+    }
+    created.push_back(featureIds[i]);
+  }
+  bool hadDelta = false;
+  OcafLive::instance().CommitCommand(&hadDelta, nullptr);
+  DocumentStore::instance().commit();
+  if (createdIds) *createdIds = created;
+  return true;
+#else
+  (void)points;
+  (void)featureIds;
+  (void)createdIds;
+  if (error) *error = "holes require OCCT (link via vcpkg)";
+  return false;
+#endif
 }
 
 bool RebuildHoleFromStore(const std::string& featureId, std::string* error) {

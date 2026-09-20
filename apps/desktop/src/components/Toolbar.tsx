@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Cylinder, Circle, CircleDot, Pencil, ArrowUpFromLine, Spline, Slice, Combine, Undo2, Redo2, Save, FolderOpen, Hand } from "lucide-react";
+import { Box, Cylinder, Circle, CircleDot, Pencil, ArrowUpFromLine, Spline, Slice, Combine, Undo2, Redo2, Save, FolderOpen, Hand, Puzzle, Image, Copy } from "lucide-react";
 import { useToolStore, usePreferencesStore, useDocumentUiStore, useSelectionStore, isSketchId } from "../stores";
 import { coreClient } from "../ipc/coreClient";
 import { syncFromCoreList } from "../model/sync";
@@ -22,8 +22,8 @@ const ICONS: Record<string, React.ReactNode> = {
   spline: <Spline size={16} />,
   slice: <Slice size={16} />,
   combine: <Combine size={16} />,
+  copy: <Copy size={16} />,
 };
-
 /** Beginner toolbar (§24): rendered from the command registry (§19). */
 export function Toolbar({
   onAdd,
@@ -31,12 +31,18 @@ export function Toolbar({
   onExtrude,
   onHole,
   onDressUp,
+  onPlugins,
+  onReference,
+  onInstance,
 }: {
   onAdd: (kind: PrimitiveKind) => void;
   onSketch: () => void;
   onExtrude: () => void;
   onHole: () => void;
   onDressUp: (kind: "fillet" | "chamfer") => void;
+  onPlugins: () => void;
+  onReference: () => void;
+  onInstance: () => void;
 }) {
   const { activeTool, setTool } = useToolStore();
   const { beginnerMode, toggleMode } = usePreferencesStore();
@@ -56,7 +62,7 @@ export function Toolbar({
     ["CreateSketch", "CreateExtrude"].includes(c.id),
   );
   const solidCmds = visibleCommands().filter((c) =>
-    ["CreateHole", "CreateFillet", "CreateChamfer", "CreateBoolean"].includes(
+    ["CreateHole", "CreateFillet", "CreateChamfer", "CreateBoolean", "CreateInstance"].includes(
       c.id,
     ),
   );
@@ -78,6 +84,8 @@ export function Toolbar({
       onDressUp("fillet");
     } else if (commandId === "CreateChamfer") {
       onDressUp("chamfer");
+    } else if (commandId === "CreateInstance") {
+      onInstance();
     }
   };
 
@@ -256,6 +264,22 @@ export function Toolbar({
       </button>
       <button onClick={() => void open()} className="rounded-md p-1.5 hover:bg-white/10" title="Open .icad, import STEP/3MF/STL/OBJ/glTF">
         <FolderOpen size={16} />
+      </button>
+      <button
+        onClick={onPlugins}
+        className="rounded-md p-1.5 hover:bg-white/10"
+        title="Plugins (sandboxed JS commands)"
+        data-testid="plugins-button"
+      >
+        <Puzzle size={16} />
+      </button>
+      <button
+        onClick={onReference}
+        className="rounded-md p-1.5 hover:bg-white/10"
+        title="Reference images (tracing aids)"
+        data-testid="reference-button"
+      >
+        <Image size={16} />
       </button>
       {features.length > 0 && (
         <span className="pl-2 text-xs text-white/45">{features.length} solid{features.length > 1 ? "s" : ""}</span>

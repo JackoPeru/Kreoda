@@ -21,6 +21,18 @@ bool CreateHoleFeature(const std::string& featureId,
                        double diameterMm, const std::string& depthMode,
                        double depthMm, std::string* error);
 
+// M11: corner/center patterns in ONE OCAF transaction (one Undo step).
+// Same result as N sequential CreateHole calls on the same base (each hole
+// cuts the original target once), but a single Begin/Commit pair so one
+// user action == one Undo delta (§12). points and featureIds must have the
+// same size (1..4). On any failure nothing is created (atomic).
+bool CreateHolePatternFeature(
+    const std::string& targetId, const std::string& faceRole,
+    const std::vector<std::pair<double, double>>& points, double diameterMm,
+    const std::string& depthMode, double depthMm,
+    const std::vector<std::string>& featureIds,
+    std::vector<std::string>* createdIds, std::string* error);
+
 // DAG recompute step (features/rebuild.cpp calls this).
 bool RebuildHoleFromStore(const std::string& featureId, std::string* error);
 

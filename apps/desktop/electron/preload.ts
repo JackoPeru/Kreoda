@@ -14,6 +14,11 @@ export interface KreodaApi {
     bytes: number;
     preview: string;
   }>;
+  pluginsList: () => Promise<{ filename: string; source: string }[]>;
+  importReferenceImage: () => Promise<{
+    name: string;
+    dataUrl: string;
+  } | null>;
   checkForUpdates: () => Promise<
     { available: false; reason?: string } | { available: true; version: string }
   >;
@@ -52,6 +57,15 @@ const api: KreodaApi = {
       bytes: number;
       preview: string;
     }>,
+  pluginsList: () =>
+    ipcRenderer.invoke("kreoda:plugins-list") as Promise<
+      { filename: string; source: string }[]
+    >,
+  importReferenceImage: () =>
+    ipcRenderer.invoke("kreoda:reference-import") as Promise<{
+      name: string;
+      dataUrl: string;
+    } | null>,
   checkForUpdates: () =>
     ipcRenderer.invoke("kreoda:check-updates") as Promise<
       | { available: false; reason?: string }

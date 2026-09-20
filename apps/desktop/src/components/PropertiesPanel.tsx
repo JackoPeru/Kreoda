@@ -24,7 +24,19 @@ const SLOTS: Record<string, { param: string; label: string }[]> = {
   ],
   Fillet: [{ param: "radiusMm", label: "Radius" }],
   Chamfer: [{ param: "distanceMm", label: "Distance" }],
+  // M4: Instance placement was uneditable except via command-bar/E2E —
+  // expose signed/zero-tolerant slots (translations mm, rotations deg).
+  Instance: [
+    { param: "txMm", label: "Translate X" },
+    { param: "tyMm", label: "Translate Y" },
+    { param: "tzMm", label: "Translate Z" },
+    { param: "rxDeg", label: "Rotate X" },
+    { param: "ryDeg", label: "Rotate Y" },
+    { param: "rzDeg", label: "Rotate Z" },
+  ],
 };
+
+const ANGLE_PARAMS = new Set(["angleDeg", "rxDeg", "ryDeg", "rzDeg"]);
 
 /** Dimension editing (§22): exact values, one Undo step per commit (§12). */
 export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) => void }) {
@@ -85,9 +97,13 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
     setError(null);
     setBusyParam(paramName);
     try {
-      // Revolve angles are degrees (accept "90", "90 deg", "1.57 rad").
-      const valueMm =
-        paramName === "angleDeg" ? parseAngleToDeg(text) : parseLengthToMm(text);
+      // Revolve/instance angles are degrees (accept "90", "90 deg", "1.57 rad",
+      // including 0/negatives for placement); translations are signed mm.
+      // M4: zero/negative placement must reach the core (not a v>0 gate).
+      const valueMm = ANGLE_PARAMS.has(paramName)
+        ? parseAngleToDeg(text)
+        : parseLengthToMm(text);
+      if (!Number.isFinite(valueMm)) throw new Error("not a number");
       await executeCommand("SetDimension", {
         featureId: feature.featureId,
         paramName,
@@ -110,6 +126,7 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
     Hole: { diameterMm: 0, depthMm: 1 },
     Fillet: { radiusMm: 0 },
     Chamfer: { distanceMm: 0 },
+    Instance: { txMm: 0, tyMm: 1, tzMm: 2, rxDeg: 3, ryDeg: 4, rzDeg: 5 },
   };
   const paramIndex = (param: string): number =>
     SLOT_INDEX[feature.type]?.[param] ?? -1;
@@ -127,7 +144,7 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
         const current = i >= 0 ? feature.paramsMm[i] : undefined;
         return (
         <label key={s.param} className="mb-2 block text-xs text-white/70">
-          {s.label} {s.param === "angleDeg" ? "(deg)" : "(mm)"}
+          {s.label} {ANGLE_PARAMS.has(s.param) ? "(deg)" : "(mm)"}
           <input
             key={`${feature.featureId}:${s.param}:${current ?? ""}`}
             defaultValue={String(current ?? "")}

@@ -13,7 +13,11 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "start": "pnpm --filter @kreoda/desktop start",
-    "make": "pnpm --filter @kreoda/desktop make"
+    "make": "pnpm --filter @kreoda/desktop make",
+    "test:native": "node scripts/run-native-tests.mjs",
+    "test:e2e": "pnpm --filter @kreoda/desktop exec playwright test --grep-invert \"\\[solo\\]\"",
+    "test:e2e:crash": "pnpm --filter @kreoda/desktop exec playwright test e2e/phase10-crash.spec.ts",
+    "test:all": "pnpm -r exec tsc --noEmit && pnpm test:native && pnpm --filter @kreoda/desktop exec vitest run && pnpm --filter @kreoda/plugin-sdk exec vitest run && pnpm --filter @kreoda/units exec vitest run && pnpm test:e2e"
   },
   "devDependencies": {
     "typescript": "~5.9.3"

@@ -52,6 +52,7 @@ const box = {
   paramsMm: [100, 50, 10],
   dependsOn: [] as string[],
   refExtra: "",
+  expressions: {} as Record<string, string>,
   volumeMm3: 50000,
 };
 

@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "document/document_store.h"
+#include "expressions/expressions.h"
 #include "model/commit.h"
 #include "model/feature_graph.h"
 #include "model/shapes.h"
@@ -10,6 +11,7 @@
 #include "features/extrusion/extrude.h"
 #include "features/fillet/fillet.h"
 #include "features/hole/hole.h"
+#include "features/instance/instance.h"
 #include "features/revolve/revolve.h"
 #include "features/sketch/sketch_store.h"
 
@@ -258,6 +260,20 @@ bool ResolveParamsForEdit(const ShapeRecord& rec, const std::string& paramName,
   } else if (rec.type == "Chamfer" && params.size() == 1) {
     matched = paramName == "distanceMm";
     if (matched) params[0] = valueMm;
+  } else if (rec.type == "Instance" && params.size() == 6) {
+    // Placement slots (Phase 9d): translations may be negative/zero, unlike
+    // part dimensions — only the slot mapping is resolved here.
+    matched = paramName == "txMm" || paramName == "tyMm" ||
+              paramName == "tzMm" || paramName == "rxDeg" ||
+              paramName == "ryDeg" || paramName == "rzDeg";
+    if (matched) {
+      if (paramName == "txMm") params[0] = valueMm;
+      if (paramName == "tyMm") params[1] = valueMm;
+      if (paramName == "tzMm") params[2] = valueMm;
+      if (paramName == "rxDeg") params[3] = valueMm;
+      if (paramName == "ryDeg") params[4] = valueMm;
+      if (paramName == "rzDeg") params[5] = valueMm;
+    }
   }
   if (!matched) {
     if (error) {
@@ -278,6 +294,11 @@ bool BuildPreviewMesh(const std::string& featureId,
   ShapeRecord rec;
   if (!ShapeStore::instance().get(featureId, &rec)) {
     if (error) *error = "unknown feature " + featureId;
+    return false;
+  }
+  if (rec.type == "Hole" && paramName == "depthMm" &&
+      rec.refExtra.find("mode=blind") == std::string::npos) {
+    if (error) *error = "throughAll hole has no depthMm (use a blind hole to set depth)";
     return false;
   }
   std::vector<double> newParams;
@@ -333,6 +354,15 @@ bool BuildPreviewMesh(const std::string& featureId,
       built = BuildChamferShape(target.shape, target.featureId, target.type,
                                 edgeIds, newParams[0], &candidate, error);
     }
+  } else if (rec.type == "Instance" && newParams.size() == 6 &&
+             !rec.dependsOn.empty()) {
+    // M1: preview must match commit (BuildInstanceShape + tessellate).
+    ShapeRecord target;
+    if (!ShapeStore::instance().get(rec.dependsOn[0], &target)) {
+      if (error) *error = "instance target vanished";
+      return false;
+    }
+    built = BuildInstanceShape(target.shape, newParams, &candidate, error);
   } else {
     if (error) *error = "cannot preview " + rec.type;
     return false;
@@ -357,14 +387,33 @@ bool BuildPreviewMesh(const std::string& featureId,
 }
 
 bool RebuildFeature(const std::string& featureId, const std::string& paramName,
-                    double valueMm, std::string* error) {  ShapeRecord rec;
+                      double valueMm, const std::string& expression,
+                      std::string* error) {
+  ShapeRecord rec;
   if (!ShapeStore::instance().get(featureId, &rec)) {
     if (error) *error = "unknown feature " + featureId;
     return false;
   }
-  std::vector<double> newParams;
-  if (!ResolveParamsForEdit(rec, paramName, valueMm, &newParams, error)) {
+  // M14: throughAll holes have no depth — a depthMm edit would be a silent
+  // no-op (BuildHoleShape ignores depth unless mode=blind). Fail honestly.
+  if (rec.type == "Hole" && paramName == "depthMm" &&
+      rec.refExtra.find("mode=blind") == std::string::npos) {
+    if (error) *error = "throughAll hole has no depthMm (use a blind hole to set depth)";
     return false;
+  }
+  // Phase 9a: a formula replaces the bare value. Validate it NOW (parse +
+  // resolution against live values) so typos fail before anything stages.
+  if (!expression.empty()) {
+    double probe = 0;
+    if (!EvaluateOneExpression(featureId, paramName, expression, &probe,
+                               error)) {
+      return false;
+    }
+  } else {
+    std::vector<double> check;
+    if (!ResolveParamsForEdit(rec, paramName, valueMm, &check, error)) {
+      return false;
+    }
   }
 #if KREODA_WITH_OCCT
   // DAG recompute (§53): stage new params, mark the closure dirty, rebuild
@@ -377,26 +426,73 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     TheFeatureGraph().clearDirty(featureId);
   }
   TheFeatureGraph().markDirty(featureId);
+  // C1: snapshot the WHOLE store before any mutation (expression dependents
+  // are not geometry-dirty yet, and EvaluateAll is now two-phase but the
+  // staged bare-value put below still needs a full pre-image).
   std::map<std::string, ShapeRecord> snapshot;
   for (const auto& r : ShapeStore::instance().listInOrder()) {
-    if (TheFeatureGraph().isGeometryDirty(r.featureId)) snapshot[r.featureId] = r;
+    snapshot[r.featureId] = r;
   }
-  rec.paramsMm = newParams;
-  ShapeStore::instance().put(rec);
-  const auto restore = [&]() {
-    for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
-  };
+  // Previous formula map for rollback (restored on abort with the params).
+  const std::map<std::string, std::string> prevExpr =
+      ExpressionStore::instance().forFeature(featureId);
+  if (!expression.empty()) {
+    // Stage the formula itself; its VALUE lands via the fixpoint below.
+    ExpressionStore::instance().set(featureId, paramName, expression);
+  }
+  if (expression.empty()) {
+    std::vector<double> newParams;
+    if (!ResolveParamsForEdit(rec, paramName, valueMm, &newParams, error)) {
+      return false;
+    }
+    rec.paramsMm = newParams;
+    ShapeStore::instance().put(rec);
+  }
   if (!OcafLive::instance().BeginCommand(error)) {
-    restore();
+    for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
+    ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
     return false;
+  }
+  // Mirror the formula (or its continuity) inside the command, then run the
+  // fixpoint: dependents of every changed param recompute downstream.
+  {
+    std::string exprErr;
+    if (!MirrorFeatureExpressions(featureId, &exprErr)) {
+      OcafLive::instance().AbortCommand();
+      for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
+      ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
+      // C7: aborted NewChild/AddShape labels are undone by OCAF but the
+      // label maps still point at them — rebuild maps from the live doc.
+      { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
+      if (error) *error = exprErr;
+      return false;
+    }
+  }
+  std::vector<std::string> exprChanged;
+  {
+    std::string evalErr;
+    if (!EvaluateAllExpressions(&exprChanged, &evalErr)) {
+      OcafLive::instance().AbortCommand();
+      for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
+      ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
+      { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
+      if (error) *error = evalErr;
+      return false;
+    }
+  }
+  for (const std::string& id : exprChanged) {
+    if (!TheFeatureGraph().hasFeature(id)) TheFeatureGraph().addFeature(id);
+    TheFeatureGraph().markDirty(id);
   }
   const auto report = TheFeatureGraph().recompute(
       [](const std::string& id, std::string* e) {
         return RebuildNodeFromStore(id, e);
       });
   if (!report.ok) {
-    restore();
+    for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
+    ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
     OcafLive::instance().AbortCommand();
+    { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
     if (error) *error = report.firstError;
     return false;
   }

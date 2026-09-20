@@ -30,7 +30,9 @@ enum CommandType : ushort {
   CreateHole,
   CreateFillet,
   CreateChamfer,
-  RequestFaceInfo
+  RequestFaceInfo,
+  CreateInstance,
+  CreateHolePattern
 }
 
 enum StatusCode : byte {
@@ -203,6 +205,17 @@ table CreateHoleCommand {
   depth_mm: double;
 }
 
+// M11: 1..4 holes in one OCAF transaction (one Undo step).
+table CreateHolePatternCommand {
+  target_id: string;
+  face_role: string;
+  feature_ids: [string]; // 1..4 frontend-owned ids
+  points_mm: [double]; // flat [x0,y0,x1,y1,…], 2 per feature id
+  diameter_mm: double;
+  depth_mode: string; // throughAll | blind
+  depth_mm: double;
+}
+
 table CreateFilletCommand {
   feature_id: string;
   target_id: string;
@@ -220,6 +233,18 @@ table CreateChamferCommand {
 table RequestFaceInfoCommand {
   feature_id: string;
   face_role: string; // persistent role, e.g. box.+Z
+}
+
+table CreateInstanceCommand {
+  feature_id: string;
+  target_id: string; // solid being instanced (no nesting in slice 1)
+  // Rigid placement: translations mm + extrinsic ZYX euler degrees.
+  tx_mm: double;
+  ty_mm: double;
+  tz_mm: double;
+  rx_deg: double;
+  ry_deg: double;
+  rz_deg: double;
 }
 
 union CommandPayload {
@@ -243,7 +268,9 @@ union CommandPayload {
   CreateHoleCommand,
   CreateFilletCommand,
   CreateChamferCommand,
-  RequestFaceInfoCommand
+  RequestFaceInfoCommand,
+  CreateInstanceCommand,
+  CreateHolePatternCommand
 }
 
 table CommandEnvelope {

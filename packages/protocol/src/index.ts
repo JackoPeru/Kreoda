@@ -37,6 +37,8 @@ export const CommandType = {
   CreateFillet: 21,
   CreateChamfer: 22,
   RequestFaceInfo: 23,
+  CreateInstance: 24,
+  CreateHolePattern: 25,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
@@ -194,6 +196,18 @@ export const CreateHolePayloadSchema = z.object({
 });
 export type CreateHolePayload = z.infer<typeof CreateHolePayloadSchema>;
 
+// M11: 1..4 holes in one transaction (one Undo step).
+export const CreateHolePatternPayloadSchema = z.object({
+  targetId: uuid(),
+  faceRole: z.string().min(1),
+  featureIds: z.array(uuid()).min(1).max(4),
+  pointsMm: z.array(z.number().finite()).min(2).max(8),
+  diameterMm: z.number().positive().max(100000),
+  depthMode: z.enum(["throughAll", "blind"]),
+  depthMm: z.number().nonnegative().max(100000).default(0),
+});
+export type CreateHolePatternPayload = z.infer<typeof CreateHolePatternPayloadSchema>;
+
 export const CreateFilletPayloadSchema = z.object({
   featureId: uuid(),
   targetId: uuid(),
@@ -209,6 +223,18 @@ export const CreateChamferPayloadSchema = z.object({
   distanceMm: z.number().positive().max(100000),
 });
 export type CreateChamferPayload = z.infer<typeof CreateChamferPayloadSchema>;
+
+export const CreateInstancePayloadSchema = z.object({
+  featureId: uuid(),
+  targetId: uuid(),
+  txMm: z.number().finite().min(-1000000).max(1000000).default(0),
+  tyMm: z.number().finite().min(-1000000).max(1000000).default(0),
+  tzMm: z.number().finite().min(-1000000).max(1000000).default(0),
+  rxDeg: z.number().finite().default(0),
+  ryDeg: z.number().finite().default(0),
+  rzDeg: z.number().finite().default(0),
+});
+export type CreateInstancePayload = z.infer<typeof CreateInstancePayloadSchema>;
 
 export const SketchResponseSchema = z.object({
   protocolVersion: z.literal(PROTOCOL_VERSION),

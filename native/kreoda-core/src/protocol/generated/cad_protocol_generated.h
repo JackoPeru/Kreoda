@@ -91,6 +91,9 @@ struct CreateBooleanCommandBuilder;
 struct CreateHoleCommand;
 struct CreateHoleCommandBuilder;
 
+struct CreateHolePatternCommand;
+struct CreateHolePatternCommandBuilder;
+
 struct CreateFilletCommand;
 struct CreateFilletCommandBuilder;
 
@@ -99,6 +102,9 @@ struct CreateChamferCommandBuilder;
 
 struct RequestFaceInfoCommand;
 struct RequestFaceInfoCommandBuilder;
+
+struct CreateInstanceCommand;
+struct CreateInstanceCommandBuilder;
 
 struct CommandEnvelope;
 struct CommandEnvelopeBuilder;
@@ -155,11 +161,13 @@ enum CommandType : uint16_t {
   CommandType_CreateFillet = 21,
   CommandType_CreateChamfer = 22,
   CommandType_RequestFaceInfo = 23,
+  CommandType_CreateInstance = 24,
+  CommandType_CreateHolePattern = 25,
   CommandType_MIN = CommandType_None,
-  CommandType_MAX = CommandType_RequestFaceInfo
+  CommandType_MAX = CommandType_CreateHolePattern
 };
 
-inline const CommandType (&EnumValuesCommandType())[24] {
+inline const CommandType (&EnumValuesCommandType())[26] {
   static const CommandType values[] = {
     CommandType_None,
     CommandType_GetCoreInfo,
@@ -184,13 +192,15 @@ inline const CommandType (&EnumValuesCommandType())[24] {
     CommandType_CreateHole,
     CommandType_CreateFillet,
     CommandType_CreateChamfer,
-    CommandType_RequestFaceInfo
+    CommandType_RequestFaceInfo,
+    CommandType_CreateInstance,
+    CommandType_CreateHolePattern
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandType() {
-  static const char * const names[25] = {
+  static const char * const names[27] = {
     "None",
     "GetCoreInfo",
     "CreateDocument",
@@ -215,13 +225,15 @@ inline const char * const *EnumNamesCommandType() {
     "CreateFillet",
     "CreateChamfer",
     "RequestFaceInfo",
+    "CreateInstance",
+    "CreateHolePattern",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandType(CommandType e) {
-  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_RequestFaceInfo)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_CreateHolePattern)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandType()[index];
 }
@@ -288,11 +300,13 @@ enum CommandPayload : uint8_t {
   CommandPayload_CreateFilletCommand = 19,
   CommandPayload_CreateChamferCommand = 20,
   CommandPayload_RequestFaceInfoCommand = 21,
+  CommandPayload_CreateInstanceCommand = 22,
+  CommandPayload_CreateHolePatternCommand = 23,
   CommandPayload_MIN = CommandPayload_NONE,
-  CommandPayload_MAX = CommandPayload_RequestFaceInfoCommand
+  CommandPayload_MAX = CommandPayload_CreateHolePatternCommand
 };
 
-inline const CommandPayload (&EnumValuesCommandPayload())[22] {
+inline const CommandPayload (&EnumValuesCommandPayload())[24] {
   static const CommandPayload values[] = {
     CommandPayload_NONE,
     CommandPayload_GetCoreInfoRequest,
@@ -315,13 +329,15 @@ inline const CommandPayload (&EnumValuesCommandPayload())[22] {
     CommandPayload_CreateHoleCommand,
     CommandPayload_CreateFilletCommand,
     CommandPayload_CreateChamferCommand,
-    CommandPayload_RequestFaceInfoCommand
+    CommandPayload_RequestFaceInfoCommand,
+    CommandPayload_CreateInstanceCommand,
+    CommandPayload_CreateHolePatternCommand
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandPayload() {
-  static const char * const names[23] = {
+  static const char * const names[25] = {
     "NONE",
     "GetCoreInfoRequest",
     "CreateDocumentRequest",
@@ -344,13 +360,15 @@ inline const char * const *EnumNamesCommandPayload() {
     "CreateFilletCommand",
     "CreateChamferCommand",
     "RequestFaceInfoCommand",
+    "CreateInstanceCommand",
+    "CreateHolePatternCommand",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandPayload(CommandPayload e) {
-  if (::flatbuffers::IsOutRange(e, CommandPayload_NONE, CommandPayload_RequestFaceInfoCommand)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandPayload_NONE, CommandPayload_CreateHolePatternCommand)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandPayload()[index];
 }
@@ -441,6 +459,14 @@ template<> struct CommandPayloadTraits<Kreoda::Protocol::CreateChamferCommand> {
 
 template<> struct CommandPayloadTraits<Kreoda::Protocol::RequestFaceInfoCommand> {
   static const CommandPayload enum_value = CommandPayload_RequestFaceInfoCommand;
+};
+
+template<> struct CommandPayloadTraits<Kreoda::Protocol::CreateInstanceCommand> {
+  static const CommandPayload enum_value = CommandPayload_CreateInstanceCommand;
+};
+
+template<> struct CommandPayloadTraits<Kreoda::Protocol::CreateHolePatternCommand> {
+  static const CommandPayload enum_value = CommandPayload_CreateHolePatternCommand;
 };
 
 template <bool B = false>
@@ -2438,6 +2464,139 @@ inline ::flatbuffers::Offset<CreateHoleCommand> CreateCreateHoleCommandDirect(
       depth_mm);
 }
 
+struct CreateHolePatternCommand FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CreateHolePatternCommandBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TARGET_ID = 4,
+    VT_FACE_ROLE = 6,
+    VT_FEATURE_IDS = 8,
+    VT_POINTS_MM = 10,
+    VT_DIAMETER_MM = 12,
+    VT_DEPTH_MODE = 14,
+    VT_DEPTH_MM = 16
+  };
+  const ::flatbuffers::String *target_id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_TARGET_ID);
+  }
+  const ::flatbuffers::String *face_role() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_FACE_ROLE);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *feature_ids() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_FEATURE_IDS);
+  }
+  const ::flatbuffers::Vector<double> *points_mm() const {
+    return GetPointer<const ::flatbuffers::Vector<double> *>(VT_POINTS_MM);
+  }
+  double diameter_mm() const {
+    return GetField<double>(VT_DIAMETER_MM, 0.0);
+  }
+  const ::flatbuffers::String *depth_mode() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_DEPTH_MODE);
+  }
+  double depth_mm() const {
+    return GetField<double>(VT_DEPTH_MM, 0.0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_TARGET_ID) &&
+           verifier.VerifyString(target_id()) &&
+           VerifyOffset(verifier, VT_FACE_ROLE) &&
+           verifier.VerifyString(face_role()) &&
+           VerifyOffset(verifier, VT_FEATURE_IDS) &&
+           verifier.VerifyVector(feature_ids()) &&
+           verifier.VerifyVectorOfStrings(feature_ids()) &&
+           VerifyOffset(verifier, VT_POINTS_MM) &&
+           verifier.VerifyVector(points_mm()) &&
+           VerifyField<double>(verifier, VT_DIAMETER_MM, 8) &&
+           VerifyOffset(verifier, VT_DEPTH_MODE) &&
+           verifier.VerifyString(depth_mode()) &&
+           VerifyField<double>(verifier, VT_DEPTH_MM, 8) &&
+           verifier.EndTable();
+  }
+};
+
+struct CreateHolePatternCommandBuilder {
+  typedef CreateHolePatternCommand Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_target_id(::flatbuffers::Offset<::flatbuffers::String> target_id) {
+    fbb_.AddOffset(CreateHolePatternCommand::VT_TARGET_ID, target_id);
+  }
+  void add_face_role(::flatbuffers::Offset<::flatbuffers::String> face_role) {
+    fbb_.AddOffset(CreateHolePatternCommand::VT_FACE_ROLE, face_role);
+  }
+  void add_feature_ids(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> feature_ids) {
+    fbb_.AddOffset(CreateHolePatternCommand::VT_FEATURE_IDS, feature_ids);
+  }
+  void add_points_mm(::flatbuffers::Offset<::flatbuffers::Vector<double>> points_mm) {
+    fbb_.AddOffset(CreateHolePatternCommand::VT_POINTS_MM, points_mm);
+  }
+  void add_diameter_mm(double diameter_mm) {
+    fbb_.AddElement<double>(CreateHolePatternCommand::VT_DIAMETER_MM, diameter_mm, 0.0);
+  }
+  void add_depth_mode(::flatbuffers::Offset<::flatbuffers::String> depth_mode) {
+    fbb_.AddOffset(CreateHolePatternCommand::VT_DEPTH_MODE, depth_mode);
+  }
+  void add_depth_mm(double depth_mm) {
+    fbb_.AddElement<double>(CreateHolePatternCommand::VT_DEPTH_MM, depth_mm, 0.0);
+  }
+  explicit CreateHolePatternCommandBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<CreateHolePatternCommand> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<CreateHolePatternCommand>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<CreateHolePatternCommand> CreateCreateHolePatternCommand(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> target_id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> face_role = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> feature_ids = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<double>> points_mm = 0,
+    double diameter_mm = 0.0,
+    ::flatbuffers::Offset<::flatbuffers::String> depth_mode = 0,
+    double depth_mm = 0.0) {
+  CreateHolePatternCommandBuilder builder_(_fbb);
+  builder_.add_depth_mm(depth_mm);
+  builder_.add_diameter_mm(diameter_mm);
+  builder_.add_depth_mode(depth_mode);
+  builder_.add_points_mm(points_mm);
+  builder_.add_feature_ids(feature_ids);
+  builder_.add_face_role(face_role);
+  builder_.add_target_id(target_id);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<CreateHolePatternCommand> CreateCreateHolePatternCommandDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *target_id = nullptr,
+    const char *face_role = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *feature_ids = nullptr,
+    const std::vector<double> *points_mm = nullptr,
+    double diameter_mm = 0.0,
+    const char *depth_mode = nullptr,
+    double depth_mm = 0.0) {
+  auto target_id__ = target_id ? _fbb.CreateString(target_id) : 0;
+  auto face_role__ = face_role ? _fbb.CreateString(face_role) : 0;
+  auto feature_ids__ = feature_ids ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*feature_ids) : 0;
+  auto points_mm__ = points_mm ? _fbb.CreateVector<double>(*points_mm) : 0;
+  auto depth_mode__ = depth_mode ? _fbb.CreateString(depth_mode) : 0;
+  return Kreoda::Protocol::CreateCreateHolePatternCommand(
+      _fbb,
+      target_id__,
+      face_role__,
+      feature_ids__,
+      points_mm__,
+      diameter_mm,
+      depth_mode__,
+      depth_mm);
+}
+
 struct CreateFilletCommand FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CreateFilletCommandBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -2690,6 +2849,144 @@ inline ::flatbuffers::Offset<RequestFaceInfoCommand> CreateRequestFaceInfoComman
       face_role__);
 }
 
+struct CreateInstanceCommand FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CreateInstanceCommandBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_FEATURE_ID = 4,
+    VT_TARGET_ID = 6,
+    VT_TX_MM = 8,
+    VT_TY_MM = 10,
+    VT_TZ_MM = 12,
+    VT_RX_DEG = 14,
+    VT_RY_DEG = 16,
+    VT_RZ_DEG = 18
+  };
+  const ::flatbuffers::String *feature_id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_FEATURE_ID);
+  }
+  const ::flatbuffers::String *target_id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_TARGET_ID);
+  }
+  double tx_mm() const {
+    return GetField<double>(VT_TX_MM, 0.0);
+  }
+  double ty_mm() const {
+    return GetField<double>(VT_TY_MM, 0.0);
+  }
+  double tz_mm() const {
+    return GetField<double>(VT_TZ_MM, 0.0);
+  }
+  double rx_deg() const {
+    return GetField<double>(VT_RX_DEG, 0.0);
+  }
+  double ry_deg() const {
+    return GetField<double>(VT_RY_DEG, 0.0);
+  }
+  double rz_deg() const {
+    return GetField<double>(VT_RZ_DEG, 0.0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_FEATURE_ID) &&
+           verifier.VerifyString(feature_id()) &&
+           VerifyOffset(verifier, VT_TARGET_ID) &&
+           verifier.VerifyString(target_id()) &&
+           VerifyField<double>(verifier, VT_TX_MM, 8) &&
+           VerifyField<double>(verifier, VT_TY_MM, 8) &&
+           VerifyField<double>(verifier, VT_TZ_MM, 8) &&
+           VerifyField<double>(verifier, VT_RX_DEG, 8) &&
+           VerifyField<double>(verifier, VT_RY_DEG, 8) &&
+           VerifyField<double>(verifier, VT_RZ_DEG, 8) &&
+           verifier.EndTable();
+  }
+};
+
+struct CreateInstanceCommandBuilder {
+  typedef CreateInstanceCommand Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_feature_id(::flatbuffers::Offset<::flatbuffers::String> feature_id) {
+    fbb_.AddOffset(CreateInstanceCommand::VT_FEATURE_ID, feature_id);
+  }
+  void add_target_id(::flatbuffers::Offset<::flatbuffers::String> target_id) {
+    fbb_.AddOffset(CreateInstanceCommand::VT_TARGET_ID, target_id);
+  }
+  void add_tx_mm(double tx_mm) {
+    fbb_.AddElement<double>(CreateInstanceCommand::VT_TX_MM, tx_mm, 0.0);
+  }
+  void add_ty_mm(double ty_mm) {
+    fbb_.AddElement<double>(CreateInstanceCommand::VT_TY_MM, ty_mm, 0.0);
+  }
+  void add_tz_mm(double tz_mm) {
+    fbb_.AddElement<double>(CreateInstanceCommand::VT_TZ_MM, tz_mm, 0.0);
+  }
+  void add_rx_deg(double rx_deg) {
+    fbb_.AddElement<double>(CreateInstanceCommand::VT_RX_DEG, rx_deg, 0.0);
+  }
+  void add_ry_deg(double ry_deg) {
+    fbb_.AddElement<double>(CreateInstanceCommand::VT_RY_DEG, ry_deg, 0.0);
+  }
+  void add_rz_deg(double rz_deg) {
+    fbb_.AddElement<double>(CreateInstanceCommand::VT_RZ_DEG, rz_deg, 0.0);
+  }
+  explicit CreateInstanceCommandBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<CreateInstanceCommand> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<CreateInstanceCommand>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<CreateInstanceCommand> CreateCreateInstanceCommand(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> feature_id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> target_id = 0,
+    double tx_mm = 0.0,
+    double ty_mm = 0.0,
+    double tz_mm = 0.0,
+    double rx_deg = 0.0,
+    double ry_deg = 0.0,
+    double rz_deg = 0.0) {
+  CreateInstanceCommandBuilder builder_(_fbb);
+  builder_.add_rz_deg(rz_deg);
+  builder_.add_ry_deg(ry_deg);
+  builder_.add_rx_deg(rx_deg);
+  builder_.add_tz_mm(tz_mm);
+  builder_.add_ty_mm(ty_mm);
+  builder_.add_tx_mm(tx_mm);
+  builder_.add_target_id(target_id);
+  builder_.add_feature_id(feature_id);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<CreateInstanceCommand> CreateCreateInstanceCommandDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *feature_id = nullptr,
+    const char *target_id = nullptr,
+    double tx_mm = 0.0,
+    double ty_mm = 0.0,
+    double tz_mm = 0.0,
+    double rx_deg = 0.0,
+    double ry_deg = 0.0,
+    double rz_deg = 0.0) {
+  auto feature_id__ = feature_id ? _fbb.CreateString(feature_id) : 0;
+  auto target_id__ = target_id ? _fbb.CreateString(target_id) : 0;
+  return Kreoda::Protocol::CreateCreateInstanceCommand(
+      _fbb,
+      feature_id__,
+      target_id__,
+      tx_mm,
+      ty_mm,
+      tz_mm,
+      rx_deg,
+      ry_deg,
+      rz_deg);
+}
+
 struct CommandEnvelope FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CommandEnvelopeBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -2781,6 +3078,12 @@ struct CommandEnvelope FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const Kreoda::Protocol::RequestFaceInfoCommand *payload_as_RequestFaceInfoCommand() const {
     return payload_type() == Kreoda::Protocol::CommandPayload_RequestFaceInfoCommand ? static_cast<const Kreoda::Protocol::RequestFaceInfoCommand *>(payload()) : nullptr;
+  }
+  const Kreoda::Protocol::CreateInstanceCommand *payload_as_CreateInstanceCommand() const {
+    return payload_type() == Kreoda::Protocol::CommandPayload_CreateInstanceCommand ? static_cast<const Kreoda::Protocol::CreateInstanceCommand *>(payload()) : nullptr;
+  }
+  const Kreoda::Protocol::CreateHolePatternCommand *payload_as_CreateHolePatternCommand() const {
+    return payload_type() == Kreoda::Protocol::CommandPayload_CreateHolePatternCommand ? static_cast<const Kreoda::Protocol::CreateHolePatternCommand *>(payload()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -2880,6 +3183,14 @@ template<> inline const Kreoda::Protocol::CreateChamferCommand *CommandEnvelope:
 
 template<> inline const Kreoda::Protocol::RequestFaceInfoCommand *CommandEnvelope::payload_as<Kreoda::Protocol::RequestFaceInfoCommand>() const {
   return payload_as_RequestFaceInfoCommand();
+}
+
+template<> inline const Kreoda::Protocol::CreateInstanceCommand *CommandEnvelope::payload_as<Kreoda::Protocol::CreateInstanceCommand>() const {
+  return payload_as_CreateInstanceCommand();
+}
+
+template<> inline const Kreoda::Protocol::CreateHolePatternCommand *CommandEnvelope::payload_as<Kreoda::Protocol::CreateHolePatternCommand>() const {
+  return payload_as_CreateHolePatternCommand();
 }
 
 struct CommandEnvelopeBuilder {
@@ -4118,6 +4429,14 @@ inline bool VerifyCommandPayload(::flatbuffers::VerifierTemplate<B> &verifier, c
     }
     case CommandPayload_RequestFaceInfoCommand: {
       auto ptr = reinterpret_cast<const Kreoda::Protocol::RequestFaceInfoCommand *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandPayload_CreateInstanceCommand: {
+      auto ptr = reinterpret_cast<const Kreoda::Protocol::CreateInstanceCommand *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandPayload_CreateHolePatternCommand: {
+      auto ptr = reinterpret_cast<const Kreoda::Protocol::CreateHolePatternCommand *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
