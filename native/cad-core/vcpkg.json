@@ -1,0 +1,25 @@
+{
+  "name": "intentcad-cad-core",
+  "version": "0.1.0",
+  "builtin-baseline": "e6f9e70a29a3e80a1fc510d8503304315447112f",
+  "dependencies": [
+    {
+      "name": "opencascade",
+      "version>=": "8.0.1"
+    },
+    "flatbuffers",
+    "gtest",
+    "lib3mf",
+    "manifold",
+    "minizip-ng",
+    "eigen3",
+    "boost-graph",
+    "boost-math"
+  ],
+  "overrides": [],
+  "features": {
+    "full-kernel": {
+      "description": "Full OCCT + OCAF + XCAF model (default ON via WITH_OCCT)."
+    }
+  }
+}

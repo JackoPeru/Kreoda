@@ -1,0 +1,740 @@
+#include "ocaf_live.h"
+
+#include <iomanip>
+#include <map>
+#include <sstream>
+
+#include "../diagnostics/log.h"
+#include "../document/document_store.h"
+#include "../features/sketch/sketch_json.h"
+#include "../features/sketch/sketch_store.h"
+
+#if INTENTCAD_WITH_OCCT
+#include <BinXCAFDrivers.hxx>
+#include <BRepCheck_Analyzer.hxx>
+#include <BRepBndLib.hxx>
+#include <BRepGProp.hxx>
+#include <Bnd_Box.hxx>
+#include <GProp_GProps.hxx>
+#include <PCDM.hxx>
+#include <PCDM_StoreStatus.hxx>
+#include <Standard_Failure.hxx>
+#include <TCollection_AsciiString.hxx>
+#include <TCollection_ExtendedString.hxx>
+#include <TDF_ChildIterator.hxx>
+#include <TDF_Label.hxx>
+#include <TDF_Tool.hxx>
+#include <TNaming_Builder.hxx>
+#include <TNaming_NamedShape.hxx>
+#include <TNaming_Selector.hxx>
+#include <TNaming_Tool.hxx>
+#include <TDataStd_Comment.hxx>
+#include <TDataStd_Name.hxx>
+#include <TDocStd_Application.hxx>
+#include <TDocStd_Document.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Shape.hxx>
+#include <XCAFDoc_DocumentTool.hxx>
+#include <XCAFDoc_ShapeTool.hxx>
+
+#include "../topology/face_roles.h"
+#endif
+
+namespace intentcad {
+
+OcafLive& OcafLive::instance() {
+  static OcafLive live;
+  return live;
+}
+
+#if INTENTCAD_WITH_OCCT
+struct OcafLive::Ocaf {
+  Handle(TDocStd_Application) app;
+  Handle(TDocStd_Document) doc;
+  Handle(XCAFDoc_ShapeTool) shapes;
+  TDF_Label selectionsRoot;
+  TDF_Label sketchesRoot;
+  std::map<std::string, TDF_Label> featureLabels;
+  std::map<std::string, TDF_Label> sketchLabels;
+};
+
+namespace {
+
+std::string EncodeParams(const std::string& type,
+                         const std::vector<double>& params,
+                         const std::vector<std::string>& deps,
+                         const std::string& refExtra) {
+  std::ostringstream os;
+  os << std::setprecision(17);  // full round-trip precision, not 6-digit
+  os << type;
+  for (double p : params) {
+    os << "|";
+    os << p;
+  }
+  std::string s = os.str();
+  if (!deps.empty()) {
+    s += "|@deps=";
+    for (size_t i = 0; i < deps.size(); ++i) {
+      if (i) s += ",";
+      s += deps[i];
+    }
+  }
+  if (!refExtra.empty()) {
+    s += "|@ref=";
+    s += refExtra;
+  }
+  return s;
+}
+
+bool DecodeParams(const std::string& s, std::string* type,
+                  std::vector<double>* params,
+                  std::vector<std::string>* deps, std::string* refExtra) {
+  const size_t pos = s.find('|');
+  if (pos == std::string::npos) {
+    // Bare type with no params (tolerated for forward-compat).
+    *type = s;
+    params->clear();
+    if (deps) deps->clear();
+    return !type->empty();
+  }
+  *type = s.substr(0, pos);
+  params->clear();
+  if (deps) deps->clear();
+  if (refExtra) refExtra->clear();
+  size_t start = pos + 1;
+  while (start <= s.size()) {
+    const size_t end = s.find('|', start);
+    const std::string tok = s.substr(
+        start, end == std::string::npos ? end : end - start);
+    if (tok.rfind("@deps=", 0) == 0) {
+      if (deps) {
+        const std::string list = tok.substr(6);
+        size_t ds = 0;
+        while (ds <= list.size()) {
+          const size_t de = list.find(',', ds);
+          const std::string d = list.substr(
+              ds, de == std::string::npos ? de : de - ds);
+          if (!d.empty()) deps->push_back(d);
+          if (de == std::string::npos) break;
+          ds = de + 1;
+        }
+      }
+    } else if (!tok.empty()) {
+      if (tok.rfind("@ref=", 0) == 0) {
+        // Consumed by the ref pass below; not a numeric param.
+      } else {
+        try {
+          params->push_back(std::stod(tok));
+        } catch (...) {
+          return false;
+        }
+      }
+    }
+    if (end == std::string::npos) break;
+    start = end + 1;
+  }
+  // @ref= may contain '=' padding? No — refExtra holds roles/ids without '|';
+  // a second pass extracts it (kept separate for clarity, single scan above
+  // already consumed all tokens; re-scan for the ref token).
+  if (refExtra) {
+    const std::string marker = "|@ref=";
+    const size_t rp = s.find(marker);
+    if (rp != std::string::npos) {
+      size_t re = s.find('|', rp + marker.size());
+      *refExtra = s.substr(rp + marker.size(),
+                           re == std::string::npos ? re : re - rp - marker.size());
+    }
+  }
+  return !type->empty();
+}
+
+std::string ExtToAscii(const TCollection_ExtendedString& xs) {
+  std::string out;
+  out.reserve(static_cast<size_t>(xs.Length()));
+  for (Standard_Integer i = 1; i <= xs.Length(); ++i) {
+    const Standard_ExtCharacter c = xs.Value(i);
+    out.push_back(c < 128 ? static_cast<char>(c) : '?');
+  }
+  return out;
+}
+
+ShapeRecord RecordFromLabel(const TDF_Label& label,
+                            const Handle(XCAFDoc_ShapeTool)& shapes) {
+  ShapeRecord rec;
+  TopoDS_Shape shape = shapes->GetShape(label);
+  if (shape.IsNull()) return rec;
+  Handle(TDataStd_Name) name;
+  Handle(TDataStd_Comment) comment;
+  if (!label.FindAttribute(TDataStd_Name::GetID(), name) ||
+      !label.FindAttribute(TDataStd_Comment::GetID(), comment)) {
+    return rec;
+  }
+  std::string type;
+  std::vector<double> params;
+  std::vector<std::string> deps;
+  std::string refExtra;
+  if (!DecodeParams(ExtToAscii(comment->Get()), &type, &params, &deps,
+                    &refExtra)) {
+    return rec;
+  }
+  rec.featureId = ExtToAscii(name->Get());
+  if (rec.featureId.empty()) return rec;
+  rec.type = type;
+  rec.paramsMm = params;
+  rec.dependsOn = deps;
+  rec.refExtra = refExtra;
+  rec.shape = shape;
+  GProp_GProps props;
+  BRepGProp::VolumeProperties(shape, props);
+  rec.volumeMm3 = props.Mass();
+  Bnd_Box box;
+  BRepBndLib::Add(shape, box);
+  box.Get(rec.bboxMm[0], rec.bboxMm[1], rec.bboxMm[2], rec.bboxMm[3],
+          rec.bboxMm[4], rec.bboxMm[5]);
+  return rec;
+}
+
+}  // namespace
+#endif
+
+void OcafLive::Reset() {
+#if INTENTCAD_WITH_OCCT
+  delete ocaf_;
+  ocaf_ = new Ocaf();
+  ocaf_->app = new TDocStd_Application;
+  BinXCAFDrivers::DefineFormat(ocaf_->app);
+  ocaf_->app->NewDocument("BinXCAF", ocaf_->doc);
+  // Undo is disabled by default in OCAF — one delta per command, cap 100.
+  ocaf_->doc->SetUndoLimit(100);
+  ocaf_->doc->ClearUndos();
+  ocaf_->doc->ClearRedos();
+  ocaf_->shapes = XCAFDoc_DocumentTool::ShapeTool(ocaf_->doc->Main());
+  ocaf_->selectionsRoot = ocaf_->doc->Main().NewChild();
+  TDataStd_Name::Set(ocaf_->selectionsRoot, "Selections");
+  ocaf_->sketchesRoot = ocaf_->doc->Main().NewChild();
+  TDataStd_Name::Set(ocaf_->sketchesRoot, "Sketches");
+#endif
+}
+
+bool OcafLive::BeginCommand(std::string* error) {
+#if INTENTCAD_WITH_OCCT
+  if (!ocaf_ || ocaf_->doc.IsNull()) Reset();
+  if (ocaf_->doc->HasOpenCommand()) {
+    if (error) *error = "nested OCAF command (single queue, §40)";
+    return false;
+  }
+  // A new command invalidates the redo stack — standard undo semantics.
+  ocaf_->doc->ClearRedos();
+  ocaf_->doc->OpenCommand();
+  return true;
+#else
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+bool OcafLive::CommitCommand(bool* hadDelta, std::string* error) {
+#if INTENTCAD_WITH_OCCT
+  if (!ocaf_ || !ocaf_->doc->HasOpenCommand()) {
+    if (error) *error = "no open OCAF command";
+    return false;
+  }
+  const bool added = ocaf_->doc->CommitCommand();
+  if (hadDelta) *hadDelta = added;
+  return true;
+#else
+  (void)hadDelta;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+void OcafLive::AbortCommand() {
+#if INTENTCAD_WITH_OCCT
+  if (ocaf_ && ocaf_->doc->HasOpenCommand()) ocaf_->doc->AbortCommand();
+#endif
+}
+
+bool OcafLive::Undo(std::string* error) {
+#if INTENTCAD_WITH_OCCT
+  if (!ocaf_ || ocaf_->doc.IsNull()) {
+    if (error) *error = "no live document";
+    return false;
+  }
+  if (ocaf_->doc->GetAvailableUndos() == 0) {
+    if (error) *error = "nothing to undo";
+    return false;
+  }
+  if (!ocaf_->doc->Undo()) {
+    if (error) *error = "OCAF undo failed";
+    return false;
+  }
+  return ResyncStore(error);
+#else
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+bool OcafLive::Redo(std::string* error) {
+#if INTENTCAD_WITH_OCCT
+  if (!ocaf_ || ocaf_->doc.IsNull()) {
+    if (error) *error = "no live document";
+    return false;
+  }
+  if (ocaf_->doc->GetAvailableRedos() == 0) {
+    if (error) *error = "nothing to redo";
+    return false;
+  }
+  if (!ocaf_->doc->Redo()) {
+    if (error) *error = "OCAF redo failed";
+    return false;
+  }
+  return ResyncStore(error);
+#else
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+int OcafLive::AvailableUndos() const {
+#if INTENTCAD_WITH_OCCT
+  if (!ocaf_ || ocaf_->doc.IsNull()) return 0;
+  return ocaf_->doc->GetAvailableUndos();
+#else
+  return 0;
+#endif
+}
+
+int OcafLive::AvailableRedos() const {
+#if INTENTCAD_WITH_OCCT
+  if (!ocaf_ || ocaf_->doc.IsNull()) return 0;
+  return ocaf_->doc->GetAvailableRedos();
+#else
+  return 0;
+#endif
+}
+
+bool OcafLive::ResyncStore(std::string* error) {
+#if INTENTCAD_WITH_OCCT
+  if (!ocaf_ || ocaf_->doc.IsNull()) {
+    if (error) *error = "no live document";
+    return false;
+  }
+  ocaf_->shapes = XCAFDoc_DocumentTool::ShapeTool(ocaf_->doc->Main());
+  ocaf_->featureLabels.clear();
+  ocaf_->sketchLabels.clear();
+  ShapeStore::instance().clear();
+  std::map<std::string, std::string> registry;
+  NCollection_Sequence<TDF_Label> free;
+  ocaf_->shapes->GetFreeShapes(free);
+  for (int i = 1; i <= free.Length(); ++i) {
+    const ShapeRecord rec = RecordFromLabel(free.Value(i), ocaf_->shapes);
+    if (rec.featureId.empty() || rec.shape.IsNull()) continue;
+    if (!BRepCheck_Analyzer(rec.shape).IsValid(rec.shape)) continue;
+    ocaf_->featureLabels[rec.featureId] = free.Value(i);
+    ShapeStore::instance().put(rec);
+    registry[rec.featureId] = rec.type;
+  }
+  // Re-adopt selections + sketches folders (same scan as Load).
+  for (TDF_ChildIterator it(ocaf_->doc->Main(), Standard_False); it.More();
+       it.Next()) {
+    Handle(TDataStd_Name) n;
+    if (!it.Value().FindAttribute(TDataStd_Name::GetID(), n)) continue;
+    const std::string nm = ExtToAscii(n->Get());
+    if (nm == "Selections") {
+      ocaf_->selectionsRoot = it.Value();
+    } else if (nm == "Sketches") {
+      ocaf_->sketchesRoot = it.Value();
+    }
+  }
+  // Rebuild SketchStore from sketch labels (inside Sketches folder).
+  SketchStore::instance().clear();
+  if (!ocaf_->sketchesRoot.IsNull()) {
+    for (TDF_ChildIterator it(ocaf_->sketchesRoot, Standard_False); it.More();
+         it.Next()) {
+      Handle(TDataStd_Name) n;
+      Handle(TDataStd_Comment) c;
+      if (!it.Value().FindAttribute(TDataStd_Name::GetID(), n) ||
+          !it.Value().FindAttribute(TDataStd_Comment::GetID(), c)) {
+        continue;
+      }
+      const std::string sid = ExtToAscii(n->Get());
+      if (sid.empty()) continue;
+      ocaf_->sketchLabels[sid] = it.Value();
+      // JSON lives in the comment as plain ASCII (sketch ids are ASCII).
+      const std::string js = ExtToAscii(c->Get());
+      if (!js.empty()) {
+        SketchFeature sf;
+        std::string perr;
+        if (ParseSketchFeature(js, &sf, &perr) && !sf.id.empty()) {
+          SketchStore::instance().put(std::move(sf));
+          registry[sid] = "Sketch";
+        } else {
+          LogCore("ocaf: sketch label did not parse: " + sid);
+        }
+      }
+    }
+  }
+  // Whole-registry replace: stale (undone/deleted) entries vanish (§12).
+  DocumentStore::instance().replaceAll(registry);
+  return true;
+#else
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+bool OcafLive::UpsertFeature(const ShapeRecord& rec, bool isNew,
+                             std::string* error) {
+#if INTENTCAD_WITH_OCCT
+  try {
+    if (!ocaf_ || ocaf_->doc.IsNull()) Reset();
+    if (ocaf_->doc.IsNull()) {
+      if (error) *error = "OCAF: no live document";
+      return false;
+    }
+  if (isNew || ocaf_->featureLabels.count(rec.featureId) == 0) {
+    TDF_Label label = ocaf_->shapes->AddShape(rec.shape);
+    TDataStd_Name::Set(
+        label, TCollection_ExtendedString(rec.featureId.c_str()));
+    TDataStd_Comment::Set(
+        label,
+        TCollection_AsciiString(
+            EncodeParams(rec.type, rec.paramsMm, rec.dependsOn, rec.refExtra).c_str()));
+    ocaf_->featureLabels[rec.featureId] = label;
+    // Initial evolution anchor: the solid as generated content of its label.
+    TNaming_Builder builder(label);
+    builder.Generated(rec.shape);
+    return true;
+  }
+  // Rebuild, same UUID: replace the shape, record evolution (§3.2).
+  TDF_Label label = ocaf_->featureLabels[rec.featureId];
+  TopoDS_Shape oldSolid = ocaf_->shapes->GetShape(label);
+  // Role-match old faces to new faces BEFORE replacing (fallback data).
+  std::vector<std::string> oldRoles;
+  std::vector<TopoDS_Face> oldFaces;
+  if (!oldSolid.IsNull()) {
+    oldRoles = ClassifyFaceRoles(oldSolid, rec.type, rec.featureId);
+    for (TopExp_Explorer ex(oldSolid, TopAbs_FACE); ex.More(); ex.Next()) {
+      oldFaces.push_back(TopoDS::Face(ex.Current()));
+    }
+  }
+  ocaf_->shapes->SetShape(label, rec.shape);
+  TDataStd_Comment::Set(
+      label,
+      TCollection_AsciiString(
+          EncodeParams(rec.type, rec.paramsMm, rec.dependsOn, rec.refExtra).c_str()));
+  TNaming_Builder builder(label);
+  if (!oldSolid.IsNull()) {
+    // Per-face evolution for role-matched pairs (primary tracking, §3.2).
+    // NOTE: a single Modify(oldSolid, newSolid) PLUS per-face Generated()
+    // calls conflict on one builder ("not same evolution"), so the rebuild
+    // records per-face relations only; the solid itself is replaced via
+    // XCAF SetShape above (its NamedShape always holds the current solid).
+    const std::vector<std::string> newRoles =
+        ClassifyFaceRoles(rec.shape, rec.type, rec.featureId);
+    std::vector<TopoDS_Face> newFaces;
+    for (TopExp_Explorer ex(rec.shape, TopAbs_FACE); ex.More(); ex.Next()) {
+      newFaces.push_back(TopoDS::Face(ex.Current()));
+    }
+    for (size_t i = 0; i < oldFaces.size() && i < oldRoles.size(); ++i) {
+      for (size_t j = 0; j < newFaces.size() && j < newRoles.size(); ++j) {
+        if (oldRoles[i] == newRoles[j]) {
+          try {
+            builder.Generated(oldFaces[i], newFaces[j]);
+          } catch (const Standard_Failure& f) {
+            // Evolution depth degrades visibly (diagnostics), role fallback
+            // (§4) keeps resolution correct — never silent.
+            LogCore("ocaf: per-face Generated failed for " + oldRoles[i] +
+                    ": " + f.what());
+          }
+          break;
+        }
+      }
+    }
+  }
+  return true;
+  } catch (const Standard_Failure& f) {
+    if (error) *error = std::string("OCAF mirror failed: ") + f.what();
+    return false;
+  }
+#else
+  (void)rec;
+  (void)isNew;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+bool OcafLive::UpsertSketch(const std::string& sketchId,
+                            const std::string& sketchJson,
+                            std::string* error) {
+#if INTENTCAD_WITH_OCCT
+  try {
+    if (!ocaf_ || ocaf_->doc.IsNull()) Reset();
+    if (ocaf_->doc.IsNull() || ocaf_->sketchesRoot.IsNull()) {
+      if (error) *error = "OCAF: no live document";
+      return false;
+    }
+    const auto it = ocaf_->sketchLabels.find(sketchId);
+    if (it == ocaf_->sketchLabels.end()) {
+      TDF_Label label = ocaf_->sketchesRoot.NewChild();
+      TDataStd_Name::Set(label,
+                         TCollection_ExtendedString(sketchId.c_str()));
+      TDataStd_Comment::Set(
+          label, TCollection_AsciiString(sketchJson.c_str()));
+      ocaf_->sketchLabels[sketchId] = label;
+    } else {
+      TDataStd_Comment::Set(
+          it->second, TCollection_AsciiString(sketchJson.c_str()));
+    }
+    return true;
+  } catch (const Standard_Failure& f) {
+    if (error) *error = std::string("OCAF sketch mirror failed: ") + f.what();
+    return false;
+  }
+#else
+  (void)sketchId;
+  (void)sketchJson;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+bool OcafLive::SketchLabelEntries(
+    std::vector<std::pair<std::string, std::string>>* out) {
+#if INTENTCAD_WITH_OCCT
+  if (!ocaf_ || ocaf_->sketchesRoot.IsNull() || !out) return false;
+  for (TDF_ChildIterator it(ocaf_->sketchesRoot, Standard_False); it.More();
+       it.Next()) {
+    Handle(TDataStd_Name) n;
+    Handle(TDataStd_Comment) c;
+    if (!it.Value().FindAttribute(TDataStd_Name::GetID(), n) ||
+        !it.Value().FindAttribute(TDataStd_Comment::GetID(), c)) {
+      continue;
+    }
+    out->emplace_back(ExtToAscii(n->Get()), ExtToAscii(c->Get()));
+  }
+  return true;
+#else
+  (void)out;
+  return false;
+#endif
+}
+
+bool OcafLive::SelectFace(const std::string& featureId, const std::string& role,
+                          FaceSelection* out, std::string* error) {
+#if INTENTCAD_WITH_OCCT
+  try {
+    if (!ocaf_ || ocaf_->featureLabels.count(featureId) == 0) {
+      if (error) *error = "unknown feature " + featureId;
+      return false;
+    }
+  ShapeRecord rec;
+  if (!ShapeStore::instance().get(featureId, &rec) || rec.shape.IsNull()) {
+    if (error) *error = "feature has no shape";
+    return false;
+  }
+  TopoDS_Face picked;
+  if (!FindFaceByRole(rec.shape, featureId, rec.type, role, &picked)) {
+    if (error) *error = "no face with role " + role;
+    return false;
+  }
+  TDF_Label selLabel = ocaf_->selectionsRoot.NewChild();
+  TNaming_Selector selector(selLabel);
+  if (!selector.Select(picked, rec.shape)) {
+    if (error) *error = "TNaming_Selector could not identify the face";
+    return false;
+  }
+  TDataStd_Comment::Set(
+      selLabel,
+      TCollection_AsciiString((featureId + "|" + role).c_str()));
+  TCollection_AsciiString entry;
+  TDF_Tool::Entry(selLabel, entry);
+  if (out) {
+    out->entry = entry.ToCString();
+    out->featureId = featureId;
+    out->role = role;
+  }
+  return true;
+  } catch (const Standard_Failure& f) {
+    if (error) *error = std::string("face selection failed: ") + f.what();
+    return false;
+  }
+#else
+  (void)featureId;
+  (void)role;
+  (void)out;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+OcafLive::ResolveResult OcafLive::ResolveSelection(const FaceSelection& sel) {
+  ResolveResult result;
+#if INTENTCAD_WITH_OCCT
+  if (ocaf_ && !ocaf_->doc.IsNull()) {
+    try {
+      TDF_Label lab;
+      TDF_Tool::Label(ocaf_->doc->GetData(),
+                      TCollection_AsciiString(sel.entry.c_str()), lab);
+      if (!lab.IsNull()) {
+      Handle(TNaming_NamedShape) ns;
+      if (lab.FindAttribute(TNaming_NamedShape::GetID(), ns) && !ns.IsNull()) {
+        // Primary path (§3) counts ONLY with geometric proof: the tracked
+        // shape must IsSame-match a face of the current feature solid.
+        // (Without a post-rebuild re-solve, a bare CurrentShape may be the
+        // stale pre-rebuild face — never claim tracking without proof.)
+        const TopoDS_Shape current = TNaming_Tool::CurrentShape(ns);
+        if (!current.IsNull()) {
+          ShapeRecord rec;
+          if (ShapeStore::instance().get(sel.featureId, &rec) &&
+              !rec.shape.IsNull()) {
+            const std::vector<std::string> roles =
+                ClassifyFaceRoles(rec.shape, rec.type, sel.featureId);
+            size_t fi = 0;
+            for (TopExp_Explorer ex(rec.shape, TopAbs_FACE); ex.More();
+                 ex.Next(), ++fi) {
+              if (TopoDS::Face(ex.Current()).IsSame(current) &&
+                  fi < roles.size()) {
+                result.valid = true;
+                result.via = "naming";
+                result.role = roles[fi];
+                return result;
+              }
+            }
+          }
+        }
+      }
+    }
+    } catch (const Standard_Failure&) {
+      // Malformed entry or corrupt naming data: fall through to the role
+      // fallback below instead of crashing the kernel process (§49).
+    }
+  }
+  // Semantic fallback (§4): re-derive the role from current geometry.
+  ShapeRecord rec;
+  if (ShapeStore::instance().get(sel.featureId, &rec) && !rec.shape.IsNull()) {
+    TopoDS_Face face;
+    if (FindFaceByRole(rec.shape, sel.featureId, rec.type, sel.role, &face)) {
+      result.valid = true;
+      result.via = "role";
+      result.role = sel.role;
+    }
+  }
+#else
+  (void)sel;
+#endif
+  return result;
+}
+
+bool OcafLive::Save(const std::string& xbfPath, std::string* error) {
+#if INTENTCAD_WITH_OCCT
+  try {
+    if (!ocaf_ || ocaf_->doc.IsNull()) {
+      if (error) *error = "OCAF: nothing to save";
+      return false;
+    }
+    if (ocaf_->app->SaveAs(ocaf_->doc,
+                           TCollection_ExtendedString(xbfPath.c_str())) !=
+        PCDM_SS_OK) {
+      if (error) *error = "OCAF: SaveAs failed";
+      return false;
+    }
+    return true;
+  } catch (const Standard_Failure& f) {
+    if (error) *error = std::string("OCAF save failed: ") + f.what();
+    return false;
+  }
+#else
+  (void)xbfPath;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+bool OcafLive::Load(const std::string& xbfPath,
+                    std::vector<ShapeRecord>* records,
+                    std::vector<std::string>* sketchJsons,
+                    std::string* error) {
+#if INTENTCAD_WITH_OCCT
+  try {
+    Reset();
+  if (ocaf_->app->Open(TCollection_ExtendedString(xbfPath.c_str()),
+                       ocaf_->doc) != PCDM_RS_OK ||
+      ocaf_->doc.IsNull()) {
+    if (error) *error = "OCAF: cannot open " + xbfPath;
+    return false;
+  }
+  ocaf_->shapes = XCAFDoc_DocumentTool::ShapeTool(ocaf_->doc->Main());
+  // Rebuild feature map from persisted labels (name + params comment).
+  int recovered = 0;
+  NCollection_Sequence<TDF_Label> free;
+  ocaf_->shapes->GetFreeShapes(free);
+  for (int i = 1; i <= free.Length(); ++i) {
+    const ShapeRecord rec = RecordFromLabel(free.Value(i), ocaf_->shapes);
+    if (rec.featureId.empty() || rec.shape.IsNull()) continue;
+    if (!BRepCheck_Analyzer(rec.shape).IsValid(rec.shape)) continue;
+    ocaf_->featureLabels[rec.featureId] = free.Value(i);
+    if (records) records->push_back(rec);
+    ++recovered;
+  }
+  // Re-adopt the selections + sketches folders (siblings under Main).
+  for (TDF_ChildIterator it(ocaf_->doc->Main(), Standard_False); it.More();
+       it.Next()) {
+    Handle(TDataStd_Name) n;
+    if (!it.Value().FindAttribute(TDataStd_Name::GetID(), n)) continue;
+    const std::string nm = ExtToAscii(n->Get());
+    if (nm == "Selections") {
+      ocaf_->selectionsRoot = it.Value();
+    } else if (nm == "Sketches") {
+      ocaf_->sketchesRoot = it.Value();
+    }
+  }
+  // Collect sketch JSON labels (do not fail the open when absent).
+  int recoveredSketches = 0;
+  if (!ocaf_->sketchesRoot.IsNull()) {
+    for (TDF_ChildIterator it(ocaf_->sketchesRoot, Standard_False); it.More();
+         it.Next()) {
+      Handle(TDataStd_Name) n;
+      Handle(TDataStd_Comment) c;
+      if (!it.Value().FindAttribute(TDataStd_Name::GetID(), n) ||
+          !it.Value().FindAttribute(TDataStd_Comment::GetID(), c)) {
+        continue;
+      }
+      const std::string sid = ExtToAscii(n->Get());
+      if (sid.empty()) continue;
+      ocaf_->sketchLabels[sid] = it.Value();
+      if (sketchJsons) sketchJsons->push_back(ExtToAscii(c->Get()));
+      ++recoveredSketches;
+    }
+  }
+  if (recovered == 0 && recoveredSketches == 0) {
+    if (error) *error = "OCAF: no features recovered from " + xbfPath;
+    return false;
+  }
+  return true;
+  } catch (const Standard_Failure& f) {
+    if (error) *error = std::string("OCAF open failed: ") + f.what();
+    return false;
+  }
+#else
+  (void)xbfPath;
+  (void)records;
+  (void)sketchJsons;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+bool OcafLive::Load(const std::string& xbfPath,
+                    std::vector<ShapeRecord>* records,
+                    std::string* error) {
+  return Load(xbfPath, records, nullptr, error);
+}
+
+}  // namespace intentcad

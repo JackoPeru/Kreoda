@@ -1,0 +1,348 @@
+// INTENT-CAD binary IPC protocol — FlatBuffers schema, protocolVersion = 1.
+// Transport (§8): uint32 LE payloadLength + FlatBuffer payload over stdio.
+// Canonical units (§43): mm for length, rad for angle. All doubles in IPC
+// document their units explicitly (suffix Mm / Rad / Mm3 ...).
+// Never persist face/edge array indices (§0.2) — only persistent string IDs.
+
+namespace IntentCad.Protocol;
+
+enum CommandType : ushort {
+  None,
+  GetCoreInfo,
+  CreateDocument,
+  CreateBox,
+  CreateCylinder,
+  CreateSphere,
+  SetFeatureParameter,
+  DeleteFeature,
+  Undo,
+  Redo,
+  SaveDocument,
+  OpenDocument,
+  RequestMesh,
+  CreateSketch,
+  UpdateSketch,
+  CreateExtrude,
+  CreateRevolve,
+  RequestSketch,
+  PreviewSketch,
+  CreateBoolean,
+  CreateHole,
+  CreateFillet,
+  CreateChamfer,
+  RequestFaceInfo
+}
+
+enum StatusCode : byte {
+  Ok = 0,
+  Preview = 1,
+  Warning = 2,
+  Error = 3,
+  // Backend is telling the renderer to resync (revision diverged, see §66).
+  NeedFullSnapshot = 4
+}
+
+table Vec3 {
+  x: double;
+  y: double;
+  z: double;
+}
+
+// ── Command payloads ──────────────────────────────────────────────
+
+table GetCoreInfoRequest {}
+
+table CreateDocumentRequest {
+  document_id: string;
+}
+
+table CreateBoxCommand {
+  // Stable feature UUID assigned by the frontend (command is typed, §0.4).
+  feature_id: string;
+  width_mm: double;
+  height_mm: double;
+  depth_mm: double;
+  origin: Vec3;
+}
+
+table CreateCylinderCommand {
+  feature_id: string;
+  radius_mm: double;
+  height_mm: double;
+}
+
+table CreateSphereCommand {
+  feature_id: string;
+  radius_mm: double;
+}
+
+table SetFeatureParameterCommand {
+  feature_id: string;
+  param_name: string;
+  // Canonical value (mm / rad / unitless depending on param).
+  value: double;
+  // If true this is a transient preview, not a committed transaction (§13).
+  is_preview: bool;
+}
+
+table DeleteFeatureCommand {
+  feature_id: string;
+}
+
+table SaveDocumentRequest {
+  // Absolute host path — validated in Electron main, never from renderer.
+  path: string;
+}
+
+table OpenDocumentRequest {
+  path: string;
+}
+
+table RequestMeshRequest {
+  feature_id: string;
+  // 0 = coarse/preview, 1 = interactive, 2 = export/inspection (§14).
+  lod: byte;
+}
+
+table SketchPoint {
+  id: string;
+  x: double;
+  y: double;
+  fixed: bool;
+}
+
+table SketchLine {
+  id: string;
+  p1: string;
+  p2: string;
+}
+
+table SketchCircle {
+  id: string;
+  center: string;
+  r: double;
+}
+
+table SketchArc {
+  id: string;
+  center: string;
+  r: double;
+  start_angle_rad: double;
+  end_angle_rad: double;
+}
+
+table SketchConstraint {
+  id: string;
+  kind: string; // coincident|horizontal|vertical|parallel|perpendicular|...
+  refs: [string];
+  value: double;
+}
+
+table SketchModel {
+  points: [SketchPoint];
+  lines: [SketchLine];
+  circles: [SketchCircle];
+  arcs: [SketchArc];
+  constraints: [SketchConstraint];
+}
+
+table CreateSketchCommand {
+  feature_id: string;
+  plane_kind: string; // XY | XZ | YZ
+  model: SketchModel;
+}
+
+table UpdateSketchCommand {
+  feature_id: string;
+  model: SketchModel;
+  is_preview: bool;
+  drag_point_id: string;
+  drag_x: double;
+  drag_y: double;
+}
+
+table CreateExtrudeCommand {
+  feature_id: string;
+  sketch_id: string;
+  distance_mm: double;
+}
+
+table CreateRevolveCommand {
+  feature_id: string;
+  sketch_id: string;
+  angle_deg: double;
+}
+
+table RequestSketchRequest {
+  feature_id: string;
+}
+
+table PreviewSketchRequest {
+  feature_id: string;
+  model: SketchModel;
+  drag_point_id: string;
+  drag_x: double;
+  drag_y: double;
+}
+
+table CreateBooleanCommand {
+  feature_id: string;
+  op: string; // fuse | cut | common
+  target_id: string;
+  tool_id: string;
+}
+
+table CreateHoleCommand {
+  feature_id: string;
+  target_id: string;
+  face_role: string; // persistent role, e.g. box.+Z
+  x_mm: double;
+  y_mm: double;
+  diameter_mm: double;
+  depth_mode: string; // throughAll | blind
+  depth_mm: double;
+}
+
+table CreateFilletCommand {
+  feature_id: string;
+  target_id: string;
+  edge_ids: [string]; // full persistent ids
+  radius_mm: double;
+}
+
+table CreateChamferCommand {
+  feature_id: string;
+  target_id: string;
+  edge_ids: [string];
+  distance_mm: double;
+}
+
+table RequestFaceInfoCommand {
+  feature_id: string;
+  face_role: string; // persistent role, e.g. box.+Z
+}
+
+union CommandPayload {
+  GetCoreInfoRequest,
+  CreateDocumentRequest,
+  CreateBoxCommand,
+  CreateCylinderCommand,
+  CreateSphereCommand,
+  SetFeatureParameterCommand,
+  DeleteFeatureCommand,
+  SaveDocumentRequest,
+  OpenDocumentRequest,
+  RequestMeshRequest,
+  CreateSketchCommand,
+  UpdateSketchCommand,
+  CreateExtrudeCommand,
+  CreateRevolveCommand,
+  RequestSketchRequest,
+  PreviewSketchRequest,
+  CreateBooleanCommand,
+  CreateHoleCommand,
+  CreateFilletCommand,
+  CreateChamferCommand,
+  RequestFaceInfoCommand
+}
+
+table CommandEnvelope {
+  protocol_version: uint;
+  request_id: string;
+  document_id: string;
+  type: CommandType;
+  payload: CommandPayload;
+}
+
+// ── Model projection / delta (§9, §66) ───────────────────────────
+
+table EntitySummary {
+  id: string;
+  kind: string; // "body" | "feature" | "sketch" | "parameter"
+  name: string;
+  state: string; // "ok" | "warning" | "error" | "suppressed"
+  detail_json: string; // small render-neutral summary, no B-Rep
+}
+
+table FaceRange {
+  // Persistent face id (§4): e.g. "featUuid:extrusion.cap.end" — never an index.
+  persistent_face_id: string;
+  triangle_start: uint;
+  triangle_count: uint;
+}
+
+table EdgeRange {
+  persistent_edge_id: string;
+  vertex_start: uint;
+  vertex_count: uint;
+}
+
+table MeshUpdate {
+  feature_id: string;
+  body_id: string;
+  lod: byte;
+  // Echo of the request this answers — the sidecar correlates pipelined
+  // responses by id instead of arrival order (C15: FIFO was assumed, never
+  // guaranteed). Errors stay JSON and carry requestId the same way.
+  request_id: string;
+  // Little-endian packed binary, lengths in elements (not bytes).
+  positions_count: uint;
+  normals_count: uint;
+  indices_count: uint;
+  // Raw buffers appended as bytes (float32[] / uint32[] LE).
+  positions: [ubyte];
+  normals: [ubyte];
+  indices: [ubyte];
+  edge_vertices: [ubyte];
+  faces: [FaceRange];
+  edges: [EdgeRange];
+  // Phase 8: everything the JSON mesh envelope carried, so mesh responses
+  // need no JSON at all (§8: mesh data must not be JSON).
+  volume_mm3: double;
+  bbox_mm: [double];
+  revision: long;
+}
+
+table SelectionRemap {
+  old_persistent_id: string;
+  new_persistent_id: string;
+}
+
+table ModelDelta {
+  base_revision: long;
+  revision: long;
+  added: [EntitySummary];
+  updated: [EntitySummary];
+  removed_ids: [string];
+  changed_meshes: [MeshUpdate];
+  selection_remaps: [SelectionRemap];
+}
+
+table Diagnostic {
+  code: string;
+  message: string;
+  feature_id: string;
+}
+
+table ManipulatorDescriptor {
+  id: string;
+  kind: string; // "linear" | "radial" | "planar"
+  axis: Vec3;
+  parameter: string;
+  origin_reference: string;
+}
+
+table ResponseEnvelope {
+  protocol_version: uint;
+  request_id: string;
+  status: StatusCode;
+  error_code: string;
+  error_message: string;
+  model_delta: ModelDelta;
+  diagnostics: [Diagnostic];
+  manipulators: [ManipulatorDescriptor];
+  core_version: string;
+  occt_version: string;
+}
+
+root_type CommandEnvelope;

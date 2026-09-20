@@ -1,0 +1,62 @@
+name: ci-windows
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: JS lint
+        run: pnpm -r lint
+
+      - name: JS unit tests
+        run: pnpm -r test
+
+      - name: Setup vcpkg (manifest: OCCT 8.0.1, release-only triplet)
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: ${{ github.workspace }}/vcpkg
+          vcpkgJsonGlob: native/cad-core/vcpkg.json
+          additionalArguments: --triplet=x64-windows-release --clean-after-build
+
+      - name: Configure native core
+        run: >
+          cmake -S native/cad-core -B native/cad-core/build
+          "-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_MANIFEST_MODE=ON
+
+      - name: Build native core
+        run: cmake --build native/cad-core/build --config Release
+
+      - name: Native self-test + gtest
+        run: >
+          ./native/cad-core/build/Release/intentcad-core.exe --self-test;
+          ctest --test-dir native/cad-core/build -C Release --output-on-failure
+
+      - name: Build desktop shell
+        run: pnpm --filter @intentcad/desktop build
+
+      - name: E2E (Electron + sidecar)
+        run: pnpm --filter @intentcad/desktop exec playwright test
+
+      - name: Upload E2E screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: apps/desktop/e2e/*.png

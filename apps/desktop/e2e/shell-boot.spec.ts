@@ -1,0 +1,38 @@
+// Phase 0 E2E (§49, §61): app starts, sidecar answers, shell renders.
+// Phase 1 extends this: create primitive → select face → change parameter →
+// hole → Undo/Redo → save → reopen → identical geometry → export STEP/3MF.
+
+import { test, expect, _electron as electron } from "@playwright/test";
+import path from "node:path";
+
+const HERE = import.meta.dirname;
+const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
+
+test("shell boots, core answers, beginner UI renders", async () => {
+  const app = await electron.launch({
+    args: [MAIN, "--no-sandbox"],
+  });
+  try {
+    const window = await app.firstWindow({ timeout: 30000 });
+    await window.waitForLoadState("domcontentloaded");
+
+    // Beginner shell (§24)
+    await expect(window.getByText("+ Add")).toBeVisible({ timeout: 20000 });
+    await expect(window.getByTestId("viewport")).toBeVisible();
+    await expect(
+      window.getByPlaceholder(/What do you want to do/),
+    ).toBeVisible();
+
+    // Renderer → preload → main → sidecar → GetCoreInfo (§61 Task 6).
+    // Footer flips from "core offline" to "core 0.1.0" once answered.
+    await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
+      timeout: 20000,
+    });
+
+    await window.screenshot({
+      path: path.join(HERE, "shell-boot.png"),
+    });
+  } finally {
+    await app.close();
+  }
+});
