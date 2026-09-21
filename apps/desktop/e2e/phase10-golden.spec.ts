@@ -3,66 +3,15 @@
 // by phase9-plugins.spec.ts. Workflow A also locks the M11 single-undo
 // pattern and the post-reopen cut regression (compound-label fix).
 
-import { test, expect, _electron as electron, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
+import { HERE, boot, runBar, snapOf, type Snapshot } from "./helpers";
 
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
 const ICAD_A = path.join(os.tmpdir(), "kreoda-phase10-golden-a.icad");
 const STEP_A = path.join(os.tmpdir(), "kreoda-phase10-golden-a.step");
 const ICAD_B = path.join(os.tmpdir(), "kreoda-phase10-golden-b.icad");
-
-interface BodySnapshot {
-  id: string;
-  type: string;
-  paramsMm: number[];
-  volumeMm3: number;
-  triangles: number;
-  expressions: Record<string, string>;
-}
-interface Snapshot {
-  revision: number;
-  bodies: BodySnapshot[];
-}
-
-async function boot() {
-  const app = await electron.launch({ args: [MAIN, "--no-sandbox"] });
-  const window = await app.firstWindow({ timeout: 30000 });
-  await window.waitForLoadState("domcontentloaded");
-  await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
-    timeout: 20000,
-  });
-  return { app, window };
-}
-
-function snapOf(window: Page): Promise<Snapshot> {
-  return window.evaluate(() =>
-    (
-      window as unknown as {
-        __kreoda_test: { snapshot: () => Snapshot };
-      }
-    ).__kreoda_test.snapshot(),
-  ) as Promise<Snapshot>;
-}
-
-async function runBar(window: Page, text: string): Promise<void> {
-  const input = window.getByTestId("command-input");
-  await input.fill(text);
-  await input.press("Enter");
-  const preview = window.getByTestId("plan-preview");
-  await expect(preview).toBeVisible({ timeout: 5000 });
-  await preview.getByRole("button", { name: /Run 1 step/ }).click();
-  // Surface plan failures loudly instead of polling blindly afterwards.
-  await expect(preview).toBeHidden({ timeout: 30000 });
-  const failures = await window
-    .getByText(/Stopped after|planning failed|execution failed/)
-    .allTextContents();
-  expect(
-    failures.length === 0 ? "" : `plan failed: ${failures.join(" | ")}`,
-  ).toBe("");
-}
 
 // Workflow A — parametric bracket: box → hole → pattern (one undo) →
 // fillet → expression → early-dimension edit → undo/redo → save/reopen →

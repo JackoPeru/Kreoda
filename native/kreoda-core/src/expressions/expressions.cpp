@@ -243,46 +243,11 @@ bool RunParser(const std::string& text, const std::string& owner,
 
 int ParamIndexOf(const std::string& type, const std::string& paramName,
                  size_t paramCount) {
-  // Slots mirror ResolveParamsForEdit (features/primitives) — keep in sync.
-  if (type == "Box" && paramCount == 3) {
-    if (paramName == "widthMm") return 0;
-    if (paramName == "heightMm") return 1;
-    if (paramName == "depthMm") return 2;
-    return -1;
-  }
-  if (type == "Cylinder" && paramCount == 2) {
-    if (paramName == "radiusMm") return 0;
-    if (paramName == "heightMm") return 1;
-    return -1;
-  }
-  if (type == "Sphere" && paramCount == 1) {
-    return paramName == "radiusMm" ? 0 : -1;
-  }
-  if (type == "Extrude" && paramCount == 1) {
-    return paramName == "distanceMm" ? 0 : -1;
-  }
-  if (type == "Revolve" && paramCount == 1) {
-    return paramName == "angleDeg" ? 0 : -1;
-  }
-  if (type == "Hole" && paramCount == 2) {
-    if (paramName == "diameterMm") return 0;
-    if (paramName == "depthMm") return 1;
-    return -1;
-  }
-  if (type == "Fillet" && paramCount == 1) {
-    return paramName == "radiusMm" ? 0 : -1;
-  }
-  if (type == "Chamfer" && paramCount == 1) {
-    return paramName == "distanceMm" ? 0 : -1;
-  }
-  if (type == "Instance" && paramCount == 6) {
-    if (paramName == "txMm") return 0;
-    if (paramName == "tyMm") return 1;
-    if (paramName == "tzMm") return 2;
-    if (paramName == "rxDeg") return 3;
-    if (paramName == "ryDeg") return 4;
-    if (paramName == "rzDeg") return 5;
-    return -1;
+  // Slots live in DescribeParams (model/shapes) — single source of truth.
+  const std::vector<std::string> slots = DescribeParams(type);
+  if (slots.empty() || slots.size() != paramCount) return -1;
+  for (size_t i = 0; i < slots.size(); ++i) {
+    if (slots[i] == paramName) return static_cast<int>(i);
   }
   return -1;
 }

@@ -3,6 +3,7 @@ import { parseAngleToDeg, parseLengthToMm } from "@kreoda/units";
 import { viewportProjectPoint } from "../viewport/viewportHandle";
 import { useDocumentUiStore, useSelectionStore } from "../stores";
 import { executeCommand } from "../commands/execute";
+import { faceCentroid } from "../interaction/pull";
 
 // Canonical mm slots per type for chip labels (mirrors PropertiesPanel).
 const CHIP_SLOTS: Record<string, { param: string; short: string }[]> = {
@@ -39,26 +40,7 @@ function faceCentroidWorld(
 ): [number, number, number] | null {
   const mesh = useDocumentUiStore.getState().meshes[featureId];
   if (!mesh) return null;
-  const range = mesh.faces.find((f) => f.persistentFaceId === persistentFaceId);
-  if (!range || range.triangleCount === 0) return null;
-  let cx = 0,
-    cy = 0,
-    cz = 0,
-    n = 0;
-  const idx = mesh.indices;
-  const pos = mesh.positions;
-  const tris = Math.min(range.triangleCount, 8);
-  for (let t = 0; t < tris; t++) {
-    for (let k = 0; k < 3; k++) {
-      const vi = idx[(range.triangleStart + t) * 3 + k]!;
-      cx += pos[vi * 3]!;
-      cy += pos[vi * 3 + 1]!;
-      cz += pos[vi * 3 + 2]!;
-      n++;
-    }
-  }
-  if (n === 0) return null;
-  return [cx / n, cy / n, cz / n];
+  return faceCentroid(mesh, persistentFaceId, 8);
 }
 
 /**

@@ -22,8 +22,8 @@ struct ExpressionEntry {
   std::string expression;
 };
 
-// Canonical parameter slots per feature type (mirrors ResolveParamsForEdit
-// in features/primitives — keep the two tables in sync).
+// Canonical parameter slots per feature type (slots live in DescribeParams,
+// model/shapes — single source of truth).
 // Returns the slot index, or -1 for unknown type/param.
 int ParamIndexOf(const std::string& type, const std::string& paramName,
                  size_t paramCount);

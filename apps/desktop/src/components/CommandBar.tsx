@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { parseCommand, describeStep, HELP_TEXT, type IntentPlan } from "../intent/parse";
-import { recordEvent } from "../telemetry/events";
 import {
   HttpLlmProvider,
   buildIntentRequest,
@@ -28,7 +27,6 @@ export function CommandBar() {
     () => usePreferencesStore.getState().llmModel,
   );
   const llmConfigured = usePreferencesStore((s) => s.llmEndpoint !== "");
-  const telemetryEnabled = usePreferencesStore((s) => s.telemetryEnabled);
   const genRef = useRef(0);
 
   const submit = (): void => {
@@ -86,12 +84,6 @@ export function CommandBar() {
     setStatus(null);
     try {
       const result = await runPlan(plan);
-      recordEvent("plan_committed", {
-        steps: plan.steps.length,
-        executed: result.executed,
-        source: plan.source,
-        failed: result.errors.length > 0,
-      });
       if (result.errors.length > 0) {
         setError(
           `Stopped after ${result.executed} step${result.executed === 1 ? "" : "s"}: ${result.errors[0]}`,
@@ -199,19 +191,6 @@ export function CommandBar() {
           <span className="text-white/35">
             Empty = offline short commands only.
           </span>
-          <label className="flex items-center gap-1.5 text-white/60">
-            <input
-              type="checkbox"
-              checked={telemetryEnabled}
-              onChange={(e) =>
-                usePreferencesStore.getState().setTelemetry(e.target.checked)
-              }
-              title="Usage telemetry (explicit opt-in, off by default; no collection backend is wired)"
-            />
-            <span title="Usage telemetry (explicit opt-in, off by default; no collection backend is wired)">
-              telemetry
-            </span>
-          </label>
         </div>
       )}
       {plan && (

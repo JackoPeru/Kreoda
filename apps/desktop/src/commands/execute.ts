@@ -89,42 +89,29 @@ export type CommandResult =
 export async function executeCommand(
   id: string,
   params: unknown,
+  opts: { skipAvailability?: boolean } = {},
 ): Promise<CommandResult> {
   if (!useDocumentUiStore.getState().coreRunning) {
     throw new Error("geometry engine not running");
   }
   const def = COMMANDS.find((c) => c.id === id);
   if (!def) throw new Error(`unknown command ${id}`);
-  const availability = def.availability(commandContext());
-  if (!availability.available) {
-    throw new Error(availability.reason ?? `${id} unavailable here`);
+  // skipAvailability: plan expansion (provider.ts) resolves context
+  // EXPLICITLY (target/face/edge ids in hand). Params are still
+  // zod-validated, so the single typed path (§0.4) is preserved; only the
+  // UI-context gate is the caller's responsibility. SAFETY: only
+  // provider.ts may pass skipAvailability.
+  if (!opts.skipAvailability) {
+    const availability = def.availability(commandContext());
+    if (!availability.available) {
+      throw new Error(availability.reason ?? `${id} unavailable here`);
+    }
   }
   const p = def.parameterSchema.parse(params) as Record<string, unknown>;
   return dispatchCommand(id, p);
 }
 
-/**
- * Validated dispatch without a selection-availability check — for plan
- * expansion (provider.ts) and other callers that resolve context EXPLICITLY
- * (target/face/edge ids in hand). Params are still zod-validated here, so
- * the single typed path (§0.4) is preserved; only the UI-context gate is
- * the caller's responsibility.
- * SAFETY: only provider.ts may call this — any other caller bypasses the
- * beginnerMode/selection gates. The caller MUST have resolved
- * targetId/faceRole/edgeIds/featureId explicitly.
- */
-export async function executeValidatedCommand(
-  id: string,
-  params: unknown,
-): Promise<CommandResult> {
-  if (!useDocumentUiStore.getState().coreRunning) {
-    throw new Error("geometry engine not running");
-  }
-  const def = COMMANDS.find((c) => c.id === id);
-  if (!def) throw new Error(`unknown command ${id}`);
-  const p = def.parameterSchema.parse(params) as Record<string, unknown>;
-  return dispatchCommand(id, p);
-}
+
 
 async function dispatchCommand(
   id: string,

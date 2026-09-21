@@ -51,11 +51,6 @@ void DocumentStore::replaceAll(
   features_ = entries;
 }
 
-bool DocumentStore::hasFeature(const std::string& featureId) const {
-  std::lock_guard<std::mutex> lock(mutex_);
-  return features_.count(featureId) > 0;
-}
-
 std::map<std::string, std::string> DocumentStore::snapshotRegistry() const {
   std::lock_guard<std::mutex> lock(mutex_);
   return features_;

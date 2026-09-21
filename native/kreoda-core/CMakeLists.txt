@@ -83,14 +83,11 @@ set(CORE_SOURCES
   src/features/hole/hole.cpp
   src/features/instance/instance.cpp
   src/features/fillet/fillet.cpp
-  src/topology/persistent_refs.cpp
   src/topology/face_roles.cpp
   src/tessellation/box_tessellator.cpp
   src/tessellation/mesh.cpp
-  src/persistence/ocaf_store.cpp
   src/persistence/ocaf_live.cpp
   src/persistence/icad_zip.cpp
-  src/validation/validate.cpp
   src/diagnostics/log.cpp
 )
 

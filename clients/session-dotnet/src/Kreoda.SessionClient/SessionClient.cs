@@ -90,42 +90,6 @@ public sealed class SessionClient : IAsyncDisposable
         return CallAsync("invoke", p, ct);
     }
 
-    public Task<JsonElement> QueryAsync(
-        string method,
-        IDictionary<string, object?>? @params = null,
-        CancellationToken ct = default) =>
-        CallAsync(method, @params ?? new Dictionary<string, object?>(), ct);
-
-    public Task<JsonElement> TxnBeginAsync(
-        string transactionId,
-        string documentId = "doc-phase1",
-        CancellationToken ct = default) =>
-        CallAsync("txnBegin", new Dictionary<string, object?>
-        {
-            ["documentId"] = documentId,
-            ["transactionId"] = transactionId,
-        }, ct);
-
-    public Task<JsonElement> TxnCommitAsync(
-        string transactionId,
-        string documentId = "doc-phase1",
-        CancellationToken ct = default) =>
-        CallAsync("txnCommit", new Dictionary<string, object?>
-        {
-            ["documentId"] = documentId,
-            ["transactionId"] = transactionId,
-        }, ct);
-
-    public Task<JsonElement> TxnRollbackAsync(
-        string transactionId,
-        string documentId = "doc-phase1",
-        CancellationToken ct = default) =>
-        CallAsync("txnRollback", new Dictionary<string, object?>
-        {
-            ["documentId"] = documentId,
-            ["transactionId"] = transactionId,
-        }, ct);
-
     public async Task<JsonElement> CallAsync(
         string method,
         IDictionary<string, object?> @params,

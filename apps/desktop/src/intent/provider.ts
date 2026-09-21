@@ -1,7 +1,7 @@
 import { COMMANDS } from "@kreoda/command-schema";
 import type { FaceRange } from "@kreoda/protocol";
 import { coreClient } from "../ipc/coreClient";
-import { executeValidatedCommand } from "../commands/execute";
+import { executeCommand } from "../commands/execute";
 import {
   isSketchId,
   useDocumentUiStore,
@@ -498,7 +498,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
         case "CreateBox":
         case "CreateCylinder":
         case "CreateSphere":
-          await executeValidatedCommand(step.command, step.params);
+          await executeCommand(step.command, step.params, { skipAvailability: true });
           break;
         case "CreateInstance": {
           const p = step.params as {
@@ -513,7 +513,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
           // Explicit target wins; otherwise the live body selection.
           const targetId = p.targetId ?? selectedBody();
           if (!targetId) throw new Error("Select a solid body first");
-          await executeValidatedCommand("CreateInstance", {
+          await executeCommand("CreateInstance", {
             targetId,
             txMm: p.txMm ?? 0,
             tyMm: p.tyMm ?? 0,
@@ -521,7 +521,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             rxDeg: p.rxDeg ?? 0,
             ryDeg: p.ryDeg ?? 0,
             rzDeg: p.rzDeg ?? 0,
-          });
+          }, { skipAvailability: true });
           break;
         }
         case "CreateHole": {
@@ -533,39 +533,24 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
           let yMm = 0;
           if (p.position === "center" || (p.xMm === undefined && p.yMm === undefined)) {
             const { coreClient } = await import("../ipc/coreClient");
+            const { faceCentroid, faceLocalFromWorld } = await import("../interaction/pull");
             const store = useDocumentUiStore.getState();
             const mesh = store.meshes[face.targetId];
             if (!mesh) throw new Error("Face mesh not loaded yet");
             // World centroid of the selected face (first triangles).
-            const range = mesh.faces.find(
-              (f) => f.persistentFaceId === `${face.targetId}:${face.faceRole}`,
+            const c = faceCentroid(
+              mesh,
+              `${face.targetId}:${face.faceRole}`,
+              16,
             );
-            if (!range) throw new Error("Face not in current mesh");
-            let cx = 0,
-              cy = 0,
-              cz = 0,
-              n = 0;
-            const tris = Math.min(range.triangleCount, 16);
-            if (tris <= 0) throw new Error("Face not in current mesh");
-            for (let t = 0; t < tris; t++) {
-              for (let k = 0; k < 3; k++) {
-                const vi = mesh.indices[(range.triangleStart + t) * 3 + k]!;
-                cx += mesh.positions[vi * 3]!;
-                cy += mesh.positions[vi * 3 + 1]!;
-                cz += mesh.positions[vi * 3 + 2]!;
-                n++;
-              }
-            }
-            if (n === 0) throw new Error("Face not in current mesh");
+            if (!c) throw new Error("Face not in current mesh");
             const frame = await coreClient.requestFaceInfo(
               face.targetId,
               face.faceRole,
             );
-            const dx = [cx / n - frame.originMm[0], cy / n - frame.originMm[1], cz / n - frame.originMm[2]];
-            const dot = (a: number[], b: [number, number, number]): number =>
-              a[0]! * b[0] + a[1]! * b[1] + a[2]! * b[2];
-            xMm = dot(dx, frame.xAxis);
-            yMm = dot(dx, frame.yAxis);
+            const local = faceLocalFromWorld(frame, c);
+            xMm = local.x;
+            yMm = local.y;
             if (!Number.isFinite(xMm) || !Number.isFinite(yMm)) {
               throw new Error("Face center unavailable — select the face again");
             }
@@ -573,7 +558,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             xMm = (p as { xMm?: number }).xMm ?? 0;
             yMm = (p as { yMm?: number }).yMm ?? 0;
           }
-          await executeValidatedCommand("CreateHole", {
+          await executeCommand("CreateHole", {
             targetId: face.targetId,
             faceRole: face.faceRole,
             xMm,
@@ -581,7 +566,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             diameterMm: p.diameterMm,
             depthMode: p.depthMode,
             depthMm: p.depthMm,
-          });
+          }, { skipAvailability: true });
           break;
         }
         case "CreateHolesCorners": {
@@ -651,7 +636,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
                 ];
           // M11: one core transaction (one Undo step) via CreateHolePattern.
           const flat: number[] = (pts as number[][]).flat();
-          await executeValidatedCommand("CreateHolePattern", {
+          await executeCommand("CreateHolePattern", {
             targetId,
             faceRole,
             featureIds: (pts as unknown[]).map(
@@ -661,7 +646,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             diameterMm: p.diameterMm,
             depthMode: p.depthMode,
             depthMm: p.depthMm,
-          });
+          }, { skipAvailability: true });
           break;
         }
         case "CreateFillet":
@@ -672,13 +657,13 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             step.command === "CreateFillet"
               ? (step.params as { radiusMm: number }).radiusMm
               : (step.params as { distanceMm: number }).distanceMm;
-          await executeValidatedCommand(step.command, {
+          await executeCommand(step.command, {
             targetId: edges.targetId,
             edgeIds: edges.edgeIds,
             ...(step.command === "CreateFillet"
               ? { radiusMm: v }
               : { distanceMm: v }),
-          });
+          }, { skipAvailability: true });
           break;
         }
         case "SetDimension": {
@@ -689,17 +674,17 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             valueMm?: number;
             expression?: string;
           };
-          await executeValidatedCommand("SetDimension", {
+          await executeCommand("SetDimension", {
             featureId: body,
             paramName: sp.paramName,
             ...(sp.valueMm !== undefined ? { valueMm: sp.valueMm } : {}),
             ...(sp.expression ? { expression: sp.expression } : {}),
-          });
+          }, { skipAvailability: true });
           break;
         }
         case "Undo":
         case "Redo":
-          await executeValidatedCommand(step.command, {});
+          await executeCommand(step.command, {}, { skipAvailability: true });
           break;
         case "View":
           if (

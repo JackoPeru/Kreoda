@@ -4,19 +4,13 @@ import type { FeatureSummary } from "../ipc/coreClient";
 // heuristics over the read-only projection. The LLM layer (§28) may add
 // accelerator suggestions later; these work offline first.
 
-export type IntentSuggestion =
-  | {
-      kind: "equalSize";
-      /** Hole feature ids to unify. */
-      ids: string[];
-      diameterMm: number;
-      text: string;
-    }
-  | {
-      kind: "symmetricPair";
-      ids: string[];
-      text: string;
-    };
+export interface IntentSuggestion {
+  kind: "equalSize";
+  /** Hole feature ids to unify. */
+  ids: string[];
+  diameterMm: number;
+  text: string;
+}
 
 const DIA_TOL_MM = 0.01;
 

@@ -7,10 +7,6 @@ import {
   type SketchSummary,
 } from "../ipc/coreClient";
 import { useDocumentUiStore, useSelectionStore } from "../stores";
-import { mapPool } from "./pool";
-
-/** Max in-flight mesh pulls (Phase 8): pipelined IPC, bounded pipe burst. */
-export const MESH_HYDRATION_CONCURRENCY = 8;
 
 /** Re-request + store the mesh for one feature at the given core revision. */
 export async function pullFeatureMesh(
@@ -75,25 +71,19 @@ export async function syncFromCoreList(
     revision,
     epoch,
   );
-  // Pipelined hydration: one round-trip per feature is the large-model
-  // bottleneck (N sequential IPC hops). Per-feature errors collected —
-  // fail-fast would strand the summaries behind (C4).
-  const results = await mapPool(
-    features,
-    MESH_HYDRATION_CONCURRENCY,
-    async (f) => {
-      try {
-        const mesh = await coreClient.requestMesh(f.featureId, 1);
-        return { ok: true as const, id: f.featureId, mesh };
-      } catch (e) {
-        return {
-          ok: false as const,
-          id: f.featureId,
-          error: e instanceof Error ? e.message : "mesh failed",
-        };
-      }
-    },
-  );
+  // Sequential hydration: one round-trip per feature. Per-feature errors
+  // collected — fail-fast would strand the summaries behind (C4).
+  const results: (
+    | { ok: true; id: string; mesh: Awaited<ReturnType<typeof coreClient.requestMesh>> }
+    | { ok: false; id: string; error: string }
+  )[] = [];
+  for (const f of features) {
+    try {
+      results.push({ ok: true, id: f.featureId, mesh: await coreClient.requestMesh(f.featureId, 1) });
+    } catch (e) {
+      results.push({ ok: false, id: f.featureId, error: e instanceof Error ? e.message : "mesh failed" });
+    }
+  }
   const meshes: Record<string, Parameters<typeof s.upsertMesh>[1]> = {};
   const failed: string[] = [];
   for (const r of results) {

@@ -2,7 +2,6 @@
 
 #include "../src/features/primitives/primitives.h"
 #include "../src/tessellation/box_tessellator.h"
-#include "../src/validation/validate.h"
 
 // §49: known dimensions, volume, validity, failure cases. No fake geometry.
 
@@ -23,5 +22,4 @@ TEST(Box, RejectsNonPositive) {
   std::string err;
   EXPECT_FALSE(kreoda::CreateBoxFeature("box-bad", -5, 50, 20, &err));
   EXPECT_FALSE(err.empty());
-  EXPECT_FALSE(kreoda::ValidateCommittedShape(0, 50, 20));
 }

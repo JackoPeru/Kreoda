@@ -23,7 +23,6 @@ class DocumentStore {
   void noteFeature(const std::string& featureId, const std::string& type);
   // Replaces the whole registry (resync after Undo/Redo/Open, §12).
   void replaceAll(const std::map<std::string, std::string>& entries);
-  bool hasFeature(const std::string& featureId) const;
   // C5 snapshot/restore: a failed Open/Import must leave the current
   // document untouched (create-before-load destroyed work).
   std::map<std::string, std::string> snapshotRegistry() const;

@@ -187,10 +187,7 @@ static bool CreateDressUp(const std::string& kind, const std::string& featureId,
     if (error) *error = "featureId, targetId and edgeIds are required";
     return false;
   }
-  if (!ShapeStore::ValidFeatureId(featureId)) {
-    if (error) *error = "featureId must match [A-Za-z0-9_-]";
-    return false;
-  }
+  if (!CheckNewId(featureId, error)) return false;
   // Edge ids travel inside the comma-joined refExtra codec: delimiters that
   // would corrupt it (| ,) are rejected here (face roles are checked in
   // EncodeHoleRef; generated roles never contain these).
@@ -203,11 +200,6 @@ static bool CreateDressUp(const std::string& kind, const std::string& featureId,
   }
   if (!(value > 0 && value <= 100000)) {
     if (error) *error = "radius/distance must be in (0, 100000] mm";
-    return false;
-  }
-  if (ShapeStore::instance().contains(featureId) ||
-      SketchStore::instance().contains(featureId)) {
-    if (error) *error = "id already exists: " + featureId;
     return false;
   }
   ShapeRecord target;
@@ -243,17 +235,8 @@ static bool CreateDressUp(const std::string& kind, const std::string& featureId,
       return false;
     }
   }
-  if (!OcafLive::instance().BeginCommand(error)) return false;
-  const bool ok =
-      CommitShape(featureId, kind, {value}, {targetId}, JoinIds(edgeIds),
-                  shape, nullptr, true, error);
-  if (!ok) {
-    OcafLive::instance().AbortCommand();
-    return false;
-  }
-  bool hadDelta = false;
-  OcafLive::instance().CommitCommand(&hadDelta, nullptr);
-  return true;
+  return CommitSingleFeature(featureId, kind, {value}, {targetId},
+                             JoinIds(edgeIds), shape, error);
 }
 
 bool CreateFilletFeature(const std::string& featureId,

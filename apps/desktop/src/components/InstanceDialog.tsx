@@ -2,10 +2,10 @@
 // extrinsic ZYX degrees. The copy follows target edits through the DAG;
 // no mating constraints in slice 1 (explicit placement only).
 import { useMemo, useState } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
 import { parseAngleToDeg, parseLengthToMm } from "@kreoda/units";
 import { executeCommand } from "../commands/execute";
 import { useDocumentUiStore, useSelectionStore } from "../stores";
+import { CadDialog } from "./CadDialog";
 
 export function InstanceDialog({ onClose }: { onClose: () => void }) {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -69,53 +69,48 @@ export function InstanceDialog({ onClose }: { onClose: () => void }) {
     ]);
 
   return (
-    <Dialog.Root open onOpenChange={(o) => !o && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/60" />
-        <Dialog.Content
-          className="fixed left-1/2 top-1/3 w-80 -translate-x-1/2 rounded-lg border border-white/15 bg-[#141922] p-4"
-          data-testid="instance-dialog"
+    <CadDialog
+      title="Place instance"
+      description={
+        target
+          ? `Copy of ${target.type} — follows its edits. No mating yet.`
+          : "Select a solid body first."
+      }
+      onClose={onClose}
+      error={error}
+      testId="instance-dialog"
+      actions={
+        <button
+          onClick={() => void submit()}
+          disabled={busy || !target}
+          className="rounded-md bg-amber-500/90 px-3 py-1.5 text-sm font-medium text-black hover:bg-amber-400 disabled:opacity-50"
         >
-          <Dialog.Title className="text-sm font-semibold">
-            Place instance
-          </Dialog.Title>
-          <Dialog.Description className="pb-3 text-xs text-white/55">
-            {target
-              ? `Copy of ${target.type} — follows its edits. No mating yet.`
-              : "Select a solid body first."}
-          </Dialog.Description>
-          {(["X", "Y", "Z"] as const).map((axis, i) => (
-            <label key={axis} className="mb-2 block text-xs text-white/70">
-              Translate {axis} (mm)
-              <input
-                defaultValue={t[i]}
-                onChange={(e) => setTAt(i, e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && void submit()}
-                className="mt-1 w-full rounded-md bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:bg-white/10"
-              />
-            </label>
-          ))}
-          {(["X", "Y", "Z"] as const).map((axis, i) => (
-            <label key={axis} className="mb-2 block text-xs text-white/70">
-              Rotate {axis} (°)
-              <input
-                defaultValue={r[i]}
-                onChange={(e) => setRAt(i, e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && void submit()}
-                className="mt-1 w-full rounded-md bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:bg-white/10"
-              />
-            </label>
-          ))}
-          {error && <div className="pb-2 text-xs text-red-300">{error}</div>}
-          <button
-            onClick={() => void submit()}
-            disabled={busy || !target}
-            className="rounded-md bg-amber-500/90 px-3 py-1.5 text-sm font-medium text-black hover:bg-amber-400 disabled:opacity-50"
-          >
-            {busy ? "Placing…" : "Place instance"}
-          </button>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+          {busy ? "Placing…" : "Place instance"}
+        </button>
+      }
+    >
+      {(["X", "Y", "Z"] as const).map((axis, i) => (
+        <label key={axis} className="mb-2 block text-xs text-white/70">
+          Translate {axis} (mm)
+          <input
+            defaultValue={t[i]}
+            onChange={(e) => setTAt(i, e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void submit()}
+            className="mt-1 w-full rounded-md bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:bg-white/10"
+          />
+        </label>
+      ))}
+      {(["X", "Y", "Z"] as const).map((axis, i) => (
+        <label key={axis} className="mb-2 block text-xs text-white/70">
+          Rotate {axis} (°)
+          <input
+            defaultValue={r[i]}
+            onChange={(e) => setRAt(i, e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void submit()}
+            className="mt-1 w-full rounded-md bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:bg-white/10"
+          />
+        </label>
+      ))}
+    </CadDialog>
   );
 }

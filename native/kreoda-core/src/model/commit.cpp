@@ -1,6 +1,7 @@
 #include "commit.h"
 
 #include "document/document_store.h"
+#include "features/sketch/sketch_store.h"
 #include "model/feature_graph.h"
 
 #if KREODA_WITH_OCCT
@@ -14,6 +15,23 @@
 #endif
 
 namespace kreoda {
+
+bool CheckNewId(const std::string& featureId, std::string* error) {
+  if (featureId.empty()) {
+    if (error) *error = "featureId is required";
+    return false;
+  }
+  if (!ShapeStore::ValidFeatureId(featureId)) {
+    if (error) *error = "featureId must match [A-Za-z0-9_-]";
+    return false;
+  }
+  if (ShapeStore::instance().contains(featureId) ||
+      SketchStore::instance().contains(featureId)) {
+    if (error) *error = "id already exists: " + featureId;
+    return false;
+  }
+  return true;
+}
 
 #if KREODA_WITH_OCCT
 bool CommitShape(const std::string& featureId, const std::string& type,
@@ -69,6 +87,23 @@ bool CommitShape(const std::string& featureId, const std::string& type,
   } else {
     DocumentStore::instance().noteFeature(featureId, type);
   }
+  return true;
+}
+
+bool CommitSingleFeature(const std::string& featureId, const std::string& type,
+                         std::vector<double> params,
+                         std::vector<std::string> deps, std::string refExtra,
+                         const TopoDS_Shape& shape, std::string* error) {
+  if (!OcafLive::instance().BeginCommand(error)) return false;
+  const bool ok = CommitShape(featureId, type, std::move(params),
+                              std::move(deps), std::move(refExtra), shape,
+                              nullptr, true, error);
+  if (!ok) {
+    OcafLive::instance().AbortCommand();
+    return false;
+  }
+  bool hadDelta = false;
+  OcafLive::instance().CommitCommand(&hadDelta, nullptr);
   return true;
 }
 #else

@@ -44,7 +44,7 @@
 #include "topology/face_roles.h"
 #include "persistence/icad_zip.h"
 #include "persistence/ocaf_live.h"
-#include "persistence/ocaf_store.h"
+
 #include "tessellation/mesh.h"
 
 namespace kreoda {
@@ -850,7 +850,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       }
       const std::string xbf = (fs::path(tmp) / "document.xbf").string();
       std::string error;
-      if (!SaveXbf(xbf, &error)) {
+      if (!OcafLive::instance().Save(xbf, &error)) {
         fs::remove_all(tmp, ec);
         return make_response(requestId, "error",
                              error_body("SAVE_FAILED", error));

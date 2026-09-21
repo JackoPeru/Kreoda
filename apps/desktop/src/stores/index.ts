@@ -1,5 +1,5 @@
 // Zustand stores by concern (§35). Never one giant store.
-// Renderer owns UI/camera/selection state + read-only ModelProjection (§9).
+// Renderer owns UI/camera/selection state + read-only summaries (§9).
 
 import { create } from "zustand";
 import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
@@ -16,18 +16,11 @@ export interface ModelTreeItem {
   children?: ModelTreeItem[];
 }
 
-export interface ModelProjection {
-  documentId: string;
-  revision: number;
-  rootItems: ModelTreeItem[];
-}
-
 interface DocumentUiState {
   documentId: string;
   revision: number;
   /** Bumped on every document reset; stale async sets carry the old one. */
   epoch: number;
-  projection: ModelProjection | null;
   coreRunning: boolean;
   coreVersion: string | null;
   /** Read-only projection of canonical features (§9). */
@@ -40,11 +33,6 @@ interface DocumentUiState {
   undos: number;
   redos: number;
   setUndoDepth: (undos: number, redos: number) => void;
-  applyDelta: (delta: {
-    revision: number;
-    added: unknown[];
-    updated: unknown[];
-  }) => void;
   setCoreStatus: (running: boolean, version?: string | null) => void;
   setFeatures: (
     features: FeatureSummary[],
@@ -93,7 +81,6 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
   documentId: "doc-phase1",
   revision: 0,
   epoch: 0,
-  projection: null,
   coreRunning: false,
   coreVersion: null,
   features: [],
@@ -103,7 +90,6 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
   undos: 0,
   redos: 0,
   setUndoDepth: (undos, redos) => set({ undos, redos }),
-  applyDelta: () => set((s) => ({ revision: s.revision })),
   setCoreStatus: (running, version = null) =>
     set({ coreRunning: running, coreVersion: version ?? null }),
   // Staleness guards (C5): async hydrations race (open/autosave/undo).
@@ -113,7 +99,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
     set((s) => {
       if (epoch !== undefined && epoch !== s.epoch) return s;
       if (revision < s.revision) return s;
-      return { features, revision, projection: null };
+      return { features, revision };
     }),
   setSketches: (sketches, revision, epoch) =>
     set((s) => {
@@ -162,7 +148,6 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       sketches: [],
       meshes: {},
       meshRevision: 0,
-      projection: null,
     })),
 }));
 
@@ -237,25 +222,17 @@ export const useToolStore = create<ToolState>((set) => ({
 
 interface PrefsState {
   beginnerMode: boolean;
-  units: "mm" | "cm" | "m" | "inch";
   toggleMode: () => void;
-  setUnits: (u: PrefsState["units"]) => void;
   /** Optional OpenAI-compatible endpoint for NL plans (§28, local-first). */
   llmEndpoint: string;
   llmModel: string;
   setLlm: (endpoint: string, model: string) => void;
-  /**
-   * Usage telemetry (§61): explicit opt-in, default OFF. No collection
-   * backend is wired — enabling records into a local bounded queue only.
-   */
-  telemetryEnabled: boolean;
-  setTelemetry: (enabled: boolean) => void;
 }
 
 /**
  * Read with one-time migration from pre-rename keys (dev-stage courtesy):
  * first launch after the rename carries `kreoda.*` forward and drops the
- * legacy `intentcad.*` entry, so endpoint/model/opt-in survive the update.
+ * legacy `intentcad.*` entry, so endpoint/model survive the update.
  */
 function storedString(newKey: string, oldKey: string): string {
   try {
@@ -280,17 +257,11 @@ function storedLlm(): { endpoint: string; model: string } {
   };
 }
 
-function storedTelemetry(): boolean {
-  return storedString("kreoda.telemetry", "intentcad.telemetry") === "1";
-}
-
 const initialLlm = storedLlm();
 
 export const usePreferencesStore = create<PrefsState>((set) => ({
   beginnerMode: true,
-  units: "mm",
   toggleMode: () => set((s) => ({ beginnerMode: !s.beginnerMode })),
-  setUnits: (units) => set({ units }),
   llmEndpoint: initialLlm.endpoint,
   llmModel: initialLlm.model,
   setLlm: (endpoint, model) => {
@@ -301,14 +272,5 @@ export const usePreferencesStore = create<PrefsState>((set) => ({
       // Best-effort persistence.
     }
     set({ llmEndpoint: endpoint, llmModel: model });
-  },
-  telemetryEnabled: storedTelemetry(),
-  setTelemetry: (enabled) => {
-    try {
-      localStorage.setItem("kreoda.telemetry", enabled ? "1" : "0");
-    } catch {
-      // Best-effort persistence.
-    }
-    set({ telemetryEnabled: enabled });
   },
 }));

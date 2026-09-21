@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { SessionRelay } from "../electron/session";
 import type { SidecarManager } from "../electron/sidecar";
+import { SessionClient } from "../e2e/ws-test-client";
 
 const PORT = 44991;
 const TOKEN = "unit-token";
@@ -288,60 +289,6 @@ function fakeSidecar() {
   };
 }
 
-class Client {
-  ws: WebSocket | null = null;
-  seq = 0;
-  pending = new Map<string, { resolve: (v: never) => void; reject: (e: Error) => void }>();
-  events: Record<string, unknown>[] = [];
-  async connect(token = TOKEN, port = PORT): Promise<Record<string, unknown>> {
-    this.ws = new WebSocket(`ws://127.0.0.1:${port}`);
-    await new Promise<void>((resolve, reject) => {
-      this.ws!.once("open", () => resolve());
-      this.ws!.once("error", (e) => reject(e));
-    });
-    this.ws.on("message", (data) => {
-      const msg = JSON.parse(String(data)) as Record<string, unknown>;
-      if (typeof msg["requestId"] === "string") {
-        const p = this.pending.get(msg["requestId"] as string);
-        if (!p) return;
-        this.pending.delete(msg["requestId"] as string);
-        if (msg["ok"] === true) p.resolve(msg as never);
-        else {
-          const err = new Error(String(msg["error"] ?? "failed")) as Error & {
-            code?: string;
-          };
-          err.code = msg["errorCode"] as string | undefined;
-          p.reject(err);
-        }
-        return;
-      }
-      this.events.push(msg);
-    });
-    return this.call("hello", {
-      clientType: "t",
-      protocolVersion: 1,
-      token,
-    }) as Promise<Record<string, unknown>>;
-  }
-  call(method: string, params: Record<string, unknown> = {}) {
-    const requestId = `q-${++this.seq}`;
-    return new Promise<Record<string, unknown>>((resolve, reject) => {
-      this.pending.set(requestId, {
-        resolve: resolve as (v: never) => void,
-        reject,
-      });
-      this.ws!.send(JSON.stringify({ requestId, method, params }));
-    });
-  }
-  close() {
-    try {
-      this.ws?.close();
-    } catch {
-      // Best-effort.
-    }
-  }
-}
-
 describe("SessionRelay", () => {
   it("hello pairing, snapshot, invoke, undo broadcast, rejects", async () => {
     const fake = fakeSidecar();
@@ -350,9 +297,9 @@ describe("SessionRelay", () => {
       deltas.push(d);
     });
     relay.start({ port: PORT, host: "127.0.0.1", token: TOKEN });
-    const client = new Client();
+    const client = new SessionClient();
     try {
-      const hello = await client.connect();
+      const hello = await client.connect(TOKEN, PORT);
       expect(typeof hello["clientId"]).toBe("string");
       expect(hello["revision"]).toBe(0);
 
@@ -360,14 +307,12 @@ describe("SessionRelay", () => {
         features: unknown[];
       };
       expect(empty.features).toHaveLength(0);
-      expect(empty.features).toHaveLength(0);
 
       const created = await client.call("invoke", {
         documentId: "doc-phase1",
         type: 3,
         fields: { featureId: "box-a", widthMm: 10, heightMm: 10, depthMm: 10 },
       });
-      console.log("[t] invoke ok");
       expect(created["featureId"]).toBe("box-a");
       expect(deltas).toHaveLength(1);
 
@@ -394,7 +339,7 @@ describe("SessionRelay", () => {
       });
       expect(fake.features()).toHaveLength(0);
     } finally {
-      client.close();
+      client.closeRaw();
       relay.stop();
     }
   });
@@ -435,13 +380,13 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
 
   async function bootBox(): Promise<{
     relay: SessionRelay;
-    client: Client;
+    client: SessionClient;
     boxId: string;
   }> {
     const fake = fakeSidecar();
     const relay = new SessionRelay(() => fake.manager);
     relay.start({ port: PORT_Q, host: "127.0.0.1", token: TOKEN });
-    const client = new Client();
+    const client = new SessionClient();
     await client.connect(TOKEN, PORT_Q);
     await client.call("invoke", {
       documentId: "doc-phase1",
@@ -545,7 +490,7 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
       expect(caps.transactions).toBe(true);
       expect(caps.previews).toBe(true);
     } finally {
-      client.close();
+      client.closeRaw();
       relay.stop();
     }
   });
@@ -577,7 +522,7 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
       }).catch((e: Error) => e)) as unknown;
       expect(again).toMatchObject({ code: "NOT_FOUND" });
     } finally {
-      client.close();
+      client.closeRaw();
       relay.stop();
     }
   });
@@ -586,9 +531,9 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
     const fake = fakeSidecar();
     const relay = new SessionRelay(() => fake.manager);
     relay.start({ port: PORT_Q + 20, host: "127.0.0.1", token: TOKEN });
-    const client = new Client();
+    const client = new SessionClient();
     await client.connect(TOKEN, PORT_Q + 20);
-    const other = new Client();
+    const other = new SessionClient();
     await other.connect(TOKEN, PORT_Q + 20);
     try {
       const seenDeltas = (): Record<string, unknown>[] =>
@@ -655,8 +600,8 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
         tcall("txnCommit", { transactionId: "t9" }),
       ).rejects.toMatchObject({ code: "NO_TRANSACTION" });
     } finally {
-      client.close();
-      other.close();
+      client.closeRaw();
+      other.closeRaw();
       relay.stop();
     }
   });

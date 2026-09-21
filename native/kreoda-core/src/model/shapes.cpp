@@ -65,4 +65,17 @@ bool ShapeStore::ValidFeatureId(const std::string& id) {
   return true;
 }
 
+std::vector<std::string> DescribeParams(const std::string& type) {
+  if (type == "Box") return {"widthMm", "heightMm", "depthMm"};
+  if (type == "Cylinder") return {"radiusMm", "heightMm"};
+  if (type == "Sphere") return {"radiusMm"};
+  if (type == "Extrude") return {"distanceMm"};
+  if (type == "Revolve") return {"angleDeg"};
+  if (type == "Hole") return {"diameterMm", "depthMm"};
+  if (type == "Fillet") return {"radiusMm"};
+  if (type == "Chamfer") return {"distanceMm"};
+  if (type == "Instance") return {"txMm", "tyMm", "tzMm", "rxDeg", "ryDeg", "rzDeg"};
+  return {};
+}
+
 }  // namespace kreoda

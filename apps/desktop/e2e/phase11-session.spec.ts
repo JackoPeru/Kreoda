@@ -7,149 +7,15 @@
 // Uses KREODA_SESSION_PORT/TOKEN (relay stays off for every other spec, so
 // no port collisions across workers).
 
-import { test, expect, _electron as electron, type Page } from "@playwright/test";
-import { randomUUID } from "node:crypto";
-import WebSocket from "ws";
+import { test, expect } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
+import { HERE, boot, runBar, snapOf } from "./helpers";
+import { SessionClient } from "./ws-test-client";
 
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
 const PORT = 44731;
 const TOKEN = "s11-acceptance-token";
 const RECOVERY_DIR = path.join(os.tmpdir(), "kreoda-phase11-session-e2e");
-
-interface BodySnapshot {
-  id: string;
-  type: string;
-  paramsMm: number[];
-  volumeMm3: number;
-}
-interface Snapshot {
-  revision: number;
-  bodies: BodySnapshot[];
-}
-
-/** Minimal JSON session client (the Quest/agent shape, over WebSocket). */
-class SessionClient {
-  private ws: WebSocket | null = null;
-  private seq = 0;
-  private pending = new Map<
-    string,
-    { resolve: (v: Record<string, unknown>) => void; reject: (e: Error) => void }
-  >();
-  readonly events: Record<string, unknown>[] = [];
-
-  async connect(token: string): Promise<Record<string, unknown>> {
-    this.ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
-    await new Promise<void>((resolve, reject) => {
-      this.ws!.once("open", () => resolve());
-      this.ws!.once("error", (e) => reject(e));
-    });
-    // A server-side close (bad token, hello timeout, relay stop) carries no
-    // reply: fail every pending call loudly instead of hanging forever.
-    this.ws.on("close", () => {
-      for (const [, p] of this.pending) {
-        p.reject(new Error("socket closed before reply"));
-      }
-      this.pending.clear();
-    });
-    this.ws.on("message", (data) => {
-      let msg: Record<string, unknown>;
-      try {
-        msg = JSON.parse(String(data)) as Record<string, unknown>;
-      } catch {
-        return;
-      }
-      if (typeof msg["requestId"] === "string") {
-        const p = this.pending.get(msg["requestId"] as string);
-        if (!p) return;
-        this.pending.delete(msg["requestId"] as string);
-        if (msg["ok"] === true) p.resolve(msg);
-        else {
-          const err = new Error(
-            (msg["error"] as string | undefined) ?? "session call failed",
-          ) as Error & { code?: string };
-          err.code = msg["errorCode"] as string | undefined;
-          p.reject(err);
-        }
-        return;
-      }
-      this.events.push(msg);
-    });
-    return this.call("hello", {
-      clientType: "test",
-      clientName: "phase11-acceptance",
-      protocolVersion: 1,
-      token,
-    });
-  }
-
-  call(
-    method: string,
-    params: Record<string, unknown> = {},
-  ): Promise<Record<string, unknown>> {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      return Promise.reject(new Error("not connected"));
-    }
-    const requestId = `t-${++this.seq}`;
-    return new Promise((resolve, reject) => {
-      this.pending.set(requestId, { resolve, reject });
-      this.ws!.send(JSON.stringify({ requestId, method, params }));
-    });
-  }
-
-  // Relay deltas carry core `featureId` keys (renderer snapshots use `id`).
-  deltas(): { revision: number; features: { featureId: string }[] }[] {
-    return this.events.filter((e) => e["event"] === "delta") as {
-      revision: number;
-      features: { featureId: string }[];
-    }[];
-  }
-
-  async waitDelta(
-    revision: number,
-    timeoutMs = 30000,
-  ): Promise<{ revision: number; features: { featureId: string }[] }> {
-    const t0 = Date.now();
-    for (;;) {
-      const hit = this.deltas().find((d) => d.revision === revision);
-      if (hit) return hit;
-      if (Date.now() - t0 > timeoutMs) {
-        throw new Error(`no delta at revision ${revision} within timeout`);
-      }
-      await new Promise((r) => setTimeout(r, 100));
-    }
-  }
-
-  closed(): Promise<void> {
-    if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
-      return Promise.resolve();
-    }
-    return new Promise((resolve) => {
-      this.ws!.once("close", () => resolve());
-      this.ws!.close();
-    });
-  }
-
-  closeRaw(): void {
-    try {
-      this.ws?.close();
-    } catch {
-      // Best-effort.
-    }
-  }
-}
-
-function snapOf(window: Page): Promise<Snapshot> {
-  return window.evaluate(() =>
-    (
-      window as unknown as {
-        __kreoda_test: { snapshot: () => Snapshot };
-      }
-    ).__kreoda_test.snapshot(),
-  ) as Promise<Snapshot>;
-}
 
 test("unified session: join, mutate, desktop sync, undo, resync, rejects", async () => {
   const env = {
@@ -158,18 +24,13 @@ test("unified session: join, mutate, desktop sync, undo, resync, rejects", async
     KREODA_SESSION_TOKEN: TOKEN,
     KREODA_RECOVERY_DIR: RECOVERY_DIR,
   };
-  const app = await electron.launch({ args: [MAIN, "--no-sandbox"], env });
+  const { app, window } = await boot(env);
   const client = new SessionClient();
   try {
     // 1. Desktop opens a (fresh, empty) document.
-    const window = await app.firstWindow({ timeout: 30000 });
-    await window.waitForLoadState("domcontentloaded");
-    await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
-      timeout: 20000,
-    });
 
     // 2. Second client connects over the network protocol.
-    const hello = await client.connect(TOKEN);
+    const hello = await client.connect(TOKEN, PORT);
     expect(typeof hello["clientId"]).toBe("string");
     expect(hello["documentId"]).toBe("doc-phase1");
     expect(hello["revision"]).toBe(0);
@@ -183,7 +44,7 @@ test("unified session: join, mutate, desktop sync, undo, resync, rejects", async
 
     // 4. Second client changes a parameter of the shared model: it creates
     // a box through the typed core command (type 3 = CreateBox).
-    const boxId = `box-${randomUUID()}`;
+    const boxId = `box-${crypto.randomUUID()}`;
     const created = await client.call("invoke", {
       documentId: "doc-phase1",
       type: 3,
@@ -195,14 +56,14 @@ test("unified session: join, mutate, desktop sync, undo, resync, rejects", async
 
     // 5. Desktop receives the delta and updates with no reload.
     await expect
-      .poll(async () => ((await snapOf(window)) as Snapshot).bodies.length, {
+      .poll(async () => (await snapOf(window)).bodies.length, {
         timeout: 30000,
       })
       .toBe(1);
     await expect(window.getByText(/Box 100×60×10/).first()).toBeVisible({
       timeout: 10000,
     });
-    const desk = (await snapOf(window)) as Snapshot;
+    const desk = await snapOf(window);
     expect(desk.bodies[0]!.id).toBe(boxId);
     expect(desk.bodies[0]!.volumeMm3).toBeCloseTo(60000, 3);
 
@@ -211,7 +72,7 @@ test("unified session: join, mutate, desktop sync, undo, resync, rejects", async
     const undone = await client.waitDelta(rev1 + 1);
     expect(undone.features).toHaveLength(0);
     await expect
-      .poll(async () => ((await snapOf(window)) as Snapshot).bodies.length, {
+      .poll(async () => (await snapOf(window)).bodies.length, {
         timeout: 20000,
       })
       .toBe(0);
@@ -225,14 +86,14 @@ test("unified session: join, mutate, desktop sync, undo, resync, rejects", async
     const relaySnap = (await client.call("snapshot", {})) as {
       revision: number;
     };
-    const deskSnap = (await snapOf(window)) as Snapshot;
+    const deskSnap = await snapOf(window);
     expect(deskSnap.revision).toBe(relaySnap.revision);
 
     // 8. Disconnect + reconnect recovers the same state.
     await client.closed();
     const client2 = new SessionClient();
     try {
-      const hello2 = await client2.connect(TOKEN);
+      const hello2 = await client2.connect(TOKEN, PORT);
       expect(hello2["revision"]).toBe(relaySnap.revision);
       const re = (await client2.call("snapshot", {})) as {
         features: { featureId: string }[];
@@ -245,7 +106,7 @@ test("unified session: join, mutate, desktop sync, undo, resync, rejects", async
     // 9. Invalid and stale mutations are rejected safely.
     const evil = new SessionClient();
     try {
-      await evil.connect("wrong-token");
+      await evil.connect("wrong-token", PORT);
       throw new Error("bad token was accepted");
     } catch (e) {
       // Either the socket closed (no hello reply) or hello errored.
@@ -255,14 +116,14 @@ test("unified session: join, mutate, desktop sync, undo, resync, rejects", async
     }
     const client3 = new SessionClient();
     try {
-      await client3.connect(TOKEN);
+      await client3.connect(TOKEN, PORT);
       await expect(
         client3.call("invoke", {
           documentId: "doc-phase1",
           type: 3,
           baseRevision: 999999,
           fields: {
-            featureId: `box-${randomUUID()}`,
+            featureId: `box-${crypto.randomUUID()}`,
             widthMm: 10,
             heightMm: 10,
             depthMm: 10,
@@ -297,20 +158,15 @@ test("session transaction: two creates commit as one undo step", async () => {
     KREODA_SESSION_TOKEN: TOKEN,
     KREODA_RECOVERY_DIR: RECOVERY_DIR,
   };
-  const app = await electron.launch({ args: [MAIN, "--no-sandbox"], env });
+  const { app, window } = await boot(env);
   const client = new SessionClient();
   try {
-    const window = await app.firstWindow({ timeout: 30000 });
-    await window.waitForLoadState("domcontentloaded");
-    await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
-      timeout: 20000,
-    });
-    await client.connect(TOKEN);
+    await client.connect(TOKEN, PORT);
 
-    const txnId = `txn-${randomUUID()}`;
+    const txnId = `txn-${crypto.randomUUID()}`;
     await client.call("txnBegin", { transactionId: txnId });
-    const boxA = `box-${randomUUID()}`;
-    const boxB = `box-${randomUUID()}`;
+    const boxA = `box-${crypto.randomUUID()}`;
+    const boxB = `box-${crypto.randomUUID()}`;
     for (const [id, w] of [[boxA, 10], [boxB, 20]] as const) {
       await client.call("invoke", {
         documentId: "doc-phase1",
@@ -323,14 +179,14 @@ test("session transaction: two creates commit as one undo step", async () => {
 
     // Both boxes land on Desktop through the single atomic delta.
     await expect
-      .poll(async () => ((await snapOf(window)) as Snapshot).bodies.length, {
+      .poll(async () => (await snapOf(window)).bodies.length, {
         timeout: 30000,
       })
       .toBe(2);
     // Exactly ONE Undo removes both: the transaction committed one delta.
     await window.locator('button[title^="Undo"]').click();
     await expect
-      .poll(async () => ((await snapOf(window)) as Snapshot).bodies.length, {
+      .poll(async () => (await snapOf(window)).bodies.length, {
         timeout: 20000,
       })
       .toBe(0);
@@ -351,30 +207,19 @@ test("session queries run against the real core", async () => {
     KREODA_SESSION_TOKEN: TOKEN,
     KREODA_RECOVERY_DIR: RECOVERY_DIR,
   };
-  const app = await electron.launch({ args: [MAIN, "--no-sandbox"], env });
+  const { app, window } = await boot(env);
   const client = new SessionClient();
   try {
-    const window = await app.firstWindow({ timeout: 30000 });
-    await window.waitForLoadState("domcontentloaded");
-    await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
-      timeout: 20000,
-    });
-
     // A real box through the desktop path (exact B-Rep + tessellation).
-    const input = window.getByTestId("command-input");
-    await input.fill("box 100 60 10");
-    await input.press("Enter");
-    const preview = window.getByTestId("plan-preview");
-    await expect(preview).toBeVisible({ timeout: 5000 });
-    await preview.getByRole("button", { name: /Run 1 step/ }).click();
+    await runBar(window, "box 100 60 10");
     await expect
-      .poll(async () => ((await snapOf(window)) as Snapshot).bodies.length, {
+      .poll(async () => (await snapOf(window)).bodies.length, {
         timeout: 30000,
       })
       .toBe(1);
-    const boxId = ((await snapOf(window)) as Snapshot).bodies[0]!.id;
+    const boxId = (await snapOf(window)).bodies[0]!.id;
 
-    await client.connect(TOKEN);
+    await client.connect(TOKEN, PORT);
     const q = async (method: string, params: Record<string, unknown> = {}) =>
       ((await client.call(method, params)) as { result: unknown }).result as never;
 
@@ -430,14 +275,14 @@ test("session queries run against the real core", async () => {
     await q("previewCommit", { previewId: begun.previewId });
     await expect
       .poll(async () => {
-        const cur = (await snapOf(window)) as Snapshot;
+        const cur = await snapOf(window);
         return cur.bodies.find((b) => b.id === boxId)!.paramsMm[0];
       }, { timeout: 30000 })
       .toBeCloseTo(200, 6);
     await window.locator('button[title^="Undo"]').click();
     await expect
       .poll(async () => {
-        const cur = (await snapOf(window)) as Snapshot;
+        const cur = await snapOf(window);
         return cur.bodies.find((b) => b.id === boxId)!.paramsMm[0];
       }, { timeout: 20000 })
       .toBeCloseTo(100, 6);

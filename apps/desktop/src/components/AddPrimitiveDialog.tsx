@@ -1,7 +1,7 @@
 import { useState } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
 import { parseLengthToMm } from "@kreoda/units";
 import { executeCommand } from "../commands/execute";
+import { CadActions, CadDialog } from "./CadDialog";
 
 export type PrimitiveKind = "box" | "cylinder" | "sphere";
 
@@ -57,43 +57,32 @@ export function AddPrimitiveDialog({
   };
 
   return (
-    <Dialog.Root open onOpenChange={(o) => !o && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/3 w-80 -translate-x-1/2 rounded-lg border border-white/15 bg-[#141922] p-4">
-          <Dialog.Title className="text-sm font-semibold">{def.label}</Dialog.Title>
-          <Dialog.Description className="pb-3 text-xs text-white/55">
-            Exact size in mm — built as a real B-Rep solid.
-          </Dialog.Description>
-          {def.fields.map(([name, dflt]) => (
-            <label key={name} className="mb-2 block text-xs text-white/70">
-              {FIELD_LABEL[name]} (mm)
-              <input
-                defaultValue={values[name] ?? dflt}
-                onChange={(e) => setValues((v) => ({ ...v, [name]: e.target.value }))}
-                onKeyDown={(e) => e.key === "Enter" && void submit()}
-                className="mt-1 w-full rounded-md bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:bg-white/10"
-              />
-            </label>
-          ))}
-          {error && <div className="pb-2 text-xs text-red-300">{error}</div>}
-          <div className="flex justify-end gap-2 pt-1">
-            <button
-              onClick={onClose}
-              className="rounded-md px-3 py-1.5 text-sm text-white/70 hover:bg-white/10"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => void submit()}
-              disabled={busy}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium hover:bg-blue-500 disabled:opacity-50"
-            >
-              {busy ? "Building…" : "Create"}
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <CadDialog
+      title={def.label}
+      description="Exact size in mm — built as a real B-Rep solid."
+      onClose={onClose}
+      error={error}
+      actions={
+        <CadActions
+          onClose={onClose}
+          onSubmit={() => void submit()}
+          busy={busy}
+          busyLabel="Building…"
+          label="Create"
+        />
+      }
+    >
+      {def.fields.map(([name, dflt]) => (
+        <label key={name} className="mb-2 block text-xs text-white/70">
+          {FIELD_LABEL[name]} (mm)
+          <input
+            defaultValue={values[name] ?? dflt}
+            onChange={(e) => setValues((v) => ({ ...v, [name]: e.target.value }))}
+            onKeyDown={(e) => e.key === "Enter" && void submit()}
+            className="mt-1 w-full rounded-md bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:bg-white/10"
+          />
+        </label>
+      ))}
+    </CadDialog>
   );
 }

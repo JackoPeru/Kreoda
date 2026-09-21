@@ -124,15 +124,7 @@ bool CreateBooleanFeature(const std::string& featureId, const std::string& op,
     if (error) *error = "target and tool must differ";
     return false;
   }
-  if (!ShapeStore::ValidFeatureId(featureId)) {
-    if (error) *error = "featureId must match [A-Za-z0-9_-]";
-    return false;
-  }
-  if (ShapeStore::instance().contains(featureId) ||
-      SketchStore::instance().contains(featureId)) {
-    if (error) *error = "id already exists: " + featureId;
-    return false;
-  }
+  if (!CheckNewId(featureId, error)) return false;
   ShapeRecord target, tool;
   if (!ShapeStore::instance().get(targetId, &target) || target.shape.IsNull()) {
     if (error) *error = "unknown target " + targetId;
@@ -146,17 +138,8 @@ bool CreateBooleanFeature(const std::string& featureId, const std::string& op,
   if (!BuildBooleanShape(op, target.shape, tool.shape, &shape, error)) {
     return false;
   }
-  if (!OcafLive::instance().BeginCommand(error)) return false;
-  const bool ok =
-      CommitShape(featureId, OpType(op), {}, {targetId, toolId}, "op=" + op,
-                  shape, nullptr, true, error);
-  if (!ok) {
-    OcafLive::instance().AbortCommand();
-    return false;
-  }
-  bool hadDelta = false;
-  OcafLive::instance().CommitCommand(&hadDelta, nullptr);
-  return true;
+  return CommitSingleFeature(featureId, OpType(op), {}, {targetId, toolId},
+                             "op=" + op, shape, error);
 }
 
 bool RebuildBooleanFromStore(const std::string& featureId,

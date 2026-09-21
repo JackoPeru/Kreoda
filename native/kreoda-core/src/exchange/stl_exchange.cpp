@@ -7,8 +7,6 @@
 
 #if KREODA_WITH_OCCT
 // NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
-#include <BRepMesh_IncrementalMesh.hxx>
-#include <BRep_Builder.hxx>
 #include <DESTL_ConfigurationNode.hxx>
 #include <DESTL_Provider.hxx>
 #include <Standard_Failure.hxx>
@@ -27,27 +25,11 @@ bool ExportStl(const std::string& path, std::string* error) {
     return false;
   }
   try {
-    BRep_Builder builder;
     TopoDS_Compound compound;
-    builder.MakeCompound(compound);
-    int solids = 0;
-    for (const ShapeRecord& rec : ShapeStore::instance().listInOrder()) {
-      if (rec.shape.IsNull()) continue;
-      builder.Add(compound, rec.shape);
-      ++solids;
-    }
-    if (solids == 0) {
-      if (error) *error = "nothing to export: the document has no solids";
-      return false;
-    }
+    if (!CollectSolidsCompound(&compound, error)) return false;
     // STL needs triangles, not B-Rep: pre-mesh at export deflection (same
     // 0.01 mm / 0.05 rad as the LOD-2 tessellation the 3MF slice uses).
-    BRepMesh_IncrementalMesh mesher(compound, 0.01, Standard_False, 0.05,
-                                    Standard_True);
-    if (!mesher.IsDone()) {
-      if (error) *error = "STL meshing failed";
-      return false;
-    }
+    if (!PreMeshExport(&compound, "STL", error)) return false;
     ScopedMute mute;
     occ::handle<DESTL_ConfigurationNode> node = new DESTL_ConfigurationNode();
     node->InternalParameters.WriteAscii = false;  // binary STL: smaller

@@ -11,8 +11,6 @@ namespace kreoda {
 // edges point from a dependency to its dependent. Dirty flags propagate
 // downstream; recompute visits dirty nodes in topological order and marks
 // dependents of a failed node as errored without touching healthy branches.
-// Granularity (§54): GeometryDirty vs TessellationDirty are tracked
-// separately so appearance-only changes never trigger B-Rep recompute.
 class FeatureGraph {
  public:
   using RecomputeFn =
@@ -25,7 +23,6 @@ class FeatureGraph {
 
   // Marks id and all transitive dependents geometry-dirty.
   void markDirty(const std::string& id);
-  void markTessellationDirty(const std::string& id);
   void clearDirty(const std::string& id);
 
   bool isGeometryDirty(const std::string& id) const;
@@ -49,7 +46,6 @@ class FeatureGraph {
   struct Node {
     std::vector<std::string> dependsOn;
     bool geometryDirty = true;
-    bool tessellationDirty = true;
   };
   std::map<std::string, Node> nodes_;  // ordered map: deterministic order
 

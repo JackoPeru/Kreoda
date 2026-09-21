@@ -23,9 +23,6 @@ public sealed class DisplayTransform
         CenterMm = centerMm;
     }
 
-    public static DisplayTransform OneToOne() =>
-        new(1.0, new double[3], new double[3]);
-
     public static DisplayTransform FromScale(double displayPerMm) =>
         new(displayPerMm, new double[3], new double[3]);
 
@@ -65,13 +62,6 @@ public sealed class DisplayTransform
 
     public DisplayTransform WithOffset(double x, double y, double z) =>
         new(Scale, new[] { x, y, z }, (double[])CenterMm.Clone());
-
-    public DisplayTransform WithScale(double scale)
-    {
-        if (!(scale > 0) || !double.IsFinite(scale))
-            throw new ArgumentException("scale must be positive finite", nameof(scale));
-        return new DisplayTransform(scale, (double[])Offset.Clone(), (double[])CenterMm.Clone());
-    }
 
     /// <summary>CAD millimeters → display units.</summary>
     public double[] ToDisplay(double[] cadMm)

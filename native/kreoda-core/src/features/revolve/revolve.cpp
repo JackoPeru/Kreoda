@@ -68,31 +68,15 @@ bool CreateRevolveFeature(const std::string& featureId,
     if (error) *error = "featureId and sketchId are required";
     return false;
   }
-  if (!ShapeStore::ValidFeatureId(featureId)) {
-    if (error) *error = "featureId must match [A-Za-z0-9_-]";
-    return false;
-  }
-  if (ShapeStore::instance().contains(featureId) ||
-      SketchStore::instance().contains(featureId)) {
-    if (error) *error = "id already exists: " + featureId;
-    return false;
-  }
+  if (!CheckNewId(featureId, error)) return false;
   if (!(angleDeg > 0 && angleDeg <= 360)) {
     if (error) *error = "revolve angle must be in (0, 360] deg";
     return false;
   }
   TopoDS_Shape shape;
   if (!BuildRevolveShape(sketchId, angleDeg, &shape, error)) return false;
-  if (!OcafLive::instance().BeginCommand(error)) return false;
-  const bool ok = CommitShape(featureId, "Revolve", {angleDeg}, {sketchId}, std::string(),
-                              shape, nullptr, true, error);
-  if (!ok) {
-    OcafLive::instance().AbortCommand();
-    return false;
-  }
-  bool hadDelta = false;
-  OcafLive::instance().CommitCommand(&hadDelta, nullptr);
-  return true;
+  return CommitSingleFeature(featureId, "Revolve", {angleDeg}, {sketchId},
+                             std::string(), shape, error);
 }
 
 // DAG recompute step (evaluate.cpp calls this).

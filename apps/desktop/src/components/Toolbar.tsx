@@ -10,7 +10,6 @@ import {
 } from "../commands/execute";
 import type { PrimitiveKind } from "./AddPrimitiveDialog";
 import { clearRecoveryAfterSave } from "../recovery/autosave";
-import { recordEvent } from "../telemetry/events";
 
 const ICONS: Record<string, React.ReactNode> = {
   box: <Box size={16} />,
@@ -122,7 +121,6 @@ export function Toolbar({
       const path = await window.kreoda.saveDialog("project.icad");
       if (!path) return;
       await coreClient.saveDocument(path);
-      recordEvent("document_saved", {});
       // Explicit save supersedes the crash snapshot (Phase 8 recovery).
       await clearRecoveryAfterSave();
     } catch (e) {
@@ -139,8 +137,6 @@ export function Toolbar({
         await coreClient.openDocument(path);
       // Document replacement = new epoch (C5): core revisions reset.
       useDocumentUiStore.getState().resetDocument(coreClient.documentId);
-      await syncFromCoreList(list, revision, sketches);
-      recordEvent("document_opened", {});
       await syncFromCoreList(list, revision, sketches);
     } catch (e) {
       setOpError(e instanceof Error ? e.message : "open failed");

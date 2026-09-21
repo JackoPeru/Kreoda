@@ -349,7 +349,7 @@ TEST(Sketch, UndoSketchEditRestoresDownstream) {
   GTEST_SKIP() << "mesh binary needs flatbuffers";
 #endif
   // Sketch registry survived the round-trip (ResyncStore re-notes it).
-  EXPECT_TRUE(kreoda::DocumentStore::instance().hasFeature("sk-z"));
+  EXPECT_GT(kreoda::DocumentStore::instance().snapshotRegistry().count("sk-z"), 0u);
   // Redo re-applies.
   ASSERT_TRUE(ok(rpc(
       R"({"protocolVersion":1,"requestId":"z7","documentId":"sku","type":9})")));

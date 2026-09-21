@@ -18,6 +18,12 @@ public sealed class SessionClientTests
         return JsonSerializer.Serialize(dict);
     }
 
+    private static string HelloReply(JsonElement req) => Reply(req, new Dictionary<string, object?>
+    {
+        ["clientId"] = "client-1",
+        ["revision"] = 0,
+    });
+
     private static async Task<Session.SessionClient> BootAsync(
         LoopbackWsServer server, string token = "t")
     {
@@ -82,17 +88,10 @@ public sealed class SessionClientTests
         {
             if (req.GetProperty("method").GetString() == "hello")
             {
-                return JsonSerializer.Serialize(new Dictionary<string, object?>
-                {
-                    ["requestId"] = req.GetProperty("requestId").GetString(),
-                    ["ok"] = true,
-                    ["clientId"] = "client-1",
-                    ["revision"] = 0,
-                });
+                return HelloReply(req);
             }
-            return JsonSerializer.Serialize(new Dictionary<string, object?>
+            return Reply(req, new Dictionary<string, object?>
             {
-                ["requestId"] = req.GetProperty("requestId").GetString(),
                 ["ok"] = false,
                 ["errorCode"] = "NEED_FULL_SNAPSHOT",
                 ["error"] = "stale",
@@ -123,13 +122,7 @@ public sealed class SessionClientTests
         {
             if (req.GetProperty("method").GetString() == "hello")
             {
-                return JsonSerializer.Serialize(new Dictionary<string, object?>
-                {
-                    ["requestId"] = req.GetProperty("requestId").GetString(),
-                    ["ok"] = true,
-                    ["clientId"] = "client-1",
-                    ["revision"] = 0,
-                });
+                return HelloReply(req);
             }
             var n = req.GetProperty("params").GetProperty("n").GetInt32();
             return Reply(req, new Dictionary<string, object?> { ["n"] = n });
@@ -137,7 +130,7 @@ public sealed class SessionClientTests
         server.Start();
         await using var client = await BootAsync(server);
         var tasks = Enumerable.Range(0, 20)
-            .Select(i => client.QueryAsync("echo", new Dictionary<string, object?> { ["n"] = i }));
+            .Select(i => client.CallAsync("echo", new Dictionary<string, object?> { ["n"] = i }));
         var results = await Task.WhenAll(tasks);
         Assert.Equal(
             Enumerable.Range(0, 20),
@@ -188,20 +181,14 @@ public sealed class SessionClientTests
         {
             if (req.GetProperty("method").GetString() == "hello")
             {
-                return JsonSerializer.Serialize(new Dictionary<string, object?>
-                {
-                    ["requestId"] = req.GetProperty("requestId").GetString(),
-                    ["ok"] = true,
-                    ["clientId"] = "client-1",
-                    ["revision"] = 0,
-                });
+                return HelloReply(req);
             }
             Task.Delay(TimeSpan.FromSeconds(60)).Wait();
             return null;
         });
         server.Start();
         await using var client = await BootAsync(server);
-        var pending = client.QueryAsync("never", new Dictionary<string, object?>());
+        var pending = client.CallAsync("never", new Dictionary<string, object?>());
         await client.DisposeAsync();
         var ex = await Assert.ThrowsAsync<SessionException>(() => pending);
         Assert.Equal("CLOSED", ex.Code);
@@ -210,19 +197,13 @@ public sealed class SessionClientTests
     [Fact]
     public async Task CallAfterDisposeThrowsSessionException()
     {
-        await using var server = new LoopbackWsServer(static req =>
-            JsonSerializer.Serialize(new Dictionary<string, object?>
-            {
-                ["requestId"] = req.GetProperty("requestId").GetString(),
-                ["ok"] = true,
-                ["clientId"] = "client-1",
-                ["revision"] = 0,
-            }));
+        await using var server = new LoopbackWsServer(static req => HelloReply(req));
         server.Start();
         var client = await BootAsync(server);
         await client.DisposeAsync();
         var ex = await Assert.ThrowsAsync<SessionException>(() =>
-            client.QueryAsync("late", new Dictionary<string, object?>()));
+            client.CallAsync("late", new Dictionary<string, object?>()));
         Assert.Equal("NOT_CONNECTED", ex.Code);
     }
 }
+

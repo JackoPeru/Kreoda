@@ -4,34 +4,13 @@
 // recovery banner → Restore brings the exact body back. Session 3 proves
 // Discard clears the prompt and starts empty.
 
-import { test, expect, _electron as electron } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
+import { boot, runBar, snapOf } from "./helpers";
 
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
 const RECOVERY_DIR = path.join(os.tmpdir(), "kreoda-phase8-recovery-e2e");
-
-interface BodySnapshot {
-  id: string;
-  type: string;
-  volumeMm3: number;
-}
-interface Snapshot {
-  revision: number;
-  bodies: BodySnapshot[];
-}
-
-async function boot(env: Record<string, string>) {
-  const app = await electron.launch({ args: [MAIN, "--no-sandbox"], env });
-  const window = await app.firstWindow({ timeout: 30000 });
-  await window.waitForLoadState("domcontentloaded");
-  await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
-    timeout: 20000,
-  });
-  return { app, window };
-}
 
 test("crash recovery: autosave → restore → discard", async () => {
   fs.rmSync(RECOVERY_DIR, { recursive: true, force: true });
@@ -41,26 +20,11 @@ test("crash recovery: autosave → restore → discard", async () => {
   {
     const { app, window } = await boot(env);
     try {
-      const input = window.getByTestId("command-input");
-      await input.fill("box 100 60 10");
-      await input.press("Enter");
-      const preview = window.getByTestId("plan-preview");
-      await expect(preview).toBeVisible({ timeout: 5000 });
-      await preview.getByRole("button", { name: /Run 1 step/ }).click();
+      await runBar(window, "box 100 60 10");
       await expect
-        .poll(
-          async () =>
-            (
-              (await window.evaluate(() =>
-                (
-                  window as unknown as {
-                    __kreoda_test: { snapshot: () => Snapshot };
-                  }
-                ).__kreoda_test.snapshot(),
-              )) as Snapshot
-            ).bodies.length,
-          { timeout: 30000 },
-        )
+        .poll(async () => (await snapOf(window)).bodies.length, {
+          timeout: 30000,
+        })
         .toBe(1);
       await window.evaluate(() =>
         (
@@ -85,27 +49,11 @@ test("crash recovery: autosave → restore → discard", async () => {
       await expect(banner).toBeVisible({ timeout: 10000 });
       await window.getByTestId("recovery-restore").click();
       await expect
-        .poll(
-          async () =>
-            (
-              (await window.evaluate(() =>
-                (
-                  window as unknown as {
-                    __kreoda_test: { snapshot: () => Snapshot };
-                  }
-                ).__kreoda_test.snapshot(),
-              )) as Snapshot
-            ).bodies.length,
-          { timeout: 30000 },
-        )
+        .poll(async () => (await snapOf(window)).bodies.length, {
+          timeout: 30000,
+        })
         .toBe(1);
-      const snap = (await window.evaluate(() =>
-        (
-          window as unknown as {
-            __kreoda_test: { snapshot: () => Snapshot };
-          }
-        ).__kreoda_test.snapshot(),
-      )) as Snapshot;
+      const snap = await snapOf(window);
       expect(snap.bodies[0]!.type).toBe("Box");
       expect(snap.bodies[0]!.volumeMm3).toBeCloseTo(60000, 3);
       await expect(banner).toBeHidden({ timeout: 5000 });
@@ -125,13 +73,7 @@ test("crash recovery: autosave → restore → discard", async () => {
       await expect(window.getByTestId("recovery-banner")).toBeHidden({
         timeout: 5000,
       });
-      const snap = (await window.evaluate(() =>
-        (
-          window as unknown as {
-            __kreoda_test: { snapshot: () => Snapshot };
-          }
-        ).__kreoda_test.snapshot(),
-      )) as Snapshot;
+      const snap = await snapOf(window);
       expect(snap.bodies).toHaveLength(0);
       expect(
         fs.existsSync(path.join(RECOVERY_DIR, "autosave.icad")),

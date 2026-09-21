@@ -7,8 +7,6 @@
 
 #if KREODA_WITH_OCCT
 // NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
-#include <BRepMesh_IncrementalMesh.hxx>
-#include <BRep_Builder.hxx>
 #include <DEOBJ_ConfigurationNode.hxx>
 #include <DEOBJ_Provider.hxx>
 #include <Standard_Failure.hxx>
@@ -27,26 +25,10 @@ bool ExportObj(const std::string& path, std::string* error) {
     return false;
   }
   try {
-    BRep_Builder builder;
     TopoDS_Compound compound;
-    builder.MakeCompound(compound);
-    int solids = 0;
-    for (const ShapeRecord& rec : ShapeStore::instance().listInOrder()) {
-      if (rec.shape.IsNull()) continue;
-      builder.Add(compound, rec.shape);
-      ++solids;
-    }
-    if (solids == 0) {
-      if (error) *error = "nothing to export: the document has no solids";
-      return false;
-    }
+    if (!CollectSolidsCompound(&compound, error)) return false;
     // OBJ needs triangles: same export deflection as STL/3MF (0.01/0.05).
-    BRepMesh_IncrementalMesh mesher(compound, 0.01, Standard_False, 0.05,
-                                    Standard_True);
-    if (!mesher.IsDone()) {
-      if (error) *error = "OBJ meshing failed";
-      return false;
-    }
+    if (!PreMeshExport(&compound, "OBJ", error)) return false;
     ScopedMute mute;
     occ::handle<DEOBJ_ConfigurationNode> node = new DEOBJ_ConfigurationNode();
     // OBJ numbers are millimeters here: FileLengthUnit is the file unit

@@ -125,103 +125,51 @@ internal sealed class LoopbackWsServer : IAsyncDisposable
 
     private static async Task<string?> ReadTextFrameAsync(NetworkStream stream, CancellationToken ct)
     {
+        // Test frames only: masked text <64KB. Control frames and 64-bit
+        // lengths never occur here (sub-second JSON control frames).
         var head = new byte[2];
-        await ReadExactAsync(stream, head, ct);
+        await stream.ReadExactlyAsync(head, ct);
         var opcode = head[0] & 0x0F;
         if (opcode == 0x8) return null; // close
-        if (opcode == 0x9)
-        {
-            // Ping: drain fully (length may be extended) and keep reading.
-            long pingLen = head[1] & 0x7F;
-            if (pingLen == 126)
-            {
-                var ext = new byte[2];
-                await ReadExactAsync(stream, ext, ct);
-                pingLen = (ext[0] << 8) | ext[1];
-            }
-            else if (pingLen == 127)
-            {
-                var ext = new byte[8];
-                await ReadExactAsync(stream, ext, ct);
-                pingLen = BitConverter.ToInt64(ext.Reverse().ToArray(), 0);
-            }
-            var mask = new byte[4];
-            await ReadExactAsync(stream, mask, ct);
-            if (pingLen > 0)
-            {
-                var trash = new byte[pingLen];
-                await ReadExactAsync(stream, trash, ct);
-            }
-            return await ReadTextFrameAsync(stream, ct);
-        }
-        if (opcode != 0x1 && opcode != 0x0) return null;
+        if (opcode != 0x1 && opcode != 0x0)
+            throw new InvalidOperationException($"unexpected opcode {opcode}");
         var lenByte = head[1] & 0x7F;
-        long length = lenByte;
+        if (lenByte == 127) throw new InvalidOperationException("frame too large");
+        int length = lenByte;
         if (lenByte == 126)
         {
             var ext = new byte[2];
-            await ReadExactAsync(stream, ext, ct);
+            await stream.ReadExactlyAsync(ext, ct);
             length = (ext[0] << 8) | ext[1];
         }
-        else if (lenByte == 127)
-        {
-            var ext = new byte[8];
-            await ReadExactAsync(stream, ext, ct);
-            length = BitConverter.ToInt64(ext.Reverse().ToArray(), 0);
-        }
-        var masked = (head[1] & 0x80) != 0;
-        byte[]? maskKey = null;
-        if (masked)
-        {
-            maskKey = new byte[4];
-            await ReadExactAsync(stream, maskKey, ct);
-        }
-        if (length > 8 * 1024 * 1024) throw new InvalidOperationException("frame too large");
+        if ((head[1] & 0x80) == 0) throw new InvalidOperationException("client frame must be masked");
+        var maskKey = new byte[4];
+        await stream.ReadExactlyAsync(maskKey, ct);
         var payload = new byte[length];
-        await ReadExactAsync(stream, payload, ct);
-        if (maskKey is not null)
-        {
-            for (long i = 0; i < length; i++) payload[i] ^= maskKey[i % 4];
-        }
+        await stream.ReadExactlyAsync(payload, ct);
+        for (var i = 0; i < length; i++) payload[i] ^= maskKey[i % 4];
         return Encoding.UTF8.GetString(payload);
     }
 
     private static async Task SendTextAsync(NetworkStream stream, string text, CancellationToken ct)
     {
         var payload = Encoding.UTF8.GetBytes(text);
+        if (payload.Length > ushort.MaxValue) throw new InvalidOperationException("frame too large");
         using var frame = new MemoryStream();
         frame.WriteByte(0x81);
         if (payload.Length < 126)
         {
             frame.WriteByte((byte)payload.Length);
         }
-        else if (payload.Length <= ushort.MaxValue)
+        else
         {
             frame.WriteByte(126);
             frame.WriteByte((byte)(payload.Length >> 8));
             frame.WriteByte((byte)(payload.Length & 0xFF));
         }
-        else
-        {
-            frame.WriteByte(127);
-            var len = BitConverter.GetBytes((long)payload.Length);
-            Array.Reverse(len);
-            frame.Write(len, 0, 8);
-        }
         frame.Write(payload, 0, payload.Length);
         var bytes = frame.ToArray();
         await stream.WriteAsync(bytes, ct);
-    }
-
-    private static async Task ReadExactAsync(NetworkStream stream, byte[] buf, CancellationToken ct)
-    {
-        var off = 0;
-        while (off < buf.Length)
-        {
-            var n = await stream.ReadAsync(buf.AsMemory(off), ct);
-            if (n == 0) throw new IOException("socket closed mid-frame");
-            off += n;
-        }
     }
 
     public async ValueTask DisposeAsync()

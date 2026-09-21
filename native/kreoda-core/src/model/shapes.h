@@ -57,4 +57,11 @@ class ShapeStore {
   std::vector<std::string> order_;
 };
 
+// Canonical per-type parameter slots (mm), single source of truth for
+// ResolveParamsForEdit (features/primitives) and ParamIndexOf
+// (expressions). Placement slots (Instance tx/ty/tz) may be negative/zero,
+// unlike part dimensions — only the slot mapping lives here, never ranges.
+// Empty = unknown type.
+std::vector<std::string> DescribeParams(const std::string& type);
+
 }  // namespace kreoda

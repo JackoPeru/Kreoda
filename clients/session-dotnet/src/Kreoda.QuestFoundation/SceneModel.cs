@@ -74,22 +74,3 @@ public sealed class BodyMesh
         return null;
     }
 }
-
-/// <summary>Client-local scene registry (§12.10): bodies keyed by persistent
-/// body id. Upsert on delta, drop on removal — never rebuild the whole scene
-/// for one changed hole (§12.4).</summary>
-public sealed class SceneRegistry
-{
-    private readonly Dictionary<string, BodyMesh> _bodies = new();
-
-    public int Count => _bodies.Count;
-
-    public void Upsert(BodyMesh mesh) => _bodies[mesh.BodyId] = mesh;
-
-    public bool Remove(string bodyId) => _bodies.Remove(bodyId);
-
-    public BodyMesh? Find(string bodyId) =>
-        _bodies.TryGetValue(bodyId, out var m) ? m : null;
-
-    public IEnumerable<string> BodyIds => _bodies.Keys;
-}

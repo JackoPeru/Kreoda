@@ -7,7 +7,6 @@
 #include "model/commit.h"
 #include "model/feature_graph.h"
 #include "model/shapes.h"
-#include "validation/validate.h"
 #include "features/extrusion/extrude.h"
 #include "features/fillet/fillet.h"
 #include "features/hole/hole.h"
@@ -35,31 +34,6 @@ namespace kreoda {
 namespace {
 
 constexpr double kMaxDimMm = 100000.0;
-
-bool checkId(const std::string& id, std::string* error) {
-  if (!id.empty()) return true;
-  if (error) *error = "featureId is required (stable UUID, §10)";
-  return false;
-}
-
-bool checkIdFree(const std::string& id, std::string* error) {
-  if (!checkId(id, error)) return false;
-  if (!ShapeStore::ValidFeatureId(id)) {
-    if (error) {
-      *error = "featureId must match [A-Za-z0-9_-] (delimiters corrupt "
-               "persistence references)";
-    }
-    return false;
-  }
-  // UUID namespace is shared by solids and sketches (§10): reusing an id
-  // would silently take the rebuild path with wrong deps (commit.cpp).
-  if (ShapeStore::instance().contains(id) ||
-      SketchStore::instance().contains(id)) {
-    if (error) *error = "id already exists: " + id;
-    return false;
-  }
-  return true;
-}
 
 bool checkPositive(double v, const char* what, std::string* error) {
   if (v > 0 && v <= kMaxDimMm) return true;
@@ -137,20 +111,12 @@ bool BuildSphereShape(double r, TopoDS_Shape* out, std::string* error) {
 
 bool CreateBoxFeature(const std::string& featureId, double widthMm,
                       double heightMm, double depthMm, std::string* error) {
-  if (!checkIdFree(featureId, error)) return false;
+  if (!CheckNewId(featureId, error)) return false;
 #if KREODA_WITH_OCCT
   TopoDS_Shape shape;
   if (!BuildBoxShape(widthMm, heightMm, depthMm, &shape, error)) return false;
-  if (!OcafLive::instance().BeginCommand(error)) return false;
-  const bool ok = CommitShape(featureId, "Box", {widthMm, heightMm, depthMm},
-                              {}, std::string(), shape, nullptr, true, error);
-  if (!ok) {
-    OcafLive::instance().AbortCommand();
-    return false;
-  }
-  bool hadDelta = false;
-  OcafLive::instance().CommitCommand(&hadDelta, nullptr);
-  return true;
+  return CommitSingleFeature(featureId, "Box", {widthMm, heightMm, depthMm},
+                             {}, std::string(), shape, error);
 #else
   if (!checkPositive(widthMm, "width", error) ||
       !checkPositive(heightMm, "height", error) ||
@@ -165,20 +131,12 @@ bool CreateBoxFeature(const std::string& featureId, double widthMm,
 
 bool CreateCylinderFeature(const std::string& featureId, double radiusMm,
                            double heightMm, std::string* error) {
-  if (!checkIdFree(featureId, error)) return false;
+  if (!CheckNewId(featureId, error)) return false;
 #if KREODA_WITH_OCCT
   TopoDS_Shape shape;
   if (!BuildCylinderShape(radiusMm, heightMm, &shape, error)) return false;
-  if (!OcafLive::instance().BeginCommand(error)) return false;
-  const bool ok = CommitShape(featureId, "Cylinder", {radiusMm, heightMm},
-                              {}, std::string(), shape, nullptr, true, error);
-  if (!ok) {
-    OcafLive::instance().AbortCommand();
-    return false;
-  }
-  bool hadDelta = false;
-  OcafLive::instance().CommitCommand(&hadDelta, nullptr);
-  return true;
+  return CommitSingleFeature(featureId, "Cylinder", {radiusMm, heightMm}, {},
+                             std::string(), shape, error);
 #else
   if (!checkPositive(radiusMm, "radius", error) ||
       !checkPositive(heightMm, "height", error)) {
@@ -194,20 +152,12 @@ bool CreateCylinderFeature(const std::string& featureId, double radiusMm,
 
 bool CreateSphereFeature(const std::string& featureId, double radiusMm,
                          std::string* error) {
-  if (!checkIdFree(featureId, error)) return false;
+  if (!CheckNewId(featureId, error)) return false;
 #if KREODA_WITH_OCCT
   TopoDS_Shape shape;
   if (!BuildSphereShape(radiusMm, &shape, error)) return false;
-  if (!OcafLive::instance().BeginCommand(error)) return false;
-  const bool ok = CommitShape(featureId, "Sphere", {radiusMm}, {}, std::string(), shape,
-                              nullptr, true, error);
-  if (!ok) {
-    OcafLive::instance().AbortCommand();
-    return false;
-  }
-  bool hadDelta = false;
-  OcafLive::instance().CommitCommand(&hadDelta, nullptr);
-  return true;
+  return CommitSingleFeature(featureId, "Sphere", {radiusMm}, {},
+                             std::string(), shape, error);
 #else
   if (!checkPositive(radiusMm, "radius", error)) return false;
   const double bbox[6] = {-radiusMm, -radiusMm, -radiusMm,
@@ -220,59 +170,20 @@ bool CreateSphereFeature(const std::string& featureId, double radiusMm,
 }
 
 // Canonical per-type parameter slots (mm). Pure validation: no state touched.
+// Slot names live in DescribeParams (model/shapes) — single source of truth.
 bool ResolveParamsForEdit(const ShapeRecord& rec, const std::string& paramName,
                           double valueMm, std::vector<double>* out,
                           std::string* error) {
+  const std::vector<std::string> slots = DescribeParams(rec.type);
   std::vector<double> params = rec.paramsMm;
   bool matched = false;
-  if (rec.type == "Box" && params.size() == 3) {
-    matched = paramName == "widthMm" || paramName == "heightMm" ||
-              paramName == "depthMm";
-    if (matched) {
-      if (paramName == "widthMm") params[0] = valueMm;
-      if (paramName == "heightMm") params[1] = valueMm;
-      if (paramName == "depthMm") params[2] = valueMm;
-    }
-  } else if (rec.type == "Cylinder" && params.size() == 2) {
-    matched = paramName == "radiusMm" || paramName == "heightMm";
-    if (matched) {
-      if (paramName == "radiusMm") params[0] = valueMm;
-      if (paramName == "heightMm") params[1] = valueMm;
-    }
-  } else if (rec.type == "Sphere" && params.size() == 1) {
-    matched = paramName == "radiusMm";
-    if (matched) params[0] = valueMm;
-  } else if (rec.type == "Extrude" && params.size() == 1) {
-    matched = paramName == "distanceMm";
-    if (matched) params[0] = valueMm;
-  } else if (rec.type == "Revolve" && params.size() == 1) {
-    matched = paramName == "angleDeg";
-    if (matched) params[0] = valueMm;
-  } else if (rec.type == "Hole" && params.size() == 2) {
-    matched = paramName == "diameterMm" || paramName == "depthMm";
-    if (matched) {
-      if (paramName == "diameterMm") params[0] = valueMm;
-      if (paramName == "depthMm") params[1] = valueMm;
-    }
-  } else if (rec.type == "Fillet" && params.size() == 1) {
-    matched = paramName == "radiusMm";
-    if (matched) params[0] = valueMm;
-  } else if (rec.type == "Chamfer" && params.size() == 1) {
-    matched = paramName == "distanceMm";
-    if (matched) params[0] = valueMm;
-  } else if (rec.type == "Instance" && params.size() == 6) {
-    // Placement slots (Phase 9d): translations may be negative/zero, unlike
-    // part dimensions — only the slot mapping is resolved here.
-    matched = paramName == "txMm" || paramName == "tyMm" ||
-              paramName == "tzMm" || paramName == "rxDeg" ||
-              paramName == "ryDeg" || paramName == "rzDeg";
-    if (matched) {
-      if (paramName == "txMm") params[0] = valueMm;
-      if (paramName == "tyMm") params[1] = valueMm;
-      if (paramName == "tzMm") params[2] = valueMm;
-      if (paramName == "rxDeg") params[3] = valueMm;
-      if (paramName == "ryDeg") params[4] = valueMm;
-      if (paramName == "rzDeg") params[5] = valueMm;
+  if (!slots.empty() && slots.size() == params.size()) {
+    for (size_t i = 0; i < slots.size(); ++i) {
+      if (slots[i] == paramName) {
+        params[i] = valueMm;
+        matched = true;
+        break;
+      }
     }
   }
   if (!matched) {

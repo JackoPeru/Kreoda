@@ -81,19 +81,6 @@ TEST(Graph, CycleIsRejectedBeforeKernel) {
   EXPECT_FALSE(report.ok);
 }
 
-TEST(Graph, TessellationOnlyDirtySkipsGeometryRecompute) {
-  kreoda::FeatureGraph g;
-  g.addFeature("A");
-  g.clearDirty("A");
-  g.markTessellationDirty("A");
-  int calls = 0;
-  auto report = g.recompute(
-      [&](const std::string&, std::string*) { return ++calls, true; });
-  EXPECT_TRUE(report.ok);
-  EXPECT_EQ(calls, 0);  // appearance-only: no B-Rep work (§54)
-  EXPECT_TRUE(report.recomputed.empty());
-}
-
 TEST(Graph, RemoveDropsEdges) {
   kreoda::FeatureGraph g;
   g.addFeature("A");

@@ -55,22 +55,6 @@ public sealed class QuestFoundationTests
     }
 
     [Fact]
-    public void RegistryUpsertsAndDropsPerBody()
-    {
-        var scene = new SceneRegistry();
-        scene.Upsert(BoxMesh("a"));
-        scene.Upsert(BoxMesh("b"));
-        Assert.Equal(2, scene.Count);
-        // Delta for one body replaces only that body (§12.4).
-        scene.Upsert(BoxMesh("a"));
-        Assert.Equal(2, scene.Count);
-        Assert.NotNull(scene.Find("a"));
-        Assert.True(scene.Remove("a"));
-        Assert.Null(scene.Find("a"));
-        Assert.Equal(new[] { "b" }, scene.BodyIds);
-    }
-
-    [Fact]
     public void DisplayPresetsNeverTouchCadUnits()
     {
         var point = new[] { 100.0, 60.0, 10.0 };
@@ -105,7 +89,8 @@ public sealed class QuestFoundationTests
         Assert.Equal(MeshLod.Interactive, LodPolicy.ForBody(5000, 100_000));
         Assert.Equal(MeshLod.Preview, LodPolicy.ForBody(500_000, 100_000));
         Assert.Equal(MeshLod.Preview, LodPolicy.ForScene(5_000_000, 100_000, interacting: false));
+        Assert.Equal(MeshLod.Interactive, LodPolicy.ForScene(5_000, 100_000, interacting: false));
         Assert.Equal((int)MeshLod.Preview, 0);
-        Assert.Equal((int)MeshLod.Inspection, 2);
+        Assert.Equal((int)MeshLod.Interactive, 1);
     }
 }

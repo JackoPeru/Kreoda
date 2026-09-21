@@ -21,6 +21,7 @@
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakePolygon.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
 #include <Message.hxx>
@@ -306,6 +307,41 @@ bool ExtractTriangles(const TopoDS_Shape& shape, std::vector<float>* verts,
   }
   if (indices->empty()) {
     if (error) *error = "shape has no triangulation (not a mesh?)";
+    return false;
+  }
+  return true;
+}
+
+bool CollectSolidsCompound(TopoDS_Compound* compound, std::string* error) {
+  if (!compound) {
+    if (error) *error = "internal error: null out-param";
+    return false;
+  }
+  BRep_Builder builder;
+  builder.MakeCompound(*compound);
+  int solids = 0;
+  for (const ShapeRecord& rec : ShapeStore::instance().listInOrder()) {
+    if (rec.shape.IsNull()) continue;
+    builder.Add(*compound, rec.shape);
+    ++solids;
+  }
+  if (solids == 0) {
+    if (error) *error = "nothing to export: the document has no solids";
+    return false;
+  }
+  return true;
+}
+
+bool PreMeshExport(TopoDS_Compound* compound, const char* what,
+                   std::string* error) {
+  if (!compound) {
+    if (error) *error = "internal error: null out-param";
+    return false;
+  }
+  BRepMesh_IncrementalMesh mesher(*compound, 0.01, Standard_False, 0.05,
+                                  Standard_True);
+  if (!mesher.IsDone()) {
+    if (error) *error = std::string(what ? what : "mesh") + " meshing failed";
     return false;
   }
   return true;

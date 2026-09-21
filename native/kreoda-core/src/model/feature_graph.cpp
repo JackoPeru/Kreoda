@@ -10,7 +10,6 @@ void FeatureGraph::addFeature(const std::string& id,
   Node& node = nodes_[id];
   node.dependsOn = dependsOn;
   node.geometryDirty = true;
-  node.tessellationDirty = true;
 }
 
 void FeatureGraph::removeFeature(const std::string& id) {
@@ -33,26 +32,17 @@ void FeatureGraph::markDirty(const std::string& id) {
   auto it = nodes_.find(id);
   if (it == nodes_.end()) return;
   it->second.geometryDirty = true;
-  it->second.tessellationDirty = true;
   std::vector<std::string> dependents;
   collectDependents(id, &dependents);
   for (const auto& dep : dependents) {
     nodes_[dep].geometryDirty = true;
-    nodes_[dep].tessellationDirty = true;
   }
-}
-
-void FeatureGraph::markTessellationDirty(const std::string& id) {
-  auto it = nodes_.find(id);
-  if (it == nodes_.end()) return;
-  it->second.tessellationDirty = true;
 }
 
 void FeatureGraph::clearDirty(const std::string& id) {
   auto it = nodes_.find(id);
   if (it == nodes_.end()) return;
   it->second.geometryDirty = false;
-  it->second.tessellationDirty = false;
 }
 
 bool FeatureGraph::isGeometryDirty(const std::string& id) const {

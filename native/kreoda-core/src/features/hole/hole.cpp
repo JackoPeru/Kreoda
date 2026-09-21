@@ -204,21 +204,13 @@ bool CreateHoleFeature(const std::string& featureId,
     if (error) *error = "featureId, targetId and faceRole are required";
     return false;
   }
-  if (!ShapeStore::ValidFeatureId(featureId)) {
-    if (error) *error = "featureId must match [A-Za-z0-9_-]";
-    return false;
-  }
+  if (!CheckNewId(featureId, error)) return false;
   if (!(diameterMm > 0 && diameterMm <= 100000)) {
     if (error) *error = "hole diameter must be in (0, 100000] mm";
     return false;
   }
   if (depthMode != "throughAll" && depthMode != "blind") {
     if (error) *error = "depthMode must be throughAll|blind";
-    return false;
-  }
-  if (ShapeStore::instance().contains(featureId) ||
-      SketchStore::instance().contains(featureId)) {
-    if (error) *error = "id already exists: " + featureId;
     return false;
   }
   ShapeRecord target;
@@ -237,17 +229,8 @@ bool CreateHoleFeature(const std::string& featureId,
     if (error) *error = "invalid face role characters";
     return false;
   }
-  if (!OcafLive::instance().BeginCommand(error)) return false;
-  const bool ok = CommitShape(
-      featureId, "Hole", {diameterMm, depthMm}, {targetId}, ref, shape,
-      nullptr, true, error);
-  if (!ok) {
-    OcafLive::instance().AbortCommand();
-    return false;
-  }
-  bool hadDelta = false;
-  OcafLive::instance().CommitCommand(&hadDelta, nullptr);
-  return true;
+  return CommitSingleFeature(featureId, "Hole", {diameterMm, depthMm},
+                             {targetId}, ref, shape, error);
 }
 
 bool CreateHolePatternFeature(
