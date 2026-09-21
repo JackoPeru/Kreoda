@@ -1,5 +1,6 @@
 #include "commit.h"
 
+#include "body.h"
 #include "document/document_store.h"
 #include "features/sketch/sketch_store.h"
 #include "model/feature_graph.h"
@@ -87,6 +88,10 @@ bool CommitShape(const std::string& featureId, const std::string& type,
   } else {
     DocumentStore::instance().noteFeature(featureId, type);
   }
+  // Slice 2: body hook AFTER the OCAF mirror succeeded (atomicity preserved —
+  // the early return above leaves bodies untouched on mirror failure).
+  // Rebuilds (isNew=false) are idempotent no-ops inside noteCommitted.
+  BodyStore::instance().noteCommitted(featureId, type, rec.dependsOn, isNew);
   return true;
 }
 
@@ -125,6 +130,7 @@ bool CommitShape(const std::string& featureId, const std::string& type,
   TheFeatureGraph().addFeature(featureId, rec.dependsOn);
   TheFeatureGraph().clearDirty(featureId);
   DocumentStore::instance().registerFeature(featureId, type);
+  BodyStore::instance().noteCommitted(featureId, type, rec.dependsOn, true);
   return true;
 }
 #endif

@@ -77,6 +77,7 @@ set(CORE_SOURCES
   src/exchange/threemf_exchange.cpp
   src/expressions/expressions.cpp
   src/model/feature_graph.cpp
+  src/model/body.cpp
   src/model/shapes.cpp
   src/model/commit.cpp
   src/features/primitives/primitives.cpp

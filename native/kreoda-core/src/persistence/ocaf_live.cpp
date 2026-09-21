@@ -9,6 +9,7 @@
 #include "../expressions/expressions.h"
 #include "../features/sketch/sketch_json.h"
 #include "../features/sketch/sketch_store.h"
+#include "../model/body.h"
 
 #if KREODA_WITH_OCCT
 #include <BinXCAFDrivers.hxx>
@@ -584,6 +585,10 @@ bool OcafLive::ResyncStore(std::string* error) {
   }
   // Whole-registry replace: stale (undone/deleted) entries vanish (§12).
   DocumentStore::instance().replaceAll(registry);
+  // Slice 2: bodies are derived from history order — Undo/Redo/Open resyncs
+  // rebuild them deterministically (same rule as legacy-file migration).
+  BodyStore::instance().rebuildFromRecords(
+      ShapeStore::instance().listInOrder());
   // Rebuild the expression registry from expression labels (formulas undo
   // and reopen with geometry — same guarantee as sketches).
   // M8: orphan expressions for culled shapes are dropped, never adopted.

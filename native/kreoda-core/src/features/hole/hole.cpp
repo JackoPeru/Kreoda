@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "document/document_store.h"
+#include "model/body.h"
 #include "model/commit.h"
 #include "model/feature_graph.h"
 #include "model/shapes.h"
@@ -330,6 +331,7 @@ bool CreateHolePatternFeature(
       for (const auto& cid : created) {
         ShapeStore::instance().remove(cid);
         TheFeatureGraph().removeFeature(cid);
+        BodyStore::instance().removeFeature(cid);  // Slice 2: no body phantoms
       }
       OcafLive::instance().AbortCommand();
       // M4: CommitShape already inserted featureLabels for isNew ids inside

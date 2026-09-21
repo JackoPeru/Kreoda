@@ -10,6 +10,7 @@
 #include <sstream>
 
 #include "model/commit.h"
+#include "model/body.h"
 #include "model/shapes.h"
 #include "model/feature_graph.h"
 #include "document/document_store.h"
@@ -156,6 +157,7 @@ bool CommitImportedSolids(const std::vector<TopoDS_Shape>& solids,
     for (const std::string& id : added) {
       ShapeStore::instance().remove(id);
       TheFeatureGraph().removeFeature(id);
+      BodyStore::instance().removeFeature(id);  // Slice 2: no body phantoms
     }
     std::map<std::string, std::string> entries;
     for (const auto& sk : SketchStore::instance().listInOrder()) {

@@ -39,6 +39,7 @@
 #include "features/sketch/sketch_json.h"
 #include "features/sketch/sketch_store.h"
 #include "model/feature_graph.h"
+#include "model/body.h"
 #include "model/shapes.h"
 #include "protocol/mesh_fb.h"
 #include "topology/face_roles.h"
@@ -241,7 +242,7 @@ std::string manifest_json(const std::string& documentId) {
   os << std::setprecision(17);
   os << "{\"format\":\"kreoda-project\",\"schemaVersion\":1,"
      << "\"appVersion\":\"0.1.0\",\"documentId\":\"" << escape(documentId)
-     << "\",\"units\":\"mm\"}";
+     << "\",\"units\":\"mm\",\"bodies\":" << SerializeBodiesJson() << "}";
   return os.str();
 }
 
@@ -279,6 +280,7 @@ struct DocSnapshot {
   std::vector<ShapeRecord> shapes;
   std::vector<SketchFeature> sketches;
   std::vector<ExpressionEntry> exprs;
+  std::vector<BodyRecord> bodies;  // Slice 2: failed Open restores tips too
   std::map<std::string, std::string> registry;
   int64_t revision = 0;
   std::string docId;
@@ -292,6 +294,7 @@ DocSnapshot takeDocSnapshot(const std::string& docId) {
   s.shapes = ShapeStore::instance().listInOrder();
   s.sketches = SketchStore::instance().listInOrder();
   s.exprs = ExpressionStore::instance().listInOrder();
+  s.bodies = BodyStore::instance().bodies();
   s.registry = DocumentStore::instance().snapshotRegistry();
   s.revision = DocumentStore::instance().snapshotRevision();
   s.docId = DocumentStore::instance().snapshotDocumentId();
@@ -319,6 +322,7 @@ DocSnapshot takeDocSnapshot(const std::string& docId) {
 void restoreDocSnapshot(const DocSnapshot& s) {
   ShapeStore::instance().clear();
   for (const auto& r : s.shapes) ShapeStore::instance().put(r);
+  BodyStore::instance().replaceAll(s.bodies);  // Slice 2: tips survive abort
   SketchStore::instance().clear();
   for (const auto& sk : s.sketches) SketchStore::instance().put(sk);
   ExpressionStore::instance().clear();
@@ -1034,6 +1038,19 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       for (auto& rec : records) {
         ShapeStore::instance().put(rec);
         DocumentStore::instance().noteFeature(rec.featureId, rec.type);
+      }
+      // Slice 2: adopt persisted bodies when they match the loaded records;
+      // legacy files (no bodies section) migrate by the creation-order rule.
+      {
+        std::vector<BodyRecord> persisted;
+        const std::vector<ShapeRecord> ordered =
+            ShapeStore::instance().listInOrder();
+        if (ParseBodiesJson(manifest, &persisted) &&
+            BodiesMatchRecords(persisted, ordered)) {
+          BodyStore::instance().replaceAll(persisted);
+        } else {
+          BodyStore::instance().rebuildFromRecords(ordered);
+        }
       }
       for (const auto& js : sketchJsons) {
         SketchFeature sf;

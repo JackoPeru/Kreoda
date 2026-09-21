@@ -1,6 +1,7 @@
 #include "document_store.h"
 
 #include "model/feature_graph.h"
+#include "model/body.h"
 #include "model/shapes.h"
 #include "expressions/expressions.h"
 #include "features/sketch/sketch_store.h"
@@ -17,6 +18,7 @@ void DocumentStore::create(const std::string& documentId) {
   std::lock_guard<std::mutex> lock(mutex_);
   documentId_ = documentId.empty() ? "doc-bootstrap" : documentId;
   ShapeStore::instance().clear();  // new document owns an empty model (§9)
+  BodyStore::instance().clear();  // bodies rebuild from history (Slice 2)
   SketchStore::instance().clear();  // sketches are part of the model (§21)
   ExpressionStore::instance().clear();  // formulas are part of the model (§22)
 #if KREODA_WITH_OCCT

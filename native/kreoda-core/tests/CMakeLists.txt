@@ -17,6 +17,7 @@ add_executable(kreoda-core-tests
   test_topology_imports.cpp
   test_graph.cpp
   test_undo.cpp
+  test_body.cpp
   test_hole_pattern.cpp
   test_torture_phase10.cpp
   test_session11.cpp
@@ -37,6 +38,7 @@ add_executable(kreoda-core-tests
   ../src/exchange/threemf_exchange.cpp
   ../src/expressions/expressions.cpp
   ../src/model/feature_graph.cpp
+  ../src/model/body.cpp
   ../src/model/shapes.cpp
   ../src/model/commit.cpp
   ../src/features/primitives/primitives.cpp
