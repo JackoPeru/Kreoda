@@ -6,7 +6,11 @@ import {
   type FeatureSummary,
   type SketchSummary,
 } from "../ipc/coreClient";
-import { useDocumentUiStore, useSelectionStore } from "../stores";
+import {
+  useDocumentUiStore,
+  useSelectionStore,
+  visibleFeatureIds,
+} from "../stores";
 
 /** Re-request + store the mesh for one feature at the given core revision. */
 export async function pullFeatureMesh(
@@ -46,6 +50,11 @@ export function updateFeatureSummary(
  * replaces summaries + meshes wholesale so deleted features vanish too.
  * Sketches sync as summaries (full models pulled lazily by the editor).
  *
+ * Slice 4 tip-only scene: summaries commit for EVERY feature (history +
+ * recompute need them), but meshes hydrate ONLY for visible ids (body tips
+ * + Instance occurrences). One Box→Hole→Fillet = 1 scene object; the
+ * viewport reconciles the rest away (no ghosts on undo/redo tip steps).
+ *
  * Split-brain rule (C4): summaries commit FIRST, then meshes best-effort —
  * a failed pull must never leave core-new/renderer-old. Missing meshes
  * simply don't render (the viewport skips absent ids); the collected error
@@ -71,17 +80,19 @@ export async function syncFromCoreList(
     revision,
     epoch,
   );
-  // Sequential hydration: one round-trip per feature. Per-feature errors
-  // collected — fail-fast would strand the summaries behind (C4).
+  // Sequential hydration: one round-trip per VISIBLE feature (tips only).
+  // Per-feature errors collected — fail-fast would strand the summaries
+  // behind (C4). Historical meshes stay core-side, pulled on demand.
+  const visible = visibleFeatureIds(features);
   const results: (
     | { ok: true; id: string; mesh: Awaited<ReturnType<typeof coreClient.requestMesh>> }
     | { ok: false; id: string; error: string }
   )[] = [];
-  for (const f of features) {
+  for (const id of visible) {
     try {
-      results.push({ ok: true, id: f.featureId, mesh: await coreClient.requestMesh(f.featureId, 1) });
+      results.push({ ok: true, id, mesh: await coreClient.requestMesh(id, 1) });
     } catch (e) {
-      results.push({ ok: false, id: f.featureId, error: e instanceof Error ? e.message : "mesh failed" });
+      results.push({ ok: false, id, error: e instanceof Error ? e.message : "mesh failed" });
     }
   }
   const meshes: Record<string, Parameters<typeof s.upsertMesh>[1]> = {};

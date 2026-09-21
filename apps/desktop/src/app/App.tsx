@@ -222,6 +222,16 @@ export function App() {
               edgeCount: mesh ? mesh.edges.length : -1,
             };
           }),
+          // Slice 4 tip flow: authoritative Body projection (derived from
+          // the canonical feature list — no core wire change, see
+          // buildBodies). `tips` are the rendered scene contents (= mesh
+          // map keys); `treeBodies` carry id/history/tip for the tree.
+          tips: s.bodies.map((b) => b.tipFeatureId),
+          treeBodies: s.bodies.map((b) => ({
+            id: b.bodyId,
+            history: [...b.history],
+            tip: b.tipFeatureId,
+          })),
         };
       },
       // Same privilege as the preload invoke API (no new capability):

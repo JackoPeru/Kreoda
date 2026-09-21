@@ -16,6 +16,90 @@ export interface ModelTreeItem {
   children?: ModelTreeItem[];
 }
 
+/**
+ * Slice 4: Body/Feature projection (renderer mirror of core BodyStore,
+ * native/kreoda-core/src/model/body.h — same rule, no core wire change:
+ * no IPC response carries a bodies section, only manifest.json inside the
+ * .icad file does; BodiesMatchRecords enforces tip == history.back() in
+ * every valid state, so this deterministic derivation EQUALS the
+ * authoritative model. One Box→Hole→Fillet = 1 body, tip = visible result.
+ */
+export interface BodyInfo {
+  bodyId: string;
+  history: string[];
+  tipFeatureId: string;
+}
+
+/** Central feature→body semantics table (mirrors FeatureBodySemantics). */
+export function featureBodySemantics(
+  type: string,
+): "new" | "advances" | "none" {
+  if (
+    type === "Hole" ||
+    type === "Fillet" ||
+    type === "Chamfer" ||
+    type === "Union" ||
+    type === "Subtract" ||
+    type === "Intersect"
+  ) {
+    return "advances";
+  }
+  if (type === "Sketch" || type === "Instance") return "none";
+  return "new";
+}
+
+export function bodyIdForRoot(rootFeatureId: string): string {
+  return `body-${rootFeatureId}`;
+}
+
+/** Deterministic grouping in creation order (mirrors rebuildFromRecords). */
+export function buildBodies(features: FeatureSummary[]): BodyInfo[] {
+  const bodies: BodyInfo[] = [];
+  const memberOf = (id: string): BodyInfo | undefined =>
+    bodies.find((b) => b.history.includes(id));
+  for (const f of features) {
+    const sem = featureBodySemantics(f.type);
+    if (sem === "none" || memberOf(f.featureId)) continue;
+    if (sem === "new") {
+      bodies.push({
+        bodyId: bodyIdForRoot(f.featureId),
+        history: [f.featureId],
+        tipFeatureId: f.featureId,
+      });
+      continue;
+    }
+    // AdvancesBody: join the deps[0] target's body; missing target roots a
+    // fresh body so every solid feature belongs to exactly one body.
+    const target = f.dependsOn[0];
+    const owner = target !== undefined ? memberOf(target) : undefined;
+    if (owner) {
+      owner.history.push(f.featureId);
+      owner.tipFeatureId = f.featureId;
+    } else {
+      bodies.push({
+        bodyId: bodyIdForRoot(f.featureId),
+        history: [f.featureId],
+        tipFeatureId: f.featureId,
+      });
+    }
+  }
+  return bodies;
+}
+
+/**
+ * Renderable feature ids: body tips plus NonBody solids with their own mesh
+ * (Instance assembly occurrences, Phase 9d). Sketches render as overlays,
+ * never B-Rep meshes. Historical (non-tip) features keep their summaries
+ * for history/recompute but never enter the scene map.
+ */
+export function visibleFeatureIds(features: FeatureSummary[]): string[] {
+  const ids = buildBodies(features).map((b) => b.tipFeatureId);
+  for (const f of features) {
+    if (f.type === "Instance") ids.push(f.featureId);
+  }
+  return ids;
+}
+
 interface DocumentUiState {
   documentId: string;
   revision: number;
@@ -25,6 +109,12 @@ interface DocumentUiState {
   coreVersion: string | null;
   /** Read-only projection of canonical features (§9). */
   features: FeatureSummary[];
+  /**
+   * Slice 4: Body projection derived from features (see buildBodies).
+   * Authoritative grouping — the tree and the tip-only scene map read this,
+   * never a renderer-side regrouping.
+   */
+  bodies: BodyInfo[];
   /** Sketches (2D, rendered as overlay — never B-Rep meshes). */
   sketches: SketchEntry[];
   /** Render buffers keyed by feature UUID — replaced wholesale per update. */
@@ -55,26 +145,53 @@ interface DocumentUiState {
   resetDocument: (documentId: string) => void;
 }
 
+function featureLabel(f: FeatureSummary): string {
+  if (f.paramsMm.length > 0) return `${f.type} ${f.paramsMm.join("×")}`;
+  if (f.dependsOn.length > 0) {
+    return `${f.type} ← ${f.dependsOn.length} input${f.dependsOn.length > 1 ? "s" : ""}`;
+  }
+  return f.type;
+}
+
 function toTreeItems(
   features: FeatureSummary[],
   sketches: SketchEntry[],
+  bodies: BodyInfo[],
 ): ModelTreeItem[] {
   const skItems = sketches.map((s) => ({
     id: s.featureId,
     name: `Sketch ${s.planeKind} (${s.points}p/${s.constraints}c)`,
     kind: "sketch" as const,
   }));
-  const bodyItems = features.map((f) => ({
-    id: f.featureId,
-    name:
-      f.paramsMm.length > 0
-        ? `${f.type} ${f.paramsMm.join("×")}`
-        : f.dependsOn.length > 0
-          ? `${f.type} ← ${f.dependsOn.length} input${f.dependsOn.length > 1 ? "s" : ""}`
-          : f.type,
-    kind: "body" as const,
-  }));
-  return [...skItems, ...bodyItems];
+  const byId = new Map(features.map((f) => [f.featureId, f]));
+  const covered = new Set<string>();
+  const bodyItems: ModelTreeItem[] = bodies.map((b, i) => {
+    for (const id of b.history) covered.add(id);
+    // Single-root body: flat row exactly as before (no nesting noise).
+    if (b.history.length === 1) {
+      const f = byId.get(b.history[0]!);
+      return {
+        id: b.history[0]!,
+        name: f ? featureLabel(f) : b.history[0]!,
+        kind: "body" as const,
+      };
+    }
+    return {
+      id: b.bodyId,
+      name: `Body ${i + 1}`,
+      kind: "body" as const,
+      children: b.history.map((id) => ({
+        id,
+        name: byId.get(id) ? featureLabel(byId.get(id)!) : id,
+        kind: "feature" as const,
+      })),
+    };
+  });
+  // NonBody solids outside any body (Instance occurrences) keep flat rows.
+  const extraItems = features
+    .filter((f) => !covered.has(f.featureId))
+    .map((f) => ({ id: f.featureId, name: featureLabel(f), kind: "body" as const }));
+  return [...skItems, ...bodyItems, ...extraItems];
 }
 
 export const useDocumentUiStore = create<DocumentUiState>((set) => ({
@@ -84,6 +201,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
   coreRunning: false,
   coreVersion: null,
   features: [],
+  bodies: [],
   sketches: [],
   meshes: {},
   meshRevision: 0,
@@ -99,7 +217,29 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
     set((s) => {
       if (epoch !== undefined && epoch !== s.epoch) return s;
       if (revision < s.revision) return s;
-      return { features, revision };
+      const bodies = buildBodies(features);
+      // Tip swap without ghosts (Slice 4): a superseded tip's mesh leaves
+      // the scene map the moment the model moves on (undo/redo tip steps
+      // update the rendered object the same way). History summaries stay —
+      // only render buffers are pruned.
+      const visible = new Set<string>(bodies.map((b) => b.tipFeatureId));
+      for (const f of features) {
+        if (f.type === "Instance") visible.add(f.featureId);
+      }
+      let meshes = s.meshes;
+      if (Object.keys(meshes).some((id) => !visible.has(id))) {
+        meshes = Object.fromEntries(
+          Object.entries(meshes).filter(([id]) => visible.has(id)),
+        );
+      }
+      return {
+        features,
+        revision,
+        bodies,
+        ...(meshes !== s.meshes
+          ? { meshes, meshRevision: s.meshRevision + 1 }
+          : {}),
+      };
     }),
   setSketches: (sketches, revision, epoch) =>
     set((s) => {
@@ -145,6 +285,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       revision: 0,
       epoch: s.epoch + 1,
       features: [],
+      bodies: [],
       sketches: [],
       meshes: {},
       meshRevision: 0,
@@ -154,8 +295,9 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
 export function buildTreeItems(
   features: FeatureSummary[],
   sketches: SketchEntry[] = [],
+  bodies: BodyInfo[] = buildBodies(features),
 ): ModelTreeItem[] {
-  return toTreeItems(features, sketches);
+  return toTreeItems(features, sketches, bodies);
 }
 
 export type SelectionMode =

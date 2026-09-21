@@ -75,7 +75,8 @@ export function Viewport() {
   }, [hover, select]);
 
   // Canonical → scene sync (§66): only on committed mesh updates, never on
-  // pointer frequency.
+  // pointer frequency. Slice 4: the meshes map holds VISIBLE tips only
+  // (one entry per physical object) — syncMeshes reconciles the rest away.
   useEffect(() => {
     vpRef.current?.syncMeshes(meshes);
   }, [meshes, meshRevision]);

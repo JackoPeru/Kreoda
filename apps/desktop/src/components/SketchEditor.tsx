@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { SketchModel } from "@kreoda/protocol";
 import { coreClient } from "../ipc/coreClient";
 import { updateFeatureSummary } from "../model/sync";
-import { useDocumentUiStore } from "../stores";
+import { useDocumentUiStore, visibleFeatureIds } from "../stores";
 
 function uid(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
@@ -194,9 +194,13 @@ export function SketchEditor({
       await refreshSummary(sketchId);
       // Downstream solids depend on this sketch (§53): re-pull their meshes
       // so the viewport shows the recomputed geometry, not stale buffers.
-      const dependents = useDocumentUiStore
-        .getState()
-        .features.filter((f) => f.dependsOn?.includes(sketchId));
+      // Slice 4: visible tips only — a superseded (non-tip) dependent has no
+      // scene object, so pulling its mesh would plant a ghost.
+      const storeNow = useDocumentUiStore.getState();
+      const visible = new Set(visibleFeatureIds(storeNow.features));
+      const dependents = storeNow.features.filter(
+        (f) => f.dependsOn?.includes(sketchId) && visible.has(f.featureId),
+      );
       for (const d of dependents) {
         const mesh = await coreClient.requestMesh(d.featureId, 1);
         const s = useDocumentUiStore.getState();
