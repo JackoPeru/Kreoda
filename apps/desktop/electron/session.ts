@@ -25,6 +25,7 @@ import {
   type MeshData,
   type QueryEnv,
   type SelectionRegistry,
+  type SessionBody,
   type SnapshotData,
 } from "./session-queries";
 
@@ -37,6 +38,16 @@ export interface SessionDelta {
   revision: number;
   features: unknown[];
   sketches: unknown[];
+  /** Slice 6: real bodies (bodyId/tip/history) at this revision. */
+  bodies: SessionBody[];
+  /** Slice 6: visible results — one tip feature id per body. */
+  tips: string[];
+  /** Slice 6: bodies whose membership or tip changed in this delta. */
+  changedBodyIds: string[];
+  /** Slice 6: tip meshes remotes must re-tessellate (tips of changed bodies). */
+  changedMeshIds: string[];
+  /** Slice 6: feature + body ids that disappeared (undo/delete/rollback). */
+  disappearedIds: string[];
 }
 
 interface ClientInfo {
@@ -174,6 +185,7 @@ export class SessionRelay {
     this.revisionCache = null;
     this.revisionPending = null;
     this.lastBroadcastRevision = null;
+    this.lastSent = null;
     const note = JSON.stringify({
       event: "core-restarted",
       documentId: this.documentId,
@@ -203,6 +215,7 @@ export class SessionRelay {
       this.dedup.clear();
       this.revisionCache = null;
       this.lastBroadcastRevision = null;
+      this.lastSent = null;
     }
     if (
       this.lastBroadcastRevision !== null &&
@@ -237,6 +250,14 @@ export class SessionRelay {
   }
 
   private lastBroadcastRevision: number | null = null;
+  // Slice 6: last broadcast model per document (for changed/disappeared
+  // diffing). A new lineage resets it: everything current is "changed",
+  // nothing "disappeared".
+  private lastSent: {
+    documentId: string;
+    ids: Set<string>;
+    bodies: Map<string, { tip: string; history: string[] }>;
+  } | null = null;
 
   private handleConnection(ws: WebSocket, token: string): void {
     const hello = { authed: false } as PendingHello;
@@ -577,6 +598,8 @@ export class SessionRelay {
     revision: number;
     features: unknown[];
     sketches: unknown[];
+    bodies: SessionBody[];
+    tips: string[];
   }> {
     const parsed = await this.coreInvoke(documentId, 26, {});
     const features = Array.isArray(parsed["features"])
@@ -589,7 +612,10 @@ export class SessionRelay {
       typeof parsed["revision"] === "number"
         ? (parsed["revision"] as number)
         : 0;
-    return { documentId, revision, features, sketches };
+    // Slice 6: the core wire stays feature-flat (Slice 7 owns the protocol);
+    // bodies/tips are derived here by the BodyStore rule (read-only).
+    const snap = normalizeSnapshot(documentId, revision, features, sketches);
+    return { documentId, revision, features, sketches, bodies: snap.bodies, tips: snap.tips };
   }
 
   /** QueryEnv for session-queries.ts: snapshot/mesh/frames/previews. */
@@ -1096,12 +1122,57 @@ export class SessionRelay {
     features: unknown[],
     sketches: unknown[],
   ): void {    this.lastBroadcastRevision = revision;
+    // Slice 6: derive bodies by the BodyStore rule (read-only) and diff
+    // against the last broadcast so remotes learn which bodies/meshes
+    // changed, what disappeared, and the current revision. A tip change
+    // names the one body — never N historical features.
+    const snap = normalizeSnapshot(documentId, revision, features, sketches);
+    const prev =
+      this.lastSent && this.lastSent.documentId === documentId
+        ? this.lastSent
+        : null;
+    const changedBodyIds: string[] = [];
+    for (const b of snap.bodies) {
+      const p = prev?.bodies.get(b.bodyId);
+      if (
+        !p ||
+        p.tip !== b.tip ||
+        p.history.length !== b.history.length ||
+        p.history.some((id, i) => id !== b.history[i])
+      ) {
+        changedBodyIds.push(b.bodyId);
+      }
+    }
+    const curIds = new Set<string>([
+      ...snap.features.map((f) => f.featureId),
+      ...snap.bodies.map((b) => b.bodyId),
+    ]);
+    const disappearedIds = prev
+      ? [...prev.ids].filter((id) => !curIds.has(id))
+      : [];
+    const changedTips = new Set(
+      snap.bodies
+        .filter((b) => changedBodyIds.includes(b.bodyId))
+        .map((b) => b.tip),
+    );
+    this.lastSent = {
+      documentId,
+      ids: curIds,
+      bodies: new Map(
+        snap.bodies.map((b) => [b.bodyId, { tip: b.tip, history: [...b.history] }]),
+      ),
+    };
     const delta: SessionDelta = {
       originClientId,
       documentId,
       revision,
       features,
       sketches,
+      bodies: snap.bodies,
+      tips: snap.tips,
+      changedBodyIds,
+      changedMeshIds: [...changedTips],
+      disappearedIds,
     };
     for (const [id, c] of this.clients) {
       if (id === originClientId) continue;

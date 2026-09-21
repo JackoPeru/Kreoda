@@ -25,11 +25,83 @@ export interface SnapSketch {
   constraints: number;
 }
 
+/**
+ * Slice 6: real Body semantics over the feature-flat core wire (read-only
+ * derivation — no core change). Same rule as BodyStore::rebuildFromRecords
+ * (native/kreoda-core/src/model/body.h) and the renderer's buildBodies: a
+ * Body is an ordered history of solid feature ids plus a tip (the visible
+ * result). Feature ids are never renamed; bodies just group them.
+ */
+export interface SessionBody {
+  bodyId: string;
+  tip: string;
+  history: string[];
+}
+
+/** Central feature→body semantics table (mirrors FeatureBodySemantics). */
+export function sessionBodySemantics(type: string): "new" | "advances" | "none" {
+  if (
+    type === "Hole" ||
+    type === "HolePattern" ||
+    type === "Fillet" ||
+    type === "Chamfer" ||
+    type === "Union" ||
+    type === "Subtract" ||
+    type === "Intersect"
+  ) {
+    return "advances";
+  }
+  if (type === "Sketch" || type === "Instance") return "none";
+  return "new";
+}
+
+export function sessionBodyIdForRoot(rootFeatureId: string): string {
+  return `body-${rootFeatureId}`;
+}
+
+/** Deterministic grouping in creation order (mirrors rebuildFromRecords). */
+export function buildSessionBodies(features: SnapFeature[]): SessionBody[] {
+  const bodies: SessionBody[] = [];
+  const memberOf = (id: string): SessionBody | undefined =>
+    bodies.find((b) => b.history.includes(id));
+  for (const f of features) {
+    const sem = sessionBodySemantics(f.type);
+    if (sem === "none" || memberOf(f.featureId)) continue;
+    if (sem === "new") {
+      bodies.push({
+        bodyId: sessionBodyIdForRoot(f.featureId),
+        tip: f.featureId,
+        history: [f.featureId],
+      });
+      continue;
+    }
+    // AdvancesBody: join the deps[0] target's body; missing target roots a
+    // fresh body so every solid feature belongs to exactly one body.
+    const target = f.dependsOn[0];
+    const owner = target !== undefined ? memberOf(target) : undefined;
+    if (owner) {
+      owner.history.push(f.featureId);
+      owner.tip = f.featureId;
+    } else {
+      bodies.push({
+        bodyId: sessionBodyIdForRoot(f.featureId),
+        tip: f.featureId,
+        history: [f.featureId],
+      });
+    }
+  }
+  return bodies;
+}
+
 export interface SnapshotData {
   documentId: string;
   revision: number;
   features: SnapFeature[];
   sketches: SnapSketch[];
+  /** Slice 6: real bodies derived from the feature history (never N shapes). */
+  bodies: SessionBody[];
+  /** Slice 6: visible results — one tip feature id per body. */
+  tips: string[];
 }
 
 export interface MeshFace {
@@ -158,12 +230,16 @@ export function normalizeSnapshot(
   features: unknown[],
   sketches: unknown[],
 ): SnapshotData {
+  const list = features
+    .map(asFeature)
+    .filter((f): f is SnapFeature => f !== null);
+  const bodies = buildSessionBodies(list);
   return {
     documentId,
     revision,
-    features: features
-      .map(asFeature)
-      .filter((f): f is SnapFeature => f !== null),
+    features: list,
+    bodies,
+    tips: bodies.map((b) => b.tip),
     sketches: sketches
       .map((raw) => {
         if (typeof raw !== "object" || raw === null) return null;
@@ -394,6 +470,7 @@ async function manipulatorsFor(
 export const QUERY_METHODS = [
   "getDocumentInfo",
   "getBodies",
+  "getFeatures",
   "getFeature",
   "getParameters",
   "getDependencies",
@@ -461,28 +538,67 @@ export async function runSessionQuery(
         result: {
           documentId: s.documentId,
           revision: s.revision,
-          bodies: s.features.length,
+          bodies: s.bodies.length,
+          features: s.features.length,
           sketches: s.sketches.length,
+          tips: s.tips,
         },
       };
     }
+    // Slice 6: real bodies — one entry per Body (bodyId/tip/history), not
+    // one per historical shape. Feature history lives under getFeatures.
     case "getBodies":
     case "getModelTree": {
       const s = await snap();
       return {
         result: {
           revision: s.revision,
-          bodies: s.features.map((f) => ({
-            id: f.featureId,
-            type: f.type,
-            paramsMm: f.paramsMm,
-            volumeMm3: f.volumeMm3,
-            dependsOn: f.dependsOn,
+          bodies: s.bodies.map((b) => ({
+            bodyId: b.bodyId,
+            tip: b.tip,
+            history: [...b.history],
           })),
+          tips: s.tips,
           sketches: s.sketches.map((k) => ({
             id: k.featureId,
             planeKind: k.planeKind,
           })),
+        },
+      };
+    }
+    // Slice 6: feature history, optionally scoped to one body. Item shapes
+    // are unchanged (featureId/type/paramsMm/volumeMm3/dependsOn/...); the
+    // bodies grouping says which history each feature belongs to.
+    case "getFeatures": {
+      const s = await snap();
+      const only =
+        typeof params["bodyId"] === "string" && params["bodyId"] !== ""
+          ? (params["bodyId"] as string)
+          : null;
+      if (only) {
+        const b = s.bodies.find((x) => x.bodyId === only);
+        if (!b) throw coded("NOT_FOUND", `unknown body ${only}`);
+        const member = new Set(b.history);
+        return {
+          result: {
+            revision: s.revision,
+            bodyId: b.bodyId,
+            tip: b.tip,
+            history: [...b.history],
+            features: s.features.filter((f) => member.has(f.featureId)),
+          },
+        };
+      }
+      return {
+        result: {
+          revision: s.revision,
+          features: s.features,
+          bodies: s.bodies.map((b) => ({
+            bodyId: b.bodyId,
+            tip: b.tip,
+            history: [...b.history],
+          })),
+          tips: s.tips,
         },
       };
     }
@@ -518,9 +634,11 @@ export async function runSessionQuery(
         result: {
           documentId: s.documentId,
           revision: s.revision,
-          bodies: s.features.length,
+          bodies: s.bodies.length,
+          features: s.features.length,
           sketches: s.sketches.length,
           types: byType,
+          tips: s.tips,
           // Compact semantic summary for AI/Quest UI (§11.7): ids, types,
           // volumes — never raw B-Rep.
           summary: s.features.map((f) => ({
@@ -674,16 +792,26 @@ export async function runSessionQuery(
       const minVolume =
         typeof params["minVolumeMm3"] === "number" ? (params["minVolumeMm3"] as number) : 0;
       const s = await snap();
+      const byId = new Map(s.features.map((f) => [f.featureId, f]));
       return {
         result: {
-          bodies: s.features
-            .filter((f) => (!type || f.type === type) && f.volumeMm3 >= minVolume)
-            .map((f) => ({
-              id: f.featureId,
-              type: f.type,
-              volumeMm3: f.volumeMm3,
-              confidence: 1.0,
-            })),
+          bodies: s.bodies
+            .filter((b) => {
+              const tip = byId.get(b.tip);
+              if (!tip) return false;
+              return (!type || tip.type === type) && tip.volumeMm3 >= minVolume;
+            })
+            .map((b) => {
+              const tip = byId.get(b.tip)!;
+              return {
+                bodyId: b.bodyId,
+                tip: b.tip,
+                history: [...b.history],
+                type: tip.type,
+                volumeMm3: tip.volumeMm3,
+                confidence: 1.0,
+              };
+            }),
         },
       };
     }

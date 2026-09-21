@@ -195,6 +195,91 @@ public sealed class SessionClientTests
     }
 
     [Fact]
+    public async Task SnapshotAndDeltaCarryBodySemantics()
+    {
+        // Slice 6 wire: snapshot/delta serve real bodies (bodyId/tip/history)
+        // plus tips, changed/disappeared ids and the revision. The client is
+        // untyped JSON (no model change required) — this pins consumption.
+        await using var server = new LoopbackWsServer(static req =>
+        {
+            var method = req.GetProperty("method").GetString();
+            return method switch
+            {
+                "hello" => HelloReply(req),
+                "snapshot" => Reply(req, new Dictionary<string, object?>
+                {
+                    ["documentId"] = "doc-phase1",
+                    ["revision"] = 3,
+                    ["features"] = new[]
+                    {
+                        new Dictionary<string, object?> { ["featureId"] = "box-1" },
+                        new Dictionary<string, object?> { ["featureId"] = "hole-1" },
+                    },
+                    ["sketches"] = Array.Empty<object>(),
+                    ["bodies"] = new[]
+                    {
+                        new Dictionary<string, object?>
+                        {
+                            ["bodyId"] = "body-box-1",
+                            ["tip"] = "hole-1",
+                            ["history"] = new[] { "box-1", "hole-1" },
+                        },
+                    },
+                    ["tips"] = new[] { "hole-1" },
+                }),
+                _ => Reply(req, new Dictionary<string, object?>()),
+            };
+        });
+        server.Start();
+        await using var client = await BootAsync(server);
+
+        var snap = await client.SnapshotAsync();
+        Assert.Equal(3, snap.GetProperty("revision").GetInt32());
+        var bodies = snap.GetProperty("bodies");
+        Assert.Single(bodies.EnumerateArray());
+        var body = bodies.EnumerateArray().First();
+        Assert.Equal("body-box-1", body.GetProperty("bodyId").GetString());
+        Assert.Equal("hole-1", body.GetProperty("tip").GetString());
+        Assert.Equal(
+            new[] { "box-1", "hole-1" },
+            body.GetProperty("history").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(
+            new[] { "hole-1" },
+            snap.GetProperty("tips").EnumerateArray().Select(e => e.GetString()));
+
+        var deltas = new List<JsonElement>();
+        client.Delta += d => deltas.Add(d);
+        await server.PushAsync(JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            ["event"] = "delta",
+            ["documentId"] = "doc-phase1",
+            ["revision"] = 4,
+            ["bodies"] = new[]
+            {
+                new Dictionary<string, object?>
+                {
+                    ["bodyId"] = "body-box-1",
+                    ["tip"] = "box-1",
+                    ["history"] = new[] { "box-1" },
+                },
+            },
+            ["tips"] = new[] { "box-1" },
+            ["changedBodyIds"] = new[] { "body-box-1" },
+            ["changedMeshIds"] = new[] { "box-1" },
+            ["disappearedIds"] = new[] { "hole-1" },
+        }));
+        await Task.Delay(500);
+        Assert.Single(deltas);
+        Assert.Equal(4, deltas[0].GetProperty("revision").GetInt32());
+        Assert.Equal(
+            new[] { "body-box-1" },
+            deltas[0].GetProperty("changedBodyIds").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(
+            new[] { "hole-1" },
+            deltas[0].GetProperty("disappearedIds").EnumerateArray().Select(e => e.GetString()));
+    }
+
+    [Fact]
     public async Task CallAfterDisposeThrowsSessionException()
     {
         await using var server = new LoopbackWsServer(static req => HelloReply(req));
