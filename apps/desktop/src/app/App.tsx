@@ -438,7 +438,7 @@ export function App() {
       const last = sk[sk.length - 1];
       if (last) openSketchEditor(last.featureId);
     } catch {
-      // Toolbar surfaces registry errors; silent here is fine.
+      // Dialogs surface registry errors; silent here is fine.
     }
   };
 

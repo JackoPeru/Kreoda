@@ -24,6 +24,7 @@ import {
 } from "../../commands/execute";
 import type { PrimitiveKind } from "../AddPrimitiveDialog";
 import { ProjectChip } from "./ProjectChip";
+import { DismissBackdrop } from "./DismissBackdrop";
 import { WorkspaceActions, openDocument } from "./WorkspaceActions";
 
 const PRIMITIVE_ICONS: Record<string, React.ReactNode> = {
@@ -114,12 +115,7 @@ export function TopToolDock({
   return (
     <>
       {open !== null && (
-        <button
-          aria-label="Close menu"
-          onClick={close}
-          className="pointer-events-auto fixed inset-0 z-40 cursor-default bg-transparent"
-          tabIndex={-1}
-        />
+        <DismissBackdrop onClose={close} label="Close menu" />
       )}
       <div
         className="kreoda-float pointer-events-auto relative z-50 flex max-w-full flex-wrap items-center gap-1 px-2 py-1.5"
@@ -137,7 +133,6 @@ export function TopToolDock({
             setMenuError(null);
             setOpen(open === "add" ? null : "add");
           }}
-          aria-haspopup="menu"
           aria-expanded={open === "add"}
           className={`flex items-center gap-1.5 rounded-[var(--kreoda-radius-sm)] px-2.5 py-1.5 text-sm font-medium hover:bg-white/10 ${open === "add" ? "bg-white/15" : ""}`}
         >
@@ -146,7 +141,6 @@ export function TopToolDock({
         </button>
         {open === "add" && (
           <div
-            role="menu"
             data-testid="add-menu"
             className="kreoda-float-elevated absolute left-0 top-full z-50 mt-2 w-48 p-1.5"
           >
@@ -185,7 +179,6 @@ export function TopToolDock({
             setMenuError(null);
             setOpen(open === "more" ? null : "more");
           }}
-          aria-haspopup="menu"
           aria-expanded={open === "more"}
           className={`flex items-center gap-1 rounded-[var(--kreoda-radius-sm)] px-2.5 py-1.5 text-sm text-white/80 hover:bg-white/10 ${open === "more" ? "bg-white/15" : ""}`}
         >
@@ -194,7 +187,6 @@ export function TopToolDock({
         </button>
         {open === "more" && (
           <div
-            role="menu"
             data-testid="more-menu"
             className="kreoda-float-elevated absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-60 overflow-auto p-1.5"
           >

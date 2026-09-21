@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { commandAvailability } from "../commands/execute";
-import { executeCommand } from "../commands/execute";
+import { commandAvailability, executeCommand } from "../commands/execute";
 import {
   connectedEdgeIds,
   similarFaceIds,
@@ -13,6 +12,7 @@ import {
   useSelectionStore,
   useToolStore,
 } from "../stores";
+import { DismissBackdrop } from "./workspace/DismissBackdrop";
 
 /**
  * Context-sensitive tools (§18, §69): exposes ONLY actions valid for the
@@ -49,16 +49,25 @@ export function ContextToolbar({
   useDocumentUiStore((s) => s.features.length);
 
   // Imperative anchor tracking: selection/mesh reads only, no re-renders.
+  // Writes are skipped when the anchor hasn't moved (no per-frame layout).
+  // Y is clamped so the toolbar never leaves the viewport top edge.
   useEffect(() => {
     let raf = 0;
+    let lastX = NaN;
+    let lastY = NaN;
     const tick = (): void => {
       raf = requestAnimationFrame(tick);
       const el = rootRef.current;
       if (!el) return;
       const anchor = selectionAnchorPoint();
+      const x = anchor ? anchor.x : -1;
+      const y = anchor ? Math.max(anchor.y, 64) : -1;
+      if (x === lastX && y === lastY) return;
+      lastX = x;
+      lastY = y;
       if (anchor) {
-        el.style.left = `${anchor.x}px`;
-        el.style.top = `${anchor.y}px`;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
         el.style.transform = "translate(-50%,-135%)";
       } else {
         // Sketches and off-screen anchors: default docked spot.
@@ -213,12 +222,7 @@ export function ContextToolbar({
   return (
     <>
       {moreOpen && (
-        <button
-          aria-label="Close more actions"
-          onClick={() => setMoreOpen(false)}
-          className="fixed inset-0 z-40 cursor-default bg-transparent"
-          tabIndex={-1}
-        />
+        <DismissBackdrop onClose={() => setMoreOpen(false)} label="Close more actions" />
       )}
       <div
         ref={rootRef}
@@ -251,7 +255,7 @@ export function ContextToolbar({
             ⋯
           </button>
           {moreOpen && (
-            <div className="kreoda-float-elevated absolute right-0 top-full z-50 mt-2 w-44 p-1.5">
+            <div role="menu" className="kreoda-float-elevated absolute right-0 top-full z-50 mt-2 w-44 p-1.5">
               <button
                 onClick={() => {
                   setMoreOpen(false);

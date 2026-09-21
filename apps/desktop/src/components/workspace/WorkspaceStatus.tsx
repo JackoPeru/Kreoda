@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useDocumentUiStore } from "../../stores";
 import { HELP_TEXT } from "../../intent/parse";
+import { DismissBackdrop } from "./DismissBackdrop";
 
 export function WorkspaceStatus({
   updateVersion,
@@ -39,12 +40,7 @@ export function WorkspaceStatus({
         )}
       </button>
       {open && (
-        <button
-          aria-label="Close diagnostics"
-          onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 cursor-default bg-transparent"
-          tabIndex={-1}
-        />
+        <DismissBackdrop onClose={() => setOpen(false)} label="Close diagnostics" />
       )}
     </div>
   );
@@ -67,6 +63,7 @@ function DiagnosticsPopover({
     <div
       className="kreoda-float-elevated absolute bottom-full left-0 z-50 mb-2 w-64 p-3 font-mono text-[11px] leading-relaxed text-white/70"
       data-testid="workspace-diagnostics"
+      role="status"
     >
       <div className="pb-1 font-sans text-[11px] uppercase tracking-wide text-white/45">
         Diagnostics
@@ -104,12 +101,7 @@ export function WorkspaceHelp() {
         ?
       </button>
       {open && (
-        <button
-          aria-label="Close help"
-          onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 cursor-default bg-transparent"
-          tabIndex={-1}
-        />
+        <DismissBackdrop onClose={() => setOpen(false)} label="Close help" />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 // UX-1 workspace actions: Undo / Redo / Save (real paths only).
-// Save/Open run the same core round-trip the old toolbar used; errors
-// surface on hover instead of stretching the floating bar.
+// Save/Open share one core round-trip with the More menu; errors surface
+// on hover instead of stretching the floating bar.
 import { useState } from "react";
 import { Redo2, Save, Undo2 } from "lucide-react";
 import { useDocumentUiStore } from "../../stores";
@@ -59,7 +59,7 @@ export function WorkspaceActions() {
       data-testid="workspace-actions"
     >
       {opError && (
-        <span className="px-1 text-xs text-red-300" title={opError}>
+        <span className="px-1 text-xs text-red-300" title={opError} role="alert">
           !
         </span>
       )}

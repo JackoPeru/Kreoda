@@ -3,10 +3,10 @@
 import { useDocumentUiStore, useSelectionStore } from "../../stores";
 
 export function ProjectChip({ onOpen }: { onOpen: () => void }) {
-  const features = useDocumentUiStore((s) => s.features);
-  const sketches = useDocumentUiStore((s) => s.sketches);
+  const featureCount = useDocumentUiStore((s) => s.features.length);
+  const sketchCount = useDocumentUiStore((s) => s.sketches.length);
   const selected = useSelectionStore((s) => s.selectedIds.length);
-  const count = features.length + sketches.length;
+  const count = featureCount + sketchCount;
   const sub =
     selected > 0
       ? `${selected} selected`

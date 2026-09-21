@@ -153,6 +153,8 @@ export function WorkspaceChrome({
         <div
           className="kreoda-float-elevated absolute bottom-4 left-3 top-[68px] z-30 flex w-72 flex-col p-2"
           data-testid="project-drawer"
+          role="complementary"
+          aria-label="Project"
         >
           <div className="flex items-center justify-between px-2 py-1">
             <span className="text-xs uppercase tracking-wide text-white/50">
@@ -175,6 +177,8 @@ export function WorkspaceChrome({
         <div
           className="kreoda-float-elevated absolute bottom-4 right-3 top-[68px] z-30 flex w-72 flex-col p-2"
           data-testid="properties-drawer"
+          role="complementary"
+          aria-label="Properties"
         >
           <div className="flex items-center justify-between px-2 py-1">
             <span className="text-xs uppercase tracking-wide text-white/50">

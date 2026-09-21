@@ -11,11 +11,8 @@
   --kreoda-float-elevated-bg: rgba(24, 30, 41, 0.94);
   --kreoda-border-subtle: rgba(255, 255, 255, 0.1);
   --kreoda-text-primary: #e6ebf2;
-  --kreoda-text-secondary: rgba(230, 235, 242, 0.6);
   --kreoda-accent: #4f8cff;
   --kreoda-accent-hover: #6ea8ff;
-  --kreoda-danger: #f87171;
-  --kreoda-warning: #fbbf24;
   --kreoda-radius-sm: 8px;
   --kreoda-radius-md: 12px;
   --kreoda-surface-blur: 12px;
@@ -32,7 +29,7 @@ body,
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
 
-/* UX-0 helpers only (no component restyle yet — UX-1+ consumes these). */
+/* Floating surface helpers consumed by the workspace shell. */
 .kreoda-float {
   background: var(--kreoda-float-bg);
   border: 1px solid var(--kreoda-border-subtle);
