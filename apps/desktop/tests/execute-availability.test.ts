@@ -68,6 +68,8 @@ describe("skipAvailability equivalence (Fase 3)", () => {
       kind: "created",
       feature: expect.objectContaining({ featureId: "ho-1" }),
     });
+    // pullAndAppend ran: mesh pulled for the created feature (sync.ts:17).
+    expect(coreClient.requestMesh).toHaveBeenCalledWith("ho-1", 1);
   });
 
   it("keeps zod validation with the flag (negative width still throws ZodError)", async () => {
