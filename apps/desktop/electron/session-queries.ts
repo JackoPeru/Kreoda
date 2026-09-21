@@ -494,6 +494,9 @@ export const QUERY_METHODS = [
   "validateBody",
   "validateFeature",
   "listCommands",
+  // Slice 7: advertised so relay + query layers agree it exists (the handler
+  // answers NOT_IMPLEMENTED until the agent slice ships per-command schemas).
+  "getCommandSchema",
   "getCapabilities",
   "previewBegin",
   "previewUpdate",

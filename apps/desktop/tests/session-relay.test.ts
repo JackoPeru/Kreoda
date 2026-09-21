@@ -6,6 +6,14 @@
 import { describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { SessionRelay } from "../electron/session";
+import {
+  QUERY_METHODS,
+} from "../electron/session-queries";
+import {
+  QUERY_METHODS_CONTRACT,
+  REQUIRED_PARAMS,
+  SESSION_CONTROL_METHODS,
+} from "@kreoda/protocol";
 import type { SidecarManager } from "../electron/sidecar";
 import { SessionClient } from "../e2e/ws-test-client";
 
@@ -602,6 +610,142 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
     } finally {
       client.closeRaw();
       other.closeRaw();
+      relay.stop();
+    }
+  });
+});
+
+describe("SessionControlContract (Slice 7)", () => {
+  const PORT_C = 45033;
+
+  it("relay query surface matches the control-plane contract", () => {
+    expect([...QUERY_METHODS]).toEqual([...QUERY_METHODS_CONTRACT]);
+    for (const m of QUERY_METHODS) {
+      expect(SESSION_CONTROL_METHODS).toContain(m as string);
+    }
+    for (const m of SESSION_CONTROL_METHODS) {
+      expect(REQUIRED_PARAMS[m]).toBeDefined();
+    }
+  });
+
+  it("every query method yields a correlated reply (ok or coded error)", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port: PORT_C, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    await client.connect(TOKEN, PORT_C);
+    try {
+      await client.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "box-c", widthMm: 10, heightMm: 10, depthMm: 10 },
+      });
+      const box = "box-c";
+      const face = `${box}:box.+Z`;
+      const params: Record<string, Record<string, unknown>> = {
+        getDocumentInfo: {},
+        getBodies: {},
+        getFeatures: {},
+        getFeature: { featureId: box },
+        getParameters: { featureId: box },
+        getDependencies: { featureId: box },
+        getModelTree: {},
+        describeModel: {},
+        getSelection: {},
+        setSelection: { ids: [face] },
+        clearSelection: {},
+        findFaces: { ownerBody: box, role: "box.+Z" },
+        findEdges: { ownerBody: box },
+        findBodies: {},
+        getManipulators: { featureId: box },
+        measureVolume: { featureId: box },
+        measureArea: { featureId: box },
+        getBoundingBox: { featureId: box },
+        measureDistance: { a: face, b: `${box}:box.-Z` },
+        measureAngle: { a: face, b: `${box}:box.-Z` },
+        measureRadius: { featureId: box },
+        measureDiameter: { featureId: box },
+        validateDocument: {},
+        validateBody: { featureId: box },
+        validateFeature: { featureId: box },
+        listCommands: {},
+        getCommandSchema: { id: "CreateBox" },
+        getCapabilities: {},
+        previewBegin: { featureId: box, paramName: "widthMm", valueMm: 20 },
+        previewUpdate: {},
+        previewCommit: {},
+        previewCancel: {},
+      };
+      // previewUpdate/Commit/Cancel need a live previewId: drive the
+      // lifecycle inline instead of the static table above.
+      const begun = (await client.call("previewBegin", params["previewBegin"]!))[
+        "result"
+      ] as { previewId: string };
+      expect(typeof begun.previewId).toBe("string");
+      const cancelled = (await client.call("previewCancel", {
+        previewId: begun.previewId,
+      }))["result"] as { cancelled: boolean };
+      expect(cancelled.cancelled).toBe(true);
+
+      for (const m of QUERY_METHODS as readonly string[]) {
+        if (
+          m === "previewBegin" ||
+          m === "previewUpdate" ||
+          m === "previewCommit" ||
+          m === "previewCancel"
+        ) {
+          continue;
+        }
+        try {
+          const reply = await client.call(m, params[m] ?? {});
+          expect(reply["requestId"]).toBeDefined();
+          expect(reply["ok"]).toBe(true);
+          if (m === "getCommandSchema") {
+            throw new Error("getCommandSchema should reject");
+          }
+        } catch (e) {
+          const code = (e as Error & { code?: string }).code;
+          expect(typeof code).toBe("string");
+          if (m === "getCommandSchema") {
+            expect(code).toBe("NOT_IMPLEMENTED");
+          } else {
+            // Box has no radius: the call is valid wire, core says no.
+            expect(["BAD_PARAMS", "NOT_FOUND"]).toContain(code);
+          }
+        }
+      }
+    } finally {
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("missing required fields fail with errorCode + error (never hang)", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port: PORT_C + 1, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    await client.connect(TOKEN, PORT_C + 1);
+    try {
+      const cases: [string, Record<string, unknown>, string][] = [
+        ["invoke", {}, "BAD_PARAMS"],
+        ["txnBegin", {}, "BAD_PARAMS"],
+        ["getFeature", {}, "BAD_PARAMS"],
+        ["measureDistance", { a: "x:box.+Z" }, "BAD_PARAMS"],
+        ["getCommandSchema", { id: "CreateBox" }, "NOT_IMPLEMENTED"],
+        ["nope", {}, "NOT_IMPLEMENTED"],
+      ];
+      for (const [method, p, code] of cases) {
+        const err = await client.call(method, p).then(
+          () => null,
+          (e: Error) => e as Error & { code?: string },
+        );
+        expect(err, method).not.toBeNull();
+        expect(err!.code).toBe(code);
+        expect(typeof err!.message).toBe("string");
+      }
+    } finally {
+      client.closeRaw();
       relay.stop();
     }
   });

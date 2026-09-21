@@ -1,7 +1,8 @@
 // Kreoda Phase 8: flatc codegen (C++ + TypeScript together, §61).
 // Generates FlatBuffers bindings from schemas/cad_protocol.fbs using the
-// vcpkg flatc (fallback: flatc on PATH). Transport stays JSON until the
-// migration slice — this only wires generation + parity checks.
+// vcpkg flatc (fallback: flatc on PATH). Slice 7 decision B: JSON is the
+// control plane by design (see docs/SESSION_PROTOCOL_DECISION.md) — flatc
+// covers the binary mesh/data plane only.
 
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";

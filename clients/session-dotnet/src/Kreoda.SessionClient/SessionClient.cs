@@ -45,7 +45,7 @@ public sealed class SessionClient : IAsyncDisposable
         client._loop = Task.Run(() => client.ReceiveLoopAsync(client._loopCts.Token));
         try
         {
-            var hello = await client.CallAsync("hello", new Dictionary<string, object?>
+            var hello = await client.CallAsync(SessionMethods.Hello, new Dictionary<string, object?>
             {
                 ["clientType"] = clientType,
                 ["protocolVersion"] = 1,
@@ -66,10 +66,15 @@ public sealed class SessionClient : IAsyncDisposable
     public Task<JsonElement> SnapshotAsync(
         string documentId = "doc-phase1",
         CancellationToken ct = default) =>
-        CallAsync("snapshot", new Dictionary<string, object?>
+        CallAsync(SessionMethods.Snapshot, new Dictionary<string, object?>
         {
             ["documentId"] = documentId,
         }, ct);
+
+    public Task<JsonElement> InvokeAsync(
+        InvokeRequest request,
+        CancellationToken ct = default) =>
+        CallAsync(SessionMethods.Invoke, request.ToDictionary(), ct);
 
     public Task<JsonElement> InvokeAsync(
         int type,
@@ -87,8 +92,40 @@ public sealed class SessionClient : IAsyncDisposable
         };
         if (baseRevision.HasValue) p["baseRevision"] = baseRevision.Value;
         if (transactionId is not null) p["transactionId"] = transactionId;
-        return CallAsync("invoke", p, ct);
+        return CallAsync(SessionMethods.Invoke, p, ct);
     }
+
+    public Task<JsonElement> TxnBeginAsync(
+        string transactionId,
+        string documentId = "doc-phase1",
+        CancellationToken ct = default) =>
+        CallAsync(SessionMethods.TxnBegin, new TxnRequest(transactionId, documentId).ToDictionary(), ct);
+
+    public Task<JsonElement> TxnCommitAsync(
+        string transactionId,
+        string documentId = "doc-phase1",
+        CancellationToken ct = default) =>
+        CallAsync(SessionMethods.TxnCommit, new TxnRequest(transactionId, documentId).ToDictionary(), ct);
+
+    public Task<JsonElement> TxnRollbackAsync(
+        string transactionId,
+        string documentId = "doc-phase1",
+        CancellationToken ct = default) =>
+        CallAsync(SessionMethods.TxnRollback, new TxnRequest(transactionId, documentId).ToDictionary(), ct);
+
+    public Task<JsonElement> TxnForceRollbackAsync(
+        string transactionId,
+        string documentId = "doc-phase1",
+        CancellationToken ct = default) =>
+        CallAsync(SessionMethods.TxnForceRollback, new TxnRequest(transactionId, documentId).ToDictionary(), ct);
+
+    public Task<JsonElement> TxnStatusAsync(
+        string documentId = "doc-phase1",
+        CancellationToken ct = default) =>
+        CallAsync(SessionMethods.TxnStatus, new Dictionary<string, object?>
+        {
+            ["documentId"] = documentId,
+        }, ct);
 
     public async Task<JsonElement> CallAsync(
         string method,

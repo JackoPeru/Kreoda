@@ -115,9 +115,9 @@ export class SidecarManager {
   }
 
   async ping(): Promise<void> {
-    // Minimal GetCoreInfo envelope (JSON payload for Phase 0; FlatBuffers
-    // codegen replaces the payload bytes once flatc bindings land — the
-    // framing + requestId correlation stays identical).
+    // Minimal GetCoreInfo envelope (JSON command payload by design — Slice 7
+    // decision B: JSON control plane, FlatBuffers for mesh payloads only;
+    // the framing + requestId correlation stays identical).
     const payload = new TextEncoder().encode(
       JSON.stringify({
         protocolVersion: 1,

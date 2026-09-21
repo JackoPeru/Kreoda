@@ -3,12 +3,15 @@
 // protocolVersion = 1. Payload schema is schemas/cad_protocol.fbs; generated
 // bindings live in src/generated (Phase 8 flatc codegen, `pnpm codegen`).
 // This module keeps the handwritten framing + zod envelope validation as the
-// transport truth until the FlatBuffers migration slice.
+// transport truth for JSON command payloads (Slice 7 decision B: JSON control
+// plane + FlatBuffers mesh/data plane — see docs/SESSION_PROTOCOL_DECISION.md).
 // Canonical units: mm (length), rad (angle) — see @kreoda/units.
 
 import { z } from "zod";
 import * as flatbuffers from "flatbuffers";
 import { MeshUpdate } from "./generated/kreoda/protocol.js";
+
+export * from "./session-control.js";
 
 export const PROTOCOL_VERSION = 1 as const;
 

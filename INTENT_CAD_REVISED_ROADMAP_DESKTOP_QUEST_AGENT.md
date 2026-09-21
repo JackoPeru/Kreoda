@@ -604,24 +604,28 @@ C#         → Unity Quest
 
 No manually duplicated DTO definitions.
 
+Two schema sources (Slice 7 decision B, see `docs/SESSION_PROTOCOL_DECISION.md`):
+`schemas/session-control-v1.json` for the JSON control plane,
+`cad_protocol.fbs` for the FlatBuffers data (mesh) plane.
+
 ## 11.3 Transport
 
 Keep existing local transport where useful.
 
 Add network transport for Quest.
 
-Recommended first implementation:
+Recommended implementation (Slice 7 decision B):
 
 ```text
 WebSocket
 +
-FlatBuffers binary frames
+JSON control frames (+ FlatBuffers binary mesh when the Quest slice needs it)
 ```
 
 Requirements:
 
 - persistent connection
-- binary payloads
+- JSON control payloads (binary mesh stays sidecar-direct until Phase 12)
 - request/response IDs
 - server-pushed model deltas
 - protocol version
@@ -1028,7 +1032,7 @@ C#
 OpenXR
 Meta XR SDK
 Meta XR Interaction SDK where useful
-FlatBuffers C# bindings
+JSON session control DTOs + FlatBuffers C# bindings (mesh data plane)
 WebSocket transport
 ```
 
