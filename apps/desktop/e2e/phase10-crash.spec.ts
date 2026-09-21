@@ -11,20 +11,9 @@ import { execSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
+import { HERE, MAIN, type Snapshot } from "./helpers";
 
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
 const RECOVERY_DIR = path.join(os.tmpdir(), "kreoda-phase10-crash-e2e");
-
-interface BodySnapshot {
-  id: string;
-  type: string;
-  volumeMm3: number;
-}
-interface Snapshot {
-  revision: number;
-  bodies: BodySnapshot[];
-}
 
 test("hard-kill sidecar → banner → restart → autosave restore [solo]", async () => {
   test.skip(

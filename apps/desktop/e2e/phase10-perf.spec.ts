@@ -6,22 +6,10 @@ import { test, expect, _electron as electron, type Page } from "@playwright/test
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
+import { MAIN, type Snapshot } from "./helpers";
 
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
 const ICAD = path.join(os.tmpdir(), "kreoda-phase10-perf.icad");
 const STEP = path.join(os.tmpdir(), "kreoda-phase10-perf.step");
-
-interface BodySnapshot {
-  id: string;
-  type: string;
-  volumeMm3: number;
-  triangles: number;
-}
-interface Snapshot {
-  revision: number;
-  bodies: BodySnapshot[];
-}
 
 function snapOf(window: Page): Promise<Snapshot> {
   return window.evaluate(() =>

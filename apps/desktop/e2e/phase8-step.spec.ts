@@ -5,24 +5,10 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
+import { HERE, MAIN, type Snapshot } from "./helpers";
 
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
 const STEP = path.join(os.tmpdir(), "kreoda-phase8-e2e.step");
 const ICAD = path.join(os.tmpdir(), "kreoda-phase8-e2e.icad");
-
-interface BodySnapshot {
-  id: string;
-  type: string;
-  paramsMm: number[];
-  volumeMm3: number;
-  triangles: number;
-}
-interface Snapshot {
-  revision: number;
-  bodies: BodySnapshot[];
-  sketches: { id: string }[];
-}
 
 test("STEP export → import → persist", async () => {
   const app = await electron.launch({

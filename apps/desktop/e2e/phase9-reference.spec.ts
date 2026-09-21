@@ -4,9 +4,7 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
-
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
+import { HERE, MAIN } from "./helpers";
 
 interface RefPlane {
   id: string;

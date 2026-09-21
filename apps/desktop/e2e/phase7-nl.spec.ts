@@ -4,21 +4,7 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
-
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
-
-interface BodySnapshot {
-  id: string;
-  type: string;
-  paramsMm: number[];
-  volumeMm3: number;
-}
-interface Snapshot {
-  revision: number;
-  bodies: BodySnapshot[];
-  sketches: { id: string }[];
-}
+import { HERE, MAIN, type Snapshot } from "./helpers";
 
 test("command bar: plate, corner holes, views, honest fallback", async () => {
   const app = await electron.launch({

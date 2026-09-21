@@ -6,30 +6,9 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
+import { HERE, MAIN, type Snapshot } from "./helpers";
 
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
 const ICAD = path.join(os.tmpdir(), "kreoda-phase4-e2e.icad");
-
-interface BodySnapshot {
-  id: string;
-  type: string;
-  paramsMm: number[];
-  volumeMm3: number;
-  triangles: number;
-  faces: string[];
-}
-interface SketchSnapshot {
-  id: string;
-  planeKind: string;
-  points: number;
-  constraints: number;
-}
-interface Snapshot {
-  revision: number;
-  bodies: BodySnapshot[];
-  sketches: SketchSnapshot[];
-}
 
 test("sketch plate extruded to exact solid, downstream update, reopen", async () => {
   const app = await electron.launch({

@@ -5,18 +5,7 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
-
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
-
-interface BodySnapshot {
-  id: string;
-  type: string;
-  volumeMm3: number;
-}
-interface Snapshot {
-  bodies: BodySnapshot[];
-}
+import { HERE, MAIN, type Snapshot } from "./helpers";
 
 const PAIR_PLUGIN = `
 kreoda.register({

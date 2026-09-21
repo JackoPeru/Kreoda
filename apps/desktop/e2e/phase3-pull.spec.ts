@@ -3,20 +3,8 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
+import { HERE, MAIN, type Snapshot } from "./helpers";
 
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
-
-interface BodySnapshot {
-  id: string;
-  paramsMm: number[];
-  volumeMm3: number;
-  faces: string[];
-}
-interface Snapshot {
-  revision: number;
-  bodies: BodySnapshot[];
-}
 interface Anchor {
   x: number;
   y: number;

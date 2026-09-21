@@ -3,10 +3,7 @@
 // actual crash — the bundle path is identical from the banner button.
 
 import { test, expect, _electron as electron } from "@playwright/test";
-import path from "node:path";
-
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
+import { MAIN } from "./helpers";
 
 interface Bundle {
   path: string;

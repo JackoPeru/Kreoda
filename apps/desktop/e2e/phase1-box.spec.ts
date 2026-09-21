@@ -5,22 +5,9 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
+import { HERE, MAIN, type Snapshot } from "./helpers";
 
-const HERE = import.meta.dirname;
-const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
 const ICAD = path.join(os.tmpdir(), "kreoda-phase1-e2e.icad");
-
-interface BodySnapshot {
-  id: string;
-  type: string;
-  volumeMm3: number;
-  triangles: number;
-}
-interface Snapshot {
-  revision: number;
-  selectedIds: string[];
-  bodies: BodySnapshot[];
-}
 
 test("exact box → save → reopen identical", async () => {
   const app = await electron.launch({
