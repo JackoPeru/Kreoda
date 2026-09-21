@@ -51,16 +51,18 @@ test("command bar: plate, corner holes, views, honest fallback", async () => {
     await expect(preview).toBeVisible({ timeout: 5000 });
     await expect(preview).toContainText("4 ⌀6 holes");
     await preview.getByRole("button", { name: /Run 1 step/ }).click();
+    // Slice 5 cumulative HolePattern: Box + ONE pattern tip (2 features,
+    // 1 body); the tip is the cumulative cut (base minus ALL four tools).
     await expect
       .poll(async () => ((await snap()) as Snapshot).bodies.length, {
         timeout: 30000,
       })
-      .toBe(5);
+      .toBe(2);
     const s2 = (await snap()) as Snapshot;
-    const holes = s2.bodies.filter((b) => b.type === "Hole");
-    expect(holes).toHaveLength(4);
+    const holes = s2.bodies.filter((b) => b.type === "HolePattern");
+    expect(holes).toHaveLength(1);
     for (const h of holes) {
-      expect(h.volumeMm3).toBeCloseTo(100 * 60 * 10 - Math.PI * 9 * 10, 0);
+      expect(h.volumeMm3).toBeCloseTo(100 * 60 * 10 - 4 * Math.PI * 9 * 10, 0);
     }
 
     // 3. Genuine prose without a provider: honest offline message.

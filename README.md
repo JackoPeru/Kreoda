@@ -45,6 +45,10 @@ cmake --build native/kreoda-core/build --config Release
 .\native\kreoda-core\build\Release\kreoda-core.exe --self-test
 ```
 
+Release builds require the real OCCT kernel: without OCCT the configure step fails unless you explicitly opt in with `-DKREODA_ALLOW_STUB_CORE=ON`, and a stub core must never ship.
+
+Session protocol is decision B (JSON control plane + FlatBuffers mesh data plane, `protocolVersion = 1`): see `docs/SESSION_PROTOCOL_DECISION.md` and `schemas/session-control-v1.json`. Quest is a session client of the authoritative core, never a second CAD implementation.
+
 ## Release packaging
 
 ```powershell

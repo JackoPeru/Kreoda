@@ -183,7 +183,7 @@ Do not write the geometry kernel in TypeScript.
 
 ## 2.2 Geometry kernel: Open CASCADE Technology 8.0.1
 
-Use **OCCT 8.0.1** as the primary geometric kernel.
+Use **OCCT 8.0.1** as the primary geometric kernel. Release builds require the real kernel: a stub core builds only with explicit opt-in (`-DKREODA_ALLOW_STUB_CORE=ON`) and must never ship.
 
 Required OCCT areas include:
 
@@ -502,13 +502,13 @@ Electron starts it with `child_process.spawn`.
 
 # 8. IPC protocol
 
-Use **FlatBuffers** with a small custom framed transport over stdin/stdout or named pipes.
+Use a small custom framed transport over stdin/stdout or named pipes (session protocol decision B, see `docs/SESSION_PROTOCOL_DECISION.md`: JSON control plane + FlatBuffers data plane).
 
 Initial transport:
 
 ```text
 uint32 little-endian payloadLength
-uint8[payloadLength] FlatBuffer payload
+uint8[payloadLength] payload (JSON command envelope; FlatBuffers only for mesh payloads)
 ```
 
 Every request has:
@@ -628,6 +628,8 @@ Document
 │   └── Feature: Pattern UUID
 └── Sketch UUID
 ```
+
+Body vs Feature (final architecture): a **Body** is an ordered feature history plus its **tip** (`tip == history.back()` in every valid state); only the tip renders. A **Feature** is one committed record. A user-level hole pattern is ONE cumulative `HolePattern` record advancing the target body (one Undo step, tip = base minus ALL tools) — never one body per hole.
 
 Each feature conceptually contains:
 

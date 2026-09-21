@@ -128,7 +128,7 @@ constraints
 transactions
 ```
 
-Neither Desktop, Quest nor AI owns canonical geometry.
+Neither Desktop, Quest nor AI owns canonical geometry. Body vs Feature: a **Body** is an ordered feature history plus its **tip** (only the tip renders); a hole pattern is ONE cumulative `HolePattern` record advancing the target body (one Undo step) — Quest, like Desktop, reads bodies/tips through the session protocol, never a body-per-hole copy.
 
 ## 2.2 Quest is a client, not another CAD implementation
 
@@ -280,6 +280,8 @@ It must run:
 - Electron E2E tests
 - import/export tests
 - current Phase 9 feature tests
+
+Release builds require the real OCCT kernel: a stub core builds only with explicit opt-in (`-DKREODA_ALLOW_STUB_CORE=ON`) and must never ship.
 
 Any failing subsystem must fail the command.
 

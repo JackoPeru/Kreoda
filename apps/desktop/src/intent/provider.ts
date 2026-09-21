@@ -573,7 +573,19 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
           const targetId = selectedBody();
           if (!targetId) throw new Error("Select a solid body first");
           const store = useDocumentUiStore.getState();
-          const mesh = store.meshes[targetId];
+          // Tips-only hydration prunes non-tip ancestor meshes: read corner
+          // math from the owning body's TIP mesh. The tip derives from the
+          // base by subtractive cuts, so plate-corner extents are identical
+          // (downstream cuts sit far from the insets); the committed
+          // targetId below is unchanged, preserving deps/sibling structure.
+          const owner = store.bodies.find((b) => b.history.includes(targetId));
+          const meshId = owner ? owner.tipFeatureId : targetId;
+          let mesh = store.meshes[meshId];
+          if (!mesh) {
+            const { pullFeatureMesh } = await import("../model/sync");
+            await pullFeatureMesh(meshId, store.revision);
+            mesh = useDocumentUiStore.getState().meshes[meshId];
+          }
           if (!mesh) throw new Error("Body mesh not loaded yet");
           const topId = topFaceOf(mesh);
           if (!topId) throw new Error("No top face found on the body");
