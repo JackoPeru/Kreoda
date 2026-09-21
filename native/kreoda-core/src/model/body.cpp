@@ -91,11 +91,27 @@ void BodyStore::attach(const std::string& featureId, const std::string& type,
 }
 
 void BodyStore::noteCommitted(const std::string& featureId,
-                              const std::string& type,
-                              const std::vector<std::string>& dependsOn,
-                              bool isNew) {
-  if (!isNew) return;  // rebuild: membership/history/tip already correct
+                               const std::string& type,
+                               const std::vector<std::string>& dependsOn,
+                               bool isNew) {
+  if (!isNew) {
+    noteRecomputed(featureId);  // Slice 3: tip follows the recompute result
+    return;
+  }
   attach(featureId, type, dependsOn);
+}
+
+void BodyStore::noteRecomputed(const std::string& featureId) {
+  for (auto& b : bodies_) {
+    for (const auto& id : b.history) {
+      if (id == featureId) {
+        if (!b.history.empty() && b.tipFeatureId != b.history.back()) {
+          b.tipFeatureId = b.history.back();
+        }
+        return;
+      }
+    }
+  }
 }
 
 bool BodyStore::removeFeature(const std::string& featureId) {

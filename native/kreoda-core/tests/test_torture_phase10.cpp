@@ -20,6 +20,7 @@
 #include "../src/features/hole/hole.h"
 #include "../src/features/primitives/primitives.h"
 #include "../src/features/sketch/sketch_commands.h"
+#include "../src/model/body.h"
 #include "../src/model/shapes.h"
 #include "../src/persistence/ocaf_live.h"
 #include "../src/protocol/dispatcher.h"
@@ -185,6 +186,85 @@ TEST(Torture10, TopologySurvivesParentMutations) {
   // Absurd fillet radius fails honestly, old geometry kept.
   EXPECT_FALSE(kreoda::RebuildFeature("tf", "radiusMm", 100000, &err));
   EXPECT_FALSE(err.empty());
+}
+
+// Slice 3: a downstream failure keeps the tip at last good — old geometry,
+// same body/history/tip, honest error, never a silently stale tip.
+TEST(Torture10, UpstreamEditFailureKeepsTipAtLastGood) {
+  NewDoc("tt-tip");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("tbt", 100, 50, 20, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("tht", "tbt", "box.+Z", 50, 25, 8,
+                                        "throughAll", 0, &err))
+      << err;
+  ASSERT_TRUE(kreoda::CreateFilletFeature(
+                  "tft", "tbt", {"tbt:edge.lin.box.+X~box.-Z"}, 2, &err))
+      << err;
+  kreoda::BodyRecord before;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("tft", &before));
+  const double holeVol = VolumeOf("tht");
+  const double filletVol = VolumeOf("tft");
+
+  // Shrinking width 100→20 pushes the hole at x=50 off the face: honest
+  // failure with everything kept (params, volumes, body, tip).
+  EXPECT_FALSE(kreoda::RebuildFeature("tbt", "widthMm", 20, &err));
+  EXPECT_NE(err.find("misses the solid"), std::string::npos) << err;
+  EXPECT_DOUBLE_EQ(ParamOf("tbt", "widthMm"), 100.0);
+  EXPECT_DOUBLE_EQ(VolumeOf("tht"), holeVol);
+  EXPECT_DOUBLE_EQ(VolumeOf("tft"), filletVol);
+  kreoda::BodyRecord kept;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("tft", &kept));
+  EXPECT_EQ(kept.bodyId, before.bodyId);
+  EXPECT_EQ(kept.history, before.history);
+  EXPECT_EQ(kept.tipFeatureId, "tft");
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
+#if KREODA_WITH_OCCT
+  kreoda::ShapeRecord tip;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("tft", &tip));
+  EXPECT_FALSE(tip.shape.IsNull());
+#endif
+}
+
+// Slice 3: save/open preserves body/history/tip with refs resolving after.
+TEST(Torture10, SaveOpenPreservesTipAndRefs) {
+  NewDoc("tt-save");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("tbs", 100, 50, 20, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("ths", "tbs", "box.+Z", 50, 25, 8,
+                                        "throughAll", 0, &err))
+      << err;
+  ASSERT_TRUE(kreoda::CreateFilletFeature(
+                  "tfs", "tbs", {"tbs:edge.lin.box.+X~box.-Z"}, 2, &err))
+      << err;
+  kreoda::BodyRecord before;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("tfs", &before));
+  const double holeVol = VolumeOf("ths");
+  const fs::path dir = fs::temp_directory_path() / "kreoda-torture-tip";
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  // NOTE: filename must avoid \t \n \r sequences (JSON escapes in rpc).
+  const std::string path = (dir / "state.icad").string();
+  const std::string saved = saveRpc("s", "tt-save", path);
+  ASSERT_TRUE(ok(saved)) << saved;
+
+  NewDoc("tt-save2");
+  ASSERT_TRUE(ok(openRpc("o", "tt-save2", path)));
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  kreoda::BodyRecord after;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("tfs", &after));
+  EXPECT_EQ(after.bodyId, before.bodyId);
+  EXPECT_EQ(after.history, before.history);
+  EXPECT_EQ(after.tipFeatureId, "tfs");
+  EXPECT_NEAR(VolumeOf("ths"), holeVol, 1.0);
+  EXPECT_TRUE(TopFaceResolves("ths"));
+#if KREODA_WITH_OCCT
+  kreoda::ShapeRecord box;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("tbs", &box));
+  TopoDS_Edge edge;
+  EXPECT_TRUE(kreoda::FindEdgeByRole(box.shape, "tbs", box.type,
+                                     "edge.lin.box.+X~box.-Z", &edge));
+#endif
+  fs::remove_all(dir, ec);
 }
 
 // §10.3: extrusion-length change + sketch-geometry change reflow downstream.

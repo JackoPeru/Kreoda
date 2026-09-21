@@ -3,7 +3,10 @@
 #include <filesystem>
 
 #include "../src/document/document_store.h"
+#include "../src/features/fillet/fillet.h"
+#include "../src/features/hole/hole.h"
 #include "../src/features/primitives/primitives.h"
+#include "../src/model/body.h"
 #include "../src/model/shapes.h"
 #include "../src/persistence/ocaf_live.h"
 #include "../src/protocol/dispatcher.h"
@@ -189,6 +192,147 @@ TEST(Topology, SelectionSurvivesSaveOpen) {
   EXPECT_NE(resolved.role.find("box.+Z"), std::string::npos);
   EXPECT_DOUBLE_EQ(Get("tsave").volumeMm3, 100000);
 
+  std::error_code ec;
+  fs::remove(icad, ec);
+}
+
+// Slice 3: upstream dimensional edits keep the body tip on the recomputed
+// last history feature; unambiguous hole face refs resolve, broken ones
+// fail honestly (never a silent rebind).
+TEST(Topology, UpstreamEditKeepsBodyTipAndFaceRefs) {
+  NewDoc("topo-tip1");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("tbox2", 100, 50, 20, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("thole2", "tbox2", "box.+Z", 50, 25,
+                                        8, "throughAll", 0, &err))
+      << err;
+  kreoda::BodyRecord before;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("thole2", &before));
+  const std::string bodyId = before.bodyId;
+
+  kreoda::OcafLive::FaceSelection sel;
+  ASSERT_TRUE(kreoda::OcafLive::instance().SelectFace("tbox2", "box.+Z", &sel,
+                                                      &err))
+      << err;
+  ASSERT_TRUE(kreoda::RebuildFeature("tbox2", "widthMm", 150, &err)) << err;
+
+  // Same body, tip still the hole with recomputed (larger) volume.
+  kreoda::BodyRecord after;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("thole2", &after));
+  EXPECT_EQ(after.bodyId, bodyId);
+  EXPECT_EQ(after.tipFeatureId, "thole2");
+  EXPECT_DOUBLE_EQ(Get("tbox2").volumeMm3, 150 * 50 * 20);
+  EXPECT_NEAR(Get("thole2").volumeMm3,
+              150.0 * 50.0 * 20.0 - 3.14159265358979 * 16.0 * 20.0, 2.0);
+  // Unambiguous refs resolve on the recomputed downstream shape.
+  TopoDS_Face face;
+  EXPECT_TRUE(kreoda::FindFaceByRole(Get("thole2").shape, "thole2", "Hole",
+                                     "box.+Z", &face));
+  const auto resolved = kreoda::OcafLive::instance().ResolveSelection(sel);
+  EXPECT_TRUE(resolved.valid);
+  EXPECT_FALSE(Get("thole2").shape.IsNull());  // tip B-Rep replaced, not stale
+}
+
+TEST(Topology, FilletEdgeRefSurvivesUpstreamEdit) {
+  NewDoc("topo-tip2");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("fbox2", 100, 50, 20, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateFilletFeature(
+                  "ffil2", "fbox2", {"fbox2:edge.lin.box.+X~box.+Z"}, 2, &err))
+      << err;
+  kreoda::BodyRecord before;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("ffil2", &before));
+  ASSERT_TRUE(kreoda::RebuildFeature("fbox2", "widthMm", 130, &err)) << err;
+
+  // Tip stays the fillet in the same body; the unambiguous edge ref still
+  // resolves on the edited box and drives a downstream rebuild.
+  kreoda::BodyRecord after;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("ffil2", &after));
+  EXPECT_EQ(after.bodyId, before.bodyId);
+  EXPECT_EQ(after.tipFeatureId, "ffil2");
+  TopoDS_Edge edge;
+  EXPECT_TRUE(kreoda::FindEdgeByRole(Get("fbox2").shape, "fbox2", "Box",
+                                     "edge.lin.box.+X~box.+Z", &edge));
+  ASSERT_TRUE(kreoda::RebuildFeature("ffil2", "radiusMm", 3, &err)) << err;
+  kreoda::BodyRecord reanchored;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("ffil2",
+                                                           &reanchored));
+  EXPECT_EQ(reanchored.tipFeatureId, "ffil2");
+  EXPECT_FALSE(Get("ffil2").shape.IsNull());
+}
+
+TEST(Topology, UndoRedoStepsBodyTip) {
+  NewDoc("topo-tip3");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("ubox2", 100, 50, 20, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("uhole2", "ubox2", "box.+Z", 50, 25,
+                                        8, "throughAll", 0, &err))
+      << err;
+  kreoda::BodyRecord full;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("uhole2", &full));
+  const std::string bodyId = full.bodyId;
+
+  // Undo steps the tip back to the root with no ghost body entry.
+  ASSERT_NE(kreoda_test::rpcText(
+                R"({"protocolVersion":1,"requestId":"tu1","documentId":"topo-tip3","type":8})")
+                .find("\"status\":\"ok\""),
+            std::string::npos);
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("uhole2"));
+  EXPECT_FALSE(
+      kreoda::BodyStore::instance().bodyForFeature("uhole2", nullptr));
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  kreoda::BodyRecord stepped;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("ubox2", &stepped));
+  EXPECT_EQ(stepped.bodyId, bodyId);
+  EXPECT_EQ(stepped.tipFeatureId, "ubox2");
+
+  // Redo steps the tip forward to the hole again.
+  ASSERT_NE(kreoda_test::rpcText(
+                R"({"protocolVersion":1,"requestId":"tr1","documentId":"topo-tip3","type":9})")
+                .find("\"status\":\"ok\""),
+            std::string::npos);
+  kreoda::BodyRecord redone;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("uhole2", &redone));
+  EXPECT_EQ(redone.bodyId, bodyId);
+  EXPECT_EQ(redone.tipFeatureId, "uhole2");
+  EXPECT_FALSE(Get("uhole2").shape.IsNull());
+}
+
+TEST(Topology, SaveOpenPreservesBodyTip) {
+  NewDoc("topo-tip4");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("sbox2", 100, 50, 20, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("shole2", "sbox2", "box.+Z", 50, 25,
+                                        8, "throughAll", 0, &err))
+      << err;
+  kreoda::BodyRecord before;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("shole2", &before));
+  const double volBefore = Get("shole2").volumeMm3;
+  const fs::path icad = fs::temp_directory_path() / "kreoda-topo-tip.icad";
+  const std::string save =
+      std::string(
+          R"({"protocolVersion":1,"requestId":"ts1","documentId":"topo-tip4","type":10,"path":")") +
+      icad.string() + "\"}";
+  ASSERT_NE(kreoda_test::rpcText(save).find("\"status\":\"ok\""),
+            std::string::npos);
+
+  NewDoc("topo-tip4b");
+  const std::string open =
+      std::string(
+          R"({"protocolVersion":1,"requestId":"to1","documentId":"topo-tip4b","type":11,"path":")") +
+      icad.string() + "\"}";
+  ASSERT_NE(kreoda_test::rpcText(open).find("\"status\":\"ok\""),
+            std::string::npos)
+      << open;
+  kreoda::BodyRecord after;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("shole2", &after));
+  EXPECT_EQ(after.bodyId, before.bodyId);
+  EXPECT_EQ(after.history, before.history);
+  EXPECT_EQ(after.tipFeatureId, "shole2");
+  EXPECT_DOUBLE_EQ(Get("shole2").volumeMm3, volBefore);
+  TopoDS_Face face;
+  EXPECT_TRUE(kreoda::FindFaceByRole(Get("shole2").shape, "shole2", "Hole",
+                                     "box.+Z", &face));
   std::error_code ec;
   fs::remove(icad, ec);
 }

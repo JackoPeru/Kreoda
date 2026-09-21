@@ -14,6 +14,7 @@
 #include "../src/exchange/threemf_exchange.h"
 #include "../src/features/hole/hole.h"
 #include "../src/features/primitives/primitives.h"
+#include "../src/model/body.h"
 #include "../src/model/shapes.h"
 #include "../src/topology/face_roles.h"
 
@@ -117,6 +118,47 @@ TEST(TopologyImports, HoleOnStepImportFace) {
   ASSERT_EQ(ids.size(), 1u);
   ASSERT_TRUE(holeCenter("topo-hole-step", ids[0], &err)) << err;
   EXPECT_NEAR(volumeOf("topo-hole-step"), kPlateVol - kHoleVol, 1.0);
+  fs::remove(file, ec);
+}
+
+// Slice 3: an imported solid opens a body; a hole on it advances the tip;
+// the unambiguous face role resolves on the recomputed downstream shape.
+TEST(TopologyImports, StepImportOpensBodyAndHoleAdvancesTip) {
+  std::string err;
+  ASSERT_TRUE(makePlate(&err)) << err;
+  const fs::path file =
+      fs::temp_directory_path() / "kreoda-topo-import-tip.step";
+  std::error_code ec;
+  ASSERT_TRUE(kreoda::ExportStep(file.string(), &err)) << err;
+  kreoda::DocumentStore::instance().create("topo-import-tip-doc");
+  std::vector<std::string> ids;
+  ASSERT_TRUE(kreoda::ImportStep(file.string(), &ids, &err)) << err;
+  ASSERT_EQ(ids.size(), 1u);
+
+  // The import is a fresh root body; the hole joins it and becomes the tip.
+  kreoda::BodyRecord root;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature(ids[0], &root));
+  EXPECT_EQ(root.history, (std::vector<std::string>{ids[0]}));
+  EXPECT_EQ(root.tipFeatureId, ids[0]);
+  ASSERT_TRUE(holeCenter("topo-hole-step-tip", ids[0], &err)) << err;
+  kreoda::BodyRecord after;
+  ASSERT_TRUE(
+      kreoda::BodyStore::instance().bodyForFeature("topo-hole-step-tip",
+                                                   &after));
+  EXPECT_EQ(after.bodyId, root.bodyId);
+  EXPECT_EQ(after.history,
+            (std::vector<std::string>{ids[0], "topo-hole-step-tip"}));
+  EXPECT_EQ(after.tipFeatureId, "topo-hole-step-tip");
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  EXPECT_NEAR(volumeOf("topo-hole-step-tip"), kPlateVol - kHoleVol, 1.0);
+#if KREODA_WITH_OCCT
+  kreoda::ShapeRecord hole;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("topo-hole-step-tip", &hole));
+  EXPECT_FALSE(hole.shape.IsNull());  // tip B-Rep valid, never stale
+  TopoDS_Face face;
+  EXPECT_TRUE(kreoda::FindFaceByRole(hole.shape, "topo-hole-step-tip",
+                                     hole.type, "box.+Z", &face));
+#endif
   fs::remove(file, ec);
 }
 

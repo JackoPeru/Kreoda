@@ -6,6 +6,7 @@
 #include "document/document_store.h"
 #include "features/evaluate.h"
 #include "features/sketch/sketch_json.h"
+#include "model/body.h"
 #include "model/feature_graph.h"
 #include "model/shapes.h"
 
@@ -242,6 +243,8 @@ bool UpdateSketchFeature(const std::string& sketchId,
   for (const auto& s : ShapeStore::instance().listInOrder()) {
     if (TheFeatureGraph().isGeometryDirty(s.featureId)) shapeSnap[s.featureId] = s;
   }
+  // Slice 3: tip stays at last good on downstream failure.
+  const std::vector<BodyRecord> bodySnap = BodyStore::instance().bodies();
   std::map<std::string, SketchFeature> sketchSnap{{sketchId, prev}};
   SketchStore::instance().put(next);
   if (!OcafLive::instance().BeginCommand(error)) {
@@ -261,6 +264,7 @@ bool UpdateSketchFeature(const std::string& sketchId,
   if (!report.ok) {
     SketchStore::instance().put(prev);
     for (const auto& [id, s] : shapeSnap) ShapeStore::instance().put(s);
+    BodyStore::instance().replaceAll(bodySnap);
     OcafLive::instance().AbortCommand();
     if (error) *error = report.firstError;
     return false;

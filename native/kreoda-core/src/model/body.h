@@ -56,9 +56,14 @@ class BodyStore {
 
   // Incremental commit hook (called by CommitShape AFTER the OCAF mirror
   // succeeds, so store/OCAF/body never diverge; rebuilds with isNew=false
-  // are idempotent no-ops — history order and tip are preserved).
+  // re-anchor the tip (Slice 3 tip-follow — normally a no-op since history
+  // order never changes; failures never reach here, so the tip always names
+  // the last successfully recomputed history feature).
   void noteCommitted(const std::string& featureId, const std::string& type,
                      const std::vector<std::string>& dependsOn, bool isNew);
+  // Slice 3 tip-follow: after a successful recompute, repair any tip drift
+  // back to history.back(). No-op when already anchored or unknown id.
+  void noteRecomputed(const std::string& featureId);
   // Rollback helper (hole-pattern / multi-import abort paths): drops the
   // feature from its body; an emptied body vanishes; a removed tip falls
   // back to the new history.back().

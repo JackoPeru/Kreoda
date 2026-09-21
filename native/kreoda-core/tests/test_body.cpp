@@ -17,6 +17,11 @@
 #include "../src/model/shapes.h"
 #include "../src/persistence/icad_zip.h"
 #include "../src/persistence/ocaf_live.h"
+#if KREODA_WITH_OCCT
+#include <BRepCheck_Analyzer.hxx>
+
+#include "../src/topology/face_roles.h"
+#endif
 
 #include "rpc_text.h"
 
@@ -198,6 +203,186 @@ TEST(Bodies, SaveOpenKeepsBodyIdentity) {
   ASSERT_TRUE(BodyOf("bgh", &b));
   EXPECT_EQ(b.history, (std::vector<std::string>{"bga", "bgh"}));
   EXPECT_EQ(b.tipFeatureId, "bgh");
+  std::error_code ec;
+  fs::remove(icad, ec);
+#else
+  GTEST_SKIP() << "needs OCCT + minizip-ng (vcpkg build)";
+#endif
+}
+
+// Slice 3 TEST E: Box → Hole → Pattern → Fillet, then an upstream Box width
+// edit. Pins: same bodyId, downstream recompute in order (volumes track the
+// new box), valid B-Rep on every history member (the CommitShape BRepCheck
+// gate — asserted, not assumed), unambiguous refs still resolve (hole face
+// role, fillet edge). Pattern members are base-minus-own-hole here;
+// cumulative pattern geometry is Slice 5 (counts/tip pinned, not volumes).
+#if KREODA_WITH_OCCT
+TEST(Bodies, UpstreamEditRecomputesDownstreamAndKeepsTip) {
+  NewDoc("bd-tip");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("eb", 120, 60, 20, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("eh", "eb", "box.+Z", 30, 30, 8,
+                                        "throughAll", 0, &err))
+      << err;
+  const std::vector<std::pair<double, double>> pts = {{90, 15}, {90, 45}};
+  const std::vector<std::string> pids = {"ehp1", "ehp2"};
+  std::vector<std::string> created;
+  ASSERT_TRUE(kreoda::CreateHolePatternFeature("eb", "box.+Z", pts, 6,
+                                               "throughAll", 0, pids, &created,
+                                               &err))
+      << err;
+  ASSERT_TRUE(kreoda::CreateFilletFeature(
+                  "ef", "eb", {"eb:edge.lin.box.+X~box.+Z"}, 2, &err))
+      << err;
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  kreoda::BodyRecord before;
+  ASSERT_TRUE(BodyOf("ef", &before));
+  EXPECT_EQ(before.history,
+            (std::vector<std::string>{"eb", "eh", "ehp1", "ehp2", "ef"}));
+  EXPECT_EQ(before.tipFeatureId, "ef");
+  const std::string bodyId = before.bodyId;
+
+  // Upstream edit: width 120 → 150. All downstream must recompute in order.
+  ASSERT_TRUE(kreoda::RebuildFeature("eb", "widthMm", 150, &err)) << err;
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  kreoda::BodyRecord after;
+  ASSERT_TRUE(BodyOf("ef", &after));
+  EXPECT_EQ(after.bodyId, bodyId);  // same body, never a duplicate
+  EXPECT_EQ(after.history, before.history);  // counts stable
+  EXPECT_EQ(after.tipFeatureId, "ef");       // tip follows the recompute
+
+  // Recompute consistency: every downstream volume tracks the new box
+  // (150×60×20 = 180000); through-holes remove pi*r^2*depth each.
+  auto vol = [](const std::string& id) {
+    kreoda::ShapeRecord rec;
+    EXPECT_TRUE(kreoda::ShapeStore::instance().get(id, &rec)) << id;
+    return rec.volumeMm3;
+  };
+  EXPECT_NEAR(vol("eb"), 180000.0, 1.0);
+  EXPECT_NEAR(vol("eh"), 180000.0 - 3.14159265358979 * 16.0 * 20.0, 5.0);
+  EXPECT_NEAR(vol("ehp1"), 180000.0 - 3.14159265358979 * 9.0 * 20.0, 5.0);
+  EXPECT_NEAR(vol("ehp2"), 180000.0 - 3.14159265358979 * 9.0 * 20.0, 5.0);
+  EXPECT_GT(vol("ef"), 0.0);
+  EXPECT_LT(vol("ef"), vol("eb"));
+
+  // Valid B-Rep on every history member (never a null/stale tip shape).
+  for (const auto& id : after.history) {
+    kreoda::ShapeRecord rec;
+    ASSERT_TRUE(kreoda::ShapeStore::instance().get(id, &rec)) << id;
+    EXPECT_FALSE(rec.shape.IsNull()) << id;
+  }
+  {
+    kreoda::ShapeRecord tip;
+    ASSERT_TRUE(kreoda::ShapeStore::instance().get("ef", &tip));
+    EXPECT_TRUE(BRepCheck_Analyzer(tip.shape).IsValid(tip.shape));
+  }
+  // Unambiguous refs resolve against the recomputed geometry.
+  {
+    kreoda::ShapeRecord hole, box;
+    ASSERT_TRUE(kreoda::ShapeStore::instance().get("eh", &hole));
+    TopoDS_Face face;
+    EXPECT_TRUE(
+        kreoda::FindFaceByRole(hole.shape, "eh", hole.type, "box.+Z", &face));
+    ASSERT_TRUE(kreoda::ShapeStore::instance().get("eb", &box));
+    TopoDS_Edge edge;
+    EXPECT_TRUE(kreoda::FindEdgeByRole(box.shape, "eb", box.type,
+                                       "edge.lin.box.+X~box.+Z", &edge));
+  }
+  // The fillet edge ref still drives a rebuild (proves it resolves
+  // downstream of the upstream edit); the tip stays put with fresh volume.
+  const double filletBefore = vol("ef");
+  ASSERT_TRUE(kreoda::RebuildFeature("ef", "radiusMm", 2.5, &err)) << err;
+  EXPECT_NE(vol("ef"), filletBefore);
+  kreoda::BodyRecord reanchored;
+  ASSERT_TRUE(BodyOf("ef", &reanchored));
+  EXPECT_EQ(reanchored.bodyId, bodyId);
+  EXPECT_EQ(reanchored.tipFeatureId, "ef");
+}
+#else
+TEST(Bodies, UpstreamEditRecomputesDownstreamAndKeepsTip) {
+  GTEST_SKIP() << "needs OCCT (vcpkg build)";
+}
+#endif
+
+// Slice 3 TEST F-core: Undo/Redo across tips + save/open identity.
+// Undo steps the tip back with no duplicate bodies or ghost shapes;
+// Redo steps it forward; save/open preserves body/history/tip.
+TEST(Bodies, UndoRedoMovesTipWithoutGhosts) {
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+  NewDoc("bd-ur");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("fb", 100, 50, 20, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("fh", "fb", "box.+Z", 50, 25, 8,
+                                        "throughAll", 0, &err))
+      << err;
+  ASSERT_TRUE(kreoda::CreateFilletFeature(
+                  "ff", "fb", {"fb:edge.lin.box.+X~box.+Z"}, 2, &err))
+      << err;
+  kreoda::BodyRecord full;
+  ASSERT_TRUE(BodyOf("ff", &full));
+  const std::string bodyId = full.bodyId;
+  EXPECT_EQ(full.tipFeatureId, "ff");
+  kreoda::ShapeRecord holeBefore, filletBefore;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("fh", &holeBefore));
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("ff", &filletBefore));
+
+  // Undo the fillet: tip steps back, no duplicate body, no ghost shape.
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"ur-u1","documentId":"bd-ur","type":8})")));
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("ff"));
+  EXPECT_FALSE(BodyOf("ff", nullptr));  // undone id owns no body entry
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  kreoda::BodyRecord stepped;
+  ASSERT_TRUE(BodyOf("fh", &stepped));
+  EXPECT_EQ(stepped.bodyId, bodyId);
+  EXPECT_EQ(stepped.history, (std::vector<std::string>{"fb", "fh"}));
+  EXPECT_EQ(stepped.tipFeatureId, "fh");
+
+  // Undo the hole: tip back at the root.
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"ur-u2","documentId":"bd-ur","type":8})")));
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("fh"));
+  EXPECT_FALSE(BodyOf("fh", nullptr));
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  kreoda::BodyRecord root;
+  ASSERT_TRUE(BodyOf("fb", &root));
+  EXPECT_EQ(root.bodyId, bodyId);
+  EXPECT_EQ(root.tipFeatureId, "fb");
+
+  // Redo both: tip forward, identical geometry, still one body.
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"ur-r1","documentId":"bd-ur","type":9})")));
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"ur-r2","documentId":"bd-ur","type":9})")));
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  kreoda::BodyRecord restored;
+  ASSERT_TRUE(BodyOf("ff", &restored));
+  EXPECT_EQ(restored.bodyId, bodyId);
+  EXPECT_EQ(restored.history, full.history);
+  EXPECT_EQ(restored.tipFeatureId, "ff");
+  kreoda::ShapeRecord holeAfter, filletAfter;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("fh", &holeAfter));
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("ff", &filletAfter));
+  EXPECT_NEAR(holeAfter.volumeMm3, holeBefore.volumeMm3, 1.0);
+  EXPECT_NEAR(filletAfter.volumeMm3, filletBefore.volumeMm3, 1.0);
+
+  // Save/Open preserves body/history/tip (no duplication on adopt).
+  const fs::path icad = fs::temp_directory_path() / "kreoda-tip-undo.icad";
+  const std::string saveReq =
+      std::string(R"({"protocolVersion":1,"requestId":"ur-s","documentId":"bd-ur","type":10,"path":")") +
+      icad.string() + "\"}";
+  ASSERT_TRUE(ok(rpc(saveReq))) << saveReq;
+  NewDoc("bd-ur2");
+  const std::string openReq =
+      std::string(R"({"protocolVersion":1,"requestId":"ur-o","documentId":"bd-ur2","type":11,"path":")") +
+      icad.string() + "\"}";
+  ASSERT_TRUE(ok(rpc(openReq))) << openReq;
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  kreoda::BodyRecord opened;
+  ASSERT_TRUE(BodyOf("ff", &opened));
+  EXPECT_EQ(opened.bodyId, bodyId);  // deterministic root-derived id
+  EXPECT_EQ(opened.history, full.history);
+  EXPECT_EQ(opened.tipFeatureId, "ff");
   std::error_code ec;
   fs::remove(icad, ec);
 #else

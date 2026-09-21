@@ -4,6 +4,7 @@
 
 #include "document/document_store.h"
 #include "expressions/expressions.h"
+#include "model/body.h"
 #include "model/commit.h"
 #include "model/feature_graph.h"
 #include "model/shapes.h"
@@ -344,6 +345,8 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
   for (const auto& r : ShapeStore::instance().listInOrder()) {
     snapshot[r.featureId] = r;
   }
+  // Slice 3: tip stays at last good on failure — restore alongside shapes.
+  const std::vector<BodyRecord> bodySnap = BodyStore::instance().bodies();
   // Previous formula map for rollback (restored on abort with the params).
   const std::map<std::string, std::string> prevExpr =
       ExpressionStore::instance().forFeature(featureId);
@@ -361,6 +364,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
   }
   if (!OcafLive::instance().BeginCommand(error)) {
     for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
+    BodyStore::instance().replaceAll(bodySnap);
     ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
     return false;
   }
@@ -371,6 +375,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     if (!MirrorFeatureExpressions(featureId, &exprErr)) {
       OcafLive::instance().AbortCommand();
       for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
+      BodyStore::instance().replaceAll(bodySnap);
       ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
       // C7: aborted NewChild/AddShape labels are undone by OCAF but the
       // label maps still point at them — rebuild maps from the live doc.
@@ -385,6 +390,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     if (!EvaluateAllExpressions(&exprChanged, &evalErr)) {
       OcafLive::instance().AbortCommand();
       for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
+      BodyStore::instance().replaceAll(bodySnap);
       ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
       { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
       if (error) *error = evalErr;
@@ -401,6 +407,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
       });
   if (!report.ok) {
     for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
+    BodyStore::instance().replaceAll(bodySnap);
     ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
     OcafLive::instance().AbortCommand();
     { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
