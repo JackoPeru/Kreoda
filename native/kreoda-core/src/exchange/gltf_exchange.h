@@ -5,8 +5,8 @@
 
 namespace kreoda {
 
-// glTF 2.0 mesh exchange (hand-written mesh profile, no external dep),
-// Phase 8 (§61). Units follow the glTF convention (meters); the model is
+// glTF 2.0 mesh exchange (cgltf reader + mesh-profile writer), Phase 8
+// (§61). Units follow the glTF convention (meters); the model is
 // millimeters, converted explicitly both ways. Z-up model data is stored
 // Y-up per the glTF convention and converted back on import, so round-trips
 // are exact and third-party viewers show the part upright.
