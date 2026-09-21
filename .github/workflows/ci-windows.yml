@@ -27,7 +27,7 @@ jobs:
       - name: JS unit tests
         run: pnpm -r test
 
-      - name: Setup vcpkg (manifest: OCCT 8.0.1, release-only triplet)
+      - name: "Setup vcpkg (manifest: OCCT 8.0.1, release-only triplet)"
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
@@ -47,6 +47,14 @@ jobs:
         run: >
           ./native/kreoda-core/build/Release/kreoda-core.exe --self-test;
           ctest --test-dir native/kreoda-core/build -C Release --output-on-failure
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: .NET build + tests
+        run: dotnet test clients/session-dotnet/Kreoda.Session.sln -c Release
 
       - name: Build desktop shell
         run: pnpm --filter @kreoda/desktop build

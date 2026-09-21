@@ -8,6 +8,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(WITH_OCCT "Link OpenCASCADE 8.0.1 (full B-Rep kernel)" ON)
+# Release safety: a normal/full build must never silently fall back to the
+# stub core (box mesh generator). Only explicit protocol/bootstrap testing
+# may opt in with -DKREODA_ALLOW_STUB_CORE=ON.
+option(KREODA_ALLOW_STUB_CORE "Allow stub core when OCCT is missing (explicit opt-in only)" OFF)
 option(WITH_FLATBUFFERS "Link FlatBuffers for IPC codegen" ON)
 option(BUILD_TESTING "Build GoogleTest suite" ON)
 
@@ -38,10 +42,14 @@ if(WITH_OCCT)
   find_package(OpenCASCADE CONFIG QUIET)
   if(OpenCASCADE_FOUND)
     message(STATUS "OCCT found: ${OpenCASCADE_VERSION}")
+  elseif(KREODA_ALLOW_STUB_CORE)
+    message(WARNING "OCCT not found — building STUB core (box mesh generator) "
+      "by explicit opt-in (KREODA_ALLOW_STUB_CORE=ON). Never ship this.")
   else()
-    message(WARNING "OCCT not found — building STUB core (box mesh generator). "
-      "Configure with vcpkg toolchain to get the real kernel: "
-      "cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake")
+    message(FATAL_ERROR "OCCT not found and KREODA_ALLOW_STUB_CORE is OFF. "
+      "Configure with the vcpkg toolchain to get the real kernel "
+      "(see scripts/build-core.ps1), or pass -DKREODA_ALLOW_STUB_CORE=ON "
+      "for explicit protocol/bootstrap testing only.")
   endif()
 endif()
 
