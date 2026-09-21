@@ -76,3 +76,40 @@ export async function runBar(window: Page, text: string): Promise<void> {
     failures.length === 0 ? "" : `plan failed: ${failures.join(" | ")}`,
   ).toBe("");
 }
+
+/** UX-1 shell: open the project drawer (ObjectTree lives there now). */
+export async function openProject(window: Page): Promise<void> {
+  await window.getByRole("button", { name: "Project" }).click();
+  await expect(window.getByTestId("project-drawer")).toBeVisible({
+    timeout: 5000,
+  });
+}
+
+/** UX-1 shell: open the More menu (advanced actions live there now). */
+export async function openMore(window: Page): Promise<void> {
+  await window
+    .getByTestId("workspace-topdock")
+    .getByRole("button", { name: "More" })
+    .click();
+  await expect(window.getByTestId("more-menu")).toBeVisible({
+    timeout: 5000,
+  });
+}
+
+/** UX-1 shell: open the properties drawer via More → Properties. */
+export async function openProperties(window: Page): Promise<void> {
+  await openMore(window);
+  await window
+    .getByTestId("more-menu")
+    .getByRole("button", { name: "Properties" })
+    .click();
+  await expect(window.getByTestId("properties-drawer")).toBeVisible({
+    timeout: 5000,
+  });
+}
+
+/** UX-1 shell: Add-button popover → primitive dialog. */
+export async function addBox(window: Page): Promise<void> {
+  await window.getByRole("button", { name: "Add", exact: true }).click();
+  await window.getByRole("button", { name: /Add box/ }).click();
+}

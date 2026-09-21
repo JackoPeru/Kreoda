@@ -93,7 +93,7 @@ export function DimensionChips() {
         if (!node) {
           node = document.createElement("button");
           node.className =
-            "pointer-events-auto rounded-md bg-amber-500/90 px-2 py-0.5 font-mono text-[11px] text-black shadow hover:bg-amber-400";
+            "pointer-events-auto rounded-[var(--kreoda-radius-sm)] border border-[var(--kreoda-accent)]/50 bg-black/70 px-2 py-0.5 font-mono text-[11px] text-white shadow backdrop-blur-[var(--kreoda-surface-blur)] hover:border-[var(--kreoda-accent)] focus-within:border-[var(--kreoda-accent)]";
           node.addEventListener("click", () => {
             // Inline editor (window.prompt is unsupported in Electron):
             // swap the label for an input; Enter commits, Esc cancels.
@@ -106,7 +106,7 @@ export function DimensionChips() {
             const input = document.createElement("input");
             input.value = "";
             input.placeholder = isAngle ? "deg" : "mm";
-            input.className = "w-16 bg-transparent text-black outline-none";
+            input.className = "w-16 bg-transparent text-white outline-none";
             // M5: silent drops (typo 0/-5 vanishes, chip keeps old value)
             // become honest inline errors.
             const showInlineError = (msg: string): void => {
@@ -205,8 +205,9 @@ export function DimensionChips() {
         if (editingRef.current !== node) {
           // Formula-driven params show a ƒ marker + the formula on hover.
           const expr = feature.expressions?.[slot.param];
+          const unit = CHIP_ANGLE.has(slot.param) ? "°" : " mm";
           node.textContent =
-            expr !== undefined ? `ƒ${slot.short} ${value ?? "?"}` : `${slot.short} ${value ?? "?"}`;
+            expr !== undefined ? `ƒ${slot.short} ${value ?? "?"}${unit}` : `${slot.short} ${value ?? "?"}${unit}`;
           node.title =
             expr !== undefined
               ? `${slot.param} = ${expr} (formula — edit with =...)`

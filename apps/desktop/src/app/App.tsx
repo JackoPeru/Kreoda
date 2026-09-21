@@ -1,26 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
-import { Toolbar } from "../components/Toolbar";
+import { WorkspaceChrome } from "../components/workspace/WorkspaceChrome";
 import { PluginsDialog } from "../components/PluginsDialog";
 import { ReferenceDialog } from "../components/ReferenceDialog";
 import { InstanceDialog } from "../components/InstanceDialog";
-import { ObjectTree } from "../components/ObjectTree";
-import { PropertiesPanel } from "../components/PropertiesPanel";
-import { ContextToolbar } from "../components/ContextToolbar";
-import { ViewCube } from "../components/ViewCube";
-import { DimensionChips } from "../components/DimensionChips";
-import { SuggestionBar } from "../components/SuggestionBar";
-import {
-  CoachingHint,
-  Onboarding,
-  shouldShowOnboarding,
-} from "../components/Onboarding";
+import { shouldShowOnboarding } from "../components/Onboarding";
 import { SketchEditor, defaultRectModel } from "../components/SketchEditor";
 import { ExtrudeDialog } from "../components/ExtrudeDialog";
 import { HoleDialog } from "../components/HoleDialog";
 import { DressUpDialog } from "../components/DressUpDialog";
-import { Viewport } from "../components/Viewport";
-import { CommandBar } from "../components/CommandBar";
 import {
   AddPrimitiveDialog,
   type PrimitiveKind,
@@ -42,13 +30,11 @@ import {
   viewportViewDir,
 } from "../viewport/viewportHandle";
 
-/** Beginner shell (§24): toolbar / tree / viewport / command bar / history. */
+/** Minimal workspace shell (UX-1): viewport-first, floating docks. */
 export function App() {
-  const { coreRunning, coreVersion, setCoreStatus } = useDocumentUiStore();
-  const revision = useDocumentUiStore((s) => s.revision);
+  const { setCoreStatus } = useDocumentUiStore();
   const features = useDocumentUiStore((s) => s.features);
   const sketches = useDocumentUiStore((s) => s.sketches);
-  const meshes = useDocumentUiStore((s) => s.meshes);
   const [crashed, setCrashed] = useState<number | null>(null);  // Crash recovery (Phase 8): autosave snapshot from a previous session.
   const [showRecovery, setShowRecovery] = useState(false);
   // Crash bundle (§61): where the last saved bundle went (shown, not stored).
@@ -90,6 +76,10 @@ export function App() {
   const [showPlugins, setShowPlugins] = useState(false);
   const [showReference, setShowReference] = useState(false);
   const [showInstance, setShowInstance] = useState(false);
+  // Drawers are closed by default (UX-1): capabilities on demand, never
+  // permanently docked.
+  const [projectOpen, setProjectOpen] = useState(false);
+  const [propsOpen, setPropsOpen] = useState(false);
   // First-run onboarding (§56): shown over an empty document until dismissed.
   const [showOnboarding, setShowOnboarding] = useState<boolean>(() =>
     shouldShowOnboarding(),
@@ -322,6 +312,16 @@ export function App() {
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
         ).__kreoda_test.snapshot();
       },
+      // UX-2 two-body acceptance: additive multi-select (the tree and the
+      // viewport only single-select; Ctrl+click is not deterministic in E2E).
+      selectMany: (ids: string[]) => {
+        const sel = useSelectionStore.getState();
+        sel.clear();
+        for (const id of ids) sel.select(id, true);
+        return (
+          window as unknown as { __kreoda_test: { snapshot: () => unknown } }
+        ).__kreoda_test.snapshot();
+      },
       setParam: async (featureId: string, paramName: string, valueMm: number) => {
         const updated = await coreClient.setFeatureParameter(
           featureId,
@@ -443,130 +443,48 @@ export function App() {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <Toolbar
+    <div className="h-full">
+      <WorkspaceChrome
         onAdd={setAdding}
         onSketch={() => void createSketch()}
-        onExtrude={() => setExtruding(true)}
         onHole={() => setHoling(true)}
         onDressUp={(kind) => setDressUp(kind)}
+        onExtrude={() => setExtruding(true)}
         onPlugins={() => setShowPlugins(true)}
         onReference={() => setShowReference(true)}
         onInstance={() => setShowInstance(true)}
+        onEditSketch={openSketchEditor}
+        projectOpen={projectOpen}
+        onProjectOpenChange={setProjectOpen}
+        propsOpen={propsOpen}
+        onPropsOpenChange={setPropsOpen}
+        showRecovery={showRecovery}
+        onRestoreRecovery={() =>
+          restoreRecovery()
+            .then(() => setShowRecovery(false))
+            .catch(() => {})
+        }
+        onDiscardRecovery={() =>
+          discardRecovery()
+            .then(() => setShowRecovery(false))
+            .catch(() => setShowRecovery(false))
+        }
+        crashed={crashed}
+        bundlePath={bundlePath}
+        bundleFullModel={bundleFullModel}
+        onBundleFullModelChange={setBundleFullModel}
+        onSaveCrashBundle={() => void saveCrashBundle()}
+        updateVersion={updateVersion}
+        showOnboarding={showOnboarding}
+        onOnboardingSketch={() => {
+          setShowOnboarding(false);
+          void createSketch();
+        }}
+        onOnboardingDone={() => setShowOnboarding(false)}
+        hasModel={hasModel}
+        hasFeatures={features.length > 0}
+        sketchOpen={editingSketch !== null}
       />
-      {showRecovery && (
-        <div
-          className="flex items-center gap-3 border-b border-amber-300/25 bg-amber-950/60 px-3 py-1.5 text-sm text-amber-100"
-          data-testid="recovery-banner"
-        >
-          <span>Unsaved work from a previous session.</span>
-          <button
-            onClick={() =>
-              restoreRecovery()
-                .then(() => setShowRecovery(false))
-                .catch(() => {})
-            }
-            className="rounded-md bg-amber-500/90 px-2.5 py-0.5 font-medium text-black hover:bg-amber-400"
-            data-testid="recovery-restore"
-          >
-            Restore
-          </button>
-          <button
-            onClick={() =>
-              discardRecovery()
-                .then(() => setShowRecovery(false))
-                .catch(() => setShowRecovery(false))
-            }
-            className="rounded-md px-2 py-0.5 text-amber-100/70 hover:bg-white/10"
-            data-testid="recovery-discard"
-          >
-            Discard
-          </button>
-        </div>
-      )}
-      {crashed !== null && (
-        <div className="flex items-center gap-3 bg-red-950 px-3 py-1.5 text-sm text-red-200">
-          <span>
-            Geometry engine stopped unexpectedly ({crashed}). Editing paused
-            — restart to restore from autosave (§51).
-          </span>
-          <button
-            onClick={() => void saveCrashBundle()}
-            className="rounded-md bg-white/10 px-2 py-0.5 hover:bg-white/15"
-            data-testid="crash-bundle-save"
-          >
-            Save bundle
-          </button>
-          <label className="flex items-center gap-1 text-xs text-red-200/70">
-            <input
-              type="checkbox"
-              checked={bundleFullModel}
-              onChange={(e) => setBundleFullModel(e.target.checked)}
-              data-testid="crash-bundle-full-model"
-              title="Attach the full model summary (dimensions included)"
-            />
-            full model
-          </label>
-          {bundlePath && (
-            <span className="text-xs text-red-200/70" title={bundlePath}>
-              saved — attach it to your report
-            </span>
-          )}
-        </div>
-      )}
-      <div className="flex min-h-0 flex-1">
-        <ObjectTree />
-        <div className="relative min-w-0 flex-1">
-          <Viewport />
-          <ViewCube />
-          <ContextToolbar
-            onHole={() => setHoling(true)}
-            onDressUp={(kind) => setDressUp(kind)}
-            onSketch={() => void createSketch()}
-            onExtrude={() => setExtruding(true)}
-          />
-          {/* No rAF overlay work behind the fullscreen sketch modal (M11). */}
-          {!editingSketch && <DimensionChips />}
-          <SuggestionBar />
-          {features.length > 0 && (
-            <CoachingHint text="Drag a face to change its size. Click the number to type an exact value." />
-          )}
-          {showOnboarding && !hasModel && (
-            <Onboarding
-              onSketch={() => {
-                setShowOnboarding(false);
-                void createSketch();
-              }}
-              onDone={() => setShowOnboarding(false)}
-            />
-          )}
-          {!coreRunning && (
-            <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-black/60 px-2.5 py-1.5 text-xs text-white/75">
-              kreoda-core: not connected — build native sidecar (§61 Task 4–6)
-              {coreVersion ? ` · ${coreVersion}` : ""}
-            </div>
-          )}
-        </div>
-        <PropertiesPanel onEditSketch={openSketchEditor} />
-      </div>
-      <CommandBar />
-      <div className="border-t border-white/5 bg-[#0b0e13] px-3 py-1 text-[11px] text-white/40">
-        {features.length === 0 && sketches.length === 0
-          ? "empty document"
-          : `history: ${[...sketches.map(() => "Sketch"), ...features.map((f) => f.type)].join(" → ")}`}{" "}
-        · rev {revision} · {Object.keys(meshes).length} mesh
-        {Object.keys(meshes).length === 1 ? "" : "es"} ·{" "}
-        {coreRunning ? `core ${coreVersion}` : "core offline"}
-        {updateVersion && (
-          <span
-            className="pl-2 text-amber-200/80"
-            title="A signed update is ready — see the update dialog"
-            data-testid="update-note"
-          >
-            · update {updateVersion} ready
-          </span>
-        )}
-      </div>
       <AddPrimitiveDialog kind={adding} onClose={() => setAdding(null)} />
       {editingSketch && (
         <SketchEditor

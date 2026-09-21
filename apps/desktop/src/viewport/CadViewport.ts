@@ -566,10 +566,13 @@ export class CadViewport {
     THREE.MeshStandardMaterial,
     THREE.MeshStandardMaterial,
   ] {
+    // UX-5 presentation: neutral grey solids, soft hover, blue selection
+    // (matches --kreoda-accent). Preview ghosts stay amber — uncommitted
+    // state is a semantic warning, not decoration.
     const defs = [
-      { color: 0x4f8cff, emissive: 0x000000 },
-      { color: 0x6ea8ff, emissive: 0x1d3a6e },
-      { color: 0x8a6a30, emissive: 0x6e4a1d },
+      { color: 0x939db0, emissive: 0x000000 },
+      { color: 0xa8bedd, emissive: 0x111c2c },
+      { color: 0x4f8cff, emissive: 0x1e3a6e },
     ] as const;
     return defs.map(
       (d) =>
@@ -712,7 +715,7 @@ export class CadViewport {
     g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pts), 3));
     this.edgeSelectedLines = new THREE.LineSegments(
       g,
-      new THREE.LineBasicMaterial({ color: 0xffb020 }),
+      new THREE.LineBasicMaterial({ color: 0x7fb2ff }),
     );
     this.edgeSelectedLines.renderOrder = 2;
     this.scene.add(this.edgeSelectedLines);

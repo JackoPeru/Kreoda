@@ -5,7 +5,7 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
-import { HERE, MAIN, type Snapshot } from "./helpers";
+import { HERE, MAIN, addBox, openProject, type Snapshot } from "./helpers";
 
 const ICAD = path.join(os.tmpdir(), "kreoda-phase5-e2e.icad");
 
@@ -30,7 +30,7 @@ test("beginner block with 8mm hole, undo, reopen identical", async () => {
       );
 
     // 1. Add Box 100×50×10 through the real dialog (no tutorial needed).
-    await window.getByRole("button", { name: /Add box/ }).click();
+    await addBox(window);
     const dialog = window.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
     const inputs = dialog.locator("input");
@@ -38,6 +38,7 @@ test("beginner block with 8mm hole, undo, reopen identical", async () => {
     await inputs.nth(1).fill("50");
     await inputs.nth(2).fill("10");
     await window.getByRole("button", { name: "Create" }).click();
+    await openProject(window);
     await expect(window.getByText(/Box 100×50×10/)).toBeVisible({
       timeout: 20000,
     });

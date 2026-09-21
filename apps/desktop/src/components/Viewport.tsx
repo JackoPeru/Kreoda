@@ -245,7 +245,7 @@ export function Viewport() {
   return (
     <div ref={ref} className="h-full w-full" data-testid="viewport">
       {pullHint && (
-        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md bg-black/70 px-3 py-1.5 text-xs text-amber-100">
+        <div className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 rounded-md bg-black/70 px-3 py-1.5 text-xs text-amber-100">
           {pullHint}
         </div>
       )}

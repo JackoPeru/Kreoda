@@ -2,6 +2,24 @@
 
 :root {
   color-scheme: dark;
+
+  /* UX-0 design foundation: single source for the minimal contextual UI.
+     Dark graphite + blue accent; floating panels stay semi-transparent
+     with thin borders and moderate blur. No glow. */
+  --kreoda-workspace-bg: #0b0e13;
+  --kreoda-float-bg: rgba(20, 25, 34, 0.82);
+  --kreoda-float-elevated-bg: rgba(24, 30, 41, 0.94);
+  --kreoda-border-subtle: rgba(255, 255, 255, 0.1);
+  --kreoda-text-primary: #e6ebf2;
+  --kreoda-text-secondary: rgba(230, 235, 242, 0.6);
+  --kreoda-accent: #4f8cff;
+  --kreoda-accent-hover: #6ea8ff;
+  --kreoda-danger: #f87171;
+  --kreoda-warning: #fbbf24;
+  --kreoda-radius-sm: 8px;
+  --kreoda-radius-md: 12px;
+  --kreoda-surface-blur: 12px;
+  --kreoda-float-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 html,
@@ -9,7 +27,24 @@ body,
 #root {
   height: 100%;
   margin: 0;
-  background: #0b0e13;
-  color: #e6ebf2;
+  background: var(--kreoda-workspace-bg);
+  color: var(--kreoda-text-primary);
   font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+/* UX-0 helpers only (no component restyle yet — UX-1+ consumes these). */
+.kreoda-float {
+  background: var(--kreoda-float-bg);
+  border: 1px solid var(--kreoda-border-subtle);
+  border-radius: var(--kreoda-radius-md);
+  backdrop-filter: blur(var(--kreoda-surface-blur));
+  box-shadow: var(--kreoda-float-shadow);
+}
+
+.kreoda-float-elevated {
+  background: var(--kreoda-float-elevated-bg);
+  border: 1px solid var(--kreoda-border-subtle);
+  border-radius: var(--kreoda-radius-md);
+  backdrop-filter: blur(var(--kreoda-surface-blur));
+  box-shadow: var(--kreoda-float-shadow);
 }

@@ -3,7 +3,7 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
-import { HERE, MAIN, type Snapshot } from "./helpers";
+import { HERE, MAIN, addBox, openMore, openProject, type Snapshot } from "./helpers";
 
 interface Anchor {
   x: number;
@@ -23,8 +23,9 @@ test("pull face resizes solid in one undo step", async () => {
       timeout: 20000,
     });
 
-    await window.getByRole("button", { name: /Add box/ }).click();
+    await addBox(window);
     await window.getByRole("button", { name: "Create" }).click();
+    await openProject(window);
     await expect(window.getByText(/Box 100×50×20/)).toBeVisible({
       timeout: 20000,
     });
@@ -52,6 +53,7 @@ test("pull face resizes solid in one undo step", async () => {
     )) as Anchor | null;
     expect(anchor).not.toBeNull();
 
+    await openMore(window);
     await window.getByRole("button", { name: "Pull", exact: true }).click();
     await window.mouse.move(anchor!.x, anchor!.y);
     await window.mouse.down();

@@ -57,7 +57,7 @@ export function SuggestionBar() {
 
   return (
     <div
-      className="pointer-events-auto absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-amber-300/30 bg-black/75 px-3 py-1.5 text-xs text-amber-100"
+      className="pointer-events-auto flex w-full items-center justify-center gap-2 rounded-[var(--kreoda-radius-md)] border border-[var(--kreoda-accent)]/30 bg-black/75 px-3 py-1.5 text-xs text-white/85 backdrop-blur-[var(--kreoda-surface-blur)]"
       data-testid="suggestion-bar"
     >
       <span>✦ {suggestion.text}</span>

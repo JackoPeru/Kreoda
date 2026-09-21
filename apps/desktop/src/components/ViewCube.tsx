@@ -10,7 +10,7 @@ export function ViewCube() {
   ];
   return (
     <div
-      className="pointer-events-auto absolute right-3 top-3 flex flex-col gap-1 rounded-md bg-black/60 p-1"
+      className="pointer-events-auto absolute right-3 top-[68px] flex flex-col gap-1 rounded-md bg-black/60 p-1"
       data-testid="view-cube"
     >
       {faces.map((f) => (

@@ -4,7 +4,7 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
-import { HERE, MAIN } from "./helpers";
+import { HERE, MAIN, openMore } from "./helpers";
 
 interface RefPlane {
   id: string;
@@ -85,6 +85,7 @@ test("reference image: inject, calibrate, render", async () => {
     expect(calibrated.heightMm).toBeCloseTo(50, 9);
 
     // The dialog surfaces the calibrated size; the viewport renders it.
+    await openMore(window);
     await window.getByTestId("reference-button").click();
     await expect(window.getByTestId("reference-dialog")).toBeVisible({
       timeout: 5000,

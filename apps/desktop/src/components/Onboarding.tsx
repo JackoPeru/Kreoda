@@ -131,7 +131,7 @@ export function CoachingHint({ text }: { text: string }) {
   const [visible, setVisible] = useState(() => !pullHintLearned());
   if (!visible) return null;
   return (
-    <div className="pointer-events-auto absolute bottom-12 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-md bg-black/70 px-3 py-1.5 text-xs text-white/80">
+    <div className="pointer-events-auto absolute left-1/2 top-[116px] flex -translate-x-1/2 items-center gap-2 rounded-md bg-black/70 px-3 py-1.5 text-xs text-white/80">
       <span>{text}</span>
       <button
         onClick={() => {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { SketchModel } from "@kreoda/protocol";
 import { coreClient } from "../ipc/coreClient";
 import { updateFeatureSummary } from "../model/sync";
-import { useDocumentUiStore, visibleFeatureIds } from "../stores";
+import { useDocumentUiStore, usePreferencesStore, visibleFeatureIds } from "../stores";
 
 function uid(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
@@ -61,6 +61,9 @@ export function SketchEditor({
   // Pre-drag snapshot for Escape-cancel (restores without committing).
   const dragBaseRef = useRef<SketchModel | null>(null);
   const [inference, setInference] = useState<string | null>(null);
+  // UX-3 progressive disclosure: diagnostics hide in Simple mode.
+  const beginnerMode = usePreferencesStore((s) => s.beginnerMode);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Escape cancels an ACTIVE drag (restores pre-drag state, no commit).
   useEffect(() => {
@@ -321,8 +324,8 @@ export function SketchEditor({
   if (!sketch) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="h-[80vh] w-[720px] rounded-lg border border-white/15 bg-[#10141b] p-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
+      <div className="kreoda-float-elevated h-[80vh] w-[720px] p-4">
         <div className="flex items-center gap-2 pb-2">
           <span className="text-sm font-semibold">
             Sketch · {sketch.planeKind} plane
@@ -331,10 +334,12 @@ export function SketchEditor({
             {sketchId.slice(0, 13)}…
           </span>
           <div className="flex-1" />
-          <span className="text-[11px] text-white/50">{status}</span>
+          <span className="text-[11px] text-white/50">
+            {beginnerMode ? status.split("·")[0]!.trim() : status}
+          </span>
           <button
             onClick={onClose}
-            className="rounded-md px-2.5 py-1 text-sm text-white/70 hover:bg-white/10"
+            className="rounded-[var(--kreoda-radius-sm)] bg-[var(--kreoda-accent)] px-3 py-1 text-sm font-medium text-white hover:bg-[var(--kreoda-accent-hover)]"
           >
             Done
           </button>
@@ -488,7 +493,17 @@ export function SketchEditor({
               ))}
             <div className="pt-3 text-[11px] uppercase tracking-wide text-white/45">
               Constraints ({model?.constraints.length ?? 0})
+              {beginnerMode && (
+                <button
+                  onClick={() => setShowDetails((v) => !v)}
+                  aria-expanded={showDetails}
+                  className="ml-2 rounded px-1.5 py-0.5 normal-case text-white/60 hover:bg-white/10 hover:text-white"
+                >
+                  {showDetails ? "Hide details" : "Details"}
+                </button>
+              )}
             </div>
+            {(!beginnerMode || showDetails) && (
             <div className="max-h-48 overflow-auto font-mono text-[11px] text-white/55">
               {(model?.constraints ?? []).map((c) => (
                 <div key={c.id}>
@@ -497,6 +512,7 @@ export function SketchEditor({
                 </div>
               ))}
             </div>
+            )}
             {inference && (
               <div className="pt-2 text-amber-200">inference: {inference}</div>
             )}

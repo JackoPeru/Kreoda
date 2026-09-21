@@ -5,7 +5,7 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
-import { HERE, MAIN, type Snapshot } from "./helpers";
+import { HERE, MAIN, addBox, openProject, type Snapshot } from "./helpers";
 
 const ICAD = path.join(os.tmpdir(), "kreoda-phase1-e2e.icad");
 
@@ -21,8 +21,9 @@ test("exact box → save → reopen identical", async () => {
     });
 
     // Scenario A (§62): type exact dimensions, get a solid.
-    await window.getByRole("button", { name: /Add box/ }).click();
+    await addBox(window);
     await window.getByRole("button", { name: "Create" }).click();
+    await openProject(window);
     await expect(window.getByText(/Box 100×50×20/)).toBeVisible({
       timeout: 20000,
     });

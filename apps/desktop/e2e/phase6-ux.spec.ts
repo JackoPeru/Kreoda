@@ -4,7 +4,7 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
-import { HERE, MAIN, type Snapshot } from "./helpers";
+import { HERE, MAIN, addBox, openProject, type Snapshot } from "./helpers";
 
 test("beginner layer: onboard, context tools, views, chips, suggestion", async () => {
   const app = await electron.launch({
@@ -43,6 +43,7 @@ test("beginner layer: onboard, context tools, views, chips, suggestion", async (
       .getByTestId("onboarding")
       .getByRole("button", { name: /Start from a box/ })
       .click();
+    await openProject(window);
     await expect(window.getByText(/Box 100×50×20/)).toBeVisible({
       timeout: 20000,
     });
@@ -210,9 +211,10 @@ test("dismiss paths persist; similar select; chip edit commits", async () => {
     });
     await expect(window.getByTestId("onboarding")).not.toBeVisible();
 
-    // Box via dialog (onboarding dismissed, toolbar path).
-    await window.getByRole("button", { name: /Add box/ }).click();
+    // Box via dialog (onboarding dismissed, Add popover path).
+    await addBox(window);
     await window.getByRole("button", { name: "Create" }).click();
+    await openProject(window);
     await expect(window.getByText(/Box 100×50×20/)).toBeVisible({
       timeout: 20000,
     });

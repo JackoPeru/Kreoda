@@ -5,7 +5,7 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
-import { HERE, MAIN, type Snapshot } from "./helpers";
+import { HERE, MAIN, openProject, type Snapshot } from "./helpers";
 
 const ICAD = path.join(os.tmpdir(), "kreoda-phase9-expr-e2e.icad");
 
@@ -43,6 +43,7 @@ test("expressions: set, reflow, persist, reject cycles", async () => {
       .toBe(1);
 
     // 2. Formula: width follows height.
+    await openProject(window);
     await window.getByText(/Box 100×60×10/).first().click();
     await input.fill("set widthMm =heightMm * 2");
     await input.press("Enter");

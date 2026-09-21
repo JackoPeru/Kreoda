@@ -3,7 +3,7 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
-import { HERE, MAIN } from "./helpers";
+import { HERE, MAIN, addBox, openProject, openProperties } from "./helpers";
 
 test("panel dimension edit commits exact geometry", async () => {
   const app = await electron.launch({
@@ -16,14 +16,16 @@ test("panel dimension edit commits exact geometry", async () => {
       timeout: 20000,
     });
 
-    await window.getByRole("button", { name: /Add box/ }).click();
+    await addBox(window);
     await window.getByRole("button", { name: "Create" }).click();
+    await openProject(window);
     await expect(window.getByText(/Box 100×50×20/)).toBeVisible({
       timeout: 20000,
     });
 
-    // Select the body → properties panel with dimension fields.
+    // Select the body → properties drawer with dimension fields.
     await window.getByText(/Box 100×50×20/).click();
+    await openProperties(window);
     const panel = window.getByTestId("properties");
     await expect(panel).toBeVisible();
     const width = panel.getByLabel(/Width/);

@@ -132,7 +132,7 @@ export function CommandBar() {
   };
 
   return (
-    <div className="border-t border-white/10 bg-[#11151c] px-3 py-2">
+    <div className="px-1 py-0.5" data-testid="command-bar">
       <div className="flex items-center gap-2">
         <span className="text-amber-300">✦</span>
         <input

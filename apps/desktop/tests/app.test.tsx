@@ -24,7 +24,7 @@ import { App } from "../src/app/App";
 describe("beginner shell (§24)", () => {
   it("shows toolbar, viewport, command bar", () => {
     render(<App />);
-    expect(screen.getByText("+ Add")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add" })).toBeTruthy();
     expect(screen.getByTestId("viewport")).toBeTruthy();
     expect(
       screen.getByPlaceholderText(/What do you want to do/),

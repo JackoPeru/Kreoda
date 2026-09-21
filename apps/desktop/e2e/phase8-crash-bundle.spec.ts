@@ -3,7 +3,7 @@
 // actual crash — the bundle path is identical from the banner button.
 
 import { test, expect, _electron as electron } from "@playwright/test";
-import { MAIN } from "./helpers";
+import { MAIN, openProject } from "./helpers";
 
 interface Bundle {
   path: string;
@@ -29,6 +29,7 @@ test("crash bundle contains versions, log tail and snapshot", async () => {
     const preview = window.getByTestId("plan-preview");
     await expect(preview).toBeVisible({ timeout: 5000 });
     await preview.getByRole("button", { name: /Run 1 step/ }).click();
+    await openProject(window);
     await expect(window.getByText(/Box 100×50×20/).first()).toBeVisible({
       timeout: 20000,
     });

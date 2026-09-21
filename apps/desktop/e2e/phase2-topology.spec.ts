@@ -5,7 +5,7 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
-import { HERE, MAIN, type Snapshot } from "./helpers";
+import { HERE, MAIN, addBox, openProject, type Snapshot } from "./helpers";
 
 const ICAD = path.join(os.tmpdir(), "kreoda-phase2-e2e.icad");
 
@@ -76,8 +76,9 @@ test("face reference survives parameter change and reopen", async () => {
     const t = await hook(window);
 
     // Exact box, then persistent face pick (top cap).
-    await window.getByRole("button", { name: /Add box/ }).click();
+    await addBox(window);
     await window.getByRole("button", { name: "Create" }).click();
+    await openProject(window);
     await expect(window.getByText(/Box 100×50×20/)).toBeVisible({
       timeout: 20000,
     });

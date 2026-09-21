@@ -4,7 +4,7 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
-import { HERE, MAIN, type Snapshot } from "./helpers";
+import { HERE, MAIN, openProject, type Snapshot } from "./helpers";
 
 test("command bar: plate, corner holes, views, honest fallback", async () => {
   const app = await electron.launch({
@@ -40,6 +40,7 @@ test("command bar: plate, corner holes, views, honest fallback", async () => {
     await expect(preview).toBeVisible({ timeout: 5000 });
     await expect(preview).toContainText("Box 100×60×10 mm");
     await preview.getByRole("button", { name: /Run 1 step/ }).click();
+    await openProject(window);
     await expect(window.getByText(/Box 100×60×10/).first()).toBeVisible({
       timeout: 20000,
     });

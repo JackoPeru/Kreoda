@@ -10,7 +10,7 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
-import { HERE, boot, runBar, snapOf } from "./helpers";
+import { HERE, boot, openProject, runBar, snapOf } from "./helpers";
 import { SessionClient } from "./ws-test-client";
 
 const PORT = 44731;
@@ -60,6 +60,7 @@ test("unified session: join, mutate, desktop sync, undo, resync, rejects", async
         timeout: 30000,
       })
       .toBe(1);
+    await openProject(window);
     await expect(window.getByText(/Box 100×60×10/).first()).toBeVisible({
       timeout: 10000,
     });

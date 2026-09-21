@@ -25,9 +25,9 @@ export function CadDialog({
   return (
     <Dialog.Root open onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/60" />
+        <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/60" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/3 w-80 -translate-x-1/2 rounded-lg border border-white/15 bg-[#141922] p-4"
+          className="fixed left-1/2 top-1/3 z-[70] w-80 -translate-x-1/2 rounded-lg border border-white/15 bg-[#141922] p-4"
           {...(testId ? { "data-testid": testId } : {})}
         >
           <Dialog.Title className="text-sm font-semibold">{title}</Dialog.Title>

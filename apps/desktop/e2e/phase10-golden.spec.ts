@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
-import { HERE, boot, runBar, snapOf, type Snapshot } from "./helpers";
+import { HERE, boot, openMore, openProject, runBar, snapOf, type Snapshot } from "./helpers";
 
 const ICAD_A = path.join(os.tmpdir(), "kreoda-phase10-golden-a.icad");
 const STEP_A = path.join(os.tmpdir(), "kreoda-phase10-golden-a.step");
@@ -22,6 +22,8 @@ const ICAD_B = path.join(os.tmpdir(), "kreoda-phase10-golden-b.icad");
 test("golden A: parametric bracket with pattern, fillet, expression", async () => {
   const { app, window } = await boot();
   try {
+    // Project drawer hosts the tree (UX-1 shell); stays open for the flow.
+    await openProject(window);
     // 1. Plate 100×60×10 → one body, tip = the box.
     await runBar(window, "box 100 60 10");
     await expect
@@ -332,8 +334,13 @@ test("golden B: assembly follows source edits across reopen", async () => {
     let s = (await snap()) as Snapshot;
     const boxId = s.bodies[0]!.id;
 
+    await openProject(window);
     await window.getByText(/Box 100×60×10/).first().click();
-    await window.getByRole("button", { name: /Copy placed/ }).click();
+    await openMore(window);
+    await window
+      .getByTestId("more-menu")
+      .getByRole("button", { name: /Copy placed/ })
+      .click();
     const dialog = window.getByTestId("instance-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await dialog.locator("input").nth(0).fill("50");
