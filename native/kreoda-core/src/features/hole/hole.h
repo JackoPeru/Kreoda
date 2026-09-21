@@ -21,11 +21,16 @@ bool CreateHoleFeature(const std::string& featureId,
                        double diameterMm, const std::string& depthMode,
                        double depthMm, std::string* error);
 
-// M11: corner/center patterns in ONE OCAF transaction (one Undo step).
-// Same result as N sequential CreateHole calls on the same base (each hole
-// cuts the original target once), but a single Begin/Commit pair so one
-// user action == one Undo delta (§12). points and featureIds must have the
-// same size (1..4). On any failure nothing is created (atomic).
+// Slice 5 cumulative pattern: 1..4 holes in ONE OCAF transaction (one Undo
+// step) committed as ONE "HolePattern" record advancing the target's body.
+// Final shape is the sequential cut (shape0 = target,
+// shapeN = Cut(shapeN-1, holeN)); the committed record (under featureIds[0])
+// is the body tip carrying base-minus-ALL-tools. points and featureIds must
+// still have the same size (1..4, wire-stable); trailing ids are validated
+// (charset/availability/uniqueness) but create no records — no sub-feature
+// bodies, no sub-feature viewport objects. paramsMm is [diameterMm, depthMm]
+// (same slots as Hole); refExtra is the pattern codec below. On any failure
+// nothing is created (atomic).
 bool CreateHolePatternFeature(
     const std::string& targetId, const std::string& faceRole,
     const std::vector<std::pair<double, double>>& points, double diameterMm,
@@ -35,6 +40,11 @@ bool CreateHolePatternFeature(
 
 // DAG recompute step (features/rebuild.cpp calls this).
 bool RebuildHoleFromStore(const std::string& featureId, std::string* error);
+
+// Slice 5: cumulative pattern recompute — replays the sequential cuts from
+// the live target shape (downstream of plate edits, Slice-3 tip machinery).
+bool RebuildHolePatternFromStore(const std::string& featureId,
+                                 std::string* error);
 
 #if KREODA_WITH_OCCT
 // Pure build (no commit): target shape + face role + dims → holed solid.

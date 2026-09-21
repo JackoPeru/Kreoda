@@ -30,6 +30,10 @@ export interface Snapshot {
   selectedIds: string[];
   bodies: BodySnapshot[];
   sketches: SketchSnapshot[];
+  /** Slice 4 tip flow: rendered scene contents (= mesh map keys). */
+  tips?: string[];
+  /** Slice 4 Body projection: id/history/tip per body (tree source). */
+  treeBodies?: { id: string; history: string[]; tip: string }[];
 }
 
 /** Launch the shell, wait for DOM + sidecar handshake. */

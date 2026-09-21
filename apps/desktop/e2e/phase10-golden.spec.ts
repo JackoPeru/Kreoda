@@ -1,7 +1,8 @@
 // Phase 10 golden workflows (§10.2): end-to-end models covering Phase 9a
 // (expressions), 9c (reference) and 9d (assemblies). 9b (plugins) is covered
-// by phase9-plugins.spec.ts. Workflow A also locks the M11 single-undo
-// pattern and the post-reopen cut regression (compound-label fix).
+// by phase9-plugins.spec.ts. Workflow A also locks the Slice-5 body
+// architecture (one Body + one cumulative HolePattern op + single undo) and
+// the post-reopen cut regression (compound-label fix).
 
 import { test, expect } from "@playwright/test";
 import path from "node:path";
@@ -13,13 +14,15 @@ const ICAD_A = path.join(os.tmpdir(), "kreoda-phase10-golden-a.icad");
 const STEP_A = path.join(os.tmpdir(), "kreoda-phase10-golden-a.step");
 const ICAD_B = path.join(os.tmpdir(), "kreoda-phase10-golden-b.icad");
 
-// Workflow A — parametric bracket: box → hole → pattern (one undo) →
-// fillet → expression → early-dimension edit → undo/redo → save/reopen →
-// post-reopen cut (exact) → STEP export/import.
+// Workflow A — parametric bracket (Slice 5 body architecture): box → hole →
+// pattern (one cumulative HolePattern op, one undo) → fillet → expression →
+// early-dimension edit → undo/redo → save/reopen → post-reopen cut (exact) →
+// STEP export/import. Exactly ONE body throughout; history grows in the
+// feature list while the scene renders the tip alone.
 test("golden A: parametric bracket with pattern, fillet, expression", async () => {
   const { app, window } = await boot();
   try {
-    // 1. Plate 100×60×10.
+    // 1. Plate 100×60×10 → one body, tip = the box.
     await runBar(window, "box 100 60 10");
     await expect
       .poll(async () => ((await snapOf(window)) as Snapshot).bodies.length, {
@@ -29,8 +32,12 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
     let s = (await snapOf(window)) as Snapshot;
     const boxId = s.bodies[0]!.id;
     expect(s.bodies[0]!.volumeMm3).toBeCloseTo(60000, 3);
+    expect(s.treeBodies!).toHaveLength(1);
+    expect(s.treeBodies![0]!.history).toEqual([boxId]);
+    expect(s.tips!).toEqual([boxId]);
 
-    // 2. Centered ⌀8 through-hole at face-local center (50,30).
+    // 2. Centered ⌀8 through-hole at face-local center (50,30): still 1
+    // body, history [box, hole], tip = the hole.
     await window.getByText(/Box 100×60×10/).first().click();
     await window.evaluate(
       ({ f }) =>
@@ -63,37 +70,61 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
     expect(s.bodies).toHaveLength(2);
     const hole = s.bodies.find((b) => b.type === "Hole")!;
     expect(hole.volumeMm3).toBeCloseTo(60000 - Math.PI * 16 * 10, 1);
+    expect(s.treeBodies!).toHaveLength(1);
+    expect(s.treeBodies![0]!.history).toEqual([boxId, hole.id]);
+    expect(s.tips!).toEqual([hole.id]);
 
-    // 3. Four corner ⌀6 holes: one user action.
+    // 3. Four corner ⌀6 holes: one user action, ONE cumulative HolePattern
+    // op branching from the box (deps = [box], sibling of the center hole),
+    // so the tip carries the box minus all four ⌀6 tools.
     await window.getByText(/Box 100×60×10/).first().click();
     await runBar(window, "holes 6 4 corners 8");
     await expect
       .poll(async () => ((await snapOf(window)) as Snapshot).bodies.length, {
         timeout: 30000,
       })
-      .toBe(6);
+      .toBe(3);
     s = (await snapOf(window)) as Snapshot;
-    const pattern = s.bodies.filter((b) => b.type === "Hole");
-    expect(pattern).toHaveLength(5);
-    for (const h of pattern.slice(1)) {
-      expect(h.volumeMm3).toBeCloseTo(60000 - Math.PI * 9 * 10, 0);
-    }
+    const patterns = s.bodies.filter((b) => b.type === "HolePattern");
+    expect(patterns).toHaveLength(1);
+    const pattern = patterns[0]!;
+    expect(pattern.volumeMm3).toBeCloseTo(
+      60000 - 4 * Math.PI * 9 * 10,
+      0,
+    );
+    // One body with the full history; the scene renders the tip alone.
+    expect(s.treeBodies!).toHaveLength(1);
+    expect(s.treeBodies![0]!.history).toEqual([boxId, hole.id, pattern.id]);
+    expect(s.tips!).toEqual([pattern.id]);
+    expect(pattern.triangles).toBeGreaterThan(0);
+    expect(pattern.faces.length).toBeGreaterThan(0);
 
-    // 4. M11 proof: ONE Undo removes all four pattern holes (not four).
+    // 4. Slice-5 proof: ONE Undo removes the whole pattern (not four ops),
+    // stepping the tip back to the center hole; Redo restores the
+    // cumulative tip with identical volume.
     await window.locator('button[title^="Undo"]').click();
     await expect
       .poll(async () => ((await snapOf(window)) as Snapshot).bodies.length, {
         timeout: 20000,
       })
       .toBe(2);
+    s = (await snapOf(window)) as Snapshot;
+    expect(s.tips!).toEqual([hole.id]);
+    expect(s.treeBodies![0]!.history).toEqual([boxId, hole.id]);
     await window.locator('button[title^="Redo"]').click();
     await expect
       .poll(async () => ((await snapOf(window)) as Snapshot).bodies.length, {
         timeout: 20000,
       })
-      .toBe(6);
+      .toBe(3);
+    s = (await snapOf(window)) as Snapshot;
+    expect(s.tips!).toEqual([pattern.id]);
+    expect(
+      s.bodies.find((b) => b.type === "HolePattern")!.volumeMm3,
+    ).toBeCloseTo(60000 - 4 * Math.PI * 9 * 10, 0);
 
-    // 5. R2 fillet on a box edge through the real command path.
+    // 5. R2 fillet on a box edge through the real command path: still 1
+    // body, tip = the fillet.
     await window.evaluate(
       ({ f }) =>
         (
@@ -110,12 +141,22 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
       .poll(async () => ((await snapOf(window)) as Snapshot).bodies.length, {
         timeout: 30000,
       })
-      .toBe(7);
+      .toBe(4);
     s = (await snapOf(window)) as Snapshot;
     const fillet = s.bodies.find((b) => b.type === "Fillet")!;
     expect(fillet.volumeMm3).toBeGreaterThan(0);
+    expect(fillet.volumeMm3).toBeLessThan(60000);
+    expect(s.treeBodies!).toHaveLength(1);
+    expect(s.treeBodies![0]!.history).toEqual([
+      boxId,
+      hole.id,
+      pattern.id,
+      fillet.id,
+    ]);
+    expect(s.tips!).toEqual([fillet.id]);
 
     // 6. Expression: width follows height; then edit the early dimension.
+    // Downstream recomputes (hole, cumulative pattern, fillet), still 1 body.
     await window.getByText(/Box 100×60×10/).first().click();
     await runBar(window, "set widthMm =heightMm * 2");
     s = (await snapOf(window)) as Snapshot;
@@ -128,7 +169,7 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
     box = s.bodies.find((b) => b.id === boxId)!;
     expect(box.paramsMm[1]).toBeCloseTo(100, 6);
     expect(box.paramsMm[0]).toBeCloseTo(200, 6);
-    // Depth-10 through-holes remove the same tool volume after reflow.
+    // Depth-10 through-holes remove the same tool volumes after reflow.
     const holeAfter = s.bodies.find(
       (b) => b.type === "Hole" && b.id === hole.id,
     )!;
@@ -136,6 +177,22 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
       200 * 100 * 10 - Math.PI * 16 * 10,
       0,
     );
+    const patternAfter = s.bodies.find((b) => b.type === "HolePattern")!;
+    expect(patternAfter.volumeMm3).toBeCloseTo(
+      200 * 100 * 10 - 4 * Math.PI * 9 * 10,
+      0,
+    );
+    const filletAfter = s.bodies.find((b) => b.type === "Fillet")!;
+    expect(filletAfter.volumeMm3).toBeGreaterThan(0);
+    expect(filletAfter.volumeMm3).toBeLessThan(200 * 100 * 10);
+    expect(s.treeBodies!).toHaveLength(1);
+    expect(s.treeBodies![0]!.history).toEqual([
+      boxId,
+      hole.id,
+      pattern.id,
+      fillet.id,
+    ]);
+    expect(s.tips!).toEqual([fillet.id]);
 
     // 7. Undo the height edit (width reflows back), redo forward.
     await window.locator('button[title^="Undo"]').click();
@@ -153,7 +210,7 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
       }, { timeout: 20000 })
       .toBeCloseTo(100, 6);
 
-    // 8. Save → reopen: ids stable, formula retained.
+    // 8. Save → reopen: ids stable, formula retained, still 1 body.
     await window.evaluate(
       ({ icad }) =>
         (
@@ -172,10 +229,23 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
         ).__kreoda_test.openIcad(icad),
       { icad: ICAD_A },
     )) as Snapshot;
-    expect(s.bodies).toHaveLength(7);
+    expect(s.bodies).toHaveLength(4);
+    expect(s.treeBodies!).toHaveLength(1);
+    expect(s.treeBodies![0]!.history).toEqual([
+      boxId,
+      hole.id,
+      pattern.id,
+      fillet.id,
+    ]);
+    expect(s.tips!).toEqual([fillet.id]);
     const reopenedBox = s.bodies.find((b) => b.id === boxId)!;
     expect(reopenedBox.expressions["widthMm"]).toBe("heightMm * 2");
     expect(reopenedBox.paramsMm[0]).toBeCloseTo(200, 6);
+    const reopenedPattern = s.bodies.find((b) => b.type === "HolePattern")!;
+    expect(reopenedPattern.volumeMm3).toBeCloseTo(
+      200 * 100 * 10 - 4 * Math.PI * 9 * 10,
+      0,
+    );
 
     // 9. Post-reopen cut must be EXACT (compound-label regression guard).
     await window.evaluate(
@@ -212,8 +282,12 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
       200 * 100 * 10 - Math.PI * 16 * 10,
       0,
     );
+    expect(s.treeBodies!).toHaveLength(1);
+    expect(s.treeBodies![0]!.history).toHaveLength(5);
+    expect(s.tips!).toEqual([fresh.id]);
 
-    // 10. STEP export → file on disk → reimport.
+    // 10. STEP export → file on disk → reimport. The export carries every
+    // history solid (box, hole, pattern tip, fillet, fresh hole = 5).
     await window.evaluate(
       ({ step }) =>
         (
@@ -234,7 +308,7 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
         ).__kreoda_test.openIcad(step),
       { step: STEP_A },
     )) as Snapshot;
-    expect(s.bodies.length).toBeGreaterThanOrEqual(7);
+    expect(s.bodies.length).toBeGreaterThanOrEqual(5);
     for (const b of s.bodies) expect(b.volumeMm3).toBeGreaterThan(0);
 
     await window.screenshot({ path: path.join(HERE, "phase10-golden-a.png") });

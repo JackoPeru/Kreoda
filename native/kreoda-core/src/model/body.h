@@ -29,8 +29,8 @@ enum class BodySemantics {
 // revolved solid is a fresh root, same as a primitive) + StepImport,
 // MeshImport (each imported solid is its own root) + unknown solid types
 // (defensive: an unrecognized type still belongs in exactly one body).
-// AdvancesBody: Hole, Fillet, Chamfer (deps[0] = target solid) + HolePattern
-// members (each committed as a "Hole" record) + Union, Subtract, Intersect
+// AdvancesBody: Hole, HolePattern (one cumulative record per pattern),
+// Fillet, Chamfer (deps[0] = target solid) + Union, Subtract, Intersect
 // (boolean result advances the deps[0] TARGET body and becomes its tip; the
 // tool body is left untouched with its old tip — least churn vs merging
 // histories, and same-body deps collapse naturally).

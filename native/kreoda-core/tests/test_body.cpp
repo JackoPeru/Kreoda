@@ -110,17 +110,22 @@ TEST(Bodies, HolePatternIsOneBodyOneUndo) {
                                                "throughAll", 0, ids, &created,
                                                &err))
       << err;
-  // One body; pattern members join the target body in creation order
-  // (cumulative geometry is Slice 5 — only grouping + Undo are pinned here).
+  // Slice 5: one cumulative HolePattern record (under ids[0]) joins the
+  // target body as its tip; trailing wire ids create no records.
+  EXPECT_EQ(created, (std::vector<std::string>{"bd-h1"}));
+  for (const auto& id : {"bd-h2", "bd-h3", "bd-h4"}) {
+    EXPECT_FALSE(kreoda::ShapeStore::instance().contains(id)) << id;
+  }
   EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
   kreoda::BodyRecord b;
-  ASSERT_TRUE(BodyOf("bd-h4", &b));
-  EXPECT_EQ(b.history.size(), 5u);
-  EXPECT_EQ(b.tipFeatureId, "bd-h4");
+  ASSERT_TRUE(BodyOf("bd-h1", &b));
+  EXPECT_EQ(b.history, (std::vector<std::string>{"bd", "bd-h1"}));
+  EXPECT_EQ(b.tipFeatureId, "bd-h1");
   // Single Undo step removes the whole pattern and restores the root tip.
   ASSERT_TRUE(ok(rpc(
       R"({"protocolVersion":1,"requestId":"bd-u1","documentId":"bd-d","type":8})")));
   for (const auto& id : ids) {
+    // bd-h1 (the committed tip) is gone; trailing ids never existed.
     EXPECT_FALSE(kreoda::ShapeStore::instance().contains(id)) << id;
   }
   ASSERT_TRUE(BodyOf("bd", &b));
@@ -210,12 +215,12 @@ TEST(Bodies, SaveOpenKeepsBodyIdentity) {
 #endif
 }
 
-// Slice 3 TEST E: Box → Hole → Pattern → Fillet, then an upstream Box width
-// edit. Pins: same bodyId, downstream recompute in order (volumes track the
-// new box), valid B-Rep on every history member (the CommitShape BRepCheck
-// gate — asserted, not assumed), unambiguous refs still resolve (hole face
-// role, fillet edge). Pattern members are base-minus-own-hole here;
-// cumulative pattern geometry is Slice 5 (counts/tip pinned, not volumes).
+// Slice 3 TEST E (+ Slice 5 cumulative pattern): Box → Hole → Pattern →
+// Fillet, then an upstream Box width edit. Pins: same bodyId, downstream
+// recompute in order (volumes track the new box — the pattern tip is the
+// cumulative base-minus-ALL-tools), valid B-Rep on every history member
+// (the CommitShape BRepCheck gate — asserted, not assumed), unambiguous
+// refs still resolve (hole face role, fillet edge).
 #if KREODA_WITH_OCCT
 TEST(Bodies, UpstreamEditRecomputesDownstreamAndKeepsTip) {
   NewDoc("bd-tip");
@@ -231,6 +236,7 @@ TEST(Bodies, UpstreamEditRecomputesDownstreamAndKeepsTip) {
                                                "throughAll", 0, pids, &created,
                                                &err))
       << err;
+  EXPECT_EQ(created, (std::vector<std::string>{"ehp1"}));  // one tip, no subs
   ASSERT_TRUE(kreoda::CreateFilletFeature(
                   "ef", "eb", {"eb:edge.lin.box.+X~box.+Z"}, 2, &err))
       << err;
@@ -238,9 +244,22 @@ TEST(Bodies, UpstreamEditRecomputesDownstreamAndKeepsTip) {
   kreoda::BodyRecord before;
   ASSERT_TRUE(BodyOf("ef", &before));
   EXPECT_EQ(before.history,
-            (std::vector<std::string>{"eb", "eh", "ehp1", "ehp2", "ef"}));
+            (std::vector<std::string>{"eb", "eh", "ehp1", "ef"}));
   EXPECT_EQ(before.tipFeatureId, "ef");
   const std::string bodyId = before.bodyId;
+
+  // Recompute consistency: every downstream volume tracks the new box
+  // (150×60×20 = 180000); through-holes remove pi*r^2*depth each. The
+  // pattern branches from the box (deps=[eb], sibling of the center hole),
+  // so its tip is box-minus-both-Ø6 (cumulative over its own points).
+  auto vol = [](const std::string& id) {
+    kreoda::ShapeRecord rec;
+    EXPECT_TRUE(kreoda::ShapeStore::instance().get(id, &rec)) << id;
+    return rec.volumeMm3;
+  };
+  // Pre-edit pin (120×60×20 = 144000): pattern already cumulative.
+  EXPECT_NEAR(vol("ehp1"),
+              144000.0 - 2 * 3.14159265358979 * 9.0 * 20.0, 5.0);
 
   // Upstream edit: width 120 → 150. All downstream must recompute in order.
   ASSERT_TRUE(kreoda::RebuildFeature("eb", "widthMm", 150, &err)) << err;
@@ -251,17 +270,12 @@ TEST(Bodies, UpstreamEditRecomputesDownstreamAndKeepsTip) {
   EXPECT_EQ(after.history, before.history);  // counts stable
   EXPECT_EQ(after.tipFeatureId, "ef");       // tip follows the recompute
 
-  // Recompute consistency: every downstream volume tracks the new box
-  // (150×60×20 = 180000); through-holes remove pi*r^2*depth each.
-  auto vol = [](const std::string& id) {
-    kreoda::ShapeRecord rec;
-    EXPECT_TRUE(kreoda::ShapeStore::instance().get(id, &rec)) << id;
-    return rec.volumeMm3;
-  };
+  // Post-edit volumes track the new box (150×60×20 = 180000).
   EXPECT_NEAR(vol("eb"), 180000.0, 1.0);
   EXPECT_NEAR(vol("eh"), 180000.0 - 3.14159265358979 * 16.0 * 20.0, 5.0);
-  EXPECT_NEAR(vol("ehp1"), 180000.0 - 3.14159265358979 * 9.0 * 20.0, 5.0);
-  EXPECT_NEAR(vol("ehp2"), 180000.0 - 3.14159265358979 * 9.0 * 20.0, 5.0);
+  EXPECT_NEAR(vol("ehp1"),
+              180000.0 - 2 * 3.14159265358979 * 9.0 * 20.0, 5.0);
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("ehp2"));  // no subs
   EXPECT_GT(vol("ef"), 0.0);
   EXPECT_LT(vol("ef"), vol("eb"));
 

@@ -46,6 +46,9 @@ bool RebuildNodeFromStore(const std::string& featureId, std::string* error) {
   if (rec.type == "Hole") {
     return RebuildHoleFromStore(featureId, error);
   }
+  if (rec.type == "HolePattern") {
+    return RebuildHolePatternFromStore(featureId, error);
+  }
   if (rec.type == "Fillet" || rec.type == "Chamfer") {
     return RebuildFilletFromStore(featureId, error);
   }

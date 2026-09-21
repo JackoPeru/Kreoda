@@ -6,8 +6,9 @@
 namespace kreoda {
 
 BodySemantics FeatureBodySemantics(const std::string& type) {
-  if (type == "Hole" || type == "Fillet" || type == "Chamfer" ||
-      type == "Union" || type == "Subtract" || type == "Intersect") {
+  if (type == "Hole" || type == "HolePattern" || type == "Fillet" ||
+      type == "Chamfer" || type == "Union" || type == "Subtract" ||
+      type == "Intersect") {
     return BodySemantics::AdvancesBody;
   }
   if (type == "Sketch" || type == "Instance") {

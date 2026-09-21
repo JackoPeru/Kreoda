@@ -36,6 +36,7 @@ export function featureBodySemantics(
 ): "new" | "advances" | "none" {
   if (
     type === "Hole" ||
+    type === "HolePattern" || // Slice 5: one cumulative record, same advance
     type === "Fillet" ||
     type === "Chamfer" ||
     type === "Union" ||

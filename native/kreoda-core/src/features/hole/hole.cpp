@@ -93,6 +93,91 @@ bool EncodeHoleRef(const std::string& faceRole, double x, double y,
 
 }  // namespace (EncodeHoleRef stays local)
 
+// Slice 5 cumulative-pattern codec. refExtra layout (no '|' anywhere — OCAF
+// splits label comments on it, ocaf_live.cpp DecodeParams; ',' is free
+// inside @ref, and face roles already exclude '|' and ','):
+//   "pattern:face=<role>;mode=<mode>;pts=<x0>,<y0>,<x1>,<y1>,..."
+// paramsMm stays [diameterMm, depthMm] (same slots as Hole); the point list
+// mirrors the type-25 wire flat array. ';' separates fields (roles with ';'
+// were already unencodable for single holes — same exposure, no regression).
+bool EncodeHolePatternRef(
+    const std::string& faceRole,
+    const std::vector<std::pair<double, double>>& points,
+    const std::string& mode, std::string* out) {
+  if (faceRole.find('|') != std::string::npos ||
+      faceRole.find(',') != std::string::npos ||
+      faceRole.find(';') != std::string::npos) {
+    return false;
+  }
+  std::ostringstream os;
+  os << "pattern:face=" << faceRole << ";mode=" << mode << ";pts=";
+  bool first = true;
+  for (const auto& [x, y] : points) {
+    if (!first) os << ",";
+    first = false;
+    os << toPrec(x) << "," << toPrec(y);
+  }
+  *out = os.str();
+  return true;
+}
+
+bool DecodeHolePatternRef(const std::string& ref, std::string* faceRole,
+                          std::vector<std::pair<double, double>>* points,
+                          std::string* mode) {
+  const std::string kPrefix = "pattern:";
+  if (ref.rfind(kPrefix, 0) != 0) return false;
+  std::string face, md, pts;
+  std::string rest = ref.substr(kPrefix.size());
+  while (!rest.empty()) {
+    const size_t semi = rest.find(';');
+    const std::string tok =
+        semi == std::string::npos ? rest : rest.substr(0, semi);
+    rest = semi == std::string::npos ? "" : rest.substr(semi + 1);
+    const size_t eq = tok.find('=');
+    if (eq == std::string::npos) return false;
+    const std::string key = tok.substr(0, eq);
+    const std::string val = tok.substr(eq + 1);
+    if (key == "face") {
+      face = val;
+    } else if (key == "mode") {
+      md = val;
+    } else if (key == "pts") {
+      pts = val;
+    } else {
+      return false;
+    }
+  }
+  if (face.empty() || md.empty() || pts.empty()) return false;
+  std::vector<double> nums;
+  std::string cur;
+  for (size_t i = 0; i <= pts.size(); ++i) {
+    const char c = i < pts.size() ? pts[i] : ',';
+    if ((c >= '0' && c <= '9') || c == '-' || c == '+' || c == '.' ||
+        c == 'e' || c == 'E') {
+      cur.push_back(c);
+    } else if (c == ',') {
+      if (cur.empty()) return false;
+      try {
+        nums.push_back(std::stod(cur));
+      } catch (...) {
+        return false;
+      }
+      cur.clear();
+    } else {
+      return false;
+    }
+  }
+  if (nums.size() < 2 || nums.size() > 8 || nums.size() % 2 != 0) return false;
+  std::vector<std::pair<double, double>> out;
+  for (size_t i = 0; i < nums.size(); i += 2) {
+    out.emplace_back(nums[i], nums[i + 1]);
+  }
+  if (faceRole) *faceRole = face;
+  if (points) *points = out;
+  if (mode) *mode = md;
+  return true;
+}
+
 bool BuildHoleShape(const TopoDS_Shape& target, const std::string& targetId,
                     const std::string& targetType, const std::string& faceRole,
                     double xMm, double yMm, double diameterMm,
@@ -301,60 +386,49 @@ bool CreateHolePatternFeature(
     if (error) *error = "unknown target " + targetId;
     return false;
   }
-  // Validate ALL positions against the base before opening the transaction
-  // (first failure aborts with nothing created — atomic).
-  std::vector<TopoDS_Shape> shapes;
-  std::vector<std::string> refs;
-  shapes.reserve(points.size());
-  refs.reserve(points.size());
+  // Slice 5 cumulative: shape0 = target, shapeN = Cut(shapeN-1, holeN).
+  // Pure builds run BEFORE the transaction opens — a failure anywhere
+  // aborts with nothing created (atomic, no partial records to roll back).
+  TopoDS_Shape current = target.shape;
   for (const auto& [x, y] : points) {
-    TopoDS_Shape shape;
-    if (!BuildHoleShape(target.shape, targetId, target.type, faceRole, x, y,
-                        diameterMm, depthMode, depthMm, &shape, error)) {
+    TopoDS_Shape next;
+    if (!BuildHoleShape(current, targetId, target.type, faceRole, x, y,
+                        diameterMm, depthMode, depthMm, &next, error)) {
       return false;
     }
-    std::string ref;
-    if (!EncodeHoleRef(faceRole, x, y, depthMode, &ref)) {
-      if (error) *error = "invalid face role characters";
-      return false;
-    }
-    shapes.push_back(shape);
-    refs.push_back(ref);
+    current = next;
   }
+  std::string ref;
+  if (!EncodeHolePatternRef(faceRole, points, depthMode, &ref)) {
+    if (error) *error = "invalid face role characters";
+    return false;
+  }
+  // ONE HolePattern record as the body tip (committed under featureIds[0]).
+  // One OCAF command stays the vehicle for one Undo step (as M11).
   if (!OcafLive::instance().BeginCommand(error)) return false;
-  std::vector<std::string> created;
-  for (size_t i = 0; i < points.size(); ++i) {
-    const bool ok = CommitShape(
-        featureIds[i], "Hole", {diameterMm, depthMm}, {targetId}, refs[i],
-        shapes[i], nullptr, false, error);
-    if (!ok) {
-      for (const auto& cid : created) {
-        ShapeStore::instance().remove(cid);
-        TheFeatureGraph().removeFeature(cid);
-        BodyStore::instance().removeFeature(cid);  // Slice 2: no body phantoms
-      }
-      OcafLive::instance().AbortCommand();
-      // M4: CommitShape already inserted featureLabels for isNew ids inside
-      // the aborted transaction — Abort rolls back the document but not the
-      // in-memory maps. Resync rebuilds them; if THAT fails, erase the
-      // never-committed entries explicitly so no ghost label survives.
-      {
-        std::string rsErr;
-        if (!OcafLive::instance().ResyncStore(&rsErr)) {
-          OcafLive::instance().ForgetFeatures(created);
-          if (error) {
-            *error += " (resync failed: " + rsErr + ")";
-          }
+  const bool ok = CommitShape(featureIds[0], "HolePattern",
+                              {diameterMm, depthMm}, {targetId}, ref, current,
+                              nullptr, false, error);
+  if (!ok) {
+    OcafLive::instance().AbortCommand();
+    // M4: the aborted Upsert already inserted a label map entry — Abort
+    // rolls back the document but not the in-memory maps. Resync rebuilds
+    // them; if THAT fails, erase the never-committed id explicitly.
+    {
+      std::string rsErr;
+      if (!OcafLive::instance().ResyncStore(&rsErr)) {
+        OcafLive::instance().ForgetFeatures({featureIds[0]});
+        if (error) {
+          *error += " (resync failed: " + rsErr + ")";
         }
       }
-      return false;
     }
-    created.push_back(featureIds[i]);
+    return false;
   }
   bool hadDelta = false;
   OcafLive::instance().CommitCommand(&hadDelta, nullptr);
   DocumentStore::instance().commit();
-  if (createdIds) *createdIds = created;
+  if (createdIds) *createdIds = {featureIds[0]};
   return true;
 #else
   (void)points;
@@ -398,6 +472,48 @@ bool RebuildHoleFromStore(const std::string& featureId, std::string* error) {
   }
   return CommitShape(featureId, rec.type, rec.paramsMm, rec.dependsOn,
                      rec.refExtra, shape, nullptr, false, error);
+}
+
+bool RebuildHolePatternFromStore(const std::string& featureId,
+                                 std::string* error) {
+  ShapeRecord rec;
+  if (!ShapeStore::instance().get(featureId, &rec)) {
+    if (error) *error = "unknown feature " + featureId;
+    return false;
+  }
+  if (rec.type != "HolePattern" || rec.paramsMm.size() != 2 ||
+      rec.dependsOn.size() != 1) {
+    if (error) *error = "cannot rebuild " + rec.type;
+    return false;
+  }
+  std::string faceRole, mode;
+  std::vector<std::pair<double, double>> points;
+  if (!DecodeHolePatternRef(rec.refExtra, &faceRole, &points, &mode)) {
+    if (error) *error = "hole pattern record corrupted (needs repair)";
+    return false;
+  }
+  ShapeRecord target;
+  if (!ShapeStore::instance().get(rec.dependsOn[0], &target) ||
+      target.shape.IsNull()) {
+    if (error) {
+      *error =
+          "hole pattern target vanished (needs repair): " + rec.dependsOn[0];
+    }
+    return false;
+  }
+  // Replay the sequential cuts from the live target (plate edits reflow).
+  TopoDS_Shape current = target.shape;
+  for (const auto& [x, y] : points) {
+    TopoDS_Shape next;
+    if (!BuildHoleShape(current, target.featureId, target.type, faceRole, x,
+                        y, rec.paramsMm[0], mode, rec.paramsMm[1], &next,
+                        error)) {
+      return false;
+    }
+    current = next;
+  }
+  return CommitShape(featureId, rec.type, rec.paramsMm, rec.dependsOn,
+                     rec.refExtra, current, nullptr, false, error);
 }
 
 #else
