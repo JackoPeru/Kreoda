@@ -4,6 +4,7 @@
 import { create } from "zustand";
 import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
+import { t, featureTypeName } from "../i18n";
 
 export interface SketchEntry extends SketchSummary {
   model?: SketchModel & { planeKind?: string };
@@ -147,11 +148,14 @@ interface DocumentUiState {
 }
 
 function featureLabel(f: FeatureSummary): string {
-  if (f.paramsMm.length > 0) return `${f.type} ${f.paramsMm.join("×")}`;
+  const type = featureTypeName(f.type);
+  if (f.paramsMm.length > 0) return `${type} ${f.paramsMm.join("×")}`;
   if (f.dependsOn.length > 0) {
-    return `${f.type} ← ${f.dependsOn.length} input${f.dependsOn.length > 1 ? "s" : ""}`;
+    return f.dependsOn.length > 1
+      ? t("tree.depMany", { type, n: f.dependsOn.length })
+      : t("tree.depOne", { type });
   }
-  return f.type;
+  return type;
 }
 
 function toTreeItems(
@@ -161,7 +165,7 @@ function toTreeItems(
 ): ModelTreeItem[] {
   const skItems = sketches.map((s) => ({
     id: s.featureId,
-    name: `Sketch ${s.planeKind} (${s.points}p/${s.constraints}c)`,
+    name: t("tree.sketch", { plane: s.planeKind, p: s.points, c: s.constraints }),
     kind: "sketch" as const,
   }));
   const byId = new Map(features.map((f) => [f.featureId, f]));
@@ -179,7 +183,7 @@ function toTreeItems(
     }
     return {
       id: b.bodyId,
-      name: `Body ${i + 1}`,
+      name: t("tree.body", { n: i + 1 }),
       kind: "body" as const,
       children: b.history.map((id) => ({
         id,

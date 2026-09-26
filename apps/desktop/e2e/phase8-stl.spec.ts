@@ -12,7 +12,7 @@ const ICAD = path.join(os.tmpdir(), "kreoda-phase8-stl-e2e.icad");
 
 test("STL export → import → persist", async () => {
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US"],
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });

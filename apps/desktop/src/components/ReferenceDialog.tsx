@@ -16,6 +16,7 @@ import {
   viewportBeginReferenceMeasure,
   viewportCancelReferenceMeasure,
 } from "../viewport/viewportHandle";
+import { t, useT } from "../i18n";
 
 export function ReferenceDialog({ onClose }: { onClose: () => void }) {
   const planes = useReferenceStore((s) => s.planes);
@@ -28,6 +29,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
     pts: [number, number][];
   } | null>(null);
   const [pendingDist, setPendingDist] = useState("");
+  const tt = useT();
 
   // C10: dialog close/unmount must cancel an in-flight measure (the old
   // path left clicks hijacked with no cancel).
@@ -63,7 +65,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
         imageH: h,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "import failed");
+      setError(e instanceof Error ? e.message : t("ref.errImportFailed"));
     }
   };
 
@@ -76,12 +78,12 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
       // the real distance goes in the inline field below.
       const pts = await viewportBeginReferenceMeasure(plane.id);
       if (!pts || pts.length < 2) {
-        setError("Click two points on the image.");
+        setError(tt("ref.errTwoPoints"));
         return;
       }
       setPendingPts({ id: plane.id, pts });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "calibration failed");
+      setError(e instanceof Error ? e.message : tt("ref.errCalibFailed"));
     } finally {
       setMeasuring(null);
     }
@@ -112,7 +114,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
       setPendingPts(null);
       setPendingDist("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "calibration failed");
+      setError(e instanceof Error ? e.message : tt("ref.errCalibFailed"));
     }
   };
 
@@ -122,14 +124,14 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
     const raw = knownWidths[plane.id] ?? "";
     const w = Number(raw);
     if (!(w > 0) || !Number.isFinite(w) || w > 1000000) {
-      setError("Known width must be in (0, 1000000] mm.");
+      setError(tt("ref.errWidthRange"));
       return;
     }
     try {
       const mmPerPx = w / plane.imageW;
       const h = plane.imageH * mmPerPx;
       if (!Number.isFinite(h) || h <= 0 || h > 1000000) {
-        setError("Calibrated height out of range (max 1000000 mm).");
+        setError(tt("ref.errHeightRange"));
         return;
       }
       updateReferencePlane(plane.id, {
@@ -139,7 +141,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
       });
       setKnownWidths((s) => ({ ...s, [plane.id]: "" }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "calibration failed");
+      setError(e instanceof Error ? e.message : tt("ref.errCalibFailed"));
     }
   };
 
@@ -150,18 +152,17 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
     >
       <div className="w-[28rem] max-w-[92vw] rounded-xl border border-white/15 bg-[#141922] p-5 shadow-2xl">
         <div className="pb-2 text-sm font-semibold">
-          Reference images (tracing aids — session only)
+          {tt("ref.title")}
         </div>
         <button
           onClick={() => void importImage()}
           className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15"
         >
-          Import image…
+          {tt("ref.import")}
         </button>
         {planes.length === 0 && (
           <div className="py-2 text-xs text-white/50">
-            No reference images. Import a blueprint, calibrate it, trace over
-            it.
+            {tt("ref.empty")}
           </div>
         )}
         {planes.map((p) => (
@@ -172,7 +173,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
               </span>
               <span className="font-mono text-[11px] text-white/45">
                 {p.widthMm.toFixed(1)}×{p.heightMm.toFixed(1)} mm
-                {p.mmPerPx === null ? " (uncalibrated)" : ""}
+                {p.mmPerPx === null ? tt("ref.uncalibrated") : ""}
               </span>
               <button
                 onClick={() => {
@@ -182,7 +183,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
                 }}
                 className="rounded-md px-2 py-0.5 text-xs text-white/60 hover:bg-white/10"
               >
-                Delete
+                {tt("common.delete")}
               </button>
             </div>
             <div className="flex flex-wrap items-center gap-2 pt-1.5 text-xs">
@@ -194,14 +195,14 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
                   })
                 }
                 className="rounded-md bg-white/5 px-1.5 py-1 outline-none"
-                aria-label="Reference plane"
+                aria-label={tt("ref.planeAria")}
               >
                 <option value="XY">XY</option>
                 <option value="XZ">XZ</option>
                 <option value="YZ">YZ</option>
               </select>
               <label className="flex items-center gap-1 text-white/60">
-                opacity
+                {tt("ref.opacity")}
                 <input
                   type="range"
                   min={0.1}
@@ -221,7 +222,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
                 disabled={measuring !== null}
                 className="rounded-md bg-white/10 px-2 py-0.5 hover:bg-white/15 disabled:opacity-40"
               >
-                {measuring === p.id ? "click 2 points…" : "Measure"}
+                {measuring === p.id ? tt("ref.measuring") : tt("ref.measure")}
               </button>
               {/* C10: cancel an in-flight capture + hint that misses no longer hijack the camera. */}
               {measuring === p.id && (
@@ -229,12 +230,12 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
                   onClick={cancelMeasure}
                   className="rounded-md bg-white/10 px-2 py-0.5 hover:bg-white/15"
                 >
-                  Cancel
+                  {tt("common.cancel")}
                 </button>
               )}
               {measuring === p.id && (
                 <span className="text-[11px] text-white/45">
-                  Click on the image or Cancel
+                  {tt("ref.cancelMeasureHint")}
                 </span>
               )}
               {pendingPts && pendingPts.id === p.id && (
@@ -242,14 +243,14 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
                   <input
                     value={pendingDist}
                     onChange={(e) => setPendingDist(e.target.value)}
-                    placeholder="real distance mm"
+                    placeholder={tt("ref.distPh")}
                     className="w-28 rounded-md bg-white/5 px-1.5 py-1 font-mono outline-none placeholder:text-white/30"
                   />
                   <button
                     onClick={applyPendingDist}
                     className="rounded-md bg-amber-500/90 px-2 py-0.5 font-medium text-black hover:bg-amber-400"
                   >
-                    Apply
+                    {tt("common.apply")}
                   </button>
                 </>
               )}
@@ -258,14 +259,14 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
                 onChange={(e) =>
                   setKnownWidths((s) => ({ ...s, [p.id]: e.target.value }))
                 }
-                placeholder="known width mm"
+                placeholder={tt("ref.widthPh")}
                 className="w-28 rounded-md bg-white/5 px-1.5 py-1 font-mono outline-none placeholder:text-white/30"
               />
               <button
                 onClick={() => applyKnownWidth(p)}
                 className="rounded-md bg-white/10 px-2 py-0.5 hover:bg-white/15"
               >
-                Set
+                {tt("common.set")}
               </button>
             </div>
           </div>
@@ -277,7 +278,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
               onClick={cancelMeasure}
               className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15"
             >
-              Cancel measure
+              {tt("ref.cancelMeasure")}
             </button>
           )}
           <button
@@ -287,7 +288,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
             }}
             className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15"
           >
-            Close
+            {tt("common.close")}
           </button>
         </div>
       </div>

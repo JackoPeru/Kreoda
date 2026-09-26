@@ -7,7 +7,7 @@ import { HERE, MAIN, addBox, openProject, openProperties } from "./helpers";
 
 test("panel dimension edit commits exact geometry", async () => {
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US"],
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });

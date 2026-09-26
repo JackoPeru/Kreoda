@@ -3,6 +3,7 @@ import { parseLengthToMm } from "@kreoda/units";
 import { executeCommand } from "../commands/execute";
 import { isSketchId, useSelectionStore } from "../stores";
 import { CadActions, CadDialog } from "./CadDialog";
+import { t, useT } from "../i18n";
 
 /** Round edges / cut corners over the selected edges (§20 Tier 3). */
 export function DressUpDialog({
@@ -17,6 +18,7 @@ export function DressUpDialog({
   const [value, setValue] = useState(isFillet ? "3" : "2");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const tt = useT();
 
   // Edge ids, excluding any sketch nouns (bodies only carry edges).
   const edgeIds = selectedIds.filter(
@@ -33,7 +35,7 @@ export function DressUpDialog({
     setBusy(true);
     try {
       if (!targetId || mixed) {
-        throw new Error("Select edges of a single solid");
+        throw new Error(tt("dress.errOneSolid"));
       }
       const v = parseLengthToMm(value);
       if (isFillet) {
@@ -51,7 +53,7 @@ export function DressUpDialog({
       }
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "operation failed");
+      setError(e instanceof Error ? e.message : t("dress.errFailed"));
     } finally {
       setBusy(false);
     }
@@ -59,11 +61,13 @@ export function DressUpDialog({
 
   return (
     <CadDialog
-      title={isFillet ? "Round edge" : "Cut corner"}
+      title={isFillet ? tt("dress.filletTitle") : tt("dress.chamferTitle")}
       description={
         edgeIds.length === 0
-          ? "Select one or more edges first (Edge filter, Ctrl+click)."
-          : `${edgeIds.length} edge${edgeIds.length > 1 ? "s" : ""} selected.`
+          ? tt("dress.descOff")
+          : edgeIds.length === 1
+            ? tt("dress.descOne")
+            : tt("dress.descMany", { n: edgeIds.length })
       }
       onClose={onClose}
       error={error}
@@ -72,14 +76,14 @@ export function DressUpDialog({
           onClose={onClose}
           onSubmit={() => void submit()}
           busy={busy}
-          busyLabel="Building…"
-          label={isFillet ? "Round" : "Chamfer"}
+          busyLabel={tt("common.building")}
+          label={isFillet ? tt("dress.round") : tt("dress.chamfer")}
           disabled={edgeIds.length === 0 || mixed}
         />
       }
     >
       <label className="mb-2 block text-xs text-white/70">
-        {isFillet ? "Radius (mm)" : "Distance (mm)"}
+        {isFillet ? tt("dress.radius") : tt("dress.distance")}
         <input
           defaultValue={value}
           onChange={(e) => setValue(e.target.value)}

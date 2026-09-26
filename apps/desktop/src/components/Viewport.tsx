@@ -7,6 +7,7 @@ import { executeCommand } from "../commands/execute";
 import { setViewportHandle } from "../viewport/viewportHandle";
 import { markPullLearned } from "./Onboarding";
 import { useReferenceStore } from "../reference/store";
+import { t } from "../i18n";
 
 interface PullSession {
   featureId: string;
@@ -118,7 +119,7 @@ export function Viewport() {
       if (!vp || activeTool !== "pull" || e.button !== 0) return;
       const hit = vp.pickFaceAt(e.clientX, e.clientY);
       if (!hit) {
-        setPullHint("Pull: click a free face (+X, +Y, +Z, cap, wall)");
+        setPullHint(t("viewport.pullFree"));
         return;
       }
       const feature = useDocumentUiStore
@@ -127,7 +128,7 @@ export function Viewport() {
       if (!feature) return;
       const resolved = resolvePullTarget(feature, hit.faceId);
       if (!resolved.ok) {
-        setPullHint(`Pull: ${resolved.reason}`);
+        setPullHint(t("viewport.pullReason", { reason: resolved.reason }));
         return;
       }
       // Screen-space drag axis: project grab point and point+normal.
@@ -156,7 +157,7 @@ export function Viewport() {
       vp.setCameraInputEnabled(false);
       el.setPointerCapture(e.pointerId);
       setPullHint(
-        `Dragging ${resolved.target.paramName}: ${resolved.target.startValueMm.toFixed(1)} mm — release to commit, Esc cancels`,
+        t("viewport.dragging", { p: resolved.target.paramName, v: resolved.target.startValueMm.toFixed(1) }),
       );
     };
 
@@ -171,7 +172,7 @@ export function Viewport() {
       const alongPx = dxPx * s.axisX + dyPx * s.axisY;
       const value = clampDimension(s.startValueMm + alongPx * s.mmPerPx);
       setPullHint(
-        `Dragging ${s.paramName}: ${value.toFixed(1)} mm — release to commit, Esc cancels`,
+        t("viewport.dragging", { p: s.paramName, v: value.toFixed(1) }),
       );
       // Throttled transient preview (§13): no commit, no revision.
       const now = performance.now();
@@ -209,7 +210,7 @@ export function Viewport() {
         select(s.faceId, false);
         return;
       }
-      setPullHint(`Committing ${s.paramName} = ${value.toFixed(1)} mm…`);
+      setPullHint(t("viewport.committing", { p: s.paramName, v: value.toFixed(1) }));
       void executeCommand("SetDimension", {
         featureId: s.featureId,
         paramName: s.paramName,
@@ -220,7 +221,7 @@ export function Viewport() {
           setPullHint(null);
         },
         (err: unknown) =>
-          setPullHint(err instanceof Error ? err.message : "commit failed"),
+          setPullHint(err instanceof Error ? err.message : t("sketch.errCommitFailed")),
       );
     };
 

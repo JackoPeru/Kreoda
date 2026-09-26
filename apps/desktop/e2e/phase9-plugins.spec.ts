@@ -66,7 +66,7 @@ kreoda.onCommand("plugin.e2e.boom.go", async () => {
 
 test("plugins: sandboxed commands, escapes refused, crashes isolated", async () => {
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US"],
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });

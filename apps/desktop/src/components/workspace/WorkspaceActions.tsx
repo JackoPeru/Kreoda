@@ -8,6 +8,7 @@ import { coreClient } from "../../ipc/coreClient";
 import { syncFromCoreList } from "../../model/sync";
 import { executeCommand } from "../../commands/execute";
 import { clearRecoveryAfterSave } from "../../recovery/autosave";
+import { t, useT } from "../../i18n";
 
 /** Shared Save path (top-right button and More → Save reuse this). */
 export async function saveDocument(): Promise<string | null> {
@@ -19,7 +20,7 @@ export async function saveDocument(): Promise<string | null> {
     await clearRecoveryAfterSave();
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : "save failed";
+    return e instanceof Error ? e.message : t("actions.errSaveFailed");
   }
 }
 
@@ -34,7 +35,7 @@ export async function openDocument(): Promise<string | null> {
     await syncFromCoreList(list, revision, sketches);
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : "open failed";
+    return e instanceof Error ? e.message : t("actions.errOpenFailed");
   }
 }
 
@@ -42,13 +43,14 @@ export function WorkspaceActions() {
   const undos = useDocumentUiStore((s) => s.undos);
   const redos = useDocumentUiStore((s) => s.redos);
   const [opError, setOpError] = useState<string | null>(null);
+  const tt = useT();
 
   const runUndo = async (kind: "Undo" | "Redo"): Promise<void> => {
     setOpError(null);
     try {
       await executeCommand(kind, {});
     } catch (e) {
-      setOpError(e instanceof Error ? e.message : `${kind} failed`);
+      setOpError(e instanceof Error ? e.message : tt("actions.opFailed", { kind }));
     }
   };
 
@@ -67,8 +69,8 @@ export function WorkspaceActions() {
         onClick={() => void runUndo("Undo")}
         disabled={undos === 0}
         className="rounded-[var(--kreoda-radius-sm)] p-2 hover:bg-white/10 disabled:opacity-40"
-        title={undos === 0 ? "Nothing to undo" : `Undo (${undos})`}
-        aria-label="Undo"
+        title={undos === 0 ? tt("actions.nothingToUndo") : tt("actions.undoCount", { n: undos })}
+        aria-label={tt("actions.undo")}
       >
         <Undo2 size={16} />
       </button>
@@ -76,8 +78,8 @@ export function WorkspaceActions() {
         onClick={() => void runUndo("Redo")}
         disabled={redos === 0}
         className="rounded-[var(--kreoda-radius-sm)] p-2 hover:bg-white/10 disabled:opacity-40"
-        title={redos === 0 ? "Nothing to redo" : `Redo (${redos})`}
-        aria-label="Redo"
+        title={redos === 0 ? tt("actions.nothingToRedo") : tt("actions.redoCount", { n: redos })}
+        aria-label={tt("actions.redo")}
       >
         <Redo2 size={16} />
       </button>
@@ -88,8 +90,8 @@ export function WorkspaceActions() {
           })
         }
         className="rounded-[var(--kreoda-radius-sm)] bg-[var(--kreoda-accent)] p-2 text-white hover:bg-[var(--kreoda-accent-hover)]"
-        title="Save .icad, export STEP/3MF/STL/OBJ/glTF (pick in dialog)"
-        aria-label="Save"
+        title={tt("actions.saveTitle")}
+        aria-label={tt("actions.save")}
       >
         <Save size={16} />
       </button>

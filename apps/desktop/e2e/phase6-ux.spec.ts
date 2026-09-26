@@ -8,7 +8,7 @@ import { HERE, MAIN, addBox, openProject, type Snapshot } from "./helpers";
 
 test("beginner layer: onboard, context tools, views, chips, suggestion", async () => {
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US"],
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });
@@ -171,7 +171,7 @@ test("beginner layer: onboard, context tools, views, chips, suggestion", async (
 
 test("dismiss paths persist; similar select; chip edit commits", async () => {
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US"],
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });

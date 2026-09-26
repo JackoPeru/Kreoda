@@ -44,7 +44,7 @@ async function runBar(window: Page, text: string): Promise<number> {
 test("perf baseline: commit/save/reopen/export timings + 20-body stress", async () => {
   test.slow();
   const tBoot0 = Date.now();
-  const app = await electron.launch({ args: [MAIN, "--no-sandbox"] });
+  const app = await electron.launch({ args: [MAIN, "--no-sandbox", "--lang=en-US"] });
   try {
     const window = await app.firstWindow({ timeout: 30000 });
     await window.waitForLoadState("domcontentloaded");

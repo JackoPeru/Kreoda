@@ -2,37 +2,38 @@ import { useState } from "react";
 import { parseAngleToDeg, parseLengthToMm } from "@kreoda/units";
 import { executeCommand } from "../commands/execute";
 import { selectionKindOf, useDocumentUiStore, useSelectionStore } from "../stores";
+import { t, useT, featureTypeName, type EnKey } from "../i18n";
 
 // Canonical mm slots per primitive type (mirrors the core evaluator;
 // the core re-validates every name, §63.10).
-const SLOTS: Record<string, { param: string; label: string }[]> = {
+const SLOTS: Record<string, { param: string; label: EnKey }[]> = {
   Box: [
-    { param: "widthMm", label: "Width" },
-    { param: "heightMm", label: "Height" },
-    { param: "depthMm", label: "Depth" },
+    { param: "widthMm", label: "props.slotWidth" },
+    { param: "heightMm", label: "props.slotHeight" },
+    { param: "depthMm", label: "props.slotDepth" },
   ],
   Cylinder: [
-    { param: "radiusMm", label: "Radius" },
-    { param: "heightMm", label: "Height" },
+    { param: "radiusMm", label: "props.slotRadius" },
+    { param: "heightMm", label: "props.slotHeight" },
   ],
-  Sphere: [{ param: "radiusMm", label: "Radius" }],
-  Extrude: [{ param: "distanceMm", label: "Distance" }],
-  Revolve: [{ param: "angleDeg", label: "Angle (deg)" }],
+  Sphere: [{ param: "radiusMm", label: "props.slotRadius" }],
+  Extrude: [{ param: "distanceMm", label: "props.slotDistance" }],
+  Revolve: [{ param: "angleDeg", label: "props.slotAngle" }],
   Hole: [
-    { param: "diameterMm", label: "Diameter" },
-    { param: "depthMm", label: "Depth (blind)" },
+    { param: "diameterMm", label: "props.slotDiameter" },
+    { param: "depthMm", label: "props.slotDepthBlind" },
   ],
-  Fillet: [{ param: "radiusMm", label: "Radius" }],
-  Chamfer: [{ param: "distanceMm", label: "Distance" }],
+  Fillet: [{ param: "radiusMm", label: "props.slotRadius" }],
+  Chamfer: [{ param: "distanceMm", label: "props.slotDistance" }],
   // M4: Instance placement was uneditable except via command-bar/E2E —
   // expose signed/zero-tolerant slots (translations mm, rotations deg).
   Instance: [
-    { param: "txMm", label: "Translate X" },
-    { param: "tyMm", label: "Translate Y" },
-    { param: "tzMm", label: "Translate Z" },
-    { param: "rxDeg", label: "Rotate X" },
-    { param: "ryDeg", label: "Rotate Y" },
-    { param: "rzDeg", label: "Rotate Z" },
+    { param: "txMm", label: "props.slotTx" },
+    { param: "tyMm", label: "props.slotTy" },
+    { param: "tzMm", label: "props.slotTz" },
+    { param: "rxDeg", label: "props.slotRx" },
+    { param: "ryDeg", label: "props.slotRy" },
+    { param: "rzDeg", label: "props.slotRz" },
   ],
 };
 
@@ -46,6 +47,7 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
   const revision = useDocumentUiStore((s) => s.revision);
   const [error, setError] = useState<string | null>(null);
   const [busyParam, setBusyParam] = useState<string | null>(null);
+  const tt = useT();
 
   const sketchId =
     selectedIds.find((id) =>
@@ -64,20 +66,19 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
     return (
       <div className="w-60 shrink-0 border-l border-white/10 bg-[#0e1218] p-3" data-testid="properties">
         <div className="pb-1 text-xs uppercase tracking-wide text-white/50">
-          Sketch · {sketch.planeKind}
+          {tt("props.sketchTitle", { plane: sketch.planeKind })}
         </div>
         <div className="pb-2 font-mono text-[11px] text-white/40">
-          {sketch.featureId.slice(0, 13)}… · rev {revision}
+          {sketch.featureId.slice(0, 13)}… · {tt("props.rev", { n: revision })}
         </div>
         <div className="text-xs text-white/65">
-          {sketch.points} points · {sketch.lines} lines · {sketch.circles} circles ·{" "}
-          {sketch.constraints} constraints
+          {tt("props.sketchStats", { p: sketch.points, l: sketch.lines, c: sketch.circles, con: sketch.constraints })}
         </div>
         <button
           onClick={() => onEditSketch(sketch.featureId)}
           className="mt-2 w-full rounded-md bg-blue-600 px-2.5 py-1.5 text-sm font-medium hover:bg-blue-500"
         >
-          Edit sketch
+          {tt("props.editSketch")}
         </button>
       </div>
     );
@@ -103,14 +104,14 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
       const valueMm = ANGLE_PARAMS.has(paramName)
         ? parseAngleToDeg(text)
         : parseLengthToMm(text);
-      if (!Number.isFinite(valueMm)) throw new Error("not a number");
+      if (!Number.isFinite(valueMm)) throw new Error(tt("props.errNotNumber"));
       await executeCommand("SetDimension", {
         featureId: feature.featureId,
         paramName,
         valueMm,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "edit failed");
+      setError(e instanceof Error ? e.message : t("props.errEditFailed"));
     } finally {
       setBusyParam(null);
     }
@@ -134,17 +135,17 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
   return (
     <div className="w-60 shrink-0 border-l border-white/10 bg-[#0e1218] p-3" data-testid="properties">
       <div className="pb-1 text-xs uppercase tracking-wide text-white/50">
-        Properties · {feature.type}
+        {tt("props.title", { type: featureTypeName(feature.type) })}
       </div>
       <div className="pb-2 font-mono text-[11px] text-white/40">
-        {feature.featureId.slice(0, 13)}… · rev {revision}
+        {feature.featureId.slice(0, 13)}… · {tt("props.rev", { n: revision })}
       </div>
       {visibleSlots.map((s) => {
         const i = paramIndex(s.param);
         const current = i >= 0 ? feature.paramsMm[i] : undefined;
         return (
         <label key={s.param} className="mb-2 block text-xs text-white/70">
-          {s.label} {ANGLE_PARAMS.has(s.param) ? "(deg)" : "(mm)"}
+          {tt(s.label)} {ANGLE_PARAMS.has(s.param) ? tt("common.unitDeg") : tt("common.unitMm")}
           <input
             key={`${feature.featureId}:${s.param}:${current ?? ""}`}
             defaultValue={String(current ?? "")}
@@ -165,10 +166,10 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
         );
       })}
       <div className="pt-1 text-xs text-white/55">
-        Volume {(feature.volumeMm3 / 1000).toFixed(1)} cm³
+        {tt("props.volume", { v: (feature.volumeMm3 / 1000).toFixed(1) })}
       </div>
       {error && <div className="pt-2 text-xs text-red-300">{error}</div>}
-      {busyParam && <div className="pt-1 text-[11px] text-white/40">Recomputing…</div>}
+      {busyParam && <div className="pt-1 text-[11px] text-white/40">{tt("common.recomputing")}</div>}
     </div>
   );
 }

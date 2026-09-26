@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { buildTreeItems, useDocumentUiStore, useSelectionStore } from "../stores";
+import { useLocale, useT, featureTypeName } from "../i18n";
 
 /**
  * Object tree (nouns) + body history (Slice 4): one row per Body, with
@@ -13,12 +14,16 @@ export function ObjectTree() {
   const sketches = useDocumentUiStore((s) => s.sketches);
   // Derive OUTSIDE the subscription: the selector must return a stable
   // reference or getSnapshot never stabilizes (infinite update loop).
+  // Locale is a dep so tree labels re-translate on language switch.
+  const locale = useLocale();
   const items = useMemo(
     () => buildTreeItems(features, sketches, bodies),
-    [features, sketches, bodies],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [features, sketches, bodies, locale],
   );
   const select = useSelectionStore((s) => s.select);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
+  const t = useT();
   // Collapsed parents by body id (default: history visible).
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string): void => {
@@ -36,11 +41,11 @@ export function ObjectTree() {
   return (
     <div className="w-60 shrink-0 border-r border-white/10 bg-[#0e1218] p-2">
       <div className="px-2 py-1 text-xs uppercase tracking-wide text-white/50">
-        Objects
+        {t("common.objects")}
       </div>
       {items.length === 0 && (
         <div className="px-2 py-1.5 text-xs text-white/40">
-          Empty — add a box to begin.
+          {t("tree.empty")}
         </div>
       )}
       {items.map((o) =>
@@ -77,10 +82,10 @@ export function ObjectTree() {
         ),
       )}
       <div className="mt-3 px-2 py-1 text-xs uppercase tracking-wide text-white/50">
-        History
+        {t("common.history")}
       </div>
       <div className="px-2 text-xs text-white/60">
-        {features.length === 0 ? "—" : features.map((f) => f.type).join(" → ")}
+        {features.length === 0 ? t("tree.historyEmpty") : features.map((f) => featureTypeName(f.type)).join(" → ")}
       </div>
     </div>
   );

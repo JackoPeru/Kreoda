@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
-import { parseCommand, describeStep, HELP_TEXT, type IntentPlan } from "../intent/parse";
+import { parseCommand, describeStep, type IntentPlan } from "../intent/parse";
 import {
   HttpLlmProvider,
   buildIntentRequest,
   runPlan,
 } from "../intent/provider";
 import { usePreferencesStore } from "../stores";
+import { LOCALES, setLocale, t, useLocale, useT, type Locale } from "../i18n";
 
 /**
  * Command bar (§57): deterministic short commands parsed locally first
@@ -26,6 +27,8 @@ export function CommandBar() {
   const [model, setModel] = useState(
     () => usePreferencesStore.getState().llmModel,
   );
+  const locale = useLocale();
+  const tt = useT();
   const llmConfigured = usePreferencesStore((s) => s.llmEndpoint !== "");
   const genRef = useRef(0);
 
@@ -40,17 +43,14 @@ export function CommandBar() {
     const r = parseCommand(text);
     if (r.ok) {
       if (r.plan.steps[0]?.command === "Help") {
-        setStatus(HELP_TEXT);
+        setStatus(tt("parse.help"));
         return;
       }
       // Local parse → immediate typed preview (§57, no LLM involved).
       setPlan(r.plan);
     } else if (r.reason === "unparsed") {
       if (!llmConfigured) {
-        setError(
-          "No language model configured — I only understand short commands here. " +
-            "Try “box 100 50 20”, or open ⚙ to point at a local OpenAI-compatible server.",
-        );
+        setError(tt("cmdbar.errNoLlm"));
         return;
       }
       // Genuine NL → provider plan with the same validation gate.
@@ -66,7 +66,7 @@ export function CommandBar() {
         })
         .catch((e: unknown) => {
           if (genRef.current !== gen) return;
-          setError(e instanceof Error ? e.message : "planning failed");
+          setError(e instanceof Error ? e.message : t("cmdbar.errPlanningFailed"));
         })
         .finally(() => {
           if (genRef.current === gen) setBusy(false);
@@ -85,21 +85,27 @@ export function CommandBar() {
     try {
       const result = await runPlan(plan);
       if (result.errors.length > 0) {
+        const n = result.executed;
         setError(
-          `Stopped after ${result.executed} step${result.executed === 1 ? "" : "s"}: ${result.errors[0]}`,
+          n === 1
+            ? tt("cmdbar.stoppedOne", { err: result.errors[0] ?? "" })
+            : tt("cmdbar.stoppedMany", { n, err: result.errors[0] ?? "" }),
         );
       } else {
         // M11: hole patterns are one core transaction (one Undo step).
-        const suffix =
+        const tail =
           plan.steps[0]?.command === "CreateHolesCorners"
-            ? ` (hole pattern — one Undo to revert)`
+            ? tt("cmdbar.donePatternTail")
             : "";
+        const n = result.executed;
         setStatus(
-          `Done: ${result.executed} step${result.executed === 1 ? "" : "s"} committed${suffix}.`,
+          n === 1
+            ? tt("cmdbar.doneOne", { tail })
+            : tt("cmdbar.doneMany", { n, tail }),
         );
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "execution failed");
+      setError(e instanceof Error ? e.message : t("cmdbar.errExecutionFailed"));
     } finally {
       // Always clear the preview: a failed plan must never stay runnable.
       setPlan(null);
@@ -120,9 +126,7 @@ export function CommandBar() {
         u.hostname !== "127.0.0.1" &&
         u.hostname !== "::1"
       ) {
-        setError(
-          "That endpoint is plain HTTP — design context would travel unencrypted. Prefer https or a localhost server.",
-        );
+        setError(tt("cmdbar.errHttp"));
       }
     } catch {
       // Empty/garbage endpoint: the provider reports it honestly on use.
@@ -155,21 +159,37 @@ export function CommandBar() {
               if (!busy) setBusy(false);
             }
           }}
-          placeholder="What do you want to do?  e.g. “box 100 50 20” or “holes 6 4 corners 8”"
+          placeholder={tt("cmdbar.placeholder")}
           className="w-full rounded-md bg-white/5 px-3 py-2 text-sm outline-none placeholder:text-white/35 focus:bg-white/10"
           data-testid="command-input"
         />
         <button
           onClick={() => setShowSettings((s) => !s)}
-          title="Language model settings (optional local server)"
+          title={tt("cmdbar.settingsTitle")}
           className="rounded-md px-2 py-1.5 text-sm text-white/50 hover:bg-white/10 hover:text-white"
         >
           ⚙
         </button>
       </div>
       {showSettings && (
-        <div className="flex items-center gap-2 px-7 pt-2 text-xs text-white/60">
-          <span>LLM endpoint (optional):</span>
+        <div className="flex flex-wrap items-center gap-2 px-7 pt-2 text-xs text-white/60">
+          <span>{tt("cmdbar.langLabel")}</span>
+          <select
+            value={locale}
+            onChange={(e) => {
+              setLocale(e.target.value as Locale);
+            }}
+            className="rounded-md bg-white/5 px-2 py-1 outline-none focus:bg-white/10"
+            aria-label={tt("cmdbar.langLabel")}
+            data-testid="locale-select"
+          >
+            {LOCALES.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+          <span>{tt("cmdbar.llmLabel")}</span>
           <input
             value={endpoint}
             onChange={(e) => setEndpoint(e.target.value)}
@@ -179,17 +199,17 @@ export function CommandBar() {
           <input
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            placeholder="model name"
+            placeholder={tt("cmdbar.modelPlaceholder")}
             className="w-40 rounded-md bg-white/5 px-2 py-1 font-mono outline-none focus:bg-white/10"
           />
           <button
             onClick={saveSettings}
             className="rounded-md bg-white/10 px-2 py-1 hover:bg-white/15"
           >
-            Save
+            {tt("common.save")}
           </button>
           <span className="text-white/35">
-            Empty = offline short commands only.
+            {tt("cmdbar.offlineNote")}
           </span>
         </div>
       )}
@@ -199,7 +219,7 @@ export function CommandBar() {
           data-testid="plan-preview"
         >
           <div className="pb-1 text-white/70">
-            Plan ({plan.source === "local" ? "parsed locally, no LLM" : "language model"}):
+            {tt("cmdbar.planTitle", { source: plan.source === "local" ? tt("cmdbar.planLocal") : tt("cmdbar.planLlm") })}
           </div>
           <ol className="list-decimal pl-5 text-white/85">
             {plan.steps.map((s, i) => (
@@ -212,13 +232,13 @@ export function CommandBar() {
               disabled={busy}
               className="rounded-md bg-amber-500/90 px-2.5 py-1 font-medium text-black hover:bg-amber-400 disabled:opacity-50"
             >
-              {busy ? "Running…" : `Run ${plan.steps.length} step${plan.steps.length === 1 ? "" : "s"}`}
+              {busy ? tt("common.running") : plan.steps.length === 1 ? tt("cmdbar.runOne") : tt("cmdbar.runMany", { n: plan.steps.length })}
             </button>
             <button
               onClick={() => setPlan(null)}
               className="rounded-md px-2 py-1 text-white/60 hover:bg-white/10"
             >
-              Cancel
+              {tt("common.cancel")}
             </button>
           </div>
         </div>
@@ -227,7 +247,7 @@ export function CommandBar() {
       {error && <div className="px-7 pt-1 text-xs text-red-300">{error}</div>}
       {!plan && !status && !error && !showSettings && (
         <div className="px-7 pt-1 text-[11px] text-white/30">
-          Short syntax runs offline — try “box 100 50 20”, “holes 6 4 corners 8”, “view front”, “help”.
+          {tt("cmdbar.hint")}
         </div>
       )}
     </div>

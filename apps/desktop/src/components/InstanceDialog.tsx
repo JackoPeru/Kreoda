@@ -6,14 +6,16 @@ import { parseAngleToDeg, parseLengthToMm } from "@kreoda/units";
 import { executeCommand } from "../commands/execute";
 import { useDocumentUiStore, useSelectionStore } from "../stores";
 import { CadDialog } from "./CadDialog";
+import { useT, featureTypeName } from "../i18n";
 
 export function InstanceDialog({ onClose }: { onClose: () => void }) {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
   const features = useDocumentUiStore((s) => s.features);
-  const [t, setT] = useState<[string, string, string]>(["20", "0", "0"]);
+  const [pos, setPos] = useState<[string, string, string]>(["20", "0", "0"]);
   const [r, setR] = useState<[string, string, string]>(["0", "0", "0"]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const tt = useT();
 
   const target = useMemo(() => {
     const bare = selectedIds.find((id) => !id.includes(":"));
@@ -27,11 +29,11 @@ export function InstanceDialog({ onClose }: { onClose: () => void }) {
     setError(null);
     setBusy(true);
     try {
-      if (!target) throw new Error("Select a solid body first");
+      if (!target) throw new Error(tt("instance.errNoTarget"));
       const [txMm, tyMm, tzMm] = [
-        parseLengthToMm(t[0]!),
-        parseLengthToMm(t[1]!),
-        parseLengthToMm(t[2]!),
+        parseLengthToMm(pos[0]!),
+        parseLengthToMm(pos[1]!),
+        parseLengthToMm(pos[2]!),
       ] as [number, number, number];
       const [rxDeg, ryDeg, rzDeg] = [
         parseAngleToDeg(r[0]!),
@@ -49,14 +51,14 @@ export function InstanceDialog({ onClose }: { onClose: () => void }) {
       });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "instance failed");
+      setError(e instanceof Error ? e.message : tt("instance.errFailed"));
     } finally {
       setBusy(false);
     }
   };
 
-  const setTAt = (i: number, v: string): void =>
-    setT([t[0], t[1], t[2]].map((x, j) => (j === i ? v : x)) as [
+  const setPosAt = (i: number, v: string): void =>
+    setPos([pos[0], pos[1], pos[2]].map((x, j) => (j === i ? v : x)) as [
       string,
       string,
       string,
@@ -70,11 +72,11 @@ export function InstanceDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <CadDialog
-      title="Place instance"
+      title={tt("instance.title")}
       description={
         target
-          ? `Copy of ${target.type} — follows its edits. No mating yet.`
-          : "Select a solid body first."
+          ? tt("instance.descOn", { type: featureTypeName(target.type) })
+          : tt("instance.descOff")
       }
       onClose={onClose}
       error={error}
@@ -85,24 +87,24 @@ export function InstanceDialog({ onClose }: { onClose: () => void }) {
           disabled={busy || !target}
           className="rounded-md bg-amber-500/90 px-3 py-1.5 text-sm font-medium text-black hover:bg-amber-400 disabled:opacity-50"
         >
-          {busy ? "Placing…" : "Place instance"}
+          {busy ? tt("common.placing") : tt("instance.place")}
         </button>
       }
     >
-      {(["X", "Y", "Z"] as const).map((axis, i) => (
-        <label key={axis} className="mb-2 block text-xs text-white/70">
-          Translate {axis} (mm)
+      {([tt("instance.tx"), tt("instance.ty"), tt("instance.tz")] as const).map((label, i) => (
+        <label key={label} className="mb-2 block text-xs text-white/70">
+          {label}
           <input
-            defaultValue={t[i]}
-            onChange={(e) => setTAt(i, e.target.value)}
+            defaultValue={pos[i]}
+            onChange={(e) => setPosAt(i, e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void submit()}
             className="mt-1 w-full rounded-md bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:bg-white/10"
           />
         </label>
       ))}
-      {(["X", "Y", "Z"] as const).map((axis, i) => (
-        <label key={axis} className="mb-2 block text-xs text-white/70">
-          Rotate {axis} (°)
+      {([tt("instance.rx"), tt("instance.ry"), tt("instance.rz")] as const).map((label, i) => (
+        <label key={label} className="mb-2 block text-xs text-white/70">
+          {label}
           <input
             defaultValue={r[i]}
             onChange={(e) => setRAt(i, e.target.value)}

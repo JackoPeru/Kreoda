@@ -4,6 +4,7 @@ import { viewportProjectPoint } from "../viewport/viewportHandle";
 import { useDocumentUiStore, useSelectionStore } from "../stores";
 import { executeCommand } from "../commands/execute";
 import { faceCentroid } from "../interaction/pull";
+import { t } from "../i18n";
 
 // Canonical mm slots per type for chip labels (mirrors PropertiesPanel).
 const CHIP_SLOTS: Record<string, { param: string; short: string }[]> = {
@@ -105,7 +106,7 @@ export function DimensionChips() {
             node!.textContent = "";
             const input = document.createElement("input");
             input.value = "";
-            input.placeholder = isAngle ? "deg" : "mm";
+            input.placeholder = isAngle ? t("chips.degPh") : t("chips.mmPh");
             input.className = "w-16 bg-transparent text-white outline-none";
             // M5: silent drops (typo 0/-5 vanishes, chip keeps old value)
             // become honest inline errors.
@@ -126,7 +127,7 @@ export function DimensionChips() {
                 if (raw.trimStart().startsWith("=")) {
                   const expr = raw.slice(raw.indexOf("=") + 1);
                   if (!expr.trim()) {
-                    showInlineError("empty formula");
+                    showInlineError(t("chips.emptyFormula"));
                     return;
                   }
                   void executeCommand("SetDimension", {
@@ -135,7 +136,7 @@ export function DimensionChips() {
                     expression: expr.trim(),
                   }).catch((e: unknown) => {
                     // Core reports unknown refs/cycles honestly; surface it.
-                    node!.title = e instanceof Error ? e.message : "formula failed";
+                    node!.title = e instanceof Error ? e.message : t("chips.formulaFailed");
                   });
                   return;
                 }
@@ -146,13 +147,13 @@ export function DimensionChips() {
                     : parseLengthToMm(raw);
                 } catch {
                   editingRef.current = null;
-                  showInlineError("not a number");
+                  showInlineError(t("props.errNotNumber"));
                   return;
                 }
                 // M4: placement params accept 0/negatives; dimensions stay >0.
                 if (!Number.isFinite(v) || (!signed && !(v > 0))) {
                   editingRef.current = null;
-                  showInlineError(signed ? "not finite" : "must be > 0");
+                  showInlineError(signed ? t("chips.notFinite") : t("chips.positive"));
                   return;
                 }
                 void executeCommand("SetDimension", {
@@ -160,7 +161,7 @@ export function DimensionChips() {
                   paramName: param,
                   valueMm: v,
                 }).catch((e: unknown) => {
-                  node!.title = e instanceof Error ? e.message : "edit failed";
+                  node!.title = e instanceof Error ? e.message : t("props.errEditFailed");
                 });
               } else if (kev.key === "Escape") {
                 editingRef.current = null;
@@ -210,8 +211,8 @@ export function DimensionChips() {
             expr !== undefined ? `ƒ${slot.short} ${value ?? "?"}${unit}` : `${slot.short} ${value ?? "?"}${unit}`;
           node.title =
             expr !== undefined
-              ? `${slot.param} = ${expr} (formula — edit with =...)`
-              : `${slot.param} (type =formula to link)`;
+              ? t("chips.formulaTitle", { p: slot.param, e: expr })
+              : t("chips.linkTitle", { p: slot.param });
         }
         const world =
           face && body ? faceCentroidWorld(body, face.persistentFaceId) : null;

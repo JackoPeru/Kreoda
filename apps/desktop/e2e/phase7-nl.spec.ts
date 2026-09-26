@@ -8,7 +8,7 @@ import { HERE, MAIN, openProject, type Snapshot } from "./helpers";
 
 test("command bar: plate, corner holes, views, honest fallback", async () => {
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US"],
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });

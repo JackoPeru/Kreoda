@@ -3,6 +3,7 @@ import type { SketchModel } from "@kreoda/protocol";
 import { coreClient } from "../ipc/coreClient";
 import { updateFeatureSummary } from "../model/sync";
 import { useDocumentUiStore, usePreferencesStore, visibleFeatureIds } from "../stores";
+import { t, useT, sketchKindName } from "../i18n";
 
 function uid(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
@@ -51,8 +52,9 @@ export function SketchEditor({
   );
   const [model, setModel] = useState<SketchModel | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string>("loading…");
+  const [status, setStatus] = useState<string>(() => t("common.loading"));
   const [dragging, setDragging] = useState<string | null>(null);
+  const tt = useT();
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
   // Latest model mirror (incl. in-flight previews): commits read from here,
   // never from a stale render closure (§15 — no pointer-frequency React).
@@ -101,7 +103,7 @@ export function SketchEditor({
                 if (!cancelled) {
                   setModel(rect);
                   modelRef.current = rect;
-                  setStatus("solved · 0 dof");
+                  setStatus(tt("sketch.solvedDof"));
                   refreshSummary(sketchId);
                 }
               },
@@ -109,7 +111,7 @@ export function SketchEditor({
                 if (!cancelled) {
                   setModel(rect);
                   modelRef.current = rect;
-                  setError(e instanceof Error ? e.message : "solve failed");
+                  setError(e instanceof Error ? e.message : tt("sketch.errSolveFailed"));
                 }
               },
             );
@@ -123,11 +125,11 @@ export function SketchEditor({
           };
           setModel(loaded);
           modelRef.current = loaded;
-          setStatus("solved");
+          setStatus(tt("sketch.solved"));
         }
       })
       .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "load failed");
+        if (!cancelled) setError(e instanceof Error ? e.message : tt("sketch.errLoadFailed"));
       });
     return () => {
       cancelled = true;
@@ -188,10 +190,10 @@ export function SketchEditor({
       setModel(solved);
       modelRef.current = solved;
       setStatus(
-        `solved · residual ${(r.residual ?? 0).toExponential(1)} · dof ${r.dofs ?? "?"}`,
+        tt("sketch.solvedFull", { r: (r.residual ?? 0).toExponential(1), d: r.dofs ?? "?" }),
       );
       if (r.conflicting?.length) {
-        setError(`conflict: ${r.conflicting.join(", ")}`);
+        setError(tt("sketch.errConflict", { s: r.conflicting.join(", ") }));
         return false;
       }
       await refreshSummary(sketchId);
@@ -216,7 +218,7 @@ export function SketchEditor({
       }
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "commit failed");
+      setError(e instanceof Error ? e.message : t("sketch.errCommitFailed"));
       // Roll back the optimistic preview: re-fetch stored state (§13).
       try {
         const full = await coreClient.requestSketch(sketchId);
@@ -267,9 +269,9 @@ export function SketchEditor({
         dx < 3 && dy < 3
           ? null
           : dx < 2
-            ? "│ near vertical"
+            ? t("sketch.nearV")
             : dy < 2
-              ? "─ near horizontal"
+              ? t("sketch.nearH")
               : null,
       );
     }
@@ -328,7 +330,7 @@ export function SketchEditor({
       <div className="kreoda-float-elevated h-[80vh] w-[720px] p-4">
         <div className="flex items-center gap-2 pb-2">
           <span className="text-sm font-semibold">
-            Sketch · {sketch.planeKind} plane
+            {tt("sketch.title", { plane: sketch.planeKind })}
           </span>
           <span className="font-mono text-[11px] text-white/40">
             {sketchId.slice(0, 13)}…
@@ -341,7 +343,7 @@ export function SketchEditor({
             onClick={onClose}
             className="rounded-[var(--kreoda-radius-sm)] bg-[var(--kreoda-accent)] px-3 py-1 text-sm font-medium text-white hover:bg-[var(--kreoda-accent-hover)]"
           >
-            Done
+            {tt("common.done")}
           </button>
         </div>
         {error && (
@@ -376,7 +378,7 @@ export function SketchEditor({
                   />
                   {horiz && (
                     <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 6} fill="#7ee2a8" fontSize={11} textAnchor="middle">
-                      H
+                      {t("sk.badgeH")}
                     </text>
                   )}
                 </g>
@@ -460,7 +462,7 @@ export function SketchEditor({
           </svg>
           <div className="min-w-0 flex-1 text-xs text-white/70">
             <div className="pb-1 text-[11px] uppercase tracking-wide text-white/45">
-              Dimensions
+              {tt("sketch.dims")}
             </div>
             {model?.constraints
               .filter(
@@ -475,8 +477,8 @@ export function SketchEditor({
                   id={c.id}
                   label={
                     c.kind === "distance"
-                      ? `dist ${c.refs.join("–")}`
-                      : `${c.kind} ${c.refs.join(",")}`
+                      ? `${t("sk.dist")} ${c.refs.join("–")}`
+                      : `${sketchKindName(c.kind)} ${c.refs.join(",")}`
                   }
                   value={c.value}
                   onCommit={async (v) => {
@@ -492,14 +494,14 @@ export function SketchEditor({
                 />
               ))}
             <div className="pt-3 text-[11px] uppercase tracking-wide text-white/45">
-              Constraints ({model?.constraints.length ?? 0})
+              {tt("sketch.constraints", { n: model?.constraints.length ?? 0 })}
               {beginnerMode && (
                 <button
                   onClick={() => setShowDetails((v) => !v)}
                   aria-expanded={showDetails}
                   className="ml-2 rounded px-1.5 py-0.5 normal-case text-white/60 hover:bg-white/10 hover:text-white"
                 >
-                  {showDetails ? "Hide details" : "Details"}
+                  {showDetails ? tt("common.hideDetails") : tt("common.details")}
                 </button>
               )}
             </div>
@@ -507,17 +509,17 @@ export function SketchEditor({
             <div className="max-h-48 overflow-auto font-mono text-[11px] text-white/55">
               {(model?.constraints ?? []).map((c) => (
                 <div key={c.id}>
-                  {c.kind} {c.refs.join(",")}
+                  {sketchKindName(c.kind)} {c.refs.join(",")}
                   {c.kind === "distance" || c.kind === "radius" ? ` = ${c.value}` : ""}
                 </div>
               ))}
             </div>
             )}
             {inference && (
-              <div className="pt-2 text-amber-200">inference: {inference}</div>
+              <div className="pt-2 text-amber-200">{tt("sketch.inference", { s: inference })}</div>
             )}
             <div className="pt-2 text-white/45">
-              Drag a point to solve live. Release commits one Undo step.
+              {tt("sketch.dragHint")}
             </div>
           </div>
         </div>

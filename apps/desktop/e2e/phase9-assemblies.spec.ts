@@ -11,7 +11,7 @@ const ICAD = path.join(os.tmpdir(), "kreoda-phase9-inst-e2e.icad");
 
 test("instances: place, move, persist", async () => {
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US"],
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });

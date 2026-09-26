@@ -9,6 +9,7 @@ import { CoachingHint, Onboarding } from "../Onboarding";
 import { ObjectTree } from "../ObjectTree";
 import { PropertiesPanel } from "../PropertiesPanel";
 import { useSelectionStore } from "../../stores";
+import { useT } from "../../i18n";
 import { TopToolDock } from "./TopToolDock";
 import { BottomCommandDock } from "./BottomCommandDock";
 import { WorkspaceHelp, WorkspaceStatus } from "./WorkspaceStatus";
@@ -74,6 +75,7 @@ export function WorkspaceChrome({
   sketchOpen: boolean;
 }) {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
+  const t = useT();
 
   return (
     <div
@@ -87,35 +89,34 @@ export function WorkspaceChrome({
           className="flex items-center justify-center gap-3 border-b border-amber-300/25 bg-amber-950/90 px-3 py-1.5 text-sm text-amber-100"
           data-testid="recovery-banner"
         >
-          <span>Unsaved work from a previous session.</span>
+          <span>{t("chrome.recoveryText")}</span>
           <button
             onClick={onRestoreRecovery}
             className="rounded-md bg-amber-500/90 px-2.5 py-0.5 font-medium text-black hover:bg-amber-400"
             data-testid="recovery-restore"
           >
-            Restore
+            {t("common.restore")}
           </button>
           <button
             onClick={onDiscardRecovery}
             className="rounded-md px-2 py-0.5 text-amber-100/70 hover:bg-white/10"
             data-testid="recovery-discard"
           >
-            Discard
+            {t("common.discard")}
           </button>
         </div>
       )}
       {crashed !== null && (
         <div className="flex items-center justify-center gap-3 bg-red-950/95 px-3 py-1.5 text-sm text-red-200">
           <span>
-            Geometry engine stopped unexpectedly ({crashed}). Editing paused
-            — restart to restore from autosave (§51).
+            {t("chrome.crashText", { code: crashed })}
           </span>
           <button
             onClick={onSaveCrashBundle}
             className="rounded-md bg-white/10 px-2 py-0.5 hover:bg-white/15"
             data-testid="crash-bundle-save"
           >
-            Save bundle
+            {t("chrome.crashSaveBundle")}
           </button>
           <label className="flex items-center gap-1 text-xs text-red-200/70">
             <input
@@ -123,13 +124,13 @@ export function WorkspaceChrome({
               checked={bundleFullModel}
               onChange={(e) => onBundleFullModelChange(e.target.checked)}
               data-testid="crash-bundle-full-model"
-              title="Attach the full model summary (dimensions included)"
+              title={t("chrome.crashFullModelTitle")}
             />
-            full model
+            {t("chrome.crashFullModel")}
           </label>
           {bundlePath && (
             <span className="text-xs text-red-200/70" title={bundlePath}>
-              saved — attach it to your report
+              {t("chrome.crashSavedNote")}
             </span>
           )}
         </div>
@@ -154,15 +155,15 @@ export function WorkspaceChrome({
           className="kreoda-float-elevated absolute bottom-4 left-3 top-[68px] z-30 flex w-72 flex-col p-2"
           data-testid="project-drawer"
           role="complementary"
-          aria-label="Project"
+          aria-label={t("common.project")}
         >
           <div className="flex items-center justify-between px-2 py-1">
             <span className="text-xs uppercase tracking-wide text-white/50">
-              Project
+              {t("common.project")}
             </span>
             <button
               onClick={() => onProjectOpenChange(false)}
-              aria-label="Close project drawer"
+              aria-label={t("chrome.closeProject")}
               className="rounded px-1.5 py-0.5 text-white/50 hover:bg-white/10 hover:text-white"
             >
               ✕
@@ -178,15 +179,15 @@ export function WorkspaceChrome({
           className="kreoda-float-elevated absolute bottom-4 right-3 top-[68px] z-30 flex w-72 flex-col p-2"
           data-testid="properties-drawer"
           role="complementary"
-          aria-label="Properties"
+          aria-label={t("common.properties")}
         >
           <div className="flex items-center justify-between px-2 py-1">
             <span className="text-xs uppercase tracking-wide text-white/50">
-              Properties
+              {t("common.properties")}
             </span>
             <button
               onClick={() => onPropsOpenChange(false)}
-              aria-label="Close properties drawer"
+              aria-label={t("chrome.closeProperties")}
               className="rounded px-1.5 py-0.5 text-white/50 hover:bg-white/10 hover:text-white"
             >
               ✕
@@ -197,8 +198,7 @@ export function WorkspaceChrome({
               <PropertiesPanel onEditSketch={onEditSketch} />
             ) : (
               <div className="px-2 py-1.5 text-xs text-white/40">
-                Nothing selected — pick a body in the viewport or project
-                drawer.
+                {t("chrome.nothingSelected")}
               </div>
             )}
           </div>
@@ -218,7 +218,7 @@ export function WorkspaceChrome({
       {/* No rAF overlay work behind the fullscreen sketch modal (M11). */}
       {!sketchOpen && <DimensionChips />}
       {hasFeatures && (
-        <CoachingHint text="Drag a face to change its size. Click the number to type an exact value." />
+        <CoachingHint text={t("chrome.coachPull")} />
       )}
       {showOnboarding && !hasModel && (
         <Onboarding onSketch={onOnboardingSketch} onDone={onOnboardingDone} />

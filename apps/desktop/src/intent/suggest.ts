@@ -1,4 +1,5 @@
 import type { FeatureSummary } from "../ipc/coreClient";
+import { t } from "../i18n";
 
 // Deterministic intent inference WITHOUT AI (§27, §0.8): geometry/context
 // heuristics over the read-only projection. The LLM layer (§28) may add
@@ -51,7 +52,7 @@ export function suggestEqualHoles(
         kind: "equalSize",
         ids: g.map((h) => h.featureId),
         diameterMm: dias[0]!,
-        text: `Keep these ${g.length} holes the same size (⌀${dias[0]!.toFixed(1)} mm)?`,
+        text: t("suggest.holes", { n: g.length, d: dias[0]!.toFixed(1) }),
       };
     }
   }

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { useT } from "../i18n";
 
 /**
  * One shared Radix shell for the small CAD dialogs (same overlay/size).
@@ -61,13 +62,14 @@ export function CadActions({
   label: string;
   disabled?: boolean;
 }) {
+  const t = useT();
   return (
     <div className="flex justify-end gap-2 pt-1">
       <button
         onClick={onClose}
         className="rounded-md px-3 py-1.5 text-sm text-white/70 hover:bg-white/10"
       >
-        Cancel
+        {t("common.cancel")}
       </button>
       <button
         onClick={onSubmit}

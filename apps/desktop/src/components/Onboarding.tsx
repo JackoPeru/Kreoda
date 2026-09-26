@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Box, Cylinder, Pencil } from "lucide-react";
 import { executeCommand } from "../commands/execute";
+import { t, useT } from "../i18n";
 
 const HIDE_KEY = "kreoda.onboardingHidden";
 const HINT_KEY = "kreoda.hintPullLearned";
@@ -47,6 +48,7 @@ export function Onboarding({
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tt = useT();
 
   const createPrimitive = async (kind: "box" | "cylinder"): Promise<void> => {
     setBusy(kind);
@@ -67,7 +69,7 @@ export function Onboarding({
       hideOnboarding();
       onDone();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "creation failed");
+      setError(e instanceof Error ? e.message : t("onboard.errCreateFailed"));
     } finally {
       setBusy(null);
     }
@@ -76,10 +78,10 @@ export function Onboarding({
   const start = (
     <div className="pointer-events-auto w-80 rounded-xl border border-white/15 bg-[#141922]/95 p-5 shadow-2xl" data-testid="onboarding">
       <div className="pb-1 text-base font-semibold">
-        What do you want to create?
+        {tt("onboard.title")}
       </div>
       <div className="pb-4 text-xs text-white/55">
-        Exact solids from the first click — no CAD vocabulary needed.
+        {tt("onboard.subtitle")}
       </div>
       <div className="flex flex-col gap-2">
         <button
@@ -87,14 +89,14 @@ export function Onboarding({
           disabled={busy !== null}
           className="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-left text-sm font-medium hover:bg-blue-500 disabled:opacity-50"
         >
-          <Box size={16} /> Start from a box
+          <Box size={16} /> {tt("onboard.box")}
         </button>
         <button
           onClick={() => void createPrimitive("cylinder")}
           disabled={busy !== null}
           className="flex items-center gap-2 rounded-md bg-white/5 px-3 py-2 text-left text-sm hover:bg-white/10 disabled:opacity-50"
         >
-          <Cylinder size={16} /> Start from a cylinder
+          <Cylinder size={16} /> {tt("onboard.cylinder")}
         </button>
         <button
           onClick={() => {
@@ -103,7 +105,7 @@ export function Onboarding({
           }}
           className="flex items-center gap-2 rounded-md bg-white/5 px-3 py-2 text-left text-sm hover:bg-white/10"
         >
-          <Pencil size={16} /> Draw a shape
+          <Pencil size={16} /> {tt("onboard.sketch")}
         </button>
       </div>
       <button
@@ -113,7 +115,7 @@ export function Onboarding({
         }}
         className="pt-3 text-xs text-white/45 hover:text-white/70"
       >
-        Dismiss
+        {tt("common.dismiss")}
       </button>
       {error && <div className="pt-2 text-xs text-red-300">{error}</div>}
     </div>
@@ -129,6 +131,7 @@ export function Onboarding({
 /** Contextual coaching hint (dismissed once learned, stored locally). */
 export function CoachingHint({ text }: { text: string }) {
   const [visible, setVisible] = useState(() => !pullHintLearned());
+  const tt = useT();
   if (!visible) return null;
   return (
     <div className="pointer-events-auto absolute left-1/2 top-[116px] flex -translate-x-1/2 items-center gap-2 rounded-md bg-black/70 px-3 py-1.5 text-xs text-white/80">
@@ -140,7 +143,7 @@ export function CoachingHint({ text }: { text: string }) {
         }}
         className="text-white/50 hover:text-white"
       >
-        Got it
+        {tt("common.gotIt")}
       </button>
     </div>
   );

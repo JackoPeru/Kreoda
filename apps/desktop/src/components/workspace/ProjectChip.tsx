@@ -1,24 +1,28 @@
 // UX-1 project chip: logo + document summary, opens the project drawer.
 // Display-only data (counts) — never a fake save-state indicator.
 import { useDocumentUiStore, useSelectionStore } from "../../stores";
+import { useT } from "../../i18n";
 
 export function ProjectChip({ onOpen }: { onOpen: () => void }) {
   const featureCount = useDocumentUiStore((s) => s.features.length);
   const sketchCount = useDocumentUiStore((s) => s.sketches.length);
   const selected = useSelectionStore((s) => s.selectedIds.length);
+  const t = useT();
   const count = featureCount + sketchCount;
   const sub =
     selected > 0
-      ? `${selected} selected`
+      ? t("chip.selected", { n: selected })
       : count === 0
-        ? "Empty"
-        : `${count} item${count > 1 ? "s" : ""}`;
+        ? t("chip.empty")
+        : count === 1
+          ? t("chip.oneItem")
+          : t("chip.items", { n: count });
 
   return (
     <button
       onClick={onOpen}
-      aria-label="Project"
-      title="Project — objects, sketches, history"
+      aria-label={t("common.project")}
+      title={t("chip.title")}
       data-testid="project-chip"
       className="flex min-w-0 items-center gap-2 rounded-[var(--kreoda-radius-sm)] px-2 py-1 hover:bg-white/10"
     >

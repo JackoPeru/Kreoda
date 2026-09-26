@@ -8,11 +8,17 @@ import { HERE, MAIN } from "./helpers";
 
 test("shell boots, core answers, beginner UI renders", async () => {
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US"],
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });
     await window.waitForLoadState("domcontentloaded");
+
+    // Home (§home): boot lands on the home screen (riferimento UI/home.png).
+    await expect(window.getByTestId("home-screen")).toBeVisible({
+      timeout: 20000,
+    });
+    await window.getByTestId("home-new-project").click();
 
     // Beginner shell (§24)
     await expect(

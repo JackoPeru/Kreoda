@@ -9,6 +9,7 @@ import {
 } from "../stores";
 import { viewportSetView, type ViewName } from "../viewport/viewportHandle";
 import type { IntentPlan, PlanStep } from "./parse";
+import { t } from "../i18n";
 
 // Structured AI context (§28): selection + model summary, never raw meshes.
 export interface IntentRequest {
@@ -92,19 +93,19 @@ function validExpression(expr: unknown): boolean {
 
 /** Validate a plan before anything touches the core (§28, §63.10). */
 export function validatePlan(plan: IntentPlan): void {
-  if (plan.steps.length === 0) throw new Error("Empty plan.");
+  if (plan.steps.length === 0) throw new Error(t("parse.planEmpty"));
   if (plan.steps.length > 12) {
-    throw new Error("Plan too long (max 12 steps) — split the request.");
+    throw new Error(t("parse.planTooLong"));
   }
   // Undo/Redo must be single-step (a 12×Undo plan would wipe history).
   if (plan.steps.some((s) => s.command === "Undo" || s.command === "Redo") && plan.steps.length > 1) {
-    throw new Error("Plans with Undo/Redo must be single-step.");
+    throw new Error(t("parse.planUndoRedo"));
   }
   const store = plan.source === "llm" ? useDocumentUiStore.getState() : null;
   for (const step of plan.steps) {
     const params = (step as { params: unknown }).params;
     if (typeof params !== "object" || params === null) {
-      throw new Error(`Bad arguments for ${step.command} — try short syntax.`);
+      throw new Error(t("parse.badArgs", { cmd: step.command }));
     }
     // Local shorthand steps resolve context at execution; still range-check
     // every numeric field present so parser bugs can't reach the core.
@@ -122,18 +123,18 @@ export function validatePlan(plan: IntentPlan): void {
             : isDepth
               ? typeof p[k] === "number" && Number.isFinite(p[k] as number) && (p[k] as number) >= 0 && (p[k] as number) <= 100000
               : finitePositive(p[k]);
-          if (!ok) throw new Error(`Bad ${k} in ${step.command} — must be a finite positive dimension ≤ 100000.`);
+          if (!ok) throw new Error(t("parse.badDim", { k, cmd: step.command }));
         }
       }
       if (step.command === "SetDimension") {
         const pn = (p["paramName"] as string) ?? "";
         if (!ALLOWED_DIM_PARAMS.has(pn)) {
-          throw new Error(`Unknown parameter “${pn}” — try widthMm, heightMm, depthMm, radiusMm.`);
+          throw new Error(t("parse.unknownParam", { p: pn }));
         }
         // C3: per-param value gate (txMm=0/-50, rxDeg=0/-90 legal).
         if (p["valueMm"] !== undefined && p["valueMm"] !== null) {
           if (!validSetDimensionValue(pn, p["valueMm"])) {
-            throw new Error(`Bad valueMm for ${pn} — out of range for that parameter.`);
+            throw new Error(t("parse.badValue", { p: pn }));
           }
         }
         // Formulas ride the same path (Phase 9a): charset + length checked
@@ -141,22 +142,20 @@ export function validatePlan(plan: IntentPlan): void {
         const expr = p["expression"];
         if (expr !== undefined && expr !== null) {
           if (!validExpression(expr)) {
-            throw new Error(
-              "Bad expression — numbers, parameter names and + - * / ( ) only.",
-            );
+            throw new Error(t("parse.badExpr"));
           }
         } else if (p["valueMm"] === undefined || p["valueMm"] === null) {
-          throw new Error("SetDimension needs valueMm or an expression.");
+          throw new Error(t("parse.needValueOrExpr"));
         }
       }
       if (step.command === "CreateHolesCorners") {
         const c = (p["count"] as number) ?? 0;
-        if (c !== 1 && c !== 4) throw new Error(`Corner patterns support 1 or 4 holes, got ${c}.`);
+        if (c !== 1 && c !== 4) throw new Error(t("parse.cornersSupport", { c }));
       }
       continue;
     }
     const def = COMMANDS.find((c) => c.id === step.command);
-    if (!def) throw new Error(`Unknown command in plan: ${step.command}`);
+    if (!def) throw new Error(t("parse.unknownCmd", { cmd: step.command }));
     // Zod validation of every field (§63.10) — unknown target ids and bad
     // types are rejected here, before anything touches the core.
     const parsed = def.parameterSchema.parse(params) as Record<string, unknown>;
@@ -164,33 +163,33 @@ export function validatePlan(plan: IntentPlan): void {
     // as local (zod only caps length) — fail fast before the round-trip.
     if (step.command === "SetDimension" && parsed["expression"] !== undefined && parsed["expression"] !== null) {
       if (!validExpression(parsed["expression"])) {
-        throw new Error("Bad expression — numbers, parameter names and + - * / ( ) only.");
+        throw new Error(t("parse.badExpr"));
       }
     }
     // LLM semantic checks: ids must resolve against the live document.
     if (store && typeof parsed["targetId"] === "string") {
       const tid = parsed["targetId"] as string;
       if (!store.features.some((f) => f.featureId === tid)) {
-        throw new Error(`Unknown target “${tid}” — use a selected body id.`);
+        throw new Error(t("parse.unknownTarget", { id: tid }));
       }
     }
     if (store && typeof parsed["featureId"] === "string") {
       const fid = parsed["featureId"] as string;
       if (!store.features.some((f) => f.featureId === fid)) {
-        throw new Error(`Unknown feature “${fid}”.`);
+        throw new Error(t("parse.unknownFeature", { id: fid }));
       }
     }
     if (store && typeof parsed["faceRole"] === "string" && typeof parsed["targetId"] === "string") {
       const mesh = store.meshes[parsed["targetId"] as string];
       const want = `${parsed["targetId"]}:${parsed["faceRole"]}`;
       if (!mesh || !mesh.faces.some((f) => f.persistentFaceId === want)) {
-        throw new Error(`Face “${want}” is not on that solid — select the face first.`);
+        throw new Error(t("parse.faceNotOnSolid", { id: want }));
       }
     }
     if (store && Array.isArray(parsed["edgeIds"]) && typeof parsed["targetId"] === "string") {
       const tid = parsed["targetId"] as string;
       const bad = (parsed["edgeIds"] as string[]).filter((e) => !e.startsWith(`${tid}:`));
-      if (bad.length > 0) throw new Error("All edges must belong to the target solid.");
+      if (bad.length > 0) throw new Error(t("parse.edgesTarget"));
     }
   }
 }
@@ -365,13 +364,19 @@ export class HttpLlmProvider implements IntentModelProvider {
     } catch (e) {
       const host = hostOf(this.endpoint);
       throw new Error(
-        `Language model unreachable at ${host} (${e instanceof Error && e.name === "AbortError" ? "timed out after 15 s" : e instanceof Error ? e.message : "network error"}) — try short commands like “box 100 50 20”.`,
+        t("run.llmUnreachable", {
+          host,
+          detail:
+            e instanceof Error && e.name === "AbortError"
+              ? t("run.llmTimeout")
+              : e instanceof Error
+                ? e.message
+                : t("run.llmNetwork"),
+        }),
       );
     }
     if (!res.ok) {
-      throw new Error(
-        `Language model error ${res.status} — try short commands like “box 100 50 20”.`,
-      );
+      throw new Error(t("run.llmError", { status: res.status }));
     }
     const body = (await res.json()) as {
       choices?: {
@@ -382,17 +387,17 @@ export class HttpLlmProvider implements IntentModelProvider {
     };
     const calls = (body.choices?.[0]?.message?.tool_calls ?? []).slice(0, 12);
     if (calls.length === 0) {
-      throw new Error("The model returned no commands — try rephrasing or short syntax.");
+      throw new Error(t("run.llmNoCommands"));
     }
     const steps = calls.map((c) => {
       let params: unknown = {};
       try {
         params = JSON.parse(c.function.arguments || "{}");
       } catch {
-        throw new Error(`Bad model arguments for ${c.function.name} — try short syntax.`);
+        throw new Error(t("run.llmBadArgs", { fn: c.function.name }));
       }
       if (typeof params !== "object" || params === null) {
-        throw new Error(`Bad model arguments for ${c.function.name} — try short syntax.`);
+        throw new Error(t("run.llmBadArgs", { fn: c.function.name }));
       }
       return { command: c.function.name, params } as PlanStep;
     });
@@ -462,7 +467,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
       return true;
     });
     if (faces.length === 0) return null;
-    if (faces.length > 1) throw new Error(`Select a single face (got ${faces.length})`);
+    if (faces.length > 1) throw new Error(t("run.singleFace", { n: faces.length }));
     const face = faces[0]!;
     const cut = face.indexOf(":");
     return { targetId: face.slice(0, cut), faceRole: face.slice(cut + 1) };
@@ -473,7 +478,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
     if (edges.length === 0) return null;
     const targetId = edges[0]!.slice(0, edges[0]!.indexOf(":"));
     if (!edges.every((e) => e.startsWith(`${targetId}:`))) {
-      throw new Error("Select edges of a single solid");
+      throw new Error(t("dress.errOneSolid"));
     }
     return { targetId, edgeIds: edges };
   };
@@ -512,7 +517,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
           };
           // Explicit target wins; otherwise the live body selection.
           const targetId = p.targetId ?? selectedBody();
-          if (!targetId) throw new Error("Select a solid body first");
+          if (!targetId) throw new Error(t("cmd.reasonBody"));
           await executeCommand("CreateInstance", {
             targetId,
             txMm: p.txMm ?? 0,
@@ -526,7 +531,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
         }
         case "CreateHole": {
           const face = selectedFace();
-          if (!face) throw new Error("Select a face first");
+          if (!face) throw new Error(t("cmd.reasonFace"));
           const p = step.params;
           // "center" default: face centroid mapped through the core frame.
           let xMm = 0;
@@ -536,14 +541,14 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             const { faceCentroid, faceLocalFromWorld } = await import("../interaction/pull");
             const store = useDocumentUiStore.getState();
             const mesh = store.meshes[face.targetId];
-            if (!mesh) throw new Error("Face mesh not loaded yet");
+            if (!mesh) throw new Error(t("run.faceMesh"));
             // World centroid of the selected face (first triangles).
             const c = faceCentroid(
               mesh,
               `${face.targetId}:${face.faceRole}`,
               16,
             );
-            if (!c) throw new Error("Face not in current mesh");
+            if (!c) throw new Error(t("run.faceNotInMesh"));
             const frame = await coreClient.requestFaceInfo(
               face.targetId,
               face.faceRole,
@@ -552,7 +557,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             xMm = local.x;
             yMm = local.y;
             if (!Number.isFinite(xMm) || !Number.isFinite(yMm)) {
-              throw new Error("Face center unavailable — select the face again");
+              throw new Error(t("run.faceCenter"));
             }
           } else {
             xMm = (p as { xMm?: number }).xMm ?? 0;
@@ -571,7 +576,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
         }
         case "CreateHolesCorners": {
           const targetId = selectedBody();
-          if (!targetId) throw new Error("Select a solid body first");
+          if (!targetId) throw new Error(t("cmd.reasonBody"));
           const store = useDocumentUiStore.getState();
           // Tips-only hydration prunes non-tip ancestor meshes: read corner
           // math from the owning body's TIP mesh. The tip derives from the
@@ -586,9 +591,9 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             await pullFeatureMesh(meshId, store.revision);
             mesh = useDocumentUiStore.getState().meshes[meshId];
           }
-          if (!mesh) throw new Error("Body mesh not loaded yet");
+          if (!mesh) throw new Error(t("run.bodyMesh"));
           const topId = topFaceOf(mesh);
-          if (!topId) throw new Error("No top face found on the body");
+          if (!topId) throw new Error(t("run.noTopFace"));
           const cut = topId.indexOf(":");
           const faceRole = topId.slice(cut + 1);
           const { coreClient } = await import("../ipc/coreClient");
@@ -597,7 +602,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
           // whole body — a fused second solid below must not inflate corners).
           const topRange = mesh.faces.find((f) => f.persistentFaceId === topId);
           if (!topRange || topRange.triangleCount <= 0) {
-            throw new Error("Face extents unavailable");
+            throw new Error(t("run.faceExtents"));
           }
           let x0 = Infinity,
             y0 = Infinity,
@@ -624,7 +629,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             }
           }
           if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) {
-            throw new Error("Face extents unavailable");
+            throw new Error(t("run.faceExtents"));
           }
           const p = step.params;
           const w = x1 - x0;
@@ -633,7 +638,12 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             if (w < 2 * p.insetMm + p.diameterMm || h < 2 * p.insetMm + p.diameterMm) {
               const maxInset = Math.max(0, (Math.min(w, h) - p.diameterMm) / 2);
               throw new Error(
-                `Inset ${p.insetMm} too large for a ${w.toFixed(1)}×${h.toFixed(1)} face — max ${maxInset.toFixed(1)}`,
+                t("run.insetTooLarge", {
+                  i: p.insetMm,
+                  w: w.toFixed(1),
+                  h: h.toFixed(1),
+                  m: maxInset.toFixed(1),
+                }),
               );
             }
           }
@@ -664,7 +674,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
         case "CreateFillet":
         case "CreateChamfer": {
           const edges = selectedEdges();
-          if (!edges) throw new Error("Select edges first");
+          if (!edges) throw new Error(t("run.edgesFirst"));
           const v =
             step.command === "CreateFillet"
               ? (step.params as { radiusMm: number }).radiusMm
@@ -680,7 +690,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
         }
         case "SetDimension": {
           const body = selectedBody();
-          if (!body) throw new Error("Select a solid body first");
+          if (!body) throw new Error(t("cmd.reasonBody"));
           const sp = step.params as {
             paramName: string;
             valueMm?: number;
@@ -704,7 +714,7 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
               (step.params as { name: string }).name as ViewName,
             )
           ) {
-            throw new Error("Viewport not ready");
+            throw new Error(t("run.viewport"));
           }
           break;
         case "Help":
@@ -715,7 +725,11 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
       // Stop at first failure (§41): a partial plan beats a corrupt one,
       // and the error names the exact step.
       errors.push(
-        `Step ${executed + 1} (${step.command}): ${e instanceof Error ? e.message : "failed"}`,
+        t("run.stepPrefix", {
+          n: executed + 1,
+          cmd: step.command,
+          err: e instanceof Error ? e.message : t("run.stepFailed"),
+        }),
       );
       break;
     }

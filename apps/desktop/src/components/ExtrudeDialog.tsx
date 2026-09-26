@@ -3,6 +3,7 @@ import { parseLengthToMm } from "@kreoda/units";
 import { executeCommand } from "../commands/execute";
 import { isSketchId, useSelectionStore } from "../stores";
 import { CadActions, CadDialog } from "./CadDialog";
+import { t, useT } from "../i18n";
 
 /** Extrude the selected sketch (§20 Tier 4): distance dialog → solid. */
 export function ExtrudeDialog({ onClose }: { onClose: () => void }) {
@@ -10,6 +11,7 @@ export function ExtrudeDialog({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
+  const tt = useT();
 
   const submit = async (): Promise<void> => {
     setError(null);
@@ -19,11 +21,11 @@ export function ExtrudeDialog({ onClose }: { onClose: () => void }) {
       // Only a sketch noun may be extruded — a body UUID here would fail
       // confusingly in the core ("unknown sketch").
       const sketchId = selectedIds.find((id) => isSketchId(id));
-      if (!sketchId) throw new Error("Select a sketch first");
+      if (!sketchId) throw new Error(tt("extrude.errNoSketch"));
       await executeCommand("CreateExtrude", { sketchId, distanceMm });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "extrude failed");
+      setError(e instanceof Error ? e.message : t("extrude.errFailed"));
     } finally {
       setBusy(false);
     }
@@ -31,8 +33,8 @@ export function ExtrudeDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <CadDialog
-      title="Pull sketch into solid"
-      description="Blind extrude along the sketch normal (one Undo step)."
+      title={tt("extrude.title")}
+      description={tt("extrude.desc")}
       onClose={onClose}
       error={error}
       actions={
@@ -40,13 +42,13 @@ export function ExtrudeDialog({ onClose }: { onClose: () => void }) {
           onClose={onClose}
           onSubmit={() => void submit()}
           busy={busy}
-          busyLabel="Building…"
-          label="Extrude"
+          busyLabel={tt("common.building")}
+          label={tt("extrude.action")}
         />
       }
     >
       <label className="mb-2 block text-xs text-white/70">
-        Distance (mm)
+        {tt("extrude.distance")}
         <input
           defaultValue={distance}
           onChange={(e) => setDistance(e.target.value)}

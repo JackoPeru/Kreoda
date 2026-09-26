@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
 import { WorkspaceChrome } from "../components/workspace/WorkspaceChrome";
+import { HomeScreen } from "../components/home/HomeScreen";
 import { PluginsDialog } from "../components/PluginsDialog";
 import { ReferenceDialog } from "../components/ReferenceDialog";
 import { InstanceDialog } from "../components/InstanceDialog";
@@ -80,6 +81,10 @@ export function App() {
   // permanently docked.
   const [projectOpen, setProjectOpen] = useState(false);
   const [propsOpen, setPropsOpen] = useState(false);
+  // Home (§home): schermata principale all'avvio (vedi riferimento UI/home.png).
+  // Il workspace CAD si apre da qui (Nuovo/Importa/recenti/orbit/nav).
+  const [view, setView] = useState<"home" | "workspace">("home");
+  const enterWorkspace = (): void => setView("workspace");
   // First-run onboarding (§56): shown over an empty document until dismissed.
   const [showOnboarding, setShowOnboarding] = useState<boolean>(() =>
     shouldShowOnboarding(),
@@ -444,6 +449,20 @@ export function App() {
 
   return (
     <div className="h-full">
+      {view === "home" ? (
+        <HomeScreen onEnterWorkspace={enterWorkspace} />
+      ) : (
+      <>
+      <button
+        type="button"
+        onClick={() => setView("home")}
+        data-testid="back-home"
+        aria-label="Torna alla home"
+        title="Torna alla home"
+        className="kreoda-float absolute left-3 top-3 z-50 rounded-xl px-2.5 py-1.5 text-xs text-white/70 hover:bg-white/10 hover:text-white"
+      >
+        ⌂ Home
+      </button>
       <WorkspaceChrome
         onAdd={setAdding}
         onSketch={() => void createSketch()}
@@ -503,6 +522,8 @@ export function App() {
       {holing && <HoleDialog onClose={() => setHoling(false)} />}
       {dressUp && (
         <DressUpDialog kind={dressUp} onClose={() => setDressUp(null)} />
+      )}
+      </>
       )}
     </div>
   );

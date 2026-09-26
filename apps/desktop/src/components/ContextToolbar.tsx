@@ -13,6 +13,7 @@ import {
   useToolStore,
 } from "../stores";
 import { DismissBackdrop } from "./workspace/DismissBackdrop";
+import { useT } from "../i18n";
 
 /**
  * Context-sensitive tools (§18, §69): exposes ONLY actions valid for the
@@ -42,6 +43,7 @@ export function ContextToolbar({
   const activeTool = useToolStore((s) => s.activeTool);
   const setTool = useToolStore((s) => s.setTool);
   const [moreOpen, setMoreOpen] = useState(false);
+  const t = useT();
   const rootRef = useRef<HTMLDivElement>(null);
   // Re-render trigger for registry reads touching the sketch store (M12):
   // availability is computed live at render/click from getState().
@@ -84,15 +86,15 @@ export function ContextToolbar({
   const candidates: { id: string; label: string; hint: string }[] = [];
   if (kinds.has("face")) {
     candidates.push(
-      { id: "PullFace", label: "Pull face", hint: "Drag along its normal" },
-      { id: "CreateHole", label: "Hole", hint: "Cut a hole here" },
-      { id: "CreateSketch", label: "Sketch here", hint: "Draw on this plane" },
+      { id: "PullFace", label: t("ctx.pullFace"), hint: t("ctx.pullFaceHint") },
+      { id: "CreateHole", label: t("ctx.hole"), hint: t("ctx.holeHint") },
+      { id: "CreateSketch", label: t("ctx.sketchHere"), hint: t("ctx.sketchHereHint") },
     );
   }
   if (kinds.has("edge")) {
     candidates.push(
-      { id: "CreateFillet", label: "Round", hint: "Round selected edges" },
-      { id: "CreateChamfer", label: "Corner", hint: "Chamfer selected edges" },
+      { id: "CreateFillet", label: t("ctx.round"), hint: t("ctx.roundHint") },
+      { id: "CreateChamfer", label: t("ctx.corner"), hint: t("ctx.cornerHint") },
     );
   }
   const bareIds = selectedIds.filter((id) => id.indexOf(":") < 0);
@@ -103,14 +105,14 @@ export function ContextToolbar({
     if (commandAvailability("CreateExtrude").available) {
       candidates.push({
         id: "CreateExtrude",
-        label: "Pull sketch",
-        hint: "Extrude into a solid",
+        label: t("ctx.pullSketch"),
+        hint: t("ctx.pullSketchHint"),
       });
     }
     candidates.push({
       id: "EditSketch",
-      label: "Edit sketch",
-      hint: "Open the 2D sketch editor",
+      label: t("ctx.editSketch"),
+      hint: t("ctx.editSketchHint"),
     });
   }
   // Single solid body: the only supported transform is a placed copy.
@@ -122,32 +124,32 @@ export function ContextToolbar({
   ) {
     candidates.push({
       id: "CopyPlaced",
-      label: "Copy placed",
-      hint: "Rigid placed copy of this solid",
+      label: t("ctx.copyPlaced"),
+      hint: t("ctx.copyPlacedHint"),
     });
   }
   // Bulk selection helpers (§16): similar faces / connected edges.
   if (kinds.has("face") && selectedIds.length === 1) {
     candidates.push({
       id: "SelectSimilar",
-      label: "Similar",
-      hint: "Select parallel faces of the same class",
+      label: t("ctx.similar"),
+      hint: t("ctx.similarHint"),
     });
   }
   if (kinds.has("edge") && selectedIds.length === 1) {
     candidates.push({
       id: "SelectConnected",
-      label: "Connected",
-      hint: "Select the connected edge chain",
+      label: t("ctx.connected"),
+      hint: t("ctx.connectedHint"),
     });
   }
   // Two selected solids: fuse / cut / common through the real boolean op.
   const booleanAvail = commandAvailability("CreateBoolean");
   if (booleanAvail.available) {
     candidates.push(
-      { id: "BooleanFuse", label: "Combine", hint: "Fuse the two solids" },
-      { id: "BooleanCut", label: "Subtract", hint: "Cut tool from target" },
-      { id: "BooleanCommon", label: "Overlap", hint: "Keep the intersection" },
+      { id: "BooleanFuse", label: t("ctx.combine"), hint: t("ctx.combineHint") },
+      { id: "BooleanCut", label: t("ctx.subtract"), hint: t("ctx.subtractHint") },
+      { id: "BooleanCommon", label: t("ctx.overlap"), hint: t("ctx.overlapHint") },
     );
   }
   if (candidates.length === 0) return null;
@@ -222,7 +224,7 @@ export function ContextToolbar({
   return (
     <>
       {moreOpen && (
-        <DismissBackdrop onClose={() => setMoreOpen(false)} label="Close more actions" />
+        <DismissBackdrop onClose={() => setMoreOpen(false)} label={t("ctx.closeMore")} />
       )}
       <div
         ref={rootRef}
@@ -247,9 +249,9 @@ export function ContextToolbar({
         <div className="relative">
           <button
             onClick={() => setMoreOpen((o) => !o)}
-            aria-label="More actions"
+            aria-label={t("ctx.moreActions")}
             aria-expanded={moreOpen}
-            title="More actions for this selection"
+            title={t("ctx.moreActionsHint")}
             className="rounded-md px-2 py-1.5 text-xs text-white/70 hover:bg-white/10 hover:text-white"
           >
             ⋯
@@ -263,7 +265,7 @@ export function ContextToolbar({
                 }}
                 className="flex w-full items-center rounded-[var(--kreoda-radius-sm)] px-2.5 py-1.5 text-left text-sm text-white/85 hover:bg-white/10"
               >
-                Properties
+                {t("common.properties")}
               </button>
             </div>
           )}

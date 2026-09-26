@@ -26,6 +26,8 @@ import {
   useSelectionStore,
 } from "../stores";
 import type { SketchModel } from "@kreoda/protocol";
+import { t } from "../i18n";
+import { localizeReason } from "../i18n/commands";
 
 function commandContext(): CommandContext {
   const sel = useSelectionStore.getState();
@@ -92,10 +94,10 @@ export async function executeCommand(
   opts: { skipAvailability?: boolean } = {},
 ): Promise<CommandResult> {
   if (!useDocumentUiStore.getState().coreRunning) {
-    throw new Error("geometry engine not running");
+    throw new Error(t("cmd.engineOff"));
   }
   const def = COMMANDS.find((c) => c.id === id);
-  if (!def) throw new Error(`unknown command ${id}`);
+  if (!def) throw new Error(t("cmd.unknownId", { id }));
   // skipAvailability: plan expansion (provider.ts) resolves context
   // EXPLICITLY (target/face/edge ids in hand). Params are still
   // zod-validated, so the single typed path (§0.4) is preserved; only the
@@ -104,7 +106,7 @@ export async function executeCommand(
   if (!opts.skipAvailability) {
     const availability = def.availability(commandContext());
     if (!availability.available) {
-      throw new Error(availability.reason ?? `${id} unavailable here`);
+      throw new Error(localizeReason(availability.reason) ?? t("cmd.unavailable", { id }));
     }
   }
   const p = def.parameterSchema.parse(params) as Record<string, unknown>;
@@ -202,11 +204,11 @@ async function dispatchCommand(
           depthMm: number;
           featureIds: string[];
         };
-      if (pointsMm.length % 2 !== 0) throw new Error("pointsMm must be [x,y] pairs");
+      if (pointsMm.length % 2 !== 0) throw new Error(t("cmd.pointsPairs"));
       // m11: fail fast locally (no wasted round-trip) when ids don't match
       // points 1:1 — the core re-checks and answers BAD_PARAMS anyway.
       if (featureIds.length * 2 !== pointsMm.length) {
-        throw new Error("hole pattern featureIds must match points 1:1");
+        throw new Error(t("cmd.patternIds"));
       }
       const points: [number, number][] = [];
       for (let i = 0; i < pointsMm.length; i += 2) {
@@ -309,7 +311,7 @@ async function dispatchCommand(
     default:
       // Registered but not yet implemented (e.g. future Phase 8 ops).
       // Honest Phase-8 pointer, not jargon (§63.10).
-      throw new Error(`${id} is registered but has no executor yet — try the toolbar, or short commands (export arrives in Phase 8)`);
+      throw new Error(t("cmd.noExecutor", { id }));
   }
 }
 
@@ -330,10 +332,10 @@ export function commandAvailability(id: string): {
   // with one honest reason — buttons grey out instead of committing into a
   // fresh empty engine while the user restores.
   if (!useDocumentUiStore.getState().coreRunning) {
-    return { available: false, reason: "geometry engine not running" };
+    return { available: false, reason: t("cmd.engineOff") };
   }
   const def = COMMANDS.find((c) => c.id === id);
-  if (!def) return { available: false, reason: "unknown command" };
+  if (!def) return { available: false, reason: t("cmd.reasonUnknown") };
   return def.availability(commandContext());
 }
 

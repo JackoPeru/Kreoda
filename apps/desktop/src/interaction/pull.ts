@@ -2,6 +2,7 @@
 // parameter — never raw vertices. Corner-anchored primitives only expose
 // their free faces (+X/+Y/+Z caps, cylinder wall, sphere); anchored faces
 // report an honest reason instead of a wrong edit.
+import { t } from "../i18n";
 
 export interface PullTarget {
   featureId: string;
@@ -34,12 +35,12 @@ export function resolvePullTarget(
   if (!mapping) {
     return {
       ok: false,
-      reason: `This face is anchored (${role || "unknown"}) — pull the highlighted + face instead`,
+      reason: t("pull.anchored", { role: role || "unknown" }),
     };
   }
   const startValueMm = feature.paramsMm[mapping.slot];
   if (!(startValueMm! > 0)) {
-    return { ok: false, reason: "Cannot read the source dimension" };
+    return { ok: false, reason: t("pull.noSource") };
   }
   return {
     ok: true,

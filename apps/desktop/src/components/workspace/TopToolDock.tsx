@@ -26,6 +26,8 @@ import type { PrimitiveKind } from "../AddPrimitiveDialog";
 import { ProjectChip } from "./ProjectChip";
 import { DismissBackdrop } from "./DismissBackdrop";
 import { WorkspaceActions, openDocument } from "./WorkspaceActions";
+import { useT } from "../../i18n";
+import { commandText, localizeReason } from "../../i18n/commands";
 
 const PRIMITIVE_ICONS: Record<string, React.ReactNode> = {
   box: <Box size={16} />,
@@ -69,6 +71,7 @@ export function TopToolDock({
 }) {
   const [open, setOpen] = useState<"add" | "more" | null>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
+  const t = useT();
   const { beginnerMode, toggleMode } = usePreferencesStore();
   const { activeTool, setTool } = useToolStore();
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -92,7 +95,7 @@ export function TopToolDock({
       const bodies = selectedIds.filter(
         (id) => !id.includes(":") && !isSketchId(id),
       );
-      if (bodies.length < 2) throw new Error("Select two solids first");
+      if (bodies.length < 2) throw new Error(t("topdock.errTwoSolids"));
       await executeCommand("CreateBoolean", {
         op,
         targetId: bodies[0],
@@ -100,7 +103,7 @@ export function TopToolDock({
       });
       close();
     } catch (e) {
-      setMenuError(e instanceof Error ? e.message : "boolean failed");
+      setMenuError(e instanceof Error ? e.message : t("topdock.errBooleanFailed"));
     }
   };
 
@@ -115,7 +118,7 @@ export function TopToolDock({
   return (
     <>
       {open !== null && (
-        <DismissBackdrop onClose={close} label="Close menu" />
+        <DismissBackdrop onClose={close} label={t("topdock.closeMenu")} />
       )}
       <div
         className="kreoda-float pointer-events-auto relative z-50 flex max-w-full flex-wrap items-center gap-1 px-2 py-1.5"
@@ -137,14 +140,16 @@ export function TopToolDock({
           className={`flex items-center gap-1.5 rounded-[var(--kreoda-radius-sm)] px-2.5 py-1.5 text-sm font-medium hover:bg-white/10 ${open === "add" ? "bg-white/15" : ""}`}
         >
           <Plus size={16} />
-          Add
+          {t("topdock.add")}
         </button>
         {open === "add" && (
           <div
             data-testid="add-menu"
             className="kreoda-float-elevated absolute left-0 top-full z-50 mt-2 w-48 p-1.5"
           >
-            {adds.map((c) => (
+            {adds.map((c) => {
+              const txt = commandText(c.id, c);
+              return (
               <button
                 key={c.id}
                 role="button"
@@ -153,24 +158,25 @@ export function TopToolDock({
                   onAdd(commandToKind(c.id));
                   close();
                 }}
-                title={c.description}
+                title={txt.description}
                 className={menuItemClass}
               >
                 {PRIMITIVE_ICONS[c.icon] ?? <Box size={16} />}
-                {beginnerMode ? c.beginnerLabel : c.label}
+                {beginnerMode ? txt.beginnerLabel : txt.label}
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
       <button
         onClick={onSketch}
-        title="New constrained 2D sketch on a principal plane"
+        title={t("topdock.sketchTitle")}
         className="flex items-center gap-1.5 rounded-[var(--kreoda-radius-sm)] px-2.5 py-1.5 text-sm hover:bg-white/10"
       >
         <Pencil size={16} />
-        Sketch
+        {t("topdock.sketch")}
       </button>
 
       <div className="relative">
@@ -182,7 +188,7 @@ export function TopToolDock({
           aria-expanded={open === "more"}
           className={`flex items-center gap-1 rounded-[var(--kreoda-radius-sm)] px-2.5 py-1.5 text-sm text-white/80 hover:bg-white/10 ${open === "more" ? "bg-white/15" : ""}`}
         >
-          More
+          {t("topdock.more")}
           <ChevronDown size={14} />
         </button>
         {open === "more" && (
@@ -190,31 +196,31 @@ export function TopToolDock({
             data-testid="more-menu"
             className="kreoda-float-elevated absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-60 overflow-auto p-1.5"
           >
-            <MenuHeader label="Model" />
+            <MenuHeader label={t("common.model")} />
             <button
               role="button"
               onClick={() => {
                 setTool(activeTool === "pull" ? "select" : "pull");
                 close();
               }}
-              title="Pull a face to resize the solid (drag along its normal)"
+              title={t("topdock.pullTitle")}
               className={`${menuItemClass} ${activeTool === "pull" ? "bg-white/15" : ""}`}
             >
-              Pull
+              {t("topdock.pull")}
             </button>
             <div className="my-1 h-px bg-white/10" />
             {(
               [
-                ["fuse", "Combine"],
-                ["cut", "Subtract"],
-                ["common", "Overlap"],
+                ["fuse", t("topdock.combine")],
+                ["cut", t("topdock.subtract")],
+                ["common", t("topdock.overlap")],
               ] as const
             ).map(([op, label]) => (
               <button
                 key={op}
                 role="button"
                 onClick={() => void runBoolean(op)}
-                title="Combine two selected solids (first = target)"
+                title={t("topdock.booleanTitle")}
                 className={menuItemClass}
               >
                 {label}
@@ -229,31 +235,31 @@ export function TopToolDock({
               disabled={!instanceAvail.available}
               title={
                 instanceAvail.available
-                  ? "Rigid placed copy of the selected solid"
-                  : (instanceAvail.reason ?? "Select a solid body first")
+                  ? t("cmd.instanceDesc")
+                  : (localizeReason(instanceAvail.reason) ?? t("cmd.reasonBody"))
               }
               className={menuItemClass}
             >
-              Copy placed
+              {t("topdock.copyPlaced")}
             </button>
-            <MenuHeader label="Project" />
+            <MenuHeader label={t("common.project")} />
             <button role="button" onClick={() => { onOpenProject(); close(); }} className={menuItemClass}>
-              Objects
+              {t("topdock.objects")}
             </button>
             <button role="button" onClick={() => { onToggleProps(); close(); }} className={menuItemClass}>
-              Properties
+              {t("common.properties")}
             </button>
             <button role="button" onClick={() => void runOpen()} className={menuItemClass}>
-              Open
+              {t("topdock.open")}
             </button>
-            <MenuHeader label="System" />
+            <MenuHeader label={t("common.system")} />
             <button
               role="button"
               onClick={() => { onPlugins(); close(); }}
               data-testid="plugins-button"
               className={menuItemClass}
             >
-              Plugins
+              {t("topdock.plugins")}
             </button>
             <button
               role="button"
@@ -261,21 +267,21 @@ export function TopToolDock({
               data-testid="reference-button"
               className={menuItemClass}
             >
-              Reference
+              {t("topdock.reference")}
             </button>
-            <div className="flex items-center gap-0.5 px-1 py-1" title="Selection filter (§16)">
+            <div className="flex items-center gap-0.5 px-1 py-1" title={t("topdock.pickTitle")}>
               {(["auto", "body", "face", "edge"] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => setPickMode(m)}
                   className={`rounded px-1.5 py-0.5 text-[11px] capitalize ${pickMode === m ? "bg-white/15 text-white" : "text-white/50 hover:text-white/80"}`}
                 >
-                  {m}
+                  {m === "auto" ? t("topdock.pickAuto") : m === "body" ? t("topdock.pickBody") : m === "face" ? t("topdock.pickFace") : t("topdock.pickEdge")}
                 </button>
               ))}
             </div>
             <button role="button" onClick={() => { toggleMode(); close(); }} className={menuItemClass}>
-              {beginnerMode ? "Simple" : "Advanced"}
+              {beginnerMode ? t("topdock.simple") : t("topdock.advanced")}
             </button>
             {menuError && (
               <div className="px-2.5 py-1 text-xs text-red-300" title={menuError}>

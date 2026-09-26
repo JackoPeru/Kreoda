@@ -39,11 +39,21 @@ export interface Snapshot {
 /** Launch the shell, wait for DOM + sidecar handshake. */
 export async function boot(env?: Record<string, string>) {
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox"],
+    // --lang pins navigator.language so detectLocale() stays English:
+    // specs assert English chrome regardless of the OS language.
+    args: [MAIN, "--no-sandbox", "--lang=en-US"],
     ...(env ? { env } : {}),
   });
   const window = await app.firstWindow({ timeout: 30000 });
   await window.waitForLoadState("domcontentloaded");
+  // Home (§home) is the boot screen: enter the workspace like a user would.
+  await expect(window.getByTestId("home-screen")).toBeVisible({
+    timeout: 20000,
+  });
+  await window.getByTestId("home-new-project").click();
+  await expect(window.getByTestId("workspace-chrome")).toBeVisible({
+    timeout: 20000,
+  });
   await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
     timeout: 20000,
   });

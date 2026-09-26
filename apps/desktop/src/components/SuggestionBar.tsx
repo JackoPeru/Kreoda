@@ -7,6 +7,7 @@ import {
   suggestionKey,
 } from "../intent/suggest";
 import { useDocumentUiStore } from "../stores";
+import { t, useLocale, useT } from "../i18n";
 
 /** Intent suggestion bar (§27): deterministic heuristics, Apply/Dismiss. */
 export function SuggestionBar() {
@@ -15,11 +16,13 @@ export function SuggestionBar() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<string[]>(() => dismissedIds());
+  const tt = useT();
+  const locale = useLocale();
 
   const suggestion = useMemo(
     () => suggestIntent(features),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [features, revision],
+    [features, revision, locale],
   );
 
   if (!suggestion || dismissed.includes(suggestionKey(suggestion))) {
@@ -44,7 +47,7 @@ export function SuggestionBar() {
       dismissSuggestion(suggestionKey(suggestion));
       setDismissed(dismissedIds());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "apply failed");
+      setError(e instanceof Error ? e.message : t("suggest.applyFailed"));
     } finally {
       setBusy(false);
     }
@@ -66,7 +69,7 @@ export function SuggestionBar() {
         disabled={busy}
         className="rounded-md bg-amber-500/90 px-2 py-0.5 font-medium text-black hover:bg-amber-400 disabled:opacity-50"
       >
-        {busy ? "…" : "Apply"}
+        {busy ? "…" : tt("common.apply")}
       </button>
       <button
         onClick={dismiss}

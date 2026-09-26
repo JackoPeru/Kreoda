@@ -1,6 +1,8 @@
 // Deterministic local command parser (§57): short exact syntax parsed
 // without any LLM — zero latency, zero cost, works offline. Genuine natural
 // language falls through to the provider layer (provider.ts).
+// User-facing messages are localized via the current locale (§i18n).
+import { t, getLocale, type EnKey } from "../i18n";
 
 export type PlanStep =
   | { command: "CreateBox"; params: { widthMm: number; heightMm: number; depthMm: number } }
@@ -67,6 +69,53 @@ export type ParseResult =
 const WORD_NUMBERS: Record<string, number> = {
   one: 1, two: 2, three: 3, four: 4, five: 5,
   six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  uno: 1, due: 2, tre: 3, quattro: 4, cinque: 5,
+  sei: 6, sette: 7, otto: 8, nove: 9, dieci: 10,
+};
+
+/** Italian command heads accepted alongside English (normalized to canonical). */
+const HEAD_ALIASES: Record<string, string> = {
+  scatola: "box",
+  cilindro: "cylinder",
+  tubo: "cylinder",
+  sfera: "sphere",
+  palla: "sphere",
+  fori: "holes",
+  foro: "hole",
+  raccordo: "fillet",
+  arrotonda: "fillet",
+  smusso: "chamfer",
+  angolo: "chamfer",
+  imposta: "set",
+  quota: "set",
+  annulla: "undo",
+  ripeti: "redo",
+  vista: "view",
+  aiuto: "help",
+  esporta: "export",
+  salva: "save",
+  apri: "open",
+};
+
+/** Italian view names mapped to the canonical view id (viewport contract). */
+const VIEW_ALIASES: Record<string, string> = {
+  alto: "top",
+  fronte: "front",
+  destra: "right",
+  iso: "iso",
+  basso: "bottom",
+  retro: "back",
+  sinistra: "left",
+};
+
+const VIEW_LABEL: Record<string, EnKey> = {
+  top: "cube.top",
+  front: "cube.front",
+  right: "cube.right",
+  iso: "cube.iso",
+  bottom: "cube.bottom",
+  back: "cube.back",
+  left: "cube.left",
 };
 
 /** Tokenize: lowercase, commas as separators (but EU decimals rejected), split units. */
@@ -125,6 +174,9 @@ function count(tok: string | undefined): number | null {
 
 const VIEW_NAMES = ["top", "front", "right", "iso", "bottom", "back", "left"];
 
+/** Italian view names shown in usage (same order as VIEW_NAMES). */
+const VIEW_NAMES_IT = ["alto", "fronte", "destra", "iso", "basso", "retro", "sinistra"];
+
 /**
  * Parse one line of short syntax. Returns unparsed (not invalid) for
  * genuine prose so the caller can route to the LLM provider.
@@ -135,12 +187,13 @@ export function parseCommand(input: string): ParseResult {
     return {
       ok: false,
       reason: "invalid",
-      message: `Use “.” for decimals (e.g. “2.5”), not commas — commas separate values.`,
+      message: t("parse.decimals"),
     };
   }
-  const t = tokens(input);
-  if (t.length === 0) return { ok: false, reason: "empty", message: "Empty command." };
-  const head = t[0]!;
+  const tks = tokens(input);
+  if (tks.length === 0) return { ok: false, reason: "empty", message: t("parse.empty") };
+  const rawHead = tks[0]!;
+  const head = HEAD_ALIASES[rawHead] ?? VIEW_ALIASES[rawHead] ?? rawHead;
 
   if (head === "help" || head === "?") {
     return {
@@ -150,14 +203,14 @@ export function parseCommand(input: string): ParseResult {
   }
 
   if (head === "box" || head === "plate") {
-    const w = num(t[1]);
-    const h = num(t[2]);
-    const d = num(t[3]);
-    if (w === null || h === null || d === null || t.length > 4) {
+    const w = num(tks[1]);
+    const h = num(tks[2]);
+    const d = num(tks[3]);
+    if (w === null || h === null || d === null || tks.length > 4) {
       return {
         ok: false,
         reason: "invalid",
-        message: `Usage: box <width> <height> <depth> — e.g. “box 100 50 20”.`,
+        message: t("parse.usageBox"),
       };
     }
     return {
@@ -171,13 +224,13 @@ export function parseCommand(input: string): ParseResult {
   }
 
   if (head === "cylinder" || head === "tube") {
-    const r = num(t[1]);
-    const h = num(t[2]);
-    if (r === null || h === null || t.length > 3) {
+    const r = num(tks[1]);
+    const h = num(tks[2]);
+    if (r === null || h === null || tks.length > 3) {
       return {
         ok: false,
         reason: "invalid",
-        message: `Usage: cylinder <radius> <height> — e.g. “cylinder 20 60”.`,
+        message: t("parse.usageCylinder"),
       };
     }
     return {
@@ -191,12 +244,12 @@ export function parseCommand(input: string): ParseResult {
   }
 
   if (head === "sphere" || head === "ball") {
-    const r = num(t[1]);
-    if (r === null || t.length > 2) {
+    const r = num(tks[1]);
+    if (r === null || tks.length > 2) {
       return {
         ok: false,
         reason: "invalid",
-        message: `Usage: sphere <radius> — e.g. “sphere 25”.`,
+        message: t("parse.usageSphere"),
       };
     }
     return {
@@ -212,23 +265,23 @@ export function parseCommand(input: string): ParseResult {
   // holes <dia> [count N] corners <inset> [blind <depth>]
   // e.g. "holes 6 4 corners 8", "four 6mm holes 8mm from corners" is NL.
   if (head === "holes") {
-    const dia = numOrWord(t[1]);
+    const dia = numOrWord(tks[1]);
     if (dia === null) {
       return {
         ok: false,
         reason: "invalid",
-        message: `Usage: holes <diameter> [count <n>] corners <inset> — e.g. “holes 6 4 corners 8”.`,
+        message: t("parse.usageHoles"),
       };
     }
-    let rest = t.slice(2);
+    let rest = tks.slice(2);
     let n = 4;
-    if (rest[0] === "count") {
+    if (rest[0] === "count" || rest[0] === "numero") {
       const c = count(rest[1]);
       if (c === null || (c !== 1 && c !== 4)) {
         return {
           ok: false,
           reason: "invalid",
-          message: `Corner patterns support 1 (center) or 4 holes, got “${rest[1] ?? ""}”.`,
+          message: t("parse.cornersCount", { got: rest[1] ?? "" }),
         };
       }
       n = c;
@@ -239,46 +292,46 @@ export function parseCommand(input: string): ParseResult {
       if (
         c !== null &&
         (c === 1 || c === 4) &&
-        (rest[1] === "corners" || rest[1] === "corner")
+        (rest[1] === "corners" || rest[1] === "corner" || rest[1] === "angoli" || rest[1] === "angolo")
       ) {
         n = c;
         rest = rest.slice(1);
       }
     }
-    if (rest[0] !== "corners" && rest[0] !== "corner") {
+    if (rest[0] !== "corners" && rest[0] !== "corner" && rest[0] !== "angoli" && rest[0] !== "angolo") {
       return {
         ok: false,
         reason: "invalid",
-        message: `Usage: holes <diameter> [count <n>] corners <inset> — e.g. “holes 6 4 corners 8”.`,
+        message: t("parse.usageHoles"),
       };
     }
-    // Allow "corners 8", "corners 8mm", "corners from 8".
-    const insetTok = rest[1] === "from" ? rest[2] : rest[1];
-    const inset = num(insetTok);
+    // Allow "corners 8", "corners 8mm", "corners from 8" (it: "angoli 8", "da 8").
+    const insetTok = rest[1] === "from" || rest[1] === "da" ? rest[2] : rest[1];
+    const inset = numOrWord(insetTok);
     if (inset === null) {
       return {
         ok: false,
         reason: "invalid",
-        message: `Corner inset must be a positive dimension — e.g. “holes 6 4 corners 8”.`,
+        message: t("parse.cornerInset"),
       };
     }
-    rest = rest[1] === "from" ? rest.slice(3) : rest.slice(2);
+    rest = rest[1] === "from" || rest[1] === "da" ? rest.slice(3) : rest.slice(2);
     let depthMode: "throughAll" | "blind" = "throughAll";
     let depthMm = 0;
     if (rest.length > 0) {
-      if (rest[0] !== "blind") {
+      if (rest[0] !== "blind" && rest[0] !== "cieco") {
         return {
           ok: false,
           reason: "invalid",
-          message: `Only “blind <depth>” may follow — e.g. “holes 6 4 corners 8 blind 5”.`,
+          message: t("parse.blindOnly"),
         };
       }
-      const d = num(rest[1]);
+      const d = numOrWord(rest[1]);
       if (d === null) {
         return {
           ok: false,
           reason: "invalid",
-          message: `Blind depth must be positive — e.g. “holes 6 4 corners 8 blind 5”.`,
+          message: t("parse.blindDepth"),
         };
       }
       depthMode = "blind";
@@ -289,7 +342,7 @@ export function parseCommand(input: string): ParseResult {
       return {
         ok: false,
         reason: "invalid",
-        message: `Unexpected “${rest.join(" ")}” — try “holes 6 4 corners 8”.`,
+        message: t("parse.unexpected", { rest: rest.join(" ") }),
       };
     }
     return {
@@ -308,30 +361,30 @@ export function parseCommand(input: string): ParseResult {
   }
 
   if (head === "hole") {
-    const dia = numOrWord(t[1]);
+    const dia = numOrWord(tks[1]);
     if (dia === null) {
       return {
         ok: false,
         reason: "invalid",
-        message: `Usage: hole <diameter> [blind <depth>] — needs a selected face.`,
+        message: t("parse.usageHole"),
       };
     }
     let depthMode: "throughAll" | "blind" = "throughAll";
     let depthMm = 0;
-    if (t.length > 2) {
-      if (t[2] !== "blind") {
+    if (tks.length > 2) {
+      if (tks[2] !== "blind" && tks[2] !== "cieco") {
         return {
           ok: false,
           reason: "invalid",
-          message: `Usage: hole <diameter> [blind <depth>] — e.g. “hole 8”.`,
+          message: t("parse.usageHoleBlind"),
         };
       }
-      const d = num(t[3]);
-      if (d === null || t.length > 4) {
+      const d = numOrWord(tks[3]);
+      if (d === null || tks.length > 4) {
         return {
           ok: false,
           reason: "invalid",
-          message: `Usage: hole <diameter> [blind <depth>] — e.g. “hole 8 blind 5”.`,
+          message: t("parse.usageHoleBlindDepth"),
         };
       }
       depthMode = "blind";
@@ -353,12 +406,12 @@ export function parseCommand(input: string): ParseResult {
   }
 
   if (head === "fillet" || head === "round") {
-    const r = num(t[1]);
-    if (r === null || t.length > 2) {
+    const r = num(tks[1]);
+    if (r === null || tks.length > 2) {
       return {
         ok: false,
         reason: "invalid",
-        message: `Usage: fillet <radius> — needs selected edges.`,
+        message: t("parse.usageFillet"),
       };
     }
     return {
@@ -372,12 +425,12 @@ export function parseCommand(input: string): ParseResult {
   }
 
   if (head === "chamfer" || head === "corner") {
-    const d = num(t[1]);
-    if (d === null || t.length > 2) {
+    const d = num(tks[1]);
+    if (d === null || tks.length > 2) {
       return {
         ok: false,
         reason: "invalid",
-        message: `Usage: chamfer <distance> — needs selected edges.`,
+        message: t("parse.usageChamfer"),
       };
     }
     return {
@@ -398,7 +451,7 @@ export function parseCommand(input: string): ParseResult {
       return {
         ok: false,
         reason: "invalid",
-        message: `Usage: set <parameter> <value> — e.g. “set widthMm 150”.`,
+        message: t("parse.usageSet"),
       };
     }
     // Formula form (Phase 9a): everything after the first `=` is the
@@ -410,7 +463,7 @@ export function parseCommand(input: string): ParseResult {
         return {
           ok: false,
           reason: "invalid",
-          message: `Usage: set <parameter> =<formula> — e.g. “set widthMm =heightMm * 2”.`,
+          message: t("parse.usageSetFormula"),
         };
       }
       return {
@@ -424,12 +477,12 @@ export function parseCommand(input: string): ParseResult {
         },
       };
     }
-    const v = num(t[2]);
-    if (v === null || t.length > 3) {
+    const v = num(tks[2]);
+    if (v === null || tks.length > 3) {
       return {
         ok: false,
         reason: "invalid",
-        message: `Usage: set <parameter> <value> — e.g. “set widthMm 150”.`,
+        message: t("parse.usageSet"),
       };
     }
     return {
@@ -444,7 +497,7 @@ export function parseCommand(input: string): ParseResult {
 
   if (head === "undo") {
     // "undo the last hole" is prose — route to provider, never silently drop words.
-    if (t.length > 1) return { ok: false, reason: "unparsed", message: input.trim() };
+    if (tks.length > 1) return { ok: false, reason: "unparsed", message: input.trim() };
     return {
       ok: true,
       plan: { steps: [{ command: "Undo", params: {} }], source: "local", text: input.trim() },
@@ -452,7 +505,7 @@ export function parseCommand(input: string): ParseResult {
   }
 
   if (head === "redo") {
-    if (t.length > 1) return { ok: false, reason: "unparsed", message: input.trim() };
+    if (tks.length > 1) return { ok: false, reason: "unparsed", message: input.trim() };
     return {
       ok: true,
       plan: { steps: [{ command: "Redo", params: {} }], source: "local", text: input.trim() },
@@ -460,12 +513,15 @@ export function parseCommand(input: string): ParseResult {
   }
 
   if (head === "view" || (VIEW_NAMES as string[]).includes(head)) {
-    const name = head === "view" ? t[1] : head;
-    if (!name || !VIEW_NAMES.includes(name) || t.length > (head === "view" ? 2 : 1)) {
+    const rawName = head === "view" ? tks[1] : head;
+    const name = (rawName !== undefined ? VIEW_ALIASES[rawName] : undefined) ?? rawName;
+    if (!name || !VIEW_NAMES.includes(name) || tks.length > (head === "view" ? 2 : 1)) {
       return {
         ok: false,
         reason: "invalid",
-        message: `Usage: view <${VIEW_NAMES.join("|")}>.`,
+        message: t("parse.usageView", {
+          names: (getLocale() === "it" ? VIEW_NAMES_IT : VIEW_NAMES).join("|"),
+        }),
       };
     }
     return {
@@ -484,7 +540,7 @@ export function parseCommand(input: string): ParseResult {
     return {
       ok: false,
       reason: "invalid",
-      message: `“${head}” lives in the toolbar (save/open icons: .icad, STEP, 3MF, STL, OBJ, glTF).`,
+      message: t("parse.exportNote", { head: rawHead }),
     };
   }
 
@@ -499,13 +555,13 @@ export function parseCommand(input: string): ParseResult {
   if (!KNOWN.has(head)) {
     return { ok: false, reason: "unparsed", message: input.trim() };
   }
-  if (/[a-z]{3,}/.test(head) && t.length >= 2) {
+  if (/[a-z]{3,}/.test(head) && tks.length >= 2) {
     return { ok: false, reason: "unparsed", message: input.trim() };
   }
   return {
     ok: false,
     reason: "invalid",
-    message: `Unknown command “${input.trim()}” — try “help”.`,
+    message: t("parse.unknown", { text: input.trim() }),
   };
 }
 
@@ -514,50 +570,50 @@ export function describeStep(step: PlanStep): string {
   switch (step.command) {
     case "CreateBox": {
       const p = step.params;
-      return `Box ${p.widthMm}×${p.heightMm}×${p.depthMm} mm`;
+      return t("parse.stepBox", { w: p.widthMm, h: p.heightMm, d: p.depthMm });
     }
     case "CreateCylinder":
-      return `Cylinder ⌀${step.params.radiusMm * 2}×${step.params.heightMm} mm`;
+      return t("parse.stepCylinder", { d: step.params.radiusMm * 2, h: step.params.heightMm });
     case "CreateSphere":
-      return `Sphere ⌀${step.params.radiusMm * 2} mm`;
+      return t("parse.stepSphere", { d: step.params.radiusMm * 2 });
     case "CreateHole":
       return step.params.depthMode === "blind"
-        ? `Hole ⌀${step.params.diameterMm} × ${step.params.depthMm} deep`
-        : `Hole ⌀${step.params.diameterMm} through`;
+        ? t("parse.stepHoleBlind", { d: step.params.diameterMm, depth: step.params.depthMm })
+        : t("parse.stepHoleThrough", { d: step.params.diameterMm });
     case "CreateHolesCorners": {
       const p = step.params;
-      const depth =
-        p.depthMode === "blind" ? ` blind ${p.depthMm} deep` : " through";
+      const tail =
+        p.depthMode === "blind"
+          ? t("parse.stepHolesBlind", { depth: p.depthMm })
+          : t("parse.stepHolesThrough");
       return p.count === 1
-        ? `Center hole ⌀${p.diameterMm}${depth}`
-        : `${p.count} ⌀${p.diameterMm} holes, ${p.insetMm} mm from corners${depth}`;
+        ? t("parse.stepHolesCenter", { d: p.diameterMm, tail })
+        : t("parse.stepHolesCorners", { n: p.count, d: p.diameterMm, inset: p.insetMm, tail });
     }
     case "CreateFillet":
-      return `Fillet R${step.params.radiusMm} on selected edges`;
+      return t("parse.stepFillet", { r: step.params.radiusMm });
     case "CreateChamfer":
-      return `Chamfer ${step.params.distanceMm} on selected edges`;
+      return t("parse.stepChamfer", { d: step.params.distanceMm });
     case "CreateInstance": {
       const p = step.params;
-      const t = [p.txMm ?? 0, p.tyMm ?? 0, p.tzMm ?? 0]
+      const coords = [p.txMm ?? 0, p.tyMm ?? 0, p.tzMm ?? 0]
         .map((v) => (Number.isInteger(v) ? String(v) : v.toFixed(2)))
         .join(", ");
-      return `Instance at (${t})`;
+      return t("parse.stepInstance", { t: coords });
     }
     case "SetDimension":
       return step.params.expression !== undefined
-        ? `Set ${step.params.paramName} = ${step.params.expression} (formula)`
-        : `Set ${step.params.paramName} = ${step.params.valueMm}`;
+        ? t("parse.stepSetFormula", { p: step.params.paramName, e: step.params.expression })
+        : t("parse.stepSet", { p: step.params.paramName, v: step.params.valueMm ?? "" });
     case "Undo":
-      return "Undo";
+      return t("parse.stepUndo");
     case "Redo":
-      return "Redo";
-    case "View":
-      return `View: ${step.params.name}`;
+      return t("parse.stepRedo");
+    case "View": {
+      const label = (VIEW_LABEL[step.params.name] ?? null) as EnKey | null;
+      return t("parse.stepView", { name: label ? t(label) : step.params.name });
+    }
     case "Help":
-      return "Help";
+      return t("parse.stepHelp");
   }
 }
-
-/** Short-command cheat sheet for help/hints. */
-export const HELP_TEXT =
-  "box 100 50 20 · cylinder 20 60 · sphere 25 · hole 8 [blind 5] · holes 6 4 corners 8 · fillet 3 · chamfer 2 · set widthMm 150 · set widthMm =heightMm * 2 · undo · redo · view front · help";

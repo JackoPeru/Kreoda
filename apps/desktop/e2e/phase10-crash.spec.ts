@@ -22,7 +22,7 @@ test("hard-kill sidecar → banner → restart → autosave restore [solo]", asy
   );
   fs.rmSync(RECOVERY_DIR, { recursive: true, force: true });
   const env = { ...process.env, KREODA_RECOVERY_DIR: RECOVERY_DIR };
-  const app = await electron.launch({ args: [MAIN, "--no-sandbox"], env });
+  const app = await electron.launch({ args: [MAIN, "--no-sandbox", "--lang=en-US"], env });
   try {
     const window = await app.firstWindow({ timeout: 30000 });
     await window.waitForLoadState("domcontentloaded");

@@ -11,7 +11,7 @@ const ICAD = path.join(os.tmpdir(), "kreoda-phase5-e2e.icad");
 
 test("beginner block with 8mm hole, undo, reopen identical", async () => {
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US"],
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });

@@ -2,20 +2,27 @@ import { useState } from "react";
 import { parseLengthToMm } from "@kreoda/units";
 import { executeCommand } from "../commands/execute";
 import { CadActions, CadDialog } from "./CadDialog";
+import { t, useT, type EnKey } from "../i18n";
 
 export type PrimitiveKind = "box" | "cylinder" | "sphere";
 
-const DEFAULTS: Record<PrimitiveKind, { label: string; fields: [string, string][] }> = {
-  box: { label: "Add box", fields: [["widthMm", "100"], ["heightMm", "50"], ["depthMm", "20"]] },
-  cylinder: { label: "Add tube", fields: [["radiusMm", "20"], ["heightMm", "60"]] },
-  sphere: { label: "Add ball", fields: [["radiusMm", "25"]] },
+const TITLE_KEY: Record<PrimitiveKind, EnKey> = {
+  box: "add.boxTitle",
+  cylinder: "add.cylinderTitle",
+  sphere: "add.sphereTitle",
 };
 
-const FIELD_LABEL: Record<string, string> = {
-  widthMm: "Width",
-  heightMm: "Height",
-  depthMm: "Depth",
-  radiusMm: "Radius",
+const DEFAULT_FIELDS: Record<PrimitiveKind, [string, string][]> = {
+  box: [["widthMm", "100"], ["heightMm", "50"], ["depthMm", "20"]],
+  cylinder: [["radiusMm", "20"], ["heightMm", "60"]],
+  sphere: [["radiusMm", "25"]],
+};
+
+const FIELD_KEY: Record<string, EnKey> = {
+  widthMm: "add.fieldWidth",
+  heightMm: "add.fieldHeight",
+  depthMm: "add.fieldDepth",
+  radiusMm: "add.fieldRadius",
 };
 
 /** Exact-size primitive creation (§62 Scenario A): type numbers, get OCCT B-Rep. */
@@ -29,9 +36,10 @@ export function AddPrimitiveDialog({
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const tt = useT();
 
   if (!kind) return null;
-  const def = DEFAULTS[kind];
+  const fields = DEFAULT_FIELDS[kind];
   const commandId =
     kind === "box" ? "CreateBox" : kind === "cylinder" ? "CreateCylinder" : "CreateSphere";
 
@@ -40,17 +48,17 @@ export function AddPrimitiveDialog({
     setBusy(true);
     try {
       const mm: Record<string, number> = {};
-      for (const [name, dflt] of def.fields) {
+      for (const [name, dflt] of fields) {
         // Dimension text doubles as direct editing affordance (§22).
         mm[name] = parseLengthToMm(values[name] ?? dflt);
-        if (!(mm[name]! > 0)) throw new Error(`${FIELD_LABEL[name]} must be positive`);
+        if (!(mm[name]! > 0)) throw new Error(tt("add.errPositive", { label: tt(FIELD_KEY[name]!) }));
       }
       // Single chokepoint: zod validation + typed core execution (§19).
       await executeCommand(commandId, mm);
       onClose();
     } catch (e) {
       // Actionable errors (§41): surface the kernel message, never fake it.
-      setError(e instanceof Error ? e.message : "creation failed");
+      setError(e instanceof Error ? e.message : t("add.errCreateFailed"));
     } finally {
       setBusy(false);
     }
@@ -58,8 +66,8 @@ export function AddPrimitiveDialog({
 
   return (
     <CadDialog
-      title={def.label}
-      description="Exact size in mm — built as a real B-Rep solid."
+      title={tt(TITLE_KEY[kind])}
+      description={tt("add.desc")}
       onClose={onClose}
       error={error}
       actions={
@@ -67,14 +75,14 @@ export function AddPrimitiveDialog({
           onClose={onClose}
           onSubmit={() => void submit()}
           busy={busy}
-          busyLabel="Building…"
-          label="Create"
+          busyLabel={tt("common.building")}
+          label={tt("common.create")}
         />
       }
     >
-      {def.fields.map(([name, dflt]) => (
+      {fields.map(([name, dflt]) => (
         <label key={name} className="mb-2 block text-xs text-white/70">
-          {FIELD_LABEL[name]} (mm)
+          {tt(FIELD_KEY[name]!)} {tt("common.unitMm")}
           <input
             defaultValue={values[name] ?? dflt}
             onChange={(e) => setValues((v) => ({ ...v, [name]: e.target.value }))}

@@ -5,6 +5,7 @@ import { coreClient } from "../ipc/coreClient";
 import { useDocumentUiStore, useSelectionStore } from "../stores";
 import { faceCentroid, faceLocalFromWorld } from "../interaction/pull";
 import { CadActions, CadDialog } from "./CadDialog";
+import { t, useT } from "../i18n";
 
 /** Parametric hole on the selected face (§62 Scenario A). */
 export function HoleDialog({ onClose }: { onClose: () => void }) {
@@ -20,6 +21,7 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
   const [y, setY] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const tt = useT();
 
   const target = useMemo(() => {
     if (!faceId) return null;
@@ -34,7 +36,7 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
     setError(null);
     setBusy(true);
     try {
-      if (!target) throw new Error("Select a face first");
+      if (!target) throw new Error(tt("hole.errNoFace"));
       const diameterMm = parseLengthToMm(diameter);
       // Default position: world centroid mapped into the face frame via the
       // core plane frame — exact center on any planar face (§10).
@@ -43,7 +45,7 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
       if (x === null || y === null) {
         const mesh = useDocumentUiStore.getState().meshes[target.featureId];
         const c = mesh ? faceCentroid(mesh, faceId!, 64) : null;
-        if (!c) throw new Error("Cannot read the face position");
+        if (!c) throw new Error(tt("hole.errNoPos"));
         let local: { x: number; y: number } | null = null;
         try {
           const frame = await coreClient.requestFaceInfo(
@@ -54,7 +56,7 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
         } catch {
           local = null;
         }
-        if (!local) throw new Error("Cannot read the face frame");
+        if (!local) throw new Error(tt("hole.errNoFrame"));
         xMm = x === null ? local.x : parseLengthToMm(x);
         yMm = y === null ? local.y : parseLengthToMm(y);
       } else {
@@ -74,7 +76,7 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
       });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "hole failed");
+      setError(e instanceof Error ? e.message : t("hole.errFailed"));
     } finally {
       setBusy(false);
     }
@@ -82,11 +84,11 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <CadDialog
-      title="Make hole"
+      title={tt("hole.title")}
       description={
         target
-          ? `On ${target.role} — position defaults to face center.`
-          : "Select a face first."
+          ? tt("hole.descOn", { role: target.role })
+          : tt("hole.descOff")
       }
       onClose={onClose}
       error={error}
@@ -95,14 +97,14 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
           onClose={onClose}
           onSubmit={() => void submit()}
           busy={busy}
-          busyLabel="Cutting…"
-          label="Cut hole"
+          busyLabel={tt("common.cutting")}
+          label={tt("hole.cut")}
           disabled={!target}
         />
       }
     >
       <label className="mb-2 block text-xs text-white/70">
-        Diameter (mm)
+        {tt("hole.diameter")}
         <input
           defaultValue={diameter}
           onChange={(e) => setDiameter(e.target.value)}
@@ -117,13 +119,13 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
             onClick={() => setDepthMode(m)}
             className={`rounded-md px-2.5 py-1.5 ${depthMode === m ? "bg-white/15" : "bg-white/5 hover:bg-white/10"}`}
           >
-            {m === "throughAll" ? "Through" : "Blind"}
+            {m === "throughAll" ? tt("hole.through") : tt("hole.blind")}
           </button>
         ))}
       </div>
       {depthMode === "blind" && (
         <label className="mb-2 block text-xs text-white/70">
-          Depth (mm)
+          {tt("hole.depth")}
           <input
             defaultValue={depth}
             onChange={(e) => setDepth(e.target.value)}
@@ -131,23 +133,23 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
             className="mt-1 w-full rounded-md bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:bg-white/10"
           />
           <span className="text-white/40">
-            Deeper than the part exits the far side (still valid).
+            {tt("hole.depthNote")}
           </span>
         </label>
       )}
       <div className="mb-2 grid grid-cols-2 gap-2">
         <label className="block text-xs text-white/70">
-          X on face (mm)
+          {tt("hole.x")}
           <input
-            placeholder="center"
+            placeholder={tt("hole.center")}
             onChange={(e) => setX(e.target.value || null)}
             className="mt-1 w-full rounded-md bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:bg-white/10"
           />
         </label>
         <label className="block text-xs text-white/70">
-          Y on face (mm)
+          {tt("hole.y")}
           <input
-            placeholder="center"
+            placeholder={tt("hole.center")}
             onChange={(e) => setY(e.target.value || null)}
             className="mt-1 w-full rounded-md bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:bg-white/10"
           />

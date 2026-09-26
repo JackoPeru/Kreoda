@@ -14,7 +14,7 @@ interface Anchor {
 
 test("pull face resizes solid in one undo step", async () => {
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US"],
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });
