@@ -1,6 +1,8 @@
 """Render the modeled home sculpture with Blender Cycles.
 
-blender --background --factory-startup --python scripts/render-home-k.py -- --output k.png
+For a loop: --output frames --frames 32 --samples 64 --width 960 --height 810
+Then: ffmpeg -framerate 8 -i frames/k-%03d.png -c:v libvpx-vp9 -pix_fmt yuva420p
+             -lossless 1 -auto-alt-ref 0 k-loop.webm
 """
 
 import argparse
@@ -18,6 +20,8 @@ args.add_argument("--angle", type=float, default=-0.16)
 args.add_argument("--samples", type=int, default=32)
 args.add_argument("--width", type=int, default=640)
 args.add_argument("--height", type=int, default=540)
+args.add_argument("--frames", type=int, default=1)
+args.add_argument("--swing", type=float, default=0.11)
 options = args.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else [])
 assets = Path(__file__).resolve().parents[1] / "public" / "home" / "assets"
 
@@ -27,6 +31,7 @@ scene = bpy.context.scene
 scene.render.engine = "CYCLES"
 scene.cycles.samples = options.samples
 scene.cycles.use_denoising = True
+scene.render.use_persistent_data = True
 scene.render.resolution_x = options.width
 scene.render.resolution_y = options.height
 scene.render.resolution_percentage = 100
@@ -76,19 +81,21 @@ def image_material(name, filename, tint, roughness, bump_distance):
     return material
 
 
-stone = image_material("Veined white Carrara", "sculpture-carrara.png", (0.9, 0.89, 0.92), 0.29, 0.009)
-stone_dark = image_material("Shadowed Carrara", "sculpture-carrara.png", (0.62, 0.68, 0.78), 0.32, 0.009)
-stone_light = image_material("Lit Carrara", "sculpture-carrara.png", (1, 0.98, 0.98), 0.28, 0.009)
+stone = image_material("Veined white Carrara", "sculpture-carrara.png", (0.83, 0.85, 0.9), 0.29, 0.009)
+stone_dark = image_material("Shadowed Carrara", "sculpture-carrara.png", (0.55, 0.62, 0.77), 0.32, 0.009)
+stone_light = image_material("Lit Carrara", "sculpture-carrara.png", (0.91, 0.92, 0.96), 0.28, 0.009)
 rock_material = image_material("Chiseled dark stone", "rough-charcoal-stone.png", (0.65, 0.63, 0.65), 0.84, 0.035)
 rock_material.node_tree.nodes["Principled BSDF"].inputs["Coat Weight"].default_value = 0
 
 side = bpy.data.materials.new("Blue lit marble edge")
 side.use_nodes = True
 side_bsdf = side.node_tree.nodes["Principled BSDF"]
-side_bsdf.inputs["Base Color"].default_value = (0.53, 0.62, 0.76, 1)
-side_bsdf.inputs["Roughness"].default_value = 0.3
+side_bsdf.inputs["Base Color"].default_value = (0.31, 0.46, 0.7, 1)
+side_bsdf.inputs["Roughness"].default_value = 0.23
 side_bsdf.inputs["Metallic"].default_value = 0.06
 side_bsdf.inputs["Coat Weight"].default_value = 0.4
+side_bsdf.inputs["Emission Color"].default_value = (0.06, 0.25, 0.75, 1)
+side_bsdf.inputs["Emission Strength"].default_value = 0.4
 
 blue = bpy.data.materials.new("Blue seam light")
 blue.use_nodes = True
@@ -208,9 +215,9 @@ def area(name, location, color, energy, size, target=(0, 0, 2.7)):
     obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
 
 
-area("Warm window key", (3.4, -2.6, 6), (1, 0.79, 0.65), 520, 4.0)
-area("Cool front fill", (-3.1, -4.2, 4.5), (0.62, 0.76, 1), 290, 4.5)
-area("White marble highlight", (0.2, -3.8, 5.8), (1, 0.98, 0.94), 280, 2.2)
+area("Warm window key", (3.4, -2.6, 6), (1, 0.79, 0.65), 420, 4.0)
+area("Cool front fill", (-3.1, -4.2, 4.5), (0.62, 0.76, 1), 220, 4.5)
+area("White marble highlight", (0.2, -3.8, 5.8), (1, 0.98, 0.94), 190, 2.2)
 area("Blue base bounce", (0, -0.4, 2.35), (0.13, 0.42, 1), 45, 0.8, target=(0, 0, 2.05))
 
 camera_data = bpy.data.cameras.new("Reference camera")
@@ -223,6 +230,15 @@ camera_data.type = "ORTHO"
 camera_data.ortho_scale = 5.1
 scene.camera = camera
 
-print("Rendering", options.output, options.width, options.height, options.samples, flush=True)
-bpy.ops.render.render(write_still=True)
-print("Saved", scene.render.filepath, flush=True)
+if options.frames == 1:
+    print("Rendering", options.output, options.width, options.height, options.samples, flush=True)
+    bpy.ops.render.render(write_still=True)
+    print("Saved", scene.render.filepath, flush=True)
+else:
+    output_dir = Path(options.output).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for frame in range(options.frames):
+        k_root.rotation_euler[2] = options.angle + options.swing * math.sin(2 * math.pi * frame / options.frames)
+        scene.render.filepath = str(output_dir / f"k-{frame:03d}.png")
+        print("Rendering", frame + 1, "/", options.frames, flush=True)
+        bpy.ops.render.render(write_still=True)

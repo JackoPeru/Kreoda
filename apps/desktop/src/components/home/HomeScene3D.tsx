@@ -62,7 +62,7 @@ export function HomeScene3D() {
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     } catch {
       host.dataset.webgl = "unavailable";
       return;
@@ -90,6 +90,8 @@ export function HomeScene3D() {
     let sculptureEnvironment: THREE.WebGLRenderTarget | undefined;
     let pmrem: THREE.PMREMGenerator | undefined;
     let tableReflector: Reflector | undefined;
+    let bakedK: THREE.Mesh | undefined;
+    let bakedVideo: HTMLVideoElement | undefined;
     let disposed = false;
     let raf = 0;
     let onPointerMove = (_event: PointerEvent): void => {};
@@ -493,6 +495,7 @@ export function HomeScene3D() {
         color: "#61b7ff", transparent: true, opacity: 0.18,
         blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
       });
+      const hologramBeams: THREE.Mesh[] = [];
       for (let index = 0; index < 16; index++) {
         const angle = index * Math.PI / 8;
         const height = 0.3 + (index % 5) * 0.13;
@@ -503,6 +506,7 @@ export function HomeScene3D() {
           -1.55 + Math.sin(angle) * 0.7,
         );
         scene.add(beam);
+        hologramBeams.push(beam);
       }
       const ring = new THREE.Mesh(
         new THREE.TorusGeometry(2.66, 0.018, 8, 96),
@@ -532,11 +536,15 @@ export function HomeScene3D() {
       const reflector = tableReflector;
       const renderReflection = reflector.onBeforeRender;
       reflector.onBeforeRender = (...args) => {
+        const kWasVisible = k.visible;
+        const bakedWasVisible = bakedK?.visible;
         k.visible = false;
+        if (bakedK) bakedK.visible = false;
         try {
           renderReflection.apply(reflector, args);
         } finally {
-          k.visible = true;
+          k.visible = kWasVisible;
+          if (bakedK) bakedK.visible = bakedWasVisible ?? true;
         }
       };
       scene.add(tableReflector);
@@ -822,6 +830,89 @@ export function HomeScene3D() {
         console.warn("[home] room light probe unavailable", error);
       }
 
+      if (new URLSearchParams(window.location.search).has("room-baked-probe")) {
+        const animated = new Set<THREE.Object3D>([rockShadow, halo, glowDisc,
+          windowReflection, crownRing, ring, tableGlow, ...hologramBeams]);
+        plants.forEach((plant) => plant.traverse((object) => animated.add(object)));
+        scene.traverse((object) => {
+          if ((object instanceof THREE.Mesh || object instanceof THREE.Sprite) && !animated.has(object)) {
+            object.visible = false;
+          }
+        });
+        scene.background = null;
+        scene.fog = null;
+        host.style.backgroundImage = `url("${asset("room-cycles-probe.png")}")`;
+        host.style.backgroundSize = "cover";
+        host.style.backgroundPosition = "center";
+        host.dataset.roomBaked = "ready";
+      }
+
+      if (new URLSearchParams(window.location.search).has("export-room")) {
+        const hidden = [k, rock, tableReflector!, halo, glowDisc, windowReflection,
+          crownRing, ring, tableGlow, ...plants];
+        const previous = hidden.map((object) => object.visible);
+        hidden.forEach((object) => { object.visible = false; });
+        void import("three/addons/exporters/GLTFExporter.js").then(async ({ GLTFExporter }) => {
+          const glb = await new GLTFExporter().parseAsync(scene, { binary: true, onlyVisible: true });
+          const bytes = new Uint8Array(glb as ArrayBuffer);
+          let binary = "";
+          for (let index = 0; index < bytes.length; index += 32768) {
+            binary += String.fromCharCode(...bytes.subarray(index, index + 32768));
+          }
+          (window as unknown as { __homeGlb?: string }).__homeGlb = btoa(binary);
+          host.dataset.exportReady = "true";
+        }).catch((error) => {
+          console.error("[home] room export failed", error);
+          host.dataset.exportError = String(error);
+        }).finally(() => hidden.forEach((object, index) => { object.visible = previous[index]; }));
+      } else void loader.loadAsync(asset("k-cycles-still.png")).then((texture) => {
+        if (disposed) {
+          texture.dispose();
+          return;
+        }
+        texture.colorSpace = THREE.SRGBColorSpace;
+        loadedTextures.push(texture);
+        const poster = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 4.56),
+          new THREE.MeshBasicMaterial({
+            map: texture, transparent: true, alphaTest: 0.02,
+            depthWrite: false, toneMapped: false,
+          }));
+        poster.position.set(-0.15, 2.57, -1.15);
+        poster.quaternion.copy(camera.quaternion);
+        scene.add(poster);
+        bakedK = poster;
+        k.visible = false;
+        rock.visible = false;
+        host.dataset.bakedK = "ready";
+        if (reducedMotion) renderer.render(scene, camera);
+        if (!reducedMotion) {
+          const video = document.createElement("video");
+          video.src = asset("k-loop.webm");
+          video.muted = true;
+          video.loop = true;
+          video.playsInline = true;
+          video.playbackRate = 0.5;
+          bakedVideo = video;
+          void video.play().then(() => {
+            if (disposed) return;
+            const moving = new THREE.VideoTexture(video);
+            moving.colorSpace = THREE.SRGBColorSpace;
+            loadedTextures.push(moving);
+            const material = poster.material as THREE.MeshBasicMaterial;
+            material.map = moving;
+            material.needsUpdate = true;
+            host.dataset.bakedK = "video";
+          }).catch((error) => {
+            if (disposed) return;
+            poster.visible = false;
+            k.visible = true;
+            rock.visible = true;
+            host.dataset.bakedK = "fallback";
+            console.warn("[home] baked K video unavailable", error);
+          });
+        }
+      }).catch((error) => console.warn("[home] baked K unavailable", error));
+
       const tick = (): void => {
         raf = requestAnimationFrame(tick);
         const now = performance.now();
@@ -831,7 +922,7 @@ export function HomeScene3D() {
         if (!reducedMotion) {
           elapsed += delta;
           const time = elapsed;
-          k.rotation.y += delta * 0.03;
+          if (k.visible) k.rotation.y += delta * 0.03;
           plants.forEach((crown, index) => {
             crown.rotation.z = Math.sin(time * 0.75 + index * 1.6) * 0.025;
             crown.rotation.y = Math.sin(time * 0.53 + index) * 0.018;
@@ -877,6 +968,7 @@ export function HomeScene3D() {
       sculptureEnvironment?.dispose();
       pmrem?.dispose();
       tableReflector?.dispose();
+      bakedVideo?.pause();
       renderer.dispose();
       renderer.domElement.remove();
     };

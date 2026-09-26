@@ -92,6 +92,7 @@ test("home renders a real 3D studio with accessible responsive controls", async 
 
     const scene = window.getByTestId("home-scene");
     await expect(scene).toHaveAttribute("data-scene-ready", "true");
+    await expect(scene).toHaveAttribute("data-baked-k", "video", { timeout: 20000 });
     await expect(scene.locator("canvas")).toHaveCount(1);
     await expect(scene).not.toHaveAttribute("data-webgl", "unavailable");
 
@@ -153,6 +154,7 @@ test("home renders a real 3D studio with accessible responsive controls", async 
     await expect(window.getByTestId("home-screen")).toBeVisible();
     await expect(window.getByTestId("home-scene")).toHaveAttribute("data-scene-ready", "true");
     await expect(window.getByTestId("home-scene")).toHaveAttribute("data-motion", "reduced");
+    await expect(window.getByTestId("home-scene")).toHaveAttribute("data-baked-k", "ready");
     await window.waitForTimeout(500);
     const reduced = await window.screenshot();
     await window.mouse.move(20, 145);
