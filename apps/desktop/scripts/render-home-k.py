@@ -77,7 +77,7 @@ def image_material(name, filename, tint, roughness, bump_distance):
 
 
 stone = image_material("Veined white Carrara", "sculpture-carrara.png", (0.9, 0.89, 0.92), 0.29, 0.009)
-stone_dark = image_material("Shadowed Carrara", "sculpture-carrara.png", (0.70, 0.75, 0.86), 0.32, 0.009)
+stone_dark = image_material("Shadowed Carrara", "sculpture-carrara.png", (0.62, 0.68, 0.78), 0.32, 0.009)
 stone_light = image_material("Lit Carrara", "sculpture-carrara.png", (1, 0.98, 0.98), 0.28, 0.009)
 rock_material = image_material("Chiseled dark stone", "rough-charcoal-stone.png", (0.65, 0.63, 0.65), 0.84, 0.035)
 rock_material.node_tree.nodes["Principled BSDF"].inputs["Coat Weight"].default_value = 0
@@ -211,7 +211,7 @@ def area(name, location, color, energy, size, target=(0, 0, 2.7)):
 area("Warm window key", (3.4, -2.6, 6), (1, 0.79, 0.65), 520, 4.0)
 area("Cool front fill", (-3.1, -4.2, 4.5), (0.62, 0.76, 1), 290, 4.5)
 area("White marble highlight", (0.2, -3.8, 5.8), (1, 0.98, 0.94), 280, 2.2)
-area("Blue base bounce", (0, -1.4, 1.9), (0.13, 0.42, 1), 95, 1.4, target=(0, 0, 1.7))
+area("Blue base bounce", (0, -0.4, 2.35), (0.13, 0.42, 1), 45, 0.8, target=(0, 0, 2.05))
 
 camera_data = bpy.data.cameras.new("Reference camera")
 camera = bpy.data.objects.new("Reference camera", camera_data)
@@ -220,7 +220,7 @@ camera.location = (0, -8, 3.5)
 direction = Vector((0, 0, 2.48)) - camera.location
 camera.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
 camera_data.type = "ORTHO"
-camera_data.ortho_scale = 4.55
+camera_data.ortho_scale = 5.1
 scene.camera = camera
 
 print("Rendering", options.output, options.width, options.height, options.samples, flush=True)
