@@ -627,6 +627,62 @@ bool OcafLive::ResyncStore(std::string* error) {
 #endif
 }
 
+bool OcafLive::RemoveFeature(const std::string& featureId,
+                            std::string* error) {
+#if KREODA_WITH_OCCT
+  try {
+    if (!ocaf_ || ocaf_->doc.IsNull()) {
+      if (error) *error = "OCAF: no live document";
+      return false;
+    }
+    if (!ocaf_->doc->HasOpenCommand()) {
+      if (error) *error = "feature removal requires an open OCAF command";
+      return false;
+    }
+    const auto shape = ocaf_->featureLabels.find(featureId);
+    const auto sketch = ocaf_->sketchLabels.find(featureId);
+    if ((shape != ocaf_->featureLabels.end()) ==
+        (sketch != ocaf_->sketchLabels.end())) {
+      if (error) *error = "OCAF feature label is missing or ambiguous";
+      return false;
+    }
+    // Keep label maps intact until the caller commits. If any later operation
+    // fails, AbortCommand restores these labels and the maps remain valid.
+    const auto expressions = ocaf_->expressionLabels.find(featureId);
+    if (expressions != ocaf_->expressionLabels.end()) {
+      expressions->second.ForgetAllAttributes(Standard_True);
+    }
+    if (!ocaf_->selectionsRoot.IsNull()) {
+      const std::string prefix = featureId + "|";
+      for (TDF_ChildIterator it(ocaf_->selectionsRoot, Standard_False);
+           it.More(); it.Next()) {
+        Handle(TDataStd_Comment) comment;
+        if (it.Value().FindAttribute(TDataStd_Comment::GetID(), comment) &&
+            ExtToAscii(comment->Get()).rfind(prefix, 0) == 0) {
+          it.Value().ForgetAllAttributes(Standard_True);
+        }
+      }
+    }
+    if (shape != ocaf_->featureLabels.end()) {
+      if (!ocaf_->shapes->RemoveShape(shape->second, Standard_True)) {
+        if (error) *error = "XCAF could not remove the feature shape";
+        return false;
+      }
+    } else {
+      sketch->second.ForgetAllAttributes(Standard_True);
+    }
+    return true;
+  } catch (const Standard_Failure& f) {
+    if (error) *error = std::string("OCAF feature removal failed: ") + f.what();
+    return false;
+  }
+#else
+  (void)featureId;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
 bool OcafLive::UpsertFeature(const ShapeRecord& rec, bool isNew,
                              std::string* error) {
 #if KREODA_WITH_OCCT

@@ -1,16 +1,29 @@
-// Phase 10 validation torture suites (§10.3–§10.5):
-// persistent-topology mutations, 100 save/open cycles, undo/redo interleave,
-// atomic-overwrite contract. All on the real OCCT/OCAF core.
+// Phase 10 validation torture suites (§10.3–§10.7):
+// persistent-topology mutations, save/open and resource cycles, large-model
+// tessellation, undo/redo interleave, atomic-overwrite contract.
 
 #include <gtest/gtest.h>
 
 #include <chrono>
 #include <cmath>
+#include <cstdint>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <utility>
 #include <vector>
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef PSAPI_VERSION
+#define PSAPI_VERSION 2
+#endif
+#include <windows.h>
+#include <psapi.h>
+#endif
 
 #include "../src/document/document_store.h"
 #include "../src/expressions/expressions.h"
@@ -21,11 +34,13 @@
 #include "../src/features/primitives/primitives.h"
 #include "../src/features/sketch/sketch_commands.h"
 #include "../src/model/body.h"
+#include "../src/model/feature_graph.h"
 #include "../src/model/shapes.h"
 #include "../src/persistence/ocaf_live.h"
 #include "../src/protocol/dispatcher.h"
 #include "../src/tessellation/mesh.h"
 #include "../src/topology/face_roles.h"
+#include "../src/features/sketch/sketch_store.h"
 
 #if KREODA_WITH_OCCT
 #include <TopAbs_ShapeEnum.hxx>
@@ -107,6 +122,59 @@ std::string openRpc(const std::string& req, const std::string& doc,
   return rpc(std::string(R"({"protocolVersion":1,"requestId":")") + req +
              R"(","documentId":")" + doc + R"(","type":11,"path":")" + path +
              "\"}");
+}
+
+std::string createDocumentRpc(const std::string& req,
+                              const std::string& doc) {
+  return rpc(std::string(R"({"protocolVersion":1,"requestId":")") + req +
+             R"(","documentId":")" + doc + R"(","type":2})");
+}
+
+std::string createBoxRpc(const std::string& req, const std::string& doc,
+                         const std::string& featureId, double width = 100,
+                         double height = 60, double depth = 10) {
+  return rpc(std::string(R"({"protocolVersion":1,"requestId":")") + req +
+             R"(","documentId":")" + doc + R"(","type":3,"featureId":")" +
+             featureId + R"(","widthMm":)" + std::to_string(width) +
+             R"(,"heightMm":)" + std::to_string(height) +
+             R"(,"depthMm":)" + std::to_string(depth) + "}");
+}
+
+std::string deleteFeatureRpc(const std::string& req, const std::string& doc,
+                             const std::string& featureId) {
+  return rpc(std::string(R"({"protocolVersion":1,"requestId":")") + req +
+             R"(","documentId":")" + doc + R"(","type":7,"featureId":")" +
+             featureId + "\"}");
+}
+
+struct ProcessResources {
+  bool available = false;
+  std::uint32_t handleCount = 0;
+  std::uint64_t workingSetBytes = 0;
+  std::uint64_t peakWorkingSetBytes = 0;
+  std::uint64_t privateBytes = 0;
+};
+
+ProcessResources ReadProcessResources() {
+  ProcessResources result;
+#if defined(_WIN32)
+  PROCESS_MEMORY_COUNTERS_EX memory{};
+  memory.cb = static_cast<DWORD>(sizeof(memory));
+  DWORD handles = 0;
+  const HANDLE process = GetCurrentProcess();
+  const BOOL memoryOk = GetProcessMemoryInfo(
+      process, reinterpret_cast<PPROCESS_MEMORY_COUNTERS>(&memory),
+      static_cast<DWORD>(sizeof(memory)));
+  const BOOL handlesOk = GetProcessHandleCount(process, &handles);
+  if (memoryOk != FALSE && handlesOk != FALSE) {
+    result.available = true;
+    result.handleCount = handles;
+    result.workingSetBytes = memory.WorkingSetSize;
+    result.peakWorkingSetBytes = memory.PeakWorkingSetSize;
+    result.privateBytes = memory.PrivateUsage;
+  }
+#endif
+  return result;
 }
 
 }  // namespace
@@ -330,6 +398,261 @@ TEST(Torture10, SaveOpen100Cycles) {
   fs::remove_all(dir, ec);
 }
 
+// Deletion rejects shape and expression dependents, rebuilds body/graph state,
+// and survives undo/redo plus save/open through the typed RPC path.
+TEST(Torture10, DeleteFeatureDependentsUndoRedoAndPersistence) {
+  const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+  const fs::path dir = fs::temp_directory_path() /
+                       ("kreoda-phase10-delete-" + std::to_string(nonce));
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  const std::string path = (dir / "deleted.icad").generic_string();
+
+  ASSERT_TRUE(ok(createDocumentRpc("delete-doc", "delete-doc")));
+  std::string sketchError;
+  ASSERT_TRUE(kreoda::CreateSketchFeature("delete-sketch", "XY",
+                                          RectModel(10, 10), &sketchError))
+      << sketchError;
+  ASSERT_TRUE(kreoda::SketchStore::instance().contains("delete-sketch"));
+  ASSERT_TRUE(ok(createBoxRpc("delete-root", "delete-doc", "delete-root")));
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"delete-hole","documentId":"delete-doc","type":20,"featureId":"delete-hole","targetId":"delete-root","faceRole":"box.+Z","xMm":50,"yMm":30,"diameterMm":8,"depthMode":"throughAll"})")));
+  ASSERT_TRUE(ok(createBoxRpc("delete-expression", "delete-doc",
+                              "delete-expression")));
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"delete-expression-ref","documentId":"delete-doc","type":6,"featureId":"delete-expression","paramName":"widthMm","expression":"delete-root.widthMm * 2"})")));
+
+  const int64_t revisionBeforeBlocked = kreoda::DocumentStore::instance().revision();
+  std::string blocked = deleteFeatureRpc("delete-root-blocked-1", "delete-doc",
+                                         "delete-root");
+  EXPECT_FALSE(ok(blocked)) << blocked;
+  EXPECT_NE(blocked.find(R"("errorCode":"HAS_DEPENDENTS")"),
+            std::string::npos) << blocked;
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revisionBeforeBlocked);
+  EXPECT_TRUE(kreoda::ShapeStore::instance().contains("delete-root"));
+  EXPECT_TRUE(kreoda::ShapeStore::instance().contains("delete-hole"));
+
+  const auto deletedHole = deleteFeatureRpc("delete-hole-remove", "delete-doc",
+                                            "delete-hole");
+  ASSERT_TRUE(ok(deletedHole)) << deletedHole;
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("delete-hole"));
+  ASSERT_EQ(kreoda::BodyStore::instance().size(), 2u);
+  kreoda::BodyRecord rootBody;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("delete-root",
+                                                            &rootBody));
+  EXPECT_EQ(rootBody.history, (std::vector<std::string>{"delete-root"}));
+  EXPECT_EQ(rootBody.tipFeatureId, "delete-root");
+  EXPECT_FALSE(kreoda::TheFeatureGraph().hasFeature("delete-hole"));
+
+  const int64_t revisionBeforeExpressionBlock =
+      kreoda::DocumentStore::instance().revision();
+  blocked = deleteFeatureRpc("delete-root-blocked-2", "delete-doc",
+                             "delete-root");
+  EXPECT_FALSE(ok(blocked)) << blocked;
+  EXPECT_NE(blocked.find(R"("errorCode":"HAS_DEPENDENTS")"),
+            std::string::npos) << blocked;
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(),
+            revisionBeforeExpressionBlock);
+
+  const auto deletedExpressionOwner = deleteFeatureRpc(
+      "delete-expression-remove", "delete-doc", "delete-expression");
+  ASSERT_TRUE(ok(deletedExpressionOwner)) << deletedExpressionOwner;
+  std::string expression;
+  EXPECT_FALSE(kreoda::ExpressionStore::instance().get(
+      "delete-expression", "widthMm", &expression));
+
+  const auto deletedSketch = deleteFeatureRpc(
+      "delete-sketch-remove", "delete-doc", "delete-sketch");
+  ASSERT_TRUE(ok(deletedSketch)) << deletedSketch;
+  EXPECT_FALSE(kreoda::SketchStore::instance().contains("delete-sketch"));
+  EXPECT_FALSE(kreoda::TheFeatureGraph().hasFeature("delete-sketch"));
+
+  const auto deletedRoot = deleteFeatureRpc("delete-root-remove", "delete-doc",
+                                            "delete-root");
+  ASSERT_TRUE(ok(deletedRoot)) << deletedRoot;
+  EXPECT_TRUE(kreoda::ShapeStore::instance().listInOrder().empty());
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 0u);
+  EXPECT_FALSE(kreoda::TheFeatureGraph().hasFeature("delete-root"));
+
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"delete-undo","documentId":"delete-doc","type":8})")));
+  EXPECT_TRUE(kreoda::ShapeStore::instance().contains("delete-root"));
+  ASSERT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("delete-root",
+                                                            &rootBody));
+  EXPECT_EQ(rootBody.tipFeatureId, "delete-root");
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"delete-redo","documentId":"delete-doc","type":9})")));
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("delete-root"));
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 0u);
+
+  ASSERT_TRUE(ok(saveRpc("delete-save", "delete-doc", path)));
+  ASSERT_TRUE(ok(openRpc("delete-open", "delete-reloaded", path)));
+  EXPECT_TRUE(kreoda::ShapeStore::instance().listInOrder().empty());
+  EXPECT_TRUE(kreoda::SketchStore::instance().listInOrder().empty());
+  EXPECT_EQ(kreoda::BodyStore::instance().size(), 0u);
+
+  fs::remove_all(dir, ec);
+  EXPECT_FALSE(ec) << ec.message();
+}
+
+// §10.6: replace the active document by opening a real saved OCAF document,
+// then close it through the typed CreateDocument command. This exercises the
+// existing lifecycle path.
+TEST(Torture10, DocumentOpenClose100Cycles) {
+  const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+  const fs::path dir = fs::temp_directory_path() /
+                       ("kreoda-phase10-openclose-" + std::to_string(nonce));
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  const std::string path = (dir / "seed.icad").generic_string();
+
+  ASSERT_TRUE(ok(createDocumentRpc("resource-seed", "resource-seed")));
+  const std::string created = rpc(
+      R"({"protocolVersion":1,"requestId":"resource-box","documentId":"resource-seed","type":3,"featureId":"resource-box","widthMm":100,"heightMm":60,"depthMm":10})");
+  ASSERT_TRUE(ok(created)) << created;
+  ASSERT_EQ(kreoda::ShapeStore::instance().listInOrder().size(), 1u);
+  ASSERT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  ASSERT_TRUE(ok(saveRpc("resource-save", "resource-seed", path)));
+
+  const ProcessResources baseline = ReadProcessResources();
+  ProcessResources warm = baseline;
+  const auto started = std::chrono::steady_clock::now();
+  for (int i = 0; i < 100; ++i) {
+    const std::string opened = openRpc(
+        "resource-open-" + std::to_string(i), "resource-active", path);
+    ASSERT_TRUE(ok(opened)) << "open cycle " << i << ": " << opened;
+    ASSERT_TRUE(kreoda::ShapeStore::instance().contains("resource-box"));
+    ASSERT_EQ(kreoda::BodyStore::instance().size(), 1u);
+    EXPECT_NEAR(VolumeOf("resource-box"), 60000.0, 1e-6)
+        << "cycle " << i;
+
+    const std::string closed = createDocumentRpc(
+        "resource-close-" + std::to_string(i),
+        "resource-empty-" + std::to_string(i));
+    ASSERT_TRUE(ok(closed)) << "close cycle " << i << ": " << closed;
+    EXPECT_FALSE(kreoda::ShapeStore::instance().contains("resource-box"));
+    EXPECT_TRUE(kreoda::ShapeStore::instance().listInOrder().empty());
+    EXPECT_EQ(kreoda::BodyStore::instance().size(), 0u);
+    if (i == 9) warm = ReadProcessResources();
+  }
+  const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::steady_clock::now() - started)
+                             .count();
+  const ProcessResources final = ReadProcessResources();
+
+  if (warm.available && final.available) {
+    // Allow eight one-time handles for lazy GTest/OCCT/runtime initialization;
+    // a per-cycle handle leak across the remaining 90 cycles exceeds this.
+    constexpr std::uint32_t kAllowedWarmHandleDrift = 8;
+    EXPECT_LE(final.handleCount,
+              warm.handleCount + kAllowedWarmHandleDrift)
+        << "process handles grew from " << warm.handleCount << " to "
+        << final.handleCount << " after warm-up";
+  }
+  if (baseline.available && warm.available && final.available) {
+    std::printf(
+        "PHASE10_RESOURCE_NATIVE {\"scenario\":\"document_open_close_100\","
+        "\"cycles\":100,\"elapsed_ms\":%lld,\"ms_per_cycle\":%.2f,"
+        "\"handles_baseline\":%u,\"handles_after_10\":%u,"
+        "\"handles_after_100\":%u,\"working_set_baseline_bytes\":%llu,"
+        "\"working_set_final_bytes\":%llu,\"peak_working_set_bytes\":%llu,"
+        "\"private_final_bytes\":%llu}\n",
+        static_cast<long long>(elapsedMs),
+        static_cast<double>(elapsedMs) / 100.0,
+        baseline.handleCount, warm.handleCount, final.handleCount,
+        static_cast<unsigned long long>(baseline.workingSetBytes),
+        static_cast<unsigned long long>(final.workingSetBytes),
+        static_cast<unsigned long long>(final.peakWorkingSetBytes),
+        static_cast<unsigned long long>(final.privateBytes));
+  } else {
+    std::printf(
+        "PHASE10_RESOURCE_NATIVE {\"scenario\":\"document_open_close_100\","
+        "\"cycles\":100,\"elapsed_ms\":%lld,"
+        "\"windows_process_metrics_available\":false}\n",
+        static_cast<long long>(elapsedMs));
+  }
+
+  fs::remove_all(dir, ec);
+  EXPECT_FALSE(ec) << ec.message();
+}
+
+// §10.6: 1000 real body create/delete cycles over the public command path.
+// Reuse one feature id so stale OCAF/store labels also fail the next create.
+TEST(Torture10, BodyCreateDelete1000Cycles) {
+  ASSERT_TRUE(ok(createDocumentRpc("body-cycle-doc", "body-cycle-doc")));
+  const ProcessResources baseline = ReadProcessResources();
+  ProcessResources warm = baseline;
+  const auto started = std::chrono::steady_clock::now();
+  for (int i = 0; i < 1000; ++i) {
+    const std::string created = createBoxRpc(
+        "body-create-" + std::to_string(i), "body-cycle-doc", "cycle-box",
+        10, 10, 10);
+    ASSERT_TRUE(ok(created)) << "create cycle " << i << ": " << created;
+    ASSERT_EQ(kreoda::ShapeStore::instance().listInOrder().size(), 1u)
+        << "create cycle " << i;
+    EXPECT_TRUE(kreoda::ShapeStore::instance().contains("cycle-box"))
+        << "create cycle " << i;
+    ASSERT_EQ(kreoda::BodyStore::instance().size(), 1u)
+        << "create cycle " << i;
+    kreoda::BodyRecord body;
+    ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("cycle-box",
+                                                              &body));
+    EXPECT_EQ(body.tipFeatureId, "cycle-box") << "create cycle " << i;
+
+    const std::string deleted = deleteFeatureRpc(
+        "body-delete-" + std::to_string(i), "body-cycle-doc", "cycle-box");
+    ASSERT_TRUE(ok(deleted)) << "delete cycle " << i << ": " << deleted;
+    EXPECT_TRUE(kreoda::ShapeStore::instance().listInOrder().empty())
+        << "delete cycle " << i;
+    EXPECT_EQ(kreoda::BodyStore::instance().size(), 0u) << "cycle " << i;
+    EXPECT_FALSE(kreoda::TheFeatureGraph().hasFeature("cycle-box"))
+        << "cycle " << i;
+    if (i == 9) warm = ReadProcessResources();
+  }
+  const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::steady_clock::now() - started)
+                             .count();
+  const ProcessResources final = ReadProcessResources();
+
+  if (warm.available && final.available) {
+    constexpr std::uint32_t kAllowedWarmHandleDrift = 8;
+    EXPECT_LE(final.handleCount,
+              warm.handleCount + kAllowedWarmHandleDrift)
+        << "process handles grew from " << warm.handleCount << " to "
+        << final.handleCount << " after warm-up";
+  }
+  if (baseline.available && warm.available && final.available) {
+    std::printf(
+        "PHASE10_RESOURCE_NATIVE {\"scenario\":\"body_create_delete_1000\","
+        "\"cycles\":1000,\"elapsed_ms\":%lld,\"ms_per_cycle\":%.2f,"
+        "\"handles_baseline\":%u,\"handles_after_10\":%u,"
+        "\"handles_after_1000\":%u,\"working_set_baseline_bytes\":%llu,"
+        "\"working_set_after_10_bytes\":%llu,"
+        "\"working_set_final_bytes\":%llu,\"peak_working_set_bytes\":%llu,"
+        "\"private_baseline_bytes\":%llu,\"private_after_10_bytes\":%llu,"
+        "\"private_final_bytes\":%llu}\n",
+        static_cast<long long>(elapsedMs),
+        static_cast<double>(elapsedMs) / 1000.0, baseline.handleCount,
+        warm.handleCount, final.handleCount,
+        static_cast<unsigned long long>(baseline.workingSetBytes),
+        static_cast<unsigned long long>(warm.workingSetBytes),
+        static_cast<unsigned long long>(final.workingSetBytes),
+        static_cast<unsigned long long>(final.peakWorkingSetBytes),
+        static_cast<unsigned long long>(baseline.privateBytes),
+        static_cast<unsigned long long>(warm.privateBytes),
+        static_cast<unsigned long long>(final.privateBytes));
+  } else {
+    std::printf(
+        "PHASE10_RESOURCE_NATIVE {\"scenario\":\"body_create_delete_1000\","
+        "\"cycles\":1000,\"elapsed_ms\":%lld,"
+        "\"windows_process_metrics_available\":false}\n",
+        static_cast<long long>(elapsedMs));
+  }
+}
+
 // §10.5 + undo/redo: interleaved edits resolve to exact states; a failed
 // save never replaces the previous valid file.
 TEST(Torture10, UndoRedoInterleaveAndAtomicOverwrite) {
@@ -429,4 +752,90 @@ TEST(Torture10, TessellationBaseline) {
   printf("PHASE10_PERF_NATIVE {\"sphere_r200_lod2_tris\": %zu, "
          "\"sphere_r200_lod2_ms\": %lld}\n",
          triB2, msB2);
+}
+
+// §10.7: use successively larger OCCT spheres at the real export LOD. Each
+// mesh is produced by BRepMesh_IncrementalMesh, never by synthetic triangles.
+TEST(Torture10, LargeModelSphereTessellation500kAnd1M) {
+  struct Sample {
+    double radiusMm = 0.0;
+    size_t triangles = 0;
+    long long tessellationMs = 0;
+    ProcessResources resources;
+  };
+  constexpr size_t k500kTriangles = 500000;
+  constexpr size_t k1mTriangles = 1000000;
+  constexpr double kMaximumRadiusMm = 3200.0;
+  Sample at500k;
+  Sample at1m;
+
+  for (double radius = 200.0;
+       radius <= kMaximumRadiusMm && at1m.triangles < k1mTriangles;
+       radius *= 2.0) {
+    NewDoc("large-model");
+    std::string err;
+    ASSERT_TRUE(kreoda::CreateSphereFeature("large-sphere", radius, &err))
+        << "radius " << radius << ": " << err;
+    const auto started = std::chrono::steady_clock::now();
+    const kreoda::CoreMesh mesh =
+        kreoda::TessellateFeature("large-sphere", 2, &err);
+    const long long elapsedMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - started)
+            .count();
+    ASSERT_FALSE(mesh.indices.empty()) << "radius " << radius << ": " << err;
+    ASSERT_EQ(mesh.indices.size() % 3, 0u);
+    EXPECT_GT(mesh.volumeMm3, 0.0);
+    const size_t triangles = mesh.indices.size() / 3;
+    const ProcessResources resources = ReadProcessResources();
+    std::printf(
+        "PHASE10_PERF_NATIVE {\"scenario\":\"sphere_lod2\","
+        "\"radius_mm\":%.0f,\"triangles\":%zu,"
+        "\"tessellation_ms\":%lld,\"windows_process_metrics_available\":%s,"
+        "\"working_set_bytes\":%llu,\"peak_working_set_bytes\":%llu,"
+        "\"private_bytes\":%llu,\"handles\":%u}\n",
+        radius, triangles, elapsedMs, resources.available ? "true" : "false",
+        static_cast<unsigned long long>(resources.workingSetBytes),
+        static_cast<unsigned long long>(resources.peakWorkingSetBytes),
+        static_cast<unsigned long long>(resources.privateBytes),
+        resources.handleCount);
+    if (at500k.triangles < k500kTriangles && triangles >= k500kTriangles) {
+      at500k = {radius, triangles, elapsedMs, resources};
+    }
+    if (triangles >= k1mTriangles) {
+      at1m = {radius, triangles, elapsedMs, resources};
+    }
+  }
+
+  const auto printTarget = [](const char* name, const Sample& sample) {
+    if (sample.resources.available) {
+      std::printf(
+          "PHASE10_PERF_NATIVE {\"target\":\"%s\","
+          "\"radius_mm\":%.0f,\"triangles\":%zu,"
+          "\"tessellation_ms\":%lld,\"working_set_bytes\":%llu,"
+          "\"peak_working_set_bytes\":%llu,\"private_bytes\":%llu,"
+          "\"handles\":%u}\n",
+          name, sample.radiusMm, sample.triangles, sample.tessellationMs,
+          static_cast<unsigned long long>(sample.resources.workingSetBytes),
+          static_cast<unsigned long long>(sample.resources.peakWorkingSetBytes),
+          static_cast<unsigned long long>(sample.resources.privateBytes),
+          sample.resources.handleCount);
+    } else {
+      std::printf(
+          "PHASE10_PERF_NATIVE {\"target\":\"%s\","
+          "\"radius_mm\":%.0f,\"triangles\":%zu,"
+          "\"tessellation_ms\":%lld,"
+          "\"windows_process_metrics_available\":false}\n",
+          name, sample.radiusMm, sample.triangles, sample.tessellationMs);
+    }
+  };
+  printTarget("500k", at500k);
+  printTarget("1M", at1m);
+
+  ASSERT_GE(at500k.triangles, k500kTriangles)
+      << "no real sphere reached 500k triangles by radius "
+      << kMaximumRadiusMm << " mm";
+  ASSERT_GE(at1m.triangles, k1mTriangles)
+      << "no real sphere reached 1M triangles by radius "
+      << kMaximumRadiusMm << " mm";
 }

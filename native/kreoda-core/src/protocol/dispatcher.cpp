@@ -1,5 +1,6 @@
 #include "dispatcher.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cctype>
 #include <filesystem>
@@ -603,8 +604,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
     const bool readOnly =
         type == kGetCoreInfo || type == kRequestMesh ||
         type == kRequestSketch || type == kPreviewSketch ||
-        type == kRequestFaceInfo || type == kRequestSnapshot ||
-        type == kDeleteFeature;  // answers NOT_IMPLEMENTED deterministically
+        type == kRequestFaceInfo || type == kRequestSnapshot;
     const bool preview =
         (type == kSetFeatureParameter || type == kUpdateSketch) &&
         (json_string_field(requestJson, "isPreview", "") == "true" ||
@@ -1807,16 +1807,106 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
            << DocumentStore::instance().revision() << "," << undo_counts_body();
       return make_response(requestId, "ok", body.str());
     }
-    case kDeleteFeature:
-      return make_response(requestId, "error",
-                           error_body("NOT_IMPLEMENTED",
-                                      "delete arrives separately (no delete path yet — "
-                                      "instances of deleted targets only via crafted files, guarded)"));
+    case kDeleteFeature: {
+      const std::string featureId =
+          json_string_field(requestJson, "featureId", "");
+      if (!ShapeStore::ValidFeatureId(featureId)) {
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "invalid featureId"));
+      }
+      const bool isShape = ShapeStore::instance().contains(featureId);
+      const bool isSketch = SketchStore::instance().contains(featureId);
+      if (!isShape && !isSketch) {
+        return make_response(requestId, "error",
+                             error_body("NOT_FOUND", featureId));
+      }
+      if (isShape && isSketch) {
+        return make_response(requestId, "error",
+                             error_body("DELETE_FAILED",
+                                        "feature id is ambiguous across stores"));
+      }
+
+      // No cascade exists. Refuse direct geometry/sketch dependencies and
+      // formula references before touching OCAF, including Instance targets.
+      std::set<std::string> dependents;
+      for (const auto& rec : ShapeStore::instance().listInOrder()) {
+        if (rec.featureId != featureId &&
+            std::find(rec.dependsOn.begin(), rec.dependsOn.end(), featureId) !=
+                rec.dependsOn.end()) {
+          dependents.insert(rec.featureId);
+        }
+      }
+      for (const auto& sketch : SketchStore::instance().listInOrder()) {
+        if (sketch.id != featureId &&
+            (sketch.supportRef == featureId ||
+             sketch.supportRef.rfind(featureId + ":", 0) == 0)) {
+          dependents.insert(sketch.id);
+        }
+      }
+      for (const auto& entry : ExpressionStore::instance().listInOrder()) {
+        if (entry.featureId == featureId) continue;
+        std::vector<std::pair<std::string, std::string>> refs;
+        std::string parseError;
+        if (!ParseExpression(entry.expression, &refs, &parseError)) {
+          return make_response(
+              requestId, "error",
+              error_body("DELETE_FAILED",
+                         "cannot inspect expression on " + entry.featureId +
+                             "." + entry.paramName + ": " + parseError));
+        }
+        for (const auto& [referencedId, param] : refs) {
+          (void)param;
+          if ((referencedId.empty() ? entry.featureId : referencedId) ==
+              featureId) {
+            dependents.insert(entry.featureId);
+            break;
+          }
+        }
+      }
+      if (!dependents.empty()) {
+        std::string dependentList;
+        for (const auto& id : dependents) {
+          if (!dependentList.empty()) dependentList += ", ";
+          dependentList += id;
+        }
+        return make_response(
+            requestId, "error",
+            error_body("HAS_DEPENDENTS",
+                       "delete dependent features first: " + dependentList));
+      }
+
+      std::string error;
+      if (!OcafLive::instance().BeginCommand(&error)) {
+        return make_response(requestId, "error",
+                             error_body("DELETE_FAILED", error));
+      }
+      if (!OcafLive::instance().RemoveFeature(featureId, &error)) {
+        OcafLive::instance().AbortCommand();
+        return make_response(requestId, "error",
+                             error_body("DELETE_FAILED", error));
+      }
+      bool hadDelta = false;
+      if (!OcafLive::instance().CommitCommand(&hadDelta, &error)) {
+        OcafLive::instance().AbortCommand();
+        return make_response(requestId, "error",
+                             error_body("DELETE_FAILED", error));
+      }
+      if (!OcafLive::instance().ResyncStore(&error)) {
+        return make_response(requestId, "error",
+                             error_body("DELETE_FAILED", error));
+      }
+      SyncGraphFromStore();
+      if (hadDelta) DocumentStore::instance().commit();
+
+      std::ostringstream body;
+      body << "\"deletedFeatureId\":\"" << escape(featureId) << "\","
+           << feature_list_body();
+      return make_response(requestId, "ok", body.str());
+    }
     default:
       return make_response(requestId, "error",
                            error_body("UNKNOWN_COMMAND",
-                                      "unsupported type (core 0.1.0 "
-                                      "implements 1-26; delete arrives separately as NOT_IMPLEMENTED)"));
+                                      "unsupported command type"));
   }
 }
 
