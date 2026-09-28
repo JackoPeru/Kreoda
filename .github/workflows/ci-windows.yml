@@ -19,6 +19,9 @@ jobs:
       - name: JS deps
         run: pnpm install --frozen-lockfile
 
+      - name: Build workspace packages
+        run: pnpm --filter './packages/*' -r build
+
       - name: JS lint
         run: pnpm -r lint
 
