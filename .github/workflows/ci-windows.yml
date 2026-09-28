@@ -10,8 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -44,9 +42,12 @@ jobs:
         run: cmake --build native/kreoda-core/build --config Release
 
       - name: Native self-test + gtest
-        run: >
-          ./native/kreoda-core/build/Release/kreoda-core.exe --self-test;
+        shell: pwsh
+        run: |
+          ./native/kreoda-core/build/Release/kreoda-core.exe --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ctest --test-dir native/kreoda-core/build -C Release --output-on-failure
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
