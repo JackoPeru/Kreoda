@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "Kreoda — hybrid native/web desktop CAD with an OpenCascade geometry engine.",
+  "author": "Kreoda",
   "main": ".vite/build/main.cjs",
   "scripts": {
     "dev": "vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts && node scripts/dev.mjs",

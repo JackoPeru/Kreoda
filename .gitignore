@@ -49,3 +49,4 @@ apps/desktop/e2e/*.png
 .vscode/
 .DS_Store
 Thumbs.db
+apps/desktop/out/

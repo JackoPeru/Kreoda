@@ -2,6 +2,49 @@ cmake_minimum_required(VERSION 3.28)
 
 project(kreoda-core VERSION 0.1.0 LANGUAGES CXX)
 
+# Resolve release MSVC runtime DLLs from the Visual Studio redistributable
+# tree. Do not use System32 copies or include debug CRTs in app-local output.
+if(MSVC AND WIN32)
+  set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+  set(CMAKE_INSTALL_DEBUG_LIBRARIES FALSE)
+  set(CMAKE_INSTALL_DEBUG_LIBRARIES_ONLY FALSE)
+  include(InstallRequiredSystemLibraries)
+
+  if(NOT MSVC_REDIST_DIR OR NOT IS_DIRECTORY "${MSVC_REDIST_DIR}")
+    message(FATAL_ERROR "Visual Studio MSVC redistributable directory was not found")
+  endif()
+  file(REAL_PATH "${MSVC_REDIST_DIR}" _kreoda_msvc_redist_root)
+  set(_kreoda_required_msvc_dlls
+    msvcp140.dll
+    vcruntime140.dll
+    vcruntime140_1.dll
+  )
+  foreach(_required_name IN LISTS _kreoda_required_msvc_dlls)
+    set(_required_path "")
+    foreach(_runtime_path IN LISTS CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
+      get_filename_component(_runtime_name "${_runtime_path}" NAME)
+      if("${_runtime_name}" STREQUAL "${_required_name}")
+        if(NOT EXISTS "${_runtime_path}")
+          message(FATAL_ERROR "MSVC redist DLL does not exist: ${_runtime_path}")
+        endif()
+        file(REAL_PATH "${_runtime_path}" _runtime_real_path)
+        cmake_path(IS_PREFIX _kreoda_msvc_redist_root "${_runtime_real_path}" NORMALIZE _is_visual_studio_redist)
+        if(NOT _is_visual_studio_redist)
+          message(FATAL_ERROR
+            "Refusing to stage ${_required_name} outside Visual Studio Redist: ${_runtime_real_path}")
+        endif()
+        set(_required_path "${_runtime_real_path}")
+        break()
+      endif()
+    endforeach()
+    if(NOT _required_path)
+      message(FATAL_ERROR
+        "InstallRequiredSystemLibraries did not find release ${_required_name} in Visual Studio Redist")
+    endif()
+    list(APPEND KREODA_MSVCRT_RELEASE_DLLS "${_required_path}")
+  endforeach()
+endif()
+
 # §2.1: C++17 baseline (OCCT 8.0.x establishes it). MSVC / Clang / GCC.
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -150,6 +193,16 @@ if(HAVE_PLANEGCS)
 endif()
 
 add_executable(kreoda-core ${CORE_SOURCES})
+
+if(MSVC AND WIN32)
+  add_custom_command(TARGET kreoda-core POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+      ${KREODA_MSVCRT_RELEASE_DLLS}
+      "$<TARGET_FILE_DIR:kreoda-core>"
+    COMMENT "Staging release MSVC runtime DLLs beside kreoda-core"
+    COMMAND_EXPAND_LISTS
+    VERBATIM)
+endif()
 
 target_include_directories(kreoda-core PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src

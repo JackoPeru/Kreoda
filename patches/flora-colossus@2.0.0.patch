@@ -1,0 +1,34 @@
+diff --git a/lib/Walker.js b/lib/Walker.js
+index 084dd69854768739efe4080bfba78e6914354d19..01b1acc4e7b5627c2bb58bb1dcd4b8802a917c00 100644
+--- a/lib/Walker.js
++++ b/lib/Walker.js
+@@ -36,20 +36,20 @@ class Walker {
+         return null;
+     }
+     async walkDependenciesForModuleInModule(moduleName, modulePath, depType) {
+-        let testPath = modulePath;
++        let testPath = await fs.realpath(modulePath);
+         let discoveredPath = null;
+-        let lastRelative = null;
+         // Try find it while searching recursively up the tree
+-        while (!discoveredPath && this.relativeModule(testPath, moduleName) !== lastRelative) {
+-            lastRelative = this.relativeModule(testPath, moduleName);
+-            if (await fs.pathExists(lastRelative)) {
+-                discoveredPath = lastRelative;
++        while (!discoveredPath) {
++            const candidatePath = this.relativeModule(testPath, moduleName);
++            if (await fs.pathExists(candidatePath)) {
++                discoveredPath = candidatePath;
+             }
+             else {
+-                if (path.basename(path.dirname(testPath)) !== 'node_modules') {
+-                    testPath = path.dirname(testPath);
++                const parentPath = path.dirname(testPath);
++                if (parentPath === testPath) {
++                    break;
+                 }
+-                testPath = path.dirname(path.dirname(testPath));
++                testPath = parentPath;
+             }
+         }
+         // If we can't find it the install is probably buggered
