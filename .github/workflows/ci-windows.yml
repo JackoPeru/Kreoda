@@ -63,8 +63,148 @@ jobs:
       - name: Build desktop shell
         run: pnpm --filter @kreoda/desktop build
 
+      - name: Windows packaging smoke
+        run: pnpm --filter @kreoda/desktop make
+
+      - name: Verify Squirrel install and packaged core
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $workspace = $env:GITHUB_WORKSPACE
+          $releaseDir = Join-Path $workspace 'native/kreoda-core/build/Release'
+          $setupRoot = Join-Path $workspace 'apps/desktop/out/make/squirrel.windows'
+          $zipRoot = Join-Path $workspace 'apps/desktop/out/make/zip'
+
+          $setupFiles = @(Get-ChildItem -LiteralPath $setupRoot -File -Filter '* Setup.exe' -Recurse)
+          if ($setupFiles.Count -ne 1) {
+            throw "Expected one Squirrel Setup.exe under $setupRoot; found $($setupFiles.Count)."
+          }
+          if ($setupFiles[0].Length -le 0) {
+            throw "Squirrel Setup.exe is empty: $($setupFiles[0].FullName)"
+          }
+
+          $zipFiles = @(Get-ChildItem -LiteralPath $zipRoot -File -Filter '*.zip' -Recurse)
+          if ($zipFiles.Count -ne 1) {
+            throw "Expected one Windows ZIP under $zipRoot; found $($zipFiles.Count)."
+          }
+          if ($zipFiles[0].Length -le 0) {
+            throw "Windows ZIP is empty: $($zipFiles[0].FullName)"
+          }
+
+          $nativeCore = Join-Path $releaseDir 'kreoda-core.exe'
+          if (-not (Test-Path -LiteralPath $nativeCore -PathType Leaf)) {
+            throw "Built native core is missing: $nativeCore"
+          }
+          $nativeDlls = @(Get-ChildItem -LiteralPath $releaseDir -File -Filter '*.dll')
+          if ($nativeDlls.Count -eq 0) {
+            throw "No native runtime DLLs found in $releaseDir"
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($zipFiles[0].FullName)
+          try {
+            $zipEntries = @{}
+            $zipCorePath = $null
+            foreach ($entry in $archive.Entries) {
+              $entryPath = $entry.FullName.Replace('\', '/').TrimStart('/')
+              $zipEntries[$entryPath] = $entry.Length
+              if ($entryPath.Equals('resources/kreoda-core.exe', [System.StringComparison]::OrdinalIgnoreCase) -or
+                  $entryPath.EndsWith('/resources/kreoda-core.exe', [System.StringComparison]::OrdinalIgnoreCase)) {
+                if ($null -ne $zipCorePath) {
+                  throw "Windows ZIP contains multiple kreoda-core.exe payloads."
+                }
+                $zipCorePath = $entryPath
+              }
+            }
+            if ($null -eq $zipCorePath) {
+              throw "Windows ZIP does not contain resources/kreoda-core.exe: $($zipFiles[0].FullName)"
+            }
+            if ($zipEntries[$zipCorePath] -le 0) {
+              throw "Windows ZIP contains an empty core payload: $zipCorePath"
+            }
+            $resourcePrefix = $zipCorePath.Substring(0, $zipCorePath.Length - 'kreoda-core.exe'.Length)
+            foreach ($dll in $nativeDlls) {
+              $zipDllPath = $resourcePrefix + $dll.Name
+              if (-not $zipEntries.ContainsKey($zipDllPath) -or $zipEntries[$zipDllPath] -le 0) {
+                throw "Windows ZIP is missing native DLL payload: $zipDllPath"
+              }
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
+
+          $setup = $setupFiles[0]
+          $installer = Start-Process -FilePath $setup.FullName -WorkingDirectory $setup.DirectoryName -ArgumentList '--silent' -WindowStyle Hidden -PassThru
+          if (-not $installer.WaitForExit(300000)) {
+            Stop-Process -Id $installer.Id -Force -ErrorAction SilentlyContinue
+            throw "Squirrel Setup.exe timed out after 5 minutes: $($setup.FullName)"
+          }
+          if ($installer.ExitCode -ne 0) {
+            throw "Squirrel Setup.exe exited with code $($installer.ExitCode)."
+          }
+
+          # Squirrel uses the package id from MakerSquirrel as the per-user root.
+          $installRoot = Join-Path $env:LOCALAPPDATA 'kreoda'
+          $installDeadline = [DateTime]::UtcNow.AddMinutes(5)
+          $installedCore = $null
+          do {
+            if (Test-Path -LiteralPath (Join-Path $installRoot 'Update.exe') -PathType Leaf) {
+              $installedCores = @(
+                Get-ChildItem -LiteralPath $installRoot -Directory -Filter 'app-*' |
+                  ForEach-Object {
+                    $candidate = Join-Path $_.FullName 'resources/kreoda-core.exe'
+                    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                      Get-Item -LiteralPath $candidate
+                    }
+                  }
+              )
+              if ($installedCores.Count -eq 1) {
+                $candidateCore = $installedCores[0]
+                $payloadReady = $true
+                foreach ($sourcePayload in @($nativeCore) + @($nativeDlls | ForEach-Object FullName)) {
+                  $installedPayload = Join-Path $candidateCore.DirectoryName (Split-Path $sourcePayload -Leaf)
+                  if (-not (Test-Path -LiteralPath $installedPayload -PathType Leaf)) {
+                    $payloadReady = $false
+                    break
+                  }
+                  try {
+                    $installedHash = (Get-FileHash -LiteralPath $installedPayload -Algorithm SHA256).Hash
+                    $sourceHash = (Get-FileHash -LiteralPath $sourcePayload -Algorithm SHA256).Hash
+                    if ($installedHash -ne $sourceHash) {
+                      $payloadReady = $false
+                      break
+                    }
+                  }
+                  catch {
+                    $payloadReady = $false
+                    break
+                  }
+                }
+                if ($payloadReady) {
+                  $installedCore = $candidateCore
+                  break
+                }
+              }
+            }
+            Start-Sleep -Seconds 2
+          } while ([DateTime]::UtcNow -lt $installDeadline)
+
+          if ($null -eq $installedCore) {
+            throw "Squirrel did not install exactly one complete core and DLL payload under $installRoot within 5 minutes."
+          }
+
+          & $installedCore.FullName '--self-test'
+          $selfTestExitCode = $LASTEXITCODE
+          if ($selfTestExitCode -ne 0) {
+            throw "Installed kreoda-core --self-test exited with code $selfTestExitCode."
+          }
+
       - name: E2E (Electron + sidecar)
-        run: pnpm --filter @kreoda/desktop exec playwright test
+        run: pnpm test:e2e
+
+      - name: E2E crash recovery (solo sidecar)
+        run: pnpm test:e2e:crash
 
       - name: Upload E2E screenshots
         if: always()
