@@ -34,6 +34,9 @@ export class CadViewport {
   private needsRender = true;
   private raf = 0;
   private disposed = false;
+  private renderedFrames = 0;
+  private renderCpuTotalMs = 0;
+  private renderCpuMaxMs = 0;
   private bodies = new Map<string, BodyEntry>();
   private hoveredId: string | null = null;
   private selectedIds = new Set<string>();
@@ -70,7 +73,9 @@ export class CadViewport {
       0.5,
       20000,
     );
-    this.controls = new CameraController(this.camera, this.renderer.domElement);
+    this.controls = new CameraController(this.camera, this.renderer.domElement, {
+      onChange: () => this.requestRender(),
+    });
 
     const hemi = new THREE.HemisphereLight(0xffffff, 0x1a2230, 0.9);
     const key = new THREE.DirectionalLight(0xffffff, 1.6);
@@ -725,6 +730,18 @@ export class CadViewport {
     this.needsRender = true;
   }
 
+  /** Renderer submissions and object counts; CPU time excludes GPU completion. */
+  renderStats() {
+    return {
+      renderedFrames: this.renderedFrames,
+      renderCpuTotalMs: this.renderCpuTotalMs,
+      renderCpuMaxMs: this.renderCpuMaxMs,
+      triangles: this.renderer.info.render.triangles,
+      geometries: this.renderer.info.memory.geometries,
+      textures: this.renderer.info.memory.textures,
+    };
+  }
+
   dispose(): void {
     this.disposed = true;
     cancelAnimationFrame(this.raf);
@@ -841,6 +858,11 @@ export class CadViewport {
     this.raf = requestAnimationFrame(this.loop);
     if (!this.needsRender) return;
     this.needsRender = false;
+    const started = performance.now();
     this.renderer.render(this.scene, this.camera);
+    const elapsed = performance.now() - started;
+    ++this.renderedFrames;
+    this.renderCpuTotalMs += elapsed;
+    this.renderCpuMaxMs = Math.max(this.renderCpuMaxMs, elapsed);
   };
 }

@@ -170,7 +170,10 @@ export class SidecarManager {
   }
 
   /** Raw framed invoke: caller owns (de)serialization; response is one frame. */
-  async invoke(frame: Uint8Array, timeoutMs = 30000): Promise<Uint8Array> {
+  // The measured 1M-triangle export takes 155 s. The core also dispatches
+  // serially, so ordinary requests can wait behind meshing/import/export.
+  // Keep a finite five-minute budget; callers such as ping can bound it sooner.
+  async invoke(frame: Uint8Array, timeoutMs = 300000): Promise<Uint8Array> {
     if (!this.proc?.stdin) throw new Error("geometry engine not running");
     // Correlate by the request's own requestId (C15): the core answers in
     // dispatch order today, but arrival order was never a contract — and

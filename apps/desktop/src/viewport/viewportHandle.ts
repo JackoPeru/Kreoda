@@ -10,6 +10,15 @@ export interface FaceAnchor {
 
 export type ViewName = "top" | "front" | "right" | "iso" | "bottom" | "back" | "left";
 
+export interface ViewportRenderStats {
+  renderedFrames: number;
+  renderCpuTotalMs: number;
+  renderCpuMaxMs: number;
+  triangles: number;
+  geometries: number;
+  textures: number;
+}
+
 interface ViewportHandle {
   faceScreenPoint: (featureId: string, role: string) => FaceAnchor | null;
   setView: (name: ViewName) => void;
@@ -20,6 +29,7 @@ interface ViewportHandle {
   /** Next two clicks on a reference plane as image pixels (§29 Stage A). */
   beginReferenceMeasure: (id: string) => Promise<[number, number][] | null>;
   cancelReferenceMeasure: () => void;
+  renderStats: () => ViewportRenderStats | null;
 }
 
 let handle: ViewportHandle | null = null;
@@ -60,4 +70,8 @@ export function viewportBeginReferenceMeasure(
 
 export function viewportCancelReferenceMeasure(): void {
   handle?.cancelReferenceMeasure();
+}
+
+export function viewportRenderStats(): ViewportRenderStats | null {
+  return handle?.renderStats() ?? null;
 }

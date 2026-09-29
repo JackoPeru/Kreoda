@@ -1,0 +1,368 @@
+{
+  "run": "https://github.com/JackoPeru/Kreoda/actions/runs/36632149353",
+  "commit": "08382deabaa18232a6a1451f68cb7f94335d7f83",
+  "conclusion": "failure",
+  "nativeTestsPassed": 126,
+  "nativeTestsTotal": 127,
+  "failedTest": "Torture10.SketchGeometryAddRemoveReflowsExtrude",
+  "samples": [
+    {
+      "kind": "RESOURCE",
+      "measurements": {
+        "scenario": "step_import_25",
+        "cycles": 25,
+        "elapsed_ms": 151,
+        "ms_per_cycle": 6.04,
+        "working_set_baseline_bytes": 20422656,
+        "working_set_after_warm_bytes": 22028288,
+        "working_set_final_bytes": 22020096,
+        "peak_working_set_bytes": 22122496,
+        "private_baseline_bytes": 5009408,
+        "private_after_warm_bytes": 5369856,
+        "private_final_bytes": 5369856,
+        "handles_baseline": 119,
+        "handles_after_warm": 123,
+        "handles_final": 123
+      }
+    },
+    {
+      "kind": "RESOURCE",
+      "measurements": {
+        "scenario": "document_open_close_100",
+        "cycles": 100,
+        "elapsed_ms": 351,
+        "ms_per_cycle": 3.51,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_100": 119,
+        "working_set_baseline_bytes": 17915904,
+        "working_set_final_bytes": 18182144,
+        "peak_working_set_bytes": 18259968,
+        "private_final_bytes": 4640768
+      }
+    },
+    {
+      "kind": "RESOURCE",
+      "measurements": {
+        "scenario": "body_create_delete_1000",
+        "cycles": 1000,
+        "elapsed_ms": 690,
+        "ms_per_cycle": 0.69,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_1000": 119,
+        "working_set_baseline_bytes": 15503360,
+        "working_set_after_10_bytes": 17317888,
+        "working_set_final_bytes": 34709504,
+        "peak_working_set_bytes": 34709504,
+        "private_baseline_bytes": 4296704,
+        "private_after_10_bytes": 4632576,
+        "private_final_bytes": 22573056
+      }
+    },
+    {
+      "kind": "RESOURCE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 20,
+        "working_set_bytes": 21078016,
+        "peak_working_set_bytes": 280023040,
+        "private_bytes": 8675328,
+        "handles": 121
+      }
+    },
+    {
+      "kind": "RESOURCE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 50,
+        "working_set_bytes": 9232384,
+        "peak_working_set_bytes": 280023040,
+        "private_bytes": 8523776,
+        "handles": 121
+      }
+    },
+    {
+      "kind": "RESOURCE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 100,
+        "working_set_bytes": 13373440,
+        "peak_working_set_bytes": 280023040,
+        "private_bytes": 13361152,
+        "handles": 121
+      }
+    },
+    {
+      "kind": "RESOURCE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation_100",
+        "cycles": 100,
+        "elapsed_ms": 231429,
+        "ms_per_cycle": 2314.29,
+        "working_set_baseline_bytes": 14823424,
+        "working_set_after_warm_bytes": 22016000,
+        "working_set_final_bytes": 13373440,
+        "peak_working_set_bytes": 280023040,
+        "private_baseline_bytes": 4055040,
+        "private_after_warm_bytes": 8777728,
+        "private_final_bytes": 13361152,
+        "handles_baseline": 118,
+        "handles_after_warm": 121,
+        "handles_final": 121
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "sphere_r50_lod1_tris": 10108,
+        "sphere_r50_lod1_ms": 57,
+        "sphere_r50_lod2_tris": 50468,
+        "sphere_r50_lod2_ms": 852,
+        "cyl_r20_h100_lod2_tris": 1004,
+        "cyl_r20_h100_lod2_ms": 6
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "sphere_r200_lod2_tris": 201198,
+        "sphere_r200_lod2_ms": 6430
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 200,
+        "triangles": 201198,
+        "tessellation_ms": 6221,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 30126080,
+        "peak_working_set_bytes": 722743296,
+        "private_bytes": 17555456,
+        "handles": 121
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 600,
+        "triangles": 603802,
+        "tessellation_ms": 40312,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 55070720,
+        "peak_working_set_bytes": 3794087936,
+        "private_bytes": 45674496,
+        "handles": 121
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 1100,
+        "triangles": 1107856,
+        "tessellation_ms": 111987,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 68526080,
+        "peak_working_set_bytes": 10056695808,
+        "private_bytes": 74756096,
+        "handles": 121
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "target": "500k",
+        "radius_mm": 600,
+        "triangles": 603802,
+        "tessellation_ms": 40312,
+        "working_set_bytes": 55070720,
+        "peak_working_set_bytes": 3794087936,
+        "private_bytes": 45674496,
+        "handles": 121
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "target": "1M",
+        "radius_mm": 1100,
+        "triangles": 1107856,
+        "tessellation_ms": 111987,
+        "working_set_bytes": 68526080,
+        "peak_working_set_bytes": 10056695808,
+        "private_bytes": 74756096,
+        "handles": 121
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "hole_features": 40,
+        "feature_count": 41,
+        "body_count": 1,
+        "feature_build_ms": 2918,
+        "recompute_ms": 1023,
+        "save_icad_ms": 31,
+        "icad_bytes": 75517,
+        "load_icad_ms": 267,
+        "final_volume_mm3": 4129212.392
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "baseline",
+        "working_set_bytes": 15441920,
+        "peak_working_set_bytes": 15441920,
+        "private_bytes": 4251648,
+        "handles": 119
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_feature_build",
+        "working_set_bytes": 39231488,
+        "peak_working_set_bytes": 39235584,
+        "private_bytes": 25137152,
+        "handles": 119
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_recompute",
+        "working_set_bytes": 39108608,
+        "peak_working_set_bytes": 39313408,
+        "private_bytes": 25391104,
+        "handles": 119
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_save",
+        "working_set_bytes": 40034304,
+        "peak_working_set_bytes": 40034304,
+        "private_bytes": 25411584,
+        "handles": 119
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_load",
+        "working_set_bytes": 25071616,
+        "peak_working_set_bytes": 40103936,
+        "private_bytes": 9719808,
+        "handles": 119
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 128,
+        "feature_count": 128,
+        "create_bodies_ms": 81,
+        "recompute_bodies": 128,
+        "recompute_ms": 88,
+        "save_icad_ms": 21,
+        "icad_bytes": 32531,
+        "load_icad_ms": 85,
+        "step_export_ms": 205,
+        "step_bytes": 2161002,
+        "step_import_ms": 603,
+        "imported_solids": 128,
+        "total_volume_mm3": 274856.891
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 15458304,
+        "peak_working_set_bytes": 15458304,
+        "private_bytes": 4268032,
+        "handles": 119
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 20000768,
+        "peak_working_set_bytes": 20000768,
+        "private_bytes": 7405568,
+        "handles": 119
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 22409216,
+        "peak_working_set_bytes": 22409216,
+        "private_bytes": 9900032,
+        "handles": 119
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 23420928,
+        "peak_working_set_bytes": 24113152,
+        "private_bytes": 9994240,
+        "handles": 119
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 21237760,
+        "peak_working_set_bytes": 24113152,
+        "private_bytes": 8445952,
+        "handles": 119
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 25329664,
+        "peak_working_set_bytes": 44691456,
+        "private_bytes": 10317824,
+        "handles": 119
+      }
+    },
+    {
+      "kind": "PERF",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 28332032,
+        "peak_working_set_bytes": 44691456,
+        "private_bytes": 12988416,
+        "handles": 123
+      }
+    }
+  ]
+}

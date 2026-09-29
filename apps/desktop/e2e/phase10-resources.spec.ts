@@ -3,6 +3,7 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { boot, runBar, snapOf, type Snapshot } from "./helpers";
+import type { ViewportRenderStats } from "../src/viewport/viewportHandle";
 
 type Role = "main" | "renderer" | "native";
 type Target = { role: Role; pid: number };
@@ -216,3 +217,73 @@ test("resource sample: 21-body orbit and zoom session", async () => {
   await new Promise((resolve) => setTimeout(resolve, 2000));
   expect(spawnedSidecars()).toEqual([]);
 });
+
+for (const [radius, minimumTriangles] of [[600, 500_000], [1100, 1_000_000]] as const) {
+  test(`large viewport: ${minimumTriangles} real OCCT triangles, orbit, zoom and picking`, async () => {
+    test.skip(process.platform !== "win32", "resource sampling uses Windows process metrics");
+    test.setTimeout(600_000);
+    const { app, window } = await boot();
+    const stats = () => window.evaluate(() =>
+      (globalThis.window as unknown as { __kreoda_test: { viewportRenderStats: () => ViewportRenderStats | null } }).__kreoda_test.viewportRenderStats(),
+    );
+    try {
+      await runBar(window, `sphere ${radius}`);
+      const initial = await snapOf(window);
+      expect(initial.bodies).toHaveLength(1);
+      const id = initial.bodies[0]!.id;
+      const core = await window.evaluate(() => globalThis.window.kreoda.coreInfo());
+      expect(core.pid).toBeGreaterThan(0);
+      const pids = await app.evaluate(({ BrowserWindow }) => ({ main: process.pid, renderer: BrowserWindow.getAllWindows()[0]!.webContents.getOSProcessId() }));
+      const targets: Target[] = [{ role: "main", pid: pids.main }, { role: "renderer", pid: pids.renderer }, { role: "native", pid: core.pid! }];
+      const beforeMesh = windowsProcessSnapshot(targets);
+      const meshStarted = Date.now();
+      const detailed = await window.evaluate((featureId) =>
+        (globalThis.window as unknown as { __kreoda_test: { loadDetailedMesh: (id: string) => Promise<Snapshot> } }).__kreoda_test.loadDetailedMesh(featureId), id,
+      );
+      expect(detailed.bodies[0]!.triangles).toBeGreaterThanOrEqual(minimumTriangles);
+      expect(detailed.bodies[0]!.volumeMm3).toBeCloseTo(4 / 3 * Math.PI * radius ** 3, 2);
+      // Renderer counts submitted primitives, including culled triangles.
+      await expect.poll(async () => (await stats())?.triangles ?? 0, { timeout: 30_000 }).toBeGreaterThanOrEqual(minimumTriangles);
+      const meshRpcToRendererSubmissionMs = Date.now() - meshStarted;
+      const canvas = window.getByTestId("viewport").locator("canvas");
+      await canvas.press("Home");
+      const bounds = (await canvas.boundingBox())!;
+      const x = bounds.x + bounds.width * 0.5;
+      const y = bounds.y + bounds.height * 0.5;
+      await window.mouse.move(x, y);
+      await window.mouse.wheel(0, 2000); // Move outside the 1100 mm sphere.
+      await window.waitForTimeout(200);
+      const first = (await stats())!;
+      const interactionStarted = Date.now();
+      const cycles = 20;
+      for (let i = 0; i < cycles; ++i) {
+        await window.mouse.move(x, y);
+        await window.mouse.down();
+        await window.mouse.move(x + 12, y + 6, { steps: 3 });
+        await window.mouse.up();
+        await window.mouse.wheel(0, i % 2 ? -30 : 30);
+      }
+      await expect.poll(async () => (await stats())?.renderedFrames ?? 0).toBeGreaterThan(first.renderedFrames);
+      const interactionMs = Date.now() - interactionStarted;
+      const last = (await stats())!;
+      const selectionStarted = Date.now();
+      await window.mouse.click(x, y);
+      await expect.poll(async () => (await snapOf(window)).selectedIds.some(face => face.startsWith(`${id}:`)), { timeout: 10_000 }).toBe(true);
+      await expect(window.getByTestId("context-toolbar")).toBeVisible();
+      const pickToToolbarMs = Date.now() - selectionStarted;
+      expect(geometry(await snapOf(window))).toEqual(geometry(detailed));
+      expect((await window.evaluate(() => globalThis.window.kreoda.coreInfo())).pid).toBe(core.pid);
+      const final = windowsProcessSnapshot(targets);
+      expect(final.processes.map(row => row.role).sort()).toEqual(["main", "native", "renderer"]);
+      console.log(`PHASE10_LARGE_VIEWPORT ${JSON.stringify({ radius_mm: radius, triangles: detailed.bodies[0]!.triangles,
+        mesh_rpc_to_renderer_submission_ms: meshRpcToRendererSubmissionMs, interaction_ms: interactionMs, orbit_zoom_cycles: cycles,
+        renderer_submissions_per_second_during_input: (last.renderedFrames - first.renderedFrames) * 1000 / interactionMs,
+        render_cpu_ms_during_input: last.renderCpuTotalMs - first.renderCpuTotalMs, pick_to_toolbar_ms: pickToToolbarMs,
+        first, last, before_mesh: beforeMesh, final,
+        // Counts/CPU timings are not VRAM bytes, GPU completion or display FPS.
+      })}`);
+    } finally {
+      await app.close();
+    }
+  });
+}

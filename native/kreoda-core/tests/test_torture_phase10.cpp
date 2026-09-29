@@ -435,12 +435,49 @@ TEST(Torture10, SketchGeometryAddRemoveReflowsExtrude) {
   EXPECT_NEAR(VolumeOf("te-entities"),
               100000.0 - 3.14159265358979 * 25.0 * 20.0, 2.0);
 
+  auto tinyHole = withHole;
+  tinyHole.circles[0].r = 1e-8;
+  EXPECT_FALSE(kreoda::UpdateSketchFeature("ts-entities", tinyHole, &err))
+      << "a sub-tolerance hole must be refused instead of disappearing";
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("ts-entities", &sketch));
+  ASSERT_EQ(sketch.model.circles.size(), 1u);
+  EXPECT_DOUBLE_EQ(sketch.model.circles[0].r, 5);
+  EXPECT_NEAR(VolumeOf("te-entities"),
+              100000.0 - 3.14159265358979 * 25.0 * 20.0, 2.0);
+
   ASSERT_TRUE(kreoda::UpdateSketchFeature(
       "ts-entities", RectModel(100, 50), &err)) << err;
   ASSERT_TRUE(kreoda::SketchStore::instance().get("ts-entities", &sketch));
   EXPECT_EQ(sketch.model.points.size(), 4u);
   EXPECT_TRUE(sketch.model.circles.empty());
   EXPECT_NEAR(VolumeOf("te-entities"), 100000.0, 1.0);
+#endif
+}
+
+TEST(Torture10, CurvedSketchOuterLoopsAndHoleWinding) {
+#if !KREODA_WITH_OCCT
+  GTEST_SKIP() << "requires OCCT curved sketch faces";
+#else
+  for (const std::string plane : {"XY", "XZ", "YZ"}) {
+    NewDoc("curved-profile-" + plane);
+    std::string err;
+    kreoda::SketchModel circle;
+    circle.points = {{"center", 0, 0, true}};
+    circle.circles = {{"outer", "center", 100}};
+    ASSERT_TRUE(kreoda::CreateSketchFeature("curved-sketch", plane, circle, &err)) << err;
+    ASSERT_TRUE(kreoda::CreateExtrudeFeature("curved-extrude", "curved-sketch", 3, &err)) << err;
+    EXPECT_NEAR(VolumeOf("curved-extrude"), 3.14159265358979 * 10000 * 3, 1.0);
+
+    auto withHole = RectModel(20, 20);
+    withHole.points.push_back({"center", 0, 0, true});
+    withHole.circles = circle.circles;
+    ASSERT_TRUE(kreoda::UpdateSketchFeature("curved-sketch", withHole, &err)) << plane << ": " << err;
+    EXPECT_NEAR(VolumeOf("curved-extrude"), (3.14159265358979 * 10000 - 400) * 3, 1.0);
+    // Reverse the inner polygon winding while preserving its constraint IDs.
+    for (auto& line : withHole.lines) std::swap(line.p1, line.p2);
+    ASSERT_TRUE(kreoda::UpdateSketchFeature("curved-sketch", withHole, &err)) << plane << ": " << err;
+    EXPECT_NEAR(VolumeOf("curved-extrude"), (3.14159265358979 * 10000 - 400) * 3, 1.0);
+  }
 #endif
 }
 

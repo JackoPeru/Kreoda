@@ -40,6 +40,7 @@ import { pullFeatureMesh, syncFromCoreList, updateFeatureSummary } from "../mode
 import {
   faceScreenPoint,
   viewportViewDir,
+  viewportRenderStats,
 } from "../viewport/viewportHandle";
 
 /** Minimal workspace shell (UX-1): viewport-first, floating docks. */
@@ -300,6 +301,7 @@ export function App() {
         useDocumentUiStore.getState().upsertMesh(featureId, mesh, s.revision, s.epoch);
         return (window as unknown as { __kreoda_test: { snapshot: () => unknown } }).__kreoda_test.snapshot();
       },
+      viewportRenderStats,
       // Crash-bundle E2E: same path as the banner button (works anytime).
       crashBundle: () => saveCrashBundle(),
       // Plugin E2E: register from source + run without touching the host dir.

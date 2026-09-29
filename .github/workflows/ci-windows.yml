@@ -94,6 +94,15 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Compare OCCT Delabella mesher (diagnostic)
+        if: steps.native-tests.conclusion == 'success'
+        continue-on-error: true
+        env:
+          CSF_MeshAlgo: delabella
+        run: >
+          ctest --test-dir native/kreoda-core/build -C Release --output-on-failure --verbose
+          -R 'Torture10\.(LargeModelSphereTessellation500kAnd1M|TessellationBaseline)$'
+
       - name: .NET build + tests
         run: pnpm test:dotnet
 

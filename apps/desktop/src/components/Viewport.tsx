@@ -66,6 +66,7 @@ export function Viewport() {
       beginReferenceMeasure: (id) =>
         vpRef.current?.beginReferenceMeasure(id) ?? Promise.resolve(null),
       cancelReferenceMeasure: () => vpRef.current?.cancelReferenceMeasure(),
+      renderStats: () => vpRef.current?.renderStats() ?? null,
     });
     return () => {
       try {
