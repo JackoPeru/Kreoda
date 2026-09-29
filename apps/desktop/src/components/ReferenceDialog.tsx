@@ -1,6 +1,6 @@
 // Reference images dialog (§29 Stage A): import, list, calibrate by two
 // clicks + real distance (or known width), opacity, plane, delete.
-// Session-scoped view aids — deliberately not persisted, not undoable.
+// Persisted project view aids, outside the CAD undo history.
 import { useEffect, useState } from "react";
 import {
   addReferencePlane,
@@ -11,7 +11,9 @@ import {
   useReferenceStore,
   validateReferenceImage,
   type ReferencePlane,
+  reloadReferences,
 } from "../reference/store";
+import { coreClient } from "../ipc/coreClient";
 import {
   viewportBeginReferenceMeasure,
   viewportCancelReferenceMeasure,
@@ -20,6 +22,7 @@ import { t, useT } from "../i18n";
 
 export function ReferenceDialog({ onClose }: { onClose: () => void }) {
   const planes = useReferenceStore((s) => s.planes);
+  const loadError = useReferenceStore((s) => s.loadError);
   const [error, setError] = useState<string | null>(null);
   const [measuring, setMeasuring] = useState<string | null>(null);
   // M6: one shared knownWidth mirrored across N rows — per-row state instead.
@@ -272,6 +275,10 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
           </div>
         ))}
         {error && <div className="pt-2 text-xs text-red-300">{error}</div>}
+        {loadError && <div role="alert" className="pt-2 text-xs text-red-300">{loadError}</div>}
+        {loadError && <button type="button" onClick={async () => {
+          await reloadReferences(() => coreClient.readReferences(coreClient.documentId));
+        }}>Retry reference images</button>}
         <div className="mt-3 flex gap-2">
           {measuring !== null && (
             <button

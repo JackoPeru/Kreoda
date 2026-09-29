@@ -32,6 +32,24 @@ function box(featureId: string): FeatureSummary {
 }
 
 describe("crash autosave document versions", () => {
+  it("saves reference-only edits without a CAD revision change", async () => {
+    vi.resetModules();
+    mocks.saveDocument.mockResolvedValue({ features: [], sketches: [] });
+    mocks.recoveryPath.mockResolvedValue("/tmp/reference-recovery.icad");
+    Object.defineProperty(window, "kreoda", { configurable: true, value: { recoveryPath: mocks.recoveryPath } });
+    const { useDocumentUiStore } = await import("../src/stores/index.js");
+    const { addReferencePlane, updateReferencePlane, removeReferencePlane } = await import("../src/reference/store.js");
+    const { autosaveNow } = await import("../src/recovery/autosave.js");
+    useDocumentUiStore.getState().resetDocument("references-only");
+    expect(await autosaveNow()).toBe("skipped");
+    const p = addReferencePlane({ name: "plate", dataUrl: "data:image/png;base64,AAAA", imageW: 200, imageH: 100 });
+    expect(await autosaveNow()).toBe("saved");
+    expect(await autosaveNow()).toBe("skipped");
+    updateReferencePlane(p.id, { widthMm: 100, heightMm: 50, mmPerPx: 0.5 });
+    expect(await autosaveNow()).toBe("saved");
+    removeReferencePlane(p.id);
+    expect(await autosaveNow()).toBe("saved");
+  });
   afterEach(() => {
     delete (window as unknown as { kreoda?: unknown }).kreoda;
     vi.clearAllMocks();

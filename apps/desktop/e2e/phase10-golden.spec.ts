@@ -397,12 +397,9 @@ test("golden B: assembly follows source edits across reopen", async () => {
   }
 });
 
-// Workflow C — reference Stage A (adapted): reference planes are
-// session-scoped view aids by design (not persisted), so "verify
-// calibration" means the calibrated plane survives the session while the
-// traced geometry persists across save/reopen.
+// Workflow C — calibrated reference and traced geometry survive a cold boot.
 test("golden C: calibrated reference sizes traced geometry", async () => {
-  const { app, window } = await boot();
+  let { app, window } = await boot();
   try {
     const dataUrl = (await window.evaluate(() => {
       const c = document.createElement("canvas");
@@ -474,6 +471,9 @@ test("golden C: calibrated reference sizes traced geometry", async () => {
         ).__kreoda_test.saveIcad(icad),
       { icad: ICAD_A },
     );
+    await app.close();
+    ({ app, window } = await boot());
+    expect((await snapOf(window)).references).toEqual([]);
     const reopened = (await window.evaluate(
       ({ icad }) =>
         (
@@ -485,6 +485,11 @@ test("golden C: calibrated reference sizes traced geometry", async () => {
     )) as Snapshot;
     expect(reopened.bodies).toHaveLength(1);
     expect(reopened.bodies[0]!.volumeMm3).toBeCloseTo(100 * 50 * 10, 1);
+    expect(reopened.references).toHaveLength(1);
+    expect(reopened.references![0]).toMatchObject({
+      id: plane.id, dataUrl, imageW: 200, imageH: 100,
+      widthMm: 100, heightMm: 50, mmPerPx: 0.5, plane: "XY", opacity: 0.85,
+    });
 
     await window.screenshot({ path: path.join(HERE, "phase10-golden-c.png") });
   } finally {

@@ -10,13 +10,14 @@
 import { coreClient } from "../ipc/coreClient";
 import { syncFromCoreList } from "../model/sync";
 import { useDocumentUiStore } from "../stores";
+import { useReferenceStore } from "../reference/store";
 
 /** Autosave cadence: cheap for small models, bounded staleness on crash. */
 export const AUTOSAVE_MS = 15000;
 
-type DocVersion = { epoch: number; revision: number };
+type DocVersion = { epoch: number; revision: number; references: number };
 
-let lastSaved: DocVersion = { epoch: -1, revision: -1 };
+let lastSaved: DocVersion = { epoch: -1, revision: -1, references: -1 };
 let savedThisSession = false;
 
 function docState(): DocVersion & { bodies: number } {
@@ -24,12 +25,13 @@ function docState(): DocVersion & { bodies: number } {
   return {
     epoch: s.epoch,
     revision: s.revision,
-    bodies: s.features.length + s.sketches.length,
+    references: useReferenceStore.getState().revision,
+    bodies: s.features.length + s.sketches.length + useReferenceStore.getState().planes.length,
   };
 }
 
 function sameVersion(a: DocVersion, b: DocVersion): boolean {
-  return a.epoch === b.epoch && a.revision === b.revision;
+  return a.epoch === b.epoch && a.revision === b.revision && a.references === b.references;
 }
 
 /**
@@ -92,7 +94,7 @@ export async function clearRecoveryAfterSave(): Promise<void> {
     cleared = true;
   } catch {
     // Keep the marker dirty so autosave can recreate the recovery file.
-    lastSaved = { epoch: -1, revision: -1 };
+    lastSaved = { epoch: -1, revision: -1, references: -1 };
   }
   const after = docState();
   if (cleared && sameVersion(before, after)) lastSaved = before;

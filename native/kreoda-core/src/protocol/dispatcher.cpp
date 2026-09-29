@@ -238,12 +238,13 @@ std::string feature_list_body() {
   return os.str();
 }
 
-std::string manifest_json(const std::string& documentId) {
+std::string manifest_json(const std::string& documentId, const std::string& references) {
   std::ostringstream os;
   os << std::setprecision(17);
   os << "{\"format\":\"kreoda-project\",\"schemaVersion\":1,"
      << "\"appVersion\":\"0.1.0\",\"documentId\":\"" << escape(documentId)
-     << "\",\"units\":\"mm\",\"bodies\":" << SerializeBodiesJson() << "}";
+     << "\",\"units\":\"mm\",\"bodies\":" << SerializeBodiesJson()
+     << ",\"referencePlanesJson\":\"" << escape(references) << "\"}";
   return os.str();
 }
 
@@ -285,6 +286,7 @@ struct DocSnapshot {
   std::map<std::string, std::string> registry;
   int64_t revision = 0;
   std::string docId;
+  std::string references;
   std::string ocafBackupDir;
   std::string ocafBackupXbf;
   bool hasOcafBackup = false;
@@ -299,6 +301,7 @@ DocSnapshot takeDocSnapshot(const std::string& docId) {
   s.registry = DocumentStore::instance().snapshotRegistry();
   s.revision = DocumentStore::instance().snapshotRevision();
   s.docId = DocumentStore::instance().snapshotDocumentId();
+  s.references = DocumentStore::instance().referencePlanesJson();
   (void)docId;
 #if KREODA_WITH_OCCT
   if (!s.shapes.empty() || !s.sketches.empty()) {
@@ -329,6 +332,7 @@ void restoreDocSnapshot(const DocSnapshot& s) {
   ExpressionStore::instance().clear();
   for (const auto& e : s.exprs) ExpressionStore::instance().set(e.featureId, e.paramName, e.expression);
   DocumentStore::instance().restoreSnapshot(s.docId, s.revision, s.registry);
+  DocumentStore::instance().setReferencePlanesJson(s.references);
 #if KREODA_WITH_OCCT
   if (s.hasOcafBackup) {
     std::vector<ShapeRecord> recs;
@@ -846,6 +850,15 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         body << "\"path\":\"" << escape(path) << "\"," << feature_list_body();
         return make_response(requestId, "ok", body.str());
       }
+      // Opaque renderer metadata is escaped as one string, never injected
+      // into the manifest. Older clients preserve it when omitting the field.
+      const std::string references = json_string_field_strict(
+          requestJson, "referencePlanesJson",
+          DocumentStore::instance().referencePlanesJson());
+      if (references.size() > 100 * 1024 * 1024) {
+        return make_response(requestId, "error",
+                             error_body("SAVE_FAILED", "reference metadata too large"));
+      }
       std::error_code ec;
       const std::string tmp = uniqueTempDir("kreoda-save", ec);
       if (tmp.empty()) {
@@ -860,7 +873,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
                              error_body("SAVE_FAILED", error));
       }
       fs::create_directories(fs::path(path).parent_path(), ec);
-      const std::string manifest = manifest_json(documentId);
+      const std::string manifest = manifest_json(documentId, references);
       if (!saveAtomically(
               path,
               [&](const std::string& tmp, std::string* e) {
@@ -872,6 +885,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
                              error_body("SAVE_FAILED", error));
       }
       fs::remove_all(tmp, ec);
+      DocumentStore::instance().setReferencePlanesJson(references);
       std::ostringstream body;
       body << "\"path\":\"" << escape(path) << "\"," << feature_list_body();
       return make_response(requestId, "ok", body.str());
@@ -1003,6 +1017,13 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         return make_response(requestId, "error",
                              error_body("OPEN_FAILED", error));
       }
+      const std::string references = json_string_field_strict(manifest, "referencePlanesJson", "[]");
+      if (references.size() > 100 * 1024 * 1024) {
+        fs::remove_all(tmp, ec);
+        discardDocSnapshot(backup);
+        return make_response(requestId, "error",
+                             error_body("OPEN_FAILED", "reference metadata too large"));
+      }
       std::vector<ShapeRecord> records;
       std::vector<std::string> sketchJsons;
       std::vector<BodyRecord> declaredBodies;
@@ -1070,8 +1091,10 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       MeshCache().clear();
       discardDocSnapshot(backup);
       fs::remove_all(tmp, ec);
+      DocumentStore::instance().setReferencePlanesJson(references);
       std::ostringstream body;
-      body << "\"path\":\"" << escape(path) << "\"," << feature_list_body();
+      body << "\"path\":\"" << escape(path) << "\",\"referencePlanesJson\":\""
+           << escape(references) << "\"," << feature_list_body();
       return make_response(requestId, "ok", body.str());
     }
     case kSetFeatureParameter: {
@@ -1528,7 +1551,12 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       // the current revision. Read-only: no transaction, no revision bump,
       // safe to call between mutations (callers use revision for deltas).
       std::ostringstream body;
-      body << "\"documentId\":\"" << escape(documentId) << "\","
+      const bool includeReferences = json_string_field(requestJson, "includeReferencePlanes", "") == "true";
+      if (includeReferences) {
+        body << "\"referencePlanesJson\":\""
+             << escape(DocumentStore::instance().referencePlanesJson()) << "\",";
+      }
+      body << "\"documentId\":\"" << escape(includeReferences ? DocumentStore::instance().snapshotDocumentId() : documentId) << "\","
            << feature_list_body();
       return make_response(requestId, "ok", body.str());
     }

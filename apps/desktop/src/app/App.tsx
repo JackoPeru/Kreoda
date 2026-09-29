@@ -23,6 +23,7 @@ import {
 } from "../plugins/loader";
 import {
   addReferencePlane,
+  reloadReferences,
   calibrateSize,
   updateReferencePlane,
   useReferenceStore,
@@ -202,8 +203,15 @@ export function App() {
       void (async () => {
         try {
           const store = useDocumentUiStore.getState();
-          if (delta.documentId !== store.documentId) {
+          const switched = delta.documentId !== store.documentId;
+          if (switched) {
             store.resetDocument(delta.documentId);
+            coreClient.documentId = delta.documentId;
+          }
+          if (switched || useReferenceStore.getState().loadError) {
+            const epoch = useDocumentUiStore.getState().epoch;
+            await reloadReferences(() => coreClient.readReferences(delta.documentId));
+            if (useDocumentUiStore.getState().epoch !== epoch) return;
           }
           await syncFromCoreList(
             delta.features as Parameters<typeof syncFromCoreList>[0],
@@ -232,6 +240,7 @@ export function App() {
         const s = useDocumentUiStore.getState();
         return {
           revision: s.revision,
+          references: useReferenceStore.getState().planes,
           selectedIds: useSelectionStore.getState().selectedIds,
           sketches: s.sketches.map((k) => ({
             id: k.featureId,

@@ -450,6 +450,46 @@ TEST(Torture10, SketchGeometryAddRemoveReflowsExtrude) {
 // node into or reparents an existing history.
 
 // §10.4: 100 edit/save/close/open cycles — UUIDs, params, expressions stable.
+TEST(Torture10, ReferenceMetadata100CyclesAndFailedSave) {
+  const fs::path dir = fs::temp_directory_path() / "kreoda-reference-cycles";
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  const std::string path = (dir / "reference.icad").generic_string();
+  const std::string references = R"([{"id":"ref-a","name":"plate \"A\" \\path\nline","dataUrl":"data:image/png;base64,AAAA","imageW":200,"imageH":100,"widthMm":100,"heightMm":50,"mmPerPx":0.5,"plane":"XZ","opacity":0.4}])";
+  std::string quoted;
+  for (char c : references) {
+    if (c == '"' || c == '\\') quoted.push_back('\\');
+    quoted.push_back(c);
+  }
+  NewDoc("references-only");
+  // An empty CAD document with only references must still reopen.
+  const auto saved = rpc(std::string(R"({"protocolVersion":1,"requestId":"refs","documentId":"references-only","type":10,"path":")") + path + R"(","referencePlanesJson":")" + quoted + "\"}");
+  ASSERT_TRUE(ok(saved)) << saved;
+  for (int i = 0; i < 100; ++i) {
+    NewDoc("references-loaded");
+    EXPECT_EQ(kreoda::DocumentStore::instance().referencePlanesJson(), "[]");
+    const auto opened = openRpc("refs-open", "references-loaded", path);
+    ASSERT_TRUE(ok(opened)) << opened;
+    EXPECT_EQ(kreoda::json_string_field_strict(opened, "referencePlanesJson"), references);
+    EXPECT_EQ(kreoda::DocumentStore::instance().referencePlanesJson(), references);
+    const auto snapshot = rpc(R"({"protocolVersion":1,"requestId":"refs-snapshot","documentId":"references-loaded","type":26,"includeReferencePlanes":true})");
+    ASSERT_TRUE(ok(snapshot)) << snapshot;
+    EXPECT_EQ(kreoda::json_string_field_strict(snapshot, "referencePlanesJson"), references);
+    EXPECT_EQ(kreoda::json_string_field_strict(snapshot, "documentId"), "references-loaded");
+    // Old clients omit metadata on save; it must be preserved.
+    ASSERT_TRUE(ok(saveRpc("refs-save", "references-loaded", path)));
+  }
+  const std::string badPath = (dir / "blocked.icad").generic_string();
+  fs::create_directory(badPath, ec);
+  const auto failed = rpc(std::string(R"({"protocolVersion":1,"requestId":"refs-fail","documentId":"references-loaded","type":10,"path":")") + badPath + R"(","referencePlanesJson":"[]"})");
+  EXPECT_FALSE(ok(failed));
+  EXPECT_EQ(kreoda::DocumentStore::instance().referencePlanesJson(), references);
+  const auto failedOpen = openRpc("refs-bad-open", "references-loaded", badPath);
+  EXPECT_FALSE(ok(failedOpen));
+  EXPECT_EQ(kreoda::DocumentStore::instance().referencePlanesJson(), references);
+  fs::remove_all(dir, ec);
+}
+
 TEST(Torture10, SaveOpen100Cycles) {
   const fs::path dir =
       fs::temp_directory_path() / "kreoda-torture-100";

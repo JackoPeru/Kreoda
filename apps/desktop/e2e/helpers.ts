@@ -27,6 +27,7 @@ export interface SketchSnapshot {
 
 export interface Snapshot {
   revision: number;
+  references?: import("../src/reference/store").ReferencePlane[];
   selectedIds: string[];
   bodies: BodySnapshot[];
   sketches: SketchSnapshot[];

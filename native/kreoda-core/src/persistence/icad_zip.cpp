@@ -96,6 +96,11 @@ bool ReadIcad(const std::string& icadPath, const std::string& outDir,
     }
     if (std::string(name) == "manifest.json" ||
         std::string(name) == "document.xbf") {
+      if (std::string(name) == "manifest.json" && info.uncompressed_size > 128ULL * 1024 * 1024) {
+        if (error) *error = "zip: manifest too large";
+        unzClose(uf);
+        return false;
+      }
       if (unzOpenCurrentFile(uf) != UNZ_OK) {
         if (error) *error = std::string("zip: cannot open entry ") + name;
         unzClose(uf);
