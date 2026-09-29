@@ -1007,7 +1007,8 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       std::vector<std::string> sketchJsons;
       std::vector<BodyRecord> declaredBodies;
       const bool allowEmpty =
-          ParseBodiesJson(manifest, &declaredBodies) && declaredBodies.empty();
+          ParseBodiesJson(manifest, &declaredBodies) && declaredBodies.empty() &&
+          manifest.find("\"bodies\":[]") != std::string::npos;
       // Fresh baseline BEFORE load (clears stores + OCAF); Load then opens
       // the file into the live doc with all labels (solids, sketches,
       // selections, evolution) intact — no re-mirroring needed.

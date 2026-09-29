@@ -759,12 +759,14 @@ TEST(Torture10, TessellationResourceCycles) {
 #if !KREODA_WITH_OCCT
   GTEST_SKIP() << "requires real OCCT BRep tessellation and OCAF APIs";
 #else
-  constexpr int kCycles = 20;
+  constexpr int kCycles = 100;
   constexpr double kRadiusMm = 100.0;
   constexpr double kExpectedVolumeMm3 =
       4.0 / 3.0 * 3.14159265358979323846 * kRadiusMm * kRadiusMm * kRadiusMm;
   const ProcessResources baseline = ReadProcessResources();
   ProcessResources afterWarm = baseline;
+  ProcessResources at20;
+  ProcessResources at50;
   const auto started = std::chrono::steady_clock::now();
   for (int i = 0; i < kCycles; ++i) {
     NewDoc("tessellation-resource-cycle");
@@ -800,13 +802,36 @@ TEST(Torture10, TessellationResourceCycles) {
           << "cycle " << i;
     }
     if (i == 4) afterWarm = ReadProcessResources();
+    if (i == 19) at20 = ReadProcessResources();
+    if (i == 49) at50 = ReadProcessResources();
   }
   const long long elapsedMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::steady_clock::now() - started)
           .count();
   const ProcessResources final = ReadProcessResources();
-  PrintResourceCycles("fresh_sphere_tessellation_20", kCycles, elapsedMs,
+  const auto printSample = [](int cycle, const ProcessResources& sample) {
+    if (sample.available) {
+      std::printf(
+          "PHASE10_RESOURCE_NATIVE {\"scenario\":\"fresh_sphere_tessellation\","
+          "\"cycles\":%d,\"working_set_bytes\":%llu,"
+          "\"peak_working_set_bytes\":%llu,\"private_bytes\":%llu,"
+          "\"handles\":%u}\n",
+          cycle, static_cast<unsigned long long>(sample.workingSetBytes),
+          static_cast<unsigned long long>(sample.peakWorkingSetBytes),
+          static_cast<unsigned long long>(sample.privateBytes),
+          sample.handleCount);
+    } else {
+      std::printf(
+          "PHASE10_RESOURCE_NATIVE {\"scenario\":\"fresh_sphere_tessellation\","
+          "\"cycles\":%d,\"windows_process_metrics_available\":false}\n",
+          cycle);
+    }
+  };
+  printSample(20, at20);
+  printSample(50, at50);
+  printSample(100, final);
+  PrintResourceCycles("fresh_sphere_tessellation_100", kCycles, elapsedMs,
                       baseline, afterWarm, final);
   NewDoc("tessellation-resource-finished");
 #endif
@@ -924,13 +949,16 @@ TEST(Torture10, LargeModelSphereTessellation500kAnd1M) {
   };
   constexpr size_t k500kTriangles = 500000;
   constexpr size_t k1mTriangles = 1000000;
-  constexpr double kMaximumRadiusMm = 3200.0;
+  // OCCT 8.0.1 measured about 1006 triangles/mm here. This bounded sequence
+  // keeps a clear 500k sample and reaches slightly above 1M at 1100 mm,
+  // avoiding the prior 1600 mm sample's disproportionate cost.
+  constexpr double kMaximumRadiusMm = 1100.0;
+  constexpr double kRadiiMm[] = {200.0, 600.0, kMaximumRadiusMm};
   Sample at500k;
   Sample at1m;
 
-  for (double radius = 200.0;
-       radius <= kMaximumRadiusMm && at1m.triangles < k1mTriangles;
-       radius *= 2.0) {
+  for (const double radius : kRadiiMm) {
+    if (at1m.triangles >= k1mTriangles) break;
     NewDoc("large-model");
     std::string err;
     ASSERT_TRUE(kreoda::CreateSphereFeature("large-sphere", radius, &err))
