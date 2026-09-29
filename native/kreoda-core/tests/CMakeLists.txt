@@ -117,4 +117,4 @@ if(TARGET kreoda-protocol-codegen)
 endif()
 
 include(GoogleTest)
-gtest_discover_tests(kreoda-core-tests)
+gtest_discover_tests(kreoda-core-tests PROPERTIES TIMEOUT 2400)

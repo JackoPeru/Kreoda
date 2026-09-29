@@ -522,7 +522,8 @@ TEST(Torture10, DeleteFeatureDependentsUndoRedoAndPersistence) {
   EXPECT_EQ(kreoda::BodyStore::instance().size(), 0u);
 
   ASSERT_TRUE(ok(saveRpc("delete-save", "delete-doc", path)));
-  ASSERT_TRUE(ok(openRpc("delete-open", "delete-reloaded", path)));
+  const auto reloaded = openRpc("delete-open", "delete-reloaded", path);
+  ASSERT_TRUE(ok(reloaded)) << reloaded;
   EXPECT_TRUE(kreoda::ShapeStore::instance().listInOrder().empty());
   EXPECT_TRUE(kreoda::SketchStore::instance().listInOrder().empty());
   EXPECT_EQ(kreoda::BodyStore::instance().size(), 0u);
@@ -786,12 +787,13 @@ TEST(Torture10, TessellationResourceCycles) {
       ASSERT_EQ(mesh.normals.size(), mesh.positions.size()) << "cycle " << i;
       ASSERT_FALSE(mesh.faces.empty()) << "cycle " << i;
       EXPECT_NEAR(mesh.volumeMm3, kExpectedVolumeMm3, 1.0) << "cycle " << i;
-      EXPECT_NEAR(mesh.bboxMm[0], -kRadiusMm, 1e-5) << "cycle " << i;
-      EXPECT_NEAR(mesh.bboxMm[1], -kRadiusMm, 1e-5) << "cycle " << i;
-      EXPECT_NEAR(mesh.bboxMm[2], -kRadiusMm, 1e-5) << "cycle " << i;
-      EXPECT_NEAR(mesh.bboxMm[3], kRadiusMm, 1e-5) << "cycle " << i;
-      EXPECT_NEAR(mesh.bboxMm[4], kRadiusMm, 1e-5) << "cycle " << i;
-      EXPECT_NEAR(mesh.bboxMm[5], kRadiusMm, 1e-5) << "cycle " << i;
+      // OCCT Bnd_Box includes tessellation tolerance around curved faces.
+      EXPECT_NEAR(mesh.bboxMm[0], -kRadiusMm, 0.05) << "cycle " << i;
+      EXPECT_NEAR(mesh.bboxMm[1], -kRadiusMm, 0.05) << "cycle " << i;
+      EXPECT_NEAR(mesh.bboxMm[2], -kRadiusMm, 0.05) << "cycle " << i;
+      EXPECT_NEAR(mesh.bboxMm[3], kRadiusMm, 0.05) << "cycle " << i;
+      EXPECT_NEAR(mesh.bboxMm[4], kRadiusMm, 0.05) << "cycle " << i;
+      EXPECT_NEAR(mesh.bboxMm[5], kRadiusMm, 0.05) << "cycle " << i;
       const uint32_t maxIndex =
           *std::max_element(mesh.indices.begin(), mesh.indices.end());
       EXPECT_LT(static_cast<size_t>(maxIndex), mesh.positions.size() / 3)

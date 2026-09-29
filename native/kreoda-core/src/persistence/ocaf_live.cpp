@@ -1065,7 +1065,9 @@ bool OcafLive::Load(const std::string& xbfPath,
       }
     }
   }
-  if (recovered == 0 && recoveredSketches == 0) {
+  // A saved document may legitimately be empty after its last feature is
+  // deleted. Keep rejecting files that contain shape labels but recover none.
+  if (recovered == 0 && recoveredSketches == 0 && free.Length() > 0) {
     if (error) *error = "OCAF: no features recovered from " + xbfPath;
     return false;
   }
