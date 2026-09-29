@@ -410,6 +410,44 @@ TEST(Torture10, ExtrudeAndSketchMutationsReflow) {
   EXPECT_NEAR(VolumeOf("te"), 120.0 * 60.0 * 35.0, 5.0);
 }
 
+TEST(Torture10, SketchGeometryAddRemoveReflowsExtrude) {
+#if !KREODA_WITH_OCCT
+  GTEST_SKIP() << "requires OCCT downstream recompute";
+#else
+  NewDoc("tt-sketch-entities");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateSketchFeature(
+      "ts-entities", "XY", RectModel(100, 50), &err)) << err;
+  ASSERT_TRUE(kreoda::CreateExtrudeFeature("te-entities", "ts-entities", 20,
+                                           &err)) << err;
+  EXPECT_NEAR(VolumeOf("te-entities"), 100000.0, 1.0);
+
+  auto withHole = RectModel(100, 50);
+  withHole.points.push_back({"p-hole", 50, 25, true});
+  withHole.circles.push_back({"c-hole", "p-hole", 5});
+  ASSERT_TRUE(kreoda::UpdateSketchFeature("ts-entities", withHole, &err))
+      << err;
+  kreoda::SketchFeature sketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("ts-entities", &sketch));
+  EXPECT_EQ(sketch.model.points.size(), 5u);
+  EXPECT_EQ(sketch.model.circles.size(), 1u);
+  EXPECT_NEAR(VolumeOf("te-entities"),
+              100000.0 - 3.14159265358979 * 25.0 * 20.0, 2.0);
+
+  ASSERT_TRUE(kreoda::UpdateSketchFeature(
+      "ts-entities", RectModel(100, 50), &err)) << err;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("ts-entities", &sketch));
+  EXPECT_EQ(sketch.model.points.size(), 4u);
+  EXPECT_TRUE(sketch.model.circles.empty());
+  EXPECT_NEAR(VolumeOf("te-entities"), 100000.0, 1.0);
+#endif
+}
+
+// §10.3 API limits: HolePattern creation accepts 1..4 points, but its rebuild
+// replays the stored refExtra point list and no feature-update API changes its
+// count. Feature dependencies are fixed at creation; no command/API inserts a
+// node into or reparents an existing history.
+
 // §10.4: 100 edit/save/close/open cycles — UUIDs, params, expressions stable.
 TEST(Torture10, SaveOpen100Cycles) {
   const fs::path dir =
@@ -1196,9 +1234,9 @@ TEST(Torture10, ManyBodyLargeStepRoundTripBaseline) {
     const double widthMm = 10.0 + static_cast<double>(i) * 0.125;
     const double heightMm = 10.0 + static_cast<double>(i % 7) * 0.25;
     const double depthMm = 10.0 + static_cast<double>(i % 5) * 0.5;
-    const std::string created = rpc(createBoxRpc(
+    const std::string created = createBoxRpc(
         "mb-create-" + std::to_string(i), "phase10-many-body", id,
-        widthMm, heightMm, depthMm));
+        widthMm, heightMm, depthMm);
     ASSERT_TRUE(ok(created)) << "body " << i << ": " << created;
     boxes.push_back({id, widthMm, heightMm, depthMm});
   }

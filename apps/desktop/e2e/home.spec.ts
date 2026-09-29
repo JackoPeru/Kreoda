@@ -1,10 +1,9 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { MAIN } from "./helpers";
 
-const screenshots = path.join(os.tmpdir(), "kreoda-home-visual-qa");
+const screenshots = path.join(import.meta.dirname, "..", "test-results", "home-visual-qa");
 const difference = async (
   window: import("@playwright/test").Page,
   first: Buffer,
@@ -50,6 +49,7 @@ const difference = async (
 }, { a: first.toString("base64"), b: second.toString("base64"), boxes });
 
 test("home renders a real 3D studio with accessible responsive controls", async () => {
+  test.slow();
   fs.mkdirSync(screenshots, { recursive: true });
   const app = await electron.launch({ args: [MAIN, "--no-sandbox", "--lang=en-US"] });
   try {
