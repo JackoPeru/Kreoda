@@ -60,6 +60,10 @@ export function SketchEditor({
   // never from a stale render closure (§15 — no pointer-frequency React).
   const modelRef = useRef<SketchModel | null>(null);
   const previewSeq = useRef(0);
+  // Drag-preview throttle (same 40 ms cadence as face pull): pointermove
+  // fires far faster than the core round-trip, and every unthrottled preview
+  // queued a full updateSketch + setModel re-render behind the drag.
+  const lastPreviewAt = useRef(0);
   // Pre-drag snapshot for Escape-cancel (restores without committing).
   const dragBaseRef = useRef<SketchModel | null>(null);
   const [inference, setInference] = useState<string | null>(null);
@@ -259,6 +263,10 @@ export function SketchEditor({
     const sy = ((e.clientY - rect.top) / rect.height) * VIEW;
     const [x, y] = fromClient(sx, sy);
     drag.moved = true;
+    // Throttle BEFORE the inference setState + IPC: at most ~25 previews/s.
+    const nowMove = performance.now();
+    if (nowMove - lastPreviewAt.current < 40) return;
+    lastPreviewAt.current = nowMove;
     // Deterministic inference badges (§21.6): near-horizontal/vertical drag
     // shows intent; commit happens on release (§13 preview, no Undo spam).
     const start = base.points.find((p) => p.id === id);

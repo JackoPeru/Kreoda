@@ -27,6 +27,37 @@ function resolveSidecarPath(): string {
   return candidates.find((c) => fs.existsSync(c)) ?? candidates[0]!;
 }
 
+/**
+ * Dev fallback: Node stub core (same framed stdio protocol, primitives
+ * only). Used when the native kreoda-core binary is absent — e.g. a fresh
+ * checkout without the OCCT/vcpkg toolchain. Honest about being a stub
+ * (GetCoreInfo reports stub-node-unlinked). Never packaged: release builds
+ * must link the real kernel.
+ */
+function resolveStubCoreJs(): string | undefined {
+  const candidates = [
+    // dev: <repo>/native/... from the desktop package root
+    path.join(
+      app.getAppPath(),
+      "..",
+      "..",
+      "native",
+      "kreoda-core",
+      "stub-core.mjs",
+    ),
+    path.join(
+      process.cwd(),
+      "..",
+      "..",
+      "native",
+      "kreoda-core",
+      "stub-core.mjs",
+    ),
+    path.join(process.cwd(), "native", "kreoda-core", "stub-core.mjs"),
+  ];
+  return candidates.find((c) => fs.existsSync(c));
+}
+
 interface Pending {
   resolve: (v: Uint8Array) => void;
   reject: (e: Error) => void;
@@ -47,8 +78,37 @@ export class SidecarManager {
   }
 
   async start(): Promise<void> {
-    const exePath = resolveSidecarPath();
-    this.proc = spawn(exePath, [], { stdio: ["pipe", "pipe", "pipe"] });
+    // Prefer the native kernel; fall back to the Node stub core in dev when
+    // the binary was never built (fresh checkout, no OCCT/vcpkg toolchain).
+    // A missing engine is an honest stopped state — never an uncaught
+    // main-process exception (that bricks the app with a spawn ENOENT dialog).
+    let cmd = resolveSidecarPath();
+    let args: string[] = [];
+    let stubEnv: Record<string, string> = {};
+    if (!fs.existsSync(cmd)) {
+      const stubJs = resolveStubCoreJs();
+      if (!stubJs) {
+        throw new Error(
+          `geometry engine not found (looked for ${cmd}). ` +
+            "Build the native core (scripts/build-core.ps1 needs the MSVC + vcpkg toolchain) " +
+            "or keep native/kreoda-core/stub-core.mjs for the dev stub.",
+        );
+      }
+      console.warn(
+        `[main] native kreoda-core missing — using Node stub core (${stubJs}). ` +
+          "Primitives only; never ship this.",
+      );
+      // In the Electron main process execPath IS electron.exe, not node —
+      // ELECTRON_RUN_AS_NODE makes the same binary behave as plain Node so
+      // it can run the stub script without booting a second Electron app.
+      cmd = process.execPath;
+      args = [stubJs];
+      stubEnv = { ELECTRON_RUN_AS_NODE: "1" };
+    }
+    this.proc = spawn(cmd, args, {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, ...stubEnv },
+    });
     this.proc.stdout?.on("data", (chunk: Buffer) => this.handleStdout(chunk));
     this.proc.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
@@ -61,6 +121,19 @@ export class SidecarManager {
         }
       }
     });
+    // Spawn failures (ENOENT, EACCES) arrive as an async 'error' event — with
+    // no listener they become an uncaught main-process exception. Fail the
+    // in-flight calls and the start() promise instead, so the renderer gets
+    // the honest "engine stopped" banner and the app stays usable.
+    this.proc.on("error", (err) => {
+      console.error("[main] geometry engine spawn failed", err);
+      this.proc = null;
+      for (const p of this.pending.values()) {
+        clearTimeout(p.timer);
+        p.reject(err instanceof Error ? err : new Error(String(err)));
+      }
+      this.pending.clear();
+    });
     this.proc.on("exit", (code) => {
       this.proc = null;
       for (const p of this.pending.values()) {
@@ -70,6 +143,10 @@ export class SidecarManager {
       this.pending.clear();
       for (const h of this.crashHandlers) h(code);
     });
+    // Give a fast spawn failure (ENOENT races on the next tick) a chance to
+    // surface before the ping, so start() rejects instead of resolving dead.
+    await new Promise((r) => setTimeout(r, 100));
+    if (!this.proc) throw new Error("geometry engine failed to start (see log above)");
     // Phase 0 acceptance: ping GetCoreInfo to prove the loop works.
     await this.ping();
   }

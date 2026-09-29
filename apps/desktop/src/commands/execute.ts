@@ -278,7 +278,6 @@ async function dispatchCommand(
       // sync every summary from the full list, pull meshes for all that moved.
       const list = (updated as { features?: FeatureSummary[] }).features;
       if (list && list.length > 0) {
-        const { syncFromCoreList } = await import("../model/sync");
         const sketches =
           (updated as { sketches?: import("../ipc/coreClient").SketchSummary[] }).sketches ?? [];
         await syncFromCoreList(list, updated.revision, sketches);

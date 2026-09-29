@@ -11,15 +11,24 @@ export class CameraController {
   private lastX = 0;
   private lastY = 0;
   private target = new THREE.Vector3(0, 0, 0);
+  /** Render-demand hook: fired on every camera mutation (orbit/pan/zoom/frame). */
+  private onChange: () => void = () => {};
 
   constructor(
     private camera: THREE.PerspectiveCamera,
     private dom: HTMLElement,
+    opts: { onChange?: () => void } = {},
   ) {
+    if (opts.onChange) this.onChange = opts.onChange;
     this.camera.position.set(160, -180, 140);
     this.camera.up.set(0, 0, 1);
     this.camera.lookAt(this.target);
     this.bind();
+  }
+
+  /** True while the user is mid orbit/pan gesture (hover picking pauses). */
+  isNavigating(): boolean {
+    return this.dragging;
   }
 
   frameAll(distance = 420): void {
@@ -27,6 +36,7 @@ export class CameraController {
     const dir = this.camera.position.clone().sub(this.target).normalize();
     this.camera.position.copy(this.target).addScaledVector(dir, distance);
     this.camera.lookAt(this.target);
+    this.onChange();
   }
 
   frameSelection(center: THREE.Vector3, radius: number): void {
@@ -36,6 +46,7 @@ export class CameraController {
       .copy(this.target)
       .addScaledVector(dir, Math.max(radius * 3, 60));
     this.camera.lookAt(this.target);
+    this.onChange();
   }
 
   /** Normalized view direction (target − position) for tests/diagnostics. */
@@ -73,6 +84,7 @@ export class CameraController {
     this.camera.up.set(0, 0, 1);
     this.camera.position.copy(this.target).addScaledVector(tilt, dist);
     this.camera.lookAt(this.target);
+    this.onChange();
   }
 
   dispose(): void {
@@ -118,6 +130,7 @@ export class CameraController {
     sph.phi = THREE.MathUtils.clamp(sph.phi - dy * 0.005, 0.05, Math.PI - 0.05);
     this.camera.position.copy(this.target).add(new THREE.Vector3().setFromSpherical(sph));
     this.camera.lookAt(this.target);
+    this.onChange();
   }
 
   private pan(dx: number, dy: number): void {
@@ -129,6 +142,7 @@ export class CameraController {
       .addScaledVector(right, -dx * scale)
       .addScaledVector(up, dy * scale);
     this.camera.lookAt(this.target);
+    this.onChange();
   }
 
   private zoom(deltaY: number): void {
@@ -138,5 +152,6 @@ export class CameraController {
     off.setLength(len);
     this.camera.position.copy(this.target).add(off);
     this.camera.lookAt(this.target);
+    this.onChange();
   }
 }

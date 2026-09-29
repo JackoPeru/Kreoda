@@ -9,6 +9,7 @@ import {
 } from "../stores";
 import { viewportSetView, type ViewName } from "../viewport/viewportHandle";
 import type { IntentPlan, PlanStep } from "./parse";
+import { parseCommand } from "./parse";
 import { t } from "../i18n";
 
 // Structured AI context (§28): selection + model summary, never raw meshes.
@@ -201,7 +202,6 @@ export function validatePlan(plan: IntentPlan): void {
 export class LocalParserProvider implements IntentModelProvider {
   readonly id = "local";
   async plan(request: IntentRequest): Promise<IntentPlan> {
-    const { parseCommand } = await import("./parse");
     const r = parseCommand(request.text);
     if (!r.ok) throw new Error(r.message);
     return r.plan;

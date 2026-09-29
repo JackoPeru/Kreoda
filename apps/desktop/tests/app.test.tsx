@@ -43,10 +43,11 @@ describe("beginner shell (§24)", () => {
     expect(screen.getByTestId("home-tasks")).toBeTruthy();
   });
 
-  it("shows toolbar, viewport, command bar after entering the workspace", () => {
+  it("shows toolbar, viewport, command bar after entering the workspace", async () => {
     render(<App />);
     fireEvent.click(screen.getByTestId("home-new-project"));
-    expect(screen.getByRole("button", { name: "Add" })).toBeTruthy();
+    // WorkspaceChrome is a lazy chunk — resolves a microtask after entry.
+    expect(await screen.findByRole("button", { name: "Add" })).toBeTruthy();
     expect(screen.getByTestId("viewport")).toBeTruthy();
     expect(
       screen.getByPlaceholderText(/What do you want to do/),

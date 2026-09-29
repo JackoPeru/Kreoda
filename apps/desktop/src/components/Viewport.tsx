@@ -44,6 +44,10 @@ export function Viewport() {
     const vp = new CadViewport(ref.current, {
       onHover: (id) => {
         if (sessionRef.current) return;
+        // Distinct-only: the viewport coalesces picks to one per frame but
+        // still re-fires over the same face — skip the store round-trip so
+        // React never re-renders at pointer frequency for a no-op.
+        if (useSelectionStore.getState().hoveredId === id) return;
         hover(id);
         vp.setHover(id);
       },
@@ -171,16 +175,18 @@ export function Viewport() {
       if (!s.moved) return;
       const alongPx = dxPx * s.axisX + dyPx * s.axisY;
       const value = clampDimension(s.startValueMm + alongPx * s.mmPerPx);
-      setPullHint(
-        t("viewport.dragging", { p: s.paramName, v: value.toFixed(1) }),
-      );
-      // Throttled transient preview (§13): no commit, no revision.
+      // Throttled transient preview (§13): no commit, no revision. The hint
+      // updates at preview cadence too — setState per pointermove re-rendered
+      // this component (and its subtree) even when the preview was dropped.
       const now = performance.now();
       if (Math.abs(value - s.lastSentValue) < 0.5 || now - s.lastSentAt < 40) {
         return;
       }
       s.lastSentValue = value;
       s.lastSentAt = now;
+      setPullHint(
+        t("viewport.dragging", { p: s.paramName, v: value.toFixed(1) }),
+      );
       void coreClient
         .setFeatureParameter(s.featureId, s.paramName, value, true)
         .then(

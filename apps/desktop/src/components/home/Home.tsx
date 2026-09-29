@@ -1,6 +1,11 @@
-import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { HomeScene3D } from "./HomeScene3D";
+import { Suspense, lazy, useLayoutEffect, useRef, type ReactNode } from "react";
 import "./Home.css";
+
+// The 3D lounge pulls three + addons (≈500 KiB): deferred so the home chrome
+// paints on the initial bundle, the lounge fades in when its chunk lands.
+const HomeScene3D = lazy(() =>
+  import("./HomeScene3D").then((m) => ({ default: m.HomeScene3D })),
+);
 
 export function Home({ header, children }: { header: ReactNode; children?: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
@@ -19,7 +24,9 @@ export function Home({ header, children }: { header: ReactNode; children?: React
 
   return (
     <div ref={root} data-testid="home-screen" className="home-root">
-      <HomeScene3D />
+      <Suspense fallback={null}>
+        <HomeScene3D />
+      </Suspense>
       <div aria-hidden className="home-vignette" />
       <div className="home-content">
         {header}
