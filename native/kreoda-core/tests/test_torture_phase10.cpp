@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -26,6 +27,7 @@
 #endif
 
 #include "../src/document/document_store.h"
+#include "../src/exchange/step_exchange.h"
 #include "../src/expressions/expressions.h"
 #include "../src/features/booleans/boolean.h"
 #include "../src/features/extrusion/extrude.h"
@@ -175,6 +177,38 @@ ProcessResources ReadProcessResources() {
   }
 #endif
   return result;
+}
+
+void PrintResourceCycles(const char* scenario, int cycles, long long elapsedMs,
+                         const ProcessResources& baseline,
+                         const ProcessResources& afterWarm,
+                         const ProcessResources& final) {
+  if (!baseline.available || !afterWarm.available || !final.available) {
+    std::printf(
+        "PHASE10_RESOURCE_NATIVE {\"scenario\":\"%s\",\"cycles\":%d,"
+        "\"elapsed_ms\":%lld,\"windows_process_metrics_available\":false}\n",
+        scenario, cycles, elapsedMs);
+    return;
+  }
+  std::printf(
+      "PHASE10_RESOURCE_NATIVE {\"scenario\":\"%s\",\"cycles\":%d,"
+      "\"elapsed_ms\":%lld,\"ms_per_cycle\":%.2f,"
+      "\"working_set_baseline_bytes\":%llu,"
+      "\"working_set_after_warm_bytes\":%llu,"
+      "\"working_set_final_bytes\":%llu,\"peak_working_set_bytes\":%llu,"
+      "\"private_baseline_bytes\":%llu,\"private_after_warm_bytes\":%llu,"
+      "\"private_final_bytes\":%llu,\"handles_baseline\":%u,"
+      "\"handles_after_warm\":%u,\"handles_final\":%u}\n",
+      scenario, cycles, elapsedMs,
+      cycles > 0 ? static_cast<double>(elapsedMs) / cycles : 0.0,
+      static_cast<unsigned long long>(baseline.workingSetBytes),
+      static_cast<unsigned long long>(afterWarm.workingSetBytes),
+      static_cast<unsigned long long>(final.workingSetBytes),
+      static_cast<unsigned long long>(final.peakWorkingSetBytes),
+      static_cast<unsigned long long>(baseline.privateBytes),
+      static_cast<unsigned long long>(afterWarm.privateBytes),
+      static_cast<unsigned long long>(final.privateBytes), baseline.handleCount,
+      afterWarm.handleCount, final.handleCount);
 }
 
 }  // namespace
@@ -497,6 +531,71 @@ TEST(Torture10, DeleteFeatureDependentsUndoRedoAndPersistence) {
   EXPECT_FALSE(ec) << ec.message();
 }
 
+// §10.6: repeatedly import the same real STEP solid into a reset OCAF
+// document. Validate imported geometry and report resources without thresholds.
+TEST(Torture10, StepImportResourceCycles) {
+#if !KREODA_WITH_OCCT
+  GTEST_SKIP() << "requires real OCCT STEP and OCAF APIs";
+#else
+  constexpr int kCycles = 25;
+  const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+  const fs::path dir = fs::temp_directory_path() /
+                       ("kreoda-phase10-step-import-" + std::to_string(nonce));
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  const std::string path = (dir / "seed.step").string();
+
+  NewDoc("step-import-resource-seed");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("step-resource-box", 100, 60, 10,
+                                       &err))
+      << err;
+  ASSERT_TRUE(kreoda::ExportStep(path, &err)) << err;
+  const auto stepBytes = fs::file_size(path, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  ASSERT_GT(stepBytes, 1000u);
+
+  const ProcessResources baseline = ReadProcessResources();
+  ProcessResources afterWarm = baseline;
+  const auto started = std::chrono::steady_clock::now();
+  for (int i = 0; i < kCycles; ++i) {
+    NewDoc("step-import-resource-cycle");
+    std::vector<std::string> ids;
+    err.clear();
+    ASSERT_TRUE(kreoda::ImportStep(path, &ids, &err))
+        << "cycle " << i << ": " << err;
+    ASSERT_EQ(ids.size(), 1u) << "cycle " << i;
+    ASSERT_EQ(kreoda::ShapeStore::instance().listInOrder().size(), 1u)
+        << "cycle " << i;
+    kreoda::ShapeRecord imported;
+    ASSERT_TRUE(kreoda::ShapeStore::instance().get(ids[0], &imported))
+        << "cycle " << i;
+    EXPECT_EQ(imported.type, "StepImport") << "cycle " << i;
+    EXPECT_NEAR(imported.volumeMm3, 60000.0, 0.1) << "cycle " << i;
+    EXPECT_NEAR(imported.bboxMm[0], 0.0, 1e-6) << "cycle " << i;
+    EXPECT_NEAR(imported.bboxMm[1], 0.0, 1e-6) << "cycle " << i;
+    EXPECT_NEAR(imported.bboxMm[2], 0.0, 1e-6) << "cycle " << i;
+    EXPECT_NEAR(imported.bboxMm[3], 100.0, 1e-6) << "cycle " << i;
+    EXPECT_NEAR(imported.bboxMm[4], 60.0, 1e-6) << "cycle " << i;
+    EXPECT_NEAR(imported.bboxMm[5], 10.0, 1e-6) << "cycle " << i;
+    EXPECT_FALSE(imported.shape.IsNull()) << "cycle " << i;
+    if (i == 4) afterWarm = ReadProcessResources();
+  }
+  const long long elapsedMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  const ProcessResources final = ReadProcessResources();
+  PrintResourceCycles("step_import_25", kCycles, elapsedMs, baseline,
+                      afterWarm, final);
+
+  NewDoc("step-import-resource-finished");
+  fs::remove_all(dir, ec);
+  EXPECT_FALSE(ec) << ec.message();
+#endif
+}
+
 // §10.6: replace the active document by opening a real saved OCAF document,
 // then close it through the typed CreateDocument command. This exercises the
 // existing lifecycle path.
@@ -651,6 +750,64 @@ TEST(Torture10, BodyCreateDelete1000Cycles) {
         "\"windows_process_metrics_available\":false}\n",
         static_cast<long long>(elapsedMs));
   }
+}
+
+// §10.6: mesh a fresh OCAF-backed OCCT sphere each cycle so BRepMesh runs on
+// new geometry; validate mesh structure and log resources without memory caps.
+TEST(Torture10, TessellationResourceCycles) {
+#if !KREODA_WITH_OCCT
+  GTEST_SKIP() << "requires real OCCT BRep tessellation and OCAF APIs";
+#else
+  constexpr int kCycles = 20;
+  constexpr double kRadiusMm = 100.0;
+  constexpr double kExpectedVolumeMm3 =
+      4.0 / 3.0 * 3.14159265358979323846 * kRadiusMm * kRadiusMm * kRadiusMm;
+  const ProcessResources baseline = ReadProcessResources();
+  ProcessResources afterWarm = baseline;
+  const auto started = std::chrono::steady_clock::now();
+  for (int i = 0; i < kCycles; ++i) {
+    NewDoc("tessellation-resource-cycle");
+    std::string err;
+    ASSERT_TRUE(kreoda::CreateSphereFeature("tess-resource-sphere", kRadiusMm,
+                                            &err))
+        << "cycle " << i << ": " << err;
+    kreoda::ShapeRecord source;
+    ASSERT_TRUE(kreoda::ShapeStore::instance().get("tess-resource-sphere",
+                                                   &source))
+        << "cycle " << i;
+    EXPECT_NEAR(source.volumeMm3, kExpectedVolumeMm3, 1.0) << "cycle " << i;
+
+    {
+      const kreoda::CoreMesh mesh =
+          kreoda::TessellateFeature("tess-resource-sphere", 2, &err);
+      ASSERT_FALSE(mesh.indices.empty()) << "cycle " << i << ": " << err;
+      ASSERT_EQ(mesh.indices.size() % 3, 0u) << "cycle " << i;
+      ASSERT_EQ(mesh.positions.size() % 3, 0u) << "cycle " << i;
+      ASSERT_EQ(mesh.normals.size(), mesh.positions.size()) << "cycle " << i;
+      ASSERT_FALSE(mesh.faces.empty()) << "cycle " << i;
+      EXPECT_NEAR(mesh.volumeMm3, kExpectedVolumeMm3, 1.0) << "cycle " << i;
+      EXPECT_NEAR(mesh.bboxMm[0], -kRadiusMm, 1e-5) << "cycle " << i;
+      EXPECT_NEAR(mesh.bboxMm[1], -kRadiusMm, 1e-5) << "cycle " << i;
+      EXPECT_NEAR(mesh.bboxMm[2], -kRadiusMm, 1e-5) << "cycle " << i;
+      EXPECT_NEAR(mesh.bboxMm[3], kRadiusMm, 1e-5) << "cycle " << i;
+      EXPECT_NEAR(mesh.bboxMm[4], kRadiusMm, 1e-5) << "cycle " << i;
+      EXPECT_NEAR(mesh.bboxMm[5], kRadiusMm, 1e-5) << "cycle " << i;
+      const uint32_t maxIndex =
+          *std::max_element(mesh.indices.begin(), mesh.indices.end());
+      EXPECT_LT(static_cast<size_t>(maxIndex), mesh.positions.size() / 3)
+          << "cycle " << i;
+    }
+    if (i == 4) afterWarm = ReadProcessResources();
+  }
+  const long long elapsedMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  const ProcessResources final = ReadProcessResources();
+  PrintResourceCycles("fresh_sphere_tessellation_20", kCycles, elapsedMs,
+                      baseline, afterWarm, final);
+  NewDoc("tessellation-resource-finished");
+#endif
 }
 
 // §10.5 + undo/redo: interleaved edits resolve to exact states; a failed
