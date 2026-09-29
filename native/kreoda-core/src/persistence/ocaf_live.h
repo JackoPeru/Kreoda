@@ -98,7 +98,8 @@ class OcafLive {
   // Opens into the live doc and rebuilds label/selection maps.
   // Fills records (solids) and sketchJsons (serialized SketchFeatures).
   bool Load(const std::string& xbfPath, std::vector<ShapeRecord>* records,
-            std::vector<std::string>* sketchJsons, std::string* error);
+            std::vector<std::string>* sketchJsons, std::string* error,
+            bool allowEmpty = false);
   // Back-compat overload (solids only).
   bool Load(const std::string& xbfPath, std::vector<ShapeRecord>* records,
             std::string* error);

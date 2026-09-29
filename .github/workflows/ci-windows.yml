@@ -33,10 +33,10 @@ jobs:
         with:
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
           vcpkgJsonGlob: native/kreoda-core/vcpkg.json
-          additionalArguments: --triplet=x64-windows-release --clean-after-build
 
       - name: Restore vcpkg binaries
-        uses: actions/cache@v4
+        id: vcpkg-cache
+        uses: actions/cache/restore@v4
         with:
           path: .vcpkg-binary-cache
           key: vcpkg-${{ runner.os }}-${{ hashFiles('native/kreoda-core/vcpkg.json') }}
@@ -53,6 +53,13 @@ jobs:
           cmake -S native/kreoda-core -B native/kreoda-core/build
           "-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_MANIFEST_MODE=ON
+
+      - name: Save vcpkg binaries
+        if: steps.vcpkg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .vcpkg-binary-cache
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
 
       - name: Build native core
         run: cmake --build native/kreoda-core/build --config Release

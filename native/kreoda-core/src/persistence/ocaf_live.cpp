@@ -961,7 +961,7 @@ bool OcafLive::Save(const std::string& xbfPath, std::string* error) {
 bool OcafLive::Load(const std::string& xbfPath,
                     std::vector<ShapeRecord>* records,
                     std::vector<std::string>* sketchJsons,
-                    std::string* error) {
+                    std::string* error, bool allowEmpty) {
 #if KREODA_WITH_OCCT
   try {
     Reset();
@@ -1065,9 +1065,10 @@ bool OcafLive::Load(const std::string& xbfPath,
       }
     }
   }
-  // A saved document may legitimately be empty after its last feature is
-  // deleted. Keep rejecting files that contain shape labels but recover none.
-  if (recovered == 0 && recoveredSketches == 0 && free.Length() > 0) {
+  // XCAF may retain free labels after deletion. The .icad manifest decides
+  // whether an empty feature set is expected; other callers reject it.
+  if (recovered == 0 && recoveredSketches == 0 && free.Length() > 0 &&
+      !allowEmpty) {
     if (error) *error = "OCAF: no features recovered from " + xbfPath;
     return false;
   }
@@ -1080,6 +1081,7 @@ bool OcafLive::Load(const std::string& xbfPath,
   (void)xbfPath;
   (void)records;
   (void)sketchJsons;
+  (void)allowEmpty;
   if (error) *error = "OCAF requires OCCT (link via vcpkg)";
   return false;
 #endif

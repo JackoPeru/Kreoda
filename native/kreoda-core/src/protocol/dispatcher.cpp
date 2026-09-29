@@ -1005,13 +1005,17 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       }
       std::vector<ShapeRecord> records;
       std::vector<std::string> sketchJsons;
+      std::vector<BodyRecord> declaredBodies;
+      const bool allowEmpty =
+          ParseBodiesJson(manifest, &declaredBodies) && declaredBodies.empty();
       // Fresh baseline BEFORE load (clears stores + OCAF); Load then opens
       // the file into the live doc with all labels (solids, sketches,
       // selections, evolution) intact — no re-mirroring needed.
       // C5: backup already taken above; restore it if Load fails.
       // C8: validate adopted Instances (nested/self/missing never open).
       DocumentStore::instance().create(documentId);
-      if (!OcafLive::instance().Load(xbf, &records, &sketchJsons, &error)) {
+      if (!OcafLive::instance().Load(xbf, &records, &sketchJsons, &error,
+                                     allowEmpty)) {
         fs::remove_all(tmp, ec);
         restoreDocSnapshot(backup);
         return make_response(requestId, "error",
