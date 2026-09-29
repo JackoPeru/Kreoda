@@ -49,7 +49,7 @@ jobs:
         run: |
           ./native/kreoda-core/build/Release/kreoda-core.exe --self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ctest --test-dir native/kreoda-core/build -C Release --output-on-failure
+          ctest --test-dir native/kreoda-core/build -C Release --output-on-failure --verbose
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Setup .NET 8
