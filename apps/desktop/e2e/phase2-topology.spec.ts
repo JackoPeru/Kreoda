@@ -70,6 +70,7 @@ test("face reference survives parameter change and reopen", async () => {
   try {
     const window = await app.firstWindow({ timeout: 30000 });
     await window.waitForLoadState("domcontentloaded");
+    await window.getByTestId("home-new-project").click();
     await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
       timeout: 20000,
     });

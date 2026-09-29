@@ -41,8 +41,9 @@ function createWindow(): void {
   // The reloaded UI offers the persisted autosave through its normal path.
   let crashWindowStart = 0;
   let crashesInWindow = 0;
-  mainWindow.webContents.on("render-process-gone", (_event, details) => {
-    if (details.reason === "clean-exit" || mainWindow?.isDestroyed()) return;
+  const createdWindow = mainWindow;
+  createdWindow.webContents.on("render-process-gone", (_event, details) => {
+    if (details.reason === "clean-exit" || createdWindow.isDestroyed()) return;
     const now = Date.now();
     if (now - crashWindowStart > 60_000) {
       crashWindowStart = now;
@@ -53,7 +54,7 @@ function createWindow(): void {
       return;
     }
     console.error(`[main] renderer exited (${details.reason}); reloading`);
-    mainWindow?.webContents.reload();
+    createdWindow.webContents.reload();
   });
 
   if (isDev && process.env["VITE_DEV_SERVER_URL"]) {

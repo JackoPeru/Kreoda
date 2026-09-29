@@ -13,6 +13,7 @@ test("beginner layer: onboard, context tools, views, chips, suggestion", async (
   try {
     const window = await app.firstWindow({ timeout: 30000 });
     await window.waitForLoadState("domcontentloaded");
+    await window.getByTestId("home-new-project").click();
     await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
       timeout: 20000,
     });
@@ -22,6 +23,7 @@ test("beginner layer: onboard, context tools, views, chips, suggestion", async (
     await window.evaluate(() => localStorage.clear());
     await window.reload();
     await window.waitForLoadState("domcontentloaded");
+    await window.getByTestId("home-new-project").click();
     await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
       timeout: 20000,
     });
@@ -176,12 +178,14 @@ test("dismiss paths persist; similar select; chip edit commits", async () => {
   try {
     const window = await app.firstWindow({ timeout: 30000 });
     await window.waitForLoadState("domcontentloaded");
+    await window.getByTestId("home-new-project").click();
     await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
       timeout: 20000,
     });
     await window.evaluate(() => localStorage.clear());
     await window.reload();
     await window.waitForLoadState("domcontentloaded");
+    await window.getByTestId("home-new-project").click();
     await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
       timeout: 20000,
     });
@@ -206,6 +210,7 @@ test("dismiss paths persist; similar select; chip edit commits", async () => {
     await expect(window.getByTestId("onboarding")).not.toBeVisible();
     await window.reload();
     await window.waitForLoadState("domcontentloaded");
+    await window.getByTestId("home-new-project").click();
     await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
       timeout: 20000,
     });

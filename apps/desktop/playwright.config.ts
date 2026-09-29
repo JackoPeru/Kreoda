@@ -6,6 +6,7 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 90000,
   retries: 0,
+  workers: process.env.CI ? 1 : undefined,
   reporter: [["list"]],
   use: {
     trace: "retain-on-failure",
