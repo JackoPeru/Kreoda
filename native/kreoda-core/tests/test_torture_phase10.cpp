@@ -211,6 +211,26 @@ void PrintResourceCycles(const char* scenario, int cycles, long long elapsedMs,
       afterWarm.handleCount, final.handleCount);
 }
 
+void PrintPerfResourceSample(const char* scenario, const char* stage,
+                             const ProcessResources& sample) {
+  if (sample.available) {
+    std::printf(
+        "PHASE10_PERF_NATIVE {\"scenario\":\"%s\",\"stage\":\"%s\","
+        "\"working_set_bytes\":%llu,\"peak_working_set_bytes\":%llu,"
+        "\"private_bytes\":%llu,\"handles\":%u}\n",
+        scenario, stage,
+        static_cast<unsigned long long>(sample.workingSetBytes),
+        static_cast<unsigned long long>(sample.peakWorkingSetBytes),
+        static_cast<unsigned long long>(sample.privateBytes),
+        sample.handleCount);
+  } else {
+    std::printf(
+        "PHASE10_PERF_NATIVE {\"scenario\":\"%s\",\"stage\":\"%s\","
+        "\"windows_process_metrics_available\":false}\n",
+        scenario, stage);
+  }
+}
+
 }  // namespace
 
 // Phase 10 find (§10.3): a feature label carrying per-face TNaming evolution
@@ -1025,4 +1045,274 @@ TEST(Torture10, LargeModelSphereTessellation500kAnd1M) {
   ASSERT_GE(at1m.triangles, k1mTriangles)
       << "no real sphere reached 1M triangles by radius "
       << kMaximumRadiusMm << " mm";
+}
+
+// §10.7: record recompute/save/load costs for a bounded single-body feature
+// chain. Each through-hole is a real dependent feature, not a copied shape.
+TEST(Torture10, HighFeatureCountRecomputeSaveLoadBaseline) {
+#if !KREODA_WITH_OCCT
+  GTEST_SKIP() << "requires real OCCT hole, OCAF save and load APIs";
+#else
+  constexpr int kHoleCount = 40;
+  constexpr double kInitialWidthMm = 500.0;
+  constexpr double kUpdatedWidthMm = 520.0;
+  constexpr double kHeightMm = 400.0;
+  constexpr double kDepthMm = 20.0;
+  constexpr double kDiameterMm = 7.0;
+  const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+  const fs::path dir = fs::temp_directory_path() /
+                       ("kreoda-phase10-feature-chain-" +
+                        std::to_string(nonce));
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  const std::string icadPath = (dir / "feature-chain.icad").string();
+
+  NewDoc("phase10-feature-chain");
+  const ProcessResources baseline = ReadProcessResources();
+  std::string err;
+  auto started = std::chrono::steady_clock::now();
+  ASSERT_TRUE(kreoda::CreateBoxFeature("fc-plate", kInitialWidthMm,
+                                       kHeightMm, kDepthMm, &err))
+      << err;
+  std::string targetId = "fc-plate";
+  for (int i = 0; i < kHoleCount; ++i) {
+    const std::string featureId = "fc-hole-" + std::to_string(i);
+    const double xMm = 40.0 + static_cast<double>(i % 8) * 55.0;
+    const double yMm = 40.0 + static_cast<double>(i / 8) * 65.0;
+    ASSERT_TRUE(kreoda::CreateHoleFeature(
+                    featureId, targetId, "box.+Z", xMm, yMm,
+                    kDiameterMm, "throughAll", 0.0, &err))
+        << "hole " << i << ": " << err;
+    targetId = featureId;
+  }
+  const long long featureBuildMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  const ProcessResources afterBuild = ReadProcessResources();
+  ASSERT_EQ(kreoda::ShapeStore::instance().listInOrder().size(),
+            static_cast<size_t>(kHoleCount + 1));
+  ASSERT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  kreoda::BodyRecord body;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature(targetId, &body));
+  ASSERT_EQ(body.history.size(), static_cast<size_t>(kHoleCount + 1));
+  EXPECT_EQ(body.tipFeatureId, targetId);
+
+  started = std::chrono::steady_clock::now();
+  ASSERT_TRUE(kreoda::RebuildFeature("fc-plate", "widthMm",
+                                     kUpdatedWidthMm, &err))
+      << err;
+  const long long recomputeMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  const ProcessResources afterRecompute = ReadProcessResources();
+  const double expectedVolume =
+      kUpdatedWidthMm * kHeightMm * kDepthMm -
+      kHoleCount * 3.14159265358979323846 * (kDiameterMm / 2.0) *
+          (kDiameterMm / 2.0) * kDepthMm;
+  EXPECT_DOUBLE_EQ(ParamOf("fc-plate", "widthMm"), kUpdatedWidthMm);
+  EXPECT_NEAR(VolumeOf(targetId), expectedVolume, 1.0);
+
+  started = std::chrono::steady_clock::now();
+  ASSERT_TRUE(ok(saveRpc("fc-save", "phase10-feature-chain", icadPath)));
+  const long long saveMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  const auto icadBytes = fs::file_size(icadPath, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  const ProcessResources afterSave = ReadProcessResources();
+
+  NewDoc("phase10-feature-chain-loaded");
+  started = std::chrono::steady_clock::now();
+  const std::string opened =
+      openRpc("fc-open", "phase10-feature-chain-loaded", icadPath);
+  const long long loadMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  ASSERT_TRUE(ok(opened)) << opened;
+  ASSERT_EQ(kreoda::ShapeStore::instance().listInOrder().size(),
+            static_cast<size_t>(kHoleCount + 1));
+  ASSERT_EQ(kreoda::BodyStore::instance().size(), 1u);
+  EXPECT_DOUBLE_EQ(ParamOf("fc-plate", "widthMm"), kUpdatedWidthMm);
+  EXPECT_NEAR(VolumeOf(targetId), expectedVolume, 1.0);
+  const ProcessResources afterLoad = ReadProcessResources();
+
+  std::printf(
+      "PHASE10_PERF_NATIVE {\"scenario\":\"high_feature_chain\","
+      "\"hole_features\":%d,\"feature_count\":%d,\"body_count\":1,"
+      "\"feature_build_ms\":%lld,\"recompute_ms\":%lld,"
+      "\"save_icad_ms\":%lld,\"icad_bytes\":%llu,"
+      "\"load_icad_ms\":%lld,\"final_volume_mm3\":%.3f}\n",
+      kHoleCount, kHoleCount + 1, featureBuildMs, recomputeMs, saveMs,
+      static_cast<unsigned long long>(icadBytes), loadMs, expectedVolume);
+  PrintPerfResourceSample("high_feature_chain", "baseline", baseline);
+  PrintPerfResourceSample("high_feature_chain", "after_feature_build",
+                          afterBuild);
+  PrintPerfResourceSample("high_feature_chain", "after_recompute",
+                          afterRecompute);
+  PrintPerfResourceSample("high_feature_chain", "after_save", afterSave);
+  PrintPerfResourceSample("high_feature_chain", "after_load", afterLoad);
+
+  fs::remove_all(dir, ec);
+  EXPECT_FALSE(ec) << ec.message();
+#endif
+}
+
+// §10.7: many independent bodies form a real multi-solid STEP file. Record
+// command/recompute, native save/load, STEP export/import, file size and the
+// process metrics available on the host; wall-clock values are not gates.
+TEST(Torture10, ManyBodyLargeStepRoundTripBaseline) {
+#if !KREODA_WITH_OCCT
+  GTEST_SKIP() << "requires real OCCT STEP, OCAF save and load APIs";
+#else
+  struct BoxDims {
+    std::string id;
+    double widthMm;
+    double heightMm;
+    double depthMm;
+  };
+  constexpr int kBodyCount = 128;
+  const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+  const fs::path dir = fs::temp_directory_path() /
+                       ("kreoda-phase10-many-body-" +
+                        std::to_string(nonce));
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  const std::string icadPath = (dir / "many-body.icad").string();
+  const std::string stepPath = (dir / "many-body.step").string();
+
+  NewDoc("phase10-many-body");
+  const ProcessResources baseline = ReadProcessResources();
+  std::vector<BoxDims> boxes;
+  boxes.reserve(kBodyCount);
+  auto started = std::chrono::steady_clock::now();
+  for (int i = 0; i < kBodyCount; ++i) {
+    const std::string id = "mb-box-" + std::to_string(i);
+    const double widthMm = 10.0 + static_cast<double>(i) * 0.125;
+    const double heightMm = 10.0 + static_cast<double>(i % 7) * 0.25;
+    const double depthMm = 10.0 + static_cast<double>(i % 5) * 0.5;
+    const std::string created = rpc(createBoxRpc(
+        "mb-create-" + std::to_string(i), "phase10-many-body", id,
+        widthMm, heightMm, depthMm));
+    ASSERT_TRUE(ok(created)) << "body " << i << ": " << created;
+    boxes.push_back({id, widthMm, heightMm, depthMm});
+  }
+  const long long createMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  const ProcessResources afterCreate = ReadProcessResources();
+  ASSERT_EQ(kreoda::ShapeStore::instance().listInOrder().size(),
+            static_cast<size_t>(kBodyCount));
+  ASSERT_EQ(kreoda::BodyStore::instance().size(),
+            static_cast<size_t>(kBodyCount));
+
+  double expectedVolume = 0.0;
+  started = std::chrono::steady_clock::now();
+  for (const BoxDims& box : boxes) {
+    const double updatedWidthMm = box.widthMm + 0.25;
+    std::string err;
+    ASSERT_TRUE(kreoda::RebuildFeature(box.id, "widthMm", updatedWidthMm,
+                                       &err))
+        << box.id << ": " << err;
+    expectedVolume += updatedWidthMm * box.heightMm * box.depthMm;
+  }
+  const long long recomputeMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  const ProcessResources afterRecompute = ReadProcessResources();
+
+  started = std::chrono::steady_clock::now();
+  ASSERT_TRUE(ok(saveRpc("mb-save", "phase10-many-body", icadPath)));
+  const long long saveMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  const auto icadBytes = fs::file_size(icadPath, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  const ProcessResources afterSave = ReadProcessResources();
+
+  NewDoc("phase10-many-body-loaded");
+  started = std::chrono::steady_clock::now();
+  const std::string opened =
+      openRpc("mb-open", "phase10-many-body-loaded", icadPath);
+  const long long loadMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  ASSERT_TRUE(ok(opened)) << opened;
+  ASSERT_EQ(kreoda::ShapeStore::instance().listInOrder().size(),
+            static_cast<size_t>(kBodyCount));
+  ASSERT_EQ(kreoda::BodyStore::instance().size(),
+            static_cast<size_t>(kBodyCount));
+  double loadedVolume = 0.0;
+  for (const BoxDims& box : boxes) loadedVolume += VolumeOf(box.id);
+  EXPECT_NEAR(loadedVolume, expectedVolume, 1.0);
+  const ProcessResources afterLoad = ReadProcessResources();
+
+  started = std::chrono::steady_clock::now();
+  ASSERT_TRUE(ok(saveRpc("mb-export-step", "phase10-many-body-loaded",
+                         stepPath)));
+  const long long stepExportMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  const auto stepBytes = fs::file_size(stepPath, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  ASSERT_GT(stepBytes, 1000u);
+  const ProcessResources afterStepExport = ReadProcessResources();
+
+  NewDoc("phase10-many-body-step-imported");
+  started = std::chrono::steady_clock::now();
+  const std::string stepOpened =
+      openRpc("mb-import-step", "phase10-many-body-step-imported", stepPath);
+  const long long stepImportMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - started)
+          .count();
+  ASSERT_TRUE(ok(stepOpened)) << stepOpened;
+  const auto importedRecords = kreoda::ShapeStore::instance().listInOrder();
+  ASSERT_EQ(importedRecords.size(), static_cast<size_t>(kBodyCount));
+  ASSERT_EQ(kreoda::BodyStore::instance().size(),
+            static_cast<size_t>(kBodyCount));
+  double importedVolume = 0.0;
+  for (const kreoda::ShapeRecord& record : importedRecords) {
+    importedVolume += record.volumeMm3;
+  }
+  EXPECT_NEAR(importedVolume, expectedVolume, 1.0);
+  const ProcessResources afterStepImport = ReadProcessResources();
+
+  std::printf(
+      "PHASE10_PERF_NATIVE {\"scenario\":\"many_body_step_roundtrip\","
+      "\"body_count\":%d,\"feature_count\":%d,\"create_bodies_ms\":%lld,"
+      "\"recompute_bodies\":%d,\"recompute_ms\":%lld,"
+      "\"save_icad_ms\":%lld,\"icad_bytes\":%llu,"
+      "\"load_icad_ms\":%lld,\"step_export_ms\":%lld,"
+      "\"step_bytes\":%llu,\"step_import_ms\":%lld,"
+      "\"imported_solids\":%zu,\"total_volume_mm3\":%.3f}\n",
+      kBodyCount, kBodyCount, createMs, kBodyCount, recomputeMs, saveMs,
+      static_cast<unsigned long long>(icadBytes), loadMs, stepExportMs,
+      static_cast<unsigned long long>(stepBytes), stepImportMs,
+      importedRecords.size(), importedVolume);
+  PrintPerfResourceSample("many_body_step_roundtrip", "baseline", baseline);
+  PrintPerfResourceSample("many_body_step_roundtrip", "after_create",
+                          afterCreate);
+  PrintPerfResourceSample("many_body_step_roundtrip", "after_recompute",
+                          afterRecompute);
+  PrintPerfResourceSample("many_body_step_roundtrip", "after_save", afterSave);
+  PrintPerfResourceSample("many_body_step_roundtrip", "after_load", afterLoad);
+  PrintPerfResourceSample("many_body_step_roundtrip", "after_step_export",
+                          afterStepExport);
+  PrintPerfResourceSample("many_body_step_roundtrip", "after_step_import",
+                          afterStepImport);
+
+  fs::remove_all(dir, ec);
+  EXPECT_FALSE(ec) << ec.message();
+#endif
 }

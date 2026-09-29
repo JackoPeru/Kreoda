@@ -70,8 +70,15 @@ test("resource sample: 21-body orbit and zoom session", async () => {
   test.setTimeout(300_000);
 
   const baselineSidecars = windowsProcessSnapshot([]).sidecarPids.sort((a, b) => a - b);
+  const bootStarted = Date.now();
   const { app, window } = await boot();
   try {
+    const canvas = window.getByTestId("viewport").locator("canvas");
+    await expect(canvas).toHaveCount(1);
+    await expect(canvas).toBeVisible();
+    // Canvas visibility is a stable DOM milestone, not a GPU-presented frame.
+    const canvasVisibleMs = Date.now() - bootStarted;
+
     await runBar(window, "box 100 60 10");
     for (let i = 0; i < 20; i++) await runBar(window, "box 10 10 10");
 
@@ -110,9 +117,6 @@ test("resource sample: 21-body orbit and zoom session", async () => {
       first.sidecarPids.filter((pid) => !baselineSidecars.includes(pid)).sort((a, b) => a - b),
     ).toEqual([corePid]);
 
-    const canvas = window.getByTestId("viewport").locator("canvas");
-    await expect(canvas).toHaveCount(1);
-    await expect(canvas).toBeVisible();
     const bounds = (await canvas.boundingBox())!;
     const x = bounds.x + bounds.width * 0.08;
     const y = bounds.y + bounds.height * 0.5;
@@ -122,12 +126,15 @@ test("resource sample: 21-body orbit and zoom session", async () => {
     );
 
     const cycles = 80;
+    let orbitZoomActionMs = 0;
     for (let i = 0; i < cycles; i++) {
+      const actionStarted = Date.now();
       await window.mouse.move(x, y);
       await window.mouse.down();
       await window.mouse.move(x + 18, y + 10, { steps: 3 });
       await window.mouse.up();
       await window.mouse.wheel(0, i % 2 === 0 ? 60 : -60);
+      orbitZoomActionMs += Date.now() - actionStarted;
       if ((i + 1) % 20 === 0) {
         const liveSidecars = windowsProcessSnapshot([]).sidecarPids
           .filter((pid) => !baselineSidecars.includes(pid))
@@ -144,6 +151,25 @@ test("resource sample: 21-body orbit and zoom session", async () => {
         .__kreoda_test.viewDir(),
     );
     expect(finalViewDir).not.toEqual(viewportState);
+
+    const selectionStarted = Date.now();
+    await window.evaluate(
+      ({ id }) =>
+        (
+          globalThis.window as unknown as {
+            __kreoda_test: {
+              selectFace: (featureId: string, role: string) => unknown;
+            };
+          }
+        ).__kreoda_test.selectFace(id, "box.+Z"),
+      { id: initialModel.bodies[0]!.id },
+    );
+    await expect(
+      window
+        .getByTestId("context-toolbar")
+        .getByRole("button", { name: "Hole" }),
+    ).toBeVisible();
+    const selectionToolbarMs = Date.now() - selectionStarted;
 
     const final = windowsProcessSnapshot(targets);
     expect(final.processes.map((metric) => metric.role).sort()).toEqual([
@@ -166,7 +192,15 @@ test("resource sample: 21-body orbit and zoom session", async () => {
       };
     });
     console.log(
-      `PHASE10_RESOURCES ${JSON.stringify({ cycles, first, final, deltas })}`,
+      `PHASE10_RESOURCES ${JSON.stringify({
+        startup_to_canvas_visible_ms: canvasVisibleMs,
+        orbit_zoom_action_ms_total: orbitZoomActionMs,
+        orbit_zoom_cycles: cycles,
+        testhook_face_selection_to_context_toolbar_ms: selectionToolbarMs,
+        first,
+        final,
+        deltas,
+      })}`,
     );
   } finally {
     await app.close();
