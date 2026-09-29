@@ -37,6 +37,25 @@ function createWindow(): void {
     backgroundColor: "#0b0e13",
   });
 
+  // Keep the native core alive while Electron replaces a crashed renderer.
+  // The reloaded UI offers the persisted autosave through its normal path.
+  let crashWindowStart = 0;
+  let crashesInWindow = 0;
+  mainWindow.webContents.on("render-process-gone", (_event, details) => {
+    if (details.reason === "clean-exit" || mainWindow?.isDestroyed()) return;
+    const now = Date.now();
+    if (now - crashWindowStart > 60_000) {
+      crashWindowStart = now;
+      crashesInWindow = 0;
+    }
+    if (++crashesInWindow > 2) {
+      console.error("[main] renderer crashed repeatedly; reload stopped");
+      return;
+    }
+    console.error(`[main] renderer exited (${details.reason}); reloading`);
+    mainWindow?.webContents.reload();
+  });
+
   if (isDev && process.env["VITE_DEV_SERVER_URL"]) {
     void mainWindow.loadURL(process.env["VITE_DEV_SERVER_URL"]);
   } else {
