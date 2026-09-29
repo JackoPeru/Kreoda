@@ -294,6 +294,12 @@ export function App() {
       },
       // Crash-recovery E2E: drive the same routine the interval uses.
       autosaveNow: () => autosaveNow(),
+      loadDetailedMesh: async (featureId: string) => {
+        const s = useDocumentUiStore.getState();
+        const mesh = await coreClient.requestMesh(featureId, 2);
+        useDocumentUiStore.getState().upsertMesh(featureId, mesh, s.revision, s.epoch);
+        return (window as unknown as { __kreoda_test: { snapshot: () => unknown } }).__kreoda_test.snapshot();
+      },
       // Crash-bundle E2E: same path as the banner button (works anytime).
       crashBundle: () => saveCrashBundle(),
       // Plugin E2E: register from source + run without touching the host dir.

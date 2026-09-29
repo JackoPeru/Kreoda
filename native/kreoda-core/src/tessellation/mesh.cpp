@@ -1,4 +1,5 @@
 #include "mesh.h"
+#include "diagnostics/crash_barrier.h"
 
 #include <cmath>
 
@@ -130,6 +131,7 @@ CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
     if (error) *error = "tessellation failed";
     return {};
   }
+  CrashTestBarrier("tessellation-before-extraction");
   CoreMesh mesh;
   // Mass props from the tessellated shape itself — never trusted blindly,
   // so transient previews report their own volume/bbox (§13, §41).

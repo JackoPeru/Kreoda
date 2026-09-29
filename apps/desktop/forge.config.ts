@@ -23,6 +23,9 @@ function getWindowsCoreResources(): string[] {
     throw new Error(`Native core build cache not found: ${cachePath}`);
   }
   const cache = fs.readFileSync(cachePath, "utf8");
+  if (/^KREODA_CRASH_TEST_BARRIERS:BOOL=ON$/m.test(cache)) {
+    throw new Error("Refusing to package a core built with crash test barriers.");
+  }
   if (
     !/^WITH_OCCT:BOOL=ON$/m.test(cache) ||
     !/^KREODA_ALLOW_STUB_CORE:BOOL=OFF$/m.test(cache)

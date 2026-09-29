@@ -4,13 +4,15 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import { boot, MAIN, runBar, snapOf, type Snapshot } from "./helpers";
 
 const recoveryDir = path.join(os.tmpdir(), "kreoda-phase10-crash-e2e");
 const recoveryFile = path.join(recoveryDir, "autosave.icad");
 const explicitSaveFile = path.join(recoveryDir, "recomputed.icad");
 const stepFile = path.join(recoveryDir, "import.step");
-const env = { ...process.env, KREODA_RECOVERY_DIR: recoveryDir };
+const barrierDir = path.join(recoveryDir, "barriers");
+const env = { ...process.env, KREODA_RECOVERY_DIR: recoveryDir, KREODA_TEST_BARRIER_DIR: barrierDir };
 type TestWindow = Awaited<ReturnType<typeof boot>>["window"];
 
 async function modelAndSave(window: TestWindow) {
@@ -82,6 +84,47 @@ test("sidecar kill restores committed autosave [solo]", async () => {
   }
 });
 
+test("core kill before atomic save publication preserves the previous file [solo]", async () => {
+  test.skip(process.platform !== "win32", "taskkill requires Windows");
+  test.skip(process.env.KREODA_CRASH_TEST_BARRIERS !== "1", "requires the dedicated crash-test core build");
+  const { app, window } = await boot(env);
+  const stage = path.join(barrierDir, "save-before-publish");
+  try {
+    const before = await modelAndSave(window);
+    await window.evaluate((file) => (window as unknown as { __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> } }).__kreoda_test.saveIcad(file), explicitSaveFile);
+    const digest = () => createHash("sha256").update(fs.readFileSync(explicitSaveFile)).digest("hex");
+    const originalHash = digest();
+    const committed = await window.evaluate((id) => (window as unknown as { __kreoda_test: { setParam: (id: string, name: string, value: number) => Promise<Snapshot> } }).__kreoda_test.setParam(id, "widthMm", 140), before.bodies[0]!.id);
+    expect(committed.bodies[0]!.paramsMm[0]).toBe(140);
+    // Pin the recovery snapshot to the latest commit; the 15 s interval can
+    // only write the same revision while the explicit save is interrupted.
+    await window.evaluate(() => (globalThis.window as unknown as { __kreoda_test: { autosaveNow: () => Promise<string> } }).__kreoda_test.autosaveNow());
+    const core = await window.evaluate(() => globalThis.window.kreoda.coreInfo());
+    expect(core.pid).toBeGreaterThan(0);
+    fs.mkdirSync(barrierDir, { recursive: true });
+    fs.writeFileSync(stage + ".arm", "1");
+    let settled = false;
+    const pending = window.evaluate((file) => (window as unknown as { __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> } }).__kreoda_test.saveIcad(file), explicitSaveFile)
+      .then(() => { settled = true; return "completed"; }, () => { settled = true; return "interrupted"; });
+    await expect.poll(() => fs.existsSync(stage + ".ready"), { timeout: 10000 }).toBe(true);
+    expect(settled).toBe(false);
+    expect(digest()).toBe(originalHash);
+    const temp = fs.readdirSync(recoveryDir).find(name => name.startsWith(`recomputed.icad.tmp-${core.pid}-`));
+    expect(temp).toBeTruthy();
+    expect(fs.statSync(path.join(recoveryDir, temp!)).size).toBeGreaterThan(0);
+    execFileSync("taskkill", ["/F", "/PID", String(core.pid)], { stdio: "ignore" });
+    expect(await pending).toBe("interrupted");
+    expect(digest()).toBe(originalHash);
+    await restore(window, committed);
+    const reopened = await window.evaluate((file) => (window as unknown as { __kreoda_test: { openIcad: (p: string) => Promise<Snapshot> } }).__kreoda_test.openIcad(file), explicitSaveFile);
+    expect(reopened.bodies[0]!.paramsMm[0]).toBe(100);
+    expect(reopened.bodies[0]!.volumeMm3).toBeCloseTo(60000, 3);
+  } finally {
+    if (fs.existsSync(barrierDir)) fs.writeFileSync(stage + ".release", "1");
+    await app.close();
+  }
+});
+
 test("renderer crash reloads and restores committed autosave [solo]", async () => {
   const { app, window } = await boot(env);
   try {
@@ -91,6 +134,54 @@ test("renderer crash reloads and restores committed autosave [solo]", async () =
     await app.close();
   }
 });
+
+for (const operation of ["recompute", "step-import", "tessellation"] as const) {
+  test(`core kill during ${operation} restores the committed autosave [solo]`, async () => {
+    test.skip(process.platform !== "win32", "taskkill requires Windows");
+    test.skip(process.env.KREODA_CRASH_TEST_BARRIERS !== "1", "requires the dedicated crash-test core build");
+    const { app, window } = await boot(env);
+    const stageName = { recompute: "recompute-before-commit", "step-import": "step-import-before-adoption", tessellation: "tessellation-before-extraction" }[operation];
+    const stage = path.join(barrierDir, stageName);
+    try {
+      let before = await modelAndSave(window);
+      if (operation === "step-import") {
+        await window.evaluate((file) => (window as unknown as { __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> } }).__kreoda_test.saveIcad(file), stepFile);
+        expect(fs.statSync(stepFile).size).toBeGreaterThan(1000);
+      }
+      if (operation === "tessellation") {
+        // Export LOD for radius 200 is the native >100k-triangle baseline.
+        await runBar(window, "sphere 200");
+        before = await snapOf(window);
+        expect(before.bodies.find(b => b.type === "Sphere")!.paramsMm[0]).toBe(200);
+        await window.evaluate(() => (globalThis.window as unknown as { __kreoda_test: { autosaveNow: () => Promise<string> } }).__kreoda_test.autosaveNow());
+      }
+      const core = await window.evaluate(() => globalThis.window.kreoda.coreInfo());
+      expect(core.pid).toBeGreaterThan(0);
+      fs.mkdirSync(barrierDir, { recursive: true });
+      fs.writeFileSync(stage + ".arm", "1");
+      let settled = false;
+      const pending = window.evaluate(async ({ kind, box, sphere, file }) => {
+        const hook = (globalThis.window as unknown as { __kreoda_test: {
+          setParam: (id: string, name: string, value: number) => Promise<Snapshot>;
+          openIcad: (file: string) => Promise<Snapshot>;
+          loadDetailedMesh: (id: string) => Promise<Snapshot>;
+        } }).__kreoda_test;
+        if (kind === "recompute") return hook.setParam(box, "widthMm", 140);
+        if (kind === "step-import") return hook.openIcad(file);
+        return hook.loadDetailedMesh(sphere!);
+      }, { kind: operation, box: before.bodies[0]!.id, sphere: before.bodies.find(b => b.type === "Sphere")?.id, file: stepFile })
+        .then(() => { settled = true; return "completed"; }, () => { settled = true; return "interrupted"; });
+      await expect.poll(() => fs.existsSync(stage + ".ready"), { timeout: 20000 }).toBe(true);
+      expect(settled).toBe(false);
+      execFileSync("taskkill", ["/F", "/PID", String(core.pid)], { stdio: "ignore" });
+      expect(await pending).toBe("interrupted");
+      await restore(window, before);
+    } finally {
+      if (fs.existsSync(barrierDir)) fs.writeFileSync(stage + ".release", "1");
+      await app.close();
+    }
+  });
+}
 
 test("renderer crash during command preview restores the last committed model [solo]", async () => {
   const { app, window } = await boot(env);
@@ -258,6 +349,6 @@ test("main process kill relaunches and restores committed autosave [solo]", asyn
   }
 });
 
-// The 500k/1M OCCT tessellation runs synchronously in the sidecar. There is no
-// deterministic E2E barrier once BRepMesh starts, so killing by elapsed time
-// would race the operation; this suite does not claim an in-flight mesh crash.
+// Dedicated test cores pause after OCCT triangulation and before extraction.
+// The controlled mesh case exercises >100k triangles; it does not claim a
+// kill inside BRepMesh or recovery coverage for the full 500k/1M baselines.

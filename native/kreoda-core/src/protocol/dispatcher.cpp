@@ -1,4 +1,5 @@
 #include "dispatcher.h"
+#include "diagnostics/crash_barrier.h"
 
 #include <algorithm>
 #include <atomic>
@@ -396,6 +397,7 @@ bool saveAtomically(const std::string& finalPath, Writer&& write,
     fs::remove(tmpPath, rm);
     return false;
   }
+  CrashTestBarrier("save-before-publish");
   fs::rename(tmpPath, finalPath, ec);
   if (ec) {
     // m9: no remove+rename fallback by design — if the destination is locked
@@ -912,6 +914,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
           return make_response(requestId, "error",
                                error_body("OPEN_FAILED", error));
         }
+        CrashTestBarrier("step-import-before-adoption");
         for (const auto& id : created) {
           ShapeRecord rec;
           DocumentStore::instance().noteFeature(

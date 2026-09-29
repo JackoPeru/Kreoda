@@ -57,6 +57,7 @@ option(WITH_OCCT "Link OpenCASCADE 8.0.1 (full B-Rep kernel)" ON)
 option(KREODA_ALLOW_STUB_CORE "Allow stub core when OCCT is missing (explicit opt-in only)" OFF)
 option(WITH_FLATBUFFERS "Link FlatBuffers for IPC codegen" ON)
 option(BUILD_TESTING "Build GoogleTest suite" ON)
+option(KREODA_CRASH_TEST_BARRIERS "Enable controlled interruption barriers (never package this build)" OFF)
 
 # Prefer shared OCCT libs for LGPL compliance (§2.2).
 set(BUILD_SHARED_LIBS ON)
@@ -193,6 +194,7 @@ if(HAVE_PLANEGCS)
 endif()
 
 add_executable(kreoda-core ${CORE_SOURCES})
+target_compile_definitions(kreoda-core PRIVATE KREODA_CRASH_TEST_BARRIERS=$<BOOL:${KREODA_CRASH_TEST_BARRIERS}>)
 
 if(MSVC AND WIN32)
   add_custom_command(TARGET kreoda-core POST_BUILD

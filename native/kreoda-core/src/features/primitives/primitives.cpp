@@ -1,4 +1,5 @@
 #include "primitives.h"
+#include "diagnostics/crash_barrier.h"
 
 #include <cmath>
 
@@ -415,6 +416,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     return false;
   }
   bool hadDelta = false;
+  CrashTestBarrier("recompute-before-commit");
   OcafLive::instance().CommitCommand(&hadDelta, nullptr);
   DocumentStore::instance().registerFeature(featureId, rec.type);
   return true;
