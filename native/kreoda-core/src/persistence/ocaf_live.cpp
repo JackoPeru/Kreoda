@@ -63,6 +63,17 @@ struct OcafLive::Ocaf {
   std::map<std::string, TDF_Label> featureLabels;
   std::map<std::string, TDF_Label> sketchLabels;
   std::map<std::string, TDF_Label> expressionLabels;
+
+  ~Ocaf() {
+    // OCAF's application directory and each document hold one another.
+    // Releasing our handles alone leaves the documents and their meshes alive.
+    if (app.IsNull()) return;
+    try {
+      while (app->NbDocuments() > 0) app->Close(app->GetDocument(1));
+    } catch (const Standard_Failure& f) {
+      LogCore(std::string("ocaf: document close failed: ") + f.what());
+    }
+  }
 };
 
 namespace {
@@ -965,6 +976,8 @@ bool OcafLive::Load(const std::string& xbfPath,
 #if KREODA_WITH_OCCT
   try {
     Reset();
+    // Reset created a blank baseline; Open replaces it with the loaded doc.
+    ocaf_->app->Close(ocaf_->doc);
   if (ocaf_->app->Open(TCollection_ExtendedString(xbfPath.c_str()),
                        ocaf_->doc) != PCDM_RS_OK ||
       ocaf_->doc.IsNull()) {

@@ -47,6 +47,7 @@
 #if KREODA_WITH_OCCT
 #include <TopAbs_ShapeEnum.hxx>
 #include <TopoDS_Face.hxx>
+#include <TopoDS_TShape.hxx>
 #endif
 
 #include "rpc_text.h"
@@ -813,6 +814,26 @@ TEST(Torture10, BodyCreateDelete1000Cycles) {
 
 // §10.6: mesh a fresh OCAF-backed OCCT sphere each cycle so BRepMesh runs on
 // new geometry; validate mesh structure and log resources without memory caps.
+TEST(Torture10, DocumentResetReleasesPreviousShape) {
+#if !KREODA_WITH_OCCT
+  GTEST_SKIP() << "requires real OCCT shape ownership";
+#else
+  NewDoc("reset-ownership");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateSphereFeature("reset-sphere", 100, &err)) << err;
+  Handle(TopoDS_TShape) previous;
+  {
+    kreoda::ShapeRecord source;
+    ASSERT_TRUE(kreoda::ShapeStore::instance().get("reset-sphere", &source));
+    previous = source.shape.TShape();
+  }
+  ASSERT_GT(previous->GetRefCount(), 1);
+  NewDoc("reset-empty");
+  EXPECT_EQ(previous->GetRefCount(), 1)
+      << "the replaced OCAF document still owns the previous shape";
+#endif
+}
+
 TEST(Torture10, TessellationResourceCycles) {
 #if !KREODA_WITH_OCCT
   GTEST_SKIP() << "requires real OCCT BRep tessellation and OCAF APIs";
