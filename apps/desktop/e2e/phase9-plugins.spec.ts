@@ -5,7 +5,7 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
-import { HERE, MAIN, type Snapshot } from "./helpers";
+import { HERE, MAIN, boot, type Snapshot } from "./helpers";
 
 const PAIR_PLUGIN = `
 kreoda.register({
@@ -19,6 +19,7 @@ kreoda.register({
     allowedCoreCommands: ["CreateBox"],
   }],
 });
+
 kreoda.onCommand("plugin.e2e.pair.make", async (params) => {
   await kreoda.invoke("CreateBox", {
     featureId: params.a, widthMm: 10, heightMm: 10, depthMm: 10,
@@ -149,6 +150,44 @@ test("plugins: sandboxed commands, escapes refused, crashes isolated", async () 
     await expect(load("throw new Error('load boom')")).rejects.toThrow();
 
     await window.screenshot({ path: path.join(HERE, "phase9-plugins.png") });
+  } finally {
+    await app.close();
+  }
+});
+
+test("plugin load/unload cycles release worker URLs", async () => {
+  const { app, window } = await boot();
+  try {
+    await window.evaluate(() => {
+      const counts = { created: 0, revoked: 0 };
+      const create = URL.createObjectURL.bind(URL);
+      const revoke = URL.revokeObjectURL.bind(URL);
+      URL.createObjectURL = (object) => {
+        counts.created++;
+        return create(object);
+      };
+      URL.revokeObjectURL = (url) => {
+        counts.revoked++;
+        revoke(url);
+      };
+      (globalThis.window as unknown as { __pluginUrls: typeof counts }).__pluginUrls = counts;
+    });
+    for (let i = 0; i < 20; i++) {
+      await window.evaluate((source) =>
+        (globalThis.window as unknown as {
+          __kreoda_test: { loadPluginSource: (source: string) => Promise<unknown> };
+        }).__kreoda_test.loadPluginSource(source), PAIR_PLUGIN);
+      await window.evaluate(() =>
+        (globalThis.window as unknown as {
+          __kreoda_test: { unloadPlugin: (id: string) => Promise<void> };
+        }).__kreoda_test.unloadPlugin("plugin.e2e.pair"));
+    }
+    const counts = await window.evaluate(() =>
+      (globalThis.window as unknown as {
+        __pluginUrls: { created: number; revoked: number };
+      }).__pluginUrls);
+    expect(counts.created).toBeGreaterThanOrEqual(20);
+    expect(counts.revoked).toBe(counts.created);
   } finally {
     await app.close();
   }

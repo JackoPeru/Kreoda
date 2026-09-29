@@ -258,6 +258,10 @@ export function App() {
         const { loadPlugin } = await import("../plugins/loader");
         return loadPlugin(source, "<e2e>");
       },
+      unloadPlugin: async (id: string) => {
+        const { unloadPlugin } = await import("../plugins/loader");
+        unloadPlugin(id);
+      },
       runPlugin: async (pluginId: string, commandId: string, params: unknown) => {
         const { runPluginCommand } = await import("../plugins/loader");
         return runPluginCommand(pluginId, commandId, params);

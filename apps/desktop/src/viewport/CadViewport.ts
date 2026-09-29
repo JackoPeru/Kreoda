@@ -739,6 +739,7 @@ export class CadViewport {
     }
     for (const id of [...this.bodies.keys()]) this.removeBodyMesh(id);
     this.showPreviewMesh(null);
+    this.syncReferencePlanes([]);
     if (this.edgeSelectedLines) {
       this.scene.remove(this.edgeSelectedLines);
       this.edgeSelectedLines.geometry.dispose();
