@@ -35,6 +35,19 @@ jobs:
           vcpkgJsonGlob: native/kreoda-core/vcpkg.json
           additionalArguments: --triplet=x64-windows-release --clean-after-build
 
+      - name: Restore vcpkg binaries
+        uses: actions/cache@v4
+        with:
+          path: .vcpkg-binary-cache
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('native/kreoda-core/vcpkg.json') }}
+
+      - name: Use supported vcpkg cache backend
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:GITHUB_WORKSPACE '.vcpkg-binary-cache'
+          New-Item -ItemType Directory -Path $dir -Force | Out-Null
+          "VCPKG_BINARY_SOURCES=clear;files,$dir,readwrite" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Configure native core
         run: >
           cmake -S native/kreoda-core -B native/kreoda-core/build
