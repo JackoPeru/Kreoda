@@ -71,7 +71,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: .NET build + tests
-        run: dotnet test clients/session-dotnet/Kreoda.Session.sln -c Release '-p:Platform=Any CPU'
+        run: pnpm test:dotnet
 
       - name: Build desktop shell
         run: pnpm --filter @kreoda/desktop build
