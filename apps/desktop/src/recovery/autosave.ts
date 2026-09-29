@@ -14,15 +14,22 @@ import { useDocumentUiStore } from "../stores";
 /** Autosave cadence: cheap for small models, bounded staleness on crash. */
 export const AUTOSAVE_MS = 15000;
 
-let lastSavedRevision = -1;
+type DocVersion = { epoch: number; revision: number };
+
+let lastSaved: DocVersion = { epoch: -1, revision: -1 };
 let savedThisSession = false;
 
-function docState(): { revision: number; bodies: number } {
+function docState(): DocVersion & { bodies: number } {
   const s = useDocumentUiStore.getState();
   return {
+    epoch: s.epoch,
     revision: s.revision,
     bodies: s.features.length + s.sketches.length,
   };
+}
+
+function sameVersion(a: DocVersion, b: DocVersion): boolean {
+  return a.epoch === b.epoch && a.revision === b.revision;
 }
 
 /**
@@ -31,20 +38,19 @@ function docState(): { revision: number; bodies: number } {
  */
 export async function autosaveNow(): Promise<"saved" | "skipped"> {
   const before = docState();
-  if (before.revision === lastSavedRevision) return "skipped";
+  if (sameVersion(before, lastSaved)) return "skipped";
   // Never create a recovery file for a lifetime-empty document; but once
   // this session saved something, keep snapshotting (delete-all must stick).
   if (before.bodies === 0 && !savedThisSession) {
-    lastSavedRevision = before.revision;
+    lastSaved = before;
     return "skipped";
   }
   const path = await window.kreoda.recoveryPath();
   await coreClient.saveDocument(path);
-  // Re-read AFTER the await (M10): an explicit save/open that landed while
-  // we were in flight owns the truth now — stamping the stale value would
-  // skip the next dirty tick.
+  // The file reflects the state saved for `before`. If Open/edit landed while
+  // SaveDocument was in flight, leave the old marker so the next tick retries.
   const after = docState();
-  lastSavedRevision = after.revision;
+  if (sameVersion(before, after)) lastSaved = before;
   savedThisSession = true;
   return "saved";
 }
@@ -60,9 +66,13 @@ export async function restoreRecovery(): Promise<void> {
     await coreClient.openDocument(path);
   // Document replacement = new epoch (C5): core revisions reset.
   useDocumentUiStore.getState().resetDocument(coreClient.documentId);
+  const restoreEpoch = useDocumentUiStore.getState().epoch;
   await syncFromCoreList(list, revision, sketches);
   // Keep the file: quitting again without saving must prompt again.
-  lastSavedRevision = revision;
+  const restored = docState();
+  if (restored.epoch === restoreEpoch && restored.revision === revision) {
+    lastSaved = restored;
+  }
   savedThisSession = true;
 }
 
@@ -75,10 +85,15 @@ export async function discardRecovery(): Promise<void> {
 
 /** Explicit user save makes recovery redundant — clear it (non-fatal). */
 export async function clearRecoveryAfterSave(): Promise<void> {
+  const before = docState();
+  let cleared = false;
   try {
     await window.kreoda.recoveryClear();
+    cleared = true;
   } catch {
-    // Autosave recreates it if the doc is still dirty; never block saving.
+    // Keep the marker dirty so autosave can recreate the recovery file.
+    lastSaved = { epoch: -1, revision: -1 };
   }
-  lastSavedRevision = useDocumentUiStore.getState().revision;
+  const after = docState();
+  if (cleared && sameVersion(before, after)) lastSaved = before;
 }
