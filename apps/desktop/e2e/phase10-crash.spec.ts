@@ -108,12 +108,12 @@ async function terminateAndRestore(
     if (releasePointer) await window.mouse.up();
     await window.getByTestId("home-new-project").click();
   } else if (target === "main") {
-    execFileSync("taskkill", ["/F", "/T", "/PID", String(app.process().pid)], { stdio: "ignore" });
+    execFileSync("taskkill", ["/F", "/T", "/PID", String(app.process().pid)], { stdio: "ignore", windowsHide: true });
     release?.();
     await app.close().catch(() => {});
     ({ app, window } = await boot(env));
   } else {
-    execFileSync("taskkill", ["/F", "/PID", String(core.pid)], { stdio: "ignore" });
+    execFileSync("taskkill", ["/F", "/PID", String(core.pid)], { stdio: "ignore", windowsHide: true });
     release?.();
     if (releasePointer) {
       await expect(window.getByTestId("sketch-canvas")).toBeHidden({ timeout: 30000 });
@@ -150,7 +150,7 @@ test("sidecar kill restores committed autosave [solo]", async () => {
     const before = await modelAndSave(window);
     const core = await window.evaluate(() => globalThis.window.kreoda.coreInfo());
     expect(core.pid).toBeGreaterThan(0);
-    execFileSync("taskkill", ["/F", "/PID", String(core.pid)], { stdio: "ignore" });
+    execFileSync("taskkill", ["/F", "/PID", String(core.pid)], { stdio: "ignore", windowsHide: true });
     await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({ timeout: 60000 });
     await restore(window, before);
   } finally {
@@ -477,7 +477,7 @@ test("main process kill relaunches and restores committed autosave [solo]", asyn
   test.skip(process.platform !== "win32", "taskkill requires Windows");
   const { app, window } = await boot(env);
   const before = await modelAndSave(window);
-  execFileSync("taskkill", ["/F", "/T", "/PID", String(app.process().pid)], { stdio: "ignore" });
+  execFileSync("taskkill", ["/F", "/T", "/PID", String(app.process().pid)], { stdio: "ignore", windowsHide: true });
   await app.close().catch(() => {});
 
   const relaunched = await electron.launch({ args: [MAIN, "--no-sandbox", "--lang=en-US"], env });

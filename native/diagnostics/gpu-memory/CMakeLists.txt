@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.20)
+project(kreoda_gpu_memory LANGUAGES CXX)
+if(NOT WIN32)
+  message(FATAL_ERROR "This diagnostic uses the Windows GPU memory API")
+endif()
+add_executable(kreoda-gpu-memory gpu_memory.cpp)
+target_compile_features(kreoda-gpu-memory PRIVATE cxx_std_17)
+target_link_libraries(kreoda-gpu-memory PRIVATE dxgi gdi32)

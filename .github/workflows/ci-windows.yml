@@ -107,6 +107,13 @@ jobs:
       - name: Windows packaging smoke
         run: pnpm --filter @kreoda/desktop make
 
+      - name: Build GPU memory diagnostic
+        run: |
+          cmake -S native/diagnostics/gpu-memory -B native/diagnostics/gpu-memory/build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build native/diagnostics/gpu-memory/build --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Verify Squirrel install and packaged core
         shell: pwsh
         run: |

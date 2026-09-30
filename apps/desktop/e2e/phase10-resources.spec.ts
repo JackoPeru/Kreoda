@@ -4,6 +4,7 @@ import { test, expect, _electron as electron } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { boot, runBar, snapOf, type Snapshot } from "./helpers";
 import type { ViewportRenderStats } from "../src/viewport/viewportHandle";
+import { gpuMemory, gpuCompletion } from "./gpu-metrics";
 
 type Role = "main" | "renderer" | "native";
 type Target = { role: Role; pid: number };
@@ -106,6 +107,7 @@ test("resource sample: 21-body orbit and zoom session", async () => {
       { role: "native", pid: corePid },
     ];
     const first = windowsProcessSnapshot(targets);
+    const firstGpuMemory = await gpuMemory(app);
     expect(first.processes.map((metric) => metric.role).sort()).toEqual([
       "main",
       "native",
@@ -173,6 +175,8 @@ test("resource sample: 21-body orbit and zoom session", async () => {
     const selectionToolbarMs = Date.now() - selectionStarted;
 
     const final = windowsProcessSnapshot(targets);
+    const finalGpuMemory = await gpuMemory(app);
+    const finalGpuCompletion = await gpuCompletion(window);
     expect(final.processes.map((metric) => metric.role).sort()).toEqual([
       "main",
       "native",
@@ -198,6 +202,7 @@ test("resource sample: 21-body orbit and zoom session", async () => {
         orbit_zoom_action_ms_total: orbitZoomActionMs,
         orbit_zoom_cycles: cycles,
         testhook_face_selection_to_context_toolbar_ms: selectionToolbarMs,
+        firstGpuMemory, finalGpuMemory, finalGpuCompletion,
         first,
         final,
         deltas,
@@ -236,6 +241,7 @@ for (const [radius, minimumTriangles] of [[600, 500_000], [1100, 1_000_000]] as 
       const pids = await app.evaluate(({ BrowserWindow }) => ({ main: process.pid, renderer: BrowserWindow.getAllWindows()[0]!.webContents.getOSProcessId() }));
       const targets: Target[] = [{ role: "main", pid: pids.main }, { role: "renderer", pid: pids.renderer }, { role: "native", pid: core.pid! }];
       const beforeMesh = windowsProcessSnapshot(targets);
+      const beforeGpuMemory = await gpuMemory(app);
       const meshStarted = Date.now();
       const detailed = await window.evaluate((featureId) =>
         (globalThis.window as unknown as { __kreoda_test: { loadDetailedMesh: (id: string) => Promise<Snapshot> } }).__kreoda_test.loadDetailedMesh(featureId), id,
@@ -245,6 +251,8 @@ for (const [radius, minimumTriangles] of [[600, 500_000], [1100, 1_000_000]] as 
       // Renderer counts submitted primitives, including culled triangles.
       await expect.poll(async () => (await stats())?.triangles ?? 0, { timeout: 30_000 }).toBeGreaterThanOrEqual(minimumTriangles);
       const meshRpcToRendererSubmissionMs = Date.now() - meshStarted;
+      const afterMeshGpuCompletion = await gpuCompletion(window);
+      const afterMeshGpuMemory = await gpuMemory(app);
       const canvas = window.getByTestId("viewport").locator("canvas");
       await canvas.press("Home");
       const bounds = (await canvas.boundingBox())!;
@@ -274,13 +282,16 @@ for (const [radius, minimumTriangles] of [[600, 500_000], [1100, 1_000_000]] as 
       expect(geometry(await snapOf(window))).toEqual(geometry(detailed));
       expect((await window.evaluate(() => globalThis.window.kreoda.coreInfo())).pid).toBe(core.pid);
       const final = windowsProcessSnapshot(targets);
+      const finalGpuMemory = await gpuMemory(app);
+      const finalGpuCompletion = await gpuCompletion(window);
       expect(final.processes.map(row => row.role).sort()).toEqual(["main", "native", "renderer"]);
       console.log(`PHASE10_LARGE_VIEWPORT ${JSON.stringify({ radius_mm: radius, triangles: detailed.bodies[0]!.triangles,
         mesh_rpc_to_renderer_submission_ms: meshRpcToRendererSubmissionMs, interaction_ms: interactionMs, orbit_zoom_cycles: cycles,
         renderer_submissions_per_second_during_input: (last.renderedFrames - first.renderedFrames) * 1000 / interactionMs,
         render_cpu_ms_during_input: last.renderCpuTotalMs - first.renderCpuTotalMs, pick_to_toolbar_ms: pickToToolbarMs,
         first, last, before_mesh: beforeMesh, final,
-        // Counts/CPU timings are not VRAM bytes, GPU completion or display FPS.
+        beforeGpuMemory, afterMeshGpuMemory, finalGpuMemory, afterMeshGpuCompletion, finalGpuCompletion,
+        // GPU budget usage and GL queue completion still exclude displayed FPS.
       })}`);
     } finally {
       await app.close();

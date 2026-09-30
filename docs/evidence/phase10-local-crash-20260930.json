@@ -1,0 +1,186 @@
+{
+  "date": "2026-09-30",
+  "sourceCommit": "47ff6a51735139a0819dcc11310a56d444459fe7",
+  "sourceDifference": "taskkill windowsHide:true in four calls",
+  "mode": "hidden Electron offscreen; external static OCCT8.0.1 crash-barrier build; no release binary replacement",
+  "coreSelfTest": "passed",
+  "solverBarrierControl": "passed",
+  "crashCasesPassed": 29,
+  "crashCasesTotal": 29,
+  "cases": [
+    {
+      "case": 1,
+      "line": 146,
+      "name": "sidecar kill restores committed autosave [solo]",
+      "duration": "1.6s"
+    },
+    {
+      "case": 2,
+      "line": 162,
+      "name": "renderer kill before atomic save publication keeps a complete project file [solo]",
+      "duration": "2.1s"
+    },
+    {
+      "case": 3,
+      "line": 162,
+      "name": "main kill before atomic save publication keeps a complete project file [solo]",
+      "duration": "2.5s"
+    },
+    {
+      "case": 4,
+      "line": 162,
+      "name": "core kill before atomic save publication keeps a complete project file [solo]",
+      "duration": "1.7s"
+    },
+    {
+      "case": 5,
+      "line": 209,
+      "name": "renderer crash reloads and restores committed autosave [solo]",
+      "duration": "1.9s"
+    },
+    {
+      "case": 6,
+      "line": 221,
+      "name": "renderer kill during recompute restores the committed autosave [solo]",
+      "duration": "2.1s"
+    },
+    {
+      "case": 7,
+      "line": 221,
+      "name": "renderer kill during step-import restores the committed autosave [solo]",
+      "duration": "2.0s"
+    },
+    {
+      "case": 8,
+      "line": 221,
+      "name": "renderer kill during tessellation-500k restores the committed autosave [solo]",
+      "duration": "5.3s"
+    },
+    {
+      "case": 9,
+      "line": 221,
+      "name": "renderer kill during tessellation-1M restores the committed autosave [solo]",
+      "duration": "9.8s"
+    },
+    {
+      "case": 10,
+      "line": 221,
+      "name": "main kill during recompute restores the committed autosave [solo]",
+      "duration": "2.4s"
+    },
+    {
+      "case": 11,
+      "line": 221,
+      "name": "main kill during step-import restores the committed autosave [solo]",
+      "duration": "2.4s"
+    },
+    {
+      "case": 12,
+      "line": 221,
+      "name": "main kill during tessellation-500k restores the committed autosave [solo]",
+      "duration": "5.6s"
+    },
+    {
+      "case": 13,
+      "line": 221,
+      "name": "main kill during tessellation-1M restores the committed autosave [solo]",
+      "duration": "7.8s"
+    },
+    {
+      "case": 14,
+      "line": 221,
+      "name": "core kill during recompute restores the committed autosave [solo]",
+      "duration": "1.7s"
+    },
+    {
+      "case": 15,
+      "line": 221,
+      "name": "core kill during step-import restores the committed autosave [solo]",
+      "duration": "1.7s"
+    },
+    {
+      "case": 16,
+      "line": 221,
+      "name": "core kill during tessellation-500k restores the committed autosave [solo]",
+      "duration": "4.7s"
+    },
+    {
+      "case": 17,
+      "line": 221,
+      "name": "core kill during tessellation-1M restores the committed autosave [solo]",
+      "duration": "8.2s"
+    },
+    {
+      "case": 18,
+      "line": 276,
+      "name": "renderer crash during command preview restores the last committed model [solo]",
+      "duration": "2.0s"
+    },
+    {
+      "case": 19,
+      "line": 293,
+      "name": "renderer crash with an uncommitted solved sketch drag restores committed coordinates [solo]",
+      "duration": "2.1s"
+    },
+    {
+      "case": 20,
+      "line": 344,
+      "name": "renderer kill inside the native sketch solver restores committed coordinates [solo]",
+      "duration": "1.9s"
+    },
+    {
+      "case": 21,
+      "line": 276,
+      "name": "main crash during command preview restores the last committed model [solo]",
+      "duration": "2.3s"
+    },
+    {
+      "case": 22,
+      "line": 293,
+      "name": "main crash with an uncommitted solved sketch drag restores committed coordinates [solo]",
+      "duration": "2.5s"
+    },
+    {
+      "case": 23,
+      "line": 344,
+      "name": "main kill inside the native sketch solver restores committed coordinates [solo]",
+      "duration": "2.5s"
+    },
+    {
+      "case": 24,
+      "line": 276,
+      "name": "core crash during command preview restores the last committed model [solo]",
+      "duration": "1.6s"
+    },
+    {
+      "case": 25,
+      "line": 293,
+      "name": "core crash with an uncommitted solved sketch drag restores committed coordinates [solo]",
+      "duration": "1.8s"
+    },
+    {
+      "case": 26,
+      "line": 344,
+      "name": "core kill inside the native sketch solver restores committed coordinates [solo]",
+      "duration": "1.7s"
+    },
+    {
+      "case": 27,
+      "line": 385,
+      "name": "recompute and completed save survive a later preview crash [solo]",
+      "duration": "2.2s"
+    },
+    {
+      "case": 28,
+      "line": 424,
+      "name": "renderer crash after STEP import restores the imported solid [solo]",
+      "duration": "2.2s"
+    },
+    {
+      "case": 29,
+      "line": 476,
+      "name": "main process kill relaunches and restores committed autosave [solo]",
+      "duration": "2.3s"
+    }
+  ]
+}
