@@ -47,20 +47,20 @@ export async function boot(env?: Record<string, string>, extraArgs: string[] = [
     args: [MAIN, "--no-sandbox", "--lang=en-US", ...extraArgs],
     ...(env ? { env } : {}),
   });
-  const window = await app.firstWindow({ timeout: 30000 });
-  await window.waitForLoadState("domcontentloaded");
-  // Home (§home) is the boot screen: enter the workspace like a user would.
-  await expect(window.getByTestId("home-screen")).toBeVisible({
-    timeout: 20000,
-  });
-  await window.getByTestId("home-new-project").click();
-  await expect(window.getByTestId("workspace-chrome")).toBeVisible({
-    timeout: 20000,
-  });
-  await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
-    timeout: 20000,
-  });
-  return { app, window };
+  try {
+    const window = await app.firstWindow({ timeout: 30000 });
+    await window.waitForLoadState("domcontentloaded");
+    // Home (§home) is the boot screen: enter the workspace like a user would.
+    await expect(window.getByTestId("home-screen")).toBeVisible({ timeout: 20000 });
+    await window.getByTestId("home-new-project").click();
+    await expect(window.getByTestId("workspace-chrome")).toBeVisible({ timeout: 20000 });
+    await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({ timeout: 20000 });
+    return { app, window };
+  } catch (error) {
+    // Callers cannot close an application when boot fails before returning it.
+    await app.close().catch(() => {});
+    throw error;
+  }
 }
 
 export function snapOf(window: Page): Promise<Snapshot> {

@@ -94,8 +94,24 @@ async function terminateAndRestore(
     // to the same recovered WebContents. The test never requests a reload.
     await app.evaluate(({ BrowserWindow }) => new Promise<void>((resolve, reject) => {
       const contents = BrowserWindow.getAllWindows()[0]!.webContents;
-      const deadline = setTimeout(() => reject(new Error("renderer recovery did not finish loading")), 30000);
-      contents.once("did-finish-load", () => { clearTimeout(deadline); resolve(); });
+      let failure = "none";
+      let exit = "none";
+      const onFailure = (_event: unknown, code: number, description: string) => { failure = `${code}: ${description}`; };
+      const onExit = (_event: unknown, details: { reason: string }) => { exit = details.reason; };
+      const cleanup = () => {
+        clearTimeout(deadline);
+        contents.removeListener("did-finish-load", loaded);
+        contents.removeListener("did-fail-load", onFailure);
+        contents.removeListener("render-process-gone", onExit);
+      };
+      const loaded = () => { cleanup(); resolve(); };
+      const deadline = setTimeout(() => {
+        cleanup();
+        reject(new Error(`renderer recovery did not finish loading: ${JSON.stringify({ exit, failure, loading: contents.isLoadingMainFrame(), url: contents.getURL() })}`));
+      }, 30000);
+      contents.once("did-fail-load", onFailure);
+      contents.once("render-process-gone", onExit);
+      contents.once("did-finish-load", loaded);
       contents.forcefullyCrashRenderer();
     }));
     // The surviving core may finish its transaction. Let it finish before
@@ -160,6 +176,7 @@ test("sidecar kill restores committed autosave [solo]", async () => {
 
 for (const target of crashTargets) {
 test(`${target} kill before atomic save publication keeps a complete project file [solo]`, async () => {
+  test.slow(); // Hosted renderer CDP reattachment alone measured 71 seconds.
   test.skip(process.platform !== "win32", "taskkill requires Windows");
   test.skip(process.env.KREODA_CRASH_TEST_BARRIERS !== "1", "requires the dedicated crash-test core build");
   let { app, window } = await boot(env);
@@ -207,6 +224,7 @@ test(`${target} kill before atomic save publication keeps a complete project fil
 }
 
 test("renderer crash reloads and restores committed autosave [solo]", async () => {
+  test.slow();
   const { app, window } = await boot(env);
   try {
     const before = await modelAndSave(window);

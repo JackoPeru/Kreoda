@@ -64,7 +64,7 @@ test("home renders a real 3D studio with accessible responsive controls", async 
     const captureMappedViewport = async (width: number, height: number, name: string) => {
       await window.setViewportSize({ width, height });
       await expect(window.getByTestId("home-screen")).toBeVisible();
-      await window.screenshot({ path: path.join(screenshots, name) });
+      await window.screenshot({ path: path.join(screenshots, name), timeout: 60000 });
       const scale = height / 1024;
       const left = (width - 1536 * scale) / 2;
       const bounds = await window.evaluate((ids) => Object.fromEntries(ids.map(id => {
@@ -90,9 +90,9 @@ test("home renders a real 3D studio with accessible responsive controls", async 
     await expect(scene.locator("canvas")).toHaveCount(1);
     await expect(scene).not.toHaveAttribute("data-webgl", "unavailable");
 
-    const resting = await window.screenshot({ path: path.join(screenshots, "home-1536.png") });
+    const resting = await window.screenshot({ path: path.join(screenshots, "home-1536.png"), timeout: 60000 });
     await window.waitForTimeout(2400);
-    const animated = await window.screenshot({ path: path.join(screenshots, "home-animated.png") });
+    const animated = await window.screenshot({ path: path.join(screenshots, "home-animated.png"), timeout: 60000 });
     const motion = await difference(app, resting, animated, {
       room: { left: 400, top: 95, right: 1120, bottom: 180 },
       letter: { left: 615, top: 250, right: 925, bottom: 505 },
@@ -103,10 +103,10 @@ test("home renders a real 3D studio with accessible responsive controls", async 
     expect(motion.plant.changedFraction).toBeGreaterThan(0.0005);
 
     await window.mouse.move(20, 145);
-    const pointerAway = await window.screenshot();
+    const pointerAway = await window.screenshot({ timeout: 60000 });
     await window.mouse.move(768, 605);
     await window.waitForTimeout(120);
-    const pointerNear = await window.screenshot({ path: path.join(screenshots, "home-glow.png") });
+    const pointerNear = await window.screenshot({ path: path.join(screenshots, "home-glow.png"), timeout: 60000 });
     const pointerMotion = await difference(app, pointerAway, pointerNear, {
       room: { left: 400, top: 95, right: 1120, bottom: 180 },
       glow: { left: 590, top: 525, right: 950, bottom: 675 },
@@ -117,7 +117,7 @@ test("home renders a real 3D studio with accessible responsive controls", async 
 
     await window.setViewportSize({ width: 1280, height: 800 });
     await expect(window.getByTestId("home-screen")).toBeVisible();
-    const responsive = await window.screenshot({ path: path.join(screenshots, "home-1280.png") });
+    const responsive = await window.screenshot({ path: path.join(screenshots, "home-1280.png"), timeout: 60000 });
     expect(responsive.byteLength).toBeGreaterThan(100_000);
     const newProjectBox = await window.getByTestId("home-new-project").boundingBox();
     expect(newProjectBox).not.toBeNull();
@@ -150,12 +150,12 @@ test("home renders a real 3D studio with accessible responsive controls", async 
     await expect(window.getByTestId("home-scene")).toHaveAttribute("data-motion", "reduced");
     await expect(window.getByTestId("home-scene")).toHaveAttribute("data-baked-k", "ready");
     await window.waitForTimeout(500);
-    const reduced = await window.screenshot();
+    const reduced = await window.screenshot({ timeout: 60000 });
     await window.mouse.move(20, 145);
     await window.waitForTimeout(400);
     await window.mouse.move(768, 605);
     await window.waitForTimeout(400);
-    expect((await window.screenshot()).equals(reduced)).toBe(true);
+    expect((await window.screenshot({ timeout: 60000 })).equals(reduced)).toBe(true);
 
     await window.addInitScript(() => {
       const prototype = HTMLCanvasElement.prototype as unknown as {
