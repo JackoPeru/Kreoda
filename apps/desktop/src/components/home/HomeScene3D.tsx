@@ -67,7 +67,13 @@ export function HomeScene3D() {
       host.dataset.webgl = "unavailable";
       return;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const gl = renderer.getContext();
+    const debugRenderer = gl.getExtension("WEBGL_debug_renderer_info");
+    const softwareRenderer = debugRenderer && /swiftshader|llvmpipe|software|basic render driver/i.test(
+      String(gl.getParameter(debugRenderer.UNMASKED_RENDERER_WEBGL)),
+    );
+    // CPU rendering otherwise starves Home controls and renderer recovery.
+    renderer.setPixelRatio(softwareRenderer ? 0.5 : Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.94;

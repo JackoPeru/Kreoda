@@ -5,37 +5,27 @@ import { MAIN } from "./helpers";
 
 const screenshots = path.join(import.meta.dirname, "..", "test-results", "home-visual-qa");
 const difference = async (
-  window: import("@playwright/test").Page,
+  app: import("@playwright/test").ElectronApplication,
   first: Buffer,
   second: Buffer,
   boxes: Record<string, { left: number; top: number; right: number; bottom: number }>,
-) => window.evaluate(async ({ a, b, boxes }) => {
-  const decode = async (base64: string): Promise<HTMLImageElement> => {
-    const image = new Image();
-    await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error("Could not decode screenshot"));
-      image.src = `data:image/png;base64,${base64}`;
-    });
-    return image;
-  };
-  const [one, two] = await Promise.all([decode(a), decode(b)]);
-  const canvas = document.createElement("canvas");
-  canvas.width = one.width;
-  canvas.height = one.height;
-  const context = canvas.getContext("2d")!;
-  context.drawImage(one, 0, 0);
-  const firstPixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(two, 0, 0);
-  const secondPixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+) => app.evaluate(({ nativeImage }, { a, b, boxes }) => {
+  // Decode on the CPU in main, avoiding two uploads/readbacks in the busy 3D renderer.
+  const one = nativeImage.createFromBuffer(Buffer.from(a, "base64"));
+  const two = nativeImage.createFromBuffer(Buffer.from(b, "base64"));
+  const { width, height } = one.getSize();
+  if (one.isEmpty() || two.isEmpty() || width !== two.getSize().width || height !== two.getSize().height) {
+    throw new Error("Screenshots must have matching non-empty dimensions");
+  }
+  const firstPixels = one.toBitmap();
+  const secondPixels = two.toBitmap();
   return Object.fromEntries(Object.entries(boxes).map(([name, box]) => {
     let difference = 0;
     let changed = 0;
     let count = 0;
     for (let y = box.top; y < box.bottom; y += 2) {
       for (let x = box.left; x < box.right; x += 2) {
-        const i = (y * canvas.width + x) * 4;
+        const i = (y * width + x) * 4;
         const delta = Math.abs(firstPixels[i] - secondPixels[i]) +
           Math.abs(firstPixels[i + 1] - secondPixels[i + 1]) +
           Math.abs(firstPixels[i + 2] - secondPixels[i + 2]);
@@ -77,8 +67,12 @@ test("home renders a real 3D studio with accessible responsive controls", async 
       await window.screenshot({ path: path.join(screenshots, name) });
       const scale = height / 1024;
       const left = (width - 1536 * scale) / 2;
+      const bounds = await window.evaluate((ids) => Object.fromEntries(ids.map(id => {
+        const element = document.querySelector(`[data-testid="${id}"]`);
+        return [id, element ? element.getBoundingClientRect().toJSON() : null];
+      })), Object.keys(mappedLandmarks));
       for (const [id, [x, y, boxWidth, boxHeight]] of Object.entries(mappedLandmarks)) {
-        const box = await window.getByTestId(id).boundingBox();
+        const box = bounds[id];
         expect(box).not.toBeNull();
         expect(Math.abs(box!.x - (left + x * scale))).toBeLessThan(8);
         expect(Math.abs(box!.y - y * scale)).toBeLessThan(8);
@@ -99,7 +93,7 @@ test("home renders a real 3D studio with accessible responsive controls", async 
     const resting = await window.screenshot({ path: path.join(screenshots, "home-1536.png") });
     await window.waitForTimeout(2400);
     const animated = await window.screenshot({ path: path.join(screenshots, "home-animated.png") });
-    const motion = await difference(window, resting, animated, {
+    const motion = await difference(app, resting, animated, {
       room: { left: 400, top: 95, right: 1120, bottom: 180 },
       letter: { left: 615, top: 250, right: 925, bottom: 505 },
       plant: { left: 0, top: 370, right: 180, bottom: 670 },
@@ -113,7 +107,7 @@ test("home renders a real 3D studio with accessible responsive controls", async 
     await window.mouse.move(768, 605);
     await window.waitForTimeout(120);
     const pointerNear = await window.screenshot({ path: path.join(screenshots, "home-glow.png") });
-    const pointerMotion = await difference(window, pointerAway, pointerNear, {
+    const pointerMotion = await difference(app, pointerAway, pointerNear, {
       room: { left: 400, top: 95, right: 1120, bottom: 180 },
       glow: { left: 590, top: 525, right: 950, bottom: 675 },
     });
