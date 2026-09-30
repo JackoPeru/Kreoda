@@ -1128,9 +1128,23 @@ TEST(Torture10, LargeModelSphereTessellation500kAnd1M) {
             .count();
     ASSERT_FALSE(mesh.indices.empty()) << "radius " << radius << ": " << err;
     ASSERT_EQ(mesh.indices.size() % 3, 0u);
-    EXPECT_GT(mesh.volumeMm3, 0.0);
+    EXPECT_NEAR(mesh.volumeMm3, 4.0 / 3.0 * 3.14159265358979323846 * radius * radius * radius,
+                radius * radius * radius * 1e-9);
+    ASSERT_EQ(mesh.positions.size() % 3, 0u);
+    EXPECT_EQ(mesh.normals.size(), mesh.positions.size());
+    EXPECT_LT(*std::max_element(mesh.indices.begin(), mesh.indices.end()), mesh.positions.size() / 3);
+    for (size_t i = 0; i < mesh.positions.size(); i += 3) {
+      const double x = mesh.positions[i], y = mesh.positions[i + 1], z = mesh.positions[i + 2];
+      ASSERT_NEAR(std::sqrt(x * x + y * y + z * z), radius, 0.05)
+          << "sphere mesh vertex " << i / 3;
+    }
     const size_t triangles = mesh.indices.size() / 3;
     const ProcessResources resources = ReadProcessResources();
+    if (resources.available) {
+      // Bounded 1M baseline must fit consumer RAM; this catches the previous
+      // Watson 10 GB transient allocation even when final memory is small.
+      EXPECT_LT(resources.peakWorkingSetBytes, 2ull * 1024 * 1024 * 1024);
+    }
     std::printf(
         "PHASE10_PERF_NATIVE {\"scenario\":\"sphere_lod2\","
         "\"radius_mm\":%.0f,\"triangles\":%zu,"

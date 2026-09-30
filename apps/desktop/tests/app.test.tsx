@@ -23,7 +23,14 @@ vi.mock("../src/viewport/CadViewport", () => ({
 }));
 
 vi.mock("../src/ipc/coreClient", () => ({
-  coreClient: { getCoreInfo: vi.fn().mockRejectedValue(new Error("offline")), readReferences: vi.fn().mockResolvedValue("[]") },
+  coreClient: {
+    getCoreInfo: vi.fn().mockRejectedValue(new Error("offline")),
+    readReferences: vi.fn().mockResolvedValue("[]"),
+    requestSketch: vi.fn().mockResolvedValue({
+      planeKind: "XY", points: [{ id: "p0", x: 0, y: 0, fixed: false }],
+      lines: [], circles: [], arcs: [], constraints: [],
+    }),
+  },
 }));
 
 // No WebGL in jsdom: the home 3D lounge falls back to its CSS gradient.
@@ -37,6 +44,30 @@ import { act } from "@testing-library/react";
 import { coreClient } from "../src/ipc/coreClient";
 
 describe("beginner shell (§24)", () => {
+  it("closes a transient sketch editor when the core crashes", async () => {
+    let crash!: (info: { code: number }) => void;
+    Object.defineProperty(window, "kreoda", { configurable: true, value: {
+      onCoreCrashed: (callback: typeof crash) => { crash = callback; return () => {}; },
+    } });
+    try {
+      useDocumentUiStore.getState().resetDocument("crash-sketch");
+      useDocumentUiStore.getState().upsertSketch({
+        featureId: "sk-crash", planeKind: "XY", points: 1, lines: 0,
+        circles: 0, constraints: 0,
+      });
+      render(<App />);
+      fireEvent.click(screen.getByTestId("home-new-project"));
+      await screen.findByTestId("workspace-chrome");
+      await act(async () => (window as unknown as {
+        __kreoda_test: { openSketch: (id: string) => unknown };
+      }).__kreoda_test.openSketch("sk-crash"));
+      expect(screen.getByTestId("sketch-canvas")).toBeTruthy();
+      await act(async () => crash({ code: 1 }));
+      expect(screen.queryByTestId("sketch-canvas")).toBeNull();
+    } finally {
+      delete (window as unknown as { kreoda?: unknown }).kreoda;
+    }
+  });
   it("clears previous project references when a session switches documents", async () => {
     let receive!: (delta: { documentId: string; revision: number; features: unknown[]; sketches: unknown[] }) => void;
     Object.defineProperty(window, "kreoda", { configurable: true, value: {

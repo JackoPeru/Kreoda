@@ -3,6 +3,7 @@
 // per-spec files keep only their ICAD paths, WS ports and assertions.
 import { expect, _electron as electron, type Page } from "@playwright/test";
 import path from "node:path";
+import { createRequire } from "node:module";
 
 export const HERE = import.meta.dirname;
 export const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
@@ -38,11 +39,12 @@ export interface Snapshot {
 }
 
 /** Launch the shell, wait for DOM + sidecar handshake. */
-export async function boot(env?: Record<string, string>) {
+export async function boot(env?: Record<string, string>, extraArgs: string[] = []) {
   const app = await electron.launch({
+    executablePath: createRequire(import.meta.url)("electron") as string,
     // --lang pins navigator.language so detectLocale() stays English:
     // specs assert English chrome regardless of the OS language.
-    args: [MAIN, "--no-sandbox", "--lang=en-US"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US", ...extraArgs],
     ...(env ? { env } : {}),
   });
   const window = await app.firstWindow({ timeout: 30000 });

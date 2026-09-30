@@ -1,11 +1,13 @@
 // Run alone: these tests terminate Electron or its native child by PID.
-import { test, expect, _electron as electron } from "@playwright/test";
+import { test, expect, chromium, _electron as electron, type Browser } from "@playwright/test";
+import type { SketchModel } from "@kreoda/protocol";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
-import { boot, MAIN, runBar, snapOf, type Snapshot } from "./helpers";
+import { createServer } from "node:net";
+import { boot as bootShell, MAIN, openProject, runBar, snapOf, type Snapshot } from "./helpers";
 
 const recoveryDir = path.join(os.tmpdir(), "kreoda-phase10-crash-e2e");
 const recoveryFile = path.join(recoveryDir, "autosave.icad");
@@ -13,7 +15,21 @@ const explicitSaveFile = path.join(recoveryDir, "recomputed.icad");
 const stepFile = path.join(recoveryDir, "import.step");
 const barrierDir = path.join(recoveryDir, "barriers");
 const env = { ...process.env, KREODA_RECOVERY_DIR: recoveryDir, KREODA_TEST_BARRIER_DIR: barrierDir };
-type TestWindow = Awaited<ReturnType<typeof boot>>["window"];
+type TestWindow = Awaited<ReturnType<typeof bootShell>>["window"];
+const crashTargets = ["renderer", "main", "core"] as const;
+type CrashTarget = typeof crashTargets[number];
+let debugPort = 0;
+const attachedBrowsers: Browser[] = [];
+
+function boot(launchEnv = env) {
+  return bootShell(launchEnv, [`--remote-debugging-port=${debugPort}`]);
+}
+
+async function sketchModel(window: TestWindow, id: string): Promise<SketchModel> {
+  return window.evaluate((featureId) => (window as unknown as {
+    __kreoda_test: { sketchModel: (id: string) => Promise<SketchModel> };
+  }).__kreoda_test.sketchModel(featureId), id);
+}
 
 async function modelAndSave(window: TestWindow) {
   await runBar(window, "box 100 60 10");
@@ -30,6 +46,9 @@ async function modelAndSave(window: TestWindow) {
 async function restore(window: TestWindow, before: Snapshot) {
   await expect(window.getByTestId("recovery-banner")).toBeVisible({ timeout: 30000 });
   await window.getByTestId("recovery-restore").click();
+  // The live renderer may still show the old summaries during a core restart.
+  // Banner dismissal happens only after Open + mesh synchronization succeeds.
+  await expect(window.getByTestId("recovery-banner")).toBeHidden({ timeout: 30000 });
   await expect
     .poll(async () => {
       const snapshot = await snapOf(window);
@@ -56,17 +75,72 @@ async function crashRendererAndRestore(
   before: Snapshot,
   releasePointer = false,
 ) {
-  await app.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0]!.webContents.forcefullyCrashRenderer(),
-  );
-  await expect(window.getByTestId("home-screen")).toBeVisible({ timeout: 30000 });
-  if (releasePointer) await window.mouse.up();
-  await window.getByTestId("home-new-project").click();
-  await restore(window, before);
+  await terminateAndRestore(app, window, before, "renderer", undefined, releasePointer);
 }
 
-test.beforeEach(() => {
+async function terminateAndRestore(
+  app: Awaited<ReturnType<typeof electron.launch>>,
+  window: TestWindow,
+  before: Snapshot,
+  target: CrashTarget,
+  release?: () => void,
+  releasePointer = false,
+) {
+  const core = await window.evaluate(() => globalThis.window.kreoda.coreInfo());
+  expect(core.pid).toBeGreaterThan(0);
+  if (target === "renderer") {
+    // Playwright permanently marks a crashed Page/CDP session as unusable.
+    // Observe the application's own reload in main, then attach a fresh client
+    // to the same recovered WebContents. The test never requests a reload.
+    await app.evaluate(({ BrowserWindow }) => new Promise<void>((resolve, reject) => {
+      const contents = BrowserWindow.getAllWindows()[0]!.webContents;
+      const deadline = setTimeout(() => reject(new Error("renderer recovery did not finish loading")), 30000);
+      contents.once("did-finish-load", () => { clearTimeout(deadline); resolve(); });
+      contents.forcefullyCrashRenderer();
+    }));
+    // The surviving core may finish its transaction. Let it finish before
+    // opening the persisted recovery document; a renderer kill is not rollback.
+    release?.();
+    const attached = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
+    attachedBrowsers.push(attached);
+    window = attached.contexts()[0]!.pages()[0]!;
+    await expect(window.getByTestId("home-screen")).toBeVisible({ timeout: 30000 });
+    if (releasePointer) await window.mouse.up();
+    await window.getByTestId("home-new-project").click();
+  } else if (target === "main") {
+    execFileSync("taskkill", ["/F", "/T", "/PID", String(app.process().pid)], { stdio: "ignore" });
+    release?.();
+    await app.close().catch(() => {});
+    ({ app, window } = await boot(env));
+  } else {
+    execFileSync("taskkill", ["/F", "/PID", String(core.pid)], { stdio: "ignore" });
+    release?.();
+    if (releasePointer) {
+      await expect(window.getByTestId("sketch-canvas")).toBeHidden({ timeout: 30000 });
+      await window.mouse.up();
+    }
+  }
+  await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({ timeout: 60000 });
+  await restore(window, before);
+  const recoveredCore = await window.evaluate(() => globalThis.window.kreoda.coreInfo());
+  if (target === "renderer") expect(recoveredCore.pid).toBe(core.pid);
+  else expect(recoveredCore.pid).not.toBe(core.pid);
+  return { app, window };
+}
+
+test.beforeEach(async () => {
   fs.rmSync(recoveryDir, { recursive: true, force: true });
+  const server = createServer();
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => resolve());
+  });
+  debugPort = (server.address() as { port: number }).port;
+  await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+});
+
+test.afterEach(async () => {
+  for (const browser of attachedBrowsers.splice(0)) await browser.close().catch(() => {});
 });
 
 test("sidecar kill restores committed autosave [solo]", async () => {
@@ -84,10 +158,11 @@ test("sidecar kill restores committed autosave [solo]", async () => {
   }
 });
 
-test("core kill before atomic save publication preserves the previous file [solo]", async () => {
+for (const target of crashTargets) {
+test(`${target} kill before atomic save publication keeps a complete project file [solo]`, async () => {
   test.skip(process.platform !== "win32", "taskkill requires Windows");
   test.skip(process.env.KREODA_CRASH_TEST_BARRIERS !== "1", "requires the dedicated crash-test core build");
-  const { app, window } = await boot(env);
+  let { app, window } = await boot(env);
   const stage = path.join(barrierDir, "save-before-publish");
   try {
     const before = await modelAndSave(window);
@@ -112,18 +187,24 @@ test("core kill before atomic save publication preserves the previous file [solo
     const temp = fs.readdirSync(recoveryDir).find(name => name.startsWith(`recomputed.icad.tmp-${core.pid}-`));
     expect(temp).toBeTruthy();
     expect(fs.statSync(path.join(recoveryDir, temp!)).size).toBeGreaterThan(0);
-    execFileSync("taskkill", ["/F", "/PID", String(core.pid)], { stdio: "ignore" });
+    ({ app, window } = await terminateAndRestore(app, window, committed, target,
+      () => fs.writeFileSync(stage + ".release", "1")));
     expect(await pending).toBe("interrupted");
-    expect(digest()).toBe(originalHash);
-    await restore(window, committed);
+    // Core/main termination cannot publish. A surviving native process after
+    // renderer termination may atomically publish the complete new document.
+    if (target === "renderer") {
+      await expect.poll(digest, { timeout: 10000 }).not.toBe(originalHash);
+    } else expect(digest()).toBe(originalHash);
     const reopened = await window.evaluate((file) => (window as unknown as { __kreoda_test: { openIcad: (p: string) => Promise<Snapshot> } }).__kreoda_test.openIcad(file), explicitSaveFile);
-    expect(reopened.bodies[0]!.paramsMm[0]).toBe(100);
-    expect(reopened.bodies[0]!.volumeMm3).toBeCloseTo(60000, 3);
+    const width = target === "renderer" ? 140 : 100;
+    expect(reopened.bodies[0]!.paramsMm[0]).toBe(width);
+    expect(reopened.bodies[0]!.volumeMm3).toBeCloseTo(width * 60 * 10, 3);
   } finally {
     if (fs.existsSync(barrierDir)) fs.writeFileSync(stage + ".release", "1");
     await app.close();
   }
 });
+}
 
 test("renderer crash reloads and restores committed autosave [solo]", async () => {
   const { app, window } = await boot(env);
@@ -135,11 +216,13 @@ test("renderer crash reloads and restores committed autosave [solo]", async () =
   }
 });
 
+for (const target of crashTargets) {
 for (const operation of ["recompute", "step-import", "tessellation"] as const) {
-  test(`core kill during ${operation} restores the committed autosave [solo]`, async () => {
+  test(`${target} kill during ${operation} restores the committed autosave [solo]`, async () => {
+    test.setTimeout(300000);
     test.skip(process.platform !== "win32", "taskkill requires Windows");
     test.skip(process.env.KREODA_CRASH_TEST_BARRIERS !== "1", "requires the dedicated crash-test core build");
-    const { app, window } = await boot(env);
+    let { app, window } = await boot(env);
     const stageName = { recompute: "recompute-before-commit", "step-import": "step-import-before-adoption", tessellation: "tessellation-before-extraction" }[operation];
     const stage = path.join(barrierDir, stageName);
     try {
@@ -149,10 +232,11 @@ for (const operation of ["recompute", "step-import", "tessellation"] as const) {
         expect(fs.statSync(stepFile).size).toBeGreaterThan(1000);
       }
       if (operation === "tessellation") {
-        // Export LOD for radius 200 is the native >100k-triangle baseline.
-        await runBar(window, "sphere 200");
+        // Radius 600 / LOD 2 is the hosted native 603,802-triangle baseline.
+        // This pause follows kernel meshing and precedes renderer extraction.
+        await runBar(window, "sphere 600");
         before = await snapOf(window);
-        expect(before.bodies.find(b => b.type === "Sphere")!.paramsMm[0]).toBe(200);
+        expect(before.bodies.find(b => b.type === "Sphere")!.paramsMm[0]).toBe(600);
         await window.evaluate(() => (globalThis.window as unknown as { __kreoda_test: { autosaveNow: () => Promise<string> } }).__kreoda_test.autosaveNow());
       }
       const core = await window.evaluate(() => globalThis.window.kreoda.coreInfo());
@@ -171,20 +255,23 @@ for (const operation of ["recompute", "step-import", "tessellation"] as const) {
         return hook.loadDetailedMesh(sphere!);
       }, { kind: operation, box: before.bodies[0]!.id, sphere: before.bodies.find(b => b.type === "Sphere")?.id, file: stepFile })
         .then(() => { settled = true; return "completed"; }, () => { settled = true; return "interrupted"; });
-      await expect.poll(() => fs.existsSync(stage + ".ready"), { timeout: 20000 }).toBe(true);
+      await expect.poll(() => fs.existsSync(stage + ".ready"), { timeout: 180000 }).toBe(true);
       expect(settled).toBe(false);
-      execFileSync("taskkill", ["/F", "/PID", String(core.pid)], { stdio: "ignore" });
+      ({ app, window } = await terminateAndRestore(app, window, before, target,
+        () => fs.writeFileSync(stage + ".release", "1")));
       expect(await pending).toBe("interrupted");
-      await restore(window, before);
     } finally {
       if (fs.existsSync(barrierDir)) fs.writeFileSync(stage + ".release", "1");
       await app.close();
     }
   });
 }
+}
 
-test("renderer crash during command preview restores the last committed model [solo]", async () => {
-  const { app, window } = await boot(env);
+for (const target of crashTargets) {
+test(`${target} crash during command preview restores the last committed model [solo]`, async () => {
+  test.skip(process.platform !== "win32", "taskkill requires Windows");
+  let { app, window } = await boot(env);
   try {
     const before = await modelAndSave(window);
     const input = window.getByTestId("command-input");
@@ -193,16 +280,17 @@ test("renderer crash during command preview restores the last committed model [s
     await expect(window.getByTestId("plan-preview")).toBeVisible({ timeout: 5000 });
 
     // The preview has not called Run, so recovery must contain only the box.
-    await crashRendererAndRestore(app, window, before);
+    ({ app, window } = await terminateAndRestore(app, window, before, target));
   } finally {
     await app.close();
   }
 });
 
-test("renderer crash during sketch solve restores the last autosave [solo]", async () => {
-  const { app, window } = await boot(env);
+test(`${target} crash with an uncommitted solved sketch drag restores committed coordinates [solo]`, async () => {
+  test.skip(process.platform !== "win32", "taskkill requires Windows");
+  let { app, window } = await boot(env);
   try {
-    const before = await modelAndSave(window);
+    await modelAndSave(window);
     await window.evaluate(() =>
       (
         window as unknown as {
@@ -210,7 +298,12 @@ test("renderer crash during sketch solve restores the last autosave [solo]", asy
         }
       ).__kreoda_test.createRectSketch(100, 50),
     );
-    const sketch = (await snapOf(window)).sketches[0]!;
+    const before = await snapOf(window);
+    const sketch = before.sketches[0]!;
+    const committedModel = await sketchModel(window, sketch.id);
+    await window.evaluate(() => (globalThis.window as unknown as {
+      __kreoda_test: { autosaveNow: () => Promise<string> };
+    }).__kreoda_test.autosaveNow());
     await window.evaluate(
       (id) =>
         (
@@ -235,16 +328,21 @@ test("renderer crash during sketch solve restores the last autosave [solo]", asy
     await expect.poll(() => label.textContent(), { timeout: 10000 }).not.toBe(beforeLabel);
 
     // Keep the pointer down: the solver has a transient edit, not a commit.
-    await crashRendererAndRestore(app, window, before, true);
+    ({ app, window } = await terminateAndRestore(app, window, before, target, undefined, true));
+    // Counts alone cannot detect an accidentally committed drag. Read the
+    // authoritative native coordinates and constraints after recovery.
+    expect(await sketchModel(window, sketch.id)).toEqual(committedModel);
   } finally {
     await app.close();
   }
 });
+}
 
 test("recompute and completed save survive a later preview crash [solo]", async () => {
   const { app, window } = await boot(env);
   try {
     await modelAndSave(window);
+    await openProject(window);
     await window.getByText(/Box 100×60×10/).first().click();
     await runBar(window, "set widthMm 140");
     const recomputed = await snapOf(window);
@@ -283,6 +381,7 @@ test("renderer crash after STEP import restores the imported solid [solo]", asyn
   const { app, window } = await boot(env);
   try {
     await modelAndSave(window);
+    await openProject(window);
     await window.getByText(/Box 100×60×10/).first().click();
     await runBar(window, "set widthMm 140");
     await window.evaluate(() =>
@@ -350,5 +449,5 @@ test("main process kill relaunches and restores committed autosave [solo]", asyn
 });
 
 // Dedicated test cores pause after OCCT triangulation and before extraction.
-// The controlled mesh case exercises >100k triangles; it does not claim a
-// kill inside BRepMesh or recovery coverage for the full 500k/1M baselines.
+// The radius-600 case uses the hosted 500k baseline; it does not claim a
+// kill inside BRepMesh or recovery coverage for the 1M baseline.

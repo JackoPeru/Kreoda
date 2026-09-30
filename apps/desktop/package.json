@@ -16,6 +16,7 @@
     "make": "electron-forge make",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:renderer-crash-harness": "node e2e/scripts/renderer-cdp-smoke.cjs",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

@@ -1,4 +1,5 @@
 #include "mesh.h"
+#include "mesh_parameters.h"
 #include "diagnostics/crash_barrier.h"
 
 #include <cmath>
@@ -125,8 +126,7 @@ CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
     linDefl = 0.01;
     angDefl = 0.05;
   }
-  BRepMesh_IncrementalMesh mesher(rec.shape, linDefl, Standard_False,
-                                  angDefl, Standard_True);
+  BRepMesh_IncrementalMesh mesher(rec.shape, OcctMeshingParameters(linDefl, angDefl));
   if (!mesher.IsDone()) {
     if (error) *error = "tessellation failed";
     return {};

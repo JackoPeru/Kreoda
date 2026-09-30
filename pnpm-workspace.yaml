@@ -1,7 +1,8 @@
 packages:
   - "apps/*"
   - "packages/*"
-patchedDependencies:
-  flora-colossus@2.0.0: patches/flora-colossus@2.0.0.patch
 onlyBuiltDependencies:
   - electron-winstaller
+patchedDependencies:
+  flora-colossus@2.0.0: patches/flora-colossus@2.0.0.patch
+  playwright-core@1.63.0: patches/playwright-core@1.63.0.patch

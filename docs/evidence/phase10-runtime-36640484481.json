@@ -1,0 +1,831 @@
+{
+  "run": "https://github.com/JackoPeru/Kreoda/actions/runs/36640484481",
+  "commit": "9adfbd4c6b4c2e1887cffa2d4887bc712c21df18",
+  "conclusion": "failure",
+  "nativeTestsPassed": 131,
+  "nativeTestsTotal": 131,
+  "dotnetTestsPassed": 21,
+  "electronNonSoloPassed": 45,
+  "crashTestsPassed": 6,
+  "crashTestsTotal": 11,
+  "samples": [
+    {
+      "timestamp": "2026-09-29T22:42:47.7427039Z",
+      "kind": "RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "step_import_25",
+        "cycles": 25,
+        "elapsed_ms": 147,
+        "ms_per_cycle": 5.88,
+        "working_set_baseline_bytes": 20504576,
+        "working_set_after_warm_bytes": 22097920,
+        "working_set_final_bytes": 22073344,
+        "peak_working_set_bytes": 22188032,
+        "private_baseline_bytes": 5079040,
+        "private_after_warm_bytes": 5451776,
+        "private_final_bytes": 5349376,
+        "handles_baseline": 119,
+        "handles_after_warm": 123,
+        "handles_final": 123
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:42:48.3275046Z",
+      "kind": "RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "document_open_close_100",
+        "cycles": 100,
+        "elapsed_ms": 453,
+        "ms_per_cycle": 4.53,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_100": 119,
+        "working_set_baseline_bytes": 17911808,
+        "working_set_final_bytes": 18178048,
+        "peak_working_set_bytes": 18268160,
+        "private_final_bytes": 4530176
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:42:49.1610349Z",
+      "kind": "RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "body_create_delete_1000",
+        "cycles": 1000,
+        "elapsed_ms": 804,
+        "ms_per_cycle": 0.8,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_1000": 119,
+        "working_set_baseline_bytes": 15589376,
+        "working_set_after_10_bytes": 17371136,
+        "working_set_final_bytes": 34881536,
+        "peak_working_set_bytes": 34881536,
+        "private_baseline_bytes": 4358144,
+        "private_after_10_bytes": 4653056,
+        "private_final_bytes": 22794240
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:46:27.9591681Z",
+      "kind": "RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 20,
+        "working_set_bytes": 21921792,
+        "peak_working_set_bytes": 280346624,
+        "private_bytes": 8802304,
+        "handles": 121
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:46:27.9594912Z",
+      "kind": "RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 50,
+        "working_set_bytes": 9003008,
+        "peak_working_set_bytes": 280346624,
+        "private_bytes": 8843264,
+        "handles": 121
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:46:27.9597793Z",
+      "kind": "RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 100,
+        "working_set_bytes": 8982528,
+        "peak_working_set_bytes": 280346624,
+        "private_bytes": 8839168,
+        "handles": 121
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:46:27.9603357Z",
+      "kind": "RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation_100",
+        "cycles": 100,
+        "elapsed_ms": 218645,
+        "ms_per_cycle": 2186.45,
+        "working_set_baseline_bytes": 14868480,
+        "working_set_after_warm_bytes": 22085632,
+        "working_set_final_bytes": 8982528,
+        "peak_working_set_bytes": 280346624,
+        "private_baseline_bytes": 4083712,
+        "private_after_warm_bytes": 8876032,
+        "private_final_bytes": 8839168,
+        "handles_baseline": 118,
+        "handles_after_warm": 121,
+        "handles_final": 121
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:46:35.4682096Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "sphere_r50_lod1_tris": 10108,
+        "sphere_r50_lod1_ms": 75,
+        "sphere_r50_lod2_tris": 50468,
+        "sphere_r50_lod2_ms": 1094,
+        "cyl_r20_h100_lod2_tris": 1004,
+        "cyl_r20_h100_lod2_ms": 6
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:46:35.4683651Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "sphere_r200_lod2_tris": 201198,
+        "sphere_r200_lod2_ms": 5928
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:46:41.9259012Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 200,
+        "triangles": 201198,
+        "tessellation_ms": 6332,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 31629312,
+        "peak_working_set_bytes": 722771968,
+        "private_bytes": 19640320,
+        "handles": 121
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:47:22.5741116Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 600,
+        "triangles": 603802,
+        "tessellation_ms": 40645,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 53354496,
+        "peak_working_set_bytes": 3793276928,
+        "private_bytes": 44822528,
+        "handles": 121
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:16.6437788Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 1100,
+        "triangles": 1107856,
+        "tessellation_ms": 114066,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 68288512,
+        "peak_working_set_bytes": 10096566272,
+        "private_bytes": 75517952,
+        "handles": 121
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:16.6442596Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "target": "500k",
+        "radius_mm": 600,
+        "triangles": 603802,
+        "tessellation_ms": 40645,
+        "working_set_bytes": 53354496,
+        "peak_working_set_bytes": 3793276928,
+        "private_bytes": 44822528,
+        "handles": 121
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:16.6446041Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "target": "1M",
+        "radius_mm": 1100,
+        "triangles": 1107856,
+        "tessellation_ms": 114066,
+        "working_set_bytes": 68288512,
+        "peak_working_set_bytes": 10096566272,
+        "private_bytes": 75517952,
+        "handles": 121
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:21.3090064Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "hole_features": 40,
+        "feature_count": 41,
+        "body_count": 1,
+        "feature_build_ms": 3006,
+        "recompute_ms": 1253,
+        "save_icad_ms": 34,
+        "icad_bytes": 75536,
+        "load_icad_ms": 322,
+        "final_volume_mm3": 4129212.392
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:21.3093585Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "baseline",
+        "working_set_bytes": 15450112,
+        "peak_working_set_bytes": 15450112,
+        "private_bytes": 4284416,
+        "handles": 119
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:21.3096497Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_feature_build",
+        "working_set_bytes": 37224448,
+        "peak_working_set_bytes": 38912000,
+        "private_bytes": 23326720,
+        "handles": 119
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:21.3099880Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_recompute",
+        "working_set_bytes": 38961152,
+        "peak_working_set_bytes": 38961152,
+        "private_bytes": 24588288,
+        "handles": 119
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:21.3103173Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_save",
+        "working_set_bytes": 39890944,
+        "peak_working_set_bytes": 39890944,
+        "private_bytes": 24600576,
+        "handles": 119
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:21.3106036Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_load",
+        "working_set_bytes": 25280512,
+        "peak_working_set_bytes": 39931904,
+        "private_bytes": 9515008,
+        "handles": 119
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:22.7196855Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 128,
+        "feature_count": 128,
+        "create_bodies_ms": 106,
+        "recompute_bodies": 128,
+        "recompute_ms": 104,
+        "save_icad_ms": 28,
+        "icad_bytes": 32557,
+        "load_icad_ms": 103,
+        "step_export_ms": 247,
+        "step_bytes": 2161002,
+        "step_import_ms": 684,
+        "imported_solids": 128,
+        "total_volume_mm3": 274856.891
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:22.7201080Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 15437824,
+        "peak_working_set_bytes": 15437824,
+        "private_bytes": 4231168,
+        "handles": 119
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:22.7204069Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 20017152,
+        "peak_working_set_bytes": 20017152,
+        "private_bytes": 7409664,
+        "handles": 119
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:22.7207101Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 22528000,
+        "peak_working_set_bytes": 22528000,
+        "private_bytes": 9895936,
+        "handles": 119
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:22.7209976Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 23408640,
+        "peak_working_set_bytes": 24047616,
+        "private_bytes": 9871360,
+        "handles": 119
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:22.7213326Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 21196800,
+        "peak_working_set_bytes": 24047616,
+        "private_bytes": 7643136,
+        "handles": 119
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:22.7216306Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 25395200,
+        "peak_working_set_bytes": 44859392,
+        "private_bytes": 10948608,
+        "handles": 119
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:22.7219391Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 28585984,
+        "peak_working_set_bytes": 44859392,
+        "private_bytes": 11808768,
+        "handles": 123
+      },
+      "mesher": "watson-production"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:34.8518809Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "sphere_r50_lod1_tris": 10150,
+        "sphere_r50_lod1_ms": 22,
+        "sphere_r50_lod2_tris": 50540,
+        "sphere_r50_lod2_ms": 161,
+        "cyl_r20_h100_lod2_tris": 1004,
+        "cyl_r20_h100_lod2_ms": 6
+      },
+      "mesher": "delabella-diagnostic"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:34.8520884Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "sphere_r200_lod2_tris": 201374,
+        "sphere_r200_lod2_ms": 729
+      },
+      "mesher": "delabella-diagnostic"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:35.7383137Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 200,
+        "triangles": 201374,
+        "tessellation_ms": 760,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 30154752,
+        "peak_working_set_bytes": 96911360,
+        "private_bytes": 17448960,
+        "handles": 121
+      },
+      "mesher": "delabella-diagnostic"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:38.7120056Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 2971,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 52850688,
+        "peak_working_set_bytes": 251080704,
+        "private_bytes": 43126784,
+        "handles": 121
+      },
+      "mesher": "delabella-diagnostic"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:46.1919548Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 7478,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 81838080,
+        "peak_working_set_bytes": 450478080,
+        "private_bytes": 75374592,
+        "handles": 121
+      },
+      "mesher": "delabella-diagnostic"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:46.1924679Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "target": "500k",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 2971,
+        "working_set_bytes": 52850688,
+        "peak_working_set_bytes": 251080704,
+        "private_bytes": 43126784,
+        "handles": 121
+      },
+      "mesher": "delabella-diagnostic"
+    },
+    {
+      "timestamp": "2026-09-29T22:49:46.1927332Z",
+      "kind": "PERF_NATIVE",
+      "measurements": {
+        "target": "1M",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 7478,
+        "working_set_bytes": 81838080,
+        "peak_working_set_bytes": 450478080,
+        "private_bytes": 75374592,
+        "handles": 121
+      },
+      "mesher": "delabella-diagnostic"
+    },
+    {
+      "timestamp": "2026-09-29T23:00:03.4854697Z",
+      "kind": "BEGINNER_FLOW",
+      "measurements": {
+        "elapsed_ms": 20076,
+        "dialogs": [
+          "Make hole",
+          "Round edge (4 edges)"
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-09-29T23:01:35.4384344Z",
+      "kind": "PERF",
+      "measurements": {
+        "boot_to_interactive_ms": "13133",
+        "box_commit_ms": "158",
+        "box_triangles": "12",
+        "21body_commit_avg_ms": "97",
+        "21body_commit_max_ms": "117",
+        "21body_triangles": "252",
+        "save_icad_ms": "29",
+        "save_icad_bytes": "4438",
+        "reopen_icad_ms": "96",
+        "step_export_ms": "86",
+        "step_export_bytes": "340456"
+      }
+    },
+    {
+      "timestamp": "2026-09-29T23:02:05.2746426Z",
+      "kind": "RESOURCES",
+      "measurements": {
+        "startup_to_canvas_visible_ms": 16005,
+        "orbit_zoom_action_ms_total": 8008,
+        "orbit_zoom_cycles": 80,
+        "testhook_face_selection_to_context_toolbar_ms": 27,
+        "first": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 704,
+              "processName": "electron",
+              "workingSetBytes": 113946624,
+              "privateBytes": 48496640,
+              "handleCount": 882
+            },
+            {
+              "role": "renderer",
+              "pid": 7244,
+              "processName": "electron",
+              "workingSetBytes": 269672448,
+              "privateBytes": 137588736,
+              "handleCount": 331
+            },
+            {
+              "role": "native",
+              "pid": 1488,
+              "processName": "kreoda-core",
+              "workingSetBytes": 18513920,
+              "privateBytes": 6115328,
+              "handleCount": 129
+            }
+          ],
+          "sidecarPids": [
+            1488
+          ]
+        },
+        "final": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 704,
+              "processName": "electron",
+              "workingSetBytes": 114212864,
+              "privateBytes": 48439296,
+              "handleCount": 882
+            },
+            {
+              "role": "renderer",
+              "pid": 7244,
+              "processName": "electron",
+              "workingSetBytes": 269406208,
+              "privateBytes": 149725184,
+              "handleCount": 337
+            },
+            {
+              "role": "native",
+              "pid": 1488,
+              "processName": "kreoda-core",
+              "workingSetBytes": 18513920,
+              "privateBytes": 6115328,
+              "handleCount": 129
+            }
+          ],
+          "sidecarPids": [
+            1488
+          ]
+        },
+        "deltas": [
+          {
+            "role": "main",
+            "workingSetDeltaBytes": 266240,
+            "privateBytesDelta": -57344,
+            "handleCountDelta": 0
+          },
+          {
+            "role": "renderer",
+            "workingSetDeltaBytes": -266240,
+            "privateBytesDelta": 12136448,
+            "handleCountDelta": 6
+          },
+          {
+            "role": "native",
+            "workingSetDeltaBytes": 0,
+            "privateBytesDelta": 0,
+            "handleCountDelta": 0
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-09-29T23:03:16.5514513Z",
+      "kind": "LARGE_VIEWPORT",
+      "measurements": {
+        "radius_mm": 600,
+        "triangles": 603802,
+        "mesh_rpc_to_renderer_submission_ms": 40784,
+        "interaction_ms": 9196,
+        "orbit_zoom_cycles": 20,
+        "renderer_submissions_per_second_during_input": 10.983036102653328,
+        "render_cpu_ms_during_input": 29.90000000037253,
+        "pick_to_toolbar_ms": 90,
+        "first": {
+          "renderedFrames": 6,
+          "renderCpuTotalMs": 67.29999999981374,
+          "renderCpuMaxMs": 34.800000000046566,
+          "triangles": 603802,
+          "geometries": 3,
+          "textures": 1
+        },
+        "last": {
+          "renderedFrames": 107,
+          "renderCpuTotalMs": 97.20000000018626,
+          "renderCpuMaxMs": 34.800000000046566,
+          "triangles": 603802,
+          "geometries": 3,
+          "textures": 1
+        },
+        "before_mesh": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 6928,
+              "processName": "electron",
+              "workingSetBytes": 136351744,
+              "privateBytes": 70549504,
+              "handleCount": 886
+            },
+            {
+              "role": "renderer",
+              "pid": 9400,
+              "processName": "electron",
+              "workingSetBytes": 282447872,
+              "privateBytes": 147947520,
+              "handleCount": 335
+            },
+            {
+              "role": "native",
+              "pid": 6424,
+              "processName": "kreoda-core",
+              "workingSetBytes": 24227840,
+              "privateBytes": 11530240,
+              "handleCount": 128
+            }
+          ],
+          "sidecarPids": [
+            6424
+          ]
+        },
+        "final": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 6928,
+              "processName": "electron",
+              "workingSetBytes": 108601344,
+              "privateBytes": 41021440,
+              "handleCount": 884
+            },
+            {
+              "role": "renderer",
+              "pid": 9400,
+              "processName": "electron",
+              "workingSetBytes": 267739136,
+              "privateBytes": 128335872,
+              "handleCount": 335
+            },
+            {
+              "role": "native",
+              "pid": 6424,
+              "processName": "kreoda-core",
+              "workingSetBytes": 55275520,
+              "privateBytes": 41832448,
+              "handleCount": 128
+            }
+          ],
+          "sidecarPids": [
+            6424
+          ]
+        }
+      }
+    },
+    {
+      "timestamp": "2026-09-29T23:05:56.6204527Z",
+      "kind": "LARGE_VIEWPORT",
+      "measurements": {
+        "radius_mm": 1100,
+        "triangles": 1107856,
+        "mesh_rpc_to_renderer_submission_ms": 115210,
+        "interaction_ms": 14694,
+        "orbit_zoom_cycles": 20,
+        "renderer_submissions_per_second_during_input": 6.873553831495848,
+        "render_cpu_ms_during_input": 30.40000000083819,
+        "pick_to_toolbar_ms": 12,
+        "first": {
+          "renderedFrames": 6,
+          "renderCpuTotalMs": 110.5,
+          "renderCpuMaxMs": 66.9000000001397,
+          "triangles": 1107856,
+          "geometries": 3,
+          "textures": 1
+        },
+        "last": {
+          "renderedFrames": 107,
+          "renderCpuTotalMs": 140.9000000008382,
+          "renderCpuMaxMs": 66.9000000001397,
+          "triangles": 1107856,
+          "geometries": 3,
+          "textures": 1
+        },
+        "before_mesh": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 8520,
+              "processName": "electron",
+              "workingSetBytes": 255197184,
+              "privateBytes": 189538304,
+              "handleCount": 887
+            },
+            {
+              "role": "renderer",
+              "pid": 5204,
+              "processName": "electron",
+              "workingSetBytes": 289845248,
+              "privateBytes": 158806016,
+              "handleCount": 338
+            },
+            {
+              "role": "native",
+              "pid": 2136,
+              "processName": "kreoda-core",
+              "workingSetBytes": 31862784,
+              "privateBytes": 19628032,
+              "handleCount": 128
+            }
+          ],
+          "sidecarPids": [
+            2136
+          ]
+        },
+        "final": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 8520,
+              "processName": "electron",
+              "workingSetBytes": 34283520,
+              "privateBytes": 41463808,
+              "handleCount": 878
+            },
+            {
+              "role": "renderer",
+              "pid": 5204,
+              "processName": "electron",
+              "workingSetBytes": 242155520,
+              "privateBytes": 143491072,
+              "handleCount": 330
+            },
+            {
+              "role": "native",
+              "pid": 2136,
+              "processName": "kreoda-core",
+              "workingSetBytes": 68608000,
+              "privateBytes": 72781824,
+              "handleCount": 128
+            }
+          ],
+          "sidecarPids": [
+            2136
+          ]
+        }
+      }
+    }
+  ]
+}

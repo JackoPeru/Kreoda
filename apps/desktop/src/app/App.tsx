@@ -163,6 +163,9 @@ export function App() {
     const offCrash = window.kreoda?.onCoreCrashed?.((info) => {
       setCrashed(info.code);
       setCoreStatus(false, null);
+      // A drag owns solved preview coordinates from the dead engine. Unmount
+      // it before pointer-up can commit that draft into the recovered document.
+      setEditingSketch(null);
     });
     // Post-crash restart brings an EMPTY engine: the autosave (written by
     // the interval before the crash) is the way back — re-check it.
@@ -441,6 +444,7 @@ export function App() {
         ).__kreoda_test;
         return hook.snapshot();
       },
+      sketchModel: (featureId: string) => coreClient.requestSketch(featureId),
       extrudeSketch: async (sketchId: string, distanceMm: number) => {
         await executeCommand("CreateExtrude", { sketchId, distanceMm });
         const hook = (

@@ -16,6 +16,7 @@
 #include "document/document_store.h"
 #include "features/sketch/sketch_store.h"
 #include "persistence/ocaf_live.h"
+#include "tessellation/mesh_parameters.h"
 
 #if KREODA_WITH_OCCT
 // NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
@@ -340,8 +341,7 @@ bool PreMeshExport(TopoDS_Compound* compound, const char* what,
     if (error) *error = "internal error: null out-param";
     return false;
   }
-  BRepMesh_IncrementalMesh mesher(*compound, 0.01, Standard_False, 0.05,
-                                  Standard_True);
+  BRepMesh_IncrementalMesh mesher(*compound, OcctMeshingParameters(0.01, 0.05));
   if (!mesher.IsDone()) {
     if (error) *error = std::string(what ? what : "mesh") + " meshing failed";
     return false;
