@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { boot, runBar, snapOf, type Snapshot } from "./helpers";
 import type { ViewportRenderStats } from "../src/viewport/viewportHandle";
 import { gpuMemory, gpuCompletion } from "./gpu-metrics";
+import { beginPresentationSample, endPresentationSample } from "./presentation-metrics";
 
 type Role = "main" | "renderer" | "native";
 type Target = { role: Role; pid: number };
@@ -129,6 +130,7 @@ test("resource sample: 21-body orbit and zoom session", async () => {
     );
 
     const cycles = 80;
+    await beginPresentationSample(app);
     let orbitZoomActionMs = 0;
     for (let i = 0; i < cycles; i++) {
       const actionStarted = Date.now();
@@ -146,6 +148,7 @@ test("resource sample: 21-body orbit and zoom session", async () => {
       }
     }
     await window.waitForTimeout(500);
+    const presentation = await endPresentationSample(app);
 
     const finalModel = await snapOf(window);
     expect(geometry(finalModel)).toEqual(geometry(initialModel));
@@ -201,6 +204,7 @@ test("resource sample: 21-body orbit and zoom session", async () => {
         startup_to_canvas_visible_ms: canvasVisibleMs,
         orbit_zoom_action_ms_total: orbitZoomActionMs,
         orbit_zoom_cycles: cycles,
+        presentation,
         testhook_face_selection_to_context_toolbar_ms: selectionToolbarMs,
         firstGpuMemory, finalGpuMemory, finalGpuCompletion,
         first,
@@ -263,6 +267,7 @@ for (const [radius, minimumTriangles] of [[600, 500_000], [1100, 1_000_000]] as 
       await window.waitForTimeout(200);
       const first = (await stats())!;
       const interactionStarted = Date.now();
+      await beginPresentationSample(app);
       const cycles = 20;
       for (let i = 0; i < cycles; ++i) {
         await window.mouse.move(x, y);
@@ -273,6 +278,7 @@ for (const [radius, minimumTriangles] of [[600, 500_000], [1100, 1_000_000]] as 
       }
       await expect.poll(async () => (await stats())?.renderedFrames ?? 0).toBeGreaterThan(first.renderedFrames);
       const interactionMs = Date.now() - interactionStarted;
+      const presentation = await endPresentationSample(app);
       const last = (await stats())!;
       const selectionStarted = Date.now();
       await window.mouse.click(x, y);
@@ -287,6 +293,7 @@ for (const [radius, minimumTriangles] of [[600, 500_000], [1100, 1_000_000]] as 
       expect(final.processes.map(row => row.role).sort()).toEqual(["main", "native", "renderer"]);
       console.log(`PHASE10_LARGE_VIEWPORT ${JSON.stringify({ radius_mm: radius, triangles: detailed.bodies[0]!.triangles,
         mesh_rpc_to_renderer_submission_ms: meshRpcToRendererSubmissionMs, interaction_ms: interactionMs, orbit_zoom_cycles: cycles,
+        presentation,
         renderer_submissions_per_second_during_input: (last.renderedFrames - first.renderedFrames) * 1000 / interactionMs,
         render_cpu_ms_during_input: last.renderCpuTotalMs - first.renderCpuTotalMs, pick_to_toolbar_ms: pickToToolbarMs,
         first, last, before_mesh: beforeMesh, final,
