@@ -170,6 +170,7 @@ set(PLANEGCS_SOURCES
 
 if(HAVE_PLANEGCS)
   add_library(planegcs STATIC ${PLANEGCS_SOURCES})
+  target_compile_definitions(planegcs PRIVATE KREODA_CRASH_TEST_BARRIERS=$<BOOL:${KREODA_CRASH_TEST_BARRIERS}>)
   # Upstream PlaneGCS uses C++20 (std::numbers::pi); the core stays C++17
   # per the OCCT 8.0 baseline (§2.1). Same MSVC ABI — safe to link.
   set_target_properties(planegcs PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)

@@ -32,6 +32,8 @@
 #undef _GCS_DEBUG_SOLVER_JACOBIAN_QR_DECOMPOSITION_TRIANGULAR_MATRIX
 #undef _DEBUG_TO_FILE
 
+#include "diagnostics/crash_barrier.h"
+
 // This has to be included BEFORE any EIGEN include
 // This format is Sage compatible, so you can just copy/paste the matrix into Sage
 #ifdef _GCS_DEBUG
@@ -2330,6 +2332,8 @@ SolveStatus System::solve_DL(SubSystem* subsys, bool isRedundantsolving)
     double alpha = 0.;
     double nu = 2.;
     int iter = 0, stop = 0, reduce = 0;
+    // Test-only interruption with residual/Jacobian built and live solver state.
+    kreoda::CrashTestBarrier("sketch-solve-after-jacobian");
     while (!stop) {
         // check if finished
         if (fx_inf <= tolf) {

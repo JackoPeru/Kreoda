@@ -259,7 +259,9 @@ jobs:
         run: |
           cmake -S native/kreoda-core -B native/kreoda-core/build -DKREODA_CRASH_TEST_BARRIERS=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build native/kreoda-core/build --config Release --target kreoda-core
+          cmake --build native/kreoda-core/build --config Release --target kreoda-core kreoda-solver-crash-control
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ctest --test-dir native/kreoda-core/build -C Release --output-on-failure -R '^SolverCrashBarrierControl$'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: E2E crash recovery (solo)

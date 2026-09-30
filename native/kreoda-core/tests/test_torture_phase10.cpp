@@ -1315,7 +1315,8 @@ TEST(Torture10, HighFeatureCountRecomputeSaveLoadBaseline) {
 // §10.7: many independent bodies form a real multi-solid STEP file. Record
 // command/recompute, native save/load, STEP export/import, file size and the
 // process metrics available on the host; wall-clock values are not gates.
-TEST(Torture10, ManyBodyLargeStepRoundTripBaseline) {
+class ManyBodyStepBaseline : public ::testing::TestWithParam<int> {};
+TEST_P(ManyBodyStepBaseline, SaveReopenAndStepRoundTrip) {
 #if !KREODA_WITH_OCCT
   GTEST_SKIP() << "requires real OCCT STEP, OCAF save and load APIs";
 #else
@@ -1325,7 +1326,7 @@ TEST(Torture10, ManyBodyLargeStepRoundTripBaseline) {
     double heightMm;
     double depthMm;
   };
-  constexpr int kBodyCount = 128;
+  const int kBodyCount = GetParam();
   const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
   const fs::path dir = fs::temp_directory_path() /
                        ("kreoda-phase10-many-body-" +
@@ -1416,6 +1417,7 @@ TEST(Torture10, ManyBodyLargeStepRoundTripBaseline) {
   const auto stepBytes = fs::file_size(stepPath, ec);
   ASSERT_FALSE(ec) << ec.message();
   ASSERT_GT(stepBytes, 1000u);
+  if (kBodyCount >= 1024) ASSERT_GT(stepBytes, 10u * 1024u * 1024u);
   const ProcessResources afterStepExport = ReadProcessResources();
 
   NewDoc("phase10-many-body-step-imported");
@@ -1466,3 +1468,4 @@ TEST(Torture10, ManyBodyLargeStepRoundTripBaseline) {
   EXPECT_FALSE(ec) << ec.message();
 #endif
 }
+INSTANTIATE_TEST_SUITE_P(Phase10, ManyBodyStepBaseline, ::testing::Values(128, 1024));

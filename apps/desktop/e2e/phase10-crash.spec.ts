@@ -217,13 +217,16 @@ test("renderer crash reloads and restores committed autosave [solo]", async () =
 });
 
 for (const target of crashTargets) {
-for (const operation of ["recompute", "step-import", "tessellation"] as const) {
+for (const operation of ["recompute", "step-import", "tessellation-500k", "tessellation-1M"] as const) {
   test(`${target} kill during ${operation} restores the committed autosave [solo]`, async () => {
     test.setTimeout(300000);
     test.skip(process.platform !== "win32", "taskkill requires Windows");
     test.skip(process.env.KREODA_CRASH_TEST_BARRIERS !== "1", "requires the dedicated crash-test core build");
     let { app, window } = await boot(env);
-    const stageName = { recompute: "recompute-before-commit", "step-import": "step-import-before-adoption", tessellation: "tessellation-before-extraction" }[operation];
+    const stageName = {
+      recompute: "recompute-before-commit", "step-import": "step-import-before-adoption",
+      "tessellation-500k": "tessellation-inside-mesher", "tessellation-1M": "tessellation-inside-mesher",
+    }[operation];
     const stage = path.join(barrierDir, stageName);
     try {
       let before = await modelAndSave(window);
@@ -231,12 +234,13 @@ for (const operation of ["recompute", "step-import", "tessellation"] as const) {
         await window.evaluate((file) => (window as unknown as { __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> } }).__kreoda_test.saveIcad(file), stepFile);
         expect(fs.statSync(stepFile).size).toBeGreaterThan(1000);
       }
-      if (operation === "tessellation") {
-        // Radius 600 / LOD 2 is the hosted native 603,802-triangle baseline.
-        // This pause follows kernel meshing and precedes renderer extraction.
-        await runBar(window, "sphere 600");
+      if (operation.startsWith("tessellation")) {
+        // Same 500k/1M native workloads; pause on partial OCCT progress inside
+        // BRepMesh::Perform, before the detailed mesh RPC can return.
+        const radius = operation === "tessellation-1M" ? 1100 : 600;
+        await runBar(window, `sphere ${radius}`);
         before = await snapOf(window);
-        expect(before.bodies.find(b => b.type === "Sphere")!.paramsMm[0]).toBe(600);
+        expect(before.bodies.find(b => b.type === "Sphere")!.paramsMm[0]).toBe(radius);
         await window.evaluate(() => (globalThis.window as unknown as { __kreoda_test: { autosaveNow: () => Promise<string> } }).__kreoda_test.autosaveNow());
       }
       const core = await window.evaluate(() => globalThis.window.kreoda.coreInfo());
@@ -333,6 +337,46 @@ test(`${target} crash with an uncommitted solved sketch drag restores committed 
     // authoritative native coordinates and constraints after recovery.
     expect(await sketchModel(window, sketch.id)).toEqual(committedModel);
   } finally {
+    await app.close();
+  }
+});
+
+test(`${target} kill inside the native sketch solver restores committed coordinates [solo]`, async () => {
+  test.skip(process.platform !== "win32", "taskkill requires Windows");
+  test.skip(process.env.KREODA_CRASH_TEST_BARRIERS !== "1", "requires the dedicated crash-test core build");
+  let { app, window } = await boot(env);
+  const stage = path.join(barrierDir, "sketch-solve-after-jacobian");
+  try {
+    await modelAndSave(window);
+    await window.evaluate(() => (window as unknown as { __kreoda_test: {
+      createRectSketch: (w: number, h: number) => Promise<Snapshot>;
+    } }).__kreoda_test.createRectSketch(100, 50));
+    const before = await snapOf(window);
+    const sketch = before.sketches[0]!;
+    const committedModel = await sketchModel(window, sketch.id);
+    await window.evaluate(() => (window as unknown as { __kreoda_test: {
+      autosaveNow: () => Promise<string>;
+    } }).__kreoda_test.autosaveNow());
+    await window.evaluate(id => (window as unknown as { __kreoda_test: {
+      openSketch: (id: string) => unknown;
+    } }).__kreoda_test.openSketch(id), sketch.id);
+    const point = window.getByTestId("sk-point-p0");
+    await expect(point).toBeVisible();
+    const bounds = (await point.boundingBox())!;
+    const x = bounds.x + bounds.width / 2, y = bounds.y + bounds.height / 2;
+    fs.mkdirSync(barrierDir, { recursive: true });
+    fs.writeFileSync(stage + ".arm", "1");
+    await window.mouse.move(x, y);
+    await window.mouse.down();
+    await window.mouse.move(x + 40, y + 12);
+    // Ready is emitted by PlaneGCS after building its residual/Jacobian;
+    // the solve still owns temporary parameters and has not replied.
+    await expect.poll(() => fs.existsSync(stage + ".ready"), { timeout: 15000 }).toBe(true);
+    ({ app, window } = await terminateAndRestore(app, window, before, target,
+      () => fs.writeFileSync(stage + ".release", "1"), true));
+    expect(await sketchModel(window, sketch.id)).toEqual(committedModel);
+  } finally {
+    if (fs.existsSync(barrierDir)) fs.writeFileSync(stage + ".release", "1");
     await app.close();
   }
 });
@@ -448,6 +492,5 @@ test("main process kill relaunches and restores committed autosave [solo]", asyn
   }
 });
 
-// Dedicated test cores pause after OCCT triangulation and before extraction.
-// The radius-600 case uses the hosted 500k baseline; it does not claim a
-// kill inside BRepMesh or recovery coverage for the 1M baseline.
+// Dedicated test cores pause inside PlaneGCS and BRepMesh::Perform. Production
+// compiles both barriers out; packaging rejects the opt-in crash build.
