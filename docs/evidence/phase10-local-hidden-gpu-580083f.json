@@ -1,0 +1,976 @@
+{
+  "sourceCommit": "580083ff73d6745571f30e3d43952d793ef4789b",
+  "scope": "local hidden diagnostic; not packaged runtime or physical display",
+  "core": "OCCT 8.0.1 static-MD local diagnostic",
+  "renderer": "NVIDIA GeForce RTX 2070 / ANGLE D3D11",
+  "testResult": "3 passed",
+  "elapsedSeconds": 48.9,
+  "captureOverheadIncluded": true,
+  "offscreenFrameRateCap": 30,
+  "monitorScanoutMeasured": false,
+  "physicalResidencyGuaranteed": false,
+  "competingWorkloadsIsolated": false,
+  "memoryScope": "whole GPU process budget plus process RAM; snapshots not exact peaks; main RAM includes compositor capture allocations",
+  "artifacts": {
+    "core": {
+      "sha256": "9c520474104d62628b274a08958cc8d68af1c1b938266501b54825162cd7a2ed",
+      "bytes": 53615104
+    },
+    "gpuProbe": {
+      "sha256": "9c49656d689db1cdec4e05e275a9c5eadf97f06b3269ee4130253579e304b4cb",
+      "bytes": 28160
+    },
+    "compiledMainRestored": {
+      "sha256": "7213aff48273224db6f2df7c54401fa42b26cd7e5ae20fd179910debea34080b",
+      "bytes": 128582
+    }
+  },
+  "samples": [
+    {
+      "kind": "PHASE10_RESOURCES",
+      "measurements": {
+        "startup_to_canvas_visible_ms": 967,
+        "orbit_zoom_action_ms_total": 15960,
+        "orbit_zoom_cycles": 80,
+        "presentation": {
+          "source": "electron.beginFrameSubscription",
+          "scope": "whole-window capture during orbit/zoom",
+          "includesCaptureOverhead": true,
+          "monitorScanoutMeasured": false,
+          "visible": false,
+          "offscreen": true,
+          "frameRateCap": 30,
+          "frames": 321,
+          "elapsedMs": 17484.5919,
+          "captureFps": 18.359021579451333,
+          "firstCaptureMs": 14.767699999999877,
+          "medianIntervalMs": 50.14730000000054,
+          "p95IntervalMs": 78.32649999999921
+        },
+        "testhook_face_selection_to_context_toolbar_ms": 12,
+        "firstGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 30112,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 185696256,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 36319232,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                }
+              ]
+            }
+          ]
+        },
+        "finalGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 30112,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 186576896,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 48967680,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                }
+              ]
+            }
+          ]
+        },
+        "finalGpuCompletion": {
+          "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "queueCompletionMs": 41.899999998509884
+        },
+        "first": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 25076,
+              "processName": "electron",
+              "workingSetBytes": 153456640,
+              "privateBytes": 85516288,
+              "handleCount": 895
+            },
+            {
+              "role": "renderer",
+              "pid": 35424,
+              "processName": "electron",
+              "workingSetBytes": 160784384,
+              "privateBytes": 78372864,
+              "handleCount": 365
+            },
+            {
+              "role": "native",
+              "pid": 29664,
+              "processName": "kreoda-core",
+              "workingSetBytes": 15859712,
+              "privateBytes": 6983680,
+              "handleCount": 154
+            }
+          ],
+          "sidecarPids": [
+            29664
+          ]
+        },
+        "final": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 25076,
+              "processName": "electron",
+              "workingSetBytes": 542031872,
+              "privateBytes": 475136000,
+              "handleCount": 895
+            },
+            {
+              "role": "renderer",
+              "pid": 35424,
+              "processName": "electron",
+              "workingSetBytes": 162091008,
+              "privateBytes": 83554304,
+              "handleCount": 368
+            },
+            {
+              "role": "native",
+              "pid": 29664,
+              "processName": "kreoda-core",
+              "workingSetBytes": 17031168,
+              "privateBytes": 6709248,
+              "handleCount": 154
+            }
+          ],
+          "sidecarPids": [
+            29664
+          ]
+        },
+        "deltas": [
+          {
+            "role": "main",
+            "workingSetDeltaBytes": 388575232,
+            "privateBytesDelta": 389619712,
+            "handleCountDelta": 0
+          },
+          {
+            "role": "renderer",
+            "workingSetDeltaBytes": 1306624,
+            "privateBytesDelta": 5181440,
+            "handleCountDelta": 3
+          },
+          {
+            "role": "native",
+            "workingSetDeltaBytes": 1171456,
+            "privateBytesDelta": -274432,
+            "handleCountDelta": 0
+          }
+        ]
+      }
+    },
+    {
+      "kind": "PHASE10_LARGE_VIEWPORT",
+      "measurements": {
+        "radius_mm": 600,
+        "triangles": 604110,
+        "mesh_rpc_to_renderer_submission_ms": 2692,
+        "interaction_ms": 3998,
+        "orbit_zoom_cycles": 20,
+        "presentation": {
+          "source": "electron.beginFrameSubscription",
+          "scope": "whole-window capture during orbit/zoom",
+          "includesCaptureOverhead": true,
+          "monitorScanoutMeasured": false,
+          "visible": false,
+          "offscreen": true,
+          "frameRateCap": 30,
+          "frames": 101,
+          "elapsedMs": 3998.1582,
+          "captureFps": 25.261631718324704,
+          "firstCaptureMs": 13.507499999999709,
+          "medianIntervalMs": 33.710799999999836,
+          "p95IntervalMs": 67.68629999999939
+        },
+        "renderer_submissions_per_second_during_input": 25.262631315657828,
+        "render_cpu_ms_during_input": 14.600000023841858,
+        "pick_to_toolbar_ms": 8,
+        "first": {
+          "renderedFrames": 6,
+          "renderCpuTotalMs": 64.69999999552965,
+          "renderCpuMaxMs": 41.100000001490116,
+          "triangles": 604110,
+          "geometries": 3,
+          "textures": 1
+        },
+        "last": {
+          "renderedFrames": 107,
+          "renderCpuTotalMs": 79.30000001937151,
+          "renderCpuMaxMs": 41.100000001490116,
+          "triangles": 604110,
+          "geometries": 3,
+          "textures": 1
+        },
+        "before_mesh": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 32596,
+              "processName": "electron",
+              "workingSetBytes": 175693824,
+              "privateBytes": 108740608,
+              "handleCount": 897
+            },
+            {
+              "role": "renderer",
+              "pid": 3956,
+              "processName": "electron",
+              "workingSetBytes": 166608896,
+              "privateBytes": 83537920,
+              "handleCount": 367
+            },
+            {
+              "role": "native",
+              "pid": 24176,
+              "processName": "kreoda-core",
+              "workingSetBytes": 20725760,
+              "privateBytes": 10838016,
+              "handleCount": 145
+            }
+          ],
+          "sidecarPids": [
+            24176
+          ]
+        },
+        "final": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 32596,
+              "processName": "electron",
+              "workingSetBytes": 339906560,
+              "privateBytes": 273375232,
+              "handleCount": 895
+            },
+            {
+              "role": "renderer",
+              "pid": 3956,
+              "processName": "electron",
+              "workingSetBytes": 219656192,
+              "privateBytes": 138399744,
+              "handleCount": 363
+            },
+            {
+              "role": "native",
+              "pid": 24176,
+              "processName": "kreoda-core",
+              "workingSetBytes": 51134464,
+              "privateBytes": 41852928,
+              "handleCount": 145
+            }
+          ],
+          "sidecarPids": [
+            24176
+          ]
+        },
+        "beforeGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 33380,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 186691584,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 35979264,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                }
+              ]
+            }
+          ]
+        },
+        "afterMeshGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 33380,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 201351168,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 50855936,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                }
+              ]
+            }
+          ]
+        },
+        "finalGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 33380,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 202829824,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 65404928,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                }
+              ]
+            }
+          ]
+        },
+        "afterMeshGpuCompletion": {
+          "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "queueCompletionMs": 162.20000000298023
+        },
+        "finalGpuCompletion": {
+          "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "queueCompletionMs": 159.89999999850988
+        }
+      }
+    },
+    {
+      "kind": "PHASE10_LARGE_VIEWPORT",
+      "measurements": {
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "mesh_rpc_to_renderer_submission_ms": 6525,
+        "interaction_ms": 3999,
+        "orbit_zoom_cycles": 20,
+        "presentation": {
+          "source": "electron.beginFrameSubscription",
+          "scope": "whole-window capture during orbit/zoom",
+          "includesCaptureOverhead": true,
+          "monitorScanoutMeasured": false,
+          "visible": false,
+          "offscreen": true,
+          "frameRateCap": 30,
+          "frames": 101,
+          "elapsedMs": 3999.1204,
+          "captureFps": 25.25555369625781,
+          "firstCaptureMs": 17.21389999999883,
+          "medianIntervalMs": 33.512000000000626,
+          "p95IntervalMs": 67.82459999999992
+        },
+        "renderer_submissions_per_second_during_input": 25.25631407851963,
+        "render_cpu_ms_during_input": 15.900000005960464,
+        "pick_to_toolbar_ms": 6,
+        "first": {
+          "renderedFrames": 6,
+          "renderCpuTotalMs": 78.29999999701977,
+          "renderCpuMaxMs": 41.899999998509884,
+          "triangles": 1108272,
+          "geometries": 3,
+          "textures": 1
+        },
+        "last": {
+          "renderedFrames": 107,
+          "renderCpuTotalMs": 94.20000000298023,
+          "renderCpuMaxMs": 41.899999998509884,
+          "triangles": 1108272,
+          "geometries": 3,
+          "textures": 1
+        },
+        "before_mesh": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 36740,
+              "processName": "electron",
+              "workingSetBytes": 245989376,
+              "privateBytes": 176459776,
+              "handleCount": 897
+            },
+            {
+              "role": "renderer",
+              "pid": 22996,
+              "processName": "electron",
+              "workingSetBytes": 169897984,
+              "privateBytes": 83574784,
+              "handleCount": 367
+            },
+            {
+              "role": "native",
+              "pid": 21612,
+              "processName": "kreoda-core",
+              "workingSetBytes": 26689536,
+              "privateBytes": 16883712,
+              "handleCount": 145
+            }
+          ],
+          "sidecarPids": [
+            21612
+          ]
+        },
+        "final": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 36740,
+              "processName": "electron",
+              "workingSetBytes": 244736000,
+              "privateBytes": 174665728,
+              "handleCount": 895
+            },
+            {
+              "role": "renderer",
+              "pid": 22996,
+              "processName": "electron",
+              "workingSetBytes": 377520128,
+              "privateBytes": 287236096,
+              "handleCount": 363
+            },
+            {
+              "role": "native",
+              "pid": 21612,
+              "processName": "kreoda-core",
+              "workingSetBytes": 84647936,
+              "privateBytes": 75309056,
+              "handleCount": 145
+            }
+          ],
+          "sidecarPids": [
+            21612
+          ]
+        },
+        "beforeGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 23560,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 188186624,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 43646976,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                }
+              ]
+            }
+          ]
+        },
+        "afterMeshGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 23560,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 214941696,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 70451200,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                }
+              ]
+            }
+          ]
+        },
+        "finalGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 23560,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 216555520,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 4318,
+                  "deviceId": 7938,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 85196800,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": -1073741811,
+                  "usageBytes": null,
+                  "budgetBytes": null
+                }
+              ]
+            }
+          ]
+        },
+        "afterMeshGpuCompletion": {
+          "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "queueCompletionMs": 203.89999999850988
+        },
+        "finalGpuCompletion": {
+          "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "queueCompletionMs": 148.10000000149012
+        }
+      }
+    }
+  ],
+  "memoryObserverComparison": {
+    "scope": "same 21-body/80-cycle flow with temporary capture-disabled helper; RAM attribution diagnostic only",
+    "testResult": "1 passed",
+    "elapsedSeconds": 26.5,
+    "captureMetricsAvailable": false,
+    "temporaryHelperRestoredSha256": "cde22641cfc7b6f4b0012440e3ad28435972eeedc079a4ac36377eff06a37b2e",
+    "compiledMainRestoredSha256": "7213aff48273224db6f2df7c54401fa42b26cd7e5ae20fd179910debea34080b",
+    "competingWorkloadsIsolated": false,
+    "measurements": {
+      "startup_to_canvas_visible_ms": 1090,
+      "orbit_zoom_action_ms_total": 15965,
+      "orbit_zoom_cycles": 80,
+      "presentation": {
+        "source": "capture-disabled-for-RAM-observer-comparison",
+        "captureEnabled": false,
+        "captureFps": null,
+        "frames": null,
+        "monitorScanoutMeasured": false
+      },
+      "testhook_face_selection_to_context_toolbar_ms": 16,
+      "firstGpuMemory": {
+        "available": true,
+        "processes": [
+          {
+            "pid": 36664,
+            "samples": [
+              {
+                "adapter": 0,
+                "vendorId": 4318,
+                "deviceId": 7938,
+                "software": false,
+                "segmentGroup": "local",
+                "status": 0,
+                "usageBytes": 192499712,
+                "budgetBytes": 7589593088
+              },
+              {
+                "adapter": 0,
+                "vendorId": 4318,
+                "deviceId": 7938,
+                "software": false,
+                "segmentGroup": "nonlocal",
+                "status": 0,
+                "usageBytes": 104898560,
+                "budgetBytes": 16332269568
+              },
+              {
+                "adapter": 1,
+                "vendorId": 5140,
+                "deviceId": 140,
+                "software": true,
+                "segmentGroup": "local",
+                "status": -1073741811,
+                "usageBytes": null,
+                "budgetBytes": null
+              },
+              {
+                "adapter": 1,
+                "vendorId": 5140,
+                "deviceId": 140,
+                "software": true,
+                "segmentGroup": "nonlocal",
+                "status": -1073741811,
+                "usageBytes": null,
+                "budgetBytes": null
+              }
+            ]
+          }
+        ]
+      },
+      "finalGpuMemory": {
+        "available": true,
+        "processes": [
+          {
+            "pid": 36664,
+            "samples": [
+              {
+                "adapter": 0,
+                "vendorId": 4318,
+                "deviceId": 7938,
+                "software": false,
+                "segmentGroup": "local",
+                "status": 0,
+                "usageBytes": 193363968,
+                "budgetBytes": 7589593088
+              },
+              {
+                "adapter": 0,
+                "vendorId": 4318,
+                "deviceId": 7938,
+                "software": false,
+                "segmentGroup": "nonlocal",
+                "status": 0,
+                "usageBytes": 108306432,
+                "budgetBytes": 16332269568
+              },
+              {
+                "adapter": 1,
+                "vendorId": 5140,
+                "deviceId": 140,
+                "software": true,
+                "segmentGroup": "local",
+                "status": -1073741811,
+                "usageBytes": null,
+                "budgetBytes": null
+              },
+              {
+                "adapter": 1,
+                "vendorId": 5140,
+                "deviceId": 140,
+                "software": true,
+                "segmentGroup": "nonlocal",
+                "status": -1073741811,
+                "usageBytes": null,
+                "budgetBytes": null
+              }
+            ]
+          }
+        ]
+      },
+      "finalGpuCompletion": {
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "queueCompletionMs": 896.3999999985099
+      },
+      "first": {
+        "processes": [
+          {
+            "role": "main",
+            "pid": 15588,
+            "processName": "electron",
+            "workingSetBytes": 177377280,
+            "privateBytes": 109895680,
+            "handleCount": 897
+          },
+          {
+            "role": "renderer",
+            "pid": 29020,
+            "processName": "electron",
+            "workingSetBytes": 157593600,
+            "privateBytes": 75108352,
+            "handleCount": 365
+          },
+          {
+            "role": "native",
+            "pid": 27424,
+            "processName": "kreoda-core",
+            "workingSetBytes": 16232448,
+            "privateBytes": 7041024,
+            "handleCount": 154
+          }
+        ],
+        "sidecarPids": [
+          27424
+        ]
+      },
+      "final": {
+        "processes": [
+          {
+            "role": "main",
+            "pid": 15588,
+            "processName": "electron",
+            "workingSetBytes": 170758144,
+            "privateBytes": 102436864,
+            "handleCount": 897
+          },
+          {
+            "role": "renderer",
+            "pid": 29020,
+            "processName": "electron",
+            "workingSetBytes": 159526912,
+            "privateBytes": 81289216,
+            "handleCount": 368
+          },
+          {
+            "role": "native",
+            "pid": 27424,
+            "processName": "kreoda-core",
+            "workingSetBytes": 17420288,
+            "privateBytes": 6885376,
+            "handleCount": 154
+          }
+        ],
+        "sidecarPids": [
+          27424
+        ]
+      },
+      "deltas": [
+        {
+          "role": "main",
+          "workingSetDeltaBytes": -6619136,
+          "privateBytesDelta": -7458816,
+          "handleCountDelta": 0
+        },
+        {
+          "role": "renderer",
+          "workingSetDeltaBytes": 1933312,
+          "privateBytesDelta": 6180864,
+          "handleCountDelta": 3
+        },
+        {
+          "role": "native",
+          "workingSetDeltaBytes": 1187840,
+          "privateBytesDelta": -155648,
+          "handleCountDelta": 0
+        }
+      ]
+    }
+  }
+}

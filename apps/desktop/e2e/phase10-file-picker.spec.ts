@@ -12,7 +12,7 @@ function nativePicker(pid: number, kind: "Save" | "Open", action: "Accept" | "Ca
   return execute("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-File",
     path.join(import.meta.dirname, "native-file-dialog.ps1"),
     "-TargetProcessId", String(pid), "-Kind", kind, "-Action", action, "-FilePath", file],
-  { windowsHide: true, timeout: 40_000 });
+  { windowsHide: true, timeout: 50_000 });
 }
 async function openPicker(window: Page) {
   await window.getByRole("button", { name: "More", exact: true }).click();

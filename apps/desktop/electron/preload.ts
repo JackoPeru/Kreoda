@@ -167,8 +167,9 @@ const api: KreodaApi = {
       "kreoda:session-note",
       documentId,
       revision,
-      features ?? [],
-      sketches ?? [],
+      // Missing lists request a canonical snapshot; [] means an empty document.
+      features,
+      sketches,
     ) as Promise<void>,
 };
 

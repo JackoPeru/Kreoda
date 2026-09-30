@@ -91,16 +91,19 @@ test("home renders a real 3D studio with accessible responsive controls", async 
     await expect(scene).not.toHaveAttribute("data-webgl", "unavailable");
 
     const resting = await window.screenshot({ path: path.join(screenshots, "home-1536.png"), timeout: 60000 });
-    await window.waitForTimeout(2400);
-    const animated = await window.screenshot({ path: path.join(screenshots, "home-animated.png"), timeout: 60000 });
-    const motion = await difference(app, resting, animated, {
-      room: { left: 400, top: 95, right: 1120, bottom: 180 },
-      letter: { left: 615, top: 250, right: 925, bottom: 505 },
-      plant: { left: 0, top: 370, right: 180, bottom: 670 },
-    });
-    expect(motion.room.mean).toBeLessThan(0.12);
-    expect(motion.letter.mean).toBeGreaterThan(0.12);
-    expect(motion.plant.changedFraction).toBeGreaterThan(0.0005);
+    // Rendering clamps simulation delta and the plant sways periodically.
+    // Wait for a distinct rendered pose; wall time does not identify that pose.
+    await expect.poll(async () => {
+      const animated = await window.screenshot({ path: path.join(screenshots, "home-animated.png"), timeout: 60000 });
+      const motion = await difference(app, resting, animated, {
+        room: { left: 400, top: 95, right: 1120, bottom: 180 },
+        letter: { left: 615, top: 250, right: 925, bottom: 505 },
+        plant: { left: 0, top: 370, right: 180, bottom: 670 },
+      });
+      console.log(`HOME_MOTION ${JSON.stringify(motion)}`);
+      expect(motion.room.mean).toBeLessThan(0.12);
+      return motion.letter.mean > 0.12 && motion.plant.changedFraction > 0.0005;
+    }, { timeout: 30000, intervals: [750] }).toBe(true);
 
     await window.mouse.move(20, 145);
     const pointerAway = await window.screenshot({ timeout: 60000 });

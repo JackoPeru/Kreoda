@@ -94,6 +94,11 @@ async function terminateAndRestore(
     // to the same recovered WebContents. The test never requests a reload.
     await app.evaluate(({ BrowserWindow }) => new Promise<void>((resolve, reject) => {
       const contents = BrowserWindow.getAllWindows()[0]!.webContents;
+      const rendererPid = contents.getOSProcessId();
+      if (rendererPid <= 0 || rendererPid === process.pid) {
+        reject(new Error(`Invalid renderer PID ${rendererPid}`));
+        return;
+      }
       let failure = "none";
       let exit = "none";
       const onFailure = (_event: unknown, code: number, description: string) => { failure = `${code}: ${description}`; };
@@ -104,15 +109,25 @@ async function terminateAndRestore(
         contents.removeListener("did-fail-load", onFailure);
         contents.removeListener("render-process-gone", onExit);
       };
-      const loaded = () => { cleanup(); resolve(); };
+      const loaded = () => {
+        cleanup();
+        const replacementPid = contents.getOSProcessId();
+        if (exit === "none" || replacementPid <= 0 || replacementPid === rendererPid) {
+          reject(new Error(`Renderer was not replaced: ${JSON.stringify({ rendererPid, replacementPid, exit })}`));
+        } else resolve();
+      };
       const deadline = setTimeout(() => {
         cleanup();
-        reject(new Error(`renderer recovery did not finish loading: ${JSON.stringify({ exit, failure, loading: contents.isLoadingMainFrame(), url: contents.getURL() })}`));
+        reject(new Error(`renderer recovery did not finish loading: ${JSON.stringify({ rendererPid, currentPid: contents.getOSProcessId(), exit, failure, loading: contents.isLoadingMainFrame(), url: contents.getURL() })}`));
       }, 30000);
       contents.once("did-fail-load", onFailure);
       contents.once("render-process-gone", onExit);
       contents.once("did-finish-load", loaded);
-      contents.forcefullyCrashRenderer();
+      // Electron's crash request sometimes emitted no exit event in CI.
+      // Terminate the actual OS process and require its replacement; only
+      // the application's render-process-gone handler requests the reload.
+      try { process.kill(rendererPid, "SIGKILL"); }
+      catch (error) { cleanup(); reject(error); }
     }));
     // The surviving core may finish its transaction. Let it finish before
     // opening the persisted recovery document; a renderer kill is not rollback.

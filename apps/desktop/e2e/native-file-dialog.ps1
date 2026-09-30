@@ -41,17 +41,30 @@ if ($Action -eq 'Accept') {
   $value = $filename.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
   $value.SetValue($FilePath)
 }
-$buttonId = if ($Action -eq 'Cancel') { '2' } else { '1' }
-$button = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-  [System.Windows.Automation.AndCondition]::new(
-    [System.Windows.Automation.PropertyCondition]::new(
-      [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $buttonId),
-    [System.Windows.Automation.PropertyCondition]::new(
-      [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
-if ($null -eq $button) { throw "No action button $buttonId in '$title'" }
+$buttonName = if ($Action -eq 'Cancel') { 'Cancel' } elseif ($Kind -eq 'Save') { 'Save' } else { 'Open' }
+# UIA AutomationId is provider-defined; it is not the Win32 IDOK/IDCANCEL id.
+$buttonCondition = [System.Windows.Automation.PropertyCondition]::new(
+  [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+$buttonDeadline = [DateTime]::UtcNow.AddSeconds(10)
+$button = $null
+$buttonDetails = @()
+do {
+  $buttons = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
+  $actionCandidates = @()
+  $buttonDetails = @(foreach ($candidate in $buttons) {
+    $current = $candidate.Current
+    if ($current.Name.Replace('&', '') -eq $buttonName -and $current.IsEnabled) { $actionCandidates += $candidate }
+    [pscustomobject]@{ name = $current.Name; id = $current.AutomationId; class = $current.ClassName;
+      enabled = $current.IsEnabled; patterns = @($candidate.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName }) }
+  })
+  if ($actionCandidates.Count -gt 1) { throw "Ambiguous '$buttonName' buttons in '$title': $($buttonDetails | ConvertTo-Json -Compress)" }
+  if ($actionCandidates.Count -eq 1) { $button = $actionCandidates[0] }
+  if ($null -eq $button) { Start-Sleep -Milliseconds 100 }
+} while ($null -eq $button -and [DateTime]::UtcNow -lt $buttonDeadline)
+if ($null -eq $button) { throw "No enabled '$buttonName' button in '$title': $($buttonDetails | ConvertTo-Json -Compress)" }
 $invoke = $null
 if (-not $button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) {
-  throw "Button '$($button.Current.Name)' ($buttonId, class '$($button.Current.ClassName)') does not support InvokePattern"
+  throw "Button '$buttonName' does not support InvokePattern: $($buttonDetails | ConvertTo-Json -Compress)"
 }
 $invoke.Invoke()
 $closedDeadline = [DateTime]::UtcNow.AddSeconds(5)
