@@ -485,13 +485,20 @@ TEST(Torture10, InsertUpstreamHoleReflowsHistoryUndoAndReopen) {
 #if KREODA_WITH_OCCT
   NewDoc("insert");
   std::string err;
+  const auto mesh = [&](const std::string& id) {
+    const auto rendered = kreoda::TessellateFeature(id, 1, &err);
+    EXPECT_FALSE(rendered.indices.empty()) << id << ": " << err;
+  };
   ASSERT_TRUE(kreoda::CreateBoxFeature("plate", 100, 60, 10, &err)) << err;
+  mesh("plate");
   ASSERT_TRUE(kreoda::CreateFilletFeature("round", "plate",
       {"plate:edge.lin.box.+X~box.+Z"}, 1, &err)) << err;
+  mesh("round");
   const double original = VolumeOf("round");
   const int undos = kreoda::OcafLive::instance().AvailableUndos();
   kreoda::OcafLive::FaceSelection top;
   ASSERT_TRUE(kreoda::OcafLive::instance().SelectFace("round", "box.+Z", &top, &err));
+  EXPECT_EQ(top.entry.rfind("0:1:1001:", 0), 0u);
   const auto reply = rpc(R"({"protocolVersion":1,"requestId":"i","documentId":"insert","type":20,"featureId":"inserted","targetId":"plate","faceRole":"box.+Z","xMm":50,"yMm":30,"diameterMm":8,"depthMode":"throughAll","depthMm":0,"insertBeforeId":"round"})");
   ASSERT_TRUE(ok(reply)) << reply;
   kreoda::BodyRecord body;
@@ -505,10 +512,13 @@ TEST(Torture10, InsertUpstreamHoleReflowsHistoryUndoAndReopen) {
   EXPECT_NEAR(VolumeOf("round"), original - 3.14159265358979 * 16 * 10, 1);
   EXPECT_TRUE(kreoda::OcafLive::instance().ResolveSelection(top).valid);
   EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos + 1);
+  mesh("round");
   ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"u","documentId":"insert","type":8})")));
+  mesh("round");
   EXPECT_FALSE(kreoda::ShapeStore::instance().contains("inserted"));
   EXPECT_NEAR(VolumeOf("round"), original, 1e-6);
   ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"r","documentId":"insert","type":9})")));
+  mesh("round");
   ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("round", &body));
   EXPECT_EQ(body.history, (std::vector<std::string>{"plate", "inserted", "round"}));
 #if KREODA_WITH_MINIZIP
@@ -521,10 +531,16 @@ TEST(Torture10, InsertUpstreamHoleReflowsHistoryUndoAndReopen) {
   ASSERT_TRUE(ok(fileRpc(11)));
   fs::remove(file);
 #endif
+  mesh("round");
+  mesh("plate");  // historical face fetched lazily by the dialog after Open
+  EXPECT_TRUE(kreoda::OcafLive::instance().ResolveSelection(top).valid);
+  ASSERT_TRUE(kreoda::CreateHoleFeature("second", "plate", "box.+Z", 20, 20, 8,
+      "throughAll", 0, &err, "inserted")) << err;
+  mesh("round");
   ASSERT_TRUE(kreoda::RebuildFeature("plate", "widthMm", 120, &err)) << err;
-  EXPECT_NEAR(VolumeOf("round"), original + 12000 - 3.14159265358979 * 16 * 10, 2);
+  EXPECT_NEAR(VolumeOf("round"), original + 12000 - 2 * 3.14159265358979 * 16 * 10, 2);
   ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("round", &body));
-  EXPECT_EQ(body.history, (std::vector<std::string>{"plate", "inserted", "round"}));
+  EXPECT_EQ(body.history, (std::vector<std::string>{"plate", "second", "inserted", "round"}));
 #endif
 }
 

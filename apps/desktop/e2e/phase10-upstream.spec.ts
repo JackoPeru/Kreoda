@@ -4,9 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { boot, openProject, runBar, snapOf } from "./helpers";
 
-test("upstream hole: history action rebuilds the original tip, undo and reopen", async () => {
+test("upstream hole: history action rebuilds the original tip, undo and reopen", async ({}, testInfo) => {
   const { app, window } = await boot();
-  const file = path.join(os.tmpdir(), `kreoda-upstream-${process.pid}.icad`);
+  const childProcess = app.process();
+  let stderr = "";
+  const collect = (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-200_000); };
+  childProcess.stderr?.on("data", collect);
+  const file = path.join(os.tmpdir(), `kreoda-upstream-${childProcess.pid}.icad`);
   try {
     await runBar(window, "box 100 60 10");
     const plate = (await snapOf(window)).bodies[0]!;
@@ -54,6 +58,8 @@ test("upstream hole: history action rebuilds the original tip, undo and reopen",
     expect(snapshot.tips).toEqual([rounded.id]);
   } finally {
     await app.close();
+    childProcess.stderr?.off("data", collect);
+    await testInfo.attach("upstream-sidecar-stderr", { body: Buffer.from(stderr), contentType: "text/plain" });
     fs.rmSync(file, { force: true });
   }
 });

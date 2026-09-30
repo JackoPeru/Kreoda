@@ -43,10 +43,16 @@ if ($Action -eq 'Accept') {
 }
 $buttonId = if ($Action -eq 'Cancel') { '2' } else { '1' }
 $button = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-  [System.Windows.Automation.PropertyCondition]::new(
-    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $buttonId))
+  [System.Windows.Automation.AndCondition]::new(
+    [System.Windows.Automation.PropertyCondition]::new(
+      [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $buttonId),
+    [System.Windows.Automation.PropertyCondition]::new(
+      [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
 if ($null -eq $button) { throw "No action button $buttonId in '$title'" }
-$invoke = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+$invoke = $null
+if (-not $button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) {
+  throw "Button '$($button.Current.Name)' ($buttonId, class '$($button.Current.ClassName)') does not support InvokePattern"
+}
 $invoke.Invoke()
 $closedDeadline = [DateTime]::UtcNow.AddSeconds(5)
 do {

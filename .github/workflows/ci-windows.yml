@@ -115,6 +115,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify Squirrel install and packaged core
+        id: installed-payload
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -247,6 +248,18 @@ jobs:
           if ($selfTestExitCode -ne 0) {
             throw "Installed kreoda-core --self-test exited with code $selfTestExitCode."
           }
+
+          ./scripts/write-native-runtime-manifest.ps1 -ReleaseDirectory $releaseDir `
+            -OutputFile "$workspace/artifacts/native-runtime-manifest.json" `
+            -SourceCommit $env:GITHUB_SHA -CompilerVersion $env:VCToolsVersion
+
+      - name: Retain native runtime provenance
+        if: always() && steps.installed-payload.conclusion == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-runtime-provenance
+          path: artifacts/native-runtime-manifest.json
+          if-no-files-found: error
 
       - name: E2E (Electron + sidecar)
         run: pnpm test:e2e
