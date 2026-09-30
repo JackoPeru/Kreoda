@@ -261,8 +261,13 @@ jobs:
           path: artifacts/native-runtime-manifest.json
           if-no-files-found: error
 
+      - name: E2E native file pickers
+        run: pnpm --filter @kreoda/desktop exec playwright test e2e/phase10-file-picker.spec.ts
+
       - name: E2E (Electron + sidecar)
-        run: pnpm test:e2e
+        # The picker runs first so hosted-only dialog failures surface early.
+        # Keep all other ordinary cases and exclude the dedicated crash suite.
+        run: pnpm --filter @kreoda/desktop exec playwright test --grep-invert '\[solo\]|native file pickers:'
 
       - name: Upload E2E diagnostics
         if: always()

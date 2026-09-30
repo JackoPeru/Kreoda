@@ -19,10 +19,21 @@ $deadline = [DateTime]::UtcNow.AddSeconds(30)
 $dialog = $null
 while ($null -eq $dialog -and [DateTime]::UtcNow -lt $deadline) {
   $dialog = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst(
-    [System.Windows.Automation.TreeScope]::Descendants, $condition)
+    # Desktop children are top-level windows; descendants may match the
+    # dialog's embedded folder-view panel and omit its action controls.
+    [System.Windows.Automation.TreeScope]::Children, $condition)
   if ($null -eq $dialog) { Start-Sleep -Milliseconds 100 }
 }
-if ($null -eq $dialog) { throw "No native file dialog for process $TargetProcessId" }
+if ($null -eq $dialog) {
+  $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+    [System.Windows.Automation.TreeScope]::Children,
+    [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ProcessIdProperty, $TargetProcessId))
+  $details = @(foreach ($window in $windows) {
+    [pscustomobject]@{ name = $window.Current.Name; class = $window.Current.ClassName;
+      type = $window.Current.ControlType.ProgrammaticName; handle = $window.Current.NativeWindowHandle }
+  })
+  throw "No top-level native file dialog for process ${TargetProcessId}: $($details | ConvertTo-Json -Compress)"
+}
 $title = $dialog.Current.Name
 $expectedTitle = if ($Kind -eq 'Save') { '^Save( As)?$' } else { '^Open$' }
 if ($title -notmatch $expectedTitle) { throw "Unexpected $Kind dialog title '$title'" }
@@ -61,7 +72,7 @@ do {
   if ($actionCandidates.Count -eq 1) { $button = $actionCandidates[0] }
   if ($null -eq $button) { Start-Sleep -Milliseconds 100 }
 } while ($null -eq $button -and [DateTime]::UtcNow -lt $buttonDeadline)
-if ($null -eq $button) { throw "No enabled '$buttonName' button in '$title': $($buttonDetails | ConvertTo-Json -Compress)" }
+if ($null -eq $button) { throw "No enabled '$buttonName' button in '$title' (root handle $($dialog.Current.NativeWindowHandle), type $($dialog.Current.ControlType.ProgrammaticName)): $($buttonDetails | ConvertTo-Json -Compress)" }
 $invoke = $null
 if (-not $button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) {
   throw "Button '$buttonName' does not support InvokePattern: $($buttonDetails | ConvertTo-Json -Compress)"
@@ -70,9 +81,9 @@ $invoke.Invoke()
 $closedDeadline = [DateTime]::UtcNow.AddSeconds(5)
 do {
   $remaining = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst(
-    [System.Windows.Automation.TreeScope]::Descendants, $condition)
+    [System.Windows.Automation.TreeScope]::Children, $condition)
   if ($null -ne $remaining) { Start-Sleep -Milliseconds 100 }
 } while ($null -ne $remaining -and [DateTime]::UtcNow -lt $closedDeadline)
 if ($null -ne $remaining) { throw "Native $Kind dialog did not close" }
-[pscustomobject]@{ processId = $TargetProcessId; kind = $Kind; title = $title; action = $Action; filePath = $FilePath } |
+[pscustomobject]@{ processId = $TargetProcessId; kind = $Kind; title = $title; action = $Action; filePath = $FilePath; rootScope = 'desktop.Children' } |
   ConvertTo-Json -Compress
