@@ -5,12 +5,13 @@ import { coreClient } from "../ipc/coreClient";
 import { useDocumentUiStore, useSelectionStore } from "../stores";
 import { faceCentroid, faceLocalFromWorld } from "../interaction/pull";
 import { CadActions, CadDialog } from "./CadDialog";
-import { t, useT } from "../i18n";
+import { t, useT, featureTypeName } from "../i18n";
 
 /** Parametric hole on the selected face (§62 Scenario A). */
 export function HoleDialog({ onClose }: { onClose: () => void }) {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
   const features = useDocumentUiStore((s) => s.features);
+  const bodies = useDocumentUiStore((s) => s.bodies);
   const faceId = selectedIds.find((id) => id.includes(":")) ?? null;
   const [diameter, setDiameter] = useState("8");
   const [depthMode, setDepthMode] = useState<"throughAll" | "blind">(
@@ -31,6 +32,10 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
     if (!feature) return null;
     return { featureId: bare, role: faceId.slice(cut + 1) };
   }, [faceId, features]);
+  const history = bodies.find((b) => b.history.includes(target?.featureId ?? ""))?.history ?? [];
+  const nextId = target ? history[history.indexOf(target.featureId) + 1] : undefined;
+  const next = features.find((f) => f.featureId === nextId && f.dependsOn[0] === target?.featureId);
+  const [insertUpstream, setInsertUpstream] = useState(Boolean(next));
 
   const submit = async (): Promise<void> => {
     setError(null);
@@ -43,7 +48,8 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
       let xMm: number;
       let yMm: number;
       if (x === null || y === null) {
-        const mesh = useDocumentUiStore.getState().meshes[target.featureId];
+        const mesh = useDocumentUiStore.getState().meshes[target.featureId] ??
+          await coreClient.requestMesh(target.featureId, 1);
         const c = mesh ? faceCentroid(mesh, faceId!, 64) : null;
         if (!c) throw new Error(tt("hole.errNoPos"));
         let local: { x: number; y: number } | null = null;
@@ -66,6 +72,7 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
       const depthMm =
         depthMode === "blind" ? parseLengthToMm(depth) : 0;
       await executeCommand("CreateHole", {
+        ...(insertUpstream && next ? { insertBeforeId: next.featureId } : {}),
         targetId: target.featureId,
         faceRole: target.role,
         xMm,
@@ -103,6 +110,12 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
         />
       }
     >
+      {next && (
+        <label className="mb-3 flex items-center gap-2 text-xs text-white/70">
+          <input type="checkbox" checked={insertUpstream} onChange={(e) => setInsertUpstream(e.target.checked)} />
+          {tt("hole.insertBefore", { feature: featureTypeName(next.type) })}
+        </label>
+      )}
       <label className="mb-2 block text-xs text-white/70">
         {tt("hole.diameter")}
         <input

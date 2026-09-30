@@ -180,6 +180,7 @@ async function dispatchCommand(
     case "CreateHole": {
       const created = await coreClient.createHole(
         p as {
+          insertBeforeId?: string;
           targetId: string;
           faceRole: string;
           xMm: number;
@@ -189,7 +190,8 @@ async function dispatchCommand(
           depthMm: number;
         },
       );
-      await pullAndAppend(created);
+      if (created.features) await syncFromCoreList(created.features, created.revision, created.sketches);
+      else await pullAndAppend(created);
       return { kind: "created", feature: created };
     }
     case "CreateHolePattern": {

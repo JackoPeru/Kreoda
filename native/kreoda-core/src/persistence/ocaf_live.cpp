@@ -292,8 +292,8 @@ bool OcafLive::BeginCommand(std::string* error) {
     if (error) *error = "nested OCAF command (single queue, §40)";
     return false;
   }
-  // A new command invalidates the redo stack — standard undo semantics.
-  ocaf_->doc->ClearRedos();
+  // OCAF invalidates Redo only when a changed command commits. Opening or
+  // aborting an attempted edit must preserve the user's existing Redo.
   ocaf_->doc->OpenCommand();
   return true;
 #else
@@ -356,8 +356,7 @@ bool OcafLive::BeginTransaction(const std::string& transactionId,
     if (error) *error = "nested OCAF command (single queue, §40)";
     return false;
   }
-  // One user-level action == one Undo delta: clear redos once, at the edge.
-  ocaf_->doc->ClearRedos();
+  // Commit owns Redo invalidation; an aborted transaction preserves it.
   ocaf_->doc->OpenCommand();
   joinTxn_ = true;
   txnTainted_ = false;
@@ -890,6 +889,38 @@ bool OcafLive::SelectFace(const std::string& featureId, const std::string& role,
   if (error) *error = "OCAF requires OCCT (link via vcpkg)";
   return false;
 #endif
+}
+
+bool OcafLive::SelectionsNeedRepair(const std::vector<std::string>& featureIds,
+                                    bool checkAmbiguity) const {
+#if KREODA_WITH_OCCT
+  if (ocaf_ && !ocaf_->selectionsRoot.IsNull()) {
+    for (TDF_ChildIterator it(ocaf_->selectionsRoot, Standard_False); it.More(); it.Next()) {
+      Handle(TDataStd_Comment) c;
+      if (!it.Value().FindAttribute(TDataStd_Comment::GetID(), c)) continue;
+      const auto ref = ExtToAscii(c->Get());
+      const auto cut = ref.find('|');
+      for (const auto& id : featureIds) {
+        if (cut == std::string::npos || ref.substr(0, cut) != id) continue;
+        const auto role = ref.substr(cut + 1);
+        if (HasIndexedTopologyRole(role)) return true;
+        if (checkAmbiguity) {
+          ShapeRecord rec;
+          if (!ShapeStore::instance().get(id, &rec)) return true;
+          size_t count = 0;
+          for (const auto& candidate : ClassifyFaceRoles(rec.shape, rec.type, id)) {
+            if (candidate == id + ":" + role) ++count;
+          }
+          if (count != 1) return true;
+        }
+      }
+    }
+  }
+#else
+  (void)featureIds;
+  (void)checkAmbiguity;
+#endif
+  return false;
 }
 
 OcafLive::ResolveResult OcafLive::ResolveSelection(const FaceSelection& sel) {

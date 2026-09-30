@@ -481,10 +481,155 @@ TEST(Torture10, CurvedSketchOuterLoopsAndHoleWinding) {
 #endif
 }
 
+TEST(Torture10, InsertUpstreamHoleReflowsHistoryUndoAndReopen) {
+#if KREODA_WITH_OCCT
+  NewDoc("insert");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("plate", 100, 60, 10, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateFilletFeature("round", "plate",
+      {"plate:edge.lin.box.+X~box.+Z"}, 1, &err)) << err;
+  const double original = VolumeOf("round");
+  const int undos = kreoda::OcafLive::instance().AvailableUndos();
+  kreoda::OcafLive::FaceSelection top;
+  ASSERT_TRUE(kreoda::OcafLive::instance().SelectFace("round", "box.+Z", &top, &err));
+  const auto reply = rpc(R"({"protocolVersion":1,"requestId":"i","documentId":"insert","type":20,"featureId":"inserted","targetId":"plate","faceRole":"box.+Z","xMm":50,"yMm":30,"diameterMm":8,"depthMode":"throughAll","depthMm":0,"insertBeforeId":"round"})");
+  ASSERT_TRUE(ok(reply)) << reply;
+  kreoda::BodyRecord body;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("round", &body));
+  ASSERT_EQ(body.history, (std::vector<std::string>{"plate", "inserted", "round"}));
+  EXPECT_EQ(body.tipFeatureId, "round");
+  kreoda::ShapeRecord rounded;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("round", &rounded));
+  EXPECT_EQ(rounded.dependsOn, (std::vector<std::string>{"inserted"}));
+  EXPECT_EQ(rounded.refExtra, "inserted:edge.lin.box.+X~box.+Z");
+  EXPECT_NEAR(VolumeOf("round"), original - 3.14159265358979 * 16 * 10, 1);
+  EXPECT_TRUE(kreoda::OcafLive::instance().ResolveSelection(top).valid);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos + 1);
+  ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"u","documentId":"insert","type":8})")));
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("inserted"));
+  EXPECT_NEAR(VolumeOf("round"), original, 1e-6);
+  ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"r","documentId":"insert","type":9})")));
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("round", &body));
+  EXPECT_EQ(body.history, (std::vector<std::string>{"plate", "inserted", "round"}));
+#if KREODA_WITH_MINIZIP
+  const auto file = fs::temp_directory_path() / "kreoda-upstream-insert.icad";
+  auto fileRpc = [&](int type) {
+    return rpc("{\"protocolVersion\":1,\"requestId\":\"file\",\"documentId\":\"insert\",\"type\":" + std::to_string(type) + ",\"path\":\"" + file.generic_string() + "\"}");
+  };
+  ASSERT_TRUE(ok(fileRpc(10)));
+  NewDoc("insert");
+  ASSERT_TRUE(ok(fileRpc(11)));
+  fs::remove(file);
+#endif
+  ASSERT_TRUE(kreoda::RebuildFeature("plate", "widthMm", 120, &err)) << err;
+  EXPECT_NEAR(VolumeOf("round"), original + 12000 - 3.14159265358979 * 16 * 10, 2);
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("round", &body));
+  EXPECT_EQ(body.history, (std::vector<std::string>{"plate", "inserted", "round"}));
+#endif
+}
+
+TEST(Torture10, UpstreamInsertionFailureRestoresAllState) {
+#if KREODA_WITH_OCCT
+  NewDoc("insert-fail");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("plate", 100, 60, 10, &err));
+  ASSERT_TRUE(kreoda::CreateHoleFeature("old", "plate", "box.+Z", 20, 20, 6, "throughAll", 0, &err));
+  const double oldVolume = VolumeOf("old");
+  ASSERT_TRUE(kreoda::RebuildFeature("plate", "widthMm", 120, &err)) << err;
+  ASSERT_TRUE(kreoda::OcafLive::instance().Undo(&err)) << err;
+  ASSERT_EQ(kreoda::OcafLive::instance().AvailableRedos(), 1);
+  const auto revision = kreoda::DocumentStore::instance().snapshotRevision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto insert = [&](const std::string& before) {
+    return rpc(R"({"protocolVersion":1,"requestId":"i","documentId":"insert-fail","type":20,"featureId":"new","targetId":"plate","faceRole":"box.+Z","xMm":20,"yMm":20,"diameterMm":8,"depthMode":"throughAll","depthMm":0,"insertBeforeId":")" + before + "\"}");
+  };
+  EXPECT_FALSE(ok(insert("ghost")));
+  const auto failed = insert("old");
+  EXPECT_FALSE(ok(failed)) << failed;
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("new"));
+  EXPECT_FALSE(kreoda::TheFeatureGraph().hasFeature("new"));
+  EXPECT_EQ(kreoda::DocumentStore::instance().snapshotRevision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableRedos(), 1);
+  EXPECT_NEAR(VolumeOf("old"), oldVolume, 1e-6);
+  kreoda::BodyRecord body;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("old", &body));
+  EXPECT_EQ(body.history, (std::vector<std::string>{"plate", "old"}));
+  ASSERT_TRUE(kreoda::OcafLive::instance().BeginTransaction("abort-redo", &err)) << err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("temporary", 10, 10, 10, &err)) << err;
+  ASSERT_TRUE(kreoda::OcafLive::instance().RollbackTransaction("abort-redo", &err)) << err;
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableRedos(), 1);
+  ASSERT_TRUE(kreoda::OcafLive::instance().Redo(&err)) << err;
+  EXPECT_NEAR(VolumeOf("old"), oldVolume + 12000, 1);
+  ASSERT_TRUE(kreoda::OcafLive::instance().Undo(&err)) << err;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("new", "plate", "box.+Z", 70, 40, 8,
+      "throughAll", 0, &err, "old")) << err;  // the aborted id remains reusable
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableRedos(), 0);
+#endif
+}
+
+TEST(Torture10, UpstreamInsertionRejectsIndexedReferencesAndAmbiguousFaces) {
+#if KREODA_WITH_OCCT
+  std::string err;
+  const auto setup = [&] {
+    NewDoc("insert-guard");
+    EXPECT_TRUE(kreoda::CreateBoxFeature("plate", 100, 60, 10, &err));
+    EXPECT_TRUE(kreoda::CreateHoleFeature("old", "plate", "box.+Z", 20, 20, 6, "throughAll", 0, &err));
+  };
+  const auto insert = [&](const std::string& mode, double depth) {
+    return rpc(R"({"protocolVersion":1,"requestId":"i","documentId":"insert-guard","type":20,"featureId":"new","targetId":"plate","faceRole":"box.+Z","xMm":70,"yMm":40,"diameterMm":8,"insertBeforeId":"old","depthMode":")" + mode + "\",\"depthMm\":" + std::to_string(depth) + "}");
+  };
+  setup();
+  kreoda::OcafLive::FaceSelection wall;
+  ASSERT_TRUE(kreoda::OcafLive::instance().SelectFace("old", "wall.0", &wall, &err));
+  auto reply = insert("throughAll", 0);
+  EXPECT_FALSE(ok(reply));
+  EXPECT_NE(reply.find("needs repair"), std::string::npos) << reply;
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("new"));
+  EXPECT_TRUE(kreoda::OcafLive::instance().ResolveSelection(wall).valid);
+  setup();
+  ASSERT_TRUE(kreoda::CreateFilletFeature("rim", "old", {"old:edge.cir.box.+Z~wall.0"}, 1, &err)) << err;
+  reply = insert("throughAll", 0);
+  EXPECT_FALSE(ok(reply));
+  EXPECT_NE(reply.find("indexed topology"), std::string::npos) << reply;
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("new"));
+  setup();
+  const auto volume = VolumeOf("old");
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  reply = insert("blind", 3);  // blind cap duplicates box.+Z on the new target
+  EXPECT_FALSE(ok(reply));
+  EXPECT_NE(reply.find("needs repair"), std::string::npos) << reply;
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("new"));
+  EXPECT_NEAR(VolumeOf("old"), volume, 1e-6);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  ASSERT_TRUE(kreoda::OcafLive::instance().BeginTransaction("txn", &err));
+  EXPECT_FALSE(ok(insert("throughAll", 0)));
+  EXPECT_TRUE(kreoda::OcafLive::instance().InTransaction());
+  ASSERT_TRUE(kreoda::OcafLive::instance().RollbackTransaction("txn", &err));
+  EXPECT_NEAR(VolumeOf("old"), volume, 1e-6);
+  ASSERT_TRUE(kreoda::CreateHoleFeature("sibling", "plate", "box.+Z", 80, 40, 6,
+      "throughAll", 0, &err));
+  reply = insert("throughAll", 0);
+  EXPECT_FALSE(ok(reply));
+  EXPECT_NE(reply.find("branched history"), std::string::npos) << reply;
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("new"));
+  NewDoc("insert-ambiguous");
+  ASSERT_TRUE(kreoda::CreateBoxFeature("base", 100, 50, 20, &err));
+  ASSERT_TRUE(kreoda::CreateBoxFeature("tool", 40, 40, 40, &err));
+  ASSERT_TRUE(kreoda::CreateBooleanFeature("fused", "fuse", "base", "tool", &err));
+  ASSERT_TRUE(kreoda::CreateHoleFeature("old", "fused", "box.+Z", 20, 20, 8, "throughAll", 0, &err));
+  const auto ambiguousVolume = VolumeOf("old");
+  EXPECT_FALSE(kreoda::CreateHoleFeature("new", "fused", "box.+Z", 70, 20, 8,
+      "throughAll", 0, &err, "old"));
+  EXPECT_NE(err.find("selected face needs repair"), std::string::npos) << err;
+  EXPECT_NEAR(VolumeOf("old"), ambiguousVolume, 1e-6);
+#endif
+}
+
 // §10.3 HolePattern.* covers changing the active count of 1..4 authored
 // centers, dimensions, upstream edits, preview, references and atomic failure.
-// Feature dependencies remain fixed at creation; no command/API inserts a
-// node into or reparents an existing history yet.
+// InsertUpstreamHole* covers a new predecessor in a linear body history,
+// preserved UUID/tip, remapped semantic edges and explicit repair failures.
 
 // §10.4: 100 edit/save/close/open cycles — UUIDs, params, expressions stable.
 TEST(Torture10, ReferenceMetadata100CyclesAndFailedSave) {

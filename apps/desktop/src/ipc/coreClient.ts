@@ -474,6 +474,7 @@ export class CoreClient {
   }
 
   async createHole(params: {
+    insertBeforeId?: string;
     targetId: string;
     faceRole: string;
     xMm: number;
@@ -481,14 +482,17 @@ export class CoreClient {
     diameterMm: number;
     depthMode: "throughAll" | "blind";
     depthMm: number;
-  }): Promise<CreatedFeature> {
+  }): Promise<CreatedFeature & { features?: FeatureSummary[]; sketches?: SketchSummary[] }> {
     const featureId = newFeatureId("ho");
     const parsed = await this.invoke(
       CommandType.CreateHole,
       this.documentId,
       { featureId, ...params },
     );
-    return CreatedFeatureSchema.parse(parsed);
+    const created = CreatedFeatureSchema.parse(parsed);
+    if (!params.insertBeforeId) return created;
+    const list = FeatureListSchema.parse(parsed);
+    return { ...created, features: list.features, sketches: list.sketches };
   }
 
   /**

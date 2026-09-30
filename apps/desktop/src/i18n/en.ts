@@ -234,6 +234,9 @@ export const en = {
 
   // ── hole dialog ─────────────────────────────────────────
   "hole.title": "Make hole",
+  "hole.insertBefore": "Insert before {feature} and rebuild later operations",
+  "tree.insertHole": "Insert hole",
+  "tree.insertHoleHint": "Insert a hole from the upper face before the next operation",
   "hole.descOn": "On {role} — position defaults to face center.",
   "hole.descOff": "Select a face first.",
   "hole.diameter": "Diameter (mm)",

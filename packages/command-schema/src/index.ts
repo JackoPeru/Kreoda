@@ -169,6 +169,7 @@ export const COMMANDS: CadCommandDefinition[] = [
     description: "Cut a parametric hole in the selected face.",
     icon: "circle-dot",
     parameterSchema: z.object({
+      insertBeforeId: z.string().min(1).optional(),
       targetId: z.string().min(1),
       faceRole: z.string().min(1),
       xMm: z.number().finite(),

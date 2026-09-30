@@ -1383,15 +1383,20 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       const double depth = json_double_field(
           requestJson, "depthMm",
           json_double_field(requestJson, "depth", 0));
+      const auto insertBeforeId = json_string_field(requestJson, "insertBeforeId", "");
+      if (json_has_key(requestJson, "insertBeforeId") && !ShapeStore::ValidFeatureId(insertBeforeId)) {
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "insertBeforeId must be a feature id"));
+      }
       std::string error;
       if (!CreateHoleFeature(featureId, targetId, faceRole, x, y, dia, mode,
-                             depth, &error)) {
+                             depth, &error, insertBeforeId)) {
         return make_response(requestId, "error",
                              error_body("HOLE_FAILED", error));
       }
       ShapeRecord rec;
       ShapeStore::instance().get(featureId, &rec);
-      return make_response(requestId, "ok", shape_body(rec));
+      return make_response(requestId, "ok", shape_body(rec) +
+          (insertBeforeId.empty() ? "" : "," + feature_list_body()));
     }
     case kCreateHolePattern: {
       // M11: 1..4 holes in exactly one OCAF transaction (one Undo step).

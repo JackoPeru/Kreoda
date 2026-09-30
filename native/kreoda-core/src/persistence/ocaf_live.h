@@ -93,6 +93,8 @@ class OcafLive {
     std::string role;  // resolved role when known
   };
   ResolveResult ResolveSelection(const FaceSelection& sel);
+  bool SelectionsNeedRepair(const std::vector<std::string>& featureIds,
+                           bool checkAmbiguity = false) const;
 
   bool Save(const std::string& xbfPath, std::string* error);
   // Opens into the live doc and rebuilds label/selection maps.

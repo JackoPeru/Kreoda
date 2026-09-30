@@ -21,7 +21,8 @@ bool CreateHoleFeature(const std::string& featureId,
                        const std::string& targetId,
                        const std::string& faceRole, double xMm, double yMm,
                        double diameterMm, const std::string& depthMode,
-                       double depthMm, std::string* error);
+                       double depthMm, std::string* error,
+                       const std::string& insertBeforeId = "");
 
 // Slice 5 cumulative pattern: 1..4 holes in ONE OCAF transaction (one Undo
 // step) committed as ONE "HolePattern" record advancing the target's body.

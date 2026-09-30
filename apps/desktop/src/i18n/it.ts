@@ -236,6 +236,9 @@ export const it: Record<EnKey, string> = {
 
   // ── hole dialog ─────────────────────────────────────────
   "hole.title": "Pratica foro",
+  "hole.insertBefore": "Inserisci prima di {feature} e ricalcola le lavorazioni successive",
+  "tree.insertHole": "Inserisci foro",
+  "tree.insertHoleHint": "Inserisci un foro dalla faccia superiore prima della lavorazione successiva",
   "hole.descOn": "Su {role} — la posizione predefinita è il centro faccia.",
   "hole.descOff": "Seleziona prima una faccia.",
   "hole.diameter": "Diametro (mm)",
