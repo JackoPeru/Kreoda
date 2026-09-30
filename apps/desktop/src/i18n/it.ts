@@ -201,6 +201,7 @@ export const it: Record<EnKey, string> = {
   "props.slotDistance": "Distanza",
   "props.slotAngle": "Angolo (°)",
   "props.slotDiameter": "Diametro",
+  "props.slotCount": "Numero di fori",
   "props.slotDepthBlind": "Profondità (cieco)",
   "props.slotTx": "Trasla X",
   "props.slotTy": "Trasla Y",

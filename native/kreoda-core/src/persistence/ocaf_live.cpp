@@ -8,6 +8,7 @@
 #include "../document/document_store.h"
 #include "../expressions/expressions.h"
 #include "../features/sketch/sketch_json.h"
+#include "../features/hole/hole.h"
 #include "../features/sketch/sketch_store.h"
 #include "../model/body.h"
 
@@ -236,6 +237,11 @@ ShapeRecord RecordFromLabel(const TDF_Label& label,
   rec.paramsMm = params;
   rec.dependsOn = deps;
   rec.refExtra = refExtra;
+  if (rec.type == "HolePattern" && rec.paramsMm.size() == 2) {
+    // Add only derived metadata in memory; opening does not rewrite the file
+    // or create an Undo step. Corrupt records retain their repair state.
+    NormalizeHolePatternParams(rec.refExtra, &rec.paramsMm, nullptr);
+  }
   rec.shape = shape;
   GProp_GProps props;
   BRepGProp::VolumeProperties(shape, props);
@@ -984,6 +990,12 @@ bool OcafLive::Load(const std::string& xbfPath,
     if (error) *error = "OCAF: cannot open " + xbfPath;
     return false;
   }
+  // Open replaces Reset's document; its default Undo limit is zero.
+  // Enable deltas on the loaded document so edits and failed commands
+  // remain undoable/atomic after reopening, just as in a fresh document.
+  ocaf_->doc->SetUndoLimit(100);
+  ocaf_->doc->ClearUndos();
+  ocaf_->doc->ClearRedos();
   ocaf_->shapes = XCAFDoc_DocumentTool::ShapeTool(ocaf_->doc->Main());
   // Rebuild feature map from persisted labels (name + params comment).
   // C8: two-pass so Instance→Instance / Instance→self / Instance→ghost from

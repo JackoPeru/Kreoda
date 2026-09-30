@@ -178,6 +178,10 @@ bool ResolveParamsForEdit(const ShapeRecord& rec, const std::string& paramName,
                           std::string* error) {
   const std::vector<std::string> slots = DescribeParams(rec.type);
   std::vector<double> params = rec.paramsMm;
+#if KREODA_WITH_OCCT
+  if (rec.type == "HolePattern" &&
+      !NormalizeHolePatternParams(rec.refExtra, &params, error)) return false;
+#endif
   bool matched = false;
   if (!slots.empty() && slots.size() == params.size()) {
     for (size_t i = 0; i < slots.size(); ++i) {
@@ -195,6 +199,10 @@ bool ResolveParamsForEdit(const ShapeRecord& rec, const std::string& paramName,
     }
     return false;
   }
+#if KREODA_WITH_OCCT
+  if (rec.type == "HolePattern" &&
+      !NormalizeHolePatternParams(rec.refExtra, &params, error)) return false;
+#endif
   *out = std::move(params);
   return true;
 }
@@ -209,7 +217,7 @@ bool BuildPreviewMesh(const std::string& featureId,
     if (error) *error = "unknown feature " + featureId;
     return false;
   }
-  if (rec.type == "Hole" && paramName == "depthMm" &&
+  if ((rec.type == "Hole" || rec.type == "HolePattern") && paramName == "depthMm" &&
       rec.refExtra.find("mode=blind") == std::string::npos) {
     if (error) *error = "throughAll hole has no depthMm (use a blind hole to set depth)";
     return false;
@@ -252,6 +260,14 @@ bool BuildPreviewMesh(const std::string& featureId,
     built = BuildHoleShape(target.shape, target.featureId, target.type,
                            faceRole, hx, hy, newParams[0], mode, newParams[1],
                            &candidate, error);
+  } else if (rec.type == "HolePattern" && !rec.dependsOn.empty()) {
+    ShapeRecord target;
+    if (!ShapeStore::instance().get(rec.dependsOn[0], &target)) {
+      if (error) *error = "hole pattern target vanished";
+      return false;
+    }
+    built = BuildHolePatternShape(target.shape, target.featureId, target.type,
+                                  rec.refExtra, newParams, &candidate, error);
   } else if ((rec.type == "Fillet" || rec.type == "Chamfer") &&
              newParams.size() == 1 && !rec.dependsOn.empty()) {
     ShapeRecord target;
@@ -309,7 +325,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
   }
   // M14: throughAll holes have no depth — a depthMm edit would be a silent
   // no-op (BuildHoleShape ignores depth unless mode=blind). Fail honestly.
-  if (rec.type == "Hole" && paramName == "depthMm" &&
+  if ((rec.type == "Hole" || rec.type == "HolePattern") && paramName == "depthMm" &&
       rec.refExtra.find("mode=blind") == std::string::npos) {
     if (error) *error = "throughAll hole has no depthMm (use a blind hole to set depth)";
     return false;
@@ -322,6 +338,8 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
                                error)) {
       return false;
     }
+    std::vector<double> check;
+    if (!ResolveParamsForEdit(rec, paramName, probe, &check, error)) return false;
   } else {
     std::vector<double> check;
     if (!ResolveParamsForEdit(rec, paramName, valueMm, &check, error)) {
@@ -351,10 +369,9 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
   // Previous formula map for rollback (restored on abort with the params).
   const std::map<std::string, std::string> prevExpr =
       ExpressionStore::instance().forFeature(featureId);
-  if (!expression.empty()) {
-    // Stage the formula itself; its VALUE lands via the fixpoint below.
-    ExpressionStore::instance().set(featureId, paramName, expression);
-  }
+  // A bare edit replaces this parameter's formula; unrelated formulas stay.
+  // Formula values land via the fixpoint below. Both paths share rollback.
+  ExpressionStore::instance().set(featureId, paramName, expression);
   if (expression.empty()) {
     std::vector<double> newParams;
     if (!ResolveParamsForEdit(rec, paramName, valueMm, &newParams, error)) {

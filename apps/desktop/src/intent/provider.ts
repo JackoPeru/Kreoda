@@ -57,7 +57,7 @@ export interface IntentModelProvider {
 
 const ALLOWED_DIM_PARAMS = new Set([
   "widthMm", "heightMm", "depthMm", "radiusMm",
-  "distanceMm", "diameterMm", "depthMm",
+  "distanceMm", "diameterMm", "depthMm", "count",
   // Instance placement (Phase 9d): translations + ZYX euler degrees.
   "txMm", "tyMm", "tzMm", "rxDeg", "ryDeg", "rzDeg",
 ]);
@@ -71,6 +71,7 @@ const ANGLE_PARAMS = new Set(["rxDeg", "ryDeg", "rzDeg", "angleDeg"]);
 
 function validSetDimensionValue(paramName: string, v: unknown): boolean {
   if (typeof v !== "number" || !Number.isFinite(v)) return false;
+  if (paramName === "count") return Number.isInteger(v) && v >= 1 && v <= 4;
   if (PLACEMENT_PARAMS.has(paramName)) return v >= -1000000 && v <= 1000000;
   if (ANGLE_PARAMS.has(paramName)) {
     // C3/M2: angles accept 0/negative (placement); revolve angleDeg range

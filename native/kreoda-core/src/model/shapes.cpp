@@ -72,6 +72,7 @@ std::vector<std::string> DescribeParams(const std::string& type) {
   if (type == "Extrude") return {"distanceMm"};
   if (type == "Revolve") return {"angleDeg"};
   if (type == "Hole") return {"diameterMm", "depthMm"};
+  if (type == "HolePattern") return {"diameterMm", "depthMm", "count"};
   if (type == "Fillet") return {"radiusMm"};
   if (type == "Chamfer") return {"distanceMm"};
   if (type == "Instance") return {"txMm", "tyMm", "tzMm", "rxDeg", "ryDeg", "rzDeg"};

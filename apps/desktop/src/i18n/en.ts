@@ -199,6 +199,7 @@ export const en = {
   "props.slotDistance": "Distance",
   "props.slotAngle": "Angle (deg)",
   "props.slotDiameter": "Diameter",
+  "props.slotCount": "Hole count",
   "props.slotDepthBlind": "Depth (blind)",
   "props.slotTx": "Translate X",
   "props.slotTy": "Translate Y",

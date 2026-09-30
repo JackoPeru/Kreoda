@@ -97,7 +97,7 @@ bool EncodeHoleRef(const std::string& faceRole, double x, double y,
 // splits label comments on it, ocaf_live.cpp DecodeParams; ',' is free
 // inside @ref, and face roles already exclude '|' and ','):
 //   "pattern:face=<role>;mode=<mode>;pts=<x0>,<y0>,<x1>,<y1>,..."
-// paramsMm stays [diameterMm, depthMm] (same slots as Hole); the point list
+// paramsMm is [diameterMm, depthMm, count]; the complete authored point list
 // mirrors the type-25 wire flat array. ';' separates fields (roles with ';'
 // were already unencodable for single holes — same exposure, no regression).
 bool EncodeHolePatternRef(
@@ -158,7 +158,10 @@ bool DecodeHolePatternRef(const std::string& ref, std::string* faceRole,
     } else if (c == ',') {
       if (cur.empty()) return false;
       try {
-        nums.push_back(std::stod(cur));
+        size_t consumed = 0;
+        const double value = std::stod(cur, &consumed);
+        if (consumed != cur.size() || !std::isfinite(value)) return false;
+        nums.push_back(value);
       } catch (...) {
         return false;
       }
@@ -175,6 +178,49 @@ bool DecodeHolePatternRef(const std::string& ref, std::string* faceRole,
   if (faceRole) *faceRole = face;
   if (points) *points = out;
   if (mode) *mode = md;
+  return true;
+}
+
+bool NormalizeHolePatternParams(const std::string& ref,
+                                std::vector<double>* params,
+                                std::string* error) {
+  std::vector<std::pair<double, double>> points;
+  if (!params || (params->size() != 2 && params->size() != 3) ||
+      !DecodeHolePatternRef(ref, nullptr, &points, nullptr)) {
+    if (error) *error = "hole pattern record corrupted (needs repair)";
+    return false;
+  }
+  if (params->size() == 2) params->push_back(static_cast<double>(points.size()));
+  const double count = (*params)[2];
+  if (!std::isfinite(count) || count != std::floor(count) ||
+      count < 1 || count > static_cast<double>(points.size())) {
+    if (error) *error = "pattern count must be an integer from 1 to " +
+        std::to_string(points.size()) + " (authored centers)";
+    return false;
+  }
+  return true;
+}
+
+bool BuildHolePatternShape(const TopoDS_Shape& target,
+                           const std::string& targetId,
+                           const std::string& targetType,
+                           const std::string& ref,
+                           const std::vector<double>& params,
+                           TopoDS_Shape* out, std::string* error) {
+  auto normalized = params;
+  if (!NormalizeHolePatternParams(ref, &normalized, error)) return false;
+  std::string faceRole, mode;
+  std::vector<std::pair<double, double>> points;
+  DecodeHolePatternRef(ref, &faceRole, &points, &mode);
+  TopoDS_Shape current = target;
+  for (size_t i = 0; i < static_cast<size_t>(normalized[2]); ++i) {
+    TopoDS_Shape next;
+    if (!BuildHoleShape(current, targetId, targetType, faceRole,
+                        points[i].first, points[i].second, normalized[0],
+                        mode, normalized[1], &next, error)) return false;
+    current = next;
+  }
+  *out = current;
   return true;
 }
 
@@ -407,7 +453,7 @@ bool CreateHolePatternFeature(
   // One OCAF command stays the vehicle for one Undo step (as M11).
   if (!OcafLive::instance().BeginCommand(error)) return false;
   const bool ok = CommitShape(featureIds[0], "HolePattern",
-                              {diameterMm, depthMm}, {targetId}, ref, current,
+                              {diameterMm, depthMm, static_cast<double>(points.size())}, {targetId}, ref, current,
                               nullptr, false, error);
   if (!ok) {
     OcafLive::instance().AbortCommand();
@@ -481,17 +527,12 @@ bool RebuildHolePatternFromStore(const std::string& featureId,
     if (error) *error = "unknown feature " + featureId;
     return false;
   }
-  if (rec.type != "HolePattern" || rec.paramsMm.size() != 2 ||
+  if (rec.type != "HolePattern" ||
       rec.dependsOn.size() != 1) {
     if (error) *error = "cannot rebuild " + rec.type;
     return false;
   }
-  std::string faceRole, mode;
-  std::vector<std::pair<double, double>> points;
-  if (!DecodeHolePatternRef(rec.refExtra, &faceRole, &points, &mode)) {
-    if (error) *error = "hole pattern record corrupted (needs repair)";
-    return false;
-  }
+  if (!NormalizeHolePatternParams(rec.refExtra, &rec.paramsMm, error)) return false;
   ShapeRecord target;
   if (!ShapeStore::instance().get(rec.dependsOn[0], &target) ||
       target.shape.IsNull()) {
@@ -502,16 +543,9 @@ bool RebuildHolePatternFromStore(const std::string& featureId,
     return false;
   }
   // Replay the sequential cuts from the live target (plate edits reflow).
-  TopoDS_Shape current = target.shape;
-  for (const auto& [x, y] : points) {
-    TopoDS_Shape next;
-    if (!BuildHoleShape(current, target.featureId, target.type, faceRole, x,
-                        y, rec.paramsMm[0], mode, rec.paramsMm[1], &next,
-                        error)) {
-      return false;
-    }
-    current = next;
-  }
+  TopoDS_Shape current;
+  if (!BuildHolePatternShape(target.shape, target.featureId, target.type,
+                             rec.refExtra, rec.paramsMm, &current, error)) return false;
   return CommitShape(featureId, rec.type, rec.paramsMm, rec.dependsOn,
                      rec.refExtra, current, nullptr, false, error);
 }

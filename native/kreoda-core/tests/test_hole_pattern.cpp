@@ -11,6 +11,12 @@
 #include "../src/features/primitives/primitives.h"
 #include "../src/model/body.h"
 #include "../src/model/shapes.h"
+#include "../src/persistence/ocaf_live.h"
+#include "../src/features/fillet/fillet.h"
+#include "../src/expressions/expressions.h"
+#include "../src/topology/face_roles.h"
+#include <BRepGProp.hxx>
+#include <GProp_GProps.hxx>
 #include "../src/protocol/dispatcher.h"
 
 #include "rpc_text.h"
@@ -206,4 +212,179 @@ TEST(HolePattern, Section51_FourHolePlate) {
   ASSERT_TRUE(BodyOf("pat", &b));
   EXPECT_EQ(b.history, (std::vector<std::string>{"plate", "pat"}));
   EXPECT_EQ(b.tipFeatureId, "pat");
+}
+
+TEST(HolePattern, CountEditPreservesLayoutUndoAndPersistence) {
+  NewDoc("hp-count");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("plate", 100, 60, 10, &err)) << err;
+  std::vector<std::string> created;
+  ASSERT_TRUE(kreoda::CreateHolePatternFeature("plate", "box.+Z",
+      {{8, 8}, {92, 8}, {8, 52}, {92, 52}}, 6, "throughAll", 0,
+      {"pat", "unused2", "unused3", "unused4"}, &created, &err)) << err;
+  kreoda::ShapeRecord original;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("pat", &original));
+  kreoda::OcafLive::FaceSelection top, removed;
+  ASSERT_TRUE(kreoda::OcafLive::instance().SelectFace("pat", "box.+Z", &top, &err));
+  ASSERT_TRUE(kreoda::OcafLive::instance().SelectFace("pat", "wall.3", &removed, &err));
+  TopoDS_Face firstWall;
+  ASSERT_TRUE(kreoda::FindFaceByRole(original.shape, "pat", "HolePattern", "wall.0", &firstWall));
+  GProp_GProps firstProps;
+  BRepGProp::SurfaceProperties(firstWall, firstProps);
+  const auto setCount = [](const std::string& value) {
+    return rpc(R"({"protocolVersion":1,"requestId":"count","documentId":"hp-count","type":6,"featureId":"pat","paramName":"count","valueMm":)" + value + "}");
+  };
+  ASSERT_TRUE(ok(setCount("2"))) << err;
+  EXPECT_NEAR(VolumeOf("pat"), 60000 - 2 * kTool6x10, 1);
+  kreoda::ShapeRecord reduced;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("pat", &reduced));
+  ASSERT_EQ(reduced.paramsMm.size(), 3u);
+  EXPECT_EQ(reduced.paramsMm[2], 2);
+  EXPECT_EQ(reduced.refExtra, original.refExtra);
+  EXPECT_TRUE(kreoda::OcafLive::instance().ResolveSelection(top).valid);
+  EXPECT_FALSE(kreoda::OcafLive::instance().ResolveSelection(removed).valid);
+  ASSERT_TRUE(kreoda::FindFaceByRole(reduced.shape, "pat", "HolePattern", "wall.0", &firstWall));
+  GProp_GProps reducedProps;
+  BRepGProp::SurfaceProperties(firstWall, reducedProps);
+  EXPECT_NEAR(firstProps.CentreOfMass().Distance(reducedProps.CentreOfMass()), 0, 1e-6);
+  kreoda::CoreMesh preview;
+  ASSERT_TRUE(kreoda::BuildPreviewMesh("pat", "count", 1, &preview, &err)) << err;
+  size_t walls = 0;
+  for (const auto& face : preview.faces) if (face.persistentFaceId.find(":wall.") != std::string::npos) ++walls;
+  EXPECT_EQ(walls, 1u);
+  EXPECT_NEAR(VolumeOf("pat"), reduced.volumeMm3, 1e-6);
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  for (const auto& invalid : {"0", "-1", "1.5", "5"}) {
+    EXPECT_FALSE(ok(setCount(invalid))) << invalid;
+    EXPECT_NEAR(VolumeOf("pat"), reduced.volumeMm3, 1e-6);
+    EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  }
+  ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"u","documentId":"hp-count","type":8})")));
+  EXPECT_NEAR(VolumeOf("pat"), 60000 - 4 * kTool6x10, 1);
+  ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"r","documentId":"hp-count","type":9})")));
+  EXPECT_NEAR(VolumeOf("pat"), reduced.volumeMm3, 1e-6);
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+  const auto file = fs::temp_directory_path() / "kreoda-pattern-count.icad";
+  const auto fileRpc = [&](int type) {
+    return rpc("{\"protocolVersion\":1,\"requestId\":\"file\",\"documentId\":\"hp-count\",\"type\":" + std::to_string(type) + ",\"path\":\"" + file.generic_string() + "\"}");
+  };
+  ASSERT_TRUE(ok(fileRpc(10)));
+  NewDoc("hp-count");
+  ASSERT_TRUE(ok(fileRpc(11)));
+  EXPECT_NEAR(VolumeOf("pat"), reduced.volumeMm3, 1e-6);
+  ASSERT_TRUE(ok(setCount("4")));
+  EXPECT_NEAR(VolumeOf("pat"), original.volumeMm3, 1e-6);
+  ASSERT_TRUE(kreoda::OcafLive::instance().Undo(&err)) << err;
+  EXPECT_NEAR(VolumeOf("pat"), reduced.volumeMm3, 1e-6);
+  ASSERT_TRUE(kreoda::OcafLive::instance().Redo(&err)) << err;
+  EXPECT_NEAR(VolumeOf("pat"), original.volumeMm3, 1e-6);
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("pat", &reduced));
+  EXPECT_EQ(reduced.refExtra, original.refExtra);
+  fs::remove(file);
+#endif
+}
+
+TEST(HolePattern, LegacyTwoSlotMetadataRemainsEditable) {
+  NewDoc("hp-legacy");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("plate", 100, 60, 10, &err));
+  std::vector<std::string> created;
+  ASSERT_TRUE(kreoda::CreateHolePatternFeature("plate", "box.+Z",
+      {{8, 8}, {92, 52}}, 6, "throughAll", 0, {"pat", "unused"}, &created, &err)) << err;
+  kreoda::ShapeRecord legacy;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("pat", &legacy));
+  legacy.paramsMm.resize(2);
+  ASSERT_TRUE(kreoda::OcafLive::instance().BeginCommand(&err));
+  ASSERT_TRUE(kreoda::OcafLive::instance().UpsertFeature(legacy, false, &err));
+  bool changed = false;
+  ASSERT_TRUE(kreoda::OcafLive::instance().CommitCommand(&changed, &err));
+  ASSERT_TRUE(kreoda::OcafLive::instance().ResyncStore(&err));
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("pat", &legacy));
+  ASSERT_EQ(legacy.paramsMm.size(), 3u);
+  EXPECT_EQ(legacy.paramsMm[2], 2);
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+  const auto file = fs::temp_directory_path() / "kreoda-pattern-legacy.icad";
+  auto fileRpc = [&](int type) {
+    return rpc("{\"protocolVersion\":1,\"requestId\":\"file\",\"documentId\":\"hp-legacy\",\"type\":" + std::to_string(type) + ",\"path\":\"" + file.generic_string() + "\"}");
+  };
+  ASSERT_TRUE(ok(fileRpc(10)));
+  NewDoc("hp-legacy");
+  ASSERT_TRUE(ok(fileRpc(11)));
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("pat", &legacy));
+  ASSERT_EQ(legacy.paramsMm.size(), 3u);
+  EXPECT_EQ(legacy.paramsMm[2], 2);
+  fs::remove(file);
+#endif
+  ASSERT_TRUE(kreoda::RebuildFeature("pat", "count", 1, "", &err)) << err;
+  EXPECT_NEAR(VolumeOf("pat"), 60000 - kTool6x10, 1);
+  ASSERT_TRUE(kreoda::RebuildFeature("pat", "count", 0, "1+1", &err)) << err;
+  EXPECT_NEAR(VolumeOf("pat"), 60000 - 2 * kTool6x10, 1);
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  EXPECT_FALSE(kreoda::RebuildFeature("pat", "count", 0, "1.5", &err));
+  EXPECT_NEAR(VolumeOf("pat"), 60000 - 2 * kTool6x10, 1);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  std::string expression;
+  ASSERT_TRUE(kreoda::ExpressionStore::instance().get("pat", "count", &expression));
+  EXPECT_EQ(expression, "1+1");
+  ASSERT_TRUE(kreoda::RebuildFeature("pat", "count", 1, &err)) << err;
+  EXPECT_FALSE(kreoda::ExpressionStore::instance().get("pat", "count", &expression));
+  EXPECT_NEAR(VolumeOf("pat"), 60000 - kTool6x10, 1);
+  ASSERT_TRUE(kreoda::OcafLive::instance().Undo(&err)) << err;
+  EXPECT_NEAR(VolumeOf("pat"), 60000 - 2 * kTool6x10, 1);
+  ASSERT_TRUE(kreoda::ExpressionStore::instance().get("pat", "count", &expression));
+  EXPECT_EQ(expression, "1+1");
+}
+
+TEST(HolePattern, BlindDimensionsAndUpstreamEditsReflowActiveCount) {
+  NewDoc("hp-blind");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("plate", 100, 60, 10, &err));
+  std::vector<std::string> created;
+  ASSERT_TRUE(kreoda::CreateHolePatternFeature("plate", "box.+Z",
+      {{8, 8}, {92, 52}}, 6, "blind", 3, {"pat", "unused"}, &created, &err)) << err;
+  ASSERT_TRUE(kreoda::RebuildFeature("pat", "count", 1, &err)) << err;
+  ASSERT_TRUE(kreoda::RebuildFeature("pat", "diameterMm", 8, &err)) << err;
+  ASSERT_TRUE(kreoda::RebuildFeature("pat", "depthMm", 5, &err)) << err;
+  ASSERT_TRUE(kreoda::RebuildFeature("plate", "heightMm", 80, &err)) << err;
+  EXPECT_NEAR(VolumeOf("pat"), 80000 - 3.14159265358979 * 16 * 5, 1);
+}
+
+TEST(HolePattern, RemovedRimDependencyRejectsCountEditAtomically) {
+  NewDoc("hp-dependent");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("plate", 100, 60, 10, &err));
+  std::vector<std::string> created;
+  ASSERT_TRUE(kreoda::CreateHolePatternFeature("plate", "box.+Z",
+      {{8, 8}, {92, 8}, {8, 52}, {92, 52}}, 6, "throughAll", 0,
+      {"pat", "u2", "u3", "u4"}, &created, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateFilletFeature("rim", "pat",
+      {"pat:edge.cir.box.+Z~wall.3"}, 1, &err)) << err;
+  const auto volume = VolumeOf("rim");
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  EXPECT_FALSE(kreoda::RebuildFeature("pat", "count", 2, &err));
+  EXPECT_NE(err.find("vanished"), std::string::npos) << err;
+  EXPECT_NEAR(VolumeOf("pat"), 60000 - 4 * kTool6x10, 1);
+  EXPECT_NEAR(VolumeOf("rim"), volume, 1e-6);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  kreoda::BodyRecord body;
+  ASSERT_TRUE(BodyOf("rim", &body));
+  EXPECT_EQ(body.tipFeatureId, "rim");
+  ASSERT_TRUE(kreoda::RebuildFeature("pat", "count", 0, "2+2", &err)) << err;
+#if KREODA_WITH_MINIZIP
+  const auto file = fs::temp_directory_path() / "kreoda-pattern-rim-rollback.icad";
+  auto fileRpc = [&](int type) {
+    return rpc("{\"protocolVersion\":1,\"requestId\":\"file\",\"documentId\":\"hp-dependent\",\"type\":" + std::to_string(type) + ",\"path\":\"" + file.generic_string() + "\"}");
+  };
+  ASSERT_TRUE(ok(fileRpc(10)));
+  NewDoc("hp-dependent");
+  ASSERT_TRUE(ok(fileRpc(11)));
+  fs::remove(file);
+#endif
+  const auto formulaUndos = kreoda::OcafLive::instance().AvailableUndos();
+  EXPECT_FALSE(kreoda::RebuildFeature("pat", "count", 0, "1+1", &err));
+  std::string expression;
+  ASSERT_TRUE(kreoda::ExpressionStore::instance().get("pat", "count", &expression));
+  EXPECT_EQ(expression, "2+2");
+  EXPECT_NEAR(VolumeOf("rim"), volume, 1e-6);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), formulaUndos);
 }

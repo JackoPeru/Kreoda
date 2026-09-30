@@ -481,10 +481,10 @@ TEST(Torture10, CurvedSketchOuterLoopsAndHoleWinding) {
 #endif
 }
 
-// §10.3 API limits: HolePattern creation accepts 1..4 points, but its rebuild
-// replays the stored refExtra point list and no feature-update API changes its
-// count. Feature dependencies are fixed at creation; no command/API inserts a
-// node into or reparents an existing history.
+// §10.3 HolePattern.* covers changing the active count of 1..4 authored
+// centers, dimensions, upstream edits, preview, references and atomic failure.
+// Feature dependencies remain fixed at creation; no command/API inserts a
+// node into or reparents an existing history yet.
 
 // §10.4: 100 edit/save/close/open cycles — UUIDs, params, expressions stable.
 TEST(Torture10, ReferenceMetadata100CyclesAndFailedSave) {
