@@ -1,0 +1,590 @@
+{
+  "run": "https://github.com/JackoPeru/Kreoda/actions/runs/36830406386",
+  "commit": "abffdb1c0fe627e895e65d93bf66c7fb117abfb4",
+  "conclusion": "failure",
+  "nativeTestsPassed": 141,
+  "nativeTestsTotal": 141,
+  "dotnetTestsPassed": 21,
+  "desktopUnitTestsPassed": 93,
+  "nativePickerPassed": 0,
+  "nativePickerTotal": 1,
+  "electronOrdinaryStep": "skipped",
+  "electronOrdinaryCasesDiscovered": 48,
+  "crashTestsPassed": 28,
+  "crashTestsTotal": 29,
+  "installedDesktop": "not executed in this run",
+  "installedPayloadAndProvenance": "passed",
+  "failures": [
+    "Save filename readback matched requested temp path, but real Electron Save returned Documents/project.icad",
+    "Atomic-save renderer interruption: process.kill produced no observed exit or replacement; PID5680 unchanged after30s"
+  ],
+  "samples": [
+    {
+      "timestamp": "2026-10-01T07:34:47.2992922Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "step_import_25",
+        "cycles": 25,
+        "elapsed_ms": 142,
+        "ms_per_cycle": 5.68,
+        "working_set_baseline_bytes": 20533248,
+        "working_set_after_warm_bytes": 22106112,
+        "working_set_final_bytes": 22118400,
+        "peak_working_set_bytes": 22204416,
+        "private_baseline_bytes": 5058560,
+        "private_after_warm_bytes": 5423104,
+        "private_final_bytes": 5423104,
+        "handles_baseline": 119,
+        "handles_after_warm": 123,
+        "handles_final": 123
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:34:47.8057975Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "document_open_close_100",
+        "cycles": 100,
+        "elapsed_ms": 466,
+        "ms_per_cycle": 4.66,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_100": 119,
+        "working_set_baseline_bytes": 17960960,
+        "working_set_final_bytes": 18284544,
+        "peak_working_set_bytes": 18329600,
+        "private_final_bytes": 4603904
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:34:48.6684925Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "body_create_delete_1000",
+        "cycles": 1000,
+        "elapsed_ms": 832,
+        "ms_per_cycle": 0.83,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_1000": 119,
+        "working_set_baseline_bytes": 15605760,
+        "working_set_after_10_bytes": 17399808,
+        "working_set_final_bytes": 34848768,
+        "peak_working_set_bytes": 34848768,
+        "private_baseline_bytes": 4341760,
+        "private_after_10_bytes": 4665344,
+        "private_final_bytes": 22663168
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:19.1101662Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 20,
+        "working_set_bytes": 22265856,
+        "peak_working_set_bytes": 57765888,
+        "private_bytes": 8994816,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:19.1105153Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 50,
+        "working_set_bytes": 22163456,
+        "peak_working_set_bytes": 60329984,
+        "private_bytes": 8884224,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:19.1107952Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 100,
+        "working_set_bytes": 27893760,
+        "peak_working_set_bytes": 62074880,
+        "private_bytes": 14999552,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:19.1113223Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation_100",
+        "cycles": 100,
+        "elapsed_ms": 30279,
+        "ms_per_cycle": 302.79,
+        "working_set_baseline_bytes": 14913536,
+        "working_set_after_warm_bytes": 22306816,
+        "working_set_final_bytes": 27893760,
+        "peak_working_set_bytes": 62074880,
+        "private_baseline_bytes": 4050944,
+        "private_after_warm_bytes": 9031680,
+        "private_final_bytes": 14999552,
+        "handles_baseline": 118,
+        "handles_after_warm": 121,
+        "handles_final": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:20.1248548Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "sphere_r50_lod1_tris": 10150,
+        "sphere_r50_lod1_ms": 20,
+        "sphere_r50_lod2_tris": 50540,
+        "sphere_r50_lod2_ms": 137,
+        "cyl_r20_h100_lod2_tris": 1004,
+        "cyl_r20_h100_lod2_ms": 5
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:20.1249914Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "sphere_r200_lod2_tris": 201374,
+        "sphere_r200_lod2_ms": 717
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:20.8852225Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 200,
+        "triangles": 201374,
+        "tessellation_ms": 727,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 30289920,
+        "peak_working_set_bytes": 96993280,
+        "private_bytes": 17616896,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:23.8867974Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 2995,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 53227520,
+        "peak_working_set_bytes": 251101184,
+        "private_bytes": 43470848,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:30.7681447Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 6872,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 83468288,
+        "peak_working_set_bytes": 450494464,
+        "private_bytes": 77217792,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:30.7685737Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "target": "500k",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 2995,
+        "working_set_bytes": 53227520,
+        "peak_working_set_bytes": 251101184,
+        "private_bytes": 43470848,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:30.7689007Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "target": "1M",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 6872,
+        "working_set_bytes": 83468288,
+        "peak_working_set_bytes": 450494464,
+        "private_bytes": 77217792,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:35.4522298Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "hole_features": 40,
+        "feature_count": 41,
+        "body_count": 1,
+        "feature_build_ms": 2958,
+        "recompute_ms": 1313,
+        "save_icad_ms": 38,
+        "icad_bytes": 75552,
+        "load_icad_ms": 329,
+        "final_volume_mm3": 4129212.392
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:35.4525128Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "baseline",
+        "working_set_bytes": 15499264,
+        "peak_working_set_bytes": 15499264,
+        "private_bytes": 4276224,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:35.4527840Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_feature_build",
+        "working_set_bytes": 37695488,
+        "peak_working_set_bytes": 39075840,
+        "private_bytes": 24350720,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:35.4530559Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_recompute",
+        "working_set_bytes": 38948864,
+        "peak_working_set_bytes": 39075840,
+        "private_bytes": 25071616,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:35.4533272Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_save",
+        "working_set_bytes": 39927808,
+        "peak_working_set_bytes": 39927808,
+        "private_bytes": 25083904,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:35.4535869Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_load",
+        "working_set_bytes": 25313280,
+        "peak_working_set_bytes": 39989248,
+        "private_bytes": 9453568,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:39.2580013Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 128,
+        "feature_count": 128,
+        "create_bodies_ms": 99,
+        "recompute_bodies": 128,
+        "recompute_ms": 104,
+        "save_icad_ms": 27,
+        "icad_bytes": 32571,
+        "load_icad_ms": 118,
+        "step_export_ms": 234,
+        "step_bytes": 2161002,
+        "step_import_ms": 663,
+        "imported_solids": 128,
+        "total_volume_mm3": 274856.891
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:39.2583964Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 15556608,
+        "peak_working_set_bytes": 15556608,
+        "private_bytes": 4354048,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:39.2586126Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 20070400,
+        "peak_working_set_bytes": 20070400,
+        "private_bytes": 7442432,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:39.2587849Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 22458368,
+        "peak_working_set_bytes": 22458368,
+        "private_bytes": 9895936,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:39.2589525Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 23392256,
+        "peak_working_set_bytes": 24027136,
+        "private_bytes": 9924608,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:39.2591151Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 21327872,
+        "peak_working_set_bytes": 24027136,
+        "private_bytes": 8404992,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:39.2593103Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 25219072,
+        "peak_working_set_bytes": 44797952,
+        "private_bytes": 8998912,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:39.2594770Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 28307456,
+        "peak_working_set_bytes": 44797952,
+        "private_bytes": 10665984,
+        "handles": 123
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:50.4503780Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 1024,
+        "feature_count": 1024,
+        "create_bodies_ms": 806,
+        "recompute_bodies": 1024,
+        "recompute_ms": 1500,
+        "save_icad_ms": 168,
+        "icad_bytes": 246052,
+        "load_icad_ms": 831,
+        "step_export_ms": 2037,
+        "step_bytes": 18017012,
+        "step_import_ms": 5734,
+        "imported_solids": 1024,
+        "total_volume_mm3": 8982630.672
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:50.4506076Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 15577088,
+        "peak_working_set_bytes": 15577088,
+        "private_bytes": 4370432,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:50.4508615Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 40198144,
+        "peak_working_set_bytes": 40198144,
+        "private_bytes": 28192768,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:50.4511149Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 57032704,
+        "peak_working_set_bytes": 57032704,
+        "private_bytes": 45694976,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:50.4513110Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 58855424,
+        "peak_working_set_bytes": 62275584,
+        "private_bytes": 47001600,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:50.4516019Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 41553920,
+        "peak_working_set_bytes": 62275584,
+        "private_bytes": 28966912,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:50.4519094Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 46637056,
+        "peak_working_set_bytes": 206602240,
+        "private_bytes": 32280576,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:35:50.4522353Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 55648256,
+        "peak_working_set_bytes": 206602240,
+        "private_bytes": 39899136,
+        "handles": 123
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:40:09.1133643Z",
+      "kind": "PHASE10_NATIVE_PICKER_STEP",
+      "measurements": {
+        "helper": {
+          "processId": 896,
+          "kind": "Save",
+          "title": "Save As",
+          "action": "Cancel",
+          "filePath": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\kreoda-native-picker-4276-1790840405293.icad",
+          "enteredFilePath": null,
+          "rootScope": "Win32.EnumWindows",
+          "rootHandle": 655834,
+          "buttonId": 2
+        },
+        "observed": {
+          "kind": "Save",
+          "canceled": true,
+          "paths": []
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:40:09.9601128Z",
+      "kind": "PHASE10_NATIVE_PICKER_STEP",
+      "measurements": {
+        "helper": {
+          "processId": 896,
+          "kind": "Save",
+          "title": "Save As",
+          "action": "Accept",
+          "filePath": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\kreoda-native-picker-4276-1790840405293.icad",
+          "enteredFilePath": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\kreoda-native-picker-4276-1790840405293.icad",
+          "rootScope": "Win32.EnumWindows",
+          "rootHandle": 131610,
+          "buttonId": 1
+        },
+        "observed": {
+          "kind": "Save",
+          "canceled": false,
+          "paths": [
+            "C:\\Users\\runneradmin\\Documents\\project.icad"
+          ]
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-01T07:40:09.9765374Z",
+      "kind": "PHASE10_NATIVE_PICKER_FAILURE",
+      "measurements": {
+        "dialogs": [
+          {
+            "processId": 896,
+            "kind": "Save",
+            "title": "Save As",
+            "action": "Cancel",
+            "filePath": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\kreoda-native-picker-4276-1790840405293.icad",
+            "enteredFilePath": null,
+            "rootScope": "Win32.EnumWindows",
+            "rootHandle": 655834,
+            "buttonId": 2
+          },
+          {
+            "processId": 896,
+            "kind": "Save",
+            "title": "Save As",
+            "action": "Accept",
+            "filePath": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\kreoda-native-picker-4276-1790840405293.icad",
+            "enteredFilePath": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\kreoda-native-picker-4276-1790840405293.icad",
+            "rootScope": "Win32.EnumWindows",
+            "rootHandle": 131610,
+            "buttonId": 1
+          }
+        ],
+        "alerts": []
+      }
+    }
+  ]
+}

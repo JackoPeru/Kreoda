@@ -35,12 +35,30 @@ const assert = require('node:assert/strict');
     await original.waitForSelector('[data-testid="recovered"]');
     const visible = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible());
     assert.equal(await visible(), false);
-    await app.evaluate(({ BrowserWindow }) => new Promise((resolve, reject) => {
+    const rendererPid = await app.evaluate(({ BrowserWindow }) => {
       const contents = BrowserWindow.getAllWindows()[0].webContents;
-      const deadline = setTimeout(() => reject(new Error('renderer reload timed out')), 30000);
-      contents.once('did-finish-load', () => { clearTimeout(deadline); resolve(); });
-      contents.forcefullyCrashRenderer();
-    }));
+      const state = globalThis.__rendererRecovery = {
+        rendererPid: contents.getOSProcessId(), exited: false, loaded: false, replacement: 0,
+      };
+      if (state.rendererPid <= 0 || state.rendererPid === process.pid) throw new Error('Invalid renderer PID');
+      contents.once('render-process-gone', () => { state.exited = true; });
+      contents.once('did-finish-load', () => {
+        state.loaded = true;
+        state.replacement = contents.getOSProcessId();
+      });
+      return state.rendererPid;
+    });
+    assert.equal(await app.evaluate((_electron, pid) => process.kill(pid, 'SIGKILL'), rendererPid), true);
+    const deadline = Date.now() + 30000;
+    let recovery;
+    do {
+      recovery = await app.evaluate(() => globalThis.__rendererRecovery);
+      if (!recovery.loaded) await new Promise(resolve => setTimeout(resolve, 100));
+    } while (!recovery.loaded && Date.now() < deadline);
+    assert.equal(recovery.loaded, true);
+    assert.equal(recovery.exited, true);
+    assert.ok(recovery.replacement > 0);
+    assert.notEqual(recovery.replacement, rendererPid);
     // The dead client must stay rejected: the patch only ignores late replies.
     await assert.rejects(original.evaluate(() => document.body.textContent), /crashed|closed/i);
     attached = await chromium.connectOverCDP('http://127.0.0.1:' + port);

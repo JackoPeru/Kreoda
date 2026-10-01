@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SidecarManager } from "./sidecar";
+import { installRendererRecovery } from "./renderer-recovery";
 import { SessionRelay, type SessionDelta } from "./session";
 import {
   checkFeed,
@@ -21,7 +22,7 @@ let sessionRelay: SessionRelay | null = null;
 
 const isDev = !app.isPackaged;
 
-function createWindow(): void {
+function createWindow(previous?: BrowserWindow): void {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -39,22 +40,15 @@ function createWindow(): void {
 
   // Keep the native core alive while Electron replaces a crashed renderer.
   // The reloaded UI offers the persisted autosave through its normal path.
-  let crashWindowStart = 0;
-  let crashesInWindow = 0;
   const createdWindow = mainWindow;
-  createdWindow.webContents.on("render-process-gone", (_event, details) => {
-    if (details.reason === "clean-exit" || createdWindow.isDestroyed()) return;
-    const now = Date.now();
-    if (now - crashWindowStart > 60_000) {
-      crashWindowStart = now;
-      crashesInWindow = 0;
-    }
-    if (++crashesInWindow > 2) {
-      console.error("[main] renderer crashed repeatedly; reload stopped");
-      return;
-    }
-    console.error(`[main] renderer exited (${details.reason}); reloading`);
-    createdWindow.webContents.reload();
+  if (previous) {
+    createdWindow.setBounds(previous.getBounds());
+    if (previous.isMaximized()) createdWindow.maximize();
+  }
+  installRendererRecovery(createdWindow, () => {
+    // Create first: destroying the only window would trigger app.quit().
+    createWindow(createdWindow);
+    createdWindow.destroy();
   });
 
   if (isDev && process.env["VITE_DEV_SERVER_URL"]) {
@@ -64,8 +58,8 @@ function createWindow(): void {
     void mainWindow.loadFile(path.join(__dirname, "../../dist/index.html"));
   }
 
-  mainWindow.on("closed", () => {
-    mainWindow = null;
+  createdWindow.on("closed", () => {
+    if (mainWindow === createdWindow) mainWindow = null;
   });
 }
 

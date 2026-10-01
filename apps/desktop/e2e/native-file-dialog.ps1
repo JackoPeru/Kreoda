@@ -32,6 +32,7 @@ public static class NativePicker {
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder text, int count);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int count);
   [DllImport("user32.dll")] private static extern int GetDlgCtrlID(IntPtr window);
+  [DllImport("user32.dll")] private static extern IntPtr GetParent(IntPtr window);
   [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr window);
   [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
   [DllImport("user32.dll")] private static extern bool IsWindowEnabled(IntPtr window);
@@ -66,8 +67,18 @@ public static class NativePicker {
   }
   public static void SetFileName(IntPtr edit, string path) {
     UIntPtr result;
-    if (SendText(edit, 0x000C, UIntPtr.Zero, path, 0x0002, 5000, out result) == IntPtr.Zero || result == UIntPtr.Zero)
-      throw new Win32Exception(Marshal.GetLastWin32Error(), "File-name WM_SETTEXT failed");
+    // Replace the selection through the edit path that sends change notifications.
+    if (SendControl(edit, 0x00B1, UIntPtr.Zero, new IntPtr(-1), 0x0002, 1000, out result) == IntPtr.Zero)
+      throw new Win32Exception(Marshal.GetLastWin32Error(), "File-name EM_SETSEL failed");
+    if (SendText(edit, 0x00C2, UIntPtr.Zero, path, 0x0002, 1000, out result) == IntPtr.Zero)
+      throw new Win32Exception(Marshal.GetLastWin32Error(), "File-name EM_REPLACESEL failed");
+  }
+  public static PickerWindow Parent(IntPtr control, int pid) {
+    var parent = GetParent(control);
+    uint owner; GetWindowThreadProcessId(parent, out owner);
+    if (parent == IntPtr.Zero || owner != (uint)pid)
+      throw new InvalidOperationException("File-name edit parent does not belong to the target process");
+    return Read(parent);
   }
   public static string Text(IntPtr control) {
     var text = new StringBuilder(2048);
@@ -102,10 +113,20 @@ do {
 } while ($null -eq $dialog -and [DateTime]::UtcNow -lt $deadline)
 if ($null -eq $dialog) { throw "No native $Kind dialog for process ${TargetProcessId}: $(Describe-Windows $windows)" }
 $controls = [NativePicker]::Controls($dialog.Handle, $TargetProcessId)
+$fileNameControl = $null
+$enteredFilePath = $null
 if ($Action -eq 'Accept') {
   if (-not [IO.Path]::IsPathRooted($FilePath)) { throw 'An absolute test file path is required' }
   $edits = @($controls | Where-Object { $_.Visible -and $_.Enabled -and $_.Class -eq 'Edit' -and $_.Id -in @(1001, 1148, 1152) })
   if ($edits.Count -ne 1) { throw "Expected one native File name edit: $(Describe-Windows $controls)" }
+  $originalText = [NativePicker]::Text($edits[0].Handle)
+  $editParent = [NativePicker]::Parent($edits[0].Handle, $TargetProcessId)
+  $fileNameControl = [pscustomobject]@{ id=$edits[0].Id; handle=$edits[0].Handle.ToInt64();
+    parentId=$editParent.Id; parentClass=$editParent.Class; originalText=$originalText }
+  # The Save spec opens a fresh dialog with this explicit default filename.
+  if ($Kind -eq 'Save' -and [IO.Path]::GetFileName($originalText) -ne 'project.icad') {
+    throw "Save filename control does not contain the expected default: $($fileNameControl | ConvertTo-Json -Compress)"
+  }
   [NativePicker]::SetFileName($edits[0].Handle, $FilePath)
   $enteredFilePath = [NativePicker]::Text($edits[0].Handle)
   if ($enteredFilePath -ne $FilePath) { throw "Native filename text '$enteredFilePath' does not match '$FilePath'" }
@@ -121,4 +142,5 @@ $closedDeadline = [DateTime]::UtcNow.AddSeconds(5)
 while ([NativePicker]::IsWindow($dialog.Handle) -and [DateTime]::UtcNow -lt $closedDeadline) { Start-Sleep -Milliseconds 100 }
 if ([NativePicker]::IsWindow($dialog.Handle)) { throw "Native $Kind dialog did not close" }
 [pscustomobject]@{ processId=$TargetProcessId; kind=$Kind; title=$dialog.Title; action=$Action;
-  filePath=$FilePath; enteredFilePath=$enteredFilePath; rootScope='Win32.EnumWindows'; rootHandle=$dialog.Handle.ToInt64(); buttonId=$buttonId } | ConvertTo-Json -Compress
+  filePath=$FilePath; enteredFilePath=$enteredFilePath; fileNameControl=$fileNameControl;
+  rootScope='Win32.EnumWindows'; rootHandle=$dialog.Handle.ToInt64(); buttonId=$buttonId } | ConvertTo-Json -Compress

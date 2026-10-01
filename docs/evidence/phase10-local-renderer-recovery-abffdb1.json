@@ -1,0 +1,1152 @@
+{
+  "date": "2026-10-01",
+  "baseCommit": "abffdb1c0fe627e895e65d93bf66c7fb117abfb4",
+  "sourceDifference": "Uncommitted production renderer recovery and crash observation/injection changes",
+  "mode": "Hidden Electron offscreen with local OCCT8.0.1 static-MD barrier-enabled core; not installed payload or visible-display verification",
+  "crashCasesPassed": 29,
+  "crashCasesTotal": 29,
+  "duration": "1.8m",
+  "compiledMainRestoredSha256": "72737557291f929a425f7dcfa75c7e743b2755d0994a3e0d90eb8bd428fb61d4",
+  "coreSha256": "d090a196f9dbefc5ee053729340ba239a69d4ddb71791d3a63b3099b7a6e94e3",
+  "sourceSha256": {
+    "apps/desktop/electron/main.ts": "b7b5ca3185b897aad0b73119cfd05b4fd17cd3a485be5252f6b160d4e517d84d",
+    "apps/desktop/electron/renderer-recovery.ts": "40a28170271a24d11d07fa037bf4299a0c1cf13d77f75a9e06cebfbd8b86674e",
+    "apps/desktop/e2e/phase10-crash.spec.ts": "cb399500316c087b14d8a54d94e233c16f172defbe633af3bf782c8876f06387",
+    "apps/desktop/e2e/scripts/renderer-cdp-smoke.cjs": "d027616b616666c57668251220efe61216716d5292960a524f07a526170c33e4"
+  },
+  "fullLogSha256": "79dfb45f0557b041d77647b049c4bab48f0ed1f518232da7535224d42f07f298",
+  "cases": [
+    {
+      "case": 1,
+      "line": 227,
+      "name": "sidecar kill restores committed autosave [solo]",
+      "duration": "1.7s"
+    },
+    {
+      "case": 2,
+      "line": 243,
+      "name": "renderer kill before atomic save publication keeps a complete project file [solo]",
+      "duration": "2.3s"
+    },
+    {
+      "case": 3,
+      "line": 243,
+      "name": "main kill before atomic save publication keeps a complete project file [solo]",
+      "duration": "2.5s"
+    },
+    {
+      "case": 4,
+      "line": 243,
+      "name": "core kill before atomic save publication keeps a complete project file [solo]",
+      "duration": "1.9s"
+    },
+    {
+      "case": 5,
+      "line": 291,
+      "name": "renderer crash reloads and restores committed autosave [solo]",
+      "duration": "2.1s"
+    },
+    {
+      "case": 6,
+      "line": 304,
+      "name": "renderer kill during recompute restores the committed autosave [solo]",
+      "duration": "2.2s"
+    },
+    {
+      "case": 7,
+      "line": 304,
+      "name": "renderer kill during step-import restores the committed autosave [solo]",
+      "duration": "2.2s"
+    },
+    {
+      "case": 8,
+      "line": 304,
+      "name": "renderer kill during tessellation-500k restores the committed autosave [solo]",
+      "duration": "17.5s"
+    },
+    {
+      "case": 9,
+      "line": 304,
+      "name": "renderer kill during tessellation-1M restores the committed autosave [solo]",
+      "duration": "10.1s"
+    },
+    {
+      "case": 10,
+      "line": 304,
+      "name": "main kill during recompute restores the committed autosave [solo]",
+      "duration": "2.5s"
+    },
+    {
+      "case": 11,
+      "line": 304,
+      "name": "main kill during step-import restores the committed autosave [solo]",
+      "duration": "2.5s"
+    },
+    {
+      "case": 12,
+      "line": 304,
+      "name": "main kill during tessellation-500k restores the committed autosave [solo]",
+      "duration": "6.1s"
+    },
+    {
+      "case": 13,
+      "line": 304,
+      "name": "main kill during tessellation-1M restores the committed autosave [solo]",
+      "duration": "8.9s"
+    },
+    {
+      "case": 14,
+      "line": 304,
+      "name": "core kill during recompute restores the committed autosave [solo]",
+      "duration": "1.8s"
+    },
+    {
+      "case": 15,
+      "line": 304,
+      "name": "core kill during step-import restores the committed autosave [solo]",
+      "duration": "1.7s"
+    },
+    {
+      "case": 16,
+      "line": 304,
+      "name": "core kill during tessellation-500k restores the committed autosave [solo]",
+      "duration": "4.8s"
+    },
+    {
+      "case": 17,
+      "line": 304,
+      "name": "core kill during tessellation-1M restores the committed autosave [solo]",
+      "duration": "8.3s"
+    },
+    {
+      "case": 18,
+      "line": 359,
+      "name": "renderer crash during command preview restores the last committed model [solo]",
+      "duration": "2.6s"
+    },
+    {
+      "case": 19,
+      "line": 376,
+      "name": "renderer crash with an uncommitted solved sketch drag restores committed coordinates [solo]",
+      "duration": "2.3s"
+    },
+    {
+      "case": 20,
+      "line": 427,
+      "name": "renderer kill inside the native sketch solver restores committed coordinates [solo]",
+      "duration": "2.1s"
+    },
+    {
+      "case": 21,
+      "line": 359,
+      "name": "main crash during command preview restores the last committed model [solo]",
+      "duration": "2.3s"
+    },
+    {
+      "case": 22,
+      "line": 376,
+      "name": "main crash with an uncommitted solved sketch drag restores committed coordinates [solo]",
+      "duration": "2.6s"
+    },
+    {
+      "case": 23,
+      "line": 427,
+      "name": "main kill inside the native sketch solver restores committed coordinates [solo]",
+      "duration": "2.4s"
+    },
+    {
+      "case": 24,
+      "line": 359,
+      "name": "core crash during command preview restores the last committed model [solo]",
+      "duration": "1.6s"
+    },
+    {
+      "case": 25,
+      "line": 376,
+      "name": "core crash with an uncommitted solved sketch drag restores committed coordinates [solo]",
+      "duration": "1.9s"
+    },
+    {
+      "case": 26,
+      "line": 427,
+      "name": "core kill inside the native sketch solver restores committed coordinates [solo]",
+      "duration": "1.7s"
+    },
+    {
+      "case": 27,
+      "line": 468,
+      "name": "recompute and completed save survive a later preview crash [solo]",
+      "duration": "2.3s"
+    },
+    {
+      "case": 28,
+      "line": 507,
+      "name": "renderer crash after STEP import restores the imported solid [solo]",
+      "duration": "2.4s"
+    },
+    {
+      "case": 29,
+      "line": 559,
+      "name": "main process kill relaunches and restores committed autosave [solo]",
+      "duration": "2.3s"
+    }
+  ],
+  "rawRows": [
+    {
+      "kind": "RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 21524,
+        "mainPid": 21792,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "OPERAZIONE RIUSCITA: il processo con il PID 21524 � stato terminato.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "kind": "RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 21524,
+        "replacementPid": 10684,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 10684,
+        "loading": false,
+        "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "kind": "RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 26656,
+        "mainPid": 26388,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "OPERAZIONE RIUSCITA: il processo con il PID 26656 � stato terminato.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "kind": "RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 26656,
+        "replacementPid": 11760,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 11760,
+        "loading": false,
+        "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "kind": "RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 25100,
+        "mainPid": 7424,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "OPERAZIONE RIUSCITA: il processo con il PID 25100 � stato terminato.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "kind": "RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 25100,
+        "replacementPid": 27532,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 27532,
+        "loading": false,
+        "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "kind": "RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 2572,
+        "mainPid": 26692,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "OPERAZIONE RIUSCITA: il processo con il PID 2572 � stato terminato.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "kind": "RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 2572,
+        "replacementPid": 14428,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 14428,
+        "loading": false,
+        "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "kind": "RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 6820,
+        "mainPid": 21516,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "OPERAZIONE RIUSCITA: il processo con il PID 6820 � stato terminato.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "kind": "RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 6820,
+        "replacementPid": 27604,
+        "loaded": true,
+        "recovery": "dead-pid",
+        "recoveryPid": 6820,
+        "exit": "none",
+        "failure": "none",
+        "currentPid": 27604,
+        "loading": false,
+        "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "kind": "RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 26320,
+        "mainPid": 26324,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "OPERAZIONE RIUSCITA: il processo con il PID 26320 � stato terminato.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "kind": "RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 26320,
+        "replacementPid": 26640,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 26640,
+        "loading": false,
+        "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "kind": "RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 21696,
+        "mainPid": 14812,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "OPERAZIONE RIUSCITA: il processo con il PID 21696 � stato terminato.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "kind": "RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 21696,
+        "replacementPid": 25148,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 25148,
+        "loading": false,
+        "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "kind": "RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 26556,
+        "mainPid": 23300,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "OPERAZIONE RIUSCITA: il processo con il PID 26556 � stato terminato.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "kind": "RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 26556,
+        "replacementPid": 27532,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 27532,
+        "loading": false,
+        "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "kind": "RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 6804,
+        "mainPid": 22764,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "OPERAZIONE RIUSCITA: il processo con il PID 6804 � stato terminato.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "kind": "RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 6804,
+        "replacementPid": 23108,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 23108,
+        "loading": false,
+        "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "kind": "RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 19568,
+        "mainPid": 9796,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "OPERAZIONE RIUSCITA: il processo con il PID 19568 � stato terminato.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "kind": "RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 19568,
+        "replacementPid": 26188,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 26188,
+        "loading": false,
+        "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "kind": "RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 27404,
+        "mainPid": 24060,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "OPERAZIONE RIUSCITA: il processo con il PID 27404 � stato terminato.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "kind": "RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 27404,
+        "replacementPid": 21444,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 21444,
+        "loading": false,
+        "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+      }
+    }
+  ],
+  "earlierAttempts": [
+    {
+      "log": "kreoda-sigkill-proof-repeat.log",
+      "sha256": "54322c054b0b5d56619472ff66d0a111abb95785f78525a1c9104e27adf4b6e4",
+      "passed": 8,
+      "total": 10,
+      "scope": "Before production watchdog: two OS-dead renderer PIDs retained without native exit/replacement",
+      "rawRows": [
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 1080,
+            "mainPid": 2500,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 2864,
+            "mainPid": 24752,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 26688,
+            "mainPid": 27596,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 25948,
+            "mainPid": 7052,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 25764,
+            "mainPid": 26804,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 7784,
+            "mainPid": 22968,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 16840,
+            "mainPid": 6592,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 6896,
+            "mainPid": 24004,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 18204,
+            "mainPid": 18032,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 26364,
+            "mainPid": 27524,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        }
+      ]
+    },
+    {
+      "log": "kreoda-watchdog-hidden-crash-full.log",
+      "sha256": "8d67397f5d38b5f3e0b34b5eb96f7d9a6049fe8e6c4f2867c27adeab6af751f5",
+      "passed": 28,
+      "total": 29,
+      "scope": "Watchdog plus reload only: dead PID detected but reload remained pending; superseded by new-window recovery",
+      "rawRows": [
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 27436,
+            "mainPid": 27548,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 27436,
+            "replacementPid": 23704,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 23704,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 24516,
+            "mainPid": 7796,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 24516,
+            "replacementPid": 26336,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 26336,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 26408,
+            "mainPid": 26020,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 26976,
+            "mainPid": 26420,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 26976,
+            "replacementPid": 23816,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 23816,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 25020,
+            "mainPid": 25464,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 25020,
+            "replacementPid": 23844,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 23844,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 10876,
+            "mainPid": 26312,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 10876,
+            "replacementPid": 25212,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 25212,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 25580,
+            "mainPid": 25648,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 25580,
+            "replacementPid": 27388,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 27388,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 5208,
+            "mainPid": 25836,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 5208,
+            "replacementPid": 21444,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 21444,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 26440,
+            "mainPid": 22116,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 26440,
+            "replacementPid": 18072,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 18072,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 22992,
+            "mainPid": 25528,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 22992,
+            "replacementPid": 2864,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 2864,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 25080,
+            "mainPid": 27016,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 25080,
+            "replacementPid": 19148,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 19148,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        }
+      ]
+    },
+    {
+      "log": "kreoda-window-recovery-repeat.log",
+      "sha256": "613d164a7a5c0fb7eeb28d2e8f3557315625e7004d481d451ad95c1c5c580ac9",
+      "passed": 10,
+      "total": 10,
+      "scope": "New-window production candidate with main-process SIGKILL injector; all recovered through native killed events, so this repeat alone did not exercise fallback",
+      "rawRows": [
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 22804,
+            "mainPid": 4324,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 22804,
+            "replacementPid": 24592,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 24592,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 26616,
+            "mainPid": 26224,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 26616,
+            "replacementPid": 26924,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 26924,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 26012,
+            "mainPid": 27152,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 26012,
+            "replacementPid": 1972,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 1972,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 4700,
+            "mainPid": 11556,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 4700,
+            "replacementPid": 25628,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 25628,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 24880,
+            "mainPid": 22044,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 24880,
+            "replacementPid": 26372,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 26372,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 11216,
+            "mainPid": 26088,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 11216,
+            "replacementPid": 25804,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 25804,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 26076,
+            "mainPid": 26540,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 26076,
+            "replacementPid": 14648,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 14648,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 25520,
+            "mainPid": 7424,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 25520,
+            "replacementPid": 8824,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 8824,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 23300,
+            "mainPid": 25620,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 23300,
+            "replacementPid": 20352,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 20352,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        },
+        {
+          "kind": "RENDERER_TERMINATION",
+          "measurements": {
+            "rendererPid": 7340,
+            "mainPid": 15988,
+            "observedWindowId": 1,
+            "mappedWindowId": 1,
+            "termination": true,
+            "osPidStatus": "ESRCH"
+          }
+        },
+        {
+          "kind": "RENDERER_RECOVERY",
+          "measurements": {
+            "rendererPid": 7340,
+            "replacementPid": 24876,
+            "loaded": true,
+            "recovery": "killed",
+            "recoveryPid": 0,
+            "exit": "killed",
+            "failure": "none",
+            "currentPid": 24876,
+            "loading": false,
+            "url": "file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -18,6 +18,7 @@ const env = { ...process.env, KREODA_RECOVERY_DIR: recoveryDir, KREODA_TEST_BARR
 type TestWindow = Awaited<ReturnType<typeof bootShell>>["window"];
 const crashTargets = ["renderer", "main", "core"] as const;
 type CrashTarget = typeof crashTargets[number];
+type RendererRecovery = { rendererPid: number; replacementPid: number; loaded: boolean; recovery: string; recoveryPid: number; exit: string; failure: string; cleanup: () => void };
 let debugPort = 0;
 const attachedBrowsers: Browser[] = [];
 
@@ -92,43 +93,92 @@ async function terminateAndRestore(
     // Playwright permanently marks a crashed Page/CDP session as unusable.
     // Observe the application's own reload in main, then attach a fresh client
     // to the same recovered WebContents. The test never requests a reload.
-    await app.evaluate(({ BrowserWindow }) => new Promise<void>((resolve, reject) => {
+    const mappedWindow = await app.browserWindow(window);
+    const mappedWindowId = await mappedWindow.evaluate(browserWindow => browserWindow.id);
+    await mappedWindow.dispose();
+    const armed = await app.evaluate(({ BrowserWindow, app: mainApp }, windowId) => {
       const contents = BrowserWindow.getAllWindows()[0]!.webContents;
-      const rendererPid = contents.getOSProcessId();
-      if (rendererPid <= 0 || rendererPid === process.pid) {
-        reject(new Error(`Invalid renderer PID ${rendererPid}`));
-        return;
+      const state = { rendererPid: contents.getOSProcessId(), replacementPid: 0,
+        loaded: false, recovery: "none", recoveryPid: 0, exit: "none", failure: "none", cleanup: () => {} };
+      if (state.rendererPid <= 0 || state.rendererPid === process.pid) {
+        throw new Error(`Invalid renderer PID ${state.rendererPid}`);
       }
-      let failure = "none";
-      let exit = "none";
-      const onFailure = (_event: unknown, code: number, description: string) => { failure = `${code}: ${description}`; };
-      const onExit = (_event: unknown, details: { reason: string }) => { exit = details.reason; };
-      const cleanup = () => {
-        clearTimeout(deadline);
+      const onFailure = (_event: unknown, code: number, description: string) => { state.failure = `${code}: ${description}`; };
+      const onExit = (_event: unknown, details: { reason: string }) => { state.exit = details.reason; };
+      const recoveryEvents = contents as import("node:events").EventEmitter;
+      const onRecovery = (details: { reason: string; rendererPid: number }) => {
+        state.recovery = details.reason;
+        state.recoveryPid = details.rendererPid;
+      };
+      let replacementContents: typeof contents | undefined;
+      const loaded = () => {
+        state.loaded = true;
+        state.replacementPid = (replacementContents ?? contents).getOSProcessId();
+        state.cleanup();
+      };
+      const onReplacementWindow = (_event: unknown, replacement: import("electron").BrowserWindow) => {
+        replacementContents = replacement.webContents;
+        replacementContents.once("did-finish-load", loaded);
+      };
+      state.cleanup = () => {
         contents.removeListener("did-finish-load", loaded);
         contents.removeListener("did-fail-load", onFailure);
         contents.removeListener("render-process-gone", onExit);
+        recoveryEvents.removeListener("kreoda-renderer-recovery", onRecovery);
+        mainApp.removeListener("browser-window-created", onReplacementWindow);
+        replacementContents?.removeListener("did-finish-load", loaded);
       };
-      const loaded = () => {
-        cleanup();
-        const replacementPid = contents.getOSProcessId();
-        if (exit === "none" || replacementPid <= 0 || replacementPid === rendererPid) {
-          reject(new Error(`Renderer was not replaced: ${JSON.stringify({ rendererPid, replacementPid, exit })}`));
-        } else resolve();
-      };
-      const deadline = setTimeout(() => {
-        cleanup();
-        reject(new Error(`renderer recovery did not finish loading: ${JSON.stringify({ rendererPid, currentPid: contents.getOSProcessId(), exit, failure, loading: contents.isLoadingMainFrame(), url: contents.getURL() })}`));
-      }, 30000);
+      (globalThis as unknown as { __kreoda_renderer_recovery: RendererRecovery }).__kreoda_renderer_recovery = state;
       contents.once("did-fail-load", onFailure);
       contents.once("render-process-gone", onExit);
+      recoveryEvents.once("kreoda-renderer-recovery", onRecovery);
       contents.once("did-finish-load", loaded);
-      // Electron's crash request sometimes emitted no exit event in CI.
-      // Terminate the actual OS process and require its replacement; only
-      // the application's render-process-gone handler requests the reload.
-      try { process.kill(rendererPid, "SIGKILL"); }
-      catch (error) { cleanup(); reject(error); }
-    }));
+      mainApp.on("browser-window-created", onReplacementWindow);
+      // Return immediately: no pending debugger evaluation during termination.
+      return { rendererPid: state.rendererPid, mainPid: process.pid,
+        observedWindowId: BrowserWindow.getAllWindows()[0]!.id, mappedWindowId: windowId };
+    }, mappedWindowId);
+    expect(armed.observedWindowId).toBe(armed.mappedWindowId);
+    expect(armed.rendererPid).not.toBe(core.pid);
+    try {
+      expect(armed.rendererPid).not.toBe(process.pid);
+      const termination = process.platform === "win32"
+        ? execFileSync("taskkill", ["/F", "/PID", String(armed.rendererPid)],
+          { windowsHide: true, timeout: 10000, encoding: "utf8" }).trim()
+        : String(process.kill(armed.rendererPid, "SIGKILL"));
+      const pidStatus = () => {
+        try { process.kill(armed.rendererPid, 0); return "alive"; }
+        catch (error) { return (error as NodeJS.ErrnoException).code ?? String(error); }
+      };
+      await expect.poll(pidStatus, { timeout: 5000 }).toBe("ESRCH");
+      const osPidStatus = pidStatus();
+      console.log(`PHASE10_RENDERER_TERMINATION ${JSON.stringify({ ...armed, termination, osPidStatus })}`);
+      const observed = () => app.evaluate(({ BrowserWindow }) => {
+        const state = (globalThis as unknown as { __kreoda_renderer_recovery: RendererRecovery }).__kreoda_renderer_recovery;
+        const contents = BrowserWindow.getAllWindows()[0]!.webContents;
+        return { rendererPid: state.rendererPid, replacementPid: state.replacementPid,
+          loaded: state.loaded, recovery: state.recovery, recoveryPid: state.recoveryPid, exit: state.exit, failure: state.failure,
+          currentPid: contents.getOSProcessId(), loading: contents.isLoadingMainFrame(), url: contents.getURL() };
+      });
+      try {
+        await expect.poll(observed, { timeout: 30000 }).toMatchObject({ loaded: true });
+      } catch (error) {
+        throw new Error(`Renderer recovery timed out: ${JSON.stringify({ ...await observed(), osPidStatus })}`, { cause: error });
+      }
+      const recovered = await observed();
+      expect(recovered.recovery).not.toBe("none");
+      if (recovered.exit === "none") {
+        expect(recovered.recovery).toBe("dead-pid");
+        expect(recovered.recoveryPid).toBe(armed.rendererPid);
+      }
+      console.log(`PHASE10_RENDERER_RECOVERY ${JSON.stringify(recovered)}`);
+      expect(recovered.replacementPid).toBeGreaterThan(0);
+      expect(recovered.replacementPid).not.toBe(armed.rendererPid);
+    } finally {
+      await app.evaluate(() => {
+        (globalThis as unknown as { __kreoda_renderer_recovery?: RendererRecovery }).__kreoda_renderer_recovery?.cleanup();
+      });
+    }
     // The surviving core may finish its transaction. Let it finish before
     // opening the persisted recovery document; a renderer kill is not rollback.
     release?.();
