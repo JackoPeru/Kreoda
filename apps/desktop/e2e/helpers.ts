@@ -49,7 +49,8 @@ export async function boot(env?: Record<string, string>, extraArgs: string[] = [
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });
-    await window.waitForLoadState("domcontentloaded");
+    // Home/workspace/native readiness remains authoritative even when
+    // Playwright's cached DOMContentLoaded notification is absent.
     // Home (§home) is the boot screen: enter the workspace like a user would.
     await expect(window.getByTestId("home-screen")).toBeVisible({ timeout: 20000 });
     await window.getByTestId("home-new-project").click();
