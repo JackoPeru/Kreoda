@@ -1,0 +1,871 @@
+{
+  "run": "https://github.com/JackoPeru/Kreoda/actions/runs/36837881180",
+  "commit": "34f34c4628a13368e3437829a223facae80f488b",
+  "conclusion": "failure",
+  "nativeTestsPassed": 141,
+  "nativeTestsTotal": 141,
+  "dotnetTestsPassed": 21,
+  "desktopUnitTestsPassed": 94,
+  "nativePickerPassed": 0,
+  "nativePickerTotal": 1,
+  "electronOrdinaryStep": "skipped",
+  "electronOrdinaryCasesDiscovered": 48,
+  "crashTestsPassed": 29,
+  "crashTestsTotal": 29,
+  "crashDuration": "10.2m",
+  "installedDesktop": "not executed in this run",
+  "installedPayloadAndProvenance": "passed",
+  "failure": "Save default guard expected project.icad but same-PID ComboBox Edit1001 exposed project; replacement and acceptance not attempted",
+  "failedControl": {
+    "id": 1001,
+    "handle": 131738,
+    "parentId": 0,
+    "parentClass": "ComboBox",
+    "originalText": "project"
+  },
+  "fullLogSha256": "3b27c6e0c937292170c0d3ea84915d23c45ada01a7e806856dc071d7b8976553",
+  "samples": [
+    {
+      "timestamp": "2026-10-01T08:48:19.9225475Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "step_import_25",
+        "cycles": 25,
+        "elapsed_ms": 215,
+        "ms_per_cycle": 8.6,
+        "working_set_baseline_bytes": 20541440,
+        "working_set_after_warm_bytes": 22093824,
+        "working_set_final_bytes": 22134784,
+        "peak_working_set_bytes": 22200320,
+        "private_baseline_bytes": 5074944,
+        "private_after_warm_bytes": 5365760,
+        "private_final_bytes": 5365760,
+        "handles_baseline": 119,
+        "handles_after_warm": 123,
+        "handles_final": 123
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:48:20.3498401Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "document_open_close_100",
+        "cycles": 100,
+        "elapsed_ms": 386,
+        "ms_per_cycle": 3.86,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_100": 119,
+        "working_set_baseline_bytes": 17981440,
+        "working_set_final_bytes": 18235392,
+        "peak_working_set_bytes": 18292736,
+        "private_final_bytes": 4653056
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:48:21.1799746Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "body_create_delete_1000",
+        "cycles": 1000,
+        "elapsed_ms": 800,
+        "ms_per_cycle": 0.8,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_1000": 119,
+        "working_set_baseline_bytes": 15536128,
+        "working_set_after_10_bytes": 17383424,
+        "working_set_final_bytes": 34832384,
+        "peak_working_set_bytes": 34832384,
+        "private_baseline_bytes": 4280320,
+        "private_after_10_bytes": 4653056,
+        "private_final_bytes": 22609920
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:48:52.3454584Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 20,
+        "working_set_bytes": 22245376,
+        "peak_working_set_bytes": 57774080,
+        "private_bytes": 9064448,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:48:52.3457476Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 50,
+        "working_set_bytes": 22380544,
+        "peak_working_set_bytes": 59965440,
+        "private_bytes": 9113600,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:48:52.3459729Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 100,
+        "working_set_bytes": 27877376,
+        "peak_working_set_bytes": 61620224,
+        "private_bytes": 15020032,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:48:52.3463540Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation_100",
+        "cycles": 100,
+        "elapsed_ms": 31104,
+        "ms_per_cycle": 311.04,
+        "working_set_baseline_bytes": 14888960,
+        "working_set_after_warm_bytes": 22351872,
+        "working_set_final_bytes": 27877376,
+        "peak_working_set_bytes": 61620224,
+        "private_baseline_bytes": 4055040,
+        "private_after_warm_bytes": 9101312,
+        "private_final_bytes": 15020032,
+        "handles_baseline": 118,
+        "handles_after_warm": 121,
+        "handles_final": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:48:53.5266799Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "sphere_r50_lod1_tris": 10150,
+        "sphere_r50_lod1_ms": 20,
+        "sphere_r50_lod2_tris": 50540,
+        "sphere_r50_lod2_ms": 140,
+        "cyl_r20_h100_lod2_tris": 1004,
+        "cyl_r20_h100_lod2_ms": 5
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:48:53.5268265Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "sphere_r200_lod2_tris": 201374,
+        "sphere_r200_lod2_ms": 796
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:48:54.4389429Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 200,
+        "triangles": 201374,
+        "tessellation_ms": 785,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 31703040,
+        "peak_working_set_bytes": 96976896,
+        "private_bytes": 19271680,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:48:57.5944640Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 3149,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 52269056,
+        "peak_working_set_bytes": 250974208,
+        "private_bytes": 42422272,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:05.1231169Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 7520,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 81575936,
+        "peak_working_set_bytes": 450711552,
+        "private_bytes": 75169792,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:05.1233380Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "target": "500k",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 3149,
+        "working_set_bytes": 52269056,
+        "peak_working_set_bytes": 250974208,
+        "private_bytes": 42422272,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:05.1236176Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "target": "1M",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 7520,
+        "working_set_bytes": 81575936,
+        "peak_working_set_bytes": 450711552,
+        "private_bytes": 75169792,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:10.1267025Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "hole_features": 40,
+        "feature_count": 41,
+        "body_count": 1,
+        "feature_build_ms": 3403,
+        "recompute_ms": 1209,
+        "save_icad_ms": 33,
+        "icad_bytes": 75552,
+        "load_icad_ms": 312,
+        "final_volume_mm3": 4129212.392
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:10.1268755Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "baseline",
+        "working_set_bytes": 15499264,
+        "peak_working_set_bytes": 15499264,
+        "private_bytes": 4288512,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:10.1270913Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_feature_build",
+        "working_set_bytes": 37212160,
+        "peak_working_set_bytes": 38834176,
+        "private_bytes": 22978560,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:10.1272427Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_recompute",
+        "working_set_bytes": 38690816,
+        "peak_working_set_bytes": 38834176,
+        "private_bytes": 25460736,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:10.1273837Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_save",
+        "working_set_bytes": 39624704,
+        "peak_working_set_bytes": 39624704,
+        "private_bytes": 25477120,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:10.1275203Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_load",
+        "working_set_bytes": 25251840,
+        "peak_working_set_bytes": 39690240,
+        "private_bytes": 9601024,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:15.4249284Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 128,
+        "feature_count": 128,
+        "create_bodies_ms": 99,
+        "recompute_bodies": 128,
+        "recompute_ms": 100,
+        "save_icad_ms": 24,
+        "icad_bytes": 32571,
+        "load_icad_ms": 99,
+        "step_export_ms": 219,
+        "step_bytes": 2161002,
+        "step_import_ms": 737,
+        "imported_solids": 128,
+        "total_volume_mm3": 274856.891
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:15.4253015Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 15511552,
+        "peak_working_set_bytes": 15511552,
+        "private_bytes": 4276224,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:15.4254836Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 20111360,
+        "peak_working_set_bytes": 20111360,
+        "private_bytes": 7479296,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:15.4256390Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 22544384,
+        "peak_working_set_bytes": 22544384,
+        "private_bytes": 9924608,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:15.4257996Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 23543808,
+        "peak_working_set_bytes": 24154112,
+        "private_bytes": 10047488,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:15.4259516Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 21221376,
+        "peak_working_set_bytes": 24154112,
+        "private_bytes": 7544832,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:15.4261409Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 25047040,
+        "peak_working_set_bytes": 45023232,
+        "private_bytes": 8556544,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:15.4263004Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 29020160,
+        "peak_working_set_bytes": 45023232,
+        "private_bytes": 13459456,
+        "handles": 123
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:26.9129518Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 1024,
+        "feature_count": 1024,
+        "create_bodies_ms": 772,
+        "recompute_bodies": 1024,
+        "recompute_ms": 1603,
+        "save_icad_ms": 152,
+        "icad_bytes": 246052,
+        "load_icad_ms": 816,
+        "step_export_ms": 1906,
+        "step_bytes": 18017012,
+        "step_import_ms": 6128,
+        "imported_solids": 1024,
+        "total_volume_mm3": 8982630.672
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:26.9132583Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 15527936,
+        "peak_working_set_bytes": 15527936,
+        "private_bytes": 4317184,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:26.9134877Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 40230912,
+        "peak_working_set_bytes": 40230912,
+        "private_bytes": 28217344,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:26.9137011Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 56823808,
+        "peak_working_set_bytes": 56827904,
+        "private_bytes": 45375488,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:26.9139105Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 58834944,
+        "peak_working_set_bytes": 61997056,
+        "private_bytes": 46899200,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:26.9141266Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 41463808,
+        "peak_working_set_bytes": 61997056,
+        "private_bytes": 28934144,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:26.9143505Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 46596096,
+        "peak_working_set_bytes": 206540800,
+        "private_bytes": 31801344,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:49:26.9145951Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 55930880,
+        "peak_working_set_bytes": 206540800,
+        "private_bytes": 42708992,
+        "handles": 123
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:54:56.2166638Z",
+      "kind": "PHASE10_NATIVE_PICKER_STEP",
+      "measurements": {
+        "helper": {
+          "processId": 4440,
+          "kind": "Save",
+          "title": "Save As",
+          "action": "Cancel",
+          "filePath": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\kreoda-native-picker-8212-1790844893483.icad",
+          "enteredFilePath": null,
+          "fileNameControl": null,
+          "rootScope": "Win32.EnumWindows",
+          "rootHandle": 327980,
+          "buttonId": 2
+        },
+        "observed": {
+          "kind": "Save",
+          "canceled": true,
+          "paths": []
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:54:56.9436990Z",
+      "kind": "PHASE10_NATIVE_PICKER_FAILURE",
+      "measurements": {
+        "dialogs": [
+          {
+            "processId": 4440,
+            "kind": "Save",
+            "title": "Save As",
+            "action": "Cancel",
+            "filePath": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\kreoda-native-picker-8212-1790844893483.icad",
+            "enteredFilePath": null,
+            "fileNameControl": null,
+            "rootScope": "Win32.EnumWindows",
+            "rootHandle": 327980,
+            "buttonId": 2
+          }
+        ],
+        "alerts": []
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:57:50.5178996Z",
+      "kind": "PHASE10_RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 3640,
+        "mainPid": 8400,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "SUCCESS: The process with PID 3640 has been terminated.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:57:50.8976952Z",
+      "kind": "PHASE10_RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 3640,
+        "replacementPid": 8776,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 8776,
+        "loading": false,
+        "url": "file:///D:/a/Kreoda/Kreoda/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:58:47.6329304Z",
+      "kind": "PHASE10_RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 6392,
+        "mainPid": 8256,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "SUCCESS: The process with PID 6392 has been terminated.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:58:48.0070795Z",
+      "kind": "PHASE10_RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 6392,
+        "replacementPid": 6628,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 6628,
+        "loading": false,
+        "url": "file:///D:/a/Kreoda/Kreoda/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:59:08.7059163Z",
+      "kind": "PHASE10_RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 6468,
+        "mainPid": 8764,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "SUCCESS: The process with PID 6468 has been terminated.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:59:09.0845759Z",
+      "kind": "PHASE10_RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 6468,
+        "replacementPid": 5440,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 5440,
+        "loading": false,
+        "url": "file:///D:/a/Kreoda/Kreoda/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:59:26.7391945Z",
+      "kind": "PHASE10_RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 3224,
+        "mainPid": 6816,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "SUCCESS: The process with PID 3224 has been terminated.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:59:27.1116818Z",
+      "kind": "PHASE10_RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 3224,
+        "replacementPid": 5076,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 5076,
+        "loading": false,
+        "url": "file:///D:/a/Kreoda/Kreoda/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:59:50.2644970Z",
+      "kind": "PHASE10_RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 6208,
+        "mainPid": 9128,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "SUCCESS: The process with PID 6208 has been terminated.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T08:59:50.6313383Z",
+      "kind": "PHASE10_RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 6208,
+        "replacementPid": 7628,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 7628,
+        "loading": false,
+        "url": "file:///D:/a/Kreoda/Kreoda/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:00:23.8108694Z",
+      "kind": "PHASE10_RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 5440,
+        "mainPid": 7644,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "SUCCESS: The process with PID 5440 has been terminated.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:00:24.1778422Z",
+      "kind": "PHASE10_RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 5440,
+        "replacementPid": 3628,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 3628,
+        "loading": false,
+        "url": "file:///D:/a/Kreoda/Kreoda/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:03:55.2772064Z",
+      "kind": "PHASE10_RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 6272,
+        "mainPid": 1348,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "SUCCESS: The process with PID 6272 has been terminated.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:03:55.6954688Z",
+      "kind": "PHASE10_RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 6272,
+        "replacementPid": 880,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 880,
+        "loading": false,
+        "url": "file:///D:/a/Kreoda/Kreoda/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:04:13.7826252Z",
+      "kind": "PHASE10_RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 8732,
+        "mainPid": 6580,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "SUCCESS: The process with PID 8732 has been terminated.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:04:14.1486973Z",
+      "kind": "PHASE10_RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 8732,
+        "replacementPid": 2768,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 2768,
+        "loading": false,
+        "url": "file:///D:/a/Kreoda/Kreoda/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:04:31.4001293Z",
+      "kind": "PHASE10_RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 8948,
+        "mainPid": 7796,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "SUCCESS: The process with PID 8948 has been terminated.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:04:31.7721744Z",
+      "kind": "PHASE10_RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 8948,
+        "replacementPid": 3012,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 3012,
+        "loading": false,
+        "url": "file:///D:/a/Kreoda/Kreoda/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:06:46.6106711Z",
+      "kind": "PHASE10_RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 1636,
+        "mainPid": 8208,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "SUCCESS: The process with PID 1636 has been terminated.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:06:46.9863821Z",
+      "kind": "PHASE10_RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 1636,
+        "replacementPid": 7460,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 7460,
+        "loading": false,
+        "url": "file:///D:/a/Kreoda/Kreoda/apps/desktop/dist/index.html"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:07:05.4248485Z",
+      "kind": "PHASE10_RENDERER_TERMINATION",
+      "measurements": {
+        "rendererPid": 1892,
+        "mainPid": 5168,
+        "observedWindowId": 1,
+        "mappedWindowId": 1,
+        "termination": "SUCCESS: The process with PID 1892 has been terminated.",
+        "osPidStatus": "ESRCH"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T09:07:05.8458896Z",
+      "kind": "PHASE10_RENDERER_RECOVERY",
+      "measurements": {
+        "rendererPid": 1892,
+        "replacementPid": 4484,
+        "loaded": true,
+        "recovery": "killed",
+        "recoveryPid": 0,
+        "exit": "killed",
+        "failure": "none",
+        "currentPid": 4484,
+        "loading": false,
+        "url": "file:///D:/a/Kreoda/Kreoda/apps/desktop/dist/index.html"
+      }
+    }
+  ]
+}

@@ -123,8 +123,9 @@ if ($Action -eq 'Accept') {
   $editParent = [NativePicker]::Parent($edits[0].Handle, $TargetProcessId)
   $fileNameControl = [pscustomobject]@{ id=$edits[0].Id; handle=$edits[0].Handle.ToInt64();
     parentId=$editParent.Id; parentClass=$editParent.Class; originalText=$originalText }
-  # The Save spec opens a fresh dialog with this explicit default filename.
-  if ($Kind -eq 'Save' -and [IO.Path]::GetFileName($originalText) -ne 'project.icad') {
+  # Hosted Save exposes the configured project.icad default as project.
+  # Accept only the observed stem or the full configured filename.
+  if ($Kind -eq 'Save' -and [IO.Path]::GetFileName($originalText) -notin @('project', 'project.icad')) {
     throw "Save filename control does not contain the expected default: $($fileNameControl | ConvertTo-Json -Compress)"
   }
   [NativePicker]::SetFileName($edits[0].Handle, $FilePath)
