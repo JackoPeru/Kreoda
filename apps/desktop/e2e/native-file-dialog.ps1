@@ -69,12 +69,12 @@ public static class NativePicker {
     if (SendText(edit, 0x000C, UIntPtr.Zero, path, 0x0002, 5000, out result) == IntPtr.Zero || result == UIntPtr.Zero)
       throw new Win32Exception(Marshal.GetLastWin32Error(), "File-name WM_SETTEXT failed");
   }
-  public static string Caption(IntPtr button) {
-    var text = new StringBuilder(256);
+  public static string Text(IntPtr control) {
+    var text = new StringBuilder(2048);
     UIntPtr result;
     // GetWindowText cannot read another process's control text.
-    if (ReadText(button, 0x000D, new UIntPtr((uint)text.Capacity), text, 0x0002, 1000, out result) == IntPtr.Zero)
-      throw new Win32Exception(Marshal.GetLastWin32Error(), "Button WM_GETTEXT failed");
+    if (ReadText(control, 0x000D, new UIntPtr((uint)text.Capacity), text, 0x0002, 1000, out result) == IntPtr.Zero)
+      throw new Win32Exception(Marshal.GetLastWin32Error(), "Control WM_GETTEXT failed");
     return text.ToString();
   }
   public static void Click(IntPtr button) {
@@ -107,16 +107,18 @@ if ($Action -eq 'Accept') {
   $edits = @($controls | Where-Object { $_.Visible -and $_.Enabled -and $_.Class -eq 'Edit' -and $_.Id -in @(1001, 1148, 1152) })
   if ($edits.Count -ne 1) { throw "Expected one native File name edit: $(Describe-Windows $controls)" }
   [NativePicker]::SetFileName($edits[0].Handle, $FilePath)
+  $enteredFilePath = [NativePicker]::Text($edits[0].Handle)
+  if ($enteredFilePath -ne $FilePath) { throw "Native filename text '$enteredFilePath' does not match '$FilePath'" }
 }
 $buttonId = if ($Action -eq 'Cancel') { 2 } else { 1 }
 $buttonName = if ($Action -eq 'Cancel') { 'Cancel' } elseif ($Kind -eq 'Save') { 'Save' } else { 'Open' }
 $buttons = @($controls | Where-Object { $_.Visible -and $_.Enabled -and $_.Class -eq 'Button' -and $_.Id -eq $buttonId })
 if ($buttons.Count -ne 1) { throw "Expected one native '$buttonName' button ($buttonId): $(Describe-Windows $controls)" }
-$caption = [NativePicker]::Caption($buttons[0].Handle)
+$caption = [NativePicker]::Text($buttons[0].Handle)
 if ($caption.Replace('&', '') -ne $buttonName) { throw "Native button $buttonId caption '$caption' does not match '$buttonName'" }
 [NativePicker]::Click($buttons[0].Handle)
 $closedDeadline = [DateTime]::UtcNow.AddSeconds(5)
 while ([NativePicker]::IsWindow($dialog.Handle) -and [DateTime]::UtcNow -lt $closedDeadline) { Start-Sleep -Milliseconds 100 }
 if ([NativePicker]::IsWindow($dialog.Handle)) { throw "Native $Kind dialog did not close" }
 [pscustomobject]@{ processId=$TargetProcessId; kind=$Kind; title=$dialog.Title; action=$Action;
-  filePath=$FilePath; rootScope='Win32.EnumWindows'; rootHandle=$dialog.Handle.ToInt64(); buttonId=$buttonId } | ConvertTo-Json -Compress
+  filePath=$FilePath; enteredFilePath=$enteredFilePath; rootScope='Win32.EnumWindows'; rootHandle=$dialog.Handle.ToInt64(); buttonId=$buttonId } | ConvertTo-Json -Compress

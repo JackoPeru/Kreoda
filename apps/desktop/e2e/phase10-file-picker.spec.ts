@@ -8,6 +8,7 @@ import path from "node:path";
 import { boot, openProject, runBar, snapOf } from "./helpers";
 
 const execute = promisify(execFile);
+type PickerResult = { kind: "Save" | "Open"; canceled: boolean; paths: string[] };
 function nativePicker(pid: number, kind: "Save" | "Open", action: "Accept" | "Cancel", file: string) {
   return execute("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-File",
     path.join(import.meta.dirname, "native-file-dialog.ps1"),
@@ -27,6 +28,27 @@ test("native file pickers: Save/Open cancellation and editable project round tri
   const file = path.join(os.tmpdir(), `kreoda-native-picker-${process.pid}-${Date.now()}.icad`);
   const rows: unknown[] = [];
   try {
+    // Observe the real native return values; pass options/results unchanged.
+    await app.evaluate(({ dialog }) => {
+      const results: PickerResult[] = [];
+      (globalThis as unknown as { __kreoda_picker_results: PickerResult[] }).__kreoda_picker_results = results;
+      dialog.showSaveDialog = new Proxy(dialog.showSaveDialog, {
+        async apply(target, receiver, args) {
+          const result = await Reflect.apply(target, receiver, args) as Electron.SaveDialogReturnValue;
+          results.push({ kind: "Save", canceled: result.canceled, paths: result.filePath ? [result.filePath] : [] });
+          return result;
+        },
+      });
+      dialog.showOpenDialog = new Proxy(dialog.showOpenDialog, {
+        async apply(target, receiver, args) {
+          const result = await Reflect.apply(target, receiver, args) as Electron.OpenDialogReturnValue;
+          results.push({ kind: "Open", canceled: result.canceled, paths: result.filePaths });
+          return result;
+        },
+      });
+    });
+    const dialogResults = () => app.evaluate(() =>
+      (globalThis as unknown as { __kreoda_picker_results: PickerResult[] }).__kreoda_picker_results);
     const pid = await app.evaluate(() => process.pid);
     await runBar(window, "box 100 60 10");
     const saved = await snapOf(window);
@@ -34,6 +56,21 @@ test("native file pickers: Save/Open cancellation and editable project round tri
     const pick = async (kind: "Save" | "Open", action: "Accept" | "Cancel", click: () => Promise<unknown>) => {
       const [result] = await Promise.all([nativePicker(pid, kind, action, file), click()]);
       rows.push(JSON.parse(result.stdout));
+      await expect.poll(async () => (await dialogResults()).length).toBe(rows.length);
+      const observed = (await dialogResults()).at(-1)!;
+      console.log(`PHASE10_NATIVE_PICKER_STEP ${JSON.stringify({ helper: rows.at(-1), observed })}`);
+      expect(observed.kind).toBe(kind);
+      expect(observed.canceled).toBe(action === "Cancel");
+      if (action === "Accept") {
+        expect(observed.paths).toHaveLength(1);
+        const actual = observed.paths[0]!;
+        expect(path.basename(actual)).toBe(path.basename(file));
+        // Native dialogs may expand Windows' short temp-folder alias.
+        expect(fs.realpathSync.native(path.dirname(actual)).toLowerCase())
+          .toBe(fs.realpathSync.native(path.dirname(file)).toLowerCase());
+      } else {
+        expect(observed.paths).toEqual([]);
+      }
     };
     await pick("Save", "Cancel", save);
     expect(fs.existsSync(file)).toBe(false);
@@ -55,6 +92,11 @@ test("native file pickers: Save/Open cancellation and editable project round tri
     expect((await snapOf(window)).bodies[0]!.volumeMm3).toBeCloseTo(72000, 3);
     await expect(window.getByTestId("workspace-actions").getByRole("alert")).toHaveCount(0);
     console.log(`PHASE10_NATIVE_PICKER ${JSON.stringify({ dialogs: rows, reopenedEditable: true })}`);
+  } catch (error) {
+    const alerts = await window.getByRole("alert").evaluateAll(elements =>
+      elements.map(element => element.getAttribute("title") ?? element.textContent)).catch(() => []);
+    console.log(`PHASE10_NATIVE_PICKER_FAILURE ${JSON.stringify({ dialogs: rows, alerts })}`);
+    throw error;
   } finally {
     await app.close();
     fs.rmSync(file, { force: true });
