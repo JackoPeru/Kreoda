@@ -339,76 +339,59 @@ test("golden B: assembly follows source edits across reopen", async () => {
   const ICAD_B = path.join(fixture, "assembly.icad");
   let app: Awaited<ReturnType<typeof boot>>["app"] | undefined;
   try {
-    const context = await boot();
+    let context = await boot();
     app = context.app;
-    const window = context.window;
-    const snap = (): Promise<Snapshot> => snapOf(window);
+    let window = context.window;
     await runBar(window, "box 100 60 10");
-    await expect
-      .poll(async () => ((await snap()) as Snapshot).bodies.length, {
-        timeout: 30000,
-      })
-      .toBe(1);
-    let s = (await snap()) as Snapshot;
-    const boxId = s.bodies[0]!.id;
+    const boxId = (await snapOf(window)).bodies[0]!.id;
+    await runBar(window, "box 20 30 40");
+    const other = (await snapOf(window)).bodies.find((body) => body.id !== boxId)!;
+    expect(other.volumeMm3).toBeCloseTo(24000, 3);
 
     await openProject(window);
     await window.getByText(/Box 100×60×10/).first().click();
     await openMore(window);
-    await window
-      .getByTestId("more-menu")
-      .getByRole("button", { name: /Copy placed/ })
-      .click();
+    await window.getByTestId("more-menu").getByRole("button", { name: /Copy placed/ }).click();
     const dialog = window.getByTestId("instance-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await dialog.locator("input").nth(0).fill("50");
     await dialog.getByRole("button", { name: /Place instance/ }).click();
-    await expect
-      .poll(async () => ((await snap()) as Snapshot).bodies.length, {
-        timeout: 30000,
-      })
-      .toBe(2);
-
-    // Widen the source: the instance must reflow to the same volume.
-    await window.evaluate(
-      ({ id }) =>
-        (
-          window as unknown as {
-            __kreoda_test: {
-              setParam: (f: string, p: string, v: number) => Promise<Snapshot>;
-            };
-          }
-        ).__kreoda_test.setParam(id, "widthMm", 150),
-      { id: boxId },
-    );
-    s = (await snap()) as Snapshot;
-    const src = s.bodies.find((b) => b.id === boxId)!;
-    const inst = s.bodies.find((b) => b.type === "Instance")!;
-    expect(src.volumeMm3).toBeCloseTo(150 * 60 * 10, 0);
-    expect(inst.volumeMm3).toBeCloseTo(src.volumeMm3, 0);
-
-    await window.evaluate(
-      ({ icad }) =>
-        (
-          window as unknown as {
-            __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> };
-          }
-        ).__kreoda_test.saveIcad(icad),
-      { icad: ICAD_B },
-    );
-    s = (await window.evaluate(
-      ({ icad }) =>
-        (
-          window as unknown as {
-            __kreoda_test: { openIcad: (p: string) => Promise<Snapshot> };
-          }
-        ).__kreoda_test.openIcad(icad),
-      { icad: ICAD_B },
-    )) as Snapshot;
-    expect(s.bodies).toHaveLength(2);
-    const reopened = s.bodies.find((b) => b.type === "Instance")!;
-    expect(reopened.volumeMm3).toBeCloseTo(150 * 60 * 10, 0);
-
+    await expect.poll(async () => (await snapOf(window)).bodies.length).toBe(3);
+    const instanceId = (await snapOf(window)).bodies.find((body) => body.type === "Instance")!.id;
+    await window.evaluate(({ id }) => (window as unknown as {
+      __kreoda_test: { setParam: (f: string, p: string, v: number) => Promise<Snapshot> };
+    }).__kreoda_test.setParam(id, "txMm", 25), { id: instanceId });
+    const saved = await snapOf(window);
+    expect(saved.bodies.find((body) => body.id === instanceId)!.paramsMm[0]).toBe(25);
+    await window.evaluate(({ icad }) => (window as unknown as {
+      __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> };
+    }).__kreoda_test.saveIcad(icad), { icad: ICAD_B });
+    // A cold application restart proves the post-open dependency is restored.
+    await app.close();
+    app = undefined;
+    context = await boot();
+    app = context.app;
+    window = context.window;
+    const reopened = await window.evaluate(({ icad }) => (window as unknown as {
+      __kreoda_test: { openIcad: (p: string) => Promise<Snapshot> };
+    }).__kreoda_test.openIcad(icad), { icad: ICAD_B });
+    expect(reopened.bodies.map((body) => body.id)).toEqual(saved.bodies.map((body) => body.id));
+    expect(reopened.bodies.find((body) => body.id === instanceId)!.paramsMm[0]).toBe(25);
+    await window.evaluate(({ id }) => (window as unknown as {
+      __kreoda_test: { setParam: (f: string, p: string, v: number) => Promise<Snapshot> };
+    }).__kreoda_test.setParam(id, "widthMm", 150), { id: boxId });
+    const edited = await snapOf(window);
+    const source = edited.bodies.find((body) => body.id === boxId)!;
+    const instance = edited.bodies.find((body) => body.id === instanceId)!;
+    expect(source.volumeMm3).toBeCloseTo(90000, 3);
+    expect(instance.volumeMm3).toBeCloseTo(source.volumeMm3, 3);
+    expect(instance.paramsMm[0]).toBe(25);
+    expect(instance.paramsMm).toEqual([25, 0, 0, 0, 0, 0]);
+    expect(edited.bodies.find((body) => body.id === other.id)!.volumeMm3).toBeCloseTo(24000, 3);
+    expect(edited.bodies.map((body) => body.id)).toEqual(saved.bodies.map((body) => body.id));
+    console.log(`PHASE10_ASSEMBLY_REOPEN ${JSON.stringify({ independent_bodies: 2, placed_instances: 1,
+      cold_restart: true, source_edit_after_reopen: true, source_volume_mm3: source.volumeMm3,
+      instance_volume_mm3: instance.volumeMm3, translation_x_mm: instance.paramsMm[0] })}`);
     await window.screenshot({ path: path.join(HERE, "phase10-golden-b.png") });
   } finally {
     await closeFixture(app, fixture);

@@ -1,0 +1,218 @@
+{
+  "baseCommit": "5f84f01f22fe6d9b61b2118448c591fc729ccf69",
+  "sourceHashes": {
+    "package.json": "acac835108d79230a0559dceadb87d4e8b64168819bad56ec4b3fd21b30ba424",
+    "scripts/run-crash-tests.mjs": "555a83a5f872b377fcfa9c9ca74df48cd81e6fac3bd1e700bd168a966a209fd5",
+    ".github/workflows/ci-windows.yml": "a4e7878097857853bc2fa682298eb4f481da51255115baa8c25ae713929a233d",
+    "apps/desktop/e2e/phase10-golden.spec.ts": "e8b2fca9f9a896a108f2db8c89f8f8d35198224f336e2104918f3d6fcb9171e4",
+    "apps/desktop/e2e/phase9-plugins.spec.ts": "0d5029654ca841e9e282a293bf0fbd7d6b5effa817d2985365ada414f1fbce42"
+  },
+  "hiddenElectron": {
+    "passed": 4,
+    "total": 4,
+    "durationSeconds": 11.6,
+    "samples": [
+      {
+        "kind": "PHASE10_ASSEMBLY_REOPEN",
+        "measurements": {
+          "independent_bodies": 2,
+          "placed_instances": 1,
+          "cold_restart": true,
+          "source_edit_after_reopen": true,
+          "source_volume_mm3": 90000,
+          "instance_volume_mm3": 90000,
+          "translation_x_mm": 25
+        }
+      },
+      {
+        "kind": "PHASE10_PLUGIN_WORKFLOW",
+        "measurements": {
+          "registered_command_ran": true,
+          "disabled_command_refused": true,
+          "existing_geometry_preserved": true,
+          "continued_core_modeling": true,
+          "final_bodies": 3
+        }
+      }
+    ],
+    "mode": "Documents same-hash production core; show:false/offscreen:true; 30 FPS cap",
+    "nativeCoreSha256": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+    "compiledMainRestoredSha256": "72737557291f929a425f7dcfa75c7e743b2755d0994a3e0d90eb8bd428fb61d4",
+    "flows": [
+      "golden A",
+      "golden B",
+      "golden C",
+      "sandboxed plugin register/run/disable/continued modeling"
+    ]
+  },
+  "crashGateFaultInjection": {
+    "passed": 11,
+    "total": 11,
+    "scope": "VM subprocess fault injection; no real compilers/apps and no kernel execution",
+    "results": [
+      {
+        "scenario": "success",
+        "calls": 7,
+        "exitCode": 0,
+        "preflightRejected": false
+      },
+      {
+        "scenario": "failure-at-1",
+        "calls": 4,
+        "exitCode": 1,
+        "preflightRejected": false
+      },
+      {
+        "scenario": "failure-at-2",
+        "calls": 5,
+        "exitCode": 1,
+        "preflightRejected": false
+      },
+      {
+        "scenario": "failure-at-3",
+        "calls": 6,
+        "exitCode": 1,
+        "preflightRejected": false
+      },
+      {
+        "scenario": "failure-at-4",
+        "calls": 7,
+        "exitCode": 1,
+        "preflightRejected": false
+      },
+      {
+        "scenario": "failure-at-5",
+        "calls": 5,
+        "exitCode": 1,
+        "preflightRejected": false
+      },
+      {
+        "scenario": "failure-at-6",
+        "calls": 6,
+        "exitCode": 1,
+        "preflightRejected": false
+      },
+      {
+        "scenario": "failure-at-7",
+        "calls": 7,
+        "exitCode": 1,
+        "preflightRejected": false
+      },
+      {
+        "scenario": "spawn-error",
+        "calls": 7,
+        "exitCode": 1,
+        "preflightRejected": false
+      },
+      {
+        "scenario": "terminated-child",
+        "calls": 7,
+        "exitCode": 1,
+        "preflightRejected": false
+      },
+      {
+        "scenario": "reject-test-enabled-cache",
+        "calls": 0,
+        "exitCode": 1,
+        "preflightRejected": true
+      }
+    ]
+  },
+  "pnpmEntrypoint": {
+    "passed": true,
+    "childCallsSimulated": 7,
+    "compilerOrElectronLaunched": false,
+    "scope": "Actual pnpm-script entrypoint and npm_execpath verified; subprocesses mocked, not a real crash suite."
+  },
+  "typeScript": "PASS",
+  "diffCheck": "PASS",
+  "earlierLocalFailure": "First two-flow attempt: golden B passed, plugin test asserted exact floating-point volumes. Corrected fixture to existing 3-decimal OCCT volume tolerance; no product fix was needed. Raw failure retained.",
+  "artifacts": {
+    "kreoda-remaining-acceptance-hidden-5f84f01.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-remaining-acceptance-hidden-5f84f01.log",
+      "sha256": "17a98d98dc8b93d1a74b1279e32cf9a1e8a09001fbe7e19e2f6782798b34b584",
+      "bytes": 3282
+    },
+    "kreoda-remaining-acceptance-hidden-final-5f84f01.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-remaining-acceptance-hidden-final-5f84f01.log",
+      "sha256": "bf958dd8467e4afc43dffd3ca0aed7c53998a9b1c0f6e5f516e8354a5cb35cad",
+      "bytes": 904
+    },
+    "kreoda-remaining-acceptance-types-final-5f84f01.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-remaining-acceptance-types-final-5f84f01.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "kreoda-crash-gate-failure-probe-5f84f01.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-crash-gate-failure-probe-5f84f01.log",
+      "sha256": "e4c33bd0e76f4acad4f7de625a740352a588e5ff801ae6b15ad2f5a9930c85be",
+      "bytes": 983
+    },
+    "kreoda-crash-gate-failure-probe-5f84f01.cjs": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-crash-gate-failure-probe-5f84f01.cjs",
+      "sha256": "7789d5f85158cae713b02ce3d5b5bf41c349232db12cdad844b708c62e49f503",
+      "bytes": 2363
+    },
+    "kreoda-crash-gate-pnpm-probe-final-5f84f01.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-crash-gate-pnpm-probe-final-5f84f01.log",
+      "sha256": "a5a2ae109f078579149d3136eff8cae27c591d3210b402c8903ef4f25984814d",
+      "bytes": 2047
+    },
+    "kreoda-crash-gate-pnpm-probe-5f84f01.cjs": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-crash-gate-pnpm-probe-5f84f01.cjs",
+      "sha256": "c29cc7e7264023c95cad1ab058556952939e828e2a90d1a00fc1f08743b4763d",
+      "bytes": 840
+    },
+    "kreoda-workflow-gates-four-flows-final-5f84f01.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-workflow-gates-four-flows-final-5f84f01.log",
+      "sha256": "67cb8543dbc63e0ff88b4e331f79d0b1877346369f59eeb50790e0d1f8e1e141",
+      "bytes": 1135
+    },
+    "kreoda-workflow-gates-types-final-5f84f01.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-workflow-gates-types-final-5f84f01.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "kreoda-workflow-gates-review-before.json": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-workflow-gates-review-before.json",
+      "sha256": "c52680e132ebab91eff9519c109fd3aae62edf63c3d813f708f0e0e902f344ed",
+      "bytes": 64835
+    }
+  },
+  "hostedVerification": "Pending next published source revision. Live5f CI does not execute these additional candidate changes.",
+  "fullTestAllCommand": "Not run locally; next workflow now invokes pnpm test:all directly, including real file pickers and complete crash gate.",
+  "humanAudit": "NOT RUN",
+  "earlierFocusedElectron": {
+    "passed": 2,
+    "total": 2,
+    "durationSeconds": 5.8,
+    "samples": [
+      {
+        "kind": "PHASE10_ASSEMBLY_REOPEN",
+        "measurements": {
+          "bodies": 2,
+          "placed_instances": 1,
+          "cold_restart": true,
+          "source_edit_after_reopen": true,
+          "source_volume_mm3": 90000,
+          "instance_volume_mm3": 90000,
+          "translation_x_mm": 25
+        }
+      },
+      {
+        "kind": "PHASE10_PLUGIN_WORKFLOW",
+        "measurements": {
+          "registered_command_ran": true,
+          "disabled_command_refused": true,
+          "existing_geometry_preserved": true,
+          "continued_core_modeling": true,
+          "final_bodies": 3
+        }
+      }
+    ],
+    "mode": "Documents same-hash production core; show:false/offscreen:true; 30 FPS cap",
+    "nativeCoreSha256": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+    "compiledMainRestoredSha256": "72737557291f929a425f7dcfa75c7e743b2755d0994a3e0d90eb8bd428fb61d4"
+  },
+  "reviewRepair": "Fresh Sol review caught default-Windows-decoding mojibake in unchanged Golden A locators. Complete A/C and original plugin text reconstructed from HEAD decoded UTF8, retaining only intended new B/plugin changes. All four real flows then passed; no product source changed."
+}

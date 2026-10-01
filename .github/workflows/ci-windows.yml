@@ -261,13 +261,10 @@ jobs:
           path: artifacts/native-runtime-manifest.json
           if-no-files-found: error
 
-      - name: E2E native file pickers
-        run: pnpm --filter @kreoda/desktop exec playwright test e2e/phase10-file-picker.spec.ts
-
-      - name: E2E (Electron + sidecar)
-        # The picker runs first so hosted-only dialog failures surface early.
-        # Keep all other ordinary cases and exclude the dedicated crash suite.
-        run: pnpm --filter @kreoda/desktop exec playwright test --grep-invert '\[solo\]|native file pickers:'
+      - name: Full regression (test:all)
+        # Exercise the public unified command, including real native dialogs
+        # and the crash gate's production-core restoration.
+        run: pnpm test:all
 
       - name: Upload E2E diagnostics
         if: always()
@@ -277,23 +274,6 @@ jobs:
           path: |
             apps/desktop/e2e/*.png
             apps/desktop/test-results/
-
-      - name: Build dedicated crash-test core
-        id: crash-test-core
-        if: always() && steps.native-tests.conclusion == 'success' && steps.desktop-build.conclusion == 'success'
-        run: |
-          cmake -S native/kreoda-core -B native/kreoda-core/build -DKREODA_CRASH_TEST_BARRIERS=ON
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build native/kreoda-core/build --config Release --target kreoda-core kreoda-solver-crash-control
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ctest --test-dir native/kreoda-core/build -C Release --output-on-failure -R '^SolverCrashBarrierControl$'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: E2E crash recovery (solo)
-        if: always() && steps.crash-test-core.conclusion == 'success'
-        env:
-          KREODA_CRASH_TEST_BARRIERS: '1'
-        run: pnpm test:e2e:crash
 
       - name: Upload crash E2E diagnostics
         if: always()

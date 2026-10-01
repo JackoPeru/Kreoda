@@ -5,7 +5,7 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
-import { HERE, MAIN, boot, type Snapshot } from "./helpers";
+import { HERE, MAIN, boot, runBar, type Snapshot } from "./helpers";
 
 const PAIR_PLUGIN = `
 kreoda.register({
@@ -131,6 +131,23 @@ test("plugins: sandboxed commands, escapes refused, crashes isolated", async () 
     expect(vols[0]).toBeCloseTo(1000, 3);
     expect(vols[1]).toBeCloseTo(8000, 3);
 
+    // Disable the command that just created geometry, then keep modeling.
+    await window.evaluate(() => (window as unknown as {
+      __kreoda_test: { unloadPlugin: (id: string) => Promise<void> };
+    }).__kreoda_test.unloadPlugin("plugin.e2e.pair"));
+    await expect(run("plugin.e2e.pair", "plugin.e2e.pair.make", {})).rejects.toThrow(/plugin not loaded/);
+    expect((await snap()).bodies).toEqual(s1.bodies);
+    await runBar(window, "box 30 30 30");
+    const continued = await snap();
+    expect(continued.bodies).toHaveLength(3);
+    const continuedVolumes = continued.bodies.map((body) => body.volumeMm3).sort((a, b) => a - b);
+    for (const [index, volume] of [1000, 8000, 27000].entries()) {
+      expect(continuedVolumes[index]).toBeCloseTo(volume, 3);
+    }
+    console.log(`PHASE10_PLUGIN_WORKFLOW ${JSON.stringify({ registered_command_ran: true,
+      disabled_command_refused: true, existing_geometry_preserved: true,
+      continued_core_modeling: true, final_bodies: continued.bodies.length })}`);
+
     // 2. Capability escape refused (allowlist is CreateBox only).
     await load(ESCAPE_PLUGIN);
     await expect(
@@ -143,7 +160,7 @@ test("plugins: sandboxed commands, escapes refused, crashes isolated", async () 
       run("plugin.e2e.boom", "plugin.e2e.boom.go", {}),
     ).rejects.toThrow(/boom from inside the sandbox/);
     const s2 = (await snap()) as Snapshot;
-    expect(s2.bodies).toHaveLength(2);
+    expect(s2.bodies).toHaveLength(3);
 
     // 4. Bad manifests never load.
     await expect(load("kreoda.register({});")).rejects.toThrow();

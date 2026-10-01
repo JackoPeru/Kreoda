@@ -18,7 +18,8 @@
     "test:dotnet": "node scripts/run-dotnet-tests.mjs",
     "test:e2e": "pnpm --filter @kreoda/desktop exec playwright test --grep-invert \"\\[solo\\]\"",
     "test:e2e:crash": "pnpm --filter @kreoda/desktop exec playwright test e2e/phase10-crash.spec.ts",
-    "test:all": "pnpm -r exec tsc --noEmit && pnpm test:native && pnpm test:dotnet && pnpm test && pnpm test:e2e"
+    "test:all": "pnpm -r exec tsc --noEmit && pnpm test:native && pnpm test:dotnet && pnpm test && pnpm test:e2e && pnpm test:e2e:crash:full",
+    "test:e2e:crash:full": "node scripts/run-crash-tests.mjs"
   },
   "devDependencies": {
     "typescript": "~5.9.3"
