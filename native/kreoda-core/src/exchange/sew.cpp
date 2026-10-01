@@ -315,6 +315,38 @@ bool ExtractTriangles(const TopoDS_Shape& shape, std::vector<float>* verts,
   return true;
 }
 
+bool CollectExportRecords(std::vector<ShapeRecord>* records, std::string* error) {
+  if (!records) {
+    if (error) *error = "internal error: null export records";
+    return false;
+  }
+  records->clear();
+  std::vector<std::string> tips;
+  for (const auto& body : BodyStore::instance().bodies()) {
+    ShapeRecord tip;
+    if (!ShapeStore::instance().get(body.tipFeatureId, &tip) || tip.shape.IsNull()) {
+      if (error) *error = "cannot export missing body tip: " + body.tipFeatureId;
+      return false;
+    }
+    tips.push_back(body.tipFeatureId);
+  }
+  for (const auto& rec : ShapeStore::instance().listInOrder()) {
+    if (rec.type != "Instance" &&
+        std::find(tips.begin(), tips.end(), rec.featureId) == tips.end()) continue;
+    if (rec.shape.IsNull()) {
+      if (error) *error = "cannot export missing shape: " + rec.featureId;
+      records->clear();
+      return false;
+    }
+    records->push_back(rec);
+  }
+  if (records->empty()) {
+    if (error) *error = "nothing to export: the document has no solids";
+    return false;
+  }
+  return true;
+}
+
 bool CollectSolidsCompound(TopoDS_Compound* compound, std::string* error) {
   if (!compound) {
     if (error) *error = "internal error: null out-param";
@@ -322,15 +354,10 @@ bool CollectSolidsCompound(TopoDS_Compound* compound, std::string* error) {
   }
   BRep_Builder builder;
   builder.MakeCompound(*compound);
-  int solids = 0;
-  for (const ShapeRecord& rec : ShapeStore::instance().listInOrder()) {
-    if (rec.shape.IsNull()) continue;
+  std::vector<ShapeRecord> records;
+  if (!CollectExportRecords(&records, error)) return false;
+  for (const ShapeRecord& rec : records) {
     builder.Add(*compound, rec.shape);
-    ++solids;
-  }
-  if (solids == 0) {
-    if (error) *error = "nothing to export: the document has no solids";
-    return false;
   }
   return true;
 }

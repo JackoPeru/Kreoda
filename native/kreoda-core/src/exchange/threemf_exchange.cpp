@@ -56,8 +56,9 @@ bool ExportThreeMF(const std::string& path, std::string* error) {
     model->SetUnit(Lib3MF::eModelUnit::MilliMeter);
     int objects = 0;
     std::vector<std::string> skipped;
-    for (const ShapeRecord& rec : ShapeStore::instance().listInOrder()) {
-      if (rec.shape.IsNull()) continue;
+    std::vector<ShapeRecord> records;
+    if (!CollectExportRecords(&records, error)) return false;
+    for (const ShapeRecord& rec : records) {
       std::string terr;
       const CoreMesh mesh = TessellateRecord(rec, 2, &terr);
       // Fail LOUD on partial export (M6): never a file missing a body.

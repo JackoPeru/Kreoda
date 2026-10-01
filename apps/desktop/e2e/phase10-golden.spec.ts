@@ -10,9 +10,14 @@ import os from "node:os";
 import fs from "node:fs";
 import { HERE, boot, openMore, openProject, runBar, snapOf, type Snapshot } from "./helpers";
 
-const ICAD_A = path.join(os.tmpdir(), "kreoda-phase10-golden-a.icad");
-const STEP_A = path.join(os.tmpdir(), "kreoda-phase10-golden-a.step");
-const ICAD_B = path.join(os.tmpdir(), "kreoda-phase10-golden-b.icad");
+async function closeFixture(app: Awaited<ReturnType<typeof boot>>["app"] | undefined, fixture: string) {
+  try {
+    await app?.close();
+  } finally {
+    if (path.dirname(fixture) !== path.resolve(os.tmpdir())) throw new Error("Fixture escaped temp directory");
+    fs.rmSync(fixture, { recursive: true, force: true });
+  }
+}
 
 // Workflow A — parametric bracket (Slice 5 body architecture): box → hole →
 // pattern (one cumulative HolePattern op, one undo) → fillet → expression →
@@ -20,8 +25,14 @@ const ICAD_B = path.join(os.tmpdir(), "kreoda-phase10-golden-b.icad");
 // STEP export/import. Exactly ONE body throughout; history grows in the
 // feature list while the scene renders the tip alone.
 test("golden A: parametric bracket with pattern, fillet, expression", async () => {
-  const { app, window } = await boot();
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "kreoda-phase10-golden-a-"));
+  const ICAD_A = path.join(fixture, "bracket.icad");
+  const STEP_A = path.join(fixture, "bracket.step");
+  let app: Awaited<ReturnType<typeof boot>>["app"] | undefined;
   try {
+    const context = await boot();
+    app = context.app;
+    const window = context.window;
     // Project drawer hosts the tree (UX-1 shell); stays open for the flow.
     await openProject(window);
     // 1. Plate 100×60×10 → one body, tip = the box.
@@ -288,8 +299,8 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
     expect(s.treeBodies![0]!.history).toHaveLength(5);
     expect(s.tips!).toEqual([fresh.id]);
 
-    // 10. STEP export → file on disk → reimport. The export carries every
-    // history solid (box, hole, pattern tip, fillet, fresh hole = 5).
+    // 10. STEP export → reimport the current body tip. Historical operations
+    // remain in ICAD for editing; they are not separate exported parts.
     await window.evaluate(
       ({ step }) =>
         (
@@ -310,20 +321,27 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
         ).__kreoda_test.openIcad(step),
       { step: STEP_A },
     )) as Snapshot;
-    expect(s.bodies.length).toBeGreaterThanOrEqual(5);
-    for (const b of s.bodies) expect(b.volumeMm3).toBeGreaterThan(0);
+    expect(s.bodies).toHaveLength(1);
+    expect(s.bodies[0]!.type).toBe("StepImport");
+    expect(s.bodies[0]!.volumeMm3).toBeCloseTo(fresh.volumeMm3, 1);
+    expect(s.treeBodies!).toHaveLength(1);
 
     await window.screenshot({ path: path.join(HERE, "phase10-golden-a.png") });
   } finally {
-    await app.close();
+    await closeFixture(app, fixture);
   }
 });
 
 // Workflow B — rigid assembly: source edit reflows the placed instance,
 // assembly persists across save/reopen (Phase 9d slice of §10.2).
 test("golden B: assembly follows source edits across reopen", async () => {
-  const { app, window } = await boot();
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "kreoda-phase10-golden-b-"));
+  const ICAD_B = path.join(fixture, "assembly.icad");
+  let app: Awaited<ReturnType<typeof boot>>["app"] | undefined;
   try {
+    const context = await boot();
+    app = context.app;
+    const window = context.window;
     const snap = (): Promise<Snapshot> => snapOf(window);
     await runBar(window, "box 100 60 10");
     await expect
@@ -393,14 +411,19 @@ test("golden B: assembly follows source edits across reopen", async () => {
 
     await window.screenshot({ path: path.join(HERE, "phase10-golden-b.png") });
   } finally {
-    await app.close();
+    await closeFixture(app, fixture);
   }
 });
 
 // Workflow C — calibrated reference and traced geometry survive a cold boot.
 test("golden C: calibrated reference sizes traced geometry", async () => {
-  let { app, window } = await boot();
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "kreoda-phase10-golden-c-"));
+  const ICAD_C = path.join(fixture, "reference.icad");
+  let app: Awaited<ReturnType<typeof boot>>["app"] | undefined;
   try {
+    let context = await boot();
+    app = context.app;
+    let window = context.window;
     const dataUrl = (await window.evaluate(() => {
       const c = document.createElement("canvas");
       c.width = 200;
@@ -469,10 +492,13 @@ test("golden C: calibrated reference sizes traced geometry", async () => {
             __kreoda_test: { saveIcad: (p: string) => Promise<Snapshot> };
           }
         ).__kreoda_test.saveIcad(icad),
-      { icad: ICAD_A },
+      { icad: ICAD_C },
     );
     await app.close();
-    ({ app, window } = await boot());
+    app = undefined;
+    context = await boot();
+    app = context.app;
+    window = context.window;
     expect((await snapOf(window)).references).toEqual([]);
     const reopened = (await window.evaluate(
       ({ icad }) =>
@@ -481,7 +507,7 @@ test("golden C: calibrated reference sizes traced geometry", async () => {
             __kreoda_test: { openIcad: (p: string) => Promise<Snapshot> };
           }
         ).__kreoda_test.openIcad(icad),
-      { icad: ICAD_A },
+      { icad: ICAD_C },
     )) as Snapshot;
     expect(reopened.bodies).toHaveLength(1);
     expect(reopened.bodies[0]!.volumeMm3).toBeCloseTo(100 * 50 * 10, 1);
@@ -493,6 +519,6 @@ test("golden C: calibrated reference sizes traced geometry", async () => {
 
     await window.screenshot({ path: path.join(HERE, "phase10-golden-c.png") });
   } finally {
-    await app.close();
+    await closeFixture(app, fixture);
   }
 });

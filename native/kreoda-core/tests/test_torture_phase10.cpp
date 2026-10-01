@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -33,6 +34,7 @@
 #include "../src/features/extrusion/extrude.h"
 #include "../src/features/fillet/fillet.h"
 #include "../src/features/hole/hole.h"
+#include "../src/features/instance/instance.h"
 #include "../src/features/primitives/primitives.h"
 #include "../src/features/sketch/sketch_commands.h"
 #include "../src/model/body.h"
@@ -45,6 +47,7 @@
 #include "../src/features/sketch/sketch_store.h"
 
 #if KREODA_WITH_OCCT
+#include <BRepCheck_Analyzer.hxx>
 #include <TopAbs_ShapeEnum.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_TShape.hxx>
@@ -727,6 +730,245 @@ TEST(Torture10, SaveOpen100Cycles) {
     ASSERT_TRUE(ok(openRpc("r", "cy0", path))) << "cycle " << i;
   }
   fs::remove_all(dir, ec);
+}
+
+// §10.4: repeat the complete requested sequence, including a second edit,
+// Save As, Undo/Redo and the second close/open. A placed instance and a second
+// body share the parametric fixture so assembly references are checked on
+// every cycle, alongside UUIDs, expressions, reference metadata and revisions.
+TEST(Torture10, CompletePersistenceSequence100Cycles) {
+  const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+  const fs::path dir = fs::temp_directory_path() /
+                       ("kreoda-full-persistence-" + std::to_string(nonce));
+  std::error_code ec;
+  ASSERT_TRUE(fs::create_directory(dir, ec)) << ec.message();
+  struct OwnedDirectory {
+    fs::path path;
+    ~OwnedDirectory() {
+      std::error_code cleanup;
+      fs::remove_all(path, cleanup);
+    }
+  } owned{dir};
+  const std::string original = (dir / "original.icad").generic_string();
+  const std::string saveAs = (dir / "save-as.icad").generic_string();
+  const std::string doc = "full-persistence";
+  const auto readOriginal = [&]() {
+    std::ifstream input(original, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(input),
+                       std::istreambuf_iterator<char>());
+  };
+  const std::string references =
+      R"([{"id":"reference-plate","name":"plate","dataUrl":"data:image/png;base64,AAAA","imageW":200,"imageH":100,"widthMm":100,"heightMm":50,"mmPerPx":0.5,"plane":"XZ","opacity":0.4}])";
+  NewDoc(doc);
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("source", 120, 60, 10, &err)) << err;
+  ASSERT_TRUE(kreoda::RebuildFeature("source", "widthMm", 0,
+                                      "heightMm * 2", &err)) << err;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("hole", "source", "box.+Z", 30, 20,
+                                        6, "throughAll", 0, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("other-body", 10, 20, 30, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateInstanceFeature("placed", "hole",
+                                            {50, 0, 0, 0, 0, 0}, &err)) << err;
+  kreoda::DocumentStore::instance().setReferencePlanesJson(references);
+  const auto registry = kreoda::DocumentStore::instance().snapshotRegistry();
+  const std::string bodies = kreoda::SerializeBodiesJson();
+  ASSERT_EQ(registry.size(), 4u);
+  ASSERT_EQ(kreoda::BodyStore::instance().size(), 2u);
+
+  const auto verify = [&](double height) -> ::testing::AssertionResult {
+    if (kreoda::DocumentStore::instance().snapshotRegistry() != registry ||
+        kreoda::SerializeBodiesJson() != bodies ||
+        kreoda::TheFeatureGraph().size() != 4u ||
+        kreoda::ShapeStore::instance().listInOrder().size() != 4u)
+      return ::testing::AssertionFailure() << "UUIDs, body history or graph changed";
+    for (const auto& entry : registry)
+      if (!kreoda::TheFeatureGraph().hasFeature(entry.first))
+        return ::testing::AssertionFailure() << "graph lost " << entry.first;
+    if (ParamOf("source", "heightMm") != height ||
+        ParamOf("source", "widthMm") != 2 * height)
+      return ::testing::AssertionFailure() << "source parameters/formula changed";
+    std::string formula;
+    if (!kreoda::ExpressionStore::instance().get("source", "widthMm", &formula) ||
+        formula != "heightMm * 2")
+      return ::testing::AssertionFailure() << "expression not preserved";
+    kreoda::ShapeRecord hole, placed;
+    if (!kreoda::ShapeStore::instance().get("hole", &hole) ||
+        !kreoda::ShapeStore::instance().get("placed", &placed) ||
+        hole.dependsOn != std::vector<std::string>{"source"} ||
+        placed.dependsOn != std::vector<std::string>{"hole"})
+      return ::testing::AssertionFailure() << "feature/assembly references changed";
+    const double volume = 2 * height * height * 10 - std::acos(-1.0) * 9 * 10;
+    if (std::abs(hole.volumeMm3 - volume) > 0.1 ||
+        std::abs(placed.volumeMm3 - volume) > 0.1 ||
+        std::abs(VolumeOf("other-body") - 6000) > 0.1 ||
+        placed.paramsMm != std::vector<double>{50, 0, 0, 0, 0, 0})
+      return ::testing::AssertionFailure()
+             << "dependent geometry/placement changed: expected " << volume
+             << ", hole " << hole.volumeMm3 << ", placed " << placed.volumeMm3;
+    if (kreoda::DocumentStore::instance().referencePlanesJson() != references)
+      return ::testing::AssertionFailure() << "reference metadata changed";
+    return ::testing::AssertionSuccess();
+  };
+  for (int cycle = 0; cycle < 100; ++cycle) {
+    SCOPED_TRACE("full persistence cycle " + std::to_string(cycle));
+    const double firstHeight = 65 + cycle;
+    const double secondHeight = firstHeight + 0.5;
+    auto revision = kreoda::DocumentStore::instance().snapshotRevision();
+    ASSERT_TRUE(kreoda::RebuildFeature("source", "heightMm", firstHeight, &err)) << err;
+    ASSERT_EQ(kreoda::DocumentStore::instance().snapshotRevision(), revision + 1);
+    ASSERT_TRUE(verify(firstHeight));
+    revision = kreoda::DocumentStore::instance().snapshotRevision();
+    ASSERT_TRUE(ok(saveRpc("full-save", doc, original)));
+    ASSERT_EQ(kreoda::DocumentStore::instance().snapshotRevision(), revision);
+    const std::string originalBytes = readOriginal();
+    ASSERT_FALSE(originalBytes.empty());
+    ASSERT_TRUE(ok(createDocumentRpc("full-close", doc)));
+    ASSERT_TRUE(kreoda::ShapeStore::instance().listInOrder().empty());
+    ASSERT_EQ(kreoda::DocumentStore::instance().snapshotRevision(), 0);
+    ASSERT_TRUE(ok(openRpc("full-open", doc, original)));
+    // Open establishes one new session revision; saved revision numbers are
+    // not the contract. Subsequent mutations must still advance exactly once.
+    ASSERT_EQ(kreoda::DocumentStore::instance().snapshotRevision(), 1);
+    ASSERT_TRUE(verify(firstHeight));
+    ASSERT_TRUE(kreoda::RebuildFeature("source", "heightMm", secondHeight, &err)) << err;
+    ASSERT_EQ(kreoda::DocumentStore::instance().snapshotRevision(), 2);
+    ASSERT_TRUE(verify(secondHeight));
+    ASSERT_TRUE(ok(saveRpc("full-save-as", doc, saveAs)));
+    ASSERT_EQ(kreoda::DocumentStore::instance().snapshotRevision(), 2);
+    ASSERT_TRUE(fs::exists(original) && fs::exists(saveAs));
+    ASSERT_EQ(readOriginal(), originalBytes) << "Save As replaced the original file";
+    ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"full-undo","documentId":"full-persistence","type":8})")));
+    ASSERT_EQ(kreoda::DocumentStore::instance().snapshotRevision(), 3);
+    ASSERT_TRUE(verify(firstHeight));
+    ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"full-redo","documentId":"full-persistence","type":9})")));
+    ASSERT_EQ(kreoda::DocumentStore::instance().snapshotRevision(), 4);
+    ASSERT_TRUE(verify(secondHeight));
+    ASSERT_EQ(readOriginal(), originalBytes) << "Undo/Redo modified the saved original";
+    ASSERT_TRUE(ok(createDocumentRpc("full-close-again", doc)));
+    ASSERT_TRUE(kreoda::ShapeStore::instance().listInOrder().empty());
+    ASSERT_TRUE(ok(openRpc("full-open-as", doc, saveAs)));
+    ASSERT_EQ(kreoda::DocumentStore::instance().snapshotRevision(), 1);
+    ASSERT_TRUE(verify(secondHeight));
+  }
+  std::printf("PHASE10_PERSISTENCE_SEQUENCE {\"cycles\":100,\"features\":4,\"bodies\":2,\"placed_instances\":1,\"sequence\":\"edit-save-close-open-edit-save_as-undo-redo-close-open\",\"reference_metadata\":true,\"revision_scope\":\"new session baseline plus one increment per committed mutation\"}\n");
+}
+
+// §10.2 workflow A starts at a dimensioned sketch, not a substitute primitive.
+// Keep the older box workflow as a separate renderer regression.
+TEST(Torture10, GoldenSketchBracketCompleteWorkflow) {
+#if !KREODA_WITH_OCCT
+  GTEST_SKIP() << "requires real OCCT geometry and persistence";
+#else
+  const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+  const fs::path dir = fs::temp_directory_path() /
+                       ("kreoda-sketch-bracket-" + std::to_string(nonce));
+  std::error_code ec;
+  ASSERT_TRUE(fs::create_directory(dir, ec)) << ec.message();
+  struct OwnedDirectory {
+    fs::path path;
+    ~OwnedDirectory() { std::error_code cleanup; fs::remove_all(path, cleanup); }
+  } owned{dir};
+  const std::string icad = (dir / "bracket.icad").generic_string();
+  const std::string step = (dir / "bracket.step").generic_string();
+  NewDoc("sketch-bracket");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateSketchFeature("profile", "XY", RectModel(100, 60), &err)) << err;
+  ASSERT_TRUE(kreoda::CreateExtrudeFeature("plate", "profile", 10, &err)) << err;
+  // Face-local axes on a sketch extrusion need not match world XY. Convert
+  // authored world positions through the actual surface frame.
+  const auto point = [](const std::string& target, const std::string& role,
+                        double x, double y) {
+    kreoda::ShapeRecord shape;
+    EXPECT_TRUE(kreoda::ShapeStore::instance().get(target, &shape));
+    double origin[3]{}, u[3]{}, v[3]{}, normal[3]{};
+    EXPECT_TRUE(kreoda::FaceFrameInfo(shape.shape, target, shape.type, role,
+                                      origin, u, v, normal));
+    const double offset[3] = {x - origin[0], y - origin[1], shape.bboxMm[5] - origin[2]};
+    return std::pair<double, double>{
+        offset[0] * u[0] + offset[1] * u[1] + offset[2] * u[2],
+        offset[0] * v[0] + offset[1] * v[1] + offset[2] * v[2]};
+  };
+  // A second feature precedes the main hole, as required by the workflow.
+  const auto pilotPoint = point("plate", "extrude.+Z", 30, 15);
+  ASSERT_TRUE(kreoda::CreateHoleFeature("pilot", "plate", "extrude.+Z",
+                                        pilotPoint.first, pilotPoint.second,
+                                        4, "throughAll", 0, &err)) << err;
+  const auto centerPoint = point("pilot", "box.+Z", 50, 30);
+  ASSERT_TRUE(kreoda::CreateHoleFeature("center", "pilot", "box.+Z",
+                                        centerPoint.first, centerPoint.second,
+                                        8, "throughAll", 0, &err)) << err;
+  std::vector<std::string> created;
+  ASSERT_TRUE(kreoda::CreateHolePatternFeature(
+      "center", "box.+Z", {point("center", "box.+Z", 8, 8),
+          point("center", "box.+Z", 92, 8), point("center", "box.+Z", 92, 52),
+          point("center", "box.+Z", 8, 52)},
+      6, "throughAll", 0, {"corners", "corner-2", "corner-3", "corner-4"},
+      &created, &err)) << err;
+  ASSERT_EQ(created, std::vector<std::string>{"corners"});
+  EXPECT_NEAR(VolumeOf("corners"), 60000 - std::acos(-1.0) * 56 * 10, 0.1);
+  const std::string edge = "corners:edge.lin.box.+X~box.-Z";
+  ASSERT_TRUE(kreoda::CreateFilletFeature("round", "corners", {edge}, 2, &err)) << err;
+  ASSERT_TRUE(kreoda::RebuildFeature("plate", "distanceMm", 0, "5 * 3", &err)) << err;
+  ASSERT_DOUBLE_EQ(ParamOf("plate", "distanceMm"), 15);
+  const auto registry = kreoda::DocumentStore::instance().snapshotRegistry();
+  const std::string bodies = kreoda::SerializeBodiesJson();
+  const double before = VolumeOf("round");
+  ASSERT_TRUE(kreoda::UpdateSketchFeature("profile", RectModel(120, 60), &err)) << err;
+  const double after = VolumeOf("round");
+  ASSERT_GT(after, before);
+  EXPECT_NEAR(VolumeOf("corners"), 120 * 60 * 15 - std::acos(-1.0) * 56 * 15, 0.1);
+  ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"bracket-undo","documentId":"sketch-bracket","type":8})")));
+  EXPECT_NEAR(VolumeOf("round"), before, 1e-6);
+  ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"bracket-redo","documentId":"sketch-bracket","type":9})")));
+  EXPECT_NEAR(VolumeOf("round"), after, 1e-6);
+  ASSERT_TRUE(ok(saveRpc("bracket-save", "sketch-bracket", icad)));
+  ASSERT_TRUE(ok(createDocumentRpc("bracket-close", "sketch-bracket")));
+  ASSERT_TRUE(kreoda::SketchStore::instance().listInOrder().empty());
+  ASSERT_TRUE(ok(openRpc("bracket-open", "sketch-bracket", icad)));
+  EXPECT_EQ(kreoda::DocumentStore::instance().snapshotRegistry(), registry);
+  EXPECT_EQ(kreoda::SerializeBodiesJson(), bodies);
+  EXPECT_NEAR(VolumeOf("round"), after, 1e-6);
+  kreoda::SketchFeature reopenedProfile;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("profile", &reopenedProfile));
+  const auto width = std::find_if(reopenedProfile.model.constraints.begin(),
+      reopenedProfile.model.constraints.end(),
+      [](const auto& constraint) { return constraint.id == "w"; });
+  ASSERT_NE(width, reopenedProfile.model.constraints.end());
+  EXPECT_DOUBLE_EQ(width->value, 120);
+  std::string formula;
+  ASSERT_TRUE(kreoda::ExpressionStore::instance().get("plate", "distanceMm", &formula));
+  EXPECT_EQ(formula, "5 * 3");
+  const std::vector<std::pair<std::string, std::vector<std::string>>> dependencies = {
+      {"plate", {"profile"}}, {"pilot", {"plate"}}, {"center", {"pilot"}},
+      {"corners", {"center"}}, {"round", {"corners"}}};
+  for (const auto& entry : dependencies) {
+    kreoda::ShapeRecord shape;
+    ASSERT_TRUE(kreoda::ShapeStore::instance().get(entry.first, &shape));
+    EXPECT_EQ(shape.dependsOn, entry.second);
+    EXPECT_TRUE(kreoda::TheFeatureGraph().hasFeature(entry.first));
+    EXPECT_TRUE(BRepCheck_Analyzer(shape.shape).IsValid()) << entry.first;
+  }
+  kreoda::ShapeRecord tip;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("round", &tip));
+  TopoDS_Edge resolved;
+  EXPECT_TRUE(kreoda::FindEdgeByRole(tip.shape, "round", tip.type,
+                                     "edge.lin.box.+X~box.+Z", &resolved));
+  ASSERT_TRUE(ok(saveRpc("bracket-step", "sketch-bracket", step)));
+  ASSERT_GT(fs::file_size(step), 1000u);
+  // A further upstream edit after reopen proves the retained DAG is usable.
+  ASSERT_TRUE(kreoda::UpdateSketchFeature("profile", RectModel(130, 60), &err)) << err;
+  EXPECT_GT(VolumeOf("round"), after);
+  NewDoc("bracket-step-check");
+  std::vector<std::string> imported;
+  ASSERT_TRUE(kreoda::ImportStep(step, &imported, &err)) << err;
+  ASSERT_EQ(imported.size(), 1u);
+  EXPECT_NEAR(VolumeOf(imported[0]), after, 0.1);
+  kreoda::ShapeRecord exportedTip;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get(imported[0], &exportedTip));
+  EXPECT_TRUE(BRepCheck_Analyzer(exportedTip.shape).IsValid());
+  std::printf("PHASE10_SKETCH_BRACKET {\"workflow\":\"sketch-extrude-second_feature-hole-pattern-fillet-expression-upstream_edit-undo-redo-save-close-open-step\",\"features\":6,\"bodies\":1,\"before_edit_volume_mm3\":%.9f,\"after_edit_volume_mm3\":%.9f,\"step_bytes\":%llu,\"reopened_editable\":true,\"step_round_trip\":true}\n",
+      before, after, static_cast<unsigned long long>(fs::file_size(step)));
+#endif
 }
 
 // Deletion rejects shape and expression dependents, rebuilds body/graph state,
