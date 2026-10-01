@@ -158,6 +158,10 @@ test("plugins: sandboxed commands, escapes refused, crashes isolated", async () 
 test("plugin load/unload cycles release worker URLs", async () => {
   const { app, window } = await boot();
   try {
+    // Playwright observes actual dedicated-worker target creation/closure;
+    // URL revocation alone does not establish that a worker was terminated.
+    const baselineWorkers = window.workers().length;
+    const workerSamples: { cycle: number; loaded: number; unloaded: number }[] = [];
     await window.evaluate(() => {
       const counts = { created: 0, revoked: 0 };
       const create = URL.createObjectURL.bind(URL);
@@ -177,10 +181,14 @@ test("plugin load/unload cycles release worker URLs", async () => {
         (globalThis.window as unknown as {
           __kreoda_test: { loadPluginSource: (source: string) => Promise<unknown> };
         }).__kreoda_test.loadPluginSource(source), PAIR_PLUGIN);
+      await expect.poll(() => window.workers().length).toBe(baselineWorkers + 1);
+      const loaded = window.workers().length;
       await window.evaluate(() =>
         (globalThis.window as unknown as {
           __kreoda_test: { unloadPlugin: (id: string) => Promise<void> };
         }).__kreoda_test.unloadPlugin("plugin.e2e.pair"));
+      await expect.poll(() => window.workers().length).toBe(baselineWorkers);
+      workerSamples.push({ cycle: i + 1, loaded, unloaded: window.workers().length });
     }
     const counts = await window.evaluate(() =>
       (globalThis.window as unknown as {
@@ -188,6 +196,12 @@ test("plugin load/unload cycles release worker URLs", async () => {
       }).__pluginUrls);
     expect(counts.created).toBeGreaterThanOrEqual(20);
     expect(counts.revoked).toBe(counts.created);
+    console.log(`PHASE10_PLUGIN_RESOURCES ${JSON.stringify({
+      cycles: workerSamples.length, baseline_workers: baselineWorkers,
+      final_workers: window.workers().length, workerSamples,
+      created_urls: counts.created, revoked_urls: counts.revoked,
+      worker_count_source: "Playwright dedicated-worker targets observed over CDP",
+    })}`);
   } finally {
     await app.close();
   }

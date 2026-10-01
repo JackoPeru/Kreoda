@@ -18,6 +18,8 @@ type ProcessMetric = Target & {
   workingSetBytes: number;
   privateBytes: number;
   handleCount: number;
+  // All OS threads, including engine helpers; plugin workers are measured separately.
+  threadCount: number;
 };
 type ProcessSnapshot = { processes: ProcessMetric[]; sidecarPids: number[] };
 
@@ -200,6 +202,7 @@ $rows = foreach ($target in $targets) {
       workingSetBytes = [long]$process.WorkingSet64
       privateBytes = [long]$process.PrivateMemorySize64
       handleCount = [int]$process.HandleCount
+      threadCount = [int]$process.Threads.Count
     }
   }
 }
@@ -215,8 +218,13 @@ $sidecars = @(Get-Process -Name 'kreoda-core' -ErrorAction SilentlyContinue | Fo
     processes?: ProcessMetric | ProcessMetric[] | null;
     sidecarPids?: number | number[] | null;
   };
+  const processes = asArray(parsed.processes);
+  for (const metric of processes) {
+    expect(Number.isInteger(metric.threadCount)).toBe(true);
+    expect(metric.threadCount).toBeGreaterThan(0);
+  }
   return {
-    processes: asArray(parsed.processes),
+    processes,
     sidecarPids: asArray(parsed.sidecarPids),
   };
 }
@@ -232,7 +240,12 @@ function geometry(snapshot: Snapshot) {
 
 test("resource sample: 21-body orbit and zoom session", async () => {
   test.skip(process.platform !== "win32", "resource sampling uses Windows process metrics");
-  test.setTimeout(300_000);
+  // Opt-in prolonged diagnostic; duration bounds the sample, not acceptable FPS/RAM.
+  const minimumSessionMs = Number(process.env.KREODA_RESOURCE_SESSION_MS ?? 0);
+  expect(Number.isSafeInteger(minimumSessionMs)).toBe(true);
+  expect(minimumSessionMs).toBeGreaterThanOrEqual(0);
+  expect(minimumSessionMs).toBeLessThanOrEqual(1_200_000);
+  test.setTimeout(Math.max(300_000, minimumSessionMs + 180_000));
 
   const baselineSidecars = windowsProcessSnapshot([]).sidecarPids.sort((a, b) => a - b);
   const bootStarted = Date.now();
@@ -291,10 +304,14 @@ test("resource sample: 21-body orbit and zoom session", async () => {
         .__kreoda_test.viewDir(),
     );
 
-    const cycles = 80;
+    let cycles = 0;
+    const periodicResourceSamples: unknown[] = [];
     await beginPresentationSample(app);
+    const interactionStarted = Date.now();
+    let nextResourceSampleAt = interactionStarted + 60_000;
     let orbitZoomActionMs = 0;
-    for (let i = 0; i < cycles; i++) {
+    for (let i = 0; i < 80 || Date.now() - interactionStarted < minimumSessionMs; i++) {
+      cycles++;
       const actionStarted = Date.now();
       await window.mouse.move(x, y);
       await window.mouse.down();
@@ -308,7 +325,24 @@ test("resource sample: 21-body orbit and zoom session", async () => {
           .sort((a, b) => a - b);
         expect(liveSidecars).toEqual([corePid]);
       }
+      if (minimumSessionMs > 0 && Date.now() >= nextResourceSampleAt) {
+        const resources = windowsProcessSnapshot(targets);
+        expect(resources.processes.map(metric => metric.pid).sort((a, b) => a - b))
+          .toEqual(targets.map(target => target.pid).sort((a, b) => a - b));
+        const sample = {
+          elapsed_ms: Date.now() - interactionStarted, orbit_zoom_cycles: cycles,
+          resources, gpuMemory: await gpuMemory(app), dedicated_workers: window.workers().length,
+          viewport: await window.evaluate(() =>
+            (window as unknown as { __kreoda_test: { viewportRenderStats: () => ViewportRenderStats | null } })
+              .__kreoda_test.viewportRenderStats()),
+        };
+        periodicResourceSamples.push(sample);
+        console.log(`PHASE10_RESOURCE_SESSION_SAMPLE ${JSON.stringify(sample)}`);
+        nextResourceSampleAt = Date.now() + 60_000;
+      }
     }
+    const orbitZoomElapsedMs = Date.now() - interactionStarted;
+    expect(orbitZoomElapsedMs).toBeGreaterThanOrEqual(minimumSessionMs);
     await window.waitForTimeout(500);
     const presentation = await endPresentationSample(app);
 
@@ -359,6 +393,7 @@ test("resource sample: 21-body orbit and zoom session", async () => {
         workingSetDeltaBytes: after.workingSetBytes - before.workingSetBytes,
         privateBytesDelta: after.privateBytes - before.privateBytes,
         handleCountDelta: after.handleCount - before.handleCount,
+        threadCountDelta: after.threadCount - before.threadCount,
       };
     });
     console.log(
@@ -366,6 +401,8 @@ test("resource sample: 21-body orbit and zoom session", async () => {
         startup_to_canvas_visible_ms: canvasVisibleMs,
         orbit_zoom_action_ms_total: orbitZoomActionMs,
         orbit_zoom_cycles: cycles,
+        minimum_session_ms: minimumSessionMs, orbit_zoom_elapsed_ms: orbitZoomElapsedMs,
+        periodicResourceSamples,
         presentation,
         testhook_face_selection_to_context_toolbar_ms: selectionToolbarMs,
         firstGpuMemory, finalGpuMemory, finalGpuCompletion,
