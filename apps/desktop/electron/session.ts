@@ -349,6 +349,10 @@ export class SessionRelay {
     // The pairing gate (§11.16): only `hello` is reachable pre-auth, and a
     // wrong token closes the socket (no oracle beyond the close code).
     if (msg.method === "hello") {
+      if (hello.authed) {
+        reply(false, { errorCode: "BAD_HELLO", error: "hello already completed" });
+        return;
+      }
       if (
         typeof requestId !== "string" ||
         params["token"] !== token ||
@@ -425,10 +429,42 @@ export class SessionRelay {
             });
             return;
           }
+          if (type === 27 || type === 28 || type === 29) {
+            reply(false, {
+              errorCode: "BAD_PARAMS",
+              error: "use txnBegin, txnCommit, or txnRollback for transaction control",
+            });
+            return;
+          }
+          const rawFields = params["fields"];
+          if (
+            rawFields !== undefined &&
+            (typeof rawFields !== "object" ||
+              rawFields === null ||
+              Array.isArray(rawFields))
+          ) {
+            reply(false, {
+              errorCode: "BAD_PARAMS",
+              error: "invoke fields must be an object",
+            });
+            return;
+          }
           const fields =
-            params["fields"] !== undefined && params["fields"] !== null
-              ? (params["fields"] as Record<string, unknown>)
-              : {};
+            (rawFields as Record<string, unknown> | undefined) ?? {};
+          const reservedFields = [
+            "protocolVersion",
+            "requestId",
+            "documentId",
+            "type",
+            "transactionId",
+          ];
+          if (reservedFields.some((key) => Object.hasOwn(fields, key))) {
+            reply(false, {
+              errorCode: "BAD_PARAMS",
+              error: "invoke fields cannot override the core envelope",
+            });
+            return;
+          }
           const base =
             typeof params["baseRevision"] === "number"
               ? (params["baseRevision"] as number)
@@ -601,11 +637,11 @@ export class SessionRelay {
     const sidecar = this.sidecar();
     if (!sidecar) throw new Error("geometry engine not running");
     const envelope = {
+      ...fields,
       protocolVersion: SESSION_PROTOCOL_VERSION,
       requestId: `relay-${++this.seq}`,
       documentId,
       type,
-      ...fields,
     };
     const framed = frameMessage(
       new TextEncoder().encode(JSON.stringify(envelope)),
@@ -850,12 +886,74 @@ export class SessionRelay {
     type: number,
     fields: Record<string, unknown>,
     baseRevision: number | null,
-    opts: { joinTxn?: string; noBroadcast?: boolean } = {},
+    opts: {
+      joinTxn?: string;
+      noBroadcast?: boolean;
+      allowOrphanRollback?: boolean;
+      beginTxn?: { ownerClientId: string; transactionId: string };
+    } = {},
   ): Promise<Record<string, unknown>> {
     const run = this.queue.then(async () => {
       const dedupKey = `${clientId}:${requestId}`;
       const cached = this.dedup.get(dedupKey);
       if (cached !== undefined) return cached as Record<string, unknown>;
+
+      if (opts.beginTxn) {
+        if (!this.clients.has(opts.beginTxn.ownerClientId)) {
+          const err = new Error("transaction owner disconnected before begin") as Error & {
+            code?: string;
+          };
+          err.code = "CLIENT_DISCONNECTED";
+          throw err;
+        }
+        if (this.txn) {
+          const err = new Error(
+            `transaction ${this.txn.transactionId} already open`,
+          ) as Error & { code?: string };
+          err.code = "TRANSACTION_BUSY";
+          throw err;
+        }
+        // Reserve in queue order, immediately before the native await. This
+        // keeps earlier queued mutations ahead of the new transaction while
+        // still letting disconnect enqueue rollback during a slow begin.
+        this.txn = opts.beginTxn;
+      }
+
+      if (!opts.allowOrphanRollback) {
+        if (type === 28 || type === 29) {
+          const transactionId =
+            typeof fields["transactionId"] === "string"
+              ? (fields["transactionId"] as string)
+              : "";
+          if (!transactionId) {
+            const err = new Error("transactionId is required") as Error & {
+              code?: string;
+            };
+            err.code = "BAD_PARAMS";
+            throw err;
+          }
+          if (!this.txn || this.txn.transactionId !== transactionId) {
+            const err = new Error("no matching session transaction") as Error & {
+              code?: string;
+            };
+            err.code = "NO_TRANSACTION";
+            throw err;
+          }
+          if (this.txn.ownerClientId !== clientId) {
+            const err = new Error("transaction belongs to another client") as Error & {
+              code?: string;
+            };
+            err.code = "NOT_OWNER";
+            throw err;
+          }
+        } else if (this.txn && this.txn.ownerClientId !== clientId) {
+          const err = new Error("another client owns the active transaction") as Error & {
+            code?: string;
+          };
+          err.code = "BUSY";
+          throw err;
+        }
+      }
 
       if (opts.joinTxn) {
         // Joined steps run inside the atomic unit: the owner was checked by
@@ -955,6 +1053,20 @@ export class SessionRelay {
           this.broadcast(clientId, documentId, rev, features, sketches);
         }
         return result;
+      } catch (e) {
+        const code =
+          typeof e === "object" && e !== null && "code" in e
+            ? (e as { code: unknown }).code
+            : undefined;
+        if (
+          opts.beginTxn &&
+          code !== undefined &&
+          this.txn?.transactionId === opts.beginTxn.transactionId &&
+          this.txn.ownerClientId === opts.beginTxn.ownerClientId
+        ) {
+          this.txn = null;
+        }
+        throw e;
       } finally {
         for (const f of held) this.inFlight.delete(f);
       }
@@ -974,11 +1086,18 @@ export class SessionRelay {
   // txnForceRollback once the owner is gone).
   private txn: { ownerClientId: string; transactionId: string } | null = null;
 
-  private static readonly TERMINAL_TXN_CODES = new Set([
-    "NO_TRANSACTION",
-    "NOT_OWNER",
-    "TRANSACTION_TAINTED",
-  ]);
+  private clearTerminalTxn(e: unknown, transactionId: string): void {
+    const code =
+      typeof e === "object" && e !== null && "code" in e
+        ? (e as { code: unknown }).code
+        : undefined;
+    if (
+      this.txn?.transactionId === transactionId &&
+      (code === "TRANSACTION_TAINTED" || code === "NO_TRANSACTION")
+    ) {
+      this.txn = null;
+    }
+  }
 
   private docOf(params: Record<string, unknown>): string {
     return typeof params["documentId"] === "string" &&
@@ -1000,6 +1119,8 @@ export class SessionRelay {
       err.code = "BAD_PARAMS";
       throw err;
     }
+    const cached = this.dedup.get(`${clientId}:${requestId}`);
+    if (cached !== undefined) return cached as Record<string, unknown>;
     if (this.txn) {
       const err = new Error(
         `transaction ${this.txn.transactionId} already open`,
@@ -1007,11 +1128,12 @@ export class SessionRelay {
       err.code = "TRANSACTION_BUSY";
       throw err;
     }
-    const result = await this.runMutation(clientId, requestId, documentId, 27, {
-      transactionId,
-    }, null, { noBroadcast: true });
-    this.txn = { ownerClientId: clientId, transactionId };
-    return result;
+    return this.runMutation(clientId, requestId, documentId, 27, {
+        transactionId,
+      },
+      null,
+      { noBroadcast: true, beginTxn: { ownerClientId: clientId, transactionId } },
+    );
   }
 
   private async txnCommit(
@@ -1035,16 +1157,7 @@ export class SessionRelay {
       // Terminal core states mean no unit is open anymore — drop the record
       // so the next begin is not wedged. Transport failures keep it (the
       // core may still hold the unit; recover via txnRollback/txnStatus).
-      const code =
-        typeof e === "object" && e !== null && "code" in e
-          ? (e as { code: unknown }).code
-          : undefined;
-      if (
-        typeof code === "string" &&
-        SessionRelay.TERMINAL_TXN_CODES.has(code)
-      ) {
-        this.txn = null;
-      }
+      this.clearTerminalTxn(e, transactionId);
       throw e;
     }
   }
@@ -1067,16 +1180,7 @@ export class SessionRelay {
       this.txn = null;
       return result;
     } catch (e) {
-      const code =
-        typeof e === "object" && e !== null && "code" in e
-          ? (e as { code: unknown }).code
-          : undefined;
-      if (
-        typeof code === "string" &&
-        SessionRelay.TERMINAL_TXN_CODES.has(code)
-      ) {
-        this.txn = null;
-      }
+      this.clearTerminalTxn(e, transactionId);
       throw e;
     }
   }
@@ -1087,32 +1191,41 @@ export class SessionRelay {
     documentId: string,
     transactionId: string,
   ): Promise<Record<string, unknown>> {
-    // Recovery hatch only: the recorded owner must be gone (disconnected),
-    // otherwise this would nuke a live client's atomic unit.
-    if (
-      this.txn &&
-      this.txn.transactionId === transactionId &&
-      this.clients.has(this.txn.ownerClientId)
-    ) {
+    const cached = this.dedup.get(`${clientId}:${requestId}`);
+    if (cached !== undefined) return cached as Record<string, unknown>;
+    if (!transactionId) {
+      const err = new Error("transactionId is required") as Error & {
+        code?: string;
+      };
+      err.code = "BAD_PARAMS";
+      throw err;
+    }
+    // Recovery hatch only: the recorded owner must be disconnected.
+    const open = this.txn;
+    if (!open || open.transactionId !== transactionId) {
+      const err = new Error("no matching session transaction") as Error & {
+        code?: string;
+      };
+      err.code = "NO_TRANSACTION";
+      throw err;
+    }
+    if (this.clients.has(open.ownerClientId)) {
       const err = new Error(
         "transaction owner still connected — ask it to roll back",
       ) as Error & { code?: string };
       err.code = "TRANSACTION_BUSY";
       throw err;
     }
-    const result = await this.runMutation(clientId, requestId, documentId, 29, {
-      transactionId,
-    }, null).catch((e) => {
-      const code =
-        typeof e === "object" && e !== null && "code" in e
-          ? (e as { code: unknown }).code
-          : undefined;
-      if (
-        typeof code === "string" &&
-        SessionRelay.TERMINAL_TXN_CODES.has(code)
-      ) {
-        this.txn = null;
-      }
+    const result = await this.runMutation(
+      clientId,
+      requestId,
+      documentId,
+      29,
+      { transactionId },
+      null,
+      { allowOrphanRollback: true },
+    ).catch((e) => {
+      this.clearTerminalTxn(e, transactionId);
       throw e;
     });
     this.txn = null;
@@ -1128,9 +1241,10 @@ export class SessionRelay {
       () => {
         if (this.txn?.transactionId === open.transactionId) this.txn = null;
       },
-      () => {
+      (e: unknown) => {
         // Transport failed: record stays so txnStatus reports the orphan
         // and txnForceRollback can recover it after the owner is gone.
+        this.clearTerminalTxn(e, open.transactionId);
       },
     );
   }

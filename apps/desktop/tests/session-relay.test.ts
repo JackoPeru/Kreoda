@@ -4,6 +4,7 @@
 // boundary with canned core JSON responses.
 
 import { describe, expect, it } from "vitest";
+import { createServer } from "node:net";
 import { WebSocket } from "ws";
 import { SessionRelay } from "../electron/session";
 import {
@@ -17,8 +18,25 @@ import {
 import type { SidecarManager } from "../electron/sidecar";
 import { SessionClient } from "../e2e/ws-test-client";
 
-const PORT = 44991;
 const TOKEN = "unit-token";
+
+async function freePort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    throw new Error("could not allocate a loopback port");
+  }
+  const port = address.port;
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
+  return port;
+}
 
 interface StoredFeature {
   featureId: string;
@@ -31,7 +49,9 @@ interface StoredFeature {
 }
 
 /** Canned core: boxes + snapshot + undo, with a revision counter. */
-function fakeSidecar() {
+function fakeSidecar(options: {
+  beforeInvoke?: (type: number) => void | Promise<void>;
+} = {}) {
   const features = new Map<string, StoredFeature>();
   let revision = 0;
   // Minimal transaction fence mirror (the real one lives in the dispatcher):
@@ -97,6 +117,7 @@ function fakeSidecar() {
       transactionId?: string;
     };
     calls.push(envelope.type);
+    await options.beforeInvoke?.(envelope.type);
     const fenced = (): Record<string, unknown> | null => {
       // Joined steps (27-29 control excluded) must carry the open unit id.
       if (
@@ -298,9 +319,245 @@ function fakeSidecar() {
 }
 
 describe("SessionRelay", () => {
+  it("rejects repeat hello and rolls back the real transaction on owner disconnect", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const owner = new SessionClient();
+    const observer = new SessionClient();
+    try {
+      await owner.connect(TOKEN, port);
+      await observer.connect(TOKEN, port);
+      await owner.call("txnBegin", { transactionId: "owned-txn" });
+      await owner.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        transactionId: "owned-txn",
+        fields: { featureId: "owned-box-a", widthMm: 1, heightMm: 1, depthMm: 1 },
+      });
+
+      let repeatedHello: { ok: boolean; errorCode?: string } = { ok: true };
+      try {
+        await owner.call("hello", {
+          clientType: "test",
+          clientName: "repeat-hello",
+          protocolVersion: 1,
+          token: TOKEN,
+        });
+      } catch (e) {
+        repeatedHello = {
+          ok: false,
+          errorCode: (e as Error & { code?: string }).code,
+        };
+      }
+      const clientCountAfterRepeat = relay.clientCount;
+      const joined = await owner.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        transactionId: "owned-txn",
+        fields: { featureId: "owned-box-b", widthMm: 2, heightMm: 2, depthMm: 2 },
+      });
+
+      await owner.closed();
+      const deadline = Date.now() + 500;
+      while (!fake.calls.includes(29) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      const status = await observer.call("txnStatus", {});
+
+      expect(repeatedHello).toEqual({ ok: false, errorCode: "BAD_HELLO" });
+      expect(clientCountAfterRepeat).toBe(2);
+      expect(joined["featureId"]).toBe("owned-box-b");
+      expect(fake.calls.filter((type) => type === 29)).toHaveLength(1);
+      expect(fake.features()).toHaveLength(0);
+      expect(status["open"]).toBe(false);
+      expect(status["ownerConnected"]).toBeUndefined();
+      expect(relay.clientCount).toBe(1);
+    } finally {
+      await owner.closed();
+      observer.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("rolls back when the owner disconnects while txnBegin is in flight", async () => {
+    let beginStarted!: () => void;
+    let releaseBegin!: () => void;
+    const started = new Promise<void>((resolve) => {
+      beginStarted = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      releaseBegin = resolve;
+    });
+    const fake = fakeSidecar({
+      beforeInvoke: async (type) => {
+        if (type === 27) {
+          beginStarted();
+          await gate;
+        }
+      },
+    });
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const owner = new SessionClient();
+    const observer = new SessionClient();
+    try {
+      await owner.connect(TOKEN, port);
+      await observer.connect(TOKEN, port);
+      const pendingBegin = owner
+        .call("txnBegin", { transactionId: "slow-begin" })
+        .then(
+          () => null,
+          (error: unknown) => error,
+        );
+      await started;
+
+      await owner.closed();
+      const disconnectDeadline = Date.now() + 500;
+      while (relay.clientCount !== 1 && Date.now() < disconnectDeadline) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      releaseBegin();
+      await pendingBegin;
+
+      const rollbackDeadline = Date.now() + 500;
+      while (!fake.calls.includes(29) && Date.now() < rollbackDeadline) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      const status = await observer.call("txnStatus", {});
+
+      expect(relay.clientCount).toBe(1);
+      expect(fake.calls.filter((type) => type === 27)).toHaveLength(1);
+      expect(fake.calls.filter((type) => type === 29)).toHaveLength(1);
+      expect(status["open"]).toBe(false);
+      expect(fake.features()).toHaveLength(0);
+    } finally {
+      releaseBegin();
+      await owner.closed();
+      observer.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("validates invoke fields and blocks native transaction commands", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      await client.connect(TOKEN, port);
+      const before = fake.calls.length;
+
+      for (const fields of [null, [], "scalar", 7]) {
+        await expect(client.call("invoke", {
+          documentId: "doc-phase1",
+          type: 3,
+          fields,
+        })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      }
+      for (const key of [
+        "protocolVersion",
+        "requestId",
+        "documentId",
+        "type",
+        "transactionId",
+      ]) {
+        await expect(client.call("invoke", {
+          documentId: "doc-phase1",
+          type: 3,
+          fields: { [key]: "attacker-value" },
+        })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      }
+      for (const type of [27, 28, 29]) {
+        await expect(client.call("invoke", {
+          documentId: "doc-phase1",
+          type,
+          transactionId: "forged-txn",
+          fields: { transactionId: "forged-txn" },
+        })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      }
+      expect(fake.calls).toHaveLength(before);
+
+      const valid = await client.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+      });
+      expect(valid["featureId"]).toBe("box-x");
+      expect(fake.features()).toHaveLength(1);
+    } finally {
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("fences foreign transaction controls and mutations before native dispatch", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const owner = new SessionClient();
+    const other = new SessionClient();
+    try {
+      await owner.connect(TOKEN, port);
+      await other.connect(TOKEN, port);
+      await owner.call("txnBegin", { transactionId: "owned-txn" });
+      const before = fake.calls.length;
+
+      await expect(other.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "outsider-box", widthMm: 1, heightMm: 1, depthMm: 1 },
+      })).rejects.toMatchObject({ code: "BUSY" });
+      await expect(other.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        transactionId: "owned-txn",
+        fields: { featureId: "outsider-box-joined", widthMm: 1, heightMm: 1, depthMm: 1 },
+      })).rejects.toMatchObject({ code: "BUSY" });
+      await expect(other.call("txnCommit", { transactionId: "owned-txn" }))
+        .rejects.toMatchObject({ code: "NOT_OWNER" });
+      await expect(other.call("txnRollback", { transactionId: "owned-txn" }))
+        .rejects.toMatchObject({ code: "NOT_OWNER" });
+      await expect(other.call("txnCommit", { transactionId: "other-txn" }))
+        .rejects.toMatchObject({ code: "NO_TRANSACTION" });
+      await expect(other.call("txnRollback", { transactionId: "other-txn" }))
+        .rejects.toMatchObject({ code: "NO_TRANSACTION" });
+      await expect(other.call("txnCommit", {}))
+        .rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await expect(other.call("txnRollback", {}))
+        .rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await expect(other.call("txnForceRollback", { transactionId: "owned-txn" }))
+        .rejects.toMatchObject({ code: "TRANSACTION_BUSY" });
+      expect(fake.calls).toHaveLength(before);
+      const status = await other.call("txnStatus", {});
+      expect(status["open"]).toBe(true);
+      expect(status["ownerConnected"]).toBe(true);
+
+      const joined = await owner.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        transactionId: "owned-txn",
+        fields: { featureId: "owner-box", widthMm: 3, heightMm: 3, depthMm: 3 },
+      });
+      expect(joined["featureId"]).toBe("owner-box");
+      await owner.call("txnCommit", { transactionId: "owned-txn" });
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(1);
+      expect(fake.calls.filter((type) => type === 28)).toHaveLength(1);
+      expect(fake.calls.filter((type) => type === 29)).toHaveLength(0);
+      expect(fake.features().map((feature) => feature.featureId)).toEqual(["owner-box"]);
+    } finally {
+      owner.closeRaw();
+      other.closeRaw();
+      relay.stop();
+    }
+  });
+
   it("rejects malformed frames before core dispatch and keeps valid frames working", async () => {
     const fake = fakeSidecar();
-    const port = PORT + 3;
+    const port = await freePort();
     const relay = new SessionRelay(() => fake.manager);
     relay.start({ port, host: "127.0.0.1", token: TOKEN });
 
@@ -416,10 +673,11 @@ describe("SessionRelay", () => {
     const relay = new SessionRelay(() => fake.manager, (d) => {
       deltas.push(d);
     });
-    relay.start({ port: PORT, host: "127.0.0.1", token: TOKEN });
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
     const client = new SessionClient();
     try {
-      const hello = await client.connect(TOKEN, PORT);
+      const hello = await client.connect(TOKEN, port);
       expect(typeof hello["clientId"]).toBe("string");
       expect(hello["revision"]).toBe(0);
 
@@ -466,8 +724,9 @@ describe("SessionRelay", () => {
 
   it("rejects bad pairing tokens", async () => {    const fake = fakeSidecar();
     const relay = new SessionRelay(() => fake.manager);
-    relay.start({ port: PORT + 1, host: "127.0.0.1", token: TOKEN });
-    const raw = new WebSocket(`ws://127.0.0.1:${PORT + 1}`);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const raw = new WebSocket(`ws://127.0.0.1:${port}`);
     try {
       await new Promise<void>((resolve, reject) => {
         raw.once("open", () => resolve());
@@ -496,8 +755,6 @@ describe("SessionRelay", () => {
 });
 
 describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
-  const PORT_Q = 44993;
-
   async function bootBox(): Promise<{
     relay: SessionRelay;
     client: SessionClient;
@@ -505,9 +762,10 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
   }> {
     const fake = fakeSidecar();
     const relay = new SessionRelay(() => fake.manager);
-    relay.start({ port: PORT_Q, host: "127.0.0.1", token: TOKEN });
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
     const client = new SessionClient();
-    await client.connect(TOKEN, PORT_Q);
+    await client.connect(TOKEN, port);
     await client.call("invoke", {
       documentId: "doc-phase1",
       type: 3,
@@ -650,11 +908,12 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
   it("multi-command transaction: atomic delta, owner rules, recovery", async () => {
     const fake = fakeSidecar();
     const relay = new SessionRelay(() => fake.manager);
-    relay.start({ port: PORT_Q + 20, host: "127.0.0.1", token: TOKEN });
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
     const client = new SessionClient();
-    await client.connect(TOKEN, PORT_Q + 20);
+    await client.connect(TOKEN, port);
     const other = new SessionClient();
-    await other.connect(TOKEN, PORT_Q + 20);
+    await other.connect(TOKEN, port);
     try {
       const seenDeltas = (): Record<string, unknown>[] =>
         client.events.filter((e) => e["event"] === "delta");
@@ -680,7 +939,7 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
           type: 3,
           fields: { featureId: "box-out", widthMm: 1, heightMm: 1, depthMm: 1 },
         }),
-      ).rejects.toMatchObject({ code: "TRANSACTION_OPEN" });
+      ).rejects.toMatchObject({ code: "BUSY" });
       await tcall("invoke", {
         documentId: "doc-phase1",
         type: 3,
@@ -728,8 +987,6 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
 });
 
 describe("SessionControlContract (Slice 7)", () => {
-  const PORT_C = 45033;
-
   it("relay query surface matches the control-plane contract", () => {
     expect([...QUERY_METHODS]).toEqual([...QUERY_METHODS_CONTRACT]);
     for (const m of QUERY_METHODS) {
@@ -743,9 +1000,10 @@ describe("SessionControlContract (Slice 7)", () => {
   it("every query method yields a correlated reply (ok or coded error)", async () => {
     const fake = fakeSidecar();
     const relay = new SessionRelay(() => fake.manager);
-    relay.start({ port: PORT_C, host: "127.0.0.1", token: TOKEN });
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
     const client = new SessionClient();
-    await client.connect(TOKEN, PORT_C);
+    await client.connect(TOKEN, port);
     try {
       await client.call("invoke", {
         documentId: "doc-phase1",
@@ -835,9 +1093,10 @@ describe("SessionControlContract (Slice 7)", () => {
   it("missing required fields fail with errorCode + error (never hang)", async () => {
     const fake = fakeSidecar();
     const relay = new SessionRelay(() => fake.manager);
-    relay.start({ port: PORT_C + 1, host: "127.0.0.1", token: TOKEN });
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
     const client = new SessionClient();
-    await client.connect(TOKEN, PORT_C + 1);
+    await client.connect(TOKEN, port);
     try {
       const cases: [string, Record<string, unknown>, string][] = [
         ["invoke", {}, "BAD_PARAMS"],

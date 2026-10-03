@@ -35,6 +35,10 @@ never maintain another hand-written validator or a custom Zod converter.
 An additive named `command` method maps registry IDs to native operations;
 legacy integer `invoke` remains compatible but receives the same validation.
 Reject unimplemented commands honestly instead of advertising support.
+Reject fields which override native envelope identity/type/transaction
+metadata; spread user fields before trusted envelope fields. Validate that
+fields are an object and numeric revisions are finite nonnegative integers.
+Network preview operations use their dedicated lifecycle methods.
 
 ### Session, ownership and serialization
 
@@ -48,6 +52,14 @@ receive BUSY/CONFLICT. One shared serialized mutation entry owns both
 Desktop IPC and network calls. Preserve binary return bytes for Desktop.
 Read-only queries remain read-only and cannot escape transaction fences.
 Disconnect must roll back an owned transaction without leaking identities.
+Instantiate the shared service even with its network listener disabled;
+local IPC must always use the same queue. Reserve overlapping mutation
+scopes before enqueueing, not only inside an already serialized job.
+During an open transaction, foreign geometry/snapshot queries return BUSY
+instead of exposing uncommitted native state under a committed revision.
+Metadata-only connection/status/schema queries remain available. The owner
+may inspect its working state. A disconnect during a pending begin must
+still release or roll back the unit once its native outcome is known.
 
 ### Retry identity
 
@@ -87,6 +99,12 @@ existing document/mesh synchronization and preserves camera/selection.
 The C# client must expose the same delta fields and recovery semantics.
 Full snapshots remain the explicit join/reconnect/recovery mechanism.
 
+New clients advertise `incremental-deltas` in hello capabilities. Desktop
+always uses incremental events. For older v1 clients without that capability,
+send the former full-list delta as a negotiated compatibility fallback.
+New-client runtime acceptance must assert the actual wire event contains no
+complete arrays; do not hide a full-list event behind client projections.
+
 ### Semantic geometry and machine API
 
 Keep semantic snapshot projections for document, history and dependencies.
@@ -94,6 +112,10 @@ Count visible body tips for total volume; never sum intermediate features.
 Resolve body IDs to their tip and history for body-scoped queries.
 Add a native read-only session query command, using the next unused wire
 type, for geometric metadata, measurement and B-Rep/reference validation.
+The next unused native type is 30 (`RequestSessionQuery`): method plus
+featureId/bodyId or persistent a/b references, JSON result in the existing
+native response envelope. Include it in the read-only transaction policy
+and the schema enum/bindings; do not change any existing numeric wire ID.
 Reuse persistent face/edge resolution and existing OCCT functions:
 minimum shape distance, surface/volume properties, bounding boxes,
 analytic radii/axes and BRepCheck validation. No raw B-Rep serialization.
