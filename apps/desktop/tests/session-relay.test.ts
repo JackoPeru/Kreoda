@@ -351,7 +351,9 @@ describe("SessionRelay", () => {
           nested: { type: 28, requestId: "nested-request", documentId: "nested-doc", transactionId: "nested-txn", isPreview: true },
         },
       }, { sessionId: hello["sessionId"] });
-      const envelopeText = fake.envelopeTexts[before]!;
+      const envelopeText = fake.envelopeTexts
+        .slice(before)
+        .find((text) => (JSON.parse(text) as { type?: number }).type === 3)!;
       const envelope = JSON.parse(envelopeText) as Record<string, unknown>;
       const nested = envelope["nested"] as Record<string, unknown>;
 
@@ -491,7 +493,10 @@ describe("SessionRelay", () => {
         "operation-replay",
         "client-only-feature",
       ]);
-      expect(hello["capabilities"]).toEqual(["operation-replay"]);
+      expect(hello["capabilities"]).toEqual([
+        "operation-replay",
+        "incremental-deltas",
+      ]);
     } finally {
       client.closeRaw();
       relay.stop();
@@ -1450,15 +1455,15 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
     }
   });
 
-  it("multi-command transaction: atomic delta, owner rules, recovery", async () => {
+  it.each([false, true])("multi-command transaction: atomic delta, owner rules, recovery (incremental=%s)", async (incremental) => {
     const fake = fakeSidecar();
     const relay = new SessionRelay(() => fake.manager);
     const port = await freePort();
     relay.start({ port, host: "127.0.0.1", token: TOKEN });
     const client = new SessionClient();
-    await client.connect(TOKEN, port);
+    await client.connect(TOKEN, port, undefined, incremental ? ["incremental-deltas"] : undefined);
     const other = new SessionClient();
-    await other.connect(TOKEN, port);
+    await other.connect(TOKEN, port, undefined, incremental ? ["incremental-deltas"] : undefined);
     try {
       const seenDeltas = (): Record<string, unknown>[] =>
         client.events.filter((e) => e["event"] === "delta");
@@ -1502,7 +1507,19 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
         revision: number;
       };
       expect(committed.revision).toBeGreaterThan(0);
+      await other.waitDelta(committed.revision);
       expect(otherDeltas()).toHaveLength(1);
+      if (incremental) {
+        const delta = otherDeltas()[0]!;
+        expect(delta["baseRevision"]).toBe(0);
+        expect(delta["newRevision"]).toBe(committed.revision);
+        expect(delta["added"]).toEqual(expect.arrayContaining([
+          expect.objectContaining({ kind: "feature", id: "box-t1" }),
+          expect.objectContaining({ kind: "feature", id: "box-t2" }),
+        ]));
+        expect(Object.hasOwn(delta, "features")).toBe(false);
+        expect(seenDeltas()).toHaveLength(1);
+      }
 
       // Rollback path empties without committing.
       await tcall("txnBegin", { transactionId: "t2" });

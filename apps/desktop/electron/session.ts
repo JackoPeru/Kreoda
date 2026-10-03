@@ -17,6 +17,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { decodeMeshFrame, frameMessage } from "@kreoda/protocol";
+import type {
+  SessionEntityChange,
+  SessionEntityKind,
+  SessionIncrementalDelta,
+  SessionModelEntity,
+} from "@kreoda/protocol";
 import type { SidecarManager } from "./sidecar";
 import {
   normalizeSnapshot,
@@ -31,8 +37,8 @@ import {
 
 export const SESSION_PROTOCOL_VERSION = 1;
 
-/** Model delta broadcast to session clients + the local renderer. */
-export interface SessionDelta {
+/** Former full-list delta retained for legacy v1 network clients. */
+interface LegacySessionDelta {
   originClientId: string;
   sessionId: string;
   documentId: string;
@@ -49,6 +55,27 @@ export interface SessionDelta {
   changedMeshIds: string[];
   /** Slice 6: feature + body ids that disappeared (undo/delete/rollback). */
   disappearedIds: string[];
+}
+
+export interface SessionSnapshotRequired {
+  event: "snapshot-required";
+  sessionId: string;
+  documentId: string;
+  revision: number;
+  originClientId: string;
+}
+
+/** Incremental events delivered to the renderer and opted-in clients. */
+export type SessionDelta = SessionIncrementalDelta | SessionSnapshotRequired;
+
+interface CommittedSnapshot {
+  sessionId: string;
+  documentId: string;
+  revision: number;
+  features: unknown[];
+  sketches: unknown[];
+  bodies: SessionBody[];
+  tips: string[];
 }
 
 interface ClientInfo {
@@ -146,6 +173,30 @@ function mutationFeatures(
   return [...new Set(ids)];
 }
 
+/** Semantic roots changed by a command; targetId is intentionally excluded. */
+function mutationAffectedIds(fields: Record<string, unknown>): string[] {
+  const ids = new Set<string>();
+  const add = (value: unknown): void => {
+    if (typeof value === "string" && value.length > 0) ids.add(value);
+  };
+  add(fields["featureId"]);
+  add(fields["sketchId"]);
+  const values = fields["featureIds"];
+  if (Array.isArray(values)) for (const value of values) add(value);
+  return [...ids];
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function appendUnique(target: unknown[], value: unknown): void {
+  const serialized = canonicalJson(value);
+  if (!target.some((item) => canonicalJson(item) === serialized)) target.push(value);
+}
+
 export class SessionRelay {
   private server: WebSocketServer | null = null;
   // Socket and logical client identities are distinct: legacy requestId replay
@@ -163,6 +214,11 @@ export class SessionRelay {
   private operationReplay = new Map<string, ReplayEntry>();
   // Legacy requestId replay lasts only until its socket closes.
   private requestReplay = new Map<string, ReplayEntry>();
+  private committedBaseline: CommittedSnapshot | null = null;
+  private transactionBaseline: CommittedSnapshot | null = null;
+  private transactionAffectedIds = new Set<string>();
+  private transactionReferenceRemaps: unknown[] = [];
+  private transactionWarnings: unknown[] = [];
   private seq = 0;
   // Client-local selections published as shared metadata (§11.5).
   private selections = new Map<string, string[]>();
@@ -209,6 +265,11 @@ export class SessionRelay {
     const token = opts.token;
     if (!token) throw new Error("session relay requires a pairing token");
     this.sessionId = randomUUID();
+    this.committedBaseline = null;
+    this.clearTransactionTracking();
+    this.lastBroadcastRevision = null;
+    this.lastSent = null;
+    this.revisionCache = null;
     this.server = new WebSocketServer({
       port: opts.port,
       host: opts.host,
@@ -235,6 +296,8 @@ export class SessionRelay {
     this.selections.clear();
     this.previews.clear();
     this.txn = null;
+    this.committedBaseline = null;
+    this.clearTransactionTracking();
     this.operationReplay.clear();
     this.requestReplay.clear();
     this.server?.close();
@@ -244,6 +307,8 @@ export class SessionRelay {
   onSidecarCrashed(): void {
     this.sessionId = randomUUID();
     this.inFlight.clear();
+    this.committedBaseline = null;
+    this.clearTransactionTracking();
     this.operationReplay.clear();
     this.requestReplay.clear();
     this.previews.clear();
@@ -262,6 +327,13 @@ export class SessionRelay {
     }
   }
 
+  private clearTransactionTracking(): void {
+    this.transactionBaseline = null;
+    this.transactionAffectedIds.clear();
+    this.transactionReferenceRemaps = [];
+    this.transactionWarnings = [];
+  }
+
   /**
    * A mutation committed through a non-relay path (the local renderer's
    * toolbar/palette/AI flows call the sidecar directly). The renderer pings
@@ -272,17 +344,21 @@ export class SessionRelay {
   async noteLocal(
     documentId: string,
     revision: number,
-    features?: unknown[],
-    sketches?: unknown[],
+    _features?: unknown[],
+    _sketches?: unknown[],
   ): Promise<void> {
     if (!Number.isFinite(revision) || revision < 0) return;
     if (documentId !== this.documentId) {
       this.documentId = documentId;
       this.sessionId = randomUUID();
+      this.txn = null;
+      this.clearTransactionTracking();
+      this.committedBaseline = null;
       this.inFlight.clear();
       this.operationReplay.clear();
       this.requestReplay.clear();
       this.revisionCache = null;
+      this.revisionPending = null;
       this.lastBroadcastRevision = null;
       this.lastSent = null;
     }
@@ -295,27 +371,32 @@ export class SessionRelay {
       }
       return;
     }
-    let list = Array.isArray(features) ? features : null;
-    let sk = Array.isArray(sketches) ? sketches : [];
-    if (!list) {
-      try {
-        const snap = await this.coreSnapshot(documentId);
-        list = snap.features;
-        sk = snap.sketches;
-        revision = snap.revision;
-      } catch (e) {
-        console.error("[session] noteLocal snapshot failed", e);
-        return;
-      }
+    // Renderer summaries omit sketch coordinates and can lag the kernel.
+    // Use the same canonical state as remote mutations for the delta baseline.
+    let canonical: Awaited<ReturnType<SessionRelay["coreSnapshot"]>>;
+    try {
+      canonical = await this.coreSnapshot(documentId);
+    } catch (e) {
+      console.error("[session] noteLocal snapshot failed", e);
+      return;
     }
-    this.revisionCache = revision;
-    this.broadcast(
-      "desktop",
+    const list = canonical.features;
+    const sk = canonical.sketches;
+    revision = canonical.revision;
+    const snap = normalizeSnapshot(documentId, revision, list, sk);
+    const after: CommittedSnapshot = {
+      sessionId: this.sessionId,
       documentId,
       revision,
-      list,
-      sk,
-    );
+      features: list,
+      sketches: sk,
+      bodies: snap.bodies,
+      tips: snap.tips,
+    };
+    const before = this.committedBaseline;
+    this.revisionCache = revision;
+    this.committedBaseline = after;
+    this.broadcast("desktop", after, before, new Set(), [], []);
   }
 
   private lastBroadcastRevision: number | null = null;
@@ -514,7 +595,7 @@ export class SessionRelay {
         clientId: logicalClientId,
         sessionId: this.sessionId,
         documentId: this.documentId,
-        capabilities: ["operation-replay"],
+        capabilities: ["operation-replay", "incremental-deltas"],
         revision: await this.currentRevision(),
       });
       return;
@@ -880,9 +961,24 @@ export class SessionRelay {
     const features = Array.isArray(parsed["features"])
       ? (parsed["features"] as unknown[])
       : [];
-    const sketches = Array.isArray(parsed["sketches"])
+    const sketchSummaries = Array.isArray(parsed["sketches"])
       ? (parsed["sketches"] as unknown[])
       : [];
+    // Counts alone cannot distinguish coordinate edits or their Undo/Redo.
+    // Read the canonical sketch model so semantic deltas remain accurate.
+    const sketches: unknown[] = [];
+    for (const summary of sketchSummaries) {
+      const record = asRecord(summary);
+      if (typeof record?.["featureId"] !== "string") {
+        throw new Error("snapshot contains a sketch without featureId");
+      }
+      const full = await this.coreInvoke(documentId, 17, { featureId: record["featureId"] });
+      const sketch = asRecord(full["sketch"]);
+      if (!sketch || !asRecord(sketch["model"])) {
+        throw new Error("canonical sketch response is missing its model");
+      }
+      sketches.push({ ...record, ...sketch, featureId: record["featureId"] });
+    }
     const revision =
       typeof parsed["revision"] === "number"
         ? (parsed["revision"] as number)
@@ -1215,6 +1311,31 @@ export class SessionRelay {
       const held: string[] = exclusive ? ["*"] : [...(scope as string[])];
       for (const f of held) this.inFlight.add(f);
       try {
+        const terminalTxn = type === 28 || type === 29;
+        let before: CommittedSnapshot | null = null;
+        if (opts.joinTxn) {
+          // The begin snapshot is the baseline for the complete atomic unit.
+          before = this.transactionBaseline;
+        } else if (terminalTxn) {
+          before = this.transactionBaseline;
+        } else {
+          // Capture inside the serialized queue, immediately before native
+          // mutation. This detects changes made through Desktop-local paths
+          // and supplies the only valid baseRevision for the patch.
+          const snap = await this.coreSnapshot(documentId);
+          before = this.committedSnapshot(snap);
+          if (baseRevision !== null && snap.revision !== baseRevision) {
+            const err = new Error(
+              `stale base revision ${baseRevision} (current ${snap.revision}) — snapshot and retry`,
+            ) as Error & { code?: string };
+            err.code = "NEED_FULL_SNAPSHOT";
+            throw err;
+          }
+          this.revisionCache = snap.revision;
+          this.committedBaseline = before;
+          if (opts.beginTxn) this.transactionBaseline = before;
+        }
+
         // Joined steps must carry the unit id into the core envelope: the
         // core fence reads it there (TRANSACTION_OPEN otherwise).
         const parsed = await this.coreInvoke(documentId, type, {
@@ -1224,6 +1345,29 @@ export class SessionRelay {
         this.documentId = documentId;
         if (typeof parsed["revision"] === "number") {
           this.revisionCache = parsed["revision"] as number;
+        }
+        const affectedIds = mutationAffectedIds(fields);
+        const referenceRemaps = Array.isArray(parsed["referenceRemaps"])
+          ? parsed["referenceRemaps"]
+          : [];
+        const warnings = Array.isArray(parsed["warnings"])
+          ? parsed["warnings"]
+          : [];
+        if (opts.joinTxn) {
+          for (const id of affectedIds) this.transactionAffectedIds.add(id);
+          for (const remap of referenceRemaps) {
+            appendUnique(this.transactionReferenceRemaps, remap);
+          }
+          for (const warning of warnings) {
+            appendUnique(this.transactionWarnings, warning);
+          }
+        } else if (terminalTxn) {
+          for (const remap of referenceRemaps) {
+            appendUnique(this.transactionReferenceRemaps, remap);
+          }
+          for (const warning of warnings) {
+            appendUnique(this.transactionWarnings, warning);
+          }
         }
         // The core echoes the SIDECAR-level requestId (relay-N): strip it
         // so it can never clobber the CLIENT-level id in reply() below
@@ -1235,32 +1379,38 @@ export class SessionRelay {
           ...rest,
           revision: this.revisionCache ?? parsed["revision"],
         };
-        // Server-pushed delta (§11.6): every other client + the renderer.
-        // Single-record commits (creates, dimension edits) carry no list —
-        // snapshot the committed state so the delta is always complete.
-        // (One extra cheap JSON round-trip; tessellation never runs here.)
-          // Joined transaction steps stay silent: the commit/rollback
-          // publishes the single atomic delta for the whole unit. Control
-          // calls that change nothing (txnBegin) stay silent too — a same-
-          // revision list broadcast would otherwise wipe renderer trees.
-          if (!opts.joinTxn && !opts.noBroadcast) {
-          let features: unknown[] | null = Array.isArray(parsed["features"])
-            ? (parsed["features"] as unknown[])
-            : null;
-          let sketches: unknown[] = Array.isArray(parsed["sketches"])
-            ? (parsed["sketches"] as unknown[])
-            : [];
-          let rev = this.revisionCache ?? 0;
-          if (!features) {
-            const snap = await this.coreSnapshot(documentId);
-            features = snap.features;
-            sketches = snap.sketches;
-            rev = snap.revision;
-            this.revisionCache = rev;
-          }
-          this.broadcast(clientId, documentId, rev, features, sketches);
+        // Joined steps stay silent. Begin only captures the transaction
+        // baseline; terminal commit/rollback publishes one atomic patch.
+        if (opts.beginTxn || opts.joinTxn || opts.noBroadcast) return result;
+
+        let after: CommittedSnapshot;
+        try {
+          after = this.committedSnapshot(await this.coreSnapshot(documentId));
+        } catch (e) {
+          console.error("[session] post-mutation snapshot failed", e);
+          const revision = this.revisionCache ?? 0;
+          this.committedBaseline = null;
+          this.sendSnapshotRequired(clientId, documentId, revision);
+          if (terminalTxn) this.clearTransactionTracking();
+          return result;
         }
-        return result;
+        this.revisionCache = after.revision;
+        this.committedBaseline = after;
+
+        const roots = terminalTxn
+          ? new Set(this.transactionAffectedIds)
+          : new Set(affectedIds);
+        if (before && after.revision > before.revision) {
+          const remaps = terminalTxn
+            ? this.transactionReferenceRemaps
+            : referenceRemaps;
+          const notices = terminalTxn ? this.transactionWarnings : warnings;
+          this.broadcast(clientId, after, before, roots, remaps, notices);
+        } else if (!before) {
+          this.broadcast(clientId, after, null, roots, [], []);
+        }
+        if (terminalTxn) this.clearTransactionTracking();
+        return { ...result, revision: after.revision };
       } catch (e) {
         const code =
           typeof e === "object" && e !== null && "code" in e
@@ -1273,6 +1423,7 @@ export class SessionRelay {
           this.txn.ownerClientId === opts.beginTxn.ownerClientId
         ) {
           this.txn = null;
+          this.clearTransactionTracking();
         }
         throw e;
       } finally {
@@ -1304,6 +1455,7 @@ export class SessionRelay {
       (code === "TRANSACTION_TAINTED" || code === "NO_TRANSACTION")
     ) {
       this.txn = null;
+      this.clearTransactionTracking();
     }
   }
 
@@ -1451,74 +1603,342 @@ export class SessionRelay {
     );
   }
 
-  private broadcast(
+  private committedSnapshot(snap: Awaited<ReturnType<SessionRelay["coreSnapshot"]>>): CommittedSnapshot {
+    return {
+      sessionId: this.sessionId,
+      documentId: snap.documentId,
+      revision: snap.revision,
+      features: snap.features,
+      sketches: snap.sketches,
+      bodies: snap.bodies,
+      tips: snap.tips,
+    };
+  }
+
+  private sendSnapshotRequired(
     originClientId: string,
     documentId: string,
     revision: number,
-    features: unknown[],
-    sketches: unknown[],
-  ): void {    this.lastBroadcastRevision = revision;
-    // Slice 6: derive bodies by the BodyStore rule (read-only) and diff
-    // against the last broadcast so remotes learn which bodies/meshes
-    // changed, what disappeared, and the current revision. A tip change
-    // names the one body — never N historical features.
-    const snap = normalizeSnapshot(documentId, revision, features, sketches);
-    const prev =
-      this.lastSent && this.lastSent.documentId === documentId
-        ? this.lastSent
-        : null;
-    const changedBodyIds: string[] = [];
-    for (const b of snap.bodies) {
-      const p = prev?.bodies.get(b.bodyId);
-      if (
-        !p ||
-        p.tip !== b.tip ||
-        p.history.length !== b.history.length ||
-        p.history.some((id, i) => id !== b.history[i])
-      ) {
-        changedBodyIds.push(b.bodyId);
-      }
-    }
-    const curIds = new Set<string>([
-      ...snap.features.map((f) => f.featureId),
-      ...snap.bodies.map((b) => b.bodyId),
-    ]);
-    const disappearedIds = prev
-      ? [...prev.ids].filter((id) => !curIds.has(id))
-      : [];
-    const changedTips = new Set(
-      snap.bodies
-        .filter((b) => changedBodyIds.includes(b.bodyId))
-        .map((b) => b.tip),
-    );
-    this.lastSent = {
-      documentId,
-      ids: curIds,
-      bodies: new Map(
-        snap.bodies.map((b) => [b.bodyId, { tip: b.tip, history: [...b.history] }]),
-      ),
-    };
-    const delta: SessionDelta = {
-      originClientId,
+  ): void {
+    const event: SessionSnapshotRequired = {
+      event: "snapshot-required",
       sessionId: this.sessionId,
       documentId,
       revision,
-      features,
-      sketches,
+      originClientId,
+    };
+    for (const client of this.clients.values()) {
+      if (
+        client.capabilities.includes("incremental-deltas") &&
+        client.ws.readyState === WebSocket.OPEN
+      ) {
+        client.ws.send(JSON.stringify(event));
+      }
+    }
+    try {
+      this.onDelta?.(event);
+    } catch (e) {
+      console.error("[session] snapshot-required forward failed", e);
+    }
+  }
+
+  private incrementalDelta(
+    after: CommittedSnapshot,
+    before: CommittedSnapshot,
+    affectedIds: Set<string>,
+    referenceRemaps: unknown[],
+    warnings: unknown[],
+  ): SessionIncrementalDelta {
+    const currentNormalized = normalizeSnapshot(
+      after.documentId,
+      after.revision,
+      after.features,
+      after.sketches,
+    );
+    const affectedClosure = new Set(affectedIds);
+    // Undo/Redo have no featureId in their command. Actual semantic changes,
+    // including sketch coordinates, must seed mesh invalidation as well.
+    for (const kind of ["features", "sketches"] as const) {
+      const previous = new Map(before[kind].map((value) => {
+        const record = asRecord(value);
+        return [record?.["featureId"], record] as const;
+      }));
+      for (const value of after[kind]) {
+        const record = asRecord(value);
+        const id = record?.["featureId"];
+        if (typeof id === "string" && canonicalJson(previous.get(id)) !== canonicalJson(record)) {
+          affectedClosure.add(id);
+        }
+      }
+    }
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const feature of currentNormalized.features) {
+        if (
+          !affectedClosure.has(feature.featureId) &&
+          feature.dependsOn.some((dependency) => affectedClosure.has(dependency))
+        ) {
+          affectedClosure.add(feature.featureId);
+          grew = true;
+        }
+      }
+    }
+
+    const added: SessionEntityChange[] = [];
+    const updated: SessionEntityChange[] = [];
+    const diffCollection = (
+      kind: SessionEntityKind,
+      oldValues: unknown[],
+      newValues: unknown[],
+      forced: Set<string> = new Set(),
+    ): void => {
+      const idKey = kind === "body" ? "bodyId" : "featureId";
+      const old = oldValues.map((value, index) => {
+        const record = asRecord(value);
+        const id = record?.[idKey];
+        if (typeof id !== "string" || id.length === 0) {
+          throw new Error(`snapshot contains ${kind} without ${idKey}`);
+        }
+        return { id, value: record as SessionModelEntity, index };
+      });
+      const current = newValues.map((value, index) => {
+        const record = asRecord(value);
+        const id = record?.[idKey];
+        if (typeof id !== "string" || id.length === 0) {
+          throw new Error(`snapshot contains ${kind} without ${idKey}`);
+        }
+        return { id, value: record as SessionModelEntity, index };
+      });
+      const oldById = new Map(old.map((entry) => [entry.id, entry]));
+      for (const entry of current) {
+        const previous = oldById.get(entry.id);
+        const change: SessionEntityChange = {
+          kind,
+          id: entry.id,
+          index: entry.index,
+          value: entry.value,
+        };
+        if (!previous) {
+          added.push(change);
+        } else if (
+          previous.index !== entry.index ||
+          canonicalJson(previous.value) !== canonicalJson(entry.value) ||
+          forced.has(entry.id)
+        ) {
+          updated.push(change);
+        }
+      }
+    };
+
+    diffCollection("feature", before.features, after.features, affectedClosure);
+    diffCollection("sketch", before.sketches, after.sketches, affectedClosure);
+    diffCollection("body", before.bodies, after.bodies);
+
+    const idsOf = (kind: SessionEntityKind, values: unknown[]): string[] => {
+      const key = kind === "body" ? "bodyId" : "featureId";
+      return values.flatMap((value) => {
+        const id = asRecord(value)?.[key];
+        return typeof id === "string" && id.length > 0 ? [id] : [];
+      });
+    };
+    const oldIds = new Set([
+      ...idsOf("feature", before.features),
+      ...idsOf("sketch", before.sketches),
+      ...idsOf("body", before.bodies),
+    ]);
+    const newIds = new Set([
+      ...idsOf("feature", after.features),
+      ...idsOf("sketch", after.sketches),
+      ...idsOf("body", after.bodies),
+    ]);
+    const removedIds = [...oldIds].filter((id) => !newIds.has(id));
+    const changedMeshes = new Set<string>();
+    const oldBodies = new Map(
+      before.bodies.flatMap((value) => {
+        const body = asRecord(value);
+        return typeof body?.["bodyId"] === "string"
+          ? [[body["bodyId"] as string, body] as const]
+          : [];
+      }),
+    );
+    const newBodies = new Map(
+      after.bodies.flatMap((value) => {
+        const body = asRecord(value);
+        return typeof body?.["bodyId"] === "string"
+          ? [[body["bodyId"] as string, body] as const]
+          : [];
+      }),
+    );
+    for (const [bodyId, oldBody] of oldBodies) {
+      const newBody = newBodies.get(bodyId);
+      if (
+        !newBody || canonicalJson(oldBody) !== canonicalJson(newBody)
+      ) {
+        if (typeof oldBody["tip"] === "string") changedMeshes.add(oldBody["tip"]);
+        if (typeof newBody?.["tip"] === "string") changedMeshes.add(newBody["tip"]);
+      }
+    }
+    for (const [bodyId, newBody] of newBodies) {
+      if (!oldBodies.has(bodyId) && typeof newBody["tip"] === "string") {
+        changedMeshes.add(newBody["tip"]);
+      }
+      const history = newBody["history"];
+      if (
+        Array.isArray(history) &&
+        history.some((id) => typeof id === "string" && affectedClosure.has(id)) &&
+        typeof newBody["tip"] === "string"
+      ) {
+        changedMeshes.add(newBody["tip"]);
+      }
+    }
+    for (const feature of currentNormalized.features) {
+      if (feature.type === "Instance" && affectedClosure.has(feature.featureId)) {
+        changedMeshes.add(feature.featureId);
+      }
+    }
+
+    return {
+      event: "delta",
+      baseRevision: before.revision,
+      newRevision: after.revision,
+      revision: after.revision,
+      sessionId: after.sessionId,
+      documentId: after.documentId,
+      originClientId: "",
+      added,
+      updated,
+      removedIds,
+      changedMeshIds: [...changedMeshes],
+      referenceRemaps: [...referenceRemaps],
+      warnings: [...warnings],
+    };
+  }
+
+  private broadcast(
+    originClientId: string,
+    after: CommittedSnapshot,
+    before: CommittedSnapshot | null,
+    affectedIds: Set<string>,
+    referenceRemaps: unknown[],
+    warnings: unknown[],
+  ): void {
+    if (
+      before &&
+      before.sessionId === after.sessionId &&
+      before.documentId === after.documentId &&
+      after.revision <= before.revision
+    ) {
+      this.lastBroadcastRevision = after.revision;
+      return;
+    }
+    this.lastBroadcastRevision = after.revision;
+
+    // Legacy v1 clients retain the exact full-list event and skip-origin
+    // behavior. New clients opt in to the smaller ordered entity patch.
+    const snap = normalizeSnapshot(
+      after.documentId,
+      after.revision,
+      after.features,
+      after.sketches,
+    );
+    const prev =
+      this.lastSent && this.lastSent.documentId === after.documentId
+        ? this.lastSent
+        : null;
+    const changedBodyIds: string[] = [];
+    for (const body of snap.bodies) {
+      const prior = prev?.bodies.get(body.bodyId);
+      if (
+        !prior || prior.tip !== body.tip ||
+        prior.history.length !== body.history.length ||
+        prior.history.some((id, i) => id !== body.history[i])
+      ) changedBodyIds.push(body.bodyId);
+    }
+    const currentIds = new Set<string>([
+      ...snap.features.map((feature) => feature.featureId),
+      ...snap.bodies.map((body) => body.bodyId),
+    ]);
+    const disappearedIds = prev
+      ? [...prev.ids].filter((id) => !currentIds.has(id))
+      : [];
+    const changedTips = new Set(
+      snap.bodies
+        .filter((body) => changedBodyIds.includes(body.bodyId))
+        .map((body) => body.tip),
+    );
+    this.lastSent = {
+      documentId: after.documentId,
+      ids: currentIds,
+      bodies: new Map(
+        snap.bodies.map((body) => [body.bodyId, {
+          tip: body.tip,
+          history: [...body.history],
+        }]),
+      ),
+    };
+    const legacyDelta: LegacySessionDelta = {
+      originClientId,
+      sessionId: after.sessionId,
+      documentId: after.documentId,
+      revision: after.revision,
+      features: after.features,
+      sketches: after.sketches,
       bodies: snap.bodies,
       tips: snap.tips,
       changedBodyIds,
       changedMeshIds: [...changedTips],
       disappearedIds,
     };
-    for (const c of this.clients.values()) {
-      if (c.logicalClientId === originClientId) continue;
-      if (c.ws.readyState === WebSocket.OPEN) {
-        c.ws.send(JSON.stringify({ event: "delta", ...delta }));
+    for (const client of this.clients.values()) {
+      if (client.ws.readyState !== WebSocket.OPEN) continue;
+      if (client.capabilities.includes("incremental-deltas")) {
+        continue;
+      }
+      if (client.logicalClientId !== originClientId) {
+        client.ws.send(JSON.stringify({ event: "delta", ...legacyDelta }));
+      }
+    }
+
+    let event: SessionDelta;
+    const usableBefore = before &&
+      before.sessionId === after.sessionId &&
+      before.documentId === after.documentId &&
+      after.revision > before.revision
+      ? before
+      : null;
+    if (usableBefore) {
+      const incremental = this.incrementalDelta(
+        after,
+        usableBefore,
+        affectedIds,
+        referenceRemaps,
+        warnings,
+      );
+      event = { ...incremental, originClientId };
+      for (const client of this.clients.values()) {
+        if (
+          client.capabilities.includes("incremental-deltas") &&
+          client.ws.readyState === WebSocket.OPEN
+        ) client.ws.send(JSON.stringify(event));
+      }
+    } else {
+      event = {
+        event: "snapshot-required",
+        sessionId: after.sessionId,
+        documentId: after.documentId,
+        revision: after.revision,
+        originClientId,
+      };
+      for (const client of this.clients.values()) {
+        if (
+          client.capabilities.includes("incremental-deltas") &&
+          client.ws.readyState === WebSocket.OPEN
+        ) client.ws.send(JSON.stringify(event));
       }
     }
     try {
-      this.onDelta?.(delta);
+      this.onDelta?.(event);
     } catch (e) {
       console.error("[session] delta forward failed", e);
     }

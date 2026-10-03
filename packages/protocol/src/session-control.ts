@@ -117,7 +117,29 @@ export const REQUIRED_PARAMS: Record<string, readonly string[]> = {
   previewCancel: ["previewId"],
 };
 
-export const SERVER_EVENTS = ["delta", "selection", "core-restarted"] as const;
+export const SERVER_EVENTS = ["delta", "selection", "core-restarted", "snapshot-required"] as const;
+
+/** Machine-readable shapes for negotiated model events. */
+export const SESSION_EVENT_METADATA = {
+  delta: {
+    mode: "negotiated",
+    capability: "incremental-deltas",
+    incrementalFields: [
+      "baseRevision", "newRevision", "revision", "sessionId", "documentId",
+      "originClientId", "added", "updated", "removedIds", "changedMeshIds",
+      "referenceRemaps", "warnings",
+    ],
+    entityKinds: ["feature", "sketch", "body"],
+    entityFields: ["kind", "id", "index", "value"],
+    legacyFields: [
+      "features", "sketches", "bodies", "tips", "changedBodyIds",
+      "changedMeshIds", "disappearedIds",
+    ],
+  },
+  "snapshot-required": {
+    fields: ["sessionId", "documentId", "revision", "originClientId"],
+  },
+} as const;
 
 // ── Typed DTOs for the fixed control messages (top 8; open-ended query
 // params stay Record<string, unknown> — follow-up, not half-migrated). ──

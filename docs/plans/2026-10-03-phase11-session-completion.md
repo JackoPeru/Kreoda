@@ -149,6 +149,16 @@ helper validates and patches model entities; Desktop preserves unaffected
 mesh buffers and hydrates only changed/new visible IDs, pruning obsolete
 meshes and selections. Mirror the semantics in C#, with a typed model state
 and recovery outside its WebSocket receive loop so replies remain routable.
+Desktop recovery uses a local session snapshot IPC entry, not a loopback
+socket dependency. Keep async delta application and recovery in one ordered
+chain with epoch/revision guards. Existing `CadViewport.syncMeshes` rebuilds
+geometry for every supplied buffer; cache the original immutable core mesh
+object in its body entry and skip unchanged objects before building geometry
+or BVH. Verify unaffected geometry identity and disposal as well as buffer
+identity. This preserves the incremental performance benefit in the scene.
+C# serializes outgoing WebSocket sends, negotiates incremental support and
+maintains model recovery in a separate ordered task queue; never await a
+snapshot reply inside the receive loop which must route that reply.
 
 ### Semantic geometry and machine API
 
@@ -235,6 +245,15 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    Evidence: `docs/evidence/phase11-operation-replay-local-2026-10-03.json`.
    This is packet-level headless evidence, not full Desktop acceptance.
 4. Incremental deltas and Desktop/C# revision-gap recovery.
+   Packet 4a: parent fallback completed after the Luna task stopped with its
+   usage limit. Server emits negotiated incremental entity patches; the
+   shared TypeScript helper preserves ordering and untouched object identity.
+   Parent rerun: 164 workspace tests, 25 .NET tests, Desktop typecheck/build
+   PASS. Real OCCT/three-WebSocket probe passes 15 checks, including equal-count
+   sketch edits, dependent Extrude/Instance invalidation and Undo snapshot
+   agreement. Native PID exited. Evidence:
+   `docs/evidence/phase11-incremental-local-2026-10-04.json`.
+   Desktop and C# application/recovery remain packet 4b; Phase 11 is incomplete.
 5. Typed commands and generated control contract conformance.
 6. Native semantic geometry, accurate measurements/reference validation.
 7. LAN pairing, trusted devices, revocation and local interface guards.

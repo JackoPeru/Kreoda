@@ -12,6 +12,7 @@ import * as flatbuffers from "flatbuffers";
 import { MeshUpdate } from "./generated/kreoda/protocol.js";
 
 export * from "./session-control.js";
+export * from "./session-model.js";
 
 export const PROTOCOL_VERSION = 1 as const;
 

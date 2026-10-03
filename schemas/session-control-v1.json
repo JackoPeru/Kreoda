@@ -51,5 +51,18 @@
   ],
   "wireErrorCodes": ["MALFORMED", "BAD_HELLO", "NOT_AUTHED", "BAD_PARAMS", "NOT_FOUND", "NOT_IMPLEMENTED", "NEED_FULL_SNAPSHOT", "BUSY", "SESSION_FAILED", "TRANSACTION_BUSY", "NO_TRANSACTION", "NOT_OWNER", "TRANSACTION_TAINTED", "TRANSACTION_OPEN", "CORE_FAILED", "PREVIEW_FAILED", "UNKNOWN_COMMAND", "CLIENT_DISCONNECTED", "CONFLICT"],
   "clientOnlyErrorCodes": ["NOT_CONNECTED", "SEND_FAILED", "CANCELLED", "CLOSED", "RECEIVE_FAILED"],
-  "serverEvents": ["delta", "selection", "core-restarted"]
+  "serverEvents": ["delta", "selection", "core-restarted", "snapshot-required"],
+  "serverEventMetadata": {
+    "delta": {
+      "mode": "negotiated",
+      "capability": "incremental-deltas",
+      "incrementalFields": ["baseRevision", "newRevision", "revision", "sessionId", "documentId", "originClientId", "added", "updated", "removedIds", "changedMeshIds", "referenceRemaps", "warnings"],
+      "entityKinds": ["feature", "sketch", "body"],
+      "entityFields": ["kind", "id", "index", "value"],
+      "legacyFields": ["features", "sketches", "bodies", "tips", "changedBodyIds", "changedMeshIds", "disappearedIds"]
+    },
+    "snapshot-required": {
+      "fields": ["sessionId", "documentId", "revision", "originClientId"]
+    }
+  }
 }

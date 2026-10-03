@@ -7,6 +7,7 @@ import {
   InvokeParamsSchema,
   REQUIRED_PARAMS,
   SERVER_EVENTS,
+  SESSION_EVENT_METADATA,
   SESSION_CONTROL_METHODS,
   SESSION_CONTROL_VERSION,
   TxnParamsSchema,
@@ -29,6 +30,7 @@ describe("session control contract", () => {
       methods.map((m) => m.method).sort(),
     );
     expect([...SERVER_EVENTS]).toEqual(contract.serverEvents);
+    expect(SESSION_EVENT_METADATA).toEqual(contract.serverEventMetadata);
   });
 
   it("validates fixed-message fixtures (and rejects missing required)", () => {
