@@ -51,12 +51,28 @@ test("upstream hole: history action rebuilds the original tip, undo and reopen",
     await window.getByTestId(`insert-hole-after-${plate.id}`).click();
     await dialog.getByLabel("X on face (mm)").fill("20");
     await dialog.getByLabel("Y on face (mm)").fill("20");
+    await expect(dialog.getByTestId("hole-placement-preview")).toBeVisible();
+    await expect(dialog.getByLabel("X on face (mm)")).toHaveValue("20");
+    await expect(dialog.getByLabel("Y on face (mm)")).toHaveValue("20");
     await dialog.getByRole("button", { name: "Cut hole", exact: true }).click();
     await expect(dialog).not.toBeVisible();
     snapshot = await snapOf(window);
     expect(snapshot.treeBodies![0]!.history).toHaveLength(4);
     expect(snapshot.tips).toEqual([rounded.id]);
+    expect(snapshot.bodies.find(b => b.id === rounded.id)!.volumeMm3)
+      .toBeCloseTo(rounded.volumeMm3 - 2 * Math.PI * 16 * 10, 0);
   } finally {
+    if (!window.isClosed() && await window.getByRole("dialog", { name: "Make hole" }).count()) {
+      const placement = await window.evaluate(() => {
+        const dialog = document.querySelector('[role="dialog"]');
+        const x = dialog?.querySelector<HTMLInputElement>('[data-testid="hole-center-x"]');
+        const y = dialog?.querySelector<HTMLInputElement>('[data-testid="hole-center-y"]');
+        return { text: dialog?.textContent, x: x?.value, y: y?.value,
+          preview: dialog?.querySelector('svg')?.getAttribute('viewBox'),
+          error: dialog?.querySelector('[role="alert"]')?.textContent };
+      }).catch(() => null);
+      console.log("UPSTREAM_FAILED_PLACEMENT", JSON.stringify(placement));
+    }
     await app.close();
     childProcess.stderr?.off("data", collect);
     await testInfo.attach("upstream-sidecar-stderr", { body: Buffer.from(stderr), contentType: "text/plain" });

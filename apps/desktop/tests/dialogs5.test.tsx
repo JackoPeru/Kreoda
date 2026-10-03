@@ -71,6 +71,42 @@ const box = {
 };
 
 describe("HoleDialog (§62 Scenario A widgets)", () => {
+  it("prevents position entry until the native frame and default center are ready", async () => {
+    const mesh = await coreClient.requestMesh("box-1", 1);
+    const frame = await coreClient.requestFaceInfo("box-1", "box.+Z");
+    vi.mocked(coreClient.requestFaceInfo).mockClear();
+    let releaseFrame!: (value: typeof frame) => void;
+    const frameReady = new Promise<typeof frame>((resolve) => { releaseFrame = resolve; });
+    vi.mocked(coreClient.requestFaceInfo).mockReturnValueOnce(frameReady);
+    useDocumentUiStore.getState().resetDocument("doc-reopened");
+    useDocumentUiStore.getState().setCoreStatus(true, "test");
+    useDocumentUiStore.getState().setFeatures([box], 1);
+    useDocumentUiStore.getState().upsertMesh("box-1", mesh, 2);
+    useSelectionStore.getState().select("box-1:box.+Z", false);
+    render(<HoleDialog onClose={() => {}} />);
+    try {
+      await waitFor(() => expect(coreClient.requestFaceInfo).toHaveBeenCalledOnce());
+      const x = screen.getByTestId("hole-center-x") as HTMLInputElement;
+      const y = screen.getByTestId("hole-center-y") as HTMLInputElement;
+      expect(x.disabled).toBe(true);
+      expect(y.disabled).toBe(true);
+      releaseFrame(frame);
+      await screen.findByTestId("hole-placement-preview");
+      expect(x.disabled).toBe(false);
+      expect(y.disabled).toBe(false);
+      expect(x.value).toBe("50");
+      expect(y.value).toBe("25");
+      fireEvent.change(x, { target: { value: "20" } });
+      fireEvent.change(y, { target: { value: "20" } });
+      expect(x.value).toBe("20");
+      expect(y.value).toBe("20");
+      expect((screen.getByRole("button", { name: "Cut hole" }) as HTMLButtonElement).disabled).toBe(false);
+    } finally {
+      releaseFrame(frame);
+      vi.mocked(coreClient.requestFaceInfo).mockReset().mockResolvedValue(frame);
+    }
+  });
+
   it("cuts a hole through the typed command with explicit position", async () => {
     useDocumentUiStore.getState().resetDocument("doc-test");
     // Commands gate on a connected engine (M11) — simulate it.

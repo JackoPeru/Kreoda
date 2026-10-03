@@ -103,8 +103,8 @@ test("phase 10 beginner flow: block, centered hole, four R3 rounds, edit and exp
     expect(box.paramsMm.slice(0, 3)).toEqual([100, 60, 10]);
     expect(box.volumeMm3).toBeCloseTo(60000, 3);
 
-    // The Hole dialog leaves X and Y blank to use its documented face-center
-    // default. The native core then creates a through-hole of Ø8.
+    // The preview exposes the actual default face center. The native core
+    // then creates a through-hole of Ø8 at those visible coordinates.
     await selectFace(window, boxId, "box.+Z");
     const toolbar = window.getByTestId("context-toolbar");
     await toolbar.getByRole("button", { name: "Hole" }).click();
@@ -115,10 +115,9 @@ test("phase 10 beginner flow: block, centered hole, four R3 rounds, edit and exp
     await holeDialog.getByLabel("Diameter (mm)").fill("8");
     const xOnFace = holeDialog.getByLabel("X on face (mm)");
     const yOnFace = holeDialog.getByLabel("Y on face (mm)");
-    await expect(xOnFace).toHaveValue("");
-    await expect(yOnFace).toHaveValue("");
-    await expect(xOnFace).toHaveAttribute("placeholder", "center");
-    await expect(yOnFace).toHaveAttribute("placeholder", "center");
+    await expect(holeDialog.getByTestId("hole-placement-preview")).toBeVisible();
+    await expect(xOnFace).toHaveValue("50");
+    await expect(yOnFace).toHaveValue("30");
     await holeDialog.getByRole("button", { name: "Cut hole" }).click();
     await expect(holeDialog).toBeHidden({ timeout: 30000 });
     await expect

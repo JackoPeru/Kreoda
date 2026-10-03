@@ -38,7 +38,11 @@ export function Home({ header, children }: { header: ReactNode; children?: React
       element.pause();
       return;
     }
-    void element.play().catch(() => setVideoError(true));
+    let active = true;
+    void element.play().catch(() => {
+      if (active) setVideoError(true);
+    });
+    return () => { active = false; };
   }, [reducedMotion, videoError]);
 
   return (

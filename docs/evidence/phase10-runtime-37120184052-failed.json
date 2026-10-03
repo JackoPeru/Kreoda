@@ -1,0 +1,309 @@
+{
+  "run": "https://github.com/JackoPeru/Kreoda/actions/runs/37120184052",
+  "commit": "7438d5036a2c1ee0b7fd2b8d7800b3027b63a72a",
+  "conclusion": "failure",
+  "fullLog": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ci-7438d50.log",
+  "fullLogSha256": "847788d886e0d12733d49c4aeda5e8e33dc6a9142561fa66239b462bdb9f7dca",
+  "ordinary": {
+    "passed": 50,
+    "failed": 4,
+    "total": 54,
+    "duration": "6.9m"
+  },
+  "crashGate": "NOT EXECUTED: public command stopped after ordinary failures",
+  "failures": [
+    {
+      "case": "phase10-beginner-flow",
+      "kind": "obsolete test expectation",
+      "evidence": "Expected blank face X, actual explicit centered X50; later modeling assertions not reached"
+    },
+    {
+      "case": "phase10-upstream",
+      "kind": "product regression: position entry races native preview/default initialization after reopen",
+      "evidence": "Local real Electron second insertion: typed X20/Y20 became X5020/Y20; valid face SVG viewBox -8 -68 116 76; center-outside-trim validation correctly disabled Cut",
+      "localDiagnosticLog": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-upstream-diagnostic-final.log",
+      "scope": "First insertion, Undo/Redo, save/reopen passed; second insertion input race is the failure"
+    },
+    {
+      "case": "room-baked-probe",
+      "kind": "obsolete Home Three.js diagnostic",
+      "evidence": "Waits for removed home-scene data-room-baked"
+    },
+    {
+      "case": "room-export-probe",
+      "kind": "obsolete Home Three.js diagnostic",
+      "evidence": "Waits for removed home-scene exportReady/exportError"
+    }
+  ],
+  "completedSteps": [
+    {
+      "completedAt": "2026-10-03T11:36:22Z",
+      "conclusion": "success",
+      "name": "Set up job",
+      "number": 1,
+      "startedAt": "2026-10-03T11:36:19Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:36:29Z",
+      "conclusion": "success",
+      "name": "Run actions/checkout@v4",
+      "number": 2,
+      "startedAt": "2026-10-03T11:36:22Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:36:34Z",
+      "conclusion": "success",
+      "name": "Run pnpm/action-setup@v4",
+      "number": 3,
+      "startedAt": "2026-10-03T11:36:29Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:36:46Z",
+      "conclusion": "success",
+      "name": "Run actions/setup-node@v4",
+      "number": 4,
+      "startedAt": "2026-10-03T11:36:34Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:36:50Z",
+      "conclusion": "success",
+      "name": "Run ilammy/msvc-dev-cmd@v1",
+      "number": 5,
+      "startedAt": "2026-10-03T11:36:46Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:36:54Z",
+      "conclusion": "success",
+      "name": "JS deps",
+      "number": 6,
+      "startedAt": "2026-10-03T11:36:50Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:36:57Z",
+      "conclusion": "success",
+      "name": "Build workspace packages",
+      "number": 7,
+      "startedAt": "2026-10-03T11:36:54Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:37:04Z",
+      "conclusion": "success",
+      "name": "JS lint",
+      "number": 8,
+      "startedAt": "2026-10-03T11:36:57Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:37:14Z",
+      "conclusion": "success",
+      "name": "JS unit tests",
+      "number": 9,
+      "startedAt": "2026-10-03T11:37:04Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:37:19Z",
+      "conclusion": "success",
+      "name": "Verify hidden renderer crash harness",
+      "number": 10,
+      "startedAt": "2026-10-03T11:37:14Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:37:32Z",
+      "conclusion": "success",
+      "name": "Setup vcpkg (manifest: OCCT 8.0.1, release-only triplet)",
+      "number": 11,
+      "startedAt": "2026-10-03T11:37:19Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:37:32Z",
+      "conclusion": "success",
+      "name": "Identify native cache toolchain",
+      "number": 12,
+      "startedAt": "2026-10-03T11:37:32Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:37:39Z",
+      "conclusion": "success",
+      "name": "Restore vcpkg binaries",
+      "number": 13,
+      "startedAt": "2026-10-03T11:37:32Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:37:39Z",
+      "conclusion": "success",
+      "name": "Use supported vcpkg cache backend",
+      "number": 14,
+      "startedAt": "2026-10-03T11:37:39Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:38:16Z",
+      "conclusion": "success",
+      "name": "Configure native core",
+      "number": 15,
+      "startedAt": "2026-10-03T11:37:39Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:38:16Z",
+      "conclusion": "skipped",
+      "name": "Save vcpkg binaries",
+      "number": 16,
+      "startedAt": "2026-10-03T11:38:16Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:40:53Z",
+      "conclusion": "success",
+      "name": "Build native core",
+      "number": 17,
+      "startedAt": "2026-10-03T11:38:16Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:41:49Z",
+      "conclusion": "success",
+      "name": "Native self-test + gtest",
+      "number": 18,
+      "startedAt": "2026-10-03T11:40:53Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:41:51Z",
+      "conclusion": "success",
+      "name": "Setup .NET 8",
+      "number": 19,
+      "startedAt": "2026-10-03T11:41:49Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:42:19Z",
+      "conclusion": "success",
+      "name": ".NET build + tests",
+      "number": 20,
+      "startedAt": "2026-10-03T11:41:51Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:42:26Z",
+      "conclusion": "success",
+      "name": "Build desktop shell",
+      "number": 21,
+      "startedAt": "2026-10-03T11:42:19Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:45:21Z",
+      "conclusion": "success",
+      "name": "Windows packaging smoke",
+      "number": 22,
+      "startedAt": "2026-10-03T11:42:26Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:45:25Z",
+      "conclusion": "success",
+      "name": "Build GPU memory diagnostic",
+      "number": 23,
+      "startedAt": "2026-10-03T11:45:21Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:46:02Z",
+      "conclusion": "success",
+      "name": "Verify Squirrel install and packaged core",
+      "number": 24,
+      "startedAt": "2026-10-03T11:45:25Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:46:03Z",
+      "conclusion": "success",
+      "name": "Retain native runtime provenance",
+      "number": 25,
+      "startedAt": "2026-10-03T11:46:02Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:54:03Z",
+      "conclusion": "failure",
+      "name": "Full regression (test:all)",
+      "number": 26,
+      "startedAt": "2026-10-03T11:46:03Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:54:05Z",
+      "conclusion": "success",
+      "name": "Upload E2E diagnostics",
+      "number": 27,
+      "startedAt": "2026-10-03T11:54:03Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:54:07Z",
+      "conclusion": "success",
+      "name": "Upload crash E2E diagnostics",
+      "number": 28,
+      "startedAt": "2026-10-03T11:54:05Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:54:07Z",
+      "conclusion": "skipped",
+      "name": "Post Setup .NET 8",
+      "number": 53,
+      "startedAt": "2026-10-03T11:54:07Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:54:07Z",
+      "conclusion": "skipped",
+      "name": "Post Run actions/setup-node@v4",
+      "number": 54,
+      "startedAt": "2026-10-03T11:54:07Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:54:07Z",
+      "conclusion": "success",
+      "name": "Post Run pnpm/action-setup@v4",
+      "number": 55,
+      "startedAt": "2026-10-03T11:54:07Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:54:08Z",
+      "conclusion": "success",
+      "name": "Post Run actions/checkout@v4",
+      "number": 56,
+      "startedAt": "2026-10-03T11:54:07Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-03T11:54:08Z",
+      "conclusion": "success",
+      "name": "Complete job",
+      "number": 57,
+      "startedAt": "2026-10-03T11:54:08Z",
+      "status": "completed"
+    }
+  ],
+  "diagnosticArtifactsDirectory": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ci-7438d50-failed-067af252bdaf4b7d9040261b1a9e22c2",
+  "correction": "Luna bounded follow-up active; no re-run or gate bypass",
+  "participantRetest": "Explicitly deferred: La provo pi\u00f9 tardi",
+  "readyForPhase11": false,
+  "selectedCorrection": "Disable X/Y until placement is initialized; busy also owns the inputs. No native/client/protocol changes needed."
+}

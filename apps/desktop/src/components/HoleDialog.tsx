@@ -316,6 +316,7 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
           <input
             data-testid="hole-center-x"
             value={displayedX}
+            disabled={!placement || busy}
             onFocus={() => setEditingCoordinate("x")}
             onBlur={() => setEditingCoordinate(null)}
             onChange={(event) => setManualCoordinate("x", event.target.value)}
@@ -327,6 +328,7 @@ export function HoleDialog({ onClose }: { onClose: () => void }) {
           <input
             data-testid="hole-center-y"
             value={displayedY}
+            disabled={!placement || busy}
             onFocus={() => setEditingCoordinate("y")}
             onBlur={() => setEditingCoordinate(null)}
             onChange={(event) => setManualCoordinate("y", event.target.value)}
