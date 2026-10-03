@@ -4,6 +4,14 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  flora-colossus@2.0.0:
+    hash: 821e633c3939bc72e6cebd238889774daaa20ace2b9832ac52b022a171589cb7
+    path: patches/flora-colossus@2.0.0.patch
+  playwright-core@1.63.0:
+    hash: b4cc88bcf8f07a110c5b110ea5f729c14f813a8a3f462add3326fa958da32952
+    path: patches/playwright-core@1.63.0.patch
+
 importers:
 
   .:
@@ -44,6 +52,9 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      image-dimensions:
+        specifier: 2.6.0
+        version: 2.6.0
       lucide-react:
         specifier: ^0.545.0
         version: 0.545.0(react@19.3.0)
@@ -2019,6 +2030,11 @@ packages:
 
   ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
+
+  image-dimensions@2.6.0:
+    resolution: {integrity: sha512-j1cgVnvl0ltv7tYImMYMlrkYeDB43oSUiQv3zodkImsFbJWmJZ6M5e5N9k5/8zdMVjrtYzRbmcqTqpxvyh29vw==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   imurmurhash@0.1.4:
     resolution: {integrity: sha512-JmXMZ6wuvDmLiHEml9ykzqO6lwFbof0GG4IkcGaENdCRDDmMVnny7s5HsIgHCbaq0w2MyPhDqkhTUgS2LU2PHA==}
@@ -5317,7 +5333,7 @@ snapshots:
 
   flatbuffers@25.9.23: {}
 
-  flora-colossus@2.0.0:
+  flora-colossus@2.0.0(patch_hash=821e633c3939bc72e6cebd238889774daaa20ace2b9832ac52b022a171589cb7):
     dependencies:
       debug: 4.4.3
       fs-extra: 10.1.0
@@ -5370,7 +5386,7 @@ snapshots:
   galactus@1.0.0:
     dependencies:
       debug: 4.4.3
-      flora-colossus: 2.0.0
+      flora-colossus: 2.0.0(patch_hash=821e633c3939bc72e6cebd238889774daaa20ace2b9832ac52b022a171589cb7)
       fs-extra: 10.1.0
     transitivePeerDependencies:
       - supports-color
@@ -5522,6 +5538,8 @@ snapshots:
       safer-buffer: 2.1.2
 
   ieee754@1.2.1: {}
+
+  image-dimensions@2.6.0: {}
 
   imurmurhash@0.1.4: {}
 
@@ -6059,11 +6077,11 @@ snapshots:
 
   pify@2.3.0: {}
 
-  playwright-core@1.63.0: {}
+  playwright-core@1.63.0(patch_hash=b4cc88bcf8f07a110c5b110ea5f729c14f813a8a3f462add3326fa958da32952): {}
 
   playwright@1.63.0:
     dependencies:
-      playwright-core: 1.63.0
+      playwright-core: 1.63.0(patch_hash=b4cc88bcf8f07a110c5b110ea5f729c14f813a8a3f462add3326fa958da32952)
 
   plist@3.1.1:
     dependencies:

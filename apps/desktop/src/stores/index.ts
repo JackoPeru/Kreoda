@@ -54,21 +54,21 @@ export function bodyIdForRoot(rootFeatureId: string): string {
   return `body-${rootFeatureId}`;
 }
 
-/** Deterministic grouping in creation order (mirrors rebuildFromRecords). */
+/** Stable grouping with predecessors first (mirrors rebuildFromRecords). */
 export function buildBodies(features: FeatureSummary[]): BodyInfo[] {
   const bodies: BodyInfo[] = [];
   const memberOf = (id: string): BodyInfo | undefined =>
     bodies.find((b) => b.history.includes(id));
-  for (const f of features) {
+  const attach = (f: FeatureSummary): void => {
     const sem = featureBodySemantics(f.type);
-    if (sem === "none" || memberOf(f.featureId)) continue;
+    if (sem === "none" || memberOf(f.featureId)) return;
     if (sem === "new") {
       bodies.push({
         bodyId: bodyIdForRoot(f.featureId),
         history: [f.featureId],
         tipFeatureId: f.featureId,
       });
-      continue;
+      return;
     }
     // AdvancesBody: join the deps[0] target's body; missing target roots a
     // fresh body so every solid feature belongs to exactly one body.
@@ -84,7 +84,23 @@ export function buildBodies(features: FeatureSummary[]): BodyInfo[] {
         tipFeatureId: f.featureId,
       });
     }
+  };
+  const known = new Map(features.map((f) => [f.featureId, featureBodySemantics(f.type)]));
+  const adopted = new Set<string>();
+  for (let pass = 0; pass < features.length; pass++) {
+    let progress = false;
+    for (const f of features) {
+      if (adopted.has(f.featureId)) continue;
+      const target = f.dependsOn[0];
+      if (featureBodySemantics(f.type) === "advances" && target !== undefined &&
+          known.has(target) && known.get(target) !== "none" && !memberOf(target)) continue;
+      attach(f);
+      adopted.add(f.featureId);
+      progress = true;
+    }
+    if (!progress) break;
   }
+  for (const f of features) if (!adopted.has(f.featureId)) attach(f);
   return bodies;
 }
 

@@ -170,7 +170,7 @@ export function WorkspaceChrome({
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
-            <ObjectTree />
+            <ObjectTree onInsertHole={onHole} />
           </div>
         </div>
       )}

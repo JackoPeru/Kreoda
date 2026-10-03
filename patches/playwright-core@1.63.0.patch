@@ -1,0 +1,14 @@
+diff --git a/lib/coreBundle.js b/lib/coreBundle.js
+index 8ed8bb5de1b12c7c050191123b22a119298826bb..55999bb7f6f524ef59e73a7f1aabcccbcef74b8b 100644
+--- a/lib/coreBundle.js
++++ b/lib/coreBundle.js
+@@ -35010,6 +35010,9 @@ var init_crConnection = __esm({
+             callback.resolve(object.result);
+           }
+         } else if (object.id && object.error?.code === -32001) {
++        } else if (object.id && this._crashed) {
++          // A crash already rejected and cleared pending callbacks. Late CDP
++          // replies belong to those dead requests, not to an active session.
+         } else {
+           assert(!object.id, object?.error?.message || void 0);
+           Promise.resolve().then(() => {

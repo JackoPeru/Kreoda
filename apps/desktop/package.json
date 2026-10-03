@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "Kreoda — hybrid native/web desktop CAD with an OpenCascade geometry engine.",
+  "author": "Kreoda",
   "main": ".vite/build/main.cjs",
   "scripts": {
     "dev": "vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts && node scripts/dev.mjs",
@@ -14,6 +16,7 @@
     "make": "electron-forge make",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:renderer-crash-harness": "node e2e/scripts/renderer-cdp-smoke.cjs",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
@@ -27,6 +30,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-toolbar": "^1.1.11",
     "cmdk": "^1.1.1",
+    "image-dimensions": "2.6.0",
     "lucide-react": "^0.545.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

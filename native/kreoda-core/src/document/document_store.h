@@ -28,6 +28,8 @@ class DocumentStore {
   std::map<std::string, std::string> snapshotRegistry() const;
   int64_t snapshotRevision() const;
   std::string snapshotDocumentId() const;
+  std::string referencePlanesJson() const;
+  void setReferencePlanesJson(const std::string& json);
   void restoreSnapshot(const std::string& documentId, int64_t revision,
                        const std::map<std::string, std::string>& entries);
 
@@ -36,6 +38,7 @@ class DocumentStore {
   mutable std::mutex mutex_;
   std::string documentId_ = "doc-bootstrap";
   int64_t revision_ = 0;
+  std::string referencePlanesJson_ = "[]";
   std::map<std::string, std::string> features_;
 };
 

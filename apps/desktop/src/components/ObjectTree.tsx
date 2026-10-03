@@ -8,7 +8,7 @@ import { useLocale, useT, featureTypeName } from "../i18n";
  * single root feature renders as one flat row exactly as before (no
  * nesting noise). Row labels are unchanged — only grouping is new.
  */
-export function ObjectTree() {
+export function ObjectTree({ onInsertHole }: { onInsertHole?: () => void } = {}) {
   const features = useDocumentUiStore((s) => s.features);
   const bodies = useDocumentUiStore((s) => s.bodies);
   const sketches = useDocumentUiStore((s) => s.sketches);
@@ -59,15 +59,26 @@ export function ObjectTree() {
               {collapsed.has(o.id) ? "▸" : "▾"} {o.name}
             </button>
             {!collapsed.has(o.id) &&
-              o.children.map((c) => (
+              o.children.map((c, i) => (
+                <div key={c.id} className="flex items-center">
                 <button
-                  key={c.id}
                   onClick={() => select(c.id, false)}
                   data-testid={`object-tree-${c.id}`}
                   className={`${rowClass(selectedIds.includes(c.id))} ml-4 w-[calc(100%-1rem)]`}
                 >
                   {c.name}
                 </button>
+                {onInsertHole && features.find((f) => f.featureId === c.id)?.type === "Box" &&
+                  features.find((f) => f.featureId === o.children?.[i + 1]?.id)?.dependsOn[0] === c.id && (
+                  <button
+                    data-testid={`insert-hole-after-${c.id}`}
+                    aria-label={t("tree.insertHole")}
+                    title={t("tree.insertHoleHint")}
+                    className="shrink-0 rounded px-2 py-1 text-white/60 hover:bg-white/10"
+                    onClick={() => { select(`${c.id}:box.+Z`, false); onInsertHole(); }}
+                  >＋</button>
+                )}
+                </div>
               ))}
           </div>
         ) : (
@@ -84,8 +95,11 @@ export function ObjectTree() {
       <div className="mt-3 px-2 py-1 text-xs uppercase tracking-wide text-white/50">
         {t("common.history")}
       </div>
-      <div className="px-2 text-xs text-white/60">
-        {features.length === 0 ? t("tree.historyEmpty") : features.map((f) => featureTypeName(f.type)).join(" → ")}
+      <div data-testid="object-tree-history" className="px-2 text-xs text-white/60">
+        {features.length === 0 ? t("tree.historyEmpty") : [
+          ...bodies.flatMap((b) => b.history),
+          ...features.filter((f) => !bodies.some((b) => b.history.includes(f.featureId))).map((f) => f.featureId),
+        ].map((id) => featureTypeName(features.find((f) => f.featureId === id)!.type)).join(" → ")}
       </div>
     </div>
   );

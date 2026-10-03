@@ -40,7 +40,7 @@ BodySemantics FeatureBodySemantics(const std::string& type);
 
 struct BodyRecord {
   std::string bodyId;
-  std::vector<std::string> history;  // ordered feature ids, creation order
+  std::vector<std::string> history;  // ordered feature ids, predecessors first
   std::string tipFeatureId;          // visible result (normally history.back())
 };
 
@@ -70,7 +70,8 @@ class BodyStore {
   bool removeFeature(const std::string& featureId);
   // Migration rule (legacy .icad without body info + every ResyncStore):
   // root features (no target dep) open bodies; downstream features join
-  // their target's body in creation order. Deterministic: body ids derive
+  // their target's body in dependency order, stable for independent roots.
+  // Deterministic: body ids derive
   // from the root feature id, so rebuild == incremental state.
   void rebuildFromRecords(const std::vector<ShapeRecord>& recordsInOrder);
   // Trusted replace (snapshot restore, validated manifest adopt).

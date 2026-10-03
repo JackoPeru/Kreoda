@@ -1,0 +1,554 @@
+{
+  "status": "LOCAL_AND_HOSTED_AUTOMATED_PASS; participant revised UX accepted; PHASE10 COMPLETE",
+  "date": "2026-10-03",
+  "baseCommit": "b1836d705b6883b04ac9639c552b2f6d872ea07c",
+  "productionAndTestChangesSha256": {
+    "apps/desktop/e2e/context-toolbar.spec.ts": "17d3c5537b1d1e7aef2e1ec9aa9dd037b2175d03bb32c843de68d33a5a537de5",
+    "apps/desktop/e2e/home.spec.ts": "b84b122e89b349da556fd3bcb0a68fe7ad5c2ecef053516207025c6fd7dc504a",
+    "apps/desktop/e2e/phase10-beginner-flow.spec.ts": "57462ac4edb389fa484bdcec71ab3a45871382fbdd61987091a51340507ae9a2",
+    "apps/desktop/e2e/phase10-hole-placement.spec.ts": "311fbfb877974149f6a1782eb3210571352593d7fd3ac2d0bc9dcaff433210da",
+    "apps/desktop/e2e/phase10-upstream.spec.ts": "26a7ad1f4f5c5794a2026549ce0638269129e29bdccaff4117a76998c77f39b7",
+    "apps/desktop/e2e/phase6-ux.spec.ts": "1b7c673c44c174606c2b950cb656f71459e646733032d951ec7c2e627cc22723",
+    "apps/desktop/e2e/room-baked-probe.spec.ts": "12b73c19f20cbc2df41c3bc94d90994291dc005276107591d983067a2a33cffd",
+    "apps/desktop/e2e/room-export-probe.spec.ts": "1c0593038e5fba44df4d3855b2630a9cdc80b090a03b9f61a26db2e848792719",
+    "apps/desktop/public/home/assets/reference-home-poster.png": "6ac7c50ac5fa11579319c36065faf20bb60e7a6c0a384c90fd996330752b0111",
+    "apps/desktop/public/home/assets/reference-home.mp4": "2cd0f274a9f6686c22a30e70e836c57f415e18b4ffa9a4fd2d060cb958c364ed",
+    "apps/desktop/src/components/CadDialog.tsx": "104e39df0d93cccfc55ccdac5cdeb06c0a46f176545db1ce7b2fffe430df0e1a",
+    "apps/desktop/src/components/ContextToolbar.tsx": "3087ad1d37c908f9cc61c5f3f8de98e4f70a2eb1f0c631bf2cecd95fb1cf5a7c",
+    "apps/desktop/src/components/HoleDialog.tsx": "80341dcb36c3b5714dc8a969d5183cfd6cb3d4a430659b06cf7403d63ed58df2",
+    "apps/desktop/src/components/HolePlacementPreview.tsx": "cb56ff623b01b14991b4ee7c85481602f17a644880b7d31ab66ff40381ee1d76",
+    "apps/desktop/src/components/Viewport.tsx": "f74f96de6b947112799fc30d992f1f3dc599fa64480ce21219fa3d1e3925380a",
+    "apps/desktop/src/components/home/Home.css": "423405d1e556e1b871dc81d6e77f8838ed8685f19f9cd51238009b37987123ce",
+    "apps/desktop/src/components/home/Home.tsx": "17d0001b50c7e2248e3905ce9b6847856bdbcec94e14b9a6bc6de12774483e0d",
+    "apps/desktop/src/components/home/HomeHero.tsx": "bfbd0624affe68af5a920be1874d91a3265844c93b985c6cf1c0672ab85dc9a6",
+    "apps/desktop/src/i18n/en.ts": "b837a53ca19a85cdc117735cabf2c98130649c76122b609e0e9ccf62c45e5b56",
+    "apps/desktop/src/i18n/it.ts": "178b115e782a26ced10c9c9898d234f699adb3df9bbddb41bf92337f276158dc",
+    "apps/desktop/src/interaction/holePlacement.ts": "524ef0df0c6cbaa1cf130e48600bbebba145834740323d1659839f49812bd79c",
+    "apps/desktop/src/viewport/CadViewport.ts": "085051b272a9447b4ca6fac2512c9b7ad5d6a9f8e507073c6eb4fb371d663709",
+    "apps/desktop/src/viewport/CameraController.ts": "9e6b00d2cd35caba23ab12e30b2c21f1958c963b56a30886b42d08b50b66dd1b",
+    "apps/desktop/tests/app.test.tsx": "2733a1ea1cbc7e6f56905abe592f9a14f3a30502af0992a38903e2282746aab3",
+    "apps/desktop/tests/camera.test.ts": "8ca3502d6dbcc7bb2cfd690d6fe56caba2d345fa8dcabe6161cc81d55f0b0e15",
+    "apps/desktop/tests/dialogs5.test.tsx": "30b03391ebaa6907a708b512f1a0bd841af7128a1af46d7ea67b1fdbec9f76f1",
+    "apps/desktop/tests/hole-placement.test.ts": "18a19170c6dffd1889c45803b7954862362b94c28805a464f6ced5176fa2c308",
+    "apps/desktop/tests/home-media.test.tsx": "1aab6d9f739ad49b0eeab650d52383fdf91a4bfafcffec485ff9d29ffe7ca66c"
+  },
+  "nativeClientProtocolSourceUnchanged": true,
+  "unitCounts": {
+    "desktop": 111,
+    "protocol": 16,
+    "pluginSdk": 2,
+    "units": 4,
+    "total": 133
+  },
+  "desktopTypecheckAndBuild": "PASS",
+  "hiddenElectron": {
+    "passed": 15,
+    "failed": 0,
+    "duration": "1.1m",
+    "suites": [
+      "home",
+      "context-toolbar",
+      "phase10-hole-placement",
+      "phase10-beginner-flow",
+      "phase10-upstream",
+      "phase3-pull",
+      "phase6-ux",
+      "workspace-ui",
+      "room-baked-probe",
+      "room-export-probe"
+    ],
+    "mainRestoredSha256": "72737557291f929a425f7dcfa75c7e743b2755d0994a3e0d90eb8bd428fb61d4"
+  },
+  "packagedProbe": {
+    "status": "PASS",
+    "videoState": {
+      "src": "file:///C:/Users/matte/Documents/Codex-tools/human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb/hidden-probe-c3TuQu/Kreoda-win32-x64/resources/app.asar/dist/home/assets/reference-home.mp4",
+      "width": 1280,
+      "height": 720,
+      "muted": true,
+      "loop": true,
+      "autoplay": true,
+      "paused": false,
+      "time": 0.13947
+    },
+    "compiledMainSha256": "72737557291F929A425F7DCFA75C7E743B2755D0994A3E0D90EB8BD428FB61D4",
+    "manualHoleNativeCenterMm": {
+      "x": 20,
+      "y": 19.99999
+    },
+    "navigation": {
+      "leftOrbitDirectionChange": [
+        -0.2809370771127764,
+        0.7102891133076484,
+        -0.6454174883127699
+      ],
+      "rightPanScreenPixels": {
+        "dx": 95.74768059158191,
+        "dy": 34.19560021127927
+      },
+      "rightPanKeptViewDirection": true,
+      "wheelIncreasedProjectedSpan": true,
+      "selectionUnchangedAfterAllGestures": true
+    },
+    "commit": "UX working tree; review pending",
+    "mode": "Owned packaged clone with only visibility/offscreen/userData/error-dialog instrumentation; portable static-MD OCCT core, not Squirrel payload",
+    "identity": {
+      "packaged": true,
+      "executable": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb\\hidden-probe-c3TuQu\\Kreoda-win32-x64\\Kreoda.exe",
+      "resources": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb\\hidden-probe-c3TuQu\\Kreoda-win32-x64\\resources",
+      "visible": [
+        false
+      ],
+      "offscreen": [
+        true
+      ]
+    },
+    "corePath": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb\\hidden-probe-c3TuQu\\Kreoda-win32-x64\\resources\\kreoda-core.exe",
+    "coreSha256": "14C38E2A38589CE31EB8E900DDB042D2BA63085197BCE363153EB6F23199826E",
+    "reopenedEditable": true,
+    "stepCurrentBodyRoundTrip": true,
+    "stepImportedSolidCount": 1,
+    "expectedStepVolumeMm3": 71497.34517542564,
+    "actualStepVolumeMm3": 71497.34517542543,
+    "nativeDialogsExercised": false,
+    "humanAuditPerformed": false,
+    "originalAuditAsarUnchanged": true,
+    "originalAuditExecutable": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb\\Kreoda-win32-x64\\Kreoda.exe"
+  },
+  "packagedBundle": {
+    "status": "PASS",
+    "candidateAsarSha256": "c4c98f454b017d4a9934429b1a7d60dd06533fe348b128396ba07abd31caeda2",
+    "files": {
+      "dist/assets/coreClient-Davme1e7.js": "f2371cb0cd5b1b44835e107c0e318cce77affc73c48bcb398d9369d3fce056ca",
+      "dist/assets/i18n-VLH-ftoI.js": "0bac5441c20b8c24d32aaeb044f8b70393c2819dc274e1c29eea16f6f92b21c0",
+      "dist/assets/index-B46lTk54.js": "483550151666600571ce317fdafe4b23b357409beea7cd17c8ee948398fa4811",
+      "dist/assets/index-BAceD9Jn.css": "d13b226bae6205c6521c40c428468e78b0b548c10b4aa659c86347638ca4a26d",
+      "dist/assets/WorkspaceChrome-B3NOCIlP.js": "8d6bb636d860814dc9eaa5f8a445c9f11465341c73468a3953423cb44a9a084f",
+      "dist/favicon-32.png": "df9e664d68014dc6b2fd4c1b707cfb794b9f0366586b4bed2c3dd9e777d486e0",
+      "dist/home/assets/carrara-white.png": "ebcc852f4c30f86825217bc6a27d9cb515e0da20afe9e2c8e3da17dffde33142",
+      "dist/home/assets/charcoal-plaster.png": "f996af01546f7d4adbd946b776ff13168f50c7dc001acfebc6db8c6805ce9d6c",
+      "dist/home/assets/coast-reference-v2.png": "8fb76cef74263bf2bc189ff51705a1a296f57a785f731e29e133cd0a12985141",
+      "dist/home/assets/coast-reference-v3.png": "27447b7d13438d7f1e8e87196168e7283ed40ef3a21bc34103d44a0828749f72",
+      "dist/home/assets/coast-reference.png": "f4d53bd94cbe0d02de37d47a958caca9d0fca2fa75b5d8409b365c737f23ec61",
+      "dist/home/assets/coast-sunset.png": "f0336b8f630c5a4ac3afd9a080f01828b68f10a0714adb89b141474befe59d37",
+      "dist/home/assets/drafting-sheet.png": "804e8d066507f4e457e58403724d8ca68ee51b51ad2fdb6ec78796ddf9e71f0a",
+      "dist/home/assets/floor-rose-marble.png": "d9b28b8b7e0dcd4542cc0f1e6e83d06da85ae0264750f7acfb844b7ee132f69b",
+      "dist/home/assets/k-cycles-still.png": "dd9f6c749f07cbcb5066133d7dc85525e81eee7a7585535b39b1a907d3d16432",
+      "dist/home/assets/k-loop.webm": "081c1c70e71abf2bdeae276cd16d6e983a61bf61d7c1549ce62bc38002fe0181",
+      "dist/home/assets/left-foliage-cutout.png": "1285050c785d9abaeeed2e005de3c56335d8cdd91922cb5d1e6ae2719bb07897",
+      "dist/home/assets/limestone-floor.png": "c5e1929a0c6ff1ecf8a87f10180ea5acb4f876728d7bdfb58d86f728a184fab5",
+      "dist/home/assets/monstera-cutout.png": "b2d71c5920c927e437fdd7d63435af7c9abf5dfafed900eb5aeaa567ba0e87ea",
+      "dist/home/assets/nero-marquina.png": "2c252dfb8b0ae972e92809bd9aca94dbf05770a0dad5fbf71996e5992b23b272",
+      "dist/home/assets/project-thumbnails.png": "07e7a8f9c2e445624b1776ed6f674cfbc259774369af1612592f26fd873e81b9",
+      "dist/home/assets/quote-mountains.png": "74313908f2d9187793036719b27512659d685bce1e15aa6c253af26ffd84a117",
+      "dist/home/assets/reference-home-poster.png": "6ac7c50ac5fa11579319c36065faf20bb60e7a6c0a384c90fd996330752b0111",
+      "dist/home/assets/reference-home.mp4": "2cd0f274a9f6686c22a30e70e836c57f415e18b4ffa9a4fd2d060cb958c364ed",
+      "dist/home/assets/room-cycles-probe.png": "60dc98028d7cf2a87779cd7e07be22b10bf6eb26f87acea58162ca89dee752da",
+      "dist/home/assets/rough-charcoal-stone.png": "cf8c2bd506ffe79703ccf1079caceeaf67a9fbcf8a7e5162d77b037763ce49ba",
+      "dist/home/assets/sculpture-carrara.png": "d4de5859947629791e678bb938cd88e7b091e6844150989532efaa10bcc2be5f",
+      "dist/home/assets/smoked-walnut.png": "88a318ffe2b939776a3073d8a5a5b673dede50eedf4d033131a00d4659224dc6",
+      "dist/home/assets/table-nero-marquina.png": "d404a8ca7217a6712f8a7011ba07908f918cf642267aefe4a59abbcf1ebc80c2",
+      "dist/index.html": "daf95d117803915c4abfd1acf2f7c8ad22fb8ee2180a5744149883607aa6357c",
+      "dist/kreoda-mark.png": "1c6ecba91ce1e5bb5b0ab1f2cd7386212a847c7e29f83f82954241c816933f9c",
+      ".vite/build/main.cjs": "72737557291f929a425f7dcfa75c7e743b2755d0994a3e0d90eb8bd428fb61d4",
+      ".vite/build/preload.cjs": "471400795104914038737d69e6c675d4e487b825de57df48789b06c0bd0707bc"
+    },
+    "allBuiltRendererAndElectronBytesMatchPackagedArchive": true
+  },
+  "portableManifest": {
+    "status": "Local and exact hosted verification PASS; participant revised UX accepted; Phase10 COMPLETE",
+    "sourceCopy": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\Kreoda-win32-x64",
+    "app": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb\\Kreoda-win32-x64",
+    "sourceCodeBaseline": "b1836d705b6883b04ac9639c552b2f6d872ea07c",
+    "nativeVariant": "static-MD portable, not hosted Squirrel",
+    "originalAppPreserved": true,
+    "candidateAsarSha256": "c4c98f454b017d4a9934429b1a7d60dd06533fe348b128396ba07abd31caeda2",
+    "coreSha256": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+    "referenceVideoSha256": "2cd0f274a9f6686c22a30e70e836c57f415e18b4ffa9a4fd2d060cb958c364ed",
+    "originalAsarPreserved": true,
+    "publishedCodeRevision": "0c944b7e9770ba915e3554f9ea9ad721b907bee5",
+    "currentHostedRun": "https://github.com/JackoPeru/Kreoda/actions/runs/37136496515",
+    "currentHostedStatus": "SUCCESS",
+    "precedingHostedFailure": {
+      "codeRevision": "7438d5036a2c1ee0b7fd2b8d7800b3027b63a72a",
+      "run": "https://github.com/JackoPeru/Kreoda/actions/runs/37120184052",
+      "conclusion": "FAILURE"
+    },
+    "participantAcceptance": "ok è ottimo, prosegui"
+  },
+  "originalHumanAuditArchiveUnchanged": {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\Kreoda-win32-x64\\resources\\app.asar",
+    "sha256": "4e0d8ec74bceef865ad9320d93bb070509db25772b2953b1ab6e905cc4405c62"
+  },
+  "referenceVideo": {
+    "source": "riferimento UI/gemini_generated_video_2fbba15c.mp4",
+    "sha256": "2cd0f274a9f6686c22a30e70e836c57f415e18b4ffa9a4fd2d060cb958c364ed",
+    "bytes": 5907075
+  },
+  "diagnosticFailuresRetained": [
+    "Intermediate workspace fixture run: 8 failures, then127/127 pass",
+    "Intermediate GUI runs:3/11 and2/6 failures in locators/frozen bridge/SVG actionability; corrected real mouse click and native snapshot, then11/11 pass",
+    "Packaged manual probe exact string20 assertion rejected19.99999 from pixel transform; numerical tolerance corrected",
+    "Wheel probe initially targeted a UI overlay; hit-verified CAD canvas passed all navigation assertions",
+    "Portable builder stopped before mutation on an expected hash typo of65 characters; verified same64-character core hash in original manifest and both copies before correcting probe expectation",
+    "Luna framing regression first run: narrow-viewport >= assertion differed by2e-14; floating-point tolerance1e-9, then131/131 pass. Parent fresh131/131 pass recorded.",
+    "Exact hosted7438:50/54 ordinary passed;4 failed; crash not executed. Full failed evidence retained.",
+    "Local upstream replay: valid preview, second insertion after reopen X5020/Y20; disabled-input regression failed before minimal fix.",
+    "Intermediate hidden15 batch:14 pass; obsolete rejected play promise created videoError despite readyState4/no MediaError. Focused Home cancellation unit failed before cleanup guard."
+  ],
+  "limits": [
+    "Local static-MD portable is not the hosted Squirrel payload",
+    "Diagnostic clones use show:false/offscreen:true, isolated userData and30FPS cap; cleaned after actual test",
+    "GUI helper tests use real native core but test-hook save/open paths; native file dialogs not exercised in this batch",
+    "Preview uses tessellated planar trim; edge distance constraints use only actual straight CAD edge polylines",
+    "Human feedback is participant-reported; numeric time/wrong-click counts remain unrecorded",
+    "Earlier hosted5f9fc9b success is a baseline, not verification of this patch",
+    "Expanded hidden suite now exercises actual Chromium missing-file MediaError and reduced-motion resume; focused unit also covers pending-play cancellation ordering."
+  ],
+  "logs": {
+    "kreoda-ux-workspace-units.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-workspace-units.log",
+      "sha256": "a0346d450664daed18b5e6e70f815a1859bb4129aeafe6c9d4ef11af3f83a405"
+    },
+    "kreoda-ux-workspace-units-hero-final.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-workspace-units-hero-final.log",
+      "sha256": "ef990ee408f65f83e8c09ac943cc12696f9640829edc7578253330cb5aa96b21"
+    },
+    "kreoda-ux-final-reviewed-build.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-final-reviewed-build.log",
+      "sha256": "b51666846915ff8ae79a74f206991f4dfc1eb3ff88cbf751c71a10c8a8c576f6"
+    },
+    "kreoda-ux-hidden-e2e-initial.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-hidden-e2e-initial.log",
+      "sha256": "e42d9618713b8a4d3b3b18b97c97cf5c2d93a8bc242c2ab5df289e8e9ba527bc"
+    },
+    "kreoda-ux-hidden-e2e-final.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-hidden-e2e-final.log",
+      "sha256": "4e34d6c87e6c14696af12c7d3e41341c289243c359bcbda4323785f5bc11969d"
+    },
+    "kreoda-ux-hidden-e2e-quoted-final.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-hidden-e2e-quoted-final.log",
+      "sha256": "fdb58e7743898293e4fe6d421f0dc63e1943bf2211ca5350348377087061569b"
+    },
+    "kreoda-ux-hidden-e2e-accepted-source.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-hidden-e2e-accepted-source.log",
+      "sha256": "2e9be09b37527ae47c718b06d73e6d7a20c75458b27f079c0fb5660279d866d7"
+    },
+    "kreoda-ux-packaged-probe-initial.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-packaged-probe-initial.log",
+      "sha256": "34a8d83f5ce7acadec3d5ae7a209144a7a96ba2a389f50a3da3be0ca52ef5107"
+    },
+    "kreoda-ux-packaged-navigation-probe.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-packaged-navigation-probe.log",
+      "sha256": "4f910030f316ed879ca4fe94bd11e746620b9238f8e3e2fa5833cdb78a94eb8f"
+    },
+    "kreoda-ux-packaged-navigation-final.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-packaged-navigation-final.log",
+      "sha256": "9ebd2cdede342f8a8a93e8ae7c45928e1853c9829f09090a82f0ca8f361b6251"
+    },
+    "kreoda-ux-workspace-units-sol-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-workspace-units-sol-fix.log",
+      "sha256": "ca52f6057b53e13f855513ca9fb2b9c7da08366f0a00a23d40635c30604617da"
+    },
+    "kreoda-ux-build-sol-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-build-sol-fix.log",
+      "sha256": "10ae57da83fbeeb1c0a1f5011b99b274ec14c5e80bab90d87b7fab80e92597ba"
+    },
+    "kreoda-ux-hidden-e2e-sol-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-hidden-e2e-sol-fix.log",
+      "sha256": "1c949edf48dcf135b31b4b4f8aa16fdcc9f647ecd44ff06a94ebfb03c50b3791"
+    },
+    "kreoda-ux-packaged-sol-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-packaged-sol-fix.log",
+      "sha256": "ace9a7304e194852f36f9c68af1237b71b90dddd1317a15b1c0d0c7504464a65"
+    },
+    "kreoda-ux-bundle-check.json": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-bundle-check.json",
+      "sha256": "22c64a3253e76755e3c12c1007a563fbe0d8f809bc9f43c0181b2ea065b626a3"
+    },
+    "kreoda-ux-workspace-units-label-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-workspace-units-label-fix.log",
+      "sha256": "3eceb83c62f6695de1a598f761958bc988d664b4e27e107c25933bef0f25e80d"
+    },
+    "kreoda-ux-build-label-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-build-label-fix.log",
+      "sha256": "9f5f79143b68c1759951d072032349e88c1d8955d9547236abbfe6c7a3e621d2"
+    },
+    "kreoda-ux-hidden-e2e-label-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-hidden-e2e-label-fix.log",
+      "sha256": "5202252712ed303c047e39749817f2d01f0eaaf8942a0618d84664c01a21b6ac"
+    },
+    "kreoda-ux-packaged-label-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-packaged-label-fix.log",
+      "sha256": "3ed5f5cf128cacf3b9f21d9fe56e77b29ad8cd4256e81bf9ce82ed2bccd5d820"
+    },
+    "kreoda-ux-workspace-units-frame-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-workspace-units-frame-fix.log",
+      "sha256": "d6061eb678acfeb6d3cf378992ae43f02cf300f9c3fa3671485b925cbd955153"
+    },
+    "kreoda-ux-build-frame-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-build-frame-fix.log",
+      "sha256": "dbe968c6219545f5c5bc7c849897e5dc24061066c27b5b15cdcb041d61827b22"
+    },
+    "kreoda-ux-hidden-e2e-frame-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-hidden-e2e-frame-fix.log",
+      "sha256": "610728ff01afdb08c50f98e81f77537f01c22dd542be0c32edc4edf606985d05"
+    },
+    "kreoda-ux-packaged-frame-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-packaged-frame-fix.log",
+      "sha256": "6b4ff1f2d92cd59d0f13a2d800ba01c7afd3d31109be5807f30bcbfe18b89923"
+    },
+    "kreoda-ux-workspace-units-media-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-workspace-units-media-fix.log",
+      "sha256": "f3c88abd7405866e499bf8e35320ed46049c28ecc94229aa2f7e1c908e0dd4ed"
+    },
+    "kreoda-ux-build-media-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-build-media-fix.log",
+      "sha256": "f597d183cc84b4227c204b88713f391778a7d3802ccaaca5700f369322708a79"
+    },
+    "kreoda-ux-hidden-e2e-media-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-hidden-e2e-media-fix.log",
+      "sha256": "f648d2596137f5ec113ba8be66d7a15967d4aa36f475713923fe2c76d28cedf2"
+    },
+    "kreoda-ux-packaged-media-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-packaged-media-fix.log",
+      "sha256": "e1b73862ef5b21522ac12dd1cd93e200045288e4ace59dd3367fe97a05776bbe"
+    },
+    "kreoda-ux-loading-unit-red.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-loading-unit-red.log",
+      "sha256": "e06d994233008dc1a3c853a69ec3f1cf20fb20b00ed04a5f002b2f3df4e37991"
+    },
+    "kreoda-ux-upstream-diagnostic-final.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-upstream-diagnostic-final.log",
+      "sha256": "2a17a6138e42bdb580161367070a456952684db54a01eefa2cd318a3860b1d6b"
+    },
+    "kreoda-ux-home-motion-red.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-home-motion-red.log",
+      "sha256": "f01317e58329846ca4f7e04df2542d9d6396a99c4af1caf576a5b19cd0305bd2"
+    },
+    "kreoda-ux-home-motion-unit-red.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-home-motion-unit-red.log",
+      "sha256": "1e87f39a5ab1415b0a8714f4114bf39233ede3518ca0399258e5d879d679a4d1"
+    },
+    "kreoda-ux-hidden-e2e-ci-fix.log": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-hidden-e2e-ci-fix.log",
+      "sha256": "15e293e256a3898f9bbf104aa7aec0a053bacb5b3d94c4b6da51db44816eed05"
+    }
+  },
+  "participantRetest": "ACCEPTED: ok è ottimo, prosegui",
+  "readyForPhase11": true,
+  "reviewerCorrection": {
+    "reviewer": "Fresh GPT-6-Sol/high read-only review; source/artifact freeze unchanged",
+    "firstVerdict": "FIX-FIRST",
+    "finding": "Right-button pan armed 100 ms click suppression, discarding a subsequent legitimate left click",
+    "fix": "Suppress synthesized click only after primary-button drag, including Shift-left pan",
+    "regression": "Right pan followed immediately by primary click is not consumed; primary drag and Shift-left pan remain consumed",
+    "finalReview": "Subsequent fresh final GPT-6-Sol/high SHIP"
+  },
+  "previewLabelCorrection": {
+    "reviewer": "Second fresh GPT-6-Sol/high read-only review; all531source+30artifacts freeze unchanged",
+    "verdict": "FIX-FIRST",
+    "finding": "Visible preview Y label used SVG-inverted sign; numeric input/ARIA/native Y were already correct",
+    "fix": "Visible coordinates now use face-local Y; SVG rendering remains inverted",
+    "regression": "Positive and negative Y coordinates agree between visible preview and numeric input",
+    "finalReview": "Subsequent fresh final GPT-6-Sol/high SHIP"
+  },
+  "framingCorrection": {
+    "reviewer": "Third fresh GPT-6-Sol/high read-only review;531source+34artifact freeze unchanged",
+    "verdict": "FIX-FIRST",
+    "finding": "Framing recomputed direction against the new target, rotating off-origin geometry",
+    "fix": "Capture old camera-to-target direction before moving target and camera to frame center",
+    "regression": "Home and F maintain angular continuity at far off-origin centers while honoring distance/aspect fit",
+    "finalReview": "Subsequent fresh final GPT-6-Sol/high SHIP"
+  },
+  "finalReview": {
+    "verdict": "SHIP",
+    "model": "gpt-6-sol",
+    "reasoningEffort": "high",
+    "reviewerThreadId": "01a1028e-2707-7fb0-aa3a-38e7186bc24e",
+    "behaviorallyReadOnly": true,
+    "observedSandboxPolicy": "danger-full-access",
+    "observedPermissionProfile": "disabled",
+    "allFrozenSourceFilesUnchanged": 533,
+    "allFrozenArtifactsUnchanged": 51,
+    "freezePath": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-review-ci-media-fix-before.json",
+    "freezeSha256": "cc7e66d26360632ee272c77cf08822e3fb276477d0599df55bd70c5e1135363b",
+    "scope": "Actual accumulated diff against b183 plus latest hosted-failure follow-up; source/artifact freeze unchanged before metadata recording; no actionable P1/P2"
+  },
+  "currentHostedVerification": {
+    "commit": "0c944b7e9770ba915e3554f9ea9ad721b907bee5",
+    "run": "https://github.com/JackoPeru/Kreoda/actions/runs/37136496515",
+    "conclusion": "success",
+    "evidence": "docs/evidence/phase10-runtime-37136496515.json"
+  },
+  "priorLocalVerificationBeforeHostedFailure": {
+    "unitCounts": {
+      "desktop": 109,
+      "protocol": 16,
+      "pluginSdk": 2,
+      "units": 4,
+      "total": 131
+    },
+    "hiddenElectron": {
+      "passed": 11,
+      "failed": 0,
+      "durationSeconds": 37.5,
+      "suites": [
+        "home",
+        "context-toolbar",
+        "phase10-hole-placement",
+        "phase3-pull",
+        "phase6-ux",
+        "workspace-ui"
+      ],
+      "mainRestoredSha256": "72737557291f929a425f7dcfa75c7e743b2755d0994a3e0d90eb8bd428fb61d4"
+    },
+    "packagedProbe": {
+      "status": "PASS",
+      "videoState": {
+        "src": "file:///C:/Users/matte/Documents/Codex-tools/human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb/hidden-probe-2TMrUk/Kreoda-win32-x64/resources/app.asar/dist/home/assets/reference-home.mp4",
+        "width": 1280,
+        "height": 720,
+        "muted": true,
+        "loop": true,
+        "autoplay": true,
+        "paused": false,
+        "time": 0.102389
+      },
+      "compiledMainSha256": "72737557291F929A425F7DCFA75C7E743B2755D0994A3E0D90EB8BD428FB61D4",
+      "manualHoleNativeCenterMm": {
+        "x": 20,
+        "y": 19.99999
+      },
+      "navigation": {
+        "leftOrbitDirectionChange": [
+          -0.2809370771127764,
+          0.7102891133076484,
+          -0.6454174883127699
+        ],
+        "rightPanScreenPixels": {
+          "dx": 95.74768059158191,
+          "dy": 34.19560021127927
+        },
+        "rightPanKeptViewDirection": true,
+        "wheelIncreasedProjectedSpan": true,
+        "selectionUnchangedAfterAllGestures": true
+      },
+      "commit": "UX working tree; review pending",
+      "mode": "Owned packaged clone with only visibility/offscreen/userData/error-dialog instrumentation; portable static-MD OCCT core, not Squirrel payload",
+      "identity": {
+        "packaged": true,
+        "executable": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb\\hidden-probe-2TMrUk\\Kreoda-win32-x64\\Kreoda.exe",
+        "resources": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb\\hidden-probe-2TMrUk\\Kreoda-win32-x64\\resources",
+        "visible": [
+          false
+        ],
+        "offscreen": [
+          true
+        ]
+      },
+      "corePath": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb\\hidden-probe-2TMrUk\\Kreoda-win32-x64\\resources\\kreoda-core.exe",
+      "coreSha256": "14C38E2A38589CE31EB8E900DDB042D2BA63085197BCE363153EB6F23199826E",
+      "reopenedEditable": true,
+      "stepCurrentBodyRoundTrip": true,
+      "stepImportedSolidCount": 1,
+      "expectedStepVolumeMm3": 71497.34517542564,
+      "actualStepVolumeMm3": 71497.34517542543,
+      "nativeDialogsExercised": false,
+      "humanAuditPerformed": false,
+      "originalAuditAsarUnchanged": true,
+      "originalAuditExecutable": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb\\Kreoda-win32-x64\\Kreoda.exe"
+    },
+    "packagedBundle": {
+      "status": "PASS",
+      "candidateAsarSha256": "23f1dc02c3ed0ca70987bbce02a8842a552235c747322916c1de6dc7414e68d0",
+      "files": {
+        "dist/assets/coreClient-Davme1e7.js": "f2371cb0cd5b1b44835e107c0e318cce77affc73c48bcb398d9369d3fce056ca",
+        "dist/assets/i18n-VLH-ftoI.js": "0bac5441c20b8c24d32aaeb044f8b70393c2819dc274e1c29eea16f6f92b21c0",
+        "dist/assets/index-BAceD9Jn.css": "d13b226bae6205c6521c40c428468e78b0b548c10b4aa659c86347638ca4a26d",
+        "dist/assets/index-CcghacRP.js": "daaeca3611a3ac53d7b8ed72310dbe2e1a6e1734f070082fc40a99320776e294",
+        "dist/assets/WorkspaceChrome-DCTmhUXr.js": "3df42c1d0d536f39ff354f151576ec0413b5c83ec0e8a163d397569efaab7741",
+        "dist/favicon-32.png": "df9e664d68014dc6b2fd4c1b707cfb794b9f0366586b4bed2c3dd9e777d486e0",
+        "dist/home/assets/carrara-white.png": "ebcc852f4c30f86825217bc6a27d9cb515e0da20afe9e2c8e3da17dffde33142",
+        "dist/home/assets/charcoal-plaster.png": "f996af01546f7d4adbd946b776ff13168f50c7dc001acfebc6db8c6805ce9d6c",
+        "dist/home/assets/coast-reference-v2.png": "8fb76cef74263bf2bc189ff51705a1a296f57a785f731e29e133cd0a12985141",
+        "dist/home/assets/coast-reference-v3.png": "27447b7d13438d7f1e8e87196168e7283ed40ef3a21bc34103d44a0828749f72",
+        "dist/home/assets/coast-reference.png": "f4d53bd94cbe0d02de37d47a958caca9d0fca2fa75b5d8409b365c737f23ec61",
+        "dist/home/assets/coast-sunset.png": "f0336b8f630c5a4ac3afd9a080f01828b68f10a0714adb89b141474befe59d37",
+        "dist/home/assets/drafting-sheet.png": "804e8d066507f4e457e58403724d8ca68ee51b51ad2fdb6ec78796ddf9e71f0a",
+        "dist/home/assets/floor-rose-marble.png": "d9b28b8b7e0dcd4542cc0f1e6e83d06da85ae0264750f7acfb844b7ee132f69b",
+        "dist/home/assets/k-cycles-still.png": "dd9f6c749f07cbcb5066133d7dc85525e81eee7a7585535b39b1a907d3d16432",
+        "dist/home/assets/k-loop.webm": "081c1c70e71abf2bdeae276cd16d6e983a61bf61d7c1549ce62bc38002fe0181",
+        "dist/home/assets/left-foliage-cutout.png": "1285050c785d9abaeeed2e005de3c56335d8cdd91922cb5d1e6ae2719bb07897",
+        "dist/home/assets/limestone-floor.png": "c5e1929a0c6ff1ecf8a87f10180ea5acb4f876728d7bdfb58d86f728a184fab5",
+        "dist/home/assets/monstera-cutout.png": "b2d71c5920c927e437fdd7d63435af7c9abf5dfafed900eb5aeaa567ba0e87ea",
+        "dist/home/assets/nero-marquina.png": "2c252dfb8b0ae972e92809bd9aca94dbf05770a0dad5fbf71996e5992b23b272",
+        "dist/home/assets/project-thumbnails.png": "07e7a8f9c2e445624b1776ed6f674cfbc259774369af1612592f26fd873e81b9",
+        "dist/home/assets/quote-mountains.png": "74313908f2d9187793036719b27512659d685bce1e15aa6c253af26ffd84a117",
+        "dist/home/assets/reference-home-poster.png": "6ac7c50ac5fa11579319c36065faf20bb60e7a6c0a384c90fd996330752b0111",
+        "dist/home/assets/reference-home.mp4": "2cd0f274a9f6686c22a30e70e836c57f415e18b4ffa9a4fd2d060cb958c364ed",
+        "dist/home/assets/room-cycles-probe.png": "60dc98028d7cf2a87779cd7e07be22b10bf6eb26f87acea58162ca89dee752da",
+        "dist/home/assets/rough-charcoal-stone.png": "cf8c2bd506ffe79703ccf1079caceeaf67a9fbcf8a7e5162d77b037763ce49ba",
+        "dist/home/assets/sculpture-carrara.png": "d4de5859947629791e678bb938cd88e7b091e6844150989532efaa10bcc2be5f",
+        "dist/home/assets/smoked-walnut.png": "88a318ffe2b939776a3073d8a5a5b673dede50eedf4d033131a00d4659224dc6",
+        "dist/home/assets/table-nero-marquina.png": "d404a8ca7217a6712f8a7011ba07908f918cf642267aefe4a59abbcf1ebc80c2",
+        "dist/index.html": "16cf433bde7433cb5eec515435c4863f99c136dcdbe7ce56782efa4dbeb5bf99",
+        "dist/kreoda-mark.png": "1c6ecba91ce1e5bb5b0ab1f2cd7386212a847c7e29f83f82954241c816933f9c",
+        ".vite/build/main.cjs": "72737557291f929a425f7dcfa75c7e743b2755d0994a3e0d90eb8bd428fb61d4",
+        ".vite/build/preload.cjs": "471400795104914038737d69e6c675d4e487b825de57df48789b06c0bd0707bc"
+      },
+      "allBuiltRendererAndElectronBytesMatchPackagedArchive": true
+    },
+    "portableManifest": {
+      "status": "Locally verified; fresh Sol SHIP; current hosted CI and participant retest pending",
+      "sourceCopy": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\Kreoda-win32-x64",
+      "app": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb\\Kreoda-win32-x64",
+      "sourceCodeBaseline": "b1836d705b6883b04ac9639c552b2f6d872ea07c",
+      "nativeVariant": "static-MD portable, not hosted Squirrel",
+      "originalAppPreserved": true,
+      "candidateAsarSha256": "23f1dc02c3ed0ca70987bbce02a8842a552235c747322916c1de6dc7414e68d0",
+      "coreSha256": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+      "referenceVideoSha256": "2cd0f274a9f6686c22a30e70e836c57f415e18b4ffa9a4fd2d060cb958c364ed",
+      "originalAsarPreserved": true
+    },
+    "finalReview": {
+      "verdict": "SHIP",
+      "model": "gpt-6-sol",
+      "reasoningEffort": "high",
+      "reviewerThreadId": "01a10188-4a9e-7e12-9c68-81c698223b72",
+      "behaviorallyReadOnly": true,
+      "runtimeSandbox": "disabled",
+      "allFrozenSourceFilesUnchanged": 531,
+      "allFrozenArtifactsUnchanged": 38,
+      "freezePath": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-ux-review-frame-fix-before.json",
+      "freezeSha256": "4f8b29d7be9d4c27cf213d0064d4d54a4cb76cf9eb37647ba51e4ed6fffee704",
+      "scope": "Actual accumulated diff, tests, native mesh interface, audit/report/evidence and final logs; no actionable P1/P2"
+    }
+  },
+  "ciFailureCorrections": {
+    "holeInitialization": "X/Y disabled until native frame/default center ready and during busy operation; real second insertion after reopen preserves20/20 and native two-hole volume",
+    "homePlayCancellation": "Obsolete play promise rejection ignored via effect cleanup; active error fallback retained",
+    "obsoleteDiagnostics": "Explicit visible default center replaces blank placeholders; two retired Home3D probes now exercise real reduced-motion/resume and missing-file poster/project controls",
+    "ordinaryDiscoveryRetained": 54,
+    "newFocusedUnits": 2,
+    "worker": {
+      "threadId": "01a10112-8d09-7b72-a3b8-97185ecc78f8",
+      "model": "gpt-6-luna",
+      "reasoningEffort": "max",
+      "scope": "HoleDialog two disabled input guards; Home playback effect cleanup guard"
+    },
+    "parentScope": "Quota fallback diagnosis and regression/E2E tests; parent independently reran all units/build/15 hidden cases/package/bundle",
+    "workerWrongCheckoutChecks": "First Home follow-up checks accidentally ran in primary and returned131/109; disregarded. Worker corrected cwd,133/111 passed; parent verified all27 prior copied primary file hashes unchanged."
+  },
+  "precedingHostedFailure": {
+    "run": "https://github.com/JackoPeru/Kreoda/actions/runs/37120184052",
+    "commit": "7438d5036a2c1ee0b7fd2b8d7800b3027b63a72a",
+    "conclusion": "failure",
+    "evidence": "docs/evidence/phase10-runtime-37120184052-failed.json",
+    "ordinaryPassed": 50,
+    "ordinaryFailed": 4,
+    "crashNotExecuted": true
+  },
+  "precedingParticipantRetest": "DEFERRED by participant: La provo più tardi",
+  "participantAcceptanceEvidence": "docs/evidence/phase10-human-feedback-2026-10-03.json"
+}

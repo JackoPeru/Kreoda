@@ -13,6 +13,7 @@ import {
 } from "@kreoda/protocol";
 import { z } from "zod";
 import { useDocumentUiStore } from "../stores";
+import { loadReferences, serializeReferences } from "../reference/store";
 
 export interface CoreInfo {
   coreVersion: string;
@@ -121,6 +122,7 @@ const FeatureListSchema = z.object({
   requestId: z.string(),
   status: z.string(),
   path: z.string().optional(),
+  referencePlanesJson: z.string().default("[]"),
   features: z
     .array(
       z.object({
@@ -178,6 +180,14 @@ export class CoreClient {
   async createDocument(documentId: string): Promise<void> {
     this.documentId = documentId;
     await this.invoke(CommandType.CreateDocument, documentId, {});
+    await loadReferences("[]");
+  }
+
+  async readReferences(documentId: string): Promise<string> {
+    const parsed = await this.invoke(CommandType.RequestSnapshot, documentId,
+      { includeReferencePlanes: true }, { silent: true });
+    if (parsed.documentId !== documentId) throw new Error("document changed while loading reference images");
+    return FeatureListSchema.parse(parsed).referencePlanesJson;
   }
 
   async createBox(params: {
@@ -280,6 +290,7 @@ export class CoreClient {
   }> {
     const parsed = await this.invoke(CommandType.SaveDocument, this.documentId, {
       path,
+      ...(/\.icad$/i.test(path) ? { referencePlanesJson: serializeReferences() } : {}),
     });
     const checked = FeatureListSchema.parse(parsed);
     if (checked.status !== "ok") {
@@ -306,6 +317,7 @@ export class CoreClient {
         (parsed as { errorMessage?: string }).errorMessage ?? "open failed",
       );
     }
+    await loadReferences(checked.referencePlanesJson);
     return {
       features: checked.features,
       sketches: checked.sketches,
@@ -462,6 +474,7 @@ export class CoreClient {
   }
 
   async createHole(params: {
+    insertBeforeId?: string;
     targetId: string;
     faceRole: string;
     xMm: number;
@@ -469,14 +482,17 @@ export class CoreClient {
     diameterMm: number;
     depthMode: "throughAll" | "blind";
     depthMm: number;
-  }): Promise<CreatedFeature> {
+  }): Promise<CreatedFeature & { features?: FeatureSummary[]; sketches?: SketchSummary[] }> {
     const featureId = newFeatureId("ho");
     const parsed = await this.invoke(
       CommandType.CreateHole,
       this.documentId,
       { featureId, ...params },
     );
-    return CreatedFeatureSchema.parse(parsed);
+    const created = CreatedFeatureSchema.parse(parsed);
+    if (!params.insertBeforeId) return created;
+    const list = FeatureListSchema.parse(parsed);
+    return { ...created, features: list.features, sketches: list.sketches };
   }
 
   /**

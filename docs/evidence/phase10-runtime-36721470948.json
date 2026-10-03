@@ -1,0 +1,1228 @@
+{
+  "run": "https://github.com/JackoPeru/Kreoda/actions/runs/36721470948",
+  "commit": "a93d5d33a73b65bb9d651f394f84bbf014aa6877",
+  "conclusion": "success",
+  "nativeTestsPassed": 137,
+  "nativeTestsTotal": 137,
+  "dotnetTestsPassed": 21,
+  "electronNonSoloPassed": 46,
+  "electronNonSoloTotal": 46,
+  "crashTestsPassed": 29,
+  "crashTestsTotal": 29,
+  "samples": [
+    {
+      "timestamp": "2026-09-30T13:32:58.2963945Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "step_import_25",
+        "cycles": 25,
+        "elapsed_ms": 159,
+        "ms_per_cycle": 6.36,
+        "working_set_baseline_bytes": 20520960,
+        "working_set_after_warm_bytes": 22081536,
+        "working_set_final_bytes": 22073344,
+        "peak_working_set_bytes": 22192128,
+        "private_baseline_bytes": 5042176,
+        "private_after_warm_bytes": 5390336,
+        "private_final_bytes": 5390336,
+        "handles_baseline": 119,
+        "handles_after_warm": 123,
+        "handles_final": 123
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:32:58.9065103Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "document_open_close_100",
+        "cycles": 100,
+        "elapsed_ms": 475,
+        "ms_per_cycle": 4.75,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_100": 119,
+        "working_set_baseline_bytes": 17944576,
+        "working_set_final_bytes": 18227200,
+        "peak_working_set_bytes": 18288640,
+        "private_final_bytes": 4571136
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:32:59.7767590Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "body_create_delete_1000",
+        "cycles": 1000,
+        "elapsed_ms": 840,
+        "ms_per_cycle": 0.84,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_1000": 119,
+        "working_set_baseline_bytes": 15568896,
+        "working_set_after_10_bytes": 17391616,
+        "working_set_final_bytes": 34631680,
+        "peak_working_set_bytes": 34631680,
+        "private_baseline_bytes": 4325376,
+        "private_after_10_bytes": 4657152,
+        "private_final_bytes": 22454272
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:30.5635571Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 20,
+        "working_set_bytes": 22683648,
+        "peak_working_set_bytes": 58281984,
+        "private_bytes": 9830400,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:30.5638570Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 50,
+        "working_set_bytes": 26107904,
+        "peak_working_set_bytes": 61030400,
+        "private_bytes": 14237696,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:30.5641766Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 100,
+        "working_set_bytes": 25645056,
+        "peak_working_set_bytes": 61775872,
+        "private_bytes": 12353536,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:30.5647087Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation_100",
+        "cycles": 100,
+        "elapsed_ms": 30723,
+        "ms_per_cycle": 307.23,
+        "working_set_baseline_bytes": 14905344,
+        "working_set_after_warm_bytes": 21884928,
+        "working_set_final_bytes": 25645056,
+        "peak_working_set_bytes": 61775872,
+        "private_baseline_bytes": 4042752,
+        "private_after_warm_bytes": 8863744,
+        "private_final_bytes": 12353536,
+        "handles_baseline": 118,
+        "handles_after_warm": 121,
+        "handles_final": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:31.5951654Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "sphere_r50_lod1_tris": 10150,
+        "sphere_r50_lod1_ms": 20,
+        "sphere_r50_lod2_tris": 50540,
+        "sphere_r50_lod2_ms": 132,
+        "cyl_r20_h100_lod2_tris": 1004,
+        "cyl_r20_h100_lod2_ms": 5
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:31.5959259Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "sphere_r200_lod2_tris": 201374,
+        "sphere_r200_lod2_ms": 729
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:32.4613209Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 200,
+        "triangles": 201374,
+        "tessellation_ms": 730,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 30224384,
+        "peak_working_set_bytes": 96993280,
+        "private_bytes": 17485824,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:35.5226219Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 3054,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 53149696,
+        "peak_working_set_bytes": 250961920,
+        "private_bytes": 43319296,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:42.5813612Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 7049,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 83214336,
+        "peak_working_set_bytes": 450564096,
+        "private_bytes": 76816384,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:42.5817788Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "target": "500k",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 3054,
+        "working_set_bytes": 53149696,
+        "peak_working_set_bytes": 250961920,
+        "private_bytes": 43319296,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:42.5820892Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "target": "1M",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 7049,
+        "working_set_bytes": 83214336,
+        "peak_working_set_bytes": 450564096,
+        "private_bytes": 76816384,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:47.2517314Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "hole_features": 40,
+        "feature_count": 41,
+        "body_count": 1,
+        "feature_build_ms": 2994,
+        "recompute_ms": 1261,
+        "save_icad_ms": 35,
+        "icad_bytes": 75539,
+        "load_icad_ms": 330,
+        "final_volume_mm3": 4129212.392
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:47.2521324Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "baseline",
+        "working_set_bytes": 15556608,
+        "peak_working_set_bytes": 15556608,
+        "private_bytes": 4308992,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:47.2524731Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_feature_build",
+        "working_set_bytes": 37707776,
+        "peak_working_set_bytes": 39280640,
+        "private_bytes": 23404544,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:47.2527978Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_recompute",
+        "working_set_bytes": 39313408,
+        "peak_working_set_bytes": 39313408,
+        "private_bytes": 25178112,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:47.2531032Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_save",
+        "working_set_bytes": 40214528,
+        "peak_working_set_bytes": 40214528,
+        "private_bytes": 25190400,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:47.2533783Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_load",
+        "working_set_bytes": 25542656,
+        "peak_working_set_bytes": 40267776,
+        "private_bytes": 9785344,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:51.9002933Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 128,
+        "feature_count": 128,
+        "create_bodies_ms": 98,
+        "recompute_bodies": 128,
+        "recompute_ms": 102,
+        "save_icad_ms": 35,
+        "icad_bytes": 32559,
+        "load_icad_ms": 103,
+        "step_export_ms": 227,
+        "step_bytes": 2161002,
+        "step_import_ms": 703,
+        "imported_solids": 128,
+        "total_volume_mm3": 274856.891
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:51.9007288Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 15560704,
+        "peak_working_set_bytes": 15560704,
+        "private_bytes": 4333568,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:51.9010607Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 20111360,
+        "peak_working_set_bytes": 20111360,
+        "private_bytes": 7491584,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:51.9013622Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 22568960,
+        "peak_working_set_bytes": 22568960,
+        "private_bytes": 9973760,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:51.9016454Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 23523328,
+        "peak_working_set_bytes": 24379392,
+        "private_bytes": 10358784,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:51.9019252Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 21229568,
+        "peak_working_set_bytes": 24379392,
+        "private_bytes": 7987200,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:51.9022075Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 25444352,
+        "peak_working_set_bytes": 44761088,
+        "private_bytes": 9576448,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:33:51.9025003Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 28573696,
+        "peak_working_set_bytes": 44761088,
+        "private_bytes": 11784192,
+        "handles": 123
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:34:03.3648877Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 1024,
+        "feature_count": 1024,
+        "create_bodies_ms": 805,
+        "recompute_bodies": 1024,
+        "recompute_ms": 1532,
+        "save_icad_ms": 167,
+        "icad_bytes": 246058,
+        "load_icad_ms": 836,
+        "step_export_ms": 2114,
+        "step_bytes": 18017012,
+        "step_import_ms": 5801,
+        "imported_solids": 1024,
+        "total_volume_mm3": 8982630.672
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:34:03.3653428Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 15536128,
+        "peak_working_set_bytes": 15536128,
+        "private_bytes": 4280320,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:34:03.3656479Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 40095744,
+        "peak_working_set_bytes": 40095744,
+        "private_bytes": 28090368,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:34:03.3659573Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 57233408,
+        "peak_working_set_bytes": 57233408,
+        "private_bytes": 45817856,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:34:03.3662699Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 59346944,
+        "peak_working_set_bytes": 62738432,
+        "private_bytes": 48140288,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:34:03.3665580Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 40632320,
+        "peak_working_set_bytes": 62738432,
+        "private_bytes": 27836416,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:34:03.3668607Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 46010368,
+        "peak_working_set_bytes": 206417920,
+        "private_bytes": 31141888,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:34:03.3671856Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 55787520,
+        "peak_working_set_bytes": 206417920,
+        "private_bytes": 41652224,
+        "handles": 123
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:39:57.4089724Z",
+      "kind": "PHASE10_BEGINNER_FLOW",
+      "measurements": {
+        "elapsed_ms": 13670,
+        "dialogs": [
+          "Make hole",
+          "Round edge (4 edges)"
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:41:12.9443648Z",
+      "kind": "PHASE10_PERF",
+      "measurements": {
+        "boot_to_interactive_ms": "12823",
+        "box_commit_ms": "329",
+        "box_triangles": "12",
+        "21body_commit_avg_ms": "101",
+        "21body_commit_max_ms": "120",
+        "21body_triangles": "252",
+        "save_icad_ms": "23",
+        "save_icad_bytes": "4447",
+        "reopen_icad_ms": "103",
+        "step_export_ms": "79",
+        "step_export_bytes": "340456"
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:41:39.8297399Z",
+      "kind": "PHASE10_RESOURCES",
+      "measurements": {
+        "startup_to_canvas_visible_ms": 12756,
+        "orbit_zoom_action_ms_total": 8066,
+        "orbit_zoom_cycles": 80,
+        "testhook_face_selection_to_context_toolbar_ms": 29,
+        "firstGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 1820,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        "finalGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 1820,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        "finalGpuCompletion": {
+          "renderer": "ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "queueCompletionMs": 3.3999999999068677
+        },
+        "first": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 7036,
+              "processName": "electron",
+              "workingSetBytes": 110874624,
+              "privateBytes": 45318144,
+              "handleCount": 885
+            },
+            {
+              "role": "renderer",
+              "pid": 9168,
+              "processName": "electron",
+              "workingSetBytes": 273367040,
+              "privateBytes": 149483520,
+              "handleCount": 334
+            },
+            {
+              "role": "native",
+              "pid": 2868,
+              "processName": "kreoda-core",
+              "workingSetBytes": 18583552,
+              "privateBytes": 6221824,
+              "handleCount": 129
+            }
+          ],
+          "sidecarPids": [
+            2868
+          ]
+        },
+        "final": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 7036,
+              "processName": "electron",
+              "workingSetBytes": 110264320,
+              "privateBytes": 44146688,
+              "handleCount": 885
+            },
+            {
+              "role": "renderer",
+              "pid": 9168,
+              "processName": "electron",
+              "workingSetBytes": 263438336,
+              "privateBytes": 150917120,
+              "handleCount": 340
+            },
+            {
+              "role": "native",
+              "pid": 2868,
+              "processName": "kreoda-core",
+              "workingSetBytes": 19476480,
+              "privateBytes": 6217728,
+              "handleCount": 129
+            }
+          ],
+          "sidecarPids": [
+            2868
+          ]
+        },
+        "deltas": [
+          {
+            "role": "main",
+            "workingSetDeltaBytes": -610304,
+            "privateBytesDelta": -1171456,
+            "handleCountDelta": 0
+          },
+          {
+            "role": "renderer",
+            "workingSetDeltaBytes": -9928704,
+            "privateBytesDelta": 1433600,
+            "handleCountDelta": 6
+          },
+          {
+            "role": "native",
+            "workingSetDeltaBytes": 892928,
+            "privateBytesDelta": -4096,
+            "handleCountDelta": 0
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:42:11.9356677Z",
+      "kind": "PHASE10_LARGE_VIEWPORT",
+      "measurements": {
+        "radius_mm": 600,
+        "triangles": 604110,
+        "mesh_rpc_to_renderer_submission_ms": 4873,
+        "interaction_ms": 8819,
+        "orbit_zoom_cycles": 20,
+        "renderer_submissions_per_second_during_input": 10.88558793514004,
+        "render_cpu_ms_during_input": 31.899999999441206,
+        "pick_to_toolbar_ms": 90,
+        "first": {
+          "renderedFrames": 6,
+          "renderCpuTotalMs": 102.4000000001397,
+          "renderCpuMaxMs": 65.10000000009313,
+          "triangles": 604110,
+          "geometries": 3,
+          "textures": 1
+        },
+        "last": {
+          "renderedFrames": 102,
+          "renderCpuTotalMs": 134.2999999995809,
+          "renderCpuMaxMs": 65.10000000009313,
+          "triangles": 604110,
+          "geometries": 3,
+          "textures": 1
+        },
+        "before_mesh": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 8336,
+              "processName": "electron",
+              "workingSetBytes": 138866688,
+              "privateBytes": 74182656,
+              "handleCount": 882
+            },
+            {
+              "role": "renderer",
+              "pid": 4028,
+              "processName": "electron",
+              "workingSetBytes": 269025280,
+              "privateBytes": 147525632,
+              "handleCount": 340
+            },
+            {
+              "role": "native",
+              "pid": 3684,
+              "processName": "kreoda-core",
+              "workingSetBytes": 24268800,
+              "privateBytes": 11546624,
+              "handleCount": 128
+            }
+          ],
+          "sidecarPids": [
+            3684
+          ]
+        },
+        "final": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 8336,
+              "processName": "electron",
+              "workingSetBytes": 562077696,
+              "privateBytes": 497881088,
+              "handleCount": 882
+            },
+            {
+              "role": "renderer",
+              "pid": 4028,
+              "processName": "electron",
+              "workingSetBytes": 365727744,
+              "privateBytes": 240500736,
+              "handleCount": 340
+            },
+            {
+              "role": "native",
+              "pid": 3684,
+              "processName": "kreoda-core",
+              "workingSetBytes": 55889920,
+              "privateBytes": 42856448,
+              "handleCount": 128
+            }
+          ],
+          "sidecarPids": [
+            3684
+          ]
+        },
+        "beforeGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 7080,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        "afterMeshGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 7080,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        "finalGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 7080,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        "afterMeshGpuCompletion": {
+          "renderer": "ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "queueCompletionMs": 1.6999999999534339
+        },
+        "finalGpuCompletion": {
+          "renderer": "ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "queueCompletionMs": 1.5
+        }
+      }
+    },
+    {
+      "timestamp": "2026-09-30T13:42:52.2460253Z",
+      "kind": "PHASE10_LARGE_VIEWPORT",
+      "measurements": {
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "mesh_rpc_to_renderer_submission_ms": 9602,
+        "interaction_ms": 14755,
+        "orbit_zoom_cycles": 20,
+        "renderer_submissions_per_second_during_input": 6.8451372416130125,
+        "render_cpu_ms_during_input": 30.399999999674037,
+        "pick_to_toolbar_ms": 10,
+        "first": {
+          "renderedFrames": 6,
+          "renderCpuTotalMs": 120.7000000004191,
+          "renderCpuMaxMs": 77.60000000009313,
+          "triangles": 1108272,
+          "geometries": 3,
+          "textures": 1
+        },
+        "last": {
+          "renderedFrames": 107,
+          "renderCpuTotalMs": 151.10000000009313,
+          "renderCpuMaxMs": 77.60000000009313,
+          "triangles": 1108272,
+          "geometries": 3,
+          "textures": 1
+        },
+        "before_mesh": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 9668,
+              "processName": "electron",
+              "workingSetBytes": 270753792,
+              "privateBytes": 189714432,
+              "handleCount": 882
+            },
+            {
+              "role": "renderer",
+              "pid": 3016,
+              "processName": "electron",
+              "workingSetBytes": 280072192,
+              "privateBytes": 158339072,
+              "handleCount": 337
+            },
+            {
+              "role": "native",
+              "pid": 5776,
+              "processName": "kreoda-core",
+              "workingSetBytes": 32649216,
+              "privateBytes": 20525056,
+              "handleCount": 128
+            }
+          ],
+          "sidecarPids": [
+            5776
+          ]
+        },
+        "final": {
+          "processes": [
+            {
+              "role": "main",
+              "pid": 9668,
+              "processName": "electron",
+              "workingSetBytes": 125521920,
+              "privateBytes": 44195840,
+              "handleCount": 882
+            },
+            {
+              "role": "renderer",
+              "pid": 3016,
+              "processName": "electron",
+              "workingSetBytes": 284598272,
+              "privateBytes": 158908416,
+              "handleCount": 337
+            },
+            {
+              "role": "native",
+              "pid": 5776,
+              "processName": "kreoda-core",
+              "workingSetBytes": 86642688,
+              "privateBytes": 73428992,
+              "handleCount": 128
+            }
+          ],
+          "sidecarPids": [
+            5776
+          ]
+        },
+        "beforeGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 5632,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        "afterMeshGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 5632,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        "finalGpuMemory": {
+          "available": true,
+          "processes": [
+            {
+              "pid": 5632,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 0,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": false,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "local",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 7889385575
+                },
+                {
+                  "adapter": 1,
+                  "vendorId": 5140,
+                  "deviceId": 140,
+                  "software": true,
+                  "segmentGroup": "nonlocal",
+                  "status": 0,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        "afterMeshGpuCompletion": {
+          "renderer": "ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "queueCompletionMs": 1.3000000000465661
+        },
+        "finalGpuCompletion": {
+          "renderer": "ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "queueCompletionMs": 2.8999999999068677
+        }
+      }
+    }
+  ]
+}

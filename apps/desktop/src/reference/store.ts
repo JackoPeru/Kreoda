@@ -1,9 +1,10 @@
 // Reference image planes, Stage A (§29, Phase 9c): calibrated background
-// planes to trace sketches over. Renderer-SESSION state (like the grid —
-// view aids, not CAD): not persisted, not undoable, never part of the
-// model. Import (calibrated size) → trace → model; Stage B/C add vision.
+// planes to trace sketches over. Images and calibration travel in the
+// project manifest; they remain view aids outside the CAD undo history.
 
 import { create } from "zustand";
+import { z } from "zod";
+import { imageDimensionsFromData } from "image-dimensions";
 
 export type RefPlaneKind = "XY" | "XZ" | "YZ";
 
@@ -23,6 +24,8 @@ export interface ReferencePlane {
 
 interface ReferenceState {
   planes: ReferencePlane[];
+  revision: number;
+  loadError: string | null;
 }
 
 /**
@@ -110,7 +113,73 @@ export function validateReferenceImage(
 
 export const useReferenceStore = create<ReferenceState>(() => ({
   planes: [],
+  revision: 0,
+  loadError: null,
 }));
+
+const ReferenceSchema = z.array(z.object({
+  id: z.string().min(1).max(256),
+  name: z.string().max(4096),
+  dataUrl: z.string().max(MAX_REF_DATAURL).regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/),
+  imageW: z.number().int().positive().max(MAX_REF_DIM),
+  imageH: z.number().int().positive().max(MAX_REF_DIM),
+  widthMm: z.number().positive().max(1000000),
+  heightMm: z.number().positive().max(1000000),
+  plane: z.enum(["XY", "XZ", "YZ"]),
+  opacity: z.number().min(0).max(1),
+  mmPerPx: z.number().positive().nullable(),
+}).refine(p => p.imageW * p.imageH <= MAX_REF_PIXELS)).max(MAX_REF_PLANES)
+  .refine(planes => new Set(planes.map(p => p.id)).size === planes.length);
+
+export function serializeReferences(): string {
+  const s = useReferenceStore.getState();
+  if (s.loadError) throw new Error(s.loadError);
+  return JSON.stringify(ReferenceSchema.parse(s.planes));
+}
+
+/** Invalid metadata cannot render remote URLs or silently vanish on save. */
+let referenceLoadGeneration = 0;
+/** Reserve the generation before IPC so late reads cannot overwrite newer ones. */
+export async function reloadReferences(read: () => Promise<string>): Promise<void> {
+  void loadReferences(null);
+  const generation = referenceLoadGeneration;
+  try {
+    const json = await read();
+    if (generation === referenceLoadGeneration) await loadReferences(json);
+  } catch {
+    if (generation === referenceLoadGeneration) {
+      useReferenceStore.setState({ loadError: "Reference images could not be loaded. Open Reference images and retry before saving." });
+    }
+  }
+}
+
+export async function loadReferences(json: string | null): Promise<void> {
+  const generation = ++referenceLoadGeneration;
+  useReferenceStore.setState(s => ({ planes: [], revision: s.revision + 1,
+    loadError: "Reference images are loading. Try saving again when loading finishes." }));
+  if (json === null) return;
+  try {
+    if (json.length > MAX_REF_PLANES * MAX_REF_DATAURL + 65536) throw new Error("too large");
+    const planes = ReferenceSchema.parse(JSON.parse(json));
+    for (const p of planes) {
+      // Read headers before the viewport allocates decoded pixel buffers.
+      const bytes = Uint8Array.from(atob(p.dataUrl.slice(p.dataUrl.indexOf(",") + 1)), c => c.charCodeAt(0));
+      const size = imageDimensionsFromData(bytes);
+      if (!size || !["png", "jpeg", "webp"].includes(size.type)) throw new Error("invalid image");
+      validateReferenceImage(size.width, size.height, p.dataUrl.length);
+      // JPEG EXIF rotation changes displayed dimensions. Decode only after
+      // bounding its raw pixel allocation, then verify calibration coordinates.
+      const displayed = size.type === "jpeg" ? await decodeImageSize(p.dataUrl) : { w: size.width, h: size.height };
+      if (displayed.w !== p.imageW || displayed.h !== p.imageH) throw new Error("image dimensions changed");
+    }
+    if (generation !== referenceLoadGeneration) return;
+    useReferenceStore.setState(s => ({ planes, loadError: null, revision: s.revision + 1 }));
+  } catch {
+    if (generation !== referenceLoadGeneration) return;
+    useReferenceStore.setState(s => ({ planes: [], revision: s.revision + 1,
+      loadError: "Reference images are damaged. Reopen a valid project before saving to preserve the original file." }));
+  }
+}
 
 export function addReferencePlane(p: {
   name: string;
@@ -140,7 +209,7 @@ export function addReferencePlane(p: {
     opacity: 0.85,
     mmPerPx: null,
   };
-  useReferenceStore.setState((s) => ({ planes: [...s.planes, plane] }));
+  useReferenceStore.setState((s) => ({ planes: [...s.planes, plane], revision: s.revision + 1 }));
   return plane;
 }
 
@@ -169,12 +238,14 @@ export function updateReferencePlane(
   }
   useReferenceStore.setState((s) => ({
     planes: s.planes.map((p) => (p.id === id ? { ...p, ...clean } : p)),
+    revision: s.revision + 1,
   }));
 }
 
 export function removeReferencePlane(id: string): void {
   useReferenceStore.setState((s) => ({
     planes: s.planes.filter((p) => p.id !== id),
+    revision: s.revision + 1,
   }));
 }
 

@@ -1,9 +1,16 @@
-import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { HomeScene3D } from "./HomeScene3D";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import "./Home.css";
+
+const VIDEO_URL = `${import.meta.env.BASE_URL}home/assets/reference-home.mp4`;
+const POSTER_URL = `${import.meta.env.BASE_URL}home/assets/reference-home-poster.png`;
 
 export function Home({ header, children }: { header: ReactNode; children?: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
+  const video = useRef<HTMLVideoElement>(null);
+  const [reducedMotion, setReducedMotion] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  const [videoError, setVideoError] = useState(false);
 
   useLayoutEffect(() => {
     const fit = (): void => {
@@ -17,9 +24,49 @@ export function Home({ header, children }: { header: ReactNode; children?: React
     return () => window.removeEventListener("resize", fit);
   }, []);
 
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = (): void => setReducedMotion(preference.matches);
+    preference.addEventListener("change", update);
+    return () => preference.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    const element = video.current;
+    if (!element) return;
+    if (reducedMotion || videoError) {
+      element.pause();
+      return;
+    }
+    let active = true;
+    void element.play().catch(() => {
+      if (active) setVideoError(true);
+    });
+    return () => { active = false; };
+  }, [reducedMotion, videoError]);
+
   return (
-    <div ref={root} data-testid="home-screen" className="home-root">
-      <HomeScene3D />
+    <div
+      ref={root}
+      data-testid="home-screen"
+      data-video-error={videoError ? "true" : undefined}
+      className="home-root"
+    >
+      <video
+        ref={video}
+        className="home-background-video"
+        data-testid="home-background-video"
+        data-reduced-motion={reducedMotion ? "true" : "false"}
+        src={VIDEO_URL}
+        poster={POSTER_URL}
+        muted
+        autoPlay={!reducedMotion && !videoError}
+        loop
+        playsInline
+        preload="auto"
+        aria-hidden="true"
+        onError={() => setVideoError(true)}
+      />
       <div aria-hidden className="home-vignette" />
       <div className="home-content">
         {header}

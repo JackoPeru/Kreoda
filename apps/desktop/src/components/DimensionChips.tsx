@@ -21,6 +21,7 @@ const CHIP_SLOTS: Record<string, { param: string; short: string }[]> = {
   Extrude: [{ param: "distanceMm", short: "D" }],
   Revolve: [{ param: "angleDeg", short: "A" }],
   Hole: [{ param: "diameterMm", short: "⌀" }],
+  HolePattern: [{ param: "diameterMm", short: "⌀" }, { param: "depthMm", short: "D" }, { param: "count", short: "N" }],
   Fillet: [{ param: "radiusMm", short: "R" }],
   Chamfer: [{ param: "distanceMm", short: "C" }],
   // M4: Instance placement chips (signed, zero-tolerant).
@@ -77,7 +78,8 @@ export function DimensionChips() {
       const feature = body
         ? s.features.find((f) => f.featureId === body)
         : undefined;
-      const slots = feature ? (CHIP_SLOTS[feature.type] ?? []) : [];
+      const slots = feature ? (CHIP_SLOTS[feature.type] ?? []).filter(slot =>
+        feature.type !== "HolePattern" || slot.param !== "depthMm" || feature.refExtra.includes("mode=blind")) : [];
       const faces = body ? (s.meshes[body]?.faces ?? []) : [];
 
       while (layer.childElementCount > slots.length) {
@@ -106,7 +108,7 @@ export function DimensionChips() {
             node!.textContent = "";
             const input = document.createElement("input");
             input.value = "";
-            input.placeholder = isAngle ? t("chips.degPh") : t("chips.mmPh");
+            input.placeholder = param === "count" ? t("props.slotCount") : isAngle ? t("chips.degPh") : t("chips.mmPh");
             input.className = "w-16 bg-transparent text-white outline-none";
             // M5: silent drops (typo 0/-5 vanishes, chip keeps old value)
             // become honest inline errors.
@@ -142,7 +144,7 @@ export function DimensionChips() {
                 }
                 let v: number;
                 try {
-                  v = isAngle
+                  v = param === "count" ? Number(raw) : isAngle
                     ? parseAngleToDeg(raw)
                     : parseLengthToMm(raw);
                 } catch {
@@ -196,7 +198,11 @@ export function DimensionChips() {
                     : "";
         // Exact role-suffix match (endsWith): substring includes() would
         // mis-anchor ("wall" inside "sidewall"-style roles, "+X" inside…).
-        const face = want
+        const patternRole = feature.type === "HolePattern"
+          ? /^pattern:face=([^;]+);/.exec(feature.refExtra)?.[1] : undefined;
+        const face = patternRole
+          ? faces.find((f) => f.persistentFaceId.endsWith(`:${patternRole}`))
+          : want
           ? faces.find((f) => f.persistentFaceId.endsWith(want))
           : undefined;
         const paramIndex = (CHIP_SLOTS[feature.type] ?? []).findIndex(
@@ -206,7 +212,7 @@ export function DimensionChips() {
         if (editingRef.current !== node) {
           // Formula-driven params show a ƒ marker + the formula on hover.
           const expr = feature.expressions?.[slot.param];
-          const unit = CHIP_ANGLE.has(slot.param) ? "°" : " mm";
+          const unit = slot.param === "count" ? "" : CHIP_ANGLE.has(slot.param) ? "°" : " mm";
           node.textContent =
             expr !== undefined ? `ƒ${slot.short} ${value ?? "?"}${unit}` : `${slot.short} ${value ?? "?"}${unit}`;
           node.title =
@@ -222,7 +228,8 @@ export function DimensionChips() {
           node.style.position = "absolute";
           node.style.left = "0";
           node.style.top = "0";
-          node.style.transform = `translate(${anchor.x}px, ${anchor.y}px) translate(-50%,-140%)`;
+          const offset = patternRole ? (i - (slots.length - 1) / 2) * 96 : 0;
+          node.style.transform = `translate(${anchor.x + offset}px, ${anchor.y}px) translate(-50%,-140%)`;
         } else {
           node.style.display = "none";
         }

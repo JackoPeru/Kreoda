@@ -193,6 +193,7 @@ export type CreateBooleanPayload = z.infer<typeof CreateBooleanPayloadSchema>;
 
 export const CreateHolePayloadSchema = z.object({
   featureId: uuid(),
+  insertBeforeId: uuid().optional(),
   targetId: uuid(),
   faceRole: z.string().min(1),
   xMm: z.number(),

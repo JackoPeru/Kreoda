@@ -51,6 +51,9 @@ class OcafLive {
   int AvailableRedos() const;
   // Rebuild the in-memory store from live OCAF labels (after Undo/Redo/Open).
   bool ResyncStore(std::string* error);
+  // Remove a solid or sketch label plus feature-owned formulas and selections.
+  // Caller must own an open OCAF command; maps are rebuilt after commit.
+  bool RemoveFeature(const std::string& featureId, std::string* error);
 
   // Mirror a created (isNew) or rebuilt feature into OCAF + TNaming.
   bool UpsertFeature(const ShapeRecord& rec, bool isNew, std::string* error);
@@ -90,12 +93,15 @@ class OcafLive {
     std::string role;  // resolved role when known
   };
   ResolveResult ResolveSelection(const FaceSelection& sel);
+  bool SelectionsNeedRepair(const std::vector<std::string>& featureIds,
+                           bool checkAmbiguity = false) const;
 
   bool Save(const std::string& xbfPath, std::string* error);
   // Opens into the live doc and rebuilds label/selection maps.
   // Fills records (solids) and sketchJsons (serialized SketchFeatures).
   bool Load(const std::string& xbfPath, std::vector<ShapeRecord>* records,
-            std::vector<std::string>* sketchJsons, std::string* error);
+            std::vector<std::string>* sketchJsons, std::string* error,
+            bool allowEmpty = false);
   // Back-compat overload (solids only).
   bool Load(const std::string& xbfPath, std::vector<ShapeRecord>* records,
             std::string* error);

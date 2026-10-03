@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SidecarManager } from "./sidecar";
+import { installRendererRecovery } from "./renderer-recovery";
 import { SessionRelay, type SessionDelta } from "./session";
 import {
   checkFeed,
@@ -21,7 +22,7 @@ let sessionRelay: SessionRelay | null = null;
 
 const isDev = !app.isPackaged;
 
-function createWindow(): void {
+function createWindow(previous?: BrowserWindow): void {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -37,6 +38,19 @@ function createWindow(): void {
     backgroundColor: "#0b0e13",
   });
 
+  // Keep the native core alive while Electron replaces a crashed renderer.
+  // The reloaded UI offers the persisted autosave through its normal path.
+  const createdWindow = mainWindow;
+  if (previous) {
+    createdWindow.setBounds(previous.getBounds());
+    if (previous.isMaximized()) createdWindow.maximize();
+  }
+  installRendererRecovery(createdWindow, () => {
+    // Create first: destroying the only window would trigger app.quit().
+    createWindow(createdWindow);
+    createdWindow.destroy();
+  });
+
   if (isDev && process.env["VITE_DEV_SERVER_URL"]) {
     void mainWindow.loadURL(process.env["VITE_DEV_SERVER_URL"]);
   } else {
@@ -44,8 +58,8 @@ function createWindow(): void {
     void mainWindow.loadFile(path.join(__dirname, "../../dist/index.html"));
   }
 
-  mainWindow.on("closed", () => {
-    mainWindow = null;
+  createdWindow.on("closed", () => {
+    if (mainWindow === createdWindow) mainWindow = null;
   });
 }
 

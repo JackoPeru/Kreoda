@@ -393,8 +393,9 @@ struct TessMesh {
 
 bool CollectTessellated(std::vector<TessMesh>* out, std::string* error) {
   std::vector<std::string> skipped;
-  for (const ShapeRecord& rec : ShapeStore::instance().listInOrder()) {
-    if (rec.shape.IsNull()) continue;
+  std::vector<ShapeRecord> records;
+  if (!CollectExportRecords(&records, error)) return false;
+  for (const ShapeRecord& rec : records) {
     std::string terr;
     CoreMesh mesh = TessellateRecord(rec, 2, &terr);
     // Fail LOUD on partial export (M6): a file missing a body with an "ok"

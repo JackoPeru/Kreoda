@@ -163,6 +163,7 @@ export async function loadPlugin(
       reject(new Error(`plugin crashed on load: ${ev.message}`));
     };
   });
+  URL.revokeObjectURL(url);
   if (workers.has(manifest.id)) {
     worker.terminate();
     URL.revokeObjectURL(url);

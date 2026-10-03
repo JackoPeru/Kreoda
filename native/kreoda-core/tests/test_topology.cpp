@@ -14,10 +14,54 @@
 #include <BRepGProp.hxx>
 #include <GProp_GProps.hxx>
 #include <TopoDS_Face.hxx>
+#include <BinXCAFDrivers.hxx>
+#include <TDataStd_Comment.hxx>
+#include <TDocStd_Application.hxx>
+#include <TDocStd_Document.hxx>
+#include <XCAFDoc_DocumentTool.hxx>
+#include <XCAFDoc_ShapeTool.hxx>
 
 #include "rpc_text.h"
 
 namespace fs = std::filesystem;
+
+TEST(Topology, LegacySelectionsAndMissingFoldersAreAdoptedFromLoadedDocument) {
+#if KREODA_WITH_OCCT
+  kreoda::DocumentStore::instance().create("legacy-folders");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("legacy-box", 100, 60, 10, &error)) << error;
+  const auto source = fs::temp_directory_path() / "kreoda-folder-source.xbf";
+  const auto legacy = fs::temp_directory_path() / "kreoda-folder-legacy.xbf";
+  ASSERT_TRUE(kreoda::OcafLive::instance().Save(source.string(), &error)) << error;
+  kreoda::DocumentStore::instance().create("legacy-folders-reset");
+  Handle(TDocStd_Application) app = new TDocStd_Application;
+  BinXCAFDrivers::DefineFormat(app);
+  Handle(TDocStd_Document) doc;
+  ASSERT_EQ(app->Open(TCollection_ExtendedString(source.string().c_str()), doc), PCDM_RS_OK);
+  auto shapes = XCAFDoc_DocumentTool::ShapeTool(doc->Main());
+  // The old allocator reused XCAF's tag 1 for Selections. Its children
+  // survive serialization even though XCAF restores the folder name Shapes.
+  TDataStd_Comment::Set(shapes->Label().NewChild(), "legacy-box|face.0");
+  for (int tag : {1001, 1002, 1003}) doc->Main().FindChild(tag).ForgetAllAttributes(Standard_True);
+  ASSERT_EQ(app->SaveAs(doc, TCollection_ExtendedString(legacy.string().c_str())), PCDM_SS_OK);
+  app->Close(doc);
+  for (int cycle = 0; cycle < 5; ++cycle) {
+    std::vector<kreoda::ShapeRecord> records;
+    ASSERT_TRUE(kreoda::OcafLive::instance().Load(legacy.string(), &records, &error)) << error;
+    ASSERT_EQ(records.size(), 1u);
+    kreoda::ShapeStore::instance().clear();
+    for (const auto& rec : records) kreoda::ShapeStore::instance().put(rec);
+    EXPECT_TRUE(kreoda::OcafLive::instance().SelectionsNeedRepair({"legacy-box"}));
+    kreoda::OcafLive::FaceSelection selected;
+    ASSERT_TRUE(kreoda::OcafLive::instance().SelectFace("legacy-box", "box.+Z", &selected, &error)) << error;
+    EXPECT_TRUE(kreoda::OcafLive::instance().ResolveSelection(selected).valid);
+    ASSERT_TRUE(kreoda::OcafLive::instance().UpsertExpressions("legacy-box", "{}", &error)) << error;
+    ASSERT_TRUE(kreoda::OcafLive::instance().Save(legacy.string(), &error)) << error;
+  }
+  fs::remove(source);
+  fs::remove(legacy);
+#endif
+}
 
 // Phase 2 topology regression tests (§3–§4, §49):
 // persistent face references must survive parameter changes and save/open.

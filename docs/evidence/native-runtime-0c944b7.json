@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "0c944b7e9770ba915e3554f9ea9ad721b907bee5",
+  "architecture": "x64",
+  "compilerVersion": "14.51.36231",
+  "generatedUtc": "2026-10-03T16:33:12.0732723Z",
+  "crt": [
+    {
+      "name": "msvcp140.dll",
+      "version": "14.51.36247.0",
+      "signatureStatus": "Valid",
+      "signerThumbprint": "2650247AC56048BC7928663C02733D25898A1D6E"
+    },
+    {
+      "name": "vcruntime140.dll",
+      "version": "14.51.36247.0",
+      "signatureStatus": "Valid",
+      "signerThumbprint": "2650247AC56048BC7928663C02733D25898A1D6E"
+    },
+    {
+      "name": "vcruntime140_1.dll",
+      "version": "14.51.36247.0",
+      "signatureStatus": "Valid",
+      "signerThumbprint": "2650247AC56048BC7928663C02733D25898A1D6E"
+    }
+  ],
+  "payload": [
+    {
+      "name": "kreoda-core.exe",
+      "bytes": 1255936,
+      "fileVersion": null,
+      "sha256": "4896dd296dfb6ec2a3824b20edc2e4102b0943b12e2d7d31bdc61ea5ba184223"
+    },
+    {
+      "name": "brotlicommon.dll",
+      "bytes": 137728,
+      "fileVersion": null,
+      "sha256": "87a66dc3e467244ea3ac398444dd60384031520225c0c4fa18831d8e59a9f1d8"
+    },
+    {
+      "name": "brotlidec.dll",
+      "bytes": 52224,
+      "fileVersion": null,
+      "sha256": "8ed32d98eaf16350fa127b88ea37e228cc5b7aed87db6728cb0094370dfdf10c"
+    },
+    {
+      "name": "bz2.dll",
+      "bytes": 75776,
+      "fileVersion": null,
+      "sha256": "d4d9da80ff45a312eb9832f4d5f6cf3ebdc99b492e132fc30fb5e31198725c62"
+    },
+    {
+      "name": "freetype.dll",
+      "bytes": 707072,
+      "fileVersion": "2.14.3",
+      "sha256": "cf9fec238b8dd8466095d446847efd6cac35c2634310b0db56d4d60f6de9268e"
+    },
+    {
+      "name": "lib3mf.dll",
+      "bytes": 2207232,
+      "fileVersion": "2.5.0.0",
+      "sha256": "dbdfa89a53124324bff06ab59e76bb8b67757d23cfe576edceb6713b04471eea"
+    },
+    {
+      "name": "liblzma.dll",
+      "bytes": 190464,
+      "fileVersion": "5.8.4",
+      "sha256": "ab66cf2f4970b254ad911fc2022b929de0a9b6f8a7253ead00dba2684ec488fe"
+    },
+    {
+      "name": "libpng16.dll",
+      "bytes": 197632,
+      "fileVersion": null,
+      "sha256": "f8d7a1061b66ba6d574cace8143f9c60057344f97e7bad4373ba849b1bd61b41"
+    },
+    {
+      "name": "msvcp140.dll",
+      "bytes": 643512,
+      "fileVersion": "14.51.36247.0",
+      "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca"
+    },
+    {
+      "name": "TKBin.dll",
+      "bytes": 104960,
+      "fileVersion": "8.0.1",
+      "sha256": "3e83b4aeb67548ff1e9098309205ee1f21e6123d2861352a44feded1387ad52b"
+    },
+    {
+      "name": "TKBinL.dll",
+      "bytes": 246272,
+      "fileVersion": "8.0.1",
+      "sha256": "063283069223af9623e8ecd5f8210f9984a1efe235869a4586bbd9b377b373d1"
+    },
+    {
+      "name": "TKBinXCAF.dll",
+      "bytes": 109568,
+      "fileVersion": "8.0.1",
+      "sha256": "cca199db86b74a96f5eb85e9d37cd6b84a1ab7e241eaac0d10db9c76cf94e9b8"
+    },
+    {
+      "name": "TKBO.dll",
+      "bytes": 1948672,
+      "fileVersion": "8.0.1",
+      "sha256": "f9a4ad983518cc46763ed2b57cc4233bc519893a94bf25068fbc24e0b34cb900"
+    },
+    {
+      "name": "TKBool.dll",
+      "bytes": 3375104,
+      "fileVersion": "8.0.1",
+      "sha256": "2f247233ebe172c9d2cefc0c9c1e3972051b7aee7f8074aff35134fc555ba71d"
+    },
+    {
+      "name": "TKBRep.dll",
+      "bytes": 2013184,
+      "fileVersion": "8.0.1",
+      "sha256": "62eb18233e2547a64a3d387c8df516c45d3ddab76c00db8b73b3fd083487d53e"
+    },
+    {
+      "name": "TKCAF.dll",
+      "bytes": 475648,
+      "fileVersion": "8.0.1",
+      "sha256": "a43c571aa1a25ecf5c07411defe203ec8614132fa5cd39aa3ed4899856e3691a"
+    },
+    {
+      "name": "TKCDF.dll",
+      "bytes": 256000,
+      "fileVersion": "8.0.1",
+      "sha256": "3b30ce7cd275694c92cb17e7b25349524fcc5728ef83661235fadf74551b425c"
+    },
+    {
+      "name": "TKDE.dll",
+      "bytes": 157184,
+      "fileVersion": "8.0.1",
+      "sha256": "00e4aaa4972dc327fb3e5ace5e01a9ddfacfc65788d6332d4875710fbc13e06f"
+    },
+    {
+      "name": "TKDEOBJ.dll",
+      "bytes": 200192,
+      "fileVersion": "8.0.1",
+      "sha256": "3293da3034288e422ca7e35537b0d87d8233a952a92aae755f923214074feebd"
+    },
+    {
+      "name": "TKDESTEP.dll",
+      "bytes": 5317120,
+      "fileVersion": "8.0.1",
+      "sha256": "d2e94a1b665d1f1eae840b07ab1b3a378454e332df8d855f8398b4cf69497ac3"
+    },
+    {
+      "name": "TKDESTL.dll",
+      "bytes": 121344,
+      "fileVersion": "8.0.1",
+      "sha256": "ae9ae50c788cf17f644f78295037a2620a151c9e9a024f340a593093b4c35810"
+    },
+    {
+      "name": "TKernel.dll",
+      "bytes": 1544704,
+      "fileVersion": "8.0.1",
+      "sha256": "ea2edb04d9af771c73056ca8312f3b77091148cb7edfae2250659b70e405fc0b"
+    },
+    {
+      "name": "TKFillet.dll",
+      "bytes": 2119680,
+      "fileVersion": "8.0.1",
+      "sha256": "5a78cc95e5e9ca217cc39e2a5008ff03cb9b282bfe6113be842ee96cac95d8b7"
+    },
+    {
+      "name": "TKG2d.dll",
+      "bytes": 412160,
+      "fileVersion": "8.0.1",
+      "sha256": "540126ecb46a9aa284a7310996c991c9f8328e56e766ddbc8142882a1c93fc4e"
+    },
+    {
+      "name": "TKG3d.dll",
+      "bytes": 1300992,
+      "fileVersion": "8.0.1",
+      "sha256": "439dee8e66076c3e6e7c41918325b887669b441c96545f419adc8582f308911c"
+    },
+    {
+      "name": "TKGeomAlgo.dll",
+      "bytes": 3995648,
+      "fileVersion": "8.0.1",
+      "sha256": "07572b5826f01f01600068421ba0e69054f591c45f798b3c280157cddfe76622"
+    },
+    {
+      "name": "TKGeomBase.dll",
+      "bytes": 4194816,
+      "fileVersion": "8.0.1",
+      "sha256": "c35be7e2a3a9b1e748255709a218003caac58633d194eca1e054285dc3dfa03a"
+    },
+    {
+      "name": "TKHLR.dll",
+      "bytes": 915456,
+      "fileVersion": "8.0.1",
+      "sha256": "0ee6d666bab2340b4209db8601bc5a12f7515fbb88eb0c728787556a18aaff43"
+    },
+    {
+      "name": "TKLCAF.dll",
+      "bytes": 635392,
+      "fileVersion": "8.0.1",
+      "sha256": "f07242930fc2bc68ace98cdb58e94003018bb9ee02c53f1fb13427cff816a543"
+    },
+    {
+      "name": "TKMath.dll",
+      "bytes": 1373696,
+      "fileVersion": "8.0.1",
+      "sha256": "1d06b69fc95f3b9e042b124eb9e2ad0e30fd09fb75ef8da24c867e4a65da1a4d"
+    },
+    {
+      "name": "TKMesh.dll",
+      "bytes": 612352,
+      "fileVersion": "8.0.1",
+      "sha256": "f4b888ac1d67cd7ab2bbe261c85ca6df352e6d1d5a21f9a06ba48793954cdeb6"
+    },
+    {
+      "name": "TKPrim.dll",
+      "bytes": 297984,
+      "fileVersion": "8.0.1",
+      "sha256": "d84bb646822740a4d65ef1296fa4f2de08878e7b7a5a6a4c6607ed2cf31391d4"
+    },
+    {
+      "name": "TKRWMesh.dll",
+      "bytes": 159744,
+      "fileVersion": "8.0.1",
+      "sha256": "7efddd6620ff0713a21320eefbb154626f9ccf427e80d3a029cf3dbe51d6ea0a"
+    },
+    {
+      "name": "TKService.dll",
+      "bytes": 999424,
+      "fileVersion": "8.0.1",
+      "sha256": "bc0431611d4a3a4be33e625031ca7636aa0adff17f91ef882a160b4e3ce2a4e7"
+    },
+    {
+      "name": "TKShHealing.dll",
+      "bytes": 2407424,
+      "fileVersion": "8.0.1",
+      "sha256": "13afa738efffc32eb251a05896dc06750af45beac82186ee954e2ce64d944653"
+    },
+    {
+      "name": "TKTopAlgo.dll",
+      "bytes": 2309632,
+      "fileVersion": "8.0.1",
+      "sha256": "859f1e816269fa381a09bb4bd5f6b45ada2446061f5ac24b679de6f9dc1fab66"
+    },
+    {
+      "name": "TKV3d.dll",
+      "bytes": 2463744,
+      "fileVersion": "8.0.1",
+      "sha256": "3dd2d822d1599662b48c493254f3ad7bd5273c350ea772904dea03cda86e6e72"
+    },
+    {
+      "name": "TKVCAF.dll",
+      "bytes": 201216,
+      "fileVersion": "8.0.1",
+      "sha256": "8463f2d869e8cc66cc6f172e92c1f8ce3793427e9ffbbbc9216a946a40387ca3"
+    },
+    {
+      "name": "TKXCAF.dll",
+      "bytes": 772096,
+      "fileVersion": "8.0.1",
+      "sha256": "78970effe358ff4342d1491019f202e44edd86f5a585299d96c9ae9aebbde202"
+    },
+    {
+      "name": "TKXSBase.dll",
+      "bytes": 1509376,
+      "fileVersion": "8.0.1",
+      "sha256": "46f2f8184531a2b6c01fa264f88544edd3ab3eb769439db0cc7f50d209c3cc7d"
+    },
+    {
+      "name": "vcruntime140_1.dll",
+      "bytes": 50112,
+      "fileVersion": "14.51.36247.0",
+      "sha256": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e"
+    },
+    {
+      "name": "vcruntime140.dll",
+      "bytes": 178616,
+      "fileVersion": "14.51.36247.0",
+      "sha256": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7"
+    },
+    {
+      "name": "z.dll",
+      "bytes": 91648,
+      "fileVersion": "1.3.2",
+      "sha256": "477a8da9cd15f8822524800a443818af9a2fb152721914a2a9fbf39c6ce0c5ee"
+    },
+    {
+      "name": "zip.dll",
+      "bytes": 114688,
+      "fileVersion": null,
+      "sha256": "777b8842bec3c6d3494bcc99e60f5a247dbe1104b3b8b29ec66028714a35224d"
+    },
+    {
+      "name": "zstd.dll",
+      "bytes": 657920,
+      "fileVersion": "1.5.7",
+      "sha256": "564bb88f76d399e5067e43957b9117ef2242cbbee7f18bdaec9955c7e62b89ab"
+    }
+  ]
+}

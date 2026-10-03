@@ -1,4 +1,6 @@
 #include "mesh.h"
+#include "mesh_parameters.h"
+#include "diagnostics/crash_barrier.h"
 
 #include <cmath>
 
@@ -25,6 +27,9 @@
 #include <gp_Pnt.hxx>
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
+#if KREODA_CRASH_TEST_BARRIERS
+#include <Message_ProgressIndicator.hxx>
+#endif
 #endif
 
 namespace kreoda {
@@ -32,6 +37,18 @@ namespace kreoda {
 namespace {
 
 #if KREODA_WITH_OCCT
+#if KREODA_CRASH_TEST_BARRIERS
+// OCCT calls Show inside Perform. Ignore the initial/final notifications so
+// the barrier proves a live mesher call with partial progress.
+class CrashMeshProgress final : public Message_ProgressIndicator {
+  void Show(const Message_ProgressScope&, const bool) override {
+    if (GetPosition() > 0.0 && GetPosition() < 1.0) {
+      CrashTestBarrier("tessellation-inside-mesher");
+    }
+  }
+};
+#endif
+
 void appendFaceTriangles(CoreMesh& mesh, const TopoDS_Face& face,
                          const std::string& role) {
   TopLoc_Location loc;
@@ -124,12 +141,17 @@ CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
     linDefl = 0.01;
     angDefl = 0.05;
   }
-  BRepMesh_IncrementalMesh mesher(rec.shape, linDefl, Standard_False,
-                                  angDefl, Standard_True);
+#if KREODA_CRASH_TEST_BARRIERS
+  Handle(Message_ProgressIndicator) progress = new CrashMeshProgress();
+  BRepMesh_IncrementalMesh mesher(rec.shape, OcctMeshingParameters(linDefl, angDefl), progress->Start());
+#else
+  BRepMesh_IncrementalMesh mesher(rec.shape, OcctMeshingParameters(linDefl, angDefl));
+#endif
   if (!mesher.IsDone()) {
     if (error) *error = "tessellation failed";
     return {};
   }
+  CrashTestBarrier("tessellation-before-extraction");
   CoreMesh mesh;
   // Mass props from the tessellated shape itself — never trusted blindly,
   // so transient previews report their own volume/bbox (§13, §41).

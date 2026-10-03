@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-01",
+  "baseCommit": "27a43ac27cbb12cb243b0623f6610e05004d1f9b",
+  "scope": "Local portable copy prepared for a future human audit; not human acceptance, native dialog coverage, or CI Squirrel provenance",
+  "manifest": {
+    "originalCoreSha256": "2D36A6A869884EF774981DA1B30EF15C77273B85A9385FDA0A6B167F5FA516C9",
+    "GUI": "Not launched",
+    "nativeSelfTestExit": 0,
+    "appAsarSha256": "4E0D8EC74BCEEF865AD9320D93BB070509DB25772B2953B1AB6E905CC4405C62",
+    "coreSha256": "9C520474104D62628B274A08958CC8D68AF1C1B938266501B54825162CD7A2ED",
+    "compiledMainSha256": "72737557291F929A425F7DCFA75C7E743B2755D0994A3E0D90EB8BD428FB61D4",
+    "variant": "Local portable audit copy with source-matched OCCT8.0.1 static-MD production core; no crash barriers. This is not the CI Squirrel payload.",
+    "executable": "C:\\Users\\matte\\AppData\\Local\\Kreoda-tools\\human-audit-27a43ac-996fb22cd69843eca054f7c2cd0b85f6\\Kreoda-win32-x64\\Kreoda.exe",
+    "commit": "27a43ac27cbb12cb243b0623f6610e05004d1f9b"
+  },
+  "hiddenProbe": {
+    "status": "PASS",
+    "commit": "27a43ac27cbb12cb243b0623f6610e05004d1f9b",
+    "mode": "Owned packaged clone with only visibility/offscreen/userData/error-dialog instrumentation; portable static-MD OCCT core, not Squirrel payload",
+    "identity": {
+      "packaged": true,
+      "executable": "C:\\Users\\matte\\AppData\\Local\\Kreoda-tools\\human-audit-27a43ac-996fb22cd69843eca054f7c2cd0b85f6\\hidden-probe-kqq5ku\\Kreoda-win32-x64\\Kreoda.exe",
+      "resources": "C:\\Users\\matte\\AppData\\Local\\Kreoda-tools\\human-audit-27a43ac-996fb22cd69843eca054f7c2cd0b85f6\\hidden-probe-kqq5ku\\Kreoda-win32-x64\\resources",
+      "visible": [
+        false
+      ],
+      "offscreen": [
+        true
+      ]
+    },
+    "corePath": "C:\\Users\\matte\\AppData\\Local\\Kreoda-tools\\human-audit-27a43ac-996fb22cd69843eca054f7c2cd0b85f6\\hidden-probe-kqq5ku\\Kreoda-win32-x64\\resources\\kreoda-core.exe",
+    "coreSha256": "9C520474104D62628B274A08958CC8D68AF1C1B938266501B54825162CD7A2ED",
+    "reopenedEditable": true,
+    "nativeDialogsExercised": false,
+    "humanAuditPerformed": false,
+    "originalAuditAsarUnchanged": true,
+    "originalAuditExecutable": "C:\\Users\\matte\\AppData\\Local\\Kreoda-tools\\human-audit-27a43ac-996fb22cd69843eca054f7c2cd0b85f6\\Kreoda-win32-x64\\Kreoda.exe"
+  },
+  "sha256": {
+    "probeScript": "30b48479c06323e0bd990c0d2b4713d2a109735811fbd3b4011a766995f3e1fa",
+    "probeLog": "9b9ea66ba91e49babd0c8c0c7763c6bd986bf44242c5cbed3e655a8ded1ac0bd",
+    "probeStderr": "90acb0ad9c243e62493b9aee3ca075f8a5ed11ce216a7fc1913c7d7eeff6db2a",
+    "nativeSelfTestStdout": "6d9f01bed3efebf1f274ec4cfe84a30441d640513b2401d90b01cccc0a1bf9d2",
+    "nativeSelfTestStderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "localPackageLog": "d93b94d8d0f848811f0e4a352fa6daa27b09e7e047e03b7a4a3b69188f714950"
+  },
+  "limits": [
+    "Portable copy substitutes a source-matched static-MD OCCT8.0.1 production core to avoid the locally blocked OCCT DLLs, without changing Windows security policy",
+    "Hidden probe ran an owned clone with show:false, offscreen:true, isolated userData and console-only error dialogs; original portable ASAR bytes are unchanged",
+    "Save/Open use existing application test hooks; native dialogs are covered separately on hosted CI",
+    "No beginner participant has performed the audit"
+  ]
+}

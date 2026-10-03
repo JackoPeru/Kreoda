@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string>
+#include <utility>
+#include <vector>
 
 #if KREODA_WITH_OCCT
 // NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
@@ -19,7 +21,8 @@ bool CreateHoleFeature(const std::string& featureId,
                        const std::string& targetId,
                        const std::string& faceRole, double xMm, double yMm,
                        double diameterMm, const std::string& depthMode,
-                       double depthMm, std::string* error);
+                       double depthMm, std::string* error,
+                       const std::string& insertBeforeId = "");
 
 // Slice 5 cumulative pattern: 1..4 holes in ONE OCAF transaction (one Undo
 // step) committed as ONE "HolePattern" record advancing the target's body.
@@ -28,8 +31,8 @@ bool CreateHoleFeature(const std::string& featureId,
 // is the body tip carrying base-minus-ALL-tools. points and featureIds must
 // still have the same size (1..4, wire-stable); trailing ids are validated
 // (charset/availability/uniqueness) but create no records — no sub-feature
-// bodies, no sub-feature viewport objects. paramsMm is [diameterMm, depthMm]
-// (same slots as Hole); refExtra is the pattern codec below. On any failure
+// bodies, no sub-feature viewport objects. paramsMm is [diameterMm, depthMm, count]
+// (Hole dimensions plus count); refExtra is the pattern codec below. On any failure
 // nothing is created (atomic).
 bool CreateHolePatternFeature(
     const std::string& targetId, const std::string& faceRole,
@@ -47,6 +50,18 @@ bool RebuildHolePatternFromStore(const std::string& featureId,
                                  std::string* error);
 
 #if KREODA_WITH_OCCT
+// Legacy two-slot records retain all authored centers. Count selects a prefix
+// of that immutable layout; growing beyond authored centers needs a new layout.
+bool NormalizeHolePatternParams(const std::string& ref,
+                                std::vector<double>* params,
+                                std::string* error);
+bool BuildHolePatternShape(const TopoDS_Shape& target,
+                           const std::string& targetId,
+                           const std::string& targetType,
+                           const std::string& ref,
+                           const std::vector<double>& params,
+                           TopoDS_Shape* out, std::string* error);
+
 // Pure build (no commit): target shape + face role + dims → holed solid.
 bool BuildHoleShape(const TopoDS_Shape& target, const std::string& targetId,
                     const std::string& targetType, const std::string& faceRole,

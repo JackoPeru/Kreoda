@@ -80,21 +80,30 @@ export async function syncFromCoreList(
     revision,
     epoch,
   );
-  // Sequential hydration: one round-trip per VISIBLE feature (tips only).
-  // Per-feature errors collected — fail-fast would strand the summaries
-  // behind (C4). Historical meshes stay core-side, pulled on demand.
+  // Bounded-parallel hydration: mesh round-trips are independent, so one
+  // round-trip per VISIBLE feature (tips only) runs concurrently (6 lanes —
+  // enough to saturate local IPC without bursting the sidecar). Per-feature
+  // errors collected — fail-fast would strand the summaries behind (C4).
+  // Historical meshes stay core-side, pulled on demand.
   const visible = visibleFeatureIds(features);
   const results: (
     | { ok: true; id: string; mesh: Awaited<ReturnType<typeof coreClient.requestMesh>> }
     | { ok: false; id: string; error: string }
-  )[] = [];
-  for (const id of visible) {
-    try {
-      results.push({ ok: true, id, mesh: await coreClient.requestMesh(id, 1) });
-    } catch (e) {
-      results.push({ ok: false, id, error: e instanceof Error ? e.message : "mesh failed" });
+  )[] = new Array(visible.length);
+  const LANES = 6;
+  let cursor = 0;
+  async function lane(): Promise<void> {
+    while (cursor < visible.length) {
+      const i = cursor++;
+      const id = visible[i]!;
+      try {
+        results[i] = { ok: true, id, mesh: await coreClient.requestMesh(id, 1) };
+      } catch (e) {
+        results[i] = { ok: false, id, error: e instanceof Error ? e.message : "mesh failed" };
+      }
     }
   }
+  await Promise.all(Array.from({ length: Math.min(LANES, visible.length) }, lane));
   const meshes: Record<string, Parameters<typeof s.upsertMesh>[1]> = {};
   const failed: string[] = [];
   for (const r of results) {

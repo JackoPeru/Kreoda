@@ -180,6 +180,7 @@ async function dispatchCommand(
     case "CreateHole": {
       const created = await coreClient.createHole(
         p as {
+          insertBeforeId?: string;
           targetId: string;
           faceRole: string;
           xMm: number;
@@ -189,7 +190,8 @@ async function dispatchCommand(
           depthMm: number;
         },
       );
-      await pullAndAppend(created);
+      if (created.features) await syncFromCoreList(created.features, created.revision, created.sketches);
+      else await pullAndAppend(created);
       return { kind: "created", feature: created };
     }
     case "CreateHolePattern": {
@@ -278,7 +280,6 @@ async function dispatchCommand(
       // sync every summary from the full list, pull meshes for all that moved.
       const list = (updated as { features?: FeatureSummary[] }).features;
       if (list && list.length > 0) {
-        const { syncFromCoreList } = await import("../model/sync");
         const sketches =
           (updated as { sketches?: import("../ipc/coreClient").SketchSummary[] }).sketches ?? [];
         await syncFromCoreList(list, updated.revision, sketches);

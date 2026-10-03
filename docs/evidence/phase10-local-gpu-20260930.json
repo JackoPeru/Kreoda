@@ -1,0 +1,2341 @@
+{
+  "date": "2026-09-30",
+  "commit": "47ff6a51735139a0819dcc11310a56d444459fe7",
+  "nativeCore": "OCCT8.0.1 static MD local diagnostic only",
+  "gpuMemoryApi": "D3DKMTQueryStatistics PROCESS_SEGMENT_GROUP",
+  "mode": "hidden Electron offscreen with 30fps compositor cap; not displayed FPS",
+  "nativeSelfTest": "passed",
+  "nativeTestsPassed": 133,
+  "nativeTestsTotal": 133,
+  "viewportTestsPassed": 3,
+  "viewportTestsTotal": 3,
+  "limitations": [
+    "GPU usages are whole Electron GPU-process samples, not isolated mesh allocations or exact peaks.",
+    "Invalid NTSTATUS samples are unsupported, not zero usage.",
+    "Static local diagnostic executable is not the distributed DLL-based release build.",
+    "Offscreen readback and probe overhead affect process memory and timing."
+  ],
+  "sessions": [
+    {
+      "mode": "offscreen-30fps-cap",
+      "core": "OCCT8.0.1-external-static-local-test-only",
+      "samplePeriodMs": 2000,
+      "rows": [
+        {
+          "timestamp": "2026-09-30T09:37:40.135Z",
+          "mainPid": 13716,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "sph-7325174b-a1d7-48f9-93f6-60caab8de798",
+                "type": "Sphere",
+                "triangles": 120582
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 3,
+              "renderCpuTotalMs": 51.79999999888241,
+              "renderCpuMaxMs": 41,
+              "triangles": 120582,
+              "geometries": 3,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 12228,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 185823232,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 41025536,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:42.319Z",
+          "mainPid": 13716,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "sph-7325174b-a1d7-48f9-93f6-60caab8de798",
+                "type": "Sphere",
+                "triangles": 604110
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 4,
+              "renderCpuTotalMs": 65.09999999962747,
+              "renderCpuMaxMs": 41,
+              "triangles": 604110,
+              "geometries": 3,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 12228,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 200482816,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 55705600,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:44.143Z",
+          "mainPid": 13716,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "sph-7325174b-a1d7-48f9-93f6-60caab8de798",
+                "type": "Sphere",
+                "triangles": 604110
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 43,
+              "renderCpuTotalMs": 71.69999999180436,
+              "renderCpuMaxMs": 41,
+              "triangles": 604110,
+              "geometries": 3,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 12228,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 202063872,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 57475072,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:46.156Z",
+          "mainPid": 13716,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "sph-7325174b-a1d7-48f9-93f6-60caab8de798",
+                "type": "Sphere",
+                "triangles": 604110
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 92,
+              "renderCpuTotalMs": 77.69999998621643,
+              "renderCpuMaxMs": 41,
+              "triangles": 604110,
+              "geometries": 3,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 12228,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 202072064,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 59834368,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "offscreen-30fps-cap",
+      "core": "OCCT8.0.1-external-static-local-test-only",
+      "samplePeriodMs": 2000,
+      "rows": [
+        {
+          "timestamp": "2026-09-30T09:37:15.532Z",
+          "mainPid": 19648,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "box-2f19335c-f0c9-45b5-8286-58e240e6cfc8",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d8035caf-895e-4a87-906d-e2fe791ebf5e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-92b178f4-5297-41b4-a85a-067a65208faa",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-29adcb13-cf27-49bd-8f5b-15382d09cb2e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d05154b7-cd84-4df5-88be-6518c293f5c6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-be5fd314-a4da-47ca-88e0-3fbf394af9ae",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-315d7325-0a95-4e11-ba75-4446fef0df3d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-a724e769-ec8a-43b2-a32b-7bd03a059bd0",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-5338437e-7faa-45bd-bf92-ada5ebdc028d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-eb1d476c-0755-4e3f-837e-db053c53a775",
+                "type": "Box",
+                "triangles": 12
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 12,
+              "renderCpuTotalMs": 81.5,
+              "renderCpuMaxMs": 43.90000000037253,
+              "triangles": 120,
+              "geometries": 21,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 1096,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 186003456,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 34357248,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:17.536Z",
+          "mainPid": 19648,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "box-2f19335c-f0c9-45b5-8286-58e240e6cfc8",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d8035caf-895e-4a87-906d-e2fe791ebf5e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-92b178f4-5297-41b4-a85a-067a65208faa",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-29adcb13-cf27-49bd-8f5b-15382d09cb2e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d05154b7-cd84-4df5-88be-6518c293f5c6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-be5fd314-a4da-47ca-88e0-3fbf394af9ae",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-315d7325-0a95-4e11-ba75-4446fef0df3d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-a724e769-ec8a-43b2-a32b-7bd03a059bd0",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-5338437e-7faa-45bd-bf92-ada5ebdc028d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-eb1d476c-0755-4e3f-837e-db053c53a775",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-4b4366ff-1e41-4543-90d5-7ab0cc9882f6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-ae93a5a8-b27d-4608-9903-017518d8f90b",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23b6b065-667f-4f6e-9998-25ccf9fcaa13",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-18e9b78c-879e-4f8c-8202-c3bc74840a5f",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-07b947db-a736-4967-b682-51358472db20",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-b6a628d1-ffaf-4d2c-b675-83d8541b06e6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-11d04d7a-eff4-4613-ad7c-be76dabf0731",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-bc53bdc8-13c6-42e5-b108-dc4baa219729",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-fa525695-4817-42e5-95bf-d9618b0eb681",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-73327f23-4653-474b-833c-63f405234406",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23648e72-b2d8-4d9f-b6d5-e307cde816ad",
+                "type": "Box",
+                "triangles": 12
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 28,
+              "renderCpuTotalMs": 124.89999999850988,
+              "renderCpuMaxMs": 43.90000000037253,
+              "triangles": 252,
+              "geometries": 43,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 1096,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 186007552,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 37502976,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:19.545Z",
+          "mainPid": 19648,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "box-2f19335c-f0c9-45b5-8286-58e240e6cfc8",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d8035caf-895e-4a87-906d-e2fe791ebf5e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-92b178f4-5297-41b4-a85a-067a65208faa",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-29adcb13-cf27-49bd-8f5b-15382d09cb2e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d05154b7-cd84-4df5-88be-6518c293f5c6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-be5fd314-a4da-47ca-88e0-3fbf394af9ae",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-315d7325-0a95-4e11-ba75-4446fef0df3d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-a724e769-ec8a-43b2-a32b-7bd03a059bd0",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-5338437e-7faa-45bd-bf92-ada5ebdc028d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-eb1d476c-0755-4e3f-837e-db053c53a775",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-4b4366ff-1e41-4543-90d5-7ab0cc9882f6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-ae93a5a8-b27d-4608-9903-017518d8f90b",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23b6b065-667f-4f6e-9998-25ccf9fcaa13",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-18e9b78c-879e-4f8c-8202-c3bc74840a5f",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-07b947db-a736-4967-b682-51358472db20",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-b6a628d1-ffaf-4d2c-b675-83d8541b06e6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-11d04d7a-eff4-4613-ad7c-be76dabf0731",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-bc53bdc8-13c6-42e5-b108-dc4baa219729",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-fa525695-4817-42e5-95bf-d9618b0eb681",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-73327f23-4653-474b-833c-63f405234406",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23648e72-b2d8-4d9f-b6d5-e307cde816ad",
+                "type": "Box",
+                "triangles": 12
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 67,
+              "renderCpuTotalMs": 142.70000000670552,
+              "renderCpuMaxMs": 43.90000000037253,
+              "triangles": 252,
+              "geometries": 43,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 1096,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 186011648,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 37896192,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:21.554Z",
+          "mainPid": 19648,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "box-2f19335c-f0c9-45b5-8286-58e240e6cfc8",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d8035caf-895e-4a87-906d-e2fe791ebf5e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-92b178f4-5297-41b4-a85a-067a65208faa",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-29adcb13-cf27-49bd-8f5b-15382d09cb2e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d05154b7-cd84-4df5-88be-6518c293f5c6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-be5fd314-a4da-47ca-88e0-3fbf394af9ae",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-315d7325-0a95-4e11-ba75-4446fef0df3d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-a724e769-ec8a-43b2-a32b-7bd03a059bd0",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-5338437e-7faa-45bd-bf92-ada5ebdc028d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-eb1d476c-0755-4e3f-837e-db053c53a775",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-4b4366ff-1e41-4543-90d5-7ab0cc9882f6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-ae93a5a8-b27d-4608-9903-017518d8f90b",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23b6b065-667f-4f6e-9998-25ccf9fcaa13",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-18e9b78c-879e-4f8c-8202-c3bc74840a5f",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-07b947db-a736-4967-b682-51358472db20",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-b6a628d1-ffaf-4d2c-b675-83d8541b06e6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-11d04d7a-eff4-4613-ad7c-be76dabf0731",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-bc53bdc8-13c6-42e5-b108-dc4baa219729",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-fa525695-4817-42e5-95bf-d9618b0eb681",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-73327f23-4653-474b-833c-63f405234406",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23648e72-b2d8-4d9f-b6d5-e307cde816ad",
+                "type": "Box",
+                "triangles": 12
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 103,
+              "renderCpuTotalMs": 156.40000000223517,
+              "renderCpuMaxMs": 43.90000000037253,
+              "triangles": 252,
+              "geometries": 43,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 1096,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 186011648,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 38289408,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:23.566Z",
+          "mainPid": 19648,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "box-2f19335c-f0c9-45b5-8286-58e240e6cfc8",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d8035caf-895e-4a87-906d-e2fe791ebf5e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-92b178f4-5297-41b4-a85a-067a65208faa",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-29adcb13-cf27-49bd-8f5b-15382d09cb2e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d05154b7-cd84-4df5-88be-6518c293f5c6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-be5fd314-a4da-47ca-88e0-3fbf394af9ae",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-315d7325-0a95-4e11-ba75-4446fef0df3d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-a724e769-ec8a-43b2-a32b-7bd03a059bd0",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-5338437e-7faa-45bd-bf92-ada5ebdc028d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-eb1d476c-0755-4e3f-837e-db053c53a775",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-4b4366ff-1e41-4543-90d5-7ab0cc9882f6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-ae93a5a8-b27d-4608-9903-017518d8f90b",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23b6b065-667f-4f6e-9998-25ccf9fcaa13",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-18e9b78c-879e-4f8c-8202-c3bc74840a5f",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-07b947db-a736-4967-b682-51358472db20",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-b6a628d1-ffaf-4d2c-b675-83d8541b06e6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-11d04d7a-eff4-4613-ad7c-be76dabf0731",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-bc53bdc8-13c6-42e5-b108-dc4baa219729",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-fa525695-4817-42e5-95bf-d9618b0eb681",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-73327f23-4653-474b-833c-63f405234406",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23648e72-b2d8-4d9f-b6d5-e307cde816ad",
+                "type": "Box",
+                "triangles": 12
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 142,
+              "renderCpuTotalMs": 173.30000000447035,
+              "renderCpuMaxMs": 43.90000000037253,
+              "triangles": 252,
+              "geometries": 43,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 1096,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 186011648,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 38682624,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:25.573Z",
+          "mainPid": 19648,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "box-2f19335c-f0c9-45b5-8286-58e240e6cfc8",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d8035caf-895e-4a87-906d-e2fe791ebf5e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-92b178f4-5297-41b4-a85a-067a65208faa",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-29adcb13-cf27-49bd-8f5b-15382d09cb2e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d05154b7-cd84-4df5-88be-6518c293f5c6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-be5fd314-a4da-47ca-88e0-3fbf394af9ae",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-315d7325-0a95-4e11-ba75-4446fef0df3d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-a724e769-ec8a-43b2-a32b-7bd03a059bd0",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-5338437e-7faa-45bd-bf92-ada5ebdc028d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-eb1d476c-0755-4e3f-837e-db053c53a775",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-4b4366ff-1e41-4543-90d5-7ab0cc9882f6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-ae93a5a8-b27d-4608-9903-017518d8f90b",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23b6b065-667f-4f6e-9998-25ccf9fcaa13",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-18e9b78c-879e-4f8c-8202-c3bc74840a5f",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-07b947db-a736-4967-b682-51358472db20",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-b6a628d1-ffaf-4d2c-b675-83d8541b06e6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-11d04d7a-eff4-4613-ad7c-be76dabf0731",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-bc53bdc8-13c6-42e5-b108-dc4baa219729",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-fa525695-4817-42e5-95bf-d9618b0eb681",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-73327f23-4653-474b-833c-63f405234406",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23648e72-b2d8-4d9f-b6d5-e307cde816ad",
+                "type": "Box",
+                "triangles": 12
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 182,
+              "renderCpuTotalMs": 188.30000000447035,
+              "renderCpuMaxMs": 43.90000000037253,
+              "triangles": 252,
+              "geometries": 43,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 1096,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 186011648,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 38682624,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:27.577Z",
+          "mainPid": 19648,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "box-2f19335c-f0c9-45b5-8286-58e240e6cfc8",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d8035caf-895e-4a87-906d-e2fe791ebf5e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-92b178f4-5297-41b4-a85a-067a65208faa",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-29adcb13-cf27-49bd-8f5b-15382d09cb2e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d05154b7-cd84-4df5-88be-6518c293f5c6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-be5fd314-a4da-47ca-88e0-3fbf394af9ae",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-315d7325-0a95-4e11-ba75-4446fef0df3d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-a724e769-ec8a-43b2-a32b-7bd03a059bd0",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-5338437e-7faa-45bd-bf92-ada5ebdc028d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-eb1d476c-0755-4e3f-837e-db053c53a775",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-4b4366ff-1e41-4543-90d5-7ab0cc9882f6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-ae93a5a8-b27d-4608-9903-017518d8f90b",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23b6b065-667f-4f6e-9998-25ccf9fcaa13",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-18e9b78c-879e-4f8c-8202-c3bc74840a5f",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-07b947db-a736-4967-b682-51358472db20",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-b6a628d1-ffaf-4d2c-b675-83d8541b06e6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-11d04d7a-eff4-4613-ad7c-be76dabf0731",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-bc53bdc8-13c6-42e5-b108-dc4baa219729",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-fa525695-4817-42e5-95bf-d9618b0eb681",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-73327f23-4653-474b-833c-63f405234406",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23648e72-b2d8-4d9f-b6d5-e307cde816ad",
+                "type": "Box",
+                "triangles": 12
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 216,
+              "renderCpuTotalMs": 201.30000000819564,
+              "renderCpuMaxMs": 43.90000000037253,
+              "triangles": 252,
+              "geometries": 43,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 1096,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 186011648,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 38682624,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:29.586Z",
+          "mainPid": 19648,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "box-2f19335c-f0c9-45b5-8286-58e240e6cfc8",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d8035caf-895e-4a87-906d-e2fe791ebf5e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-92b178f4-5297-41b4-a85a-067a65208faa",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-29adcb13-cf27-49bd-8f5b-15382d09cb2e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d05154b7-cd84-4df5-88be-6518c293f5c6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-be5fd314-a4da-47ca-88e0-3fbf394af9ae",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-315d7325-0a95-4e11-ba75-4446fef0df3d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-a724e769-ec8a-43b2-a32b-7bd03a059bd0",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-5338437e-7faa-45bd-bf92-ada5ebdc028d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-eb1d476c-0755-4e3f-837e-db053c53a775",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-4b4366ff-1e41-4543-90d5-7ab0cc9882f6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-ae93a5a8-b27d-4608-9903-017518d8f90b",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23b6b065-667f-4f6e-9998-25ccf9fcaa13",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-18e9b78c-879e-4f8c-8202-c3bc74840a5f",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-07b947db-a736-4967-b682-51358472db20",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-b6a628d1-ffaf-4d2c-b675-83d8541b06e6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-11d04d7a-eff4-4613-ad7c-be76dabf0731",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-bc53bdc8-13c6-42e5-b108-dc4baa219729",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-fa525695-4817-42e5-95bf-d9618b0eb681",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-73327f23-4653-474b-833c-63f405234406",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23648e72-b2d8-4d9f-b6d5-e307cde816ad",
+                "type": "Box",
+                "triangles": 12
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 255,
+              "renderCpuTotalMs": 215.50000000745058,
+              "renderCpuMaxMs": 43.90000000037253,
+              "triangles": 252,
+              "geometries": 43,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 1096,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 186011648,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 38813696,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:31.598Z",
+          "mainPid": 19648,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "box-2f19335c-f0c9-45b5-8286-58e240e6cfc8",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d8035caf-895e-4a87-906d-e2fe791ebf5e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-92b178f4-5297-41b4-a85a-067a65208faa",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-29adcb13-cf27-49bd-8f5b-15382d09cb2e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d05154b7-cd84-4df5-88be-6518c293f5c6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-be5fd314-a4da-47ca-88e0-3fbf394af9ae",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-315d7325-0a95-4e11-ba75-4446fef0df3d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-a724e769-ec8a-43b2-a32b-7bd03a059bd0",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-5338437e-7faa-45bd-bf92-ada5ebdc028d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-eb1d476c-0755-4e3f-837e-db053c53a775",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-4b4366ff-1e41-4543-90d5-7ab0cc9882f6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-ae93a5a8-b27d-4608-9903-017518d8f90b",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23b6b065-667f-4f6e-9998-25ccf9fcaa13",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-18e9b78c-879e-4f8c-8202-c3bc74840a5f",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-07b947db-a736-4967-b682-51358472db20",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-b6a628d1-ffaf-4d2c-b675-83d8541b06e6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-11d04d7a-eff4-4613-ad7c-be76dabf0731",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-bc53bdc8-13c6-42e5-b108-dc4baa219729",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-fa525695-4817-42e5-95bf-d9618b0eb681",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-73327f23-4653-474b-833c-63f405234406",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23648e72-b2d8-4d9f-b6d5-e307cde816ad",
+                "type": "Box",
+                "triangles": 12
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 291,
+              "renderCpuTotalMs": 228.20000001601875,
+              "renderCpuMaxMs": 43.90000000037253,
+              "triangles": 252,
+              "geometries": 43,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 1096,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 186011648,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 38813696,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:33.598Z",
+          "mainPid": 19648,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "box-2f19335c-f0c9-45b5-8286-58e240e6cfc8",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d8035caf-895e-4a87-906d-e2fe791ebf5e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-92b178f4-5297-41b4-a85a-067a65208faa",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-29adcb13-cf27-49bd-8f5b-15382d09cb2e",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-d05154b7-cd84-4df5-88be-6518c293f5c6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-be5fd314-a4da-47ca-88e0-3fbf394af9ae",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-315d7325-0a95-4e11-ba75-4446fef0df3d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-a724e769-ec8a-43b2-a32b-7bd03a059bd0",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-5338437e-7faa-45bd-bf92-ada5ebdc028d",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-eb1d476c-0755-4e3f-837e-db053c53a775",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-4b4366ff-1e41-4543-90d5-7ab0cc9882f6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-ae93a5a8-b27d-4608-9903-017518d8f90b",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23b6b065-667f-4f6e-9998-25ccf9fcaa13",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-18e9b78c-879e-4f8c-8202-c3bc74840a5f",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-07b947db-a736-4967-b682-51358472db20",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-b6a628d1-ffaf-4d2c-b675-83d8541b06e6",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-11d04d7a-eff4-4613-ad7c-be76dabf0731",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-bc53bdc8-13c6-42e5-b108-dc4baa219729",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-fa525695-4817-42e5-95bf-d9618b0eb681",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-73327f23-4653-474b-833c-63f405234406",
+                "type": "Box",
+                "triangles": 12
+              },
+              {
+                "id": "box-23648e72-b2d8-4d9f-b6d5-e307cde816ad",
+                "type": "Box",
+                "triangles": 12
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 330,
+              "renderCpuTotalMs": 242.70000001229346,
+              "renderCpuMaxMs": 43.90000000037253,
+              "triangles": 252,
+              "geometries": 43,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 1096,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 186011648,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 38944768,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "offscreen-30fps-cap",
+      "core": "OCCT8.0.1-external-static-local-test-only",
+      "samplePeriodMs": 2000,
+      "rows": [
+        {
+          "timestamp": "2026-09-30T09:37:49.343Z",
+          "mainPid": 21424,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "sph-7deeae5d-e0c8-45bf-af0e-7f5452b4265e",
+                "type": "Sphere",
+                "triangles": 221602
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 3,
+              "renderCpuTotalMs": 51.59999999962747,
+              "renderCpuMaxMs": 40.59999999962747,
+              "triangles": 221602,
+              "geometries": 3,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 23740,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 188780544,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 43450368,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:51.349Z",
+          "mainPid": 21424,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "sph-7deeae5d-e0c8-45bf-af0e-7f5452b4265e",
+                "type": "Sphere",
+                "triangles": 221602
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 3,
+              "renderCpuTotalMs": 51.59999999962747,
+              "renderCpuMaxMs": 40.59999999962747,
+              "triangles": 221602,
+              "geometries": 3,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 23740,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 188780544,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 43450368,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:53.358Z",
+          "mainPid": 21424,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "sph-7deeae5d-e0c8-45bf-af0e-7f5452b4265e",
+                "type": "Sphere",
+                "triangles": 221602
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 3,
+              "renderCpuTotalMs": 51.59999999962747,
+              "renderCpuMaxMs": 40.59999999962747,
+              "triangles": 221602,
+              "geometries": 3,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 23740,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 188780544,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 43450368,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:55.373Z",
+          "mainPid": 21424,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "sph-7deeae5d-e0c8-45bf-af0e-7f5452b4265e",
+                "type": "Sphere",
+                "triangles": 1108272
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 4,
+              "renderCpuTotalMs": 71.79999999888241,
+              "renderCpuMaxMs": 40.59999999962747,
+              "triangles": 1108272,
+              "geometries": 3,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 23740,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 215531520,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 70254592,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:57.383Z",
+          "mainPid": 21424,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "sph-7deeae5d-e0c8-45bf-af0e-7f5452b4265e",
+                "type": "Sphere",
+                "triangles": 1108272
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 49,
+              "renderCpuTotalMs": 80.09999999403954,
+              "renderCpuMaxMs": 40.59999999962747,
+              "triangles": 1108272,
+              "geometries": 3,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 23740,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 217120768,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 72417280,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "timestamp": "2026-09-30T09:37:59.381Z",
+          "mainPid": 21424,
+          "visible": false,
+          "scene": {
+            "home": false,
+            "bodies": [
+              {
+                "id": "sph-7deeae5d-e0c8-45bf-af0e-7f5452b4265e",
+                "type": "Sphere",
+                "triangles": 1108272
+              }
+            ],
+            "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            "stats": {
+              "renderedFrames": 98,
+              "renderCpuTotalMs": 86.39999999292195,
+              "renderCpuMaxMs": 40.59999999962747,
+              "triangles": 1108272,
+              "geometries": 3,
+              "textures": 1
+            }
+          },
+          "gpu": [
+            {
+              "pid": 23740,
+              "samples": [
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 0,
+                  "status": 0,
+                  "usageBytes": 217124864,
+                  "budgetBytes": 7589593088
+                },
+                {
+                  "adapter": 0,
+                  "vendor": 4318,
+                  "software": false,
+                  "segmentGroup": 1,
+                  "status": 0,
+                  "usageBytes": 74514432,
+                  "budgetBytes": 16332269568
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 0,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                },
+                {
+                  "adapter": 1,
+                  "vendor": 5140,
+                  "software": true,
+                  "segmentGroup": 1,
+                  "status": -1073741811,
+                  "usageBytes": 0,
+                  "budgetBytes": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "webglQueueFence": {
+    "triangles": 1108272,
+    "afterMesh": {
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "queueCompletionMs": 172.69999999925494
+    },
+    "afterOrbit": {
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 (0x00001F02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "queueCompletionMs": 34
+    },
+    "mode": "hidden offscreen; GL queue completion excludes presentation",
+    "corePid": 13676
+  },
+  "webglQueueFenceSource": "new apps/desktop/e2e/gpu-metrics.ts compiled and run locally; includes scheduling and polling overhead",
+  "gpuMemoryPrototypeNote": "Prototype samples retain original integer group tags (0 local, 1 nonlocal) and raw error payloads; only status >= 0 is a valid reading."
+}

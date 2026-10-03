@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
-import { WorkspaceChrome } from "../components/workspace/WorkspaceChrome";
 import { HomeScreen } from "../components/home/HomeScreen";
 import { PluginsDialog } from "../components/PluginsDialog";
 import { ReferenceDialog } from "../components/ReferenceDialog";
@@ -16,7 +15,19 @@ import {
 } from "../components/AddPrimitiveDialog";
 import { useDocumentUiStore, useSelectionStore } from "../stores";
 import { coreClient } from "../ipc/coreClient";
-import { loadPluginsFromHost } from "../plugins/loader";
+import {
+  loadPlugin,
+  loadPluginsFromHost,
+  runPluginCommand,
+  unloadPlugin,
+} from "../plugins/loader";
+import {
+  addReferencePlane,
+  reloadReferences,
+  calibrateSize,
+  updateReferencePlane,
+  useReferenceStore,
+} from "../reference/store";
 import {
   AUTOSAVE_MS,
   autosaveNow,
@@ -25,13 +36,36 @@ import {
   restoreRecovery,
 } from "../recovery/autosave";
 import { executeCommand } from "../commands/execute";
-import { pullFeatureMesh, updateFeatureSummary } from "../model/sync";
+import { pullFeatureMesh, syncFromCoreList, updateFeatureSummary } from "../model/sync";
 import {
   faceScreenPoint,
   viewportViewDir,
+  viewportRenderStats,
 } from "../viewport/viewportHandle";
 
 /** Minimal workspace shell (UX-1): viewport-first, floating docks. */
+// The CAD workspace (viewport + three + docks) is the heavy half of the
+// bundle: it loads on demand so the home screen paints instantly, and is
+// prefetched on idle right after so entering feels instant too.
+const WorkspaceChrome = lazy(() =>
+  import("../components/workspace/WorkspaceChrome").then((m) => ({
+    default: m.WorkspaceChrome,
+  })),
+);
+function prefetchWorkspace(): void {
+  try {
+    const w = window as unknown as {
+      requestIdleCallback?: (c: () => void) => number;
+    };
+    const load = (): void => {
+      void import("../components/workspace/WorkspaceChrome");
+    };
+    if (typeof w.requestIdleCallback === "function") w.requestIdleCallback(load);
+    else setTimeout(load, 1500);
+  } catch {
+    // Prefetch is best-effort; entering the workspace loads it regardless.
+  }
+}
 export function App() {
   const { setCoreStatus } = useDocumentUiStore();
   const features = useDocumentUiStore((s) => s.features);
@@ -49,6 +83,10 @@ export function App() {
   }, [bundleFullModel]);
   // Signed update available (Phase 8 §61; only ever set via main process).
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  // Prefetch the lazy workspace chunk on idle so first entry feels instant.
+  useEffect(() => {
+    prefetchWorkspace();
+  }, []);
 
   const saveCrashBundle = async (): Promise<{
     path: string;
@@ -125,6 +163,9 @@ export function App() {
     const offCrash = window.kreoda?.onCoreCrashed?.((info) => {
       setCrashed(info.code);
       setCoreStatus(false, null);
+      // A drag owns solved preview coordinates from the dead engine. Unmount
+      // it before pointer-up can commit that draft into the recovered document.
+      setEditingSketch(null);
     });
     // Post-crash restart brings an EMPTY engine: the autosave (written by
     // the interval before the crash) is the way back — re-check it.
@@ -166,10 +207,16 @@ export function App() {
       void (async () => {
         try {
           const store = useDocumentUiStore.getState();
-          if (delta.documentId !== store.documentId) {
+          const switched = delta.documentId !== store.documentId;
+          if (switched) {
             store.resetDocument(delta.documentId);
+            coreClient.documentId = delta.documentId;
           }
-          const { syncFromCoreList } = await import("../model/sync");
+          if (switched || useReferenceStore.getState().loadError) {
+            const epoch = useDocumentUiStore.getState().epoch;
+            await reloadReferences(() => coreClient.readReferences(delta.documentId));
+            if (useDocumentUiStore.getState().epoch !== epoch) return;
+          }
           await syncFromCoreList(
             delta.features as Parameters<typeof syncFromCoreList>[0],
             delta.revision,
@@ -197,6 +244,7 @@ export function App() {
         const s = useDocumentUiStore.getState();
         return {
           revision: s.revision,
+          references: useReferenceStore.getState().planes,
           selectedIds: useSelectionStore.getState().selectedIds,
           sketches: s.sketches.map((k) => ({
             id: k.featureId,
@@ -240,7 +288,6 @@ export function App() {
       openIcad: async (path: string) => {
         const { features: list, sketches, revision } =
           await coreClient.openDocument(path);
-        const { syncFromCoreList } = await import("../model/sync");
         // Document replacement = new epoch (C5): the core revision resets
         // on fresh baselines, so staleness guards key lineage, not numbers.
         useDocumentUiStore.getState().resetDocument(coreClient.documentId);
@@ -251,20 +298,25 @@ export function App() {
       },
       // Crash-recovery E2E: drive the same routine the interval uses.
       autosaveNow: () => autosaveNow(),
+      loadDetailedMesh: async (featureId: string) => {
+        const s = useDocumentUiStore.getState();
+        const mesh = await coreClient.requestMesh(featureId, 2);
+        useDocumentUiStore.getState().upsertMesh(featureId, mesh, s.revision, s.epoch);
+        return (window as unknown as { __kreoda_test: { snapshot: () => unknown } }).__kreoda_test.snapshot();
+      },
+      viewportRenderStats,
       // Crash-bundle E2E: same path as the banner button (works anytime).
       crashBundle: () => saveCrashBundle(),
       // Plugin E2E: register from source + run without touching the host dir.
       loadPluginSource: async (source: string) => {
-        const { loadPlugin } = await import("../plugins/loader");
         return loadPlugin(source, "<e2e>");
       },
+      unloadPlugin: async (id: string) => unloadPlugin(id),
       runPlugin: async (pluginId: string, commandId: string, params: unknown) => {
-        const { runPluginCommand } = await import("../plugins/loader");
         return runPluginCommand(pluginId, commandId, params);
       },
       // Reference E2E: inject planes + calibrate without native dialogs.
       addReference: async (dataUrl: string, imageW: number, imageH: number) => {
-        const { addReferencePlane } = await import("../reference/store");
         return addReferencePlane({
           name: "<e2e>",
           dataUrl,
@@ -278,8 +330,6 @@ export function App() {
         p2: [number, number],
         realMm: number,
       ) => {
-        const { calibrateSize, updateReferencePlane, useReferenceStore } =
-          await import("../reference/store");
         const plane = useReferenceStore
           .getState()
           .planes.find((p) => p.id === id);
@@ -337,7 +387,6 @@ export function App() {
           // C2: same full-list sync as execute.ts (expressions move others).
           const list = (updated as { features?: { featureId: string; type: string; paramsMm: number[]; volumeMm3: number; dependsOn: string[]; refExtra: string; expressions: Record<string, string> }[] }).features;
           if (list && list.length > 0) {
-            const { syncFromCoreList } = await import("../model/sync");
             const sketches = (updated as { sketches?: { featureId: string; planeKind: string; points: number; lines: number; circles: number; constraints: number }[] }).sketches ?? [];
             await syncFromCoreList(list, updated.revision, sketches);
           } else {
@@ -395,6 +444,7 @@ export function App() {
         ).__kreoda_test;
         return hook.snapshot();
       },
+      sketchModel: (featureId: string) => coreClient.requestSketch(featureId),
       extrudeSketch: async (sketchId: string, distanceMm: number) => {
         await executeCommand("CreateExtrude", { sketchId, distanceMm });
         const hook = (
@@ -463,6 +513,13 @@ export function App() {
       >
         ⌂ Home
       </button>
+      <Suspense
+        fallback={
+          <div className="flex h-full items-center justify-center text-sm text-white/50">
+            Loading workspace…
+          </div>
+        }
+      >
       <WorkspaceChrome
         onAdd={setAdding}
         onSketch={() => void createSketch()}
@@ -504,6 +561,7 @@ export function App() {
         hasFeatures={features.length > 0}
         sketchOpen={editingSketch !== null}
       />
+      </Suspense>
       <AddPrimitiveDialog kind={adding} onClose={() => setAdding(null)} />
       {editingSketch && (
         <SketchEditor

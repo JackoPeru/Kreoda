@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "model/shapes.h"
 
 #if KREODA_WITH_OCCT
 // NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
@@ -36,8 +37,13 @@ bool CommitImportedSolids(const std::vector<TopoDS_Shape>& solids,
                           std::vector<std::string>* createdIds,
                           std::string* error);
 
-// Export prelude shared by the B-Rep exchangers (STEP/STL/OBJ): gather every
-// stored solid into one compound. Fails honestly on an empty document.
+// The exported model consists of current body tips and placed instances.
+// Historical feature shapes remain available for edits, but are not parts.
+// Missing/null selected shapes fail rather than producing a partial export.
+bool CollectExportRecords(std::vector<ShapeRecord>* records, std::string* error);
+
+// Export prelude shared by the B-Rep exchangers (STEP/STL/OBJ): gather the
+// current model into one compound. Fails honestly on an empty document.
 bool CollectSolidsCompound(TopoDS_Compound* compound, std::string* error);
 
 // Mesh prelude shared by the faceted B-Rep writers (STL/OBJ): triangulate the

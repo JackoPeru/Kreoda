@@ -23,16 +23,136 @@ vi.mock("../src/viewport/CadViewport", () => ({
 }));
 
 vi.mock("../src/ipc/coreClient", () => ({
-  coreClient: { getCoreInfo: vi.fn().mockRejectedValue(new Error("offline")) },
+  coreClient: {
+    getCoreInfo: vi.fn().mockRejectedValue(new Error("offline")),
+    readReferences: vi.fn().mockResolvedValue("[]"),
+    requestSketch: vi.fn().mockResolvedValue({
+      planeKind: "XY", points: [{ id: "p0", x: 0, y: 0, fixed: false }],
+      lines: [], circles: [], arcs: [], constraints: [],
+    }),
+  },
 }));
 
 // No WebGL in jsdom: the home 3D lounge falls back to its CSS gradient.
 // Stub getContext so jsdom stays silent (real browsers use real WebGL).
 vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  writable: true,
+  value: vi.fn((media: string) => ({
+    matches: false,
+    media,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }) as unknown as MediaQueryList),
+});
+vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
 
 import { App } from "../src/app/App";
+import { addReferencePlane, loadReferences, serializeReferences, useReferenceStore } from "../src/reference/store";
+import { useDocumentUiStore } from "../src/stores";
+import { act } from "@testing-library/react";
+import { coreClient } from "../src/ipc/coreClient";
 
 describe("beginner shell (§24)", () => {
+  it("closes a transient sketch editor when the core crashes", async () => {
+    let crash!: (info: { code: number }) => void;
+    Object.defineProperty(window, "kreoda", { configurable: true, value: {
+      onCoreCrashed: (callback: typeof crash) => { crash = callback; return () => {}; },
+    } });
+    try {
+      useDocumentUiStore.getState().resetDocument("crash-sketch");
+      useDocumentUiStore.getState().upsertSketch({
+        featureId: "sk-crash", planeKind: "XY", points: 1, lines: 0,
+        circles: 0, constraints: 0,
+      });
+      render(<App />);
+      fireEvent.click(screen.getByTestId("home-new-project"));
+      await screen.findByTestId("workspace-chrome");
+      await act(async () => (window as unknown as {
+        __kreoda_test: { openSketch: (id: string) => unknown };
+      }).__kreoda_test.openSketch("sk-crash"));
+      expect(screen.getByTestId("sketch-canvas")).toBeTruthy();
+      await act(async () => crash({ code: 1 }));
+      expect(screen.queryByTestId("sketch-canvas")).toBeNull();
+    } finally {
+      delete (window as unknown as { kreoda?: unknown }).kreoda;
+    }
+  });
+  it("clears previous project references when a session switches documents", async () => {
+    let receive!: (delta: { documentId: string; revision: number; features: unknown[]; sketches: unknown[] }) => void;
+    Object.defineProperty(window, "kreoda", { configurable: true, value: {
+      onSessionDelta: (callback: typeof receive) => { receive = callback; return () => {}; },
+    } });
+    useDocumentUiStore.getState().resetDocument("old-document");
+    addReferencePlane({ name: "old", dataUrl: "data:image/png;base64,AAAA", imageW: 1, imageH: 1 });
+    render(<App />);
+    await act(async () => receive({ documentId: "new-document", revision: 1, features: [], sketches: [] }));
+    expect(useReferenceStore.getState().planes).toEqual([]);
+    delete (window as unknown as { kreoda?: unknown }).kreoda;
+  });
+  it("blocks saving during a remote switch and loads the new project references", async () => {
+    let receive!: (delta: { documentId: string; revision: number; features: unknown[]; sketches: unknown[] }) => void;
+    let finish!: (json: string) => void;
+    vi.mocked(coreClient.readReferences).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    Object.defineProperty(window, "kreoda", { configurable: true, value: {
+      onSessionDelta: (callback: typeof receive) => { receive = callback; return () => {}; },
+    } });
+    useDocumentUiStore.getState().resetDocument("remote-old");
+    render(<App />);
+    await act(async () => receive({ documentId: "remote-new", revision: 1, features: [], sketches: [] }));
+    expect(() => serializeReferences()).toThrow(/loading/i);
+    const reference = { id: "new-ref", name: "new", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lZkAAAAASUVORK5CYII=",
+      imageW: 1, imageH: 1, widthMm: 10, heightMm: 10, mmPerPx: 10, plane: "XY", opacity: 0.4 };
+    await act(async () => finish(JSON.stringify([reference])));
+    expect(useReferenceStore.getState().planes).toEqual([reference]);
+    loadReferences("[]");
+    delete (window as unknown as { kreoda?: unknown }).kreoda;
+  });
+  it("applies CAD changes after a reference read fails and retries on the next delta", async () => {
+    let receive!: (delta: { documentId: string; revision: number; features: unknown[]; sketches: unknown[] }) => void;
+    vi.mocked(coreClient.readReferences).mockRejectedValueOnce(new Error("offline"));
+    Object.defineProperty(window, "kreoda", { configurable: true, value: {
+      onSessionDelta: (callback: typeof receive) => { receive = callback; return () => {}; },
+    } });
+    useDocumentUiStore.getState().resetDocument("retry-old");
+    render(<App />);
+    await act(async () => receive({ documentId: "retry-new", revision: 7, features: [], sketches: [] }));
+    expect(useDocumentUiStore.getState().revision).toBe(7);
+    expect(() => serializeReferences()).toThrow(/retry/i);
+    await act(async () => receive({ documentId: "retry-new", revision: 8, features: [], sketches: [] }));
+    expect(useDocumentUiStore.getState().revision).toBe(8);
+    expect(serializeReferences()).toBe("[]");
+    delete (window as unknown as { kreoda?: unknown }).kreoda;
+  });
+  it("keeps newer references when an older read finishes last", async () => {
+    let receive!: (delta: { documentId: string; revision: number; features: unknown[]; sketches: unknown[] }) => void;
+    let older!: (json: string) => void;
+    let newer!: (json: string) => void;
+    vi.mocked(coreClient.readReferences)
+      .mockImplementationOnce(() => new Promise(resolve => { older = resolve; }))
+      .mockImplementationOnce(() => new Promise(resolve => { newer = resolve; }));
+    Object.defineProperty(window, "kreoda", { configurable: true, value: {
+      onSessionDelta: (callback: typeof receive) => { receive = callback; return () => {}; },
+    } });
+    useDocumentUiStore.getState().resetDocument("read-race");
+    void loadReferences(null);
+    render(<App />);
+    await act(async () => receive({ documentId: "read-race", revision: 1, features: [], sketches: [] }));
+    await act(async () => receive({ documentId: "read-race", revision: 2, features: [], sketches: [] }));
+    const reference = { id: "race-ref", name: "new", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lZkAAAAASUVORK5CYII=",
+      imageW: 1, imageH: 1, widthMm: 10, heightMm: 10, mmPerPx: 10, plane: "XY", opacity: 0.4 };
+    await act(async () => newer(JSON.stringify([reference])));
+    await act(async () => older(JSON.stringify([{ ...reference, name: "old" }])));
+    expect(useReferenceStore.getState().planes[0]!.name).toBe("new");
+    await loadReferences("[]");
+    delete (window as unknown as { kreoda?: unknown }).kreoda;
+  });
   it("boots to the home screen (riferimento UI/home.png)", () => {
     render(<App />);
     expect(screen.getByTestId("home-screen")).toBeTruthy();
@@ -43,10 +163,11 @@ describe("beginner shell (§24)", () => {
     expect(screen.getByTestId("home-tasks")).toBeTruthy();
   });
 
-  it("shows toolbar, viewport, command bar after entering the workspace", () => {
+  it("shows toolbar, viewport, command bar after entering the workspace", async () => {
     render(<App />);
     fireEvent.click(screen.getByTestId("home-new-project"));
-    expect(screen.getByRole("button", { name: "Add" })).toBeTruthy();
+    // WorkspaceChrome is a lazy chunk — resolves a microtask after entry.
+    expect(await screen.findByRole("button", { name: "Add" })).toBeTruthy();
     expect(screen.getByTestId("viewport")).toBeTruthy();
     expect(
       screen.getByPlaceholderText(/What do you want to do/),

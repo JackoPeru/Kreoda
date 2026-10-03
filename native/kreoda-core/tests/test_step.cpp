@@ -4,12 +4,16 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <algorithm>
+#include <chrono>
 #include <string>
 #include <vector>
 
 #include "../src/document/document_store.h"
 #include "../src/exchange/step_exchange.h"
 #include "../src/features/primitives/primitives.h"
+#include "../src/features/hole/hole.h"
+#include "../src/features/instance/instance.h"
 #include "../src/model/shapes.h"
 #include "../src/persistence/ocaf_live.h"
 #include "../src/tessellation/mesh.h"
@@ -68,4 +72,50 @@ TEST(Step, EmptyDocumentExportFailsHonestly) {
   EXPECT_FALSE(
       kreoda::ExportStep("C:\\Windows\\Temp\\kreoda-empty.step", &err));
   EXPECT_FALSE(err.empty());
+}
+
+TEST(Step, CurrentBodyTipsAndPlacedInstancesRoundTrip) {
+  const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+  const fs::path dir = fs::temp_directory_path() /
+      ("kreoda-step-current-model-" + std::to_string(nonce));
+  std::error_code ec;
+  ASSERT_TRUE(fs::create_directory(dir, ec)) << ec.message();
+  struct OwnedDirectory {
+    fs::path path;
+    ~OwnedDirectory() { std::error_code cleanup; fs::remove_all(path, cleanup); }
+  } owned{dir};
+  kreoda::DocumentStore::instance().create("step-current-model");
+  std::string err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("history-box", 100, 60, 10, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("current-tip", "history-box", "box.+Z",
+                                        30, 20, 8, "throughAll", 0, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("other-body", 10, 20, 30, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateInstanceFeature("placed", "current-tip",
+                                            {200, 0, 0, 0, 0, 0}, &err)) << err;
+  kreoda::ShapeRecord tip;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("current-tip", &tip));
+  const double tipVolume = tip.volumeMm3;
+  const auto step = (dir / "current.step").generic_string();
+  ASSERT_TRUE(kreoda::ExportStep(step, &err)) << err;
+  // A missing current tip must refuse export, retaining the historical box
+  // cannot silently turn an incomplete model into a successful file.
+  ASSERT_TRUE(kreoda::ShapeStore::instance().remove("current-tip"));
+  const auto missing = (dir / "missing.step").generic_string();
+  EXPECT_FALSE(kreoda::ExportStep(missing, &err));
+  EXPECT_NE(err.find("current-tip"), std::string::npos);
+  EXPECT_FALSE(fs::exists(missing));
+  kreoda::DocumentStore::instance().create("step-current-readback");
+  std::vector<std::string> ids;
+  ASSERT_TRUE(kreoda::ImportStep(step, &ids, &err)) << err;
+  ASSERT_EQ(ids.size(), 3u);
+  std::vector<double> volumes;
+  for (const auto& id : ids) {
+    kreoda::ShapeRecord rec;
+    ASSERT_TRUE(kreoda::ShapeStore::instance().get(id, &rec));
+    volumes.push_back(rec.volumeMm3);
+  }
+  std::sort(volumes.begin(), volumes.end());
+  EXPECT_NEAR(volumes[0], 6000, 0.1);
+  EXPECT_NEAR(volumes[1], tipVolume, 0.1);
+  EXPECT_NEAR(volumes[2], tipVolume, 0.1);
 }

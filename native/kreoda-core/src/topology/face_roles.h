@@ -17,6 +17,8 @@ namespace kreoda {
 // mechanism in Phase 2 (§3); roles remain as the documented fallback.
 // Order follows the explorer sequence of the tessellator call.
 #if KREODA_WITH_OCCT
+// Ordinal roles can silently change owners when topology is inserted.
+bool HasIndexedTopologyRole(const std::string& reference);
 std::vector<std::string> ClassifyFaceRoles(const TopoDS_Shape& shape,
                                            const std::string& featureType,
                                            const std::string& featureId);

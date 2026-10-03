@@ -135,8 +135,29 @@ bool BodyStore::removeFeature(const std::string& featureId) {
 void BodyStore::rebuildFromRecords(
     const std::vector<ShapeRecord>& recordsInOrder) {
   bodies_.clear();
+  // OCAF label order is creation order; an inserted predecessor can live
+  // after its successor. Adopt target bodies first while retaining stable
+  // order for independent roots/branches and legacy missing targets.
+  std::map<std::string, BodySemantics> known;
+  for (const auto& rec : recordsInOrder) known[rec.featureId] = FeatureBodySemantics(rec.type);
+  std::set<std::string> adopted;
+  for (size_t pass = 0; pass < recordsInOrder.size(); ++pass) {
+    bool progress = false;
+    for (const auto& rec : recordsInOrder) {
+      if (adopted.count(rec.featureId)) continue;
+      const auto target = rec.dependsOn.empty() ? "" : rec.dependsOn[0];
+      if (FeatureBodySemantics(rec.type) == BodySemantics::AdvancesBody &&
+          known.count(target) && known[target] != BodySemantics::NonBody &&
+          !bodyForFeature(target, nullptr)) continue;
+      attach(rec.featureId, rec.type, rec.dependsOn);
+      adopted.insert(rec.featureId);
+      progress = true;
+    }
+    if (!progress) break;
+  }
+  // Defensive legacy/corrupt-cycle fallback; valid insertion DAGs never land here.
   for (const auto& rec : recordsInOrder) {
-    attach(rec.featureId, rec.type, rec.dependsOn);
+    if (!adopted.count(rec.featureId)) attach(rec.featureId, rec.type, rec.dependsOn);
   }
 }
 

@@ -221,6 +221,9 @@ test("session queries run against the real core", async () => {
     const boxId = (await snapOf(window)).bodies[0]!.id;
 
     await client.connect(TOKEN, PORT);
+    const shared = await client.call("snapshot", {}) as { features: { featureId: string }[]; revision: number };
+    expect(shared.features.map(feature => feature.featureId)).toEqual([boxId]);
+    expect(shared.revision).toBe((await snapOf(window)).revision);
     const q = async (method: string, params: Record<string, unknown> = {}) =>
       ((await client.call(method, params)) as { result: unknown }).result as never;
 

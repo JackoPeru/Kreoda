@@ -1,0 +1,74 @@
+{
+  "commit": "5f84f01f22fe6d9b61b2118448c591fc729ccf69",
+  "sourceDesktopUnchangedFromShellBuild": true,
+  "auditCopy": {
+    "coreSha256": "14C38E2A38589CE31EB8E900DDB042D2BA63085197BCE363153EB6F23199826E",
+    "variant": "Local portable audit copy with current source OCCT8.0.1 static-MD production core; no crash barriers. Not the CI Squirrel payload.",
+    "compiledMainSha256": "72737557291F929A425F7DCFA75C7E743B2755D0994A3E0D90EB8BD428FB61D4",
+    "commit": "5f84f01f22fe6d9b61b2118448c591fc729ccf69",
+    "GUI": "Original audit GUI not launched",
+    "shellBuiltAt": "27a43ac27cbb12cb243b0623f6610e05004d1f9b",
+    "appAsarSha256": "4E0D8EC74BCEEF865AD9320D93BB070509DB25772B2953B1AB6E905CC4405C62",
+    "originalCoreSha256": "9C520474104D62628B274A08958CC8D68AF1C1B938266501B54825162CD7A2ED",
+    "executable": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\Kreoda-win32-x64\\Kreoda.exe",
+    "desktopSourceUnchangedSinceShellBuild": true,
+    "nativeSelfTestExit": 0
+  },
+  "hiddenPackagedProbe": {
+    "status": "PASS",
+    "commit": "5f84f01f22fe6d9b61b2118448c591fc729ccf69",
+    "mode": "Owned packaged clone with only visibility/offscreen/userData/error-dialog instrumentation; portable static-MD OCCT core, not Squirrel payload",
+    "identity": {
+      "packaged": true,
+      "executable": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\hidden-probe-D7dKGC\\Kreoda-win32-x64\\Kreoda.exe",
+      "resources": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\hidden-probe-D7dKGC\\Kreoda-win32-x64\\resources",
+      "visible": [
+        false
+      ],
+      "offscreen": [
+        true
+      ]
+    },
+    "corePath": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\hidden-probe-D7dKGC\\Kreoda-win32-x64\\resources\\kreoda-core.exe",
+    "coreSha256": "14C38E2A38589CE31EB8E900DDB042D2BA63085197BCE363153EB6F23199826E",
+    "reopenedEditable": true,
+    "stepCurrentBodyRoundTrip": true,
+    "stepImportedSolidCount": 1,
+    "expectedStepVolumeMm3": 71497.34517542564,
+    "actualStepVolumeMm3": 71497.34517542558,
+    "nativeDialogsExercised": false,
+    "humanAuditPerformed": false,
+    "originalAuditAsarUnchanged": true,
+    "originalAuditExecutable": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\Kreoda-win32-x64\\Kreoda.exe"
+  },
+  "artifacts": {
+    "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\audit-copy-manifest.json": {
+      "sha256": "2e3d9cda4071267ae63cc15a586392405f8f39b50b53e4441a040fd3bd3db392",
+      "bytes": 898
+    },
+    "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\hidden-probe-result.json": {
+      "sha256": "142008a0b3c8fc8f05d9384f5c86f6f163f0a465fde4affc6b7e5ba52558b47c",
+      "bytes": 1391
+    },
+    "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\hidden-probe-stderr.log": {
+      "sha256": "97c30396ebc8fcf46a7c63a65d985b3b5cf8be902c8d35c9dd9f768aeb49b3b5",
+      "bytes": 1539
+    },
+    "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-human-audit-hidden-probe-5f84f01.cjs": {
+      "sha256": "185750154d1e26340ba42dbf308e2818cdf1f69f8fa073ffb8e17e84033bf52f",
+      "bytes": 7339
+    },
+    "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-human-audit-hidden-probe-5f84f01.log": {
+      "sha256": "e6361766488625e30f7f1d36cd6e9358e6644237e30a49a671bc0d01000cef08",
+      "bytes": 1274
+    }
+  },
+  "scope": [
+    "Original human-audit application was not launched; only an isolated temporary clone was instrumented and tested.",
+    "Clone was removed after teardown; original portable application and ASAR were preserved.",
+    "Static-MD production core with OCCT 8.0.1, no crash barriers; this is not the hosted Squirrel payload.",
+    "Offscreen rendering with 30 FPS cap; no physical-screen presentation claim.",
+    "Save/Open test hooks were used; native dialogs and independent beginner audit were not exercised."
+  ],
+  "humanAudit": "NOT RUN"
+}

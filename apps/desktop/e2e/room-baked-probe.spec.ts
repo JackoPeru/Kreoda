@@ -1,20 +1,36 @@
 import { test, expect, _electron as electron } from "@playwright/test";
-import os from "node:os";
-import path from "node:path";
 import { MAIN } from "./helpers";
 
-test("inspect Cycles room with moving K", async () => {
+// The former baked-room diagnostic now verifies the active video policy.
+test("home video follows reduced motion and resumes playback when motion is allowed", async () => {
   const app = await electron.launch({ args: [MAIN, "--no-sandbox"] });
   try {
     const page = await app.firstWindow();
-    await page.setViewportSize({ width: 1920, height: 1080 });
-    await page.goto(`${page.url().split("?")[0]}?room-baked-probe`);
-    await expect(page.getByTestId("home-scene")).toHaveAttribute("data-room-baked", "ready", { timeout: 30000 });
-    await expect(page.getByTestId("home-scene")).toHaveAttribute("data-baked-k", "video", { timeout: 30000 });
-    await page.mouse.move(1900, 1050);
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: path.join(os.tmpdir(), "kreoda-room-baked-probe.png") });
+    const video = page.getByTestId("home-background-video");
+    await expect(video).toBeVisible();
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(video).toHaveAttribute("data-reduced-motion", "true");
+    await expect(video).toHaveJSProperty("paused", true);
+    await expect(video).toHaveJSProperty("autoplay", false);
+    const stoppedTime = await video.evaluate(element => (element as HTMLVideoElement).currentTime);
+    await page.evaluate(() => new Promise<void>(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    expect(await video.evaluate(element => (element as HTMLVideoElement).currentTime)).toBe(stoppedTime);
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await expect(video).toHaveAttribute("data-reduced-motion", "false");
+    await expect.poll(() => video.evaluate(element => (element as HTMLVideoElement).currentTime)).toBeGreaterThan(stoppedTime);
+    await expect(video).toHaveJSProperty("paused", false);
+    await expect(page.locator(".home-scene, [data-testid='home-scene'], canvas")).toHaveCount(0);
   } finally {
+    if (!app.process().killed) {
+      const page = app.windows()[0];
+      if (page && !page.isClosed()) console.log("HOME_MOTION_STATE", await page.evaluate(() => {
+        const video = document.querySelector<HTMLVideoElement>('video');
+        return { error: document.querySelector('[data-testid="home-screen"]')?.getAttribute('data-video-error'),
+          reduced: video?.dataset.reducedMotion, paused: video?.paused,
+          ready: video?.readyState, mediaError: video?.error?.code, time: video?.currentTime };
+      }));
+    }
     await app.close();
   }
 });

@@ -26,6 +26,7 @@ void DocumentStore::create(const std::string& documentId) {
 #endif
   TheFeatureGraph().clear();  // no nodes, no dirty state (§53)
   revision_ = 0;
+  referencePlanesJson_ = "[]";
   features_.clear();
 }
 
@@ -66,6 +67,16 @@ int64_t DocumentStore::snapshotRevision() const {
 std::string DocumentStore::snapshotDocumentId() const {
   std::lock_guard<std::mutex> lock(mutex_);
   return documentId_;
+}
+
+std::string DocumentStore::referencePlanesJson() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return referencePlanesJson_;
+}
+
+void DocumentStore::setReferencePlanesJson(const std::string& json) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  referencePlanesJson_ = json;
 }
 
 void DocumentStore::restoreSnapshot(

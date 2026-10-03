@@ -61,6 +61,13 @@ beforeEach(() => {
 });
 
 describe("buildBodies (Slice 4 body projection)", () => {
+  it("hydrates an inserted predecessor created after its successor with the original tip", async () => {
+    const features = [box(), fillet(), hole()];
+    await syncFromCoreList(features, 7);
+    expect(useDocumentUiStore.getState().bodies[0]?.history).toEqual(["box-1", "ho-1", "fi-1"]);
+    expect(visibleFeatureIds(features)).toEqual(["fi-1"]);
+    expect(vi.mocked(coreClient.requestMesh).mock.calls.map(([id]) => id)).toEqual(["fi-1"]);
+  });
   it("groups Box→Hole→Fillet into one body with the fillet tip", () => {
     const bodies = buildBodies([box(), hole(), fillet()]);
     expect(bodies).toHaveLength(1);

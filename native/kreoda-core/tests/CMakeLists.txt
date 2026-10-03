@@ -82,6 +82,7 @@ target_include_directories(kreoda-core-tests PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 target_compile_definitions(kreoda-core-tests PRIVATE
+  KREODA_CRASH_TEST_BARRIERS=$<BOOL:${KREODA_CRASH_TEST_BARRIERS}>
   KREODA_WITH_OCCT=$<BOOL:${OpenCASCADE_FOUND}>
   KREODA_WITH_MINIZIP=$<BOOL:${KREODA_HAVE_MINIZIP}>
   KREODA_WITH_FLATBUFFERS=$<BOOL:${flatbuffers_FOUND}>
@@ -117,4 +118,21 @@ if(TARGET kreoda-protocol-codegen)
 endif()
 
 include(GoogleTest)
-gtest_discover_tests(kreoda-core-tests)
+gtest_discover_tests(kreoda-core-tests PROPERTIES TIMEOUT 2400)
+add_executable(kreoda-crash-barrier-tests test_crash_barrier.cpp)
+target_include_directories(kreoda-crash-barrier-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+target_compile_definitions(kreoda-crash-barrier-tests PRIVATE KREODA_CRASH_TEST_BARRIERS=1)
+add_test(NAME CrashBarrierControl COMMAND kreoda-crash-barrier-tests)
+add_executable(kreoda-crash-barrier-disabled-tests test_crash_barrier.cpp)
+target_include_directories(kreoda-crash-barrier-disabled-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+target_compile_definitions(kreoda-crash-barrier-disabled-tests PRIVATE KREODA_CRASH_TEST_BARRIERS=0)
+add_test(NAME CrashBarriersDisabledInProduction COMMAND kreoda-crash-barrier-disabled-tests)
+
+if(HAVE_PLANEGCS)
+  add_executable(kreoda-solver-crash-control
+    test_solver_crash_barrier.cpp ../src/constraints/planegcs_solver.cpp)
+  target_link_libraries(kreoda-solver-crash-control PRIVATE planegcs)
+  target_compile_definitions(kreoda-solver-crash-control PRIVATE
+    KREODA_CRASH_TEST_BARRIERS=$<BOOL:${KREODA_CRASH_TEST_BARRIERS}>)
+  add_test(NAME SolverCrashBarrierControl COMMAND kreoda-solver-crash-control)
+endif()

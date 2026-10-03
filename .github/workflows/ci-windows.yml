@@ -6,12 +6,11 @@ on:
 
 jobs:
   build-and-test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -21,18 +20,51 @@ jobs:
       - name: JS deps
         run: pnpm install --frozen-lockfile
 
+      - name: Build workspace packages
+        run: pnpm --filter './packages/*' -r build
+
       - name: JS lint
         run: pnpm -r lint
 
       - name: JS unit tests
         run: pnpm -r test
 
+      - name: Verify hidden renderer crash harness
+        run: pnpm --filter @kreoda/desktop test:renderer-crash-harness
+
       - name: "Setup vcpkg (manifest: OCCT 8.0.1, release-only triplet)"
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
           vcpkgJsonGlob: native/kreoda-core/vcpkg.json
-          additionalArguments: --triplet=x64-windows-release --clean-after-build
+
+      - name: Identify native cache toolchain
+        id: native-toolchain
+        shell: pwsh
+        run: |
+          $compilerHash = (Get-FileHash (Get-Command cl.exe).Source -Algorithm SHA256).Hash
+          $vcpkgHash = (Get-FileHash "$env:GITHUB_WORKSPACE/vcpkg/vcpkg.exe" -Algorithm SHA256).Hash
+          $identity = "$env:ImageOS|$env:ImageVersion|$env:WindowsSDKVersion|$compilerHash|$vcpkgHash"
+          $fingerprint = [Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($identity)))
+          "fingerprint=$fingerprint" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "Native cache toolchain: $env:ImageOS $env:ImageVersion $fingerprint"
+
+      - name: Restore vcpkg binaries
+        id: vcpkg-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .vcpkg-binary-cache
+          key: vcpkg-v2-${{ runner.os }}-${{ hashFiles('native/kreoda-core/vcpkg.json') }}-${{ steps.native-toolchain.outputs.fingerprint }}
+          restore-keys: |
+            vcpkg-v2-${{ runner.os }}-${{ hashFiles('native/kreoda-core/vcpkg.json') }}-
+            vcpkg-${{ runner.os }}-${{ hashFiles('native/kreoda-core/vcpkg.json') }}
+
+      - name: Use supported vcpkg cache backend
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:GITHUB_WORKSPACE '.vcpkg-binary-cache'
+          New-Item -ItemType Directory -Path $dir -Force | Out-Null
+          "VCPKG_BINARY_SOURCES=clear;files,$dir,readwrite" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Configure native core
         run: >
@@ -40,13 +72,25 @@ jobs:
           "-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_MANIFEST_MODE=ON
 
+      - name: Save vcpkg binaries
+        if: steps.vcpkg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: .vcpkg-binary-cache
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
+
       - name: Build native core
         run: cmake --build native/kreoda-core/build --config Release
 
       - name: Native self-test + gtest
-        run: >
-          ./native/kreoda-core/build/Release/kreoda-core.exe --self-test;
-          ctest --test-dir native/kreoda-core/build -C Release --output-on-failure
+        id: native-tests
+        shell: pwsh
+        run: |
+          ./native/kreoda-core/build/Release/kreoda-core.exe --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ctest --test-dir native/kreoda-core/build -C Release --output-on-failure --verbose
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
@@ -54,17 +98,187 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: .NET build + tests
-        run: dotnet test clients/session-dotnet/Kreoda.Session.sln -c Release
+        run: pnpm test:dotnet
 
       - name: Build desktop shell
+        id: desktop-build
         run: pnpm --filter @kreoda/desktop build
 
-      - name: E2E (Electron + sidecar)
-        run: pnpm --filter @kreoda/desktop exec playwright test
+      - name: Windows packaging smoke
+        run: pnpm --filter @kreoda/desktop make
 
-      - name: Upload E2E screenshots
+      - name: Build GPU memory diagnostic
+        run: |
+          cmake -S native/diagnostics/gpu-memory -B native/diagnostics/gpu-memory/build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build native/diagnostics/gpu-memory/build --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify Squirrel install and packaged core
+        id: installed-payload
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $workspace = $env:GITHUB_WORKSPACE
+          $releaseDir = Join-Path $workspace 'native/kreoda-core/build/Release'
+          $setupRoot = Join-Path $workspace 'apps/desktop/out/make/squirrel.windows'
+          $zipRoot = Join-Path $workspace 'apps/desktop/out/make/zip'
+
+          $setupFiles = @(Get-ChildItem -LiteralPath $setupRoot -File -Filter '* Setup.exe' -Recurse)
+          if ($setupFiles.Count -ne 1) {
+            throw "Expected one Squirrel Setup.exe under $setupRoot; found $($setupFiles.Count)."
+          }
+          if ($setupFiles[0].Length -le 0) {
+            throw "Squirrel Setup.exe is empty: $($setupFiles[0].FullName)"
+          }
+
+          $zipFiles = @(Get-ChildItem -LiteralPath $zipRoot -File -Filter '*.zip' -Recurse)
+          if ($zipFiles.Count -ne 1) {
+            throw "Expected one Windows ZIP under $zipRoot; found $($zipFiles.Count)."
+          }
+          if ($zipFiles[0].Length -le 0) {
+            throw "Windows ZIP is empty: $($zipFiles[0].FullName)"
+          }
+
+          $nativeCore = Join-Path $releaseDir 'kreoda-core.exe'
+          if (-not (Test-Path -LiteralPath $nativeCore -PathType Leaf)) {
+            throw "Built native core is missing: $nativeCore"
+          }
+          $nativeDlls = @(Get-ChildItem -LiteralPath $releaseDir -File -Filter '*.dll')
+          if ($nativeDlls.Count -eq 0) {
+            throw "No native runtime DLLs found in $releaseDir"
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($zipFiles[0].FullName)
+          try {
+            $zipEntries = @{}
+            $zipCorePath = $null
+            foreach ($entry in $archive.Entries) {
+              $entryPath = $entry.FullName.Replace('\', '/').TrimStart('/')
+              $zipEntries[$entryPath] = $entry.Length
+              if ($entryPath.Equals('resources/kreoda-core.exe', [System.StringComparison]::OrdinalIgnoreCase) -or
+                  $entryPath.EndsWith('/resources/kreoda-core.exe', [System.StringComparison]::OrdinalIgnoreCase)) {
+                if ($null -ne $zipCorePath) {
+                  throw "Windows ZIP contains multiple kreoda-core.exe payloads."
+                }
+                $zipCorePath = $entryPath
+              }
+            }
+            if ($null -eq $zipCorePath) {
+              throw "Windows ZIP does not contain resources/kreoda-core.exe: $($zipFiles[0].FullName)"
+            }
+            if ($zipEntries[$zipCorePath] -le 0) {
+              throw "Windows ZIP contains an empty core payload: $zipCorePath"
+            }
+            $resourcePrefix = $zipCorePath.Substring(0, $zipCorePath.Length - 'kreoda-core.exe'.Length)
+            foreach ($dll in $nativeDlls) {
+              $zipDllPath = $resourcePrefix + $dll.Name
+              if (-not $zipEntries.ContainsKey($zipDllPath) -or $zipEntries[$zipDllPath] -le 0) {
+                throw "Windows ZIP is missing native DLL payload: $zipDllPath"
+              }
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
+
+          $setup = $setupFiles[0]
+          $installer = Start-Process -FilePath $setup.FullName -WorkingDirectory $setup.DirectoryName -ArgumentList '--silent' -WindowStyle Hidden -PassThru
+          if (-not $installer.WaitForExit(300000)) {
+            Stop-Process -Id $installer.Id -Force -ErrorAction SilentlyContinue
+            throw "Squirrel Setup.exe timed out after 5 minutes: $($setup.FullName)"
+          }
+          if ($installer.ExitCode -ne 0) {
+            throw "Squirrel Setup.exe exited with code $($installer.ExitCode)."
+          }
+
+          # Squirrel uses the package id from MakerSquirrel as the per-user root.
+          $installRoot = Join-Path $env:LOCALAPPDATA 'kreoda'
+          $installDeadline = [DateTime]::UtcNow.AddMinutes(5)
+          $installedCore = $null
+          do {
+            if (Test-Path -LiteralPath (Join-Path $installRoot 'Update.exe') -PathType Leaf) {
+              $installedCores = @(
+                Get-ChildItem -LiteralPath $installRoot -Directory -Filter 'app-*' |
+                  ForEach-Object {
+                    $candidate = Join-Path $_.FullName 'resources/kreoda-core.exe'
+                    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                      Get-Item -LiteralPath $candidate
+                    }
+                  }
+              )
+              if ($installedCores.Count -eq 1) {
+                $candidateCore = $installedCores[0]
+                $payloadReady = $true
+                foreach ($sourcePayload in @($nativeCore) + @($nativeDlls | ForEach-Object FullName)) {
+                  $installedPayload = Join-Path $candidateCore.DirectoryName (Split-Path $sourcePayload -Leaf)
+                  if (-not (Test-Path -LiteralPath $installedPayload -PathType Leaf)) {
+                    $payloadReady = $false
+                    break
+                  }
+                  try {
+                    $installedHash = (Get-FileHash -LiteralPath $installedPayload -Algorithm SHA256).Hash
+                    $sourceHash = (Get-FileHash -LiteralPath $sourcePayload -Algorithm SHA256).Hash
+                    if ($installedHash -ne $sourceHash) {
+                      $payloadReady = $false
+                      break
+                    }
+                  }
+                  catch {
+                    $payloadReady = $false
+                    break
+                  }
+                }
+                if ($payloadReady) {
+                  $installedCore = $candidateCore
+                  break
+                }
+              }
+            }
+            Start-Sleep -Seconds 2
+          } while ([DateTime]::UtcNow -lt $installDeadline)
+
+          if ($null -eq $installedCore) {
+            throw "Squirrel did not install exactly one complete core and DLL payload under $installRoot within 5 minutes."
+          }
+
+          & $installedCore.FullName '--self-test'
+          $selfTestExitCode = $LASTEXITCODE
+          if ($selfTestExitCode -ne 0) {
+            throw "Installed kreoda-core --self-test exited with code $selfTestExitCode."
+          }
+
+          ./scripts/write-native-runtime-manifest.ps1 -ReleaseDirectory $releaseDir `
+            -OutputFile "$workspace/artifacts/native-runtime-manifest.json" `
+            -SourceCommit $env:GITHUB_SHA -CompilerVersion $env:VCToolsVersion
+
+      - name: Retain native runtime provenance
+        if: always() && steps.installed-payload.conclusion == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-runtime-provenance
+          path: artifacts/native-runtime-manifest.json
+          if-no-files-found: error
+
+      - name: Full regression (test:all)
+        # Exercise the public unified command, including real native dialogs
+        # and the crash gate's production-core restoration.
+        run: pnpm test:all
+
+      - name: Upload E2E diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-screenshots
-          path: apps/desktop/e2e/*.png
+          path: |
+            apps/desktop/e2e/*.png
+            apps/desktop/test-results/
+
+      - name: Upload crash E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-crash-diagnostics
+          path: |
+            apps/desktop/test-results/

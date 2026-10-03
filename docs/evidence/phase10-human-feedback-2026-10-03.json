@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-03",
+  "timezone": "Europe/Rome",
+  "kind": "participant-report",
+  "tasksReportedComplete": 8,
+  "totalDurationReported": "pochissimo tempo",
+  "totalDurationSeconds": null,
+  "wrongClicks": null,
+  "priorCadExperience": "not quantified",
+  "independentActionRecording": false,
+  "participantCompletionStatement": "ho finito tutto, ci ho messo pochissimo tempo, ti ho descritto solo gli attriti che ho trovato",
+  "originalFeedback": "finito, la ui sulla faccia occupa troppo spazio, il modo in cui posso muovermi e ruotare nell'ambiente 3D è macchinoso e per niente intuitivo, non mi fa muovere come vorrei, il foro viene fatto solo al centro e non dove voglio io, vorrei vedere una visualizzazione che mi fa decidere un punto dove farlo, o a mano o con misure specifiche dal bordo o con combinazione di almeno 2 misure dal bordo, la home page ha ancora il tutto in three.js quando ti avevo chiesto si usare invece come sfondo il video presente nei riferimenti ui",
+  "navigationChoice": "Mouse: sinistro ruota, destro sposta, rotella zoom",
+  "acceptance": "closed: current full automated gates passed and participant accepted revised UX",
+  "readyForPhase11": true,
+  "revisedAppRetest": {
+    "status": "ACCEPTED",
+    "participantStatement": "ok è ottimo, prosegui",
+    "recordedAtUtc": "2026-10-03T17:00:56Z",
+    "buildCodeRevision": "0c944b7e9770ba915e3554f9ea9ad721b907bee5",
+    "fourCorrectionsAcceptance": "participant accepted revised UX and authorized continuing; no numeric retest metrics supplied",
+    "launchVerified": {
+      "processId": 4876,
+      "windowTitle": "Kreoda",
+      "nonzeroWindowHandle": 1313166,
+      "scope": "Actual revised app launched visibly on explicit participant request; no app input automation performed during participant retest"
+    }
+  },
+  "precedingRevisedAppRetest": {
+    "status": "DEFERRED",
+    "participantStatement": "La provo più tardi",
+    "buildCodeRevision": "0c944b7e9770ba915e3554f9ea9ad721b907bee5",
+    "fourCorrectionsAcceptance": "not yet supplied"
+  }
+}

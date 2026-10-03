@@ -67,7 +67,13 @@ export function HomeScene3D() {
       host.dataset.webgl = "unavailable";
       return;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const gl = renderer.getContext();
+    const debugRenderer = gl.getExtension("WEBGL_debug_renderer_info");
+    const softwareRenderer = debugRenderer && /swiftshader|llvmpipe|software|basic\s*render\s*driver/i.test(
+      String(gl.getParameter(debugRenderer.UNMASKED_RENDERER_WEBGL)),
+    );
+    // CPU rendering otherwise starves Home controls and renderer recovery.
+    renderer.setPixelRatio(softwareRenderer ? 0.5 : Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.94;
@@ -94,6 +100,7 @@ export function HomeScene3D() {
     let bakedVideo: HTMLVideoElement | undefined;
     let disposed = false;
     let raf = 0;
+    let softwareFrameTimer = 0;
     let onPointerMove = (_event: PointerEvent): void => {};
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     host.dataset.motion = reducedMotion ? "reduced" : "full";
@@ -914,11 +921,10 @@ export function HomeScene3D() {
       }).catch((error) => console.warn("[home] baked K unavailable", error));
 
       const tick = (): void => {
-        raf = requestAnimationFrame(tick);
         const now = performance.now();
-        const delta = Math.min((now - previousFrame) / 1000, 0.05);
+        const delta = Math.min((now - previousFrame) / 1000, softwareRenderer ? 0.25 : 0.05);
         previousFrame = now;
-        if (document.hidden) return;
+        if (document.hidden) { raf = requestAnimationFrame(tick); return; }
         if (!reducedMotion) {
           elapsed += delta;
           const time = elapsed;
@@ -936,6 +942,11 @@ export function HomeScene3D() {
           ring.scale.set(1.18 * pulse, pulse, pulse);
         }
         renderer.render(scene, camera);
+        // Leave CPU renderers time to service input, screenshots and recovery
+        // after submitting a frame, even when rendering itself is slow.
+        if (softwareRenderer) {
+          softwareFrameTimer = window.setTimeout(() => { raf = requestAnimationFrame(tick); }, 250);
+        } else raf = requestAnimationFrame(tick);
       };
 
       resize();
@@ -950,6 +961,7 @@ export function HomeScene3D() {
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
+      clearTimeout(softwareFrameTimer);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onPointerMove);
       const geometries = new Set<THREE.BufferGeometry>();

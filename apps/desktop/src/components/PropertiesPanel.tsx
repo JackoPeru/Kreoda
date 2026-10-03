@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { parseAngleToDeg, parseLengthToMm } from "@kreoda/units";
 import { executeCommand } from "../commands/execute";
 import { selectionKindOf, useDocumentUiStore, useSelectionStore } from "../stores";
@@ -22,6 +22,11 @@ const SLOTS: Record<string, { param: string; label: EnKey }[]> = {
   Hole: [
     { param: "diameterMm", label: "props.slotDiameter" },
     { param: "depthMm", label: "props.slotDepthBlind" },
+  ],
+  HolePattern: [
+    { param: "diameterMm", label: "props.slotDiameter" },
+    { param: "depthMm", label: "props.slotDepthBlind" },
+    { param: "count", label: "props.slotCount" },
   ],
   Fillet: [{ param: "radiusMm", label: "props.slotRadius" }],
   Chamfer: [{ param: "distanceMm", label: "props.slotDistance" }],
@@ -47,6 +52,7 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
   const revision = useDocumentUiStore((s) => s.revision);
   const [error, setError] = useState<string | null>(null);
   const [busyParam, setBusyParam] = useState<string | null>(null);
+  const committing = useRef(false);
   const tt = useT();
 
   const sketchId =
@@ -90,18 +96,23 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
   // Through-holes have no meaningful depth: hide the blind slot instead of
   // offering a silent no-op edit (mode rides in refExtra, §10).
   const visibleSlots =
-    feature.type === "Hole" && !feature.refExtra.includes("mode=blind")
+    (feature.type === "Hole" || feature.type === "HolePattern") && !feature.refExtra.includes("mode=blind")
       ? slots.filter((s) => s.param !== "depthMm")
       : slots;
 
   const commit = async (paramName: string, text: string): Promise<void> => {
+    // Enter can disable/blur this input before React renders busyParam.
+    // Keep that blur from creating a second command and Undo delta.
+    if (committing.current) return;
+    committing.current = true;
     setError(null);
     setBusyParam(paramName);
     try {
       // Revolve/instance angles are degrees (accept "90", "90 deg", "1.57 rad",
       // including 0/negatives for placement); translations are signed mm.
       // M4: zero/negative placement must reach the core (not a v>0 gate).
-      const valueMm = ANGLE_PARAMS.has(paramName)
+      const valueMm = paramName === "count" ? Number(text)
+        : ANGLE_PARAMS.has(paramName)
         ? parseAngleToDeg(text)
         : parseLengthToMm(text);
       if (!Number.isFinite(valueMm)) throw new Error(tt("props.errNotNumber"));
@@ -113,6 +124,7 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
     } catch (e) {
       setError(e instanceof Error ? e.message : t("props.errEditFailed"));
     } finally {
+      committing.current = false;
       setBusyParam(null);
     }
   };
@@ -125,6 +137,7 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
     Extrude: { distanceMm: 0 },
     Revolve: { angleDeg: 0 },
     Hole: { diameterMm: 0, depthMm: 1 },
+    HolePattern: { diameterMm: 0, depthMm: 1, count: 2 },
     Fillet: { radiusMm: 0 },
     Chamfer: { distanceMm: 0 },
     Instance: { txMm: 0, tyMm: 1, tzMm: 2, rxDeg: 3, ryDeg: 4, rzDeg: 5 },
@@ -145,7 +158,7 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
         const current = i >= 0 ? feature.paramsMm[i] : undefined;
         return (
         <label key={s.param} className="mb-2 block text-xs text-white/70">
-          {tt(s.label)} {ANGLE_PARAMS.has(s.param) ? tt("common.unitDeg") : tt("common.unitMm")}
+          {tt(s.label)} {s.param === "count" ? "" : ANGLE_PARAMS.has(s.param) ? tt("common.unitDeg") : tt("common.unitMm")}
           <input
             key={`${feature.featureId}:${s.param}:${current ?? ""}`}
             defaultValue={String(current ?? "")}

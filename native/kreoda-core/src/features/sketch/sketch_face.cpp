@@ -5,10 +5,14 @@
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepCheck_Analyzer.hxx>
+#include <BRepGProp.hxx>
 #include <GC_MakeArcOfCircle.hxx>
 #include <Geom_Circle.hxx>
 #include <Geom_TrimmedCurve.hxx>
+#include <GProp_GProps.hxx>
+#include <ShapeFix_Face.hxx>
 #include <Standard_Failure.hxx>
+#include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Edge.hxx>
 #include <TopoDS_Wire.hxx>
@@ -160,10 +164,7 @@ bool BuildFaceFromSketch(const SketchFeature& sketch, TopoDS_Face* out,
     if (error) *error = "sketch has no entities";
     return false;
   }
-  // Keep sketch-space polygons alongside edges for area sorting.
-  std::vector<Edge2D> work = edges;
   std::vector<std::vector<TopoDS_Edge>> loops;
-  std::vector<std::vector<std::pair<double, double>>> loopPts;
   // Chain with point tracking.
   constexpr double kTol = 1e-6;
   struct ChainLink {
@@ -171,7 +172,7 @@ bool BuildFaceFromSketch(const SketchFeature& sketch, TopoDS_Face* out,
     double x1, y1, x2, y2;
   };
   std::vector<ChainLink> remaining;
-  for (const auto& e : work) {
+  for (const auto& e : edges) {
     remaining.push_back({e.edge, e.x1, e.y1, e.x2, e.y2});
   }
   while (!remaining.empty()) {
@@ -223,59 +224,63 @@ bool BuildFaceFromSketch(const SketchFeature& sketch, TopoDS_Face* out,
       return false;
     }
     std::vector<TopoDS_Edge> wire;
-    std::vector<std::pair<double, double>> pts;
     for (const auto& l : chain) {
       wire.push_back(l.edge);
-      pts.emplace_back(l.x1, l.y1);
     }
     loops.push_back(std::move(wire));
-    loopPts.push_back(std::move(pts));
-  }
-  // Outer loop = largest |shoelace area|; the rest are holes.
-  size_t outer = 0;
-  double bestArea = -1.0;
-  for (size_t i = 0; i < loopPts.size(); ++i) {
-    double area = 0.0;
-    const auto& pts = loopPts[i];
-    for (size_t k = 0; k < pts.size(); ++k) {
-      const auto& a = pts[k];
-      const auto& b = pts[(k + 1) % pts.size()];
-      area += a.first * b.second - b.first * a.second;
-    }
-    area = std::fabs(area) / 2.0;
-    if (area > bestArea) {
-      bestArea = area;
-      outer = i;
-    }
-  }
-  if (bestArea < 1e-12) {
-    if (error) *error = "degenerate profile (zero area)";
-    return false;
   }
   try {
-    BRepBuilderAPI_MakeWire outerWire;
-    for (const auto& e : loops[outer]) outerWire.Add(e);
-    if (!outerWire.IsDone()) {
-      if (error) *error = "cannot build outer wire";
-      return false;
-    }
-    BRepBuilderAPI_MakeFace mkFace(outerWire.Wire());
+    // Kernel area includes curved edges; endpoint shoelace gave circles and
+    // two-edge arc profiles zero area and could pick the wrong outer loop.
+    std::vector<TopoDS_Wire> wires;
+    size_t outer = 0;
+    double bestArea = -1.0;
     for (size_t i = 0; i < loops.size(); ++i) {
-      if (i == outer) continue;
-      BRepBuilderAPI_MakeWire hole;
-      for (const auto& e : loops[i]) hole.Add(e);
-      if (!hole.IsDone()) {
-        if (error) *error = "cannot build hole wire";
+      BRepBuilderAPI_MakeWire wire;
+      for (const auto& e : loops[i]) wire.Add(e);
+      if (!wire.IsDone()) {
+        if (error) *error = "cannot build sketch wire";
         return false;
       }
-      mkFace.Add(hole.Wire());
+      wires.push_back(wire.Wire());
+      BRepBuilderAPI_MakeFace areaFace(wires.back());
+      if (!areaFace.IsDone()) {
+        if (error) *error = "cannot build sketch loop face";
+        return false;
+      }
+      GProp_GProps props;
+      BRepGProp::SurfaceProperties(areaFace.Face(), props);
+      const double area = std::fabs(props.Mass());
+      if (area > bestArea) {
+        bestArea = area;
+        outer = i;
+      }
+    }
+    if (bestArea < 1e-12) {
+      if (error) *error = "degenerate profile (zero area)";
+      return false;
+    }
+    BRepBuilderAPI_MakeFace mkFace(wires[outer]);
+    for (size_t i = 0; i < wires.size(); ++i) {
+      if (i == outer) continue;
+      mkFace.Add(wires[i]);
     }
     mkFace.Build();
     if (!mkFace.IsDone()) {
       if (error) *error = "cannot build sketch face";
       return false;
     }
-    const TopoDS_Face face = mkFace.Face();
+    ShapeFix_Face orientation(mkFace.Face());
+    orientation.FixOrientation();
+    const TopoDS_Face face = orientation.Face();
+    // Orientation repair can drop sub-tolerance closed wires. Authored holes
+    // must survive unchanged in number; reject instead of accepting data loss.
+    size_t retainedLoops = 0;
+    for (TopExp_Explorer ex(face, TopAbs_WIRE); ex.More(); ex.Next()) ++retainedLoops;
+    if (retainedLoops != wires.size()) {
+      if (error) *error = "sketch orientation changed profile loops";
+      return false;
+    }
     if (!BRepCheck_Analyzer(face).IsValid(face)) {
       if (error) *error = "sketch face failed validation";
       return false;

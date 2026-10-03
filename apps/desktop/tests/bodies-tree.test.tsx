@@ -33,6 +33,12 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe("ObjectTree (Slice 4 bodies + history)", () => {
+  it("history text follows inserted predecessors, not label creation order", () => {
+    useDocumentUiStore.getState().setFeatures([box(), fillet(), hole()], 3);
+    render(<ObjectTree />);
+    expect(screen.getByTestId("object-tree-history").textContent).toBe("Box → Hole → Fillet");
+  });
+
   it("single-root body renders flat with the legacy label", () => {
     useDocumentUiStore.getState().setFeatures([box()], 1);
     render(<ObjectTree />);

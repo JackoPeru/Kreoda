@@ -1,6 +1,7 @@
 #include "hole.h"
 
 #include <cmath>
+#include <algorithm>
 #include <iomanip>
 #include <set>
 #include <sstream>
@@ -14,6 +15,8 @@
 #include "model/shapes.h"
 #include "topology/face_roles.h"
 #include "features/sketch/sketch_store.h"
+#include "features/fillet/fillet.h"
+#include "features/primitives/primitives.h"
 
 #if KREODA_WITH_OCCT
 #include <BRepAdaptor_Surface.hxx>
@@ -97,7 +100,7 @@ bool EncodeHoleRef(const std::string& faceRole, double x, double y,
 // splits label comments on it, ocaf_live.cpp DecodeParams; ',' is free
 // inside @ref, and face roles already exclude '|' and ','):
 //   "pattern:face=<role>;mode=<mode>;pts=<x0>,<y0>,<x1>,<y1>,..."
-// paramsMm stays [diameterMm, depthMm] (same slots as Hole); the point list
+// paramsMm is [diameterMm, depthMm, count]; the complete authored point list
 // mirrors the type-25 wire flat array. ';' separates fields (roles with ';'
 // were already unencodable for single holes — same exposure, no regression).
 bool EncodeHolePatternRef(
@@ -158,7 +161,10 @@ bool DecodeHolePatternRef(const std::string& ref, std::string* faceRole,
     } else if (c == ',') {
       if (cur.empty()) return false;
       try {
-        nums.push_back(std::stod(cur));
+        size_t consumed = 0;
+        const double value = std::stod(cur, &consumed);
+        if (consumed != cur.size() || !std::isfinite(value)) return false;
+        nums.push_back(value);
       } catch (...) {
         return false;
       }
@@ -175,6 +181,49 @@ bool DecodeHolePatternRef(const std::string& ref, std::string* faceRole,
   if (faceRole) *faceRole = face;
   if (points) *points = out;
   if (mode) *mode = md;
+  return true;
+}
+
+bool NormalizeHolePatternParams(const std::string& ref,
+                                std::vector<double>* params,
+                                std::string* error) {
+  std::vector<std::pair<double, double>> points;
+  if (!params || (params->size() != 2 && params->size() != 3) ||
+      !DecodeHolePatternRef(ref, nullptr, &points, nullptr)) {
+    if (error) *error = "hole pattern record corrupted (needs repair)";
+    return false;
+  }
+  if (params->size() == 2) params->push_back(static_cast<double>(points.size()));
+  const double count = (*params)[2];
+  if (!std::isfinite(count) || count != std::floor(count) ||
+      count < 1 || count > static_cast<double>(points.size())) {
+    if (error) *error = "pattern count must be an integer from 1 to " +
+        std::to_string(points.size()) + " (authored centers)";
+    return false;
+  }
+  return true;
+}
+
+bool BuildHolePatternShape(const TopoDS_Shape& target,
+                           const std::string& targetId,
+                           const std::string& targetType,
+                           const std::string& ref,
+                           const std::vector<double>& params,
+                           TopoDS_Shape* out, std::string* error) {
+  auto normalized = params;
+  if (!NormalizeHolePatternParams(ref, &normalized, error)) return false;
+  std::string faceRole, mode;
+  std::vector<std::pair<double, double>> points;
+  DecodeHolePatternRef(ref, &faceRole, &points, &mode);
+  TopoDS_Shape current = target;
+  for (size_t i = 0; i < static_cast<size_t>(normalized[2]); ++i) {
+    TopoDS_Shape next;
+    if (!BuildHoleShape(current, targetId, targetType, faceRole,
+                        points[i].first, points[i].second, normalized[0],
+                        mode, normalized[1], &next, error)) return false;
+    current = next;
+  }
+  *out = current;
   return true;
 }
 
@@ -285,7 +334,8 @@ bool CreateHoleFeature(const std::string& featureId,
                        const std::string& targetId,
                        const std::string& faceRole, double xMm, double yMm,
                        double diameterMm, const std::string& depthMode,
-                       double depthMm, std::string* error) {
+                       double depthMm, std::string* error,
+                       const std::string& insertBeforeId) {
   if (featureId.empty() || targetId.empty() || faceRole.empty()) {
     if (error) *error = "featureId, targetId and faceRole are required";
     return false;
@@ -305,6 +355,16 @@ bool CreateHoleFeature(const std::string& featureId,
     if (error) *error = "unknown target " + targetId;
     return false;
   }
+  if (!insertBeforeId.empty()) {
+    size_t matches = 0;
+    for (const auto& role : ClassifyFaceRoles(target.shape, target.type, targetId)) {
+      if (role == targetId + ":" + faceRole) ++matches;
+    }
+    if (matches != 1) {
+      if (error) *error = "selected face needs repair before upstream insertion";
+      return false;
+    }
+  }
   TopoDS_Shape shape;
   if (!BuildHoleShape(target.shape, targetId, target.type, faceRole, xMm, yMm,
                       diameterMm, depthMode, depthMm, &shape, error)) {
@@ -314,6 +374,131 @@ bool CreateHoleFeature(const std::string& featureId,
   if (!EncodeHoleRef(faceRole, xMm, yMm, depthMode, &ref)) {
     if (error) *error = "invalid face role characters";
     return false;
+  }
+  if (!insertBeforeId.empty()) {
+    ShapeRecord before;
+    BodyRecord body;
+    const auto records = ShapeStore::instance().listInOrder();
+    if (OcafLive::instance().InTransaction()) {
+      if (error) *error = "upstream insertion requires its own command (close the session transaction first)";
+      return false;
+    }
+    if (!ShapeStore::instance().get(insertBeforeId, &before) ||
+        FeatureBodySemantics(before.type) != BodySemantics::AdvancesBody ||
+        before.dependsOn.empty() || before.dependsOn[0] != targetId ||
+        !BodyStore::instance().bodyForFeature(insertBeforeId, &body)) {
+      if (error) *error = "insertBeforeId must name a downstream feature of the selected target";
+      return false;
+    }
+    const auto at = std::find(body.history.begin(), body.history.end(), insertBeforeId);
+    if (at == body.history.begin() || at == body.history.end() || *(at - 1) != targetId) {
+      if (error) *error = "upstream insertion requires a linear target/predecessor history";
+      return false;
+    }
+    // Reordering one branch of an appended sibling history would change
+    // which branch becomes the tip. Require one explicit linear chain.
+    for (size_t i = 1; i < body.history.size(); ++i) {
+      ShapeRecord member;
+      if (!ShapeStore::instance().get(body.history[i], &member) || member.dependsOn.empty() ||
+          member.dependsOn[0] != body.history[i - 1]) {
+        if (error) *error = "upstream insertion requires a linear body history (branched history needs repair)";
+        return false;
+      }
+    }
+    std::vector<std::string> affected{insertBeforeId};
+    for (size_t pass = 0; pass < records.size(); ++pass) {
+      bool changed = false;
+      for (const auto& r : records) {
+        if (std::find(affected.begin(), affected.end(), r.featureId) != affected.end()) continue;
+        for (const auto& dep : r.dependsOn) {
+          if (std::find(affected.begin(), affected.end(), dep) != affected.end()) {
+            affected.push_back(r.featureId); changed = true; break;
+          }
+        }
+      }
+      if (!changed) break;
+    }
+    for (const auto& r : records) {
+      if (std::find(affected.begin(), affected.end(), r.featureId) != affected.end() &&
+          HasIndexedTopologyRole(r.refExtra)) {
+        if (error) *error = "upstream insertion needs repair: indexed topology reference in " + r.featureId;
+        return false;
+      }
+    }
+    if (OcafLive::instance().SelectionsNeedRepair(affected)) {
+      if (error) *error = "upstream insertion needs repair: indexed persistent face selection";
+      return false;
+    }
+    const auto graph = TheFeatureGraph();
+    const auto bodies = BodyStore::instance().bodies();
+    const auto registry = DocumentStore::instance().snapshotRegistry();
+    if (!OcafLive::instance().BeginCommand(error)) return false;
+    const auto rollback = [&] {
+      OcafLive::instance().AbortCommand();
+      std::string rsErr;
+      if (!OcafLive::instance().ResyncStore(&rsErr)) {
+        ShapeStore::instance().clear();
+        for (const auto& r : records) ShapeStore::instance().put(r);
+        BodyStore::instance().replaceAll(bodies);
+        DocumentStore::instance().replaceAll(registry);
+        if (error) *error += " (resync failed: " + rsErr + ")";
+      }
+      TheFeatureGraph() = graph;
+    };
+    if (!CommitShape(featureId, "Hole", {diameterMm, depthMm}, {targetId}, ref,
+                     shape, nullptr, false, error)) { rollback(); return false; }
+    before.dependsOn[0] = featureId;
+    if (before.type == "Fillet" || before.type == "Chamfer") {
+      auto edges = SplitEdgeIds(before.refExtra);
+      before.refExtra.clear();
+      for (auto& edge : edges) {
+        const auto prefix = targetId + ":";
+        if (edge.rfind(prefix, 0) == 0) edge = featureId + edge.substr(targetId.size());
+        if (!before.refExtra.empty()) before.refExtra += ",";
+        before.refExtra += edge;
+      }
+    }
+    ShapeStore::instance().put(before);
+    TheFeatureGraph().addFeature(before.featureId, before.dependsOn);
+    TheFeatureGraph().markDirty(before.featureId);
+    const auto report = TheFeatureGraph().recompute([](const std::string& id, std::string* e) {
+      // During insertion, duplicated semantic roles are ambiguous too.
+      // Verify each affected reference before invoking its evaluator.
+      ShapeRecord rec, target;
+      ShapeStore::instance().get(id, &rec);
+      if (!rec.dependsOn.empty() && ShapeStore::instance().get(rec.dependsOn[0], &target)) {
+        if (rec.type == "Fillet" || rec.type == "Chamfer") {
+          const auto edges = ClassifyEdgeRoles(target.shape, target.type, target.featureId);
+          for (const auto& ref : SplitEdgeIds(rec.refExtra)) {
+            const auto full = ref.find(':') == std::string::npos ? target.featureId + ":" + ref : ref;
+            size_t count = 0;
+            for (const auto& edge : edges) if (edge.persistentEdgeId == full) ++count;
+            if (count != 1) { if (e) *e = "edge reference needs repair after insertion: " + ref; return false; }
+          }
+        } else if (rec.type == "Hole" || rec.type == "HolePattern") {
+          const auto start = rec.refExtra.find("face=");
+          if (start != std::string::npos) {
+            const auto role = rec.refExtra.substr(start + 5, rec.refExtra.find(';', start) - start - 5);
+            size_t count = 0;
+            for (const auto& face : ClassifyFaceRoles(target.shape, target.type, target.featureId)) {
+              if (face == target.featureId + ":" + role) ++count;
+            }
+            if (count != 1) { if (e) *e = "face reference needs repair after insertion: " + role; return false; }
+          }
+        }
+      }
+      return RebuildNodeFromStore(id, e);
+    });
+    if (!report.ok) { if (error) *error = report.firstError; rollback(); return false; }
+    if (OcafLive::instance().SelectionsNeedRepair(affected, true)) {
+      if (error) *error = "persistent face selection needs repair after insertion";
+      rollback(); return false;
+    }
+    BodyStore::instance().rebuildFromRecords(ShapeStore::instance().listInOrder());
+    bool delta = false;
+    if (!OcafLive::instance().CommitCommand(&delta, error)) { rollback(); return false; }
+    DocumentStore::instance().commit();
+    return true;
   }
   return CommitSingleFeature(featureId, "Hole", {diameterMm, depthMm},
                              {targetId}, ref, shape, error);
@@ -407,7 +592,7 @@ bool CreateHolePatternFeature(
   // One OCAF command stays the vehicle for one Undo step (as M11).
   if (!OcafLive::instance().BeginCommand(error)) return false;
   const bool ok = CommitShape(featureIds[0], "HolePattern",
-                              {diameterMm, depthMm}, {targetId}, ref, current,
+                              {diameterMm, depthMm, static_cast<double>(points.size())}, {targetId}, ref, current,
                               nullptr, false, error);
   if (!ok) {
     OcafLive::instance().AbortCommand();
@@ -481,17 +666,12 @@ bool RebuildHolePatternFromStore(const std::string& featureId,
     if (error) *error = "unknown feature " + featureId;
     return false;
   }
-  if (rec.type != "HolePattern" || rec.paramsMm.size() != 2 ||
+  if (rec.type != "HolePattern" ||
       rec.dependsOn.size() != 1) {
     if (error) *error = "cannot rebuild " + rec.type;
     return false;
   }
-  std::string faceRole, mode;
-  std::vector<std::pair<double, double>> points;
-  if (!DecodeHolePatternRef(rec.refExtra, &faceRole, &points, &mode)) {
-    if (error) *error = "hole pattern record corrupted (needs repair)";
-    return false;
-  }
+  if (!NormalizeHolePatternParams(rec.refExtra, &rec.paramsMm, error)) return false;
   ShapeRecord target;
   if (!ShapeStore::instance().get(rec.dependsOn[0], &target) ||
       target.shape.IsNull()) {
@@ -502,16 +682,9 @@ bool RebuildHolePatternFromStore(const std::string& featureId,
     return false;
   }
   // Replay the sequential cuts from the live target (plate edits reflow).
-  TopoDS_Shape current = target.shape;
-  for (const auto& [x, y] : points) {
-    TopoDS_Shape next;
-    if (!BuildHoleShape(current, target.featureId, target.type, faceRole, x,
-                        y, rec.paramsMm[0], mode, rec.paramsMm[1], &next,
-                        error)) {
-      return false;
-    }
-    current = next;
-  }
+  TopoDS_Shape current;
+  if (!BuildHolePatternShape(target.shape, target.featureId, target.type,
+                             rec.refExtra, rec.paramsMm, &current, error)) return false;
   return CommitShape(featureId, rec.type, rec.paramsMm, rec.dependsOn,
                      rec.refExtra, current, nullptr, false, error);
 }
@@ -520,7 +693,8 @@ bool RebuildHolePatternFromStore(const std::string& featureId,
 
 bool CreateHoleFeature(const std::string&, const std::string&,
                        const std::string&, double, double, double,
-                       const std::string&, double, std::string* error) {
+                       const std::string&, double, std::string* error,
+                       const std::string&) {
   if (error) *error = "holes require OCCT (link via vcpkg)";
   return false;
 }

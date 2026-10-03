@@ -8,6 +8,7 @@
 #include "../document/document_store.h"
 #include "../expressions/expressions.h"
 #include "../features/sketch/sketch_json.h"
+#include "../features/hole/hole.h"
 #include "../features/sketch/sketch_store.h"
 #include "../model/body.h"
 
@@ -63,6 +64,58 @@ struct OcafLive::Ocaf {
   std::map<std::string, TDF_Label> featureLabels;
   std::map<std::string, TDF_Label> sketchLabels;
   std::map<std::string, TDF_Label> expressionLabels;
+
+  void AdoptMetadataRoots() {
+    selectionsRoot.Nullify();
+    sketchesRoot.Nullify();
+    expressionsRoot.Nullify();
+    for (TDF_ChildIterator it(doc->Main(), Standard_False); it.More(); it.Next()) {
+      Handle(TDataStd_Name) name;
+      if (!it.Value().FindAttribute(TDataStd_Name::GetID(), name)) continue;
+      TCollection_AsciiString text(name->Get(), '?');
+      const std::string value = text.ToCString();
+      if (value == "Selections") selectionsRoot = it.Value();
+      else if (value == "Sketches") sketchesRoot = it.Value();
+      else if (value == "Expressions") expressionsRoot = it.Value();
+    }
+    // Older documents put selections on XCAF's Shapes label. Preserve their
+    // label entries and repair checks; never retain Reset's closed-document label.
+    if (selectionsRoot.IsNull()) {
+      for (TDF_ChildIterator it(shapes->Label(), Standard_False); it.More(); it.Next()) {
+        Handle(TDataStd_Comment) comment;
+        if (!it.Value().FindAttribute(TDataStd_Comment::GetID(), comment)) continue;
+        TCollection_AsciiString text(comment->Get(), '?');
+        const std::string ref = text.ToCString();
+        const auto cut = ref.find('|');
+        if (cut != std::string::npos && cut + 1 < ref.size() &&
+            ref[cut + 1] >= 'a' && ref[cut + 1] <= 'z' &&
+            ref.find('|', cut + 1) == std::string::npos &&
+            featureLabels.count(ref.substr(0, cut))) {
+          selectionsRoot = shapes->Label();
+          break;
+        }
+      }
+    }
+    const auto folder = [&](TDF_Label& label, int tag, const char* name) {
+      if (!label.IsNull()) return;
+      label = doc->Main().FindChild(tag);
+      TDataStd_Name::Set(label, name);
+    };
+    folder(selectionsRoot, 1001, "Selections");
+    folder(sketchesRoot, 1002, "Sketches");
+    folder(expressionsRoot, 1003, "Expressions");
+  }
+
+  ~Ocaf() {
+    // OCAF's application directory and each document hold one another.
+    // Releasing our handles alone leaves the documents and their meshes alive.
+    if (app.IsNull()) return;
+    try {
+      while (app->NbDocuments() > 0) app->Close(app->GetDocument(1));
+    } catch (const Standard_Failure& f) {
+      LogCore(std::string("ocaf: document close failed: ") + f.what());
+    }
+  }
 };
 
 namespace {
@@ -225,6 +278,11 @@ ShapeRecord RecordFromLabel(const TDF_Label& label,
   rec.paramsMm = params;
   rec.dependsOn = deps;
   rec.refExtra = refExtra;
+  if (rec.type == "HolePattern" && rec.paramsMm.size() == 2) {
+    // Add only derived metadata in memory; opening does not rewrite the file
+    // or create an Undo step. Corrupt records retain their repair state.
+    NormalizeHolePatternParams(rec.refExtra, &rec.paramsMm, nullptr);
+  }
   rec.shape = shape;
   GProp_GProps props;
   BRepGProp::VolumeProperties(shape, props);
@@ -251,11 +309,12 @@ void OcafLive::Reset() {
   ocaf_->doc->ClearUndos();
   ocaf_->doc->ClearRedos();
   ocaf_->shapes = XCAFDoc_DocumentTool::ShapeTool(ocaf_->doc->Main());
-  ocaf_->selectionsRoot = ocaf_->doc->Main().NewChild();
+  // XCAF owns Main's tags 1..10; NewChild's tag source can reuse tag 1.
+  ocaf_->selectionsRoot = ocaf_->doc->Main().FindChild(1001);
   TDataStd_Name::Set(ocaf_->selectionsRoot, "Selections");
-  ocaf_->sketchesRoot = ocaf_->doc->Main().NewChild();
+  ocaf_->sketchesRoot = ocaf_->doc->Main().FindChild(1002);
   TDataStd_Name::Set(ocaf_->sketchesRoot, "Sketches");
-  ocaf_->expressionsRoot = ocaf_->doc->Main().NewChild();
+  ocaf_->expressionsRoot = ocaf_->doc->Main().FindChild(1003);
   TDataStd_Name::Set(ocaf_->expressionsRoot, "Expressions");
 #endif
   // A fresh document owns no transaction (crash-safe by construction:
@@ -275,8 +334,8 @@ bool OcafLive::BeginCommand(std::string* error) {
     if (error) *error = "nested OCAF command (single queue, §40)";
     return false;
   }
-  // A new command invalidates the redo stack — standard undo semantics.
-  ocaf_->doc->ClearRedos();
+  // OCAF invalidates Redo only when a changed command commits. Opening or
+  // aborting an attempted edit must preserve the user's existing Redo.
   ocaf_->doc->OpenCommand();
   return true;
 #else
@@ -339,8 +398,7 @@ bool OcafLive::BeginTransaction(const std::string& transactionId,
     if (error) *error = "nested OCAF command (single queue, §40)";
     return false;
   }
-  // One user-level action == one Undo delta: clear redos once, at the edge.
-  ocaf_->doc->ClearRedos();
+  // Commit owns Redo invalidation; an aborted transaction preserves it.
   ocaf_->doc->OpenCommand();
   joinTxn_ = true;
   txnTainted_ = false;
@@ -541,20 +599,7 @@ bool OcafLive::ResyncStore(std::string* error) {
     ShapeStore::instance().put(rec);
     registry[rec.featureId] = rec.type;
   }
-  // Re-adopt selections + sketches + expressions folders (same scan as Load).
-  for (TDF_ChildIterator it(ocaf_->doc->Main(), Standard_False); it.More();
-       it.Next()) {
-    Handle(TDataStd_Name) n;
-    if (!it.Value().FindAttribute(TDataStd_Name::GetID(), n)) continue;
-    const std::string nm = ExtToAscii(n->Get());
-    if (nm == "Selections") {
-      ocaf_->selectionsRoot = it.Value();
-    } else if (nm == "Sketches") {
-      ocaf_->sketchesRoot = it.Value();
-    } else if (nm == "Expressions") {
-      ocaf_->expressionsRoot = it.Value();
-    }
-  }
+  ocaf_->AdoptMetadataRoots();
   // Rebuild SketchStore from sketch labels (inside Sketches folder).
   SketchStore::instance().clear();
   if (!ocaf_->sketchesRoot.IsNull()) {
@@ -622,6 +667,62 @@ bool OcafLive::ResyncStore(std::string* error) {
   }
   return true;
 #else
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
+bool OcafLive::RemoveFeature(const std::string& featureId,
+                            std::string* error) {
+#if KREODA_WITH_OCCT
+  try {
+    if (!ocaf_ || ocaf_->doc.IsNull()) {
+      if (error) *error = "OCAF: no live document";
+      return false;
+    }
+    if (!ocaf_->doc->HasOpenCommand()) {
+      if (error) *error = "feature removal requires an open OCAF command";
+      return false;
+    }
+    const auto shape = ocaf_->featureLabels.find(featureId);
+    const auto sketch = ocaf_->sketchLabels.find(featureId);
+    if ((shape != ocaf_->featureLabels.end()) ==
+        (sketch != ocaf_->sketchLabels.end())) {
+      if (error) *error = "OCAF feature label is missing or ambiguous";
+      return false;
+    }
+    // Keep label maps intact until the caller commits. If any later operation
+    // fails, AbortCommand restores these labels and the maps remain valid.
+    const auto expressions = ocaf_->expressionLabels.find(featureId);
+    if (expressions != ocaf_->expressionLabels.end()) {
+      expressions->second.ForgetAllAttributes(Standard_True);
+    }
+    if (!ocaf_->selectionsRoot.IsNull()) {
+      const std::string prefix = featureId + "|";
+      for (TDF_ChildIterator it(ocaf_->selectionsRoot, Standard_False);
+           it.More(); it.Next()) {
+        Handle(TDataStd_Comment) comment;
+        if (it.Value().FindAttribute(TDataStd_Comment::GetID(), comment) &&
+            ExtToAscii(comment->Get()).rfind(prefix, 0) == 0) {
+          it.Value().ForgetAllAttributes(Standard_True);
+        }
+      }
+    }
+    if (shape != ocaf_->featureLabels.end()) {
+      if (!ocaf_->shapes->RemoveShape(shape->second, Standard_True)) {
+        if (error) *error = "XCAF could not remove the feature shape";
+        return false;
+      }
+    } else {
+      sketch->second.ForgetAllAttributes(Standard_True);
+    }
+    return true;
+  } catch (const Standard_Failure& f) {
+    if (error) *error = std::string("OCAF feature removal failed: ") + f.what();
+    return false;
+  }
+#else
+  (void)featureId;
   if (error) *error = "OCAF requires OCCT (link via vcpkg)";
   return false;
 #endif
@@ -819,6 +920,38 @@ bool OcafLive::SelectFace(const std::string& featureId, const std::string& role,
 #endif
 }
 
+bool OcafLive::SelectionsNeedRepair(const std::vector<std::string>& featureIds,
+                                    bool checkAmbiguity) const {
+#if KREODA_WITH_OCCT
+  if (ocaf_ && !ocaf_->selectionsRoot.IsNull()) {
+    for (TDF_ChildIterator it(ocaf_->selectionsRoot, Standard_False); it.More(); it.Next()) {
+      Handle(TDataStd_Comment) c;
+      if (!it.Value().FindAttribute(TDataStd_Comment::GetID(), c)) continue;
+      const auto ref = ExtToAscii(c->Get());
+      const auto cut = ref.find('|');
+      for (const auto& id : featureIds) {
+        if (cut == std::string::npos || ref.substr(0, cut) != id) continue;
+        const auto role = ref.substr(cut + 1);
+        if (HasIndexedTopologyRole(role)) return true;
+        if (checkAmbiguity) {
+          ShapeRecord rec;
+          if (!ShapeStore::instance().get(id, &rec)) return true;
+          size_t count = 0;
+          for (const auto& candidate : ClassifyFaceRoles(rec.shape, rec.type, id)) {
+            if (candidate == id + ":" + role) ++count;
+          }
+          if (count != 1) return true;
+        }
+      }
+    }
+  }
+#else
+  (void)featureIds;
+  (void)checkAmbiguity;
+#endif
+  return false;
+}
+
 OcafLive::ResolveResult OcafLive::ResolveSelection(const FaceSelection& sel) {
   ResolveResult result;
 #if KREODA_WITH_OCCT
@@ -905,16 +1038,27 @@ bool OcafLive::Save(const std::string& xbfPath, std::string* error) {
 bool OcafLive::Load(const std::string& xbfPath,
                     std::vector<ShapeRecord>* records,
                     std::vector<std::string>* sketchJsons,
-                    std::string* error) {
+                    std::string* error, bool allowEmpty) {
 #if KREODA_WITH_OCCT
   try {
     Reset();
+    // Reset created a blank baseline; Open replaces it with the loaded doc.
+    ocaf_->selectionsRoot.Nullify();
+    ocaf_->sketchesRoot.Nullify();
+    ocaf_->expressionsRoot.Nullify();
+    ocaf_->app->Close(ocaf_->doc);
   if (ocaf_->app->Open(TCollection_ExtendedString(xbfPath.c_str()),
                        ocaf_->doc) != PCDM_RS_OK ||
       ocaf_->doc.IsNull()) {
     if (error) *error = "OCAF: cannot open " + xbfPath;
     return false;
   }
+  // Open replaces Reset's document; its default Undo limit is zero.
+  // Enable deltas on the loaded document so edits and failed commands
+  // remain undoable/atomic after reopening, just as in a fresh document.
+  ocaf_->doc->SetUndoLimit(100);
+  ocaf_->doc->ClearUndos();
+  ocaf_->doc->ClearRedos();
   ocaf_->shapes = XCAFDoc_DocumentTool::ShapeTool(ocaf_->doc->Main());
   // Rebuild feature map from persisted labels (name + params comment).
   // C8: two-pass so Instance→Instance / Instance→self / Instance→ghost from
@@ -951,20 +1095,7 @@ bool OcafLive::Load(const std::string& xbfPath,
     if (records) records->push_back(rec);
     ++recovered;
   }
-  // Re-adopt the selections + sketches + expressions folders (siblings).
-  for (TDF_ChildIterator it(ocaf_->doc->Main(), Standard_False); it.More();
-       it.Next()) {
-    Handle(TDataStd_Name) n;
-    if (!it.Value().FindAttribute(TDataStd_Name::GetID(), n)) continue;
-    const std::string nm = ExtToAscii(n->Get());
-    if (nm == "Selections") {
-      ocaf_->selectionsRoot = it.Value();
-    } else if (nm == "Sketches") {
-      ocaf_->sketchesRoot = it.Value();
-    } else if (nm == "Expressions") {
-      ocaf_->expressionsRoot = it.Value();
-    }
-  }
+  ocaf_->AdoptMetadataRoots();
   // Collect sketch JSON labels (do not fail the open when absent).
   int recoveredSketches = 0;
   if (!ocaf_->sketchesRoot.IsNull()) {
@@ -1009,7 +1140,10 @@ bool OcafLive::Load(const std::string& xbfPath,
       }
     }
   }
-  if (recovered == 0 && recoveredSketches == 0) {
+  // XCAF may retain free labels after deletion. The .icad manifest decides
+  // whether an empty feature set is expected; other callers reject it.
+  if (recovered == 0 && recoveredSketches == 0 && free.Length() > 0 &&
+      !allowEmpty) {
     if (error) *error = "OCAF: no features recovered from " + xbfPath;
     return false;
   }
@@ -1022,6 +1156,7 @@ bool OcafLive::Load(const std::string& xbfPath,
   (void)xbfPath;
   (void)records;
   (void)sketchJsons;
+  (void)allowEmpty;
   if (error) *error = "OCAF requires OCCT (link via vcpkg)";
   return false;
 #endif

@@ -3,6 +3,7 @@
 // per-spec files keep only their ICAD paths, WS ports and assertions.
 import { expect, _electron as electron, type Page } from "@playwright/test";
 import path from "node:path";
+import { createRequire } from "node:module";
 
 export const HERE = import.meta.dirname;
 export const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
@@ -27,6 +28,7 @@ export interface SketchSnapshot {
 
 export interface Snapshot {
   revision: number;
+  references?: import("../src/reference/store").ReferencePlane[];
   selectedIds: string[];
   bodies: BodySnapshot[];
   sketches: SketchSnapshot[];
@@ -37,27 +39,29 @@ export interface Snapshot {
 }
 
 /** Launch the shell, wait for DOM + sidecar handshake. */
-export async function boot(env?: Record<string, string>) {
+export async function boot(env?: Record<string, string>, extraArgs: string[] = []) {
   const app = await electron.launch({
+    executablePath: createRequire(import.meta.url)("electron") as string,
     // --lang pins navigator.language so detectLocale() stays English:
     // specs assert English chrome regardless of the OS language.
-    args: [MAIN, "--no-sandbox", "--lang=en-US"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US", ...extraArgs],
     ...(env ? { env } : {}),
   });
-  const window = await app.firstWindow({ timeout: 30000 });
-  await window.waitForLoadState("domcontentloaded");
-  // Home (§home) is the boot screen: enter the workspace like a user would.
-  await expect(window.getByTestId("home-screen")).toBeVisible({
-    timeout: 20000,
-  });
-  await window.getByTestId("home-new-project").click();
-  await expect(window.getByTestId("workspace-chrome")).toBeVisible({
-    timeout: 20000,
-  });
-  await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
-    timeout: 20000,
-  });
-  return { app, window };
+  try {
+    const window = await app.firstWindow({ timeout: 30000 });
+    // Home/workspace/native readiness remains authoritative even when
+    // Playwright's cached DOMContentLoaded notification is absent.
+    // Home (§home) is the boot screen: enter the workspace like a user would.
+    await expect(window.getByTestId("home-screen")).toBeVisible({ timeout: 20000 });
+    await window.getByTestId("home-new-project").click();
+    await expect(window.getByTestId("workspace-chrome")).toBeVisible({ timeout: 20000 });
+    await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({ timeout: 20000 });
+    return { app, window };
+  } catch (error) {
+    // Callers cannot close an application when boot fails before returning it.
+    await app.close().catch(() => {});
+    throw error;
+  }
 }
 
 export function snapOf(window: Page): Promise<Snapshot> {

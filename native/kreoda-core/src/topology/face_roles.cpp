@@ -32,6 +32,17 @@ const char* axisRole(double nx, double ny, double nz, double tol,
 
 }  // namespace
 
+bool HasIndexedTopologyRole(const std::string& reference) {
+  for (const auto* token : {"wall.", "face.", "free.", "ring.", "cone.", "sph."}) {
+    const auto pos = reference.find(token);
+    if (pos != std::string::npos) {
+      const auto next = pos + std::char_traits<char>::length(token);
+      if (next < reference.size() && reference[next] >= '0' && reference[next] <= '9') return true;
+    }
+  }
+  return false;
+}
+
 std::vector<std::string> ClassifyFaceRoles(const TopoDS_Shape& shape,
                                            const std::string& featureType,
                                            const std::string& featureId) {

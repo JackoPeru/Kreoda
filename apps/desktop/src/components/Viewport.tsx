@@ -10,6 +10,7 @@ import { useReferenceStore } from "../reference/store";
 import { t } from "../i18n";
 
 interface PullSession {
+  pointerId: number;
   featureId: string;
   faceId: string;
   paramName: string;
@@ -44,6 +45,10 @@ export function Viewport() {
     const vp = new CadViewport(ref.current, {
       onHover: (id) => {
         if (sessionRef.current) return;
+        // Distinct-only: the viewport coalesces picks to one per frame but
+        // still re-fires over the same face — skip the store round-trip so
+        // React never re-renders at pointer frequency for a no-op.
+        if (useSelectionStore.getState().hoveredId === id) return;
         hover(id);
         vp.setHover(id);
       },
@@ -62,6 +67,7 @@ export function Viewport() {
       beginReferenceMeasure: (id) =>
         vpRef.current?.beginReferenceMeasure(id) ?? Promise.resolve(null),
       cancelReferenceMeasure: () => vpRef.current?.cancelReferenceMeasure(),
+      renderStats: () => vpRef.current?.renderStats() ?? null,
     });
     return () => {
       try {
@@ -108,6 +114,7 @@ export function Viewport() {
       const s = sessionRef.current;
       sessionRef.current = null;
       if (vp) {
+        if (cancelled) vp.cancelCameraGesture();
         vp.setCameraInputEnabled(true);
         vp.showPreviewMesh(null);
       }
@@ -141,6 +148,7 @@ export function Viewport() {
       const len = Math.hypot(dx, dy);
       if (len < 1e-6) return;
       sessionRef.current = {
+        pointerId: e.pointerId,
         featureId: hit.featureId,
         faceId: hit.faceId,
         paramName: resolved.target.paramName,
@@ -155,7 +163,6 @@ export function Viewport() {
         moved: false,
       };
       vp.setCameraInputEnabled(false);
-      el.setPointerCapture(e.pointerId);
       setPullHint(
         t("viewport.dragging", { p: resolved.target.paramName, v: resolved.target.startValueMm.toFixed(1) }),
       );
@@ -164,23 +171,25 @@ export function Viewport() {
     const onPointerMove = (e: PointerEvent): void => {
       const vp = vpRef.current;
       const s = sessionRef.current;
-      if (!vp || !s) return;
+      if (!vp || !s || e.pointerId !== s.pointerId) return;
       const dxPx = e.clientX - s.startClientX;
       const dyPx = e.clientY - s.startClientY;
       if (Math.hypot(dxPx, dyPx) > 3) s.moved = true;
       if (!s.moved) return;
       const alongPx = dxPx * s.axisX + dyPx * s.axisY;
       const value = clampDimension(s.startValueMm + alongPx * s.mmPerPx);
-      setPullHint(
-        t("viewport.dragging", { p: s.paramName, v: value.toFixed(1) }),
-      );
-      // Throttled transient preview (§13): no commit, no revision.
+      // Throttled transient preview (§13): no commit, no revision. The hint
+      // updates at preview cadence too — setState per pointermove re-rendered
+      // this component (and its subtree) even when the preview was dropped.
       const now = performance.now();
       if (Math.abs(value - s.lastSentValue) < 0.5 || now - s.lastSentAt < 40) {
         return;
       }
       s.lastSentValue = value;
       s.lastSentAt = now;
+      setPullHint(
+        t("viewport.dragging", { p: s.paramName, v: value.toFixed(1) }),
+      );
       void coreClient
         .setFeatureParameter(s.featureId, s.paramName, value, true)
         .then(
@@ -198,7 +207,7 @@ export function Viewport() {
 
     const onPointerUp = (e: PointerEvent): void => {
       const s = sessionRef.current;
-      if (!s) return;
+      if (!s || e.pointerId !== s.pointerId) return;
       const wasDrag = s.moved;
       const dxPx = e.clientX - s.startClientX;
       const dyPx = e.clientY - s.startClientY;
@@ -225,6 +234,14 @@ export function Viewport() {
       );
     };
 
+    const onPointerCancel = (e: PointerEvent): void => {
+      if (sessionRef.current?.pointerId === e.pointerId) endSession(true);
+    };
+
+    const onLostPointerCapture = (e: PointerEvent): void => {
+      if (sessionRef.current?.pointerId === e.pointerId) endSession(true);
+    };
+
     const onKeyDown = (e: KeyboardEvent): void => {
       if (e.key === "Escape" && sessionRef.current) {
         endSession(true);
@@ -234,11 +251,16 @@ export function Viewport() {
     el.addEventListener("pointerdown", onPointerDown);
     el.addEventListener("pointermove", onPointerMove);
     el.addEventListener("pointerup", onPointerUp);
+    el.addEventListener("pointercancel", onPointerCancel);
+    el.addEventListener("lostpointercapture", onLostPointerCapture);
     window.addEventListener("keydown", onKeyDown);
     return () => {
+      endSession(true);
       el.removeEventListener("pointerdown", onPointerDown);
       el.removeEventListener("pointermove", onPointerMove);
       el.removeEventListener("pointerup", onPointerUp);
+      el.removeEventListener("pointercancel", onPointerCancel);
+      el.removeEventListener("lostpointercapture", onLostPointerCapture);
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [activeTool, select]);

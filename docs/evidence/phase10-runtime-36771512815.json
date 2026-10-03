@@ -1,0 +1,512 @@
+{
+  "run": "https://github.com/JackoPeru/Kreoda/actions/runs/36771512815",
+  "commit": "b6764e4885e9383d9c565565e0333c1f042cc0b6",
+  "conclusion": "failure",
+  "nativeTestsPassed": 141,
+  "nativeTestsTotal": 141,
+  "dotnetTestsPassed": 21,
+  "desktopUnitTestsPassed": 93,
+  "nativePickerPassed": 0,
+  "nativePickerTotal": 1,
+  "electronOrdinaryStep": "skipped",
+  "electronOrdinaryCasesDiscovered": 48,
+  "crashTestsPassed": 29,
+  "crashTestsTotal": 29,
+  "installedDesktop": "not executed in this run",
+  "installedPayloadAndProvenance": "passed",
+  "failures": [
+    "UIA desktop Children contained only Kreoda owner, no native dialog root for target PID"
+  ],
+  "samples": [
+    {
+      "timestamp": "2026-09-30T20:23:50.0692651Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "step_import_25",
+        "cycles": 25,
+        "elapsed_ms": 115,
+        "ms_per_cycle": 4.6,
+        "working_set_baseline_bytes": 20475904,
+        "working_set_after_warm_bytes": 22044672,
+        "working_set_final_bytes": 22048768,
+        "peak_working_set_bytes": 22167552,
+        "private_baseline_bytes": 4972544,
+        "private_after_warm_bytes": 5341184,
+        "private_final_bytes": 5341184,
+        "handles_baseline": 119,
+        "handles_after_warm": 123,
+        "handles_final": 123
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:23:50.4176088Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "document_open_close_100",
+        "cycles": 100,
+        "elapsed_ms": 314,
+        "ms_per_cycle": 3.14,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_100": 119,
+        "working_set_baseline_bytes": 18018304,
+        "working_set_final_bytes": 18284544,
+        "peak_working_set_bytes": 18354176,
+        "private_final_bytes": 4485120
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:23:51.0464424Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "body_create_delete_1000",
+        "cycles": 1000,
+        "elapsed_ms": 604,
+        "ms_per_cycle": 0.6,
+        "handles_baseline": 119,
+        "handles_after_10": 119,
+        "handles_after_1000": 119,
+        "working_set_baseline_bytes": 15609856,
+        "working_set_after_10_bytes": 17436672,
+        "working_set_final_bytes": 35049472,
+        "peak_working_set_bytes": 35049472,
+        "private_baseline_bytes": 4333568,
+        "private_after_10_bytes": 4677632,
+        "private_final_bytes": 22908928
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:16.2749518Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 20,
+        "working_set_bytes": 22093824,
+        "peak_working_set_bytes": 57729024,
+        "private_bytes": 8900608,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:16.2751596Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 50,
+        "working_set_bytes": 25083904,
+        "peak_working_set_bytes": 60932096,
+        "private_bytes": 12857344,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:16.2753556Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 100,
+        "working_set_bytes": 26521600,
+        "peak_working_set_bytes": 61464576,
+        "private_bytes": 13660160,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:16.2757423Z",
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation_100",
+        "cycles": 100,
+        "elapsed_ms": 25083,
+        "ms_per_cycle": 250.83,
+        "working_set_baseline_bytes": 14934016,
+        "working_set_after_warm_bytes": 22839296,
+        "working_set_final_bytes": 26521600,
+        "peak_working_set_bytes": 61464576,
+        "private_baseline_bytes": 4042752,
+        "private_after_warm_bytes": 9797632,
+        "private_final_bytes": 13660160,
+        "handles_baseline": 118,
+        "handles_after_warm": 121,
+        "handles_final": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:17.1203089Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "sphere_r50_lod1_tris": 10150,
+        "sphere_r50_lod1_ms": 17,
+        "sphere_r50_lod2_tris": 50540,
+        "sphere_r50_lod2_ms": 108,
+        "cyl_r20_h100_lod2_tris": 1004,
+        "cyl_r20_h100_lod2_ms": 4
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:17.1204813Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "sphere_r200_lod2_tris": 201374,
+        "sphere_r200_lod2_ms": 608
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:17.8649760Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 200,
+        "triangles": 201374,
+        "tessellation_ms": 623,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 31698944,
+        "peak_working_set_bytes": 96972800,
+        "private_bytes": 19234816,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:20.4923940Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 2622,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 53129216,
+        "peak_working_set_bytes": 251101184,
+        "private_bytes": 43245568,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:26.7392154Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 6241,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 81596416,
+        "peak_working_set_bytes": 451428352,
+        "private_bytes": 75296768,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:26.7395665Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "target": "500k",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 2622,
+        "working_set_bytes": 53129216,
+        "peak_working_set_bytes": 251101184,
+        "private_bytes": 43245568,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:26.7397811Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "target": "1M",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 6241,
+        "working_set_bytes": 81596416,
+        "peak_working_set_bytes": 451428352,
+        "private_bytes": 75296768,
+        "handles": 121
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:30.9888529Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "hole_features": 40,
+        "feature_count": 41,
+        "body_count": 1,
+        "feature_build_ms": 2431,
+        "recompute_ms": 999,
+        "save_icad_ms": 534,
+        "icad_bytes": 75554,
+        "load_icad_ms": 246,
+        "final_volume_mm3": 4129212.392
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:30.9890995Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "baseline",
+        "working_set_bytes": 15532032,
+        "peak_working_set_bytes": 15532032,
+        "private_bytes": 4255744,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:30.9892476Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_feature_build",
+        "working_set_bytes": 38846464,
+        "peak_working_set_bytes": 38850560,
+        "private_bytes": 24436736,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:30.9893809Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_recompute",
+        "working_set_bytes": 39198720,
+        "peak_working_set_bytes": 39198720,
+        "private_bytes": 25030656,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:30.9895072Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_save",
+        "working_set_bytes": 40173568,
+        "peak_working_set_bytes": 40173568,
+        "private_bytes": 25042944,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:30.9896276Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_load",
+        "working_set_bytes": 25235456,
+        "peak_working_set_bytes": 40202240,
+        "private_bytes": 9191424,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:36.2828861Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 128,
+        "feature_count": 128,
+        "create_bodies_ms": 74,
+        "recompute_bodies": 128,
+        "recompute_ms": 79,
+        "save_icad_ms": 530,
+        "icad_bytes": 32572,
+        "load_icad_ms": 77,
+        "step_export_ms": 192,
+        "step_bytes": 2161002,
+        "step_import_ms": 504,
+        "imported_solids": 128,
+        "total_volume_mm3": 274856.891
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:36.2830676Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 15495168,
+        "peak_working_set_bytes": 15495168,
+        "private_bytes": 4227072,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:36.2832644Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 20148224,
+        "peak_working_set_bytes": 20148224,
+        "private_bytes": 7479296,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:36.2834456Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 22593536,
+        "peak_working_set_bytes": 22593536,
+        "private_bytes": 9986048,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:36.2836600Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 23470080,
+        "peak_working_set_bytes": 24150016,
+        "private_bytes": 9961472,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:36.2838625Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 21200896,
+        "peak_working_set_bytes": 24150016,
+        "private_bytes": 7671808,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:36.2840920Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 25182208,
+        "peak_working_set_bytes": 44937216,
+        "private_bytes": 8949760,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:36.2842879Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 28229632,
+        "peak_working_set_bytes": 44937216,
+        "private_bytes": 10588160,
+        "handles": 123
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:45.1081776Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 1024,
+        "feature_count": 1024,
+        "create_bodies_ms": 579,
+        "recompute_bodies": 1024,
+        "recompute_ms": 1138,
+        "save_icad_ms": 287,
+        "icad_bytes": 246053,
+        "load_icad_ms": 603,
+        "step_export_ms": 1734,
+        "step_bytes": 18017012,
+        "step_import_ms": 4359,
+        "imported_solids": 1024,
+        "total_volume_mm3": 8982630.672
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:45.1084808Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 15593472,
+        "peak_working_set_bytes": 15593472,
+        "private_bytes": 4317184,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:45.1086900Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 39833600,
+        "peak_working_set_bytes": 39833600,
+        "private_bytes": 27910144,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:45.1089274Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 56807424,
+        "peak_working_set_bytes": 56807424,
+        "private_bytes": 45498368,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:45.1091286Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 59285504,
+        "peak_working_set_bytes": 62418944,
+        "private_bytes": 47783936,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:45.1093221Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 41271296,
+        "peak_working_set_bytes": 62418944,
+        "private_bytes": 28684288,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:45.1095122Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 46735360,
+        "peak_working_set_bytes": 206704640,
+        "private_bytes": 32153600,
+        "handles": 119
+      }
+    },
+    {
+      "timestamp": "2026-09-30T20:24:45.1097484Z",
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 56340480,
+        "peak_working_set_bytes": 206704640,
+        "private_bytes": 42696704,
+        "handles": 123
+      }
+    }
+  ]
+}

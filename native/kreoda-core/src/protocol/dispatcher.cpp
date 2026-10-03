@@ -1,5 +1,7 @@
 #include "dispatcher.h"
+#include "diagnostics/crash_barrier.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cctype>
 #include <filesystem>
@@ -237,12 +239,13 @@ std::string feature_list_body() {
   return os.str();
 }
 
-std::string manifest_json(const std::string& documentId) {
+std::string manifest_json(const std::string& documentId, const std::string& references) {
   std::ostringstream os;
   os << std::setprecision(17);
   os << "{\"format\":\"kreoda-project\",\"schemaVersion\":1,"
      << "\"appVersion\":\"0.1.0\",\"documentId\":\"" << escape(documentId)
-     << "\",\"units\":\"mm\",\"bodies\":" << SerializeBodiesJson() << "}";
+     << "\",\"units\":\"mm\",\"bodies\":" << SerializeBodiesJson()
+     << ",\"referencePlanesJson\":\"" << escape(references) << "\"}";
   return os.str();
 }
 
@@ -284,6 +287,7 @@ struct DocSnapshot {
   std::map<std::string, std::string> registry;
   int64_t revision = 0;
   std::string docId;
+  std::string references;
   std::string ocafBackupDir;
   std::string ocafBackupXbf;
   bool hasOcafBackup = false;
@@ -298,6 +302,7 @@ DocSnapshot takeDocSnapshot(const std::string& docId) {
   s.registry = DocumentStore::instance().snapshotRegistry();
   s.revision = DocumentStore::instance().snapshotRevision();
   s.docId = DocumentStore::instance().snapshotDocumentId();
+  s.references = DocumentStore::instance().referencePlanesJson();
   (void)docId;
 #if KREODA_WITH_OCCT
   if (!s.shapes.empty() || !s.sketches.empty()) {
@@ -328,6 +333,7 @@ void restoreDocSnapshot(const DocSnapshot& s) {
   ExpressionStore::instance().clear();
   for (const auto& e : s.exprs) ExpressionStore::instance().set(e.featureId, e.paramName, e.expression);
   DocumentStore::instance().restoreSnapshot(s.docId, s.revision, s.registry);
+  DocumentStore::instance().setReferencePlanesJson(s.references);
 #if KREODA_WITH_OCCT
   if (s.hasOcafBackup) {
     std::vector<ShapeRecord> recs;
@@ -391,6 +397,7 @@ bool saveAtomically(const std::string& finalPath, Writer&& write,
     fs::remove(tmpPath, rm);
     return false;
   }
+  CrashTestBarrier("save-before-publish");
   fs::rename(tmpPath, finalPath, ec);
   if (ec) {
     // m9: no remove+rename fallback by design — if the destination is locked
@@ -603,8 +610,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
     const bool readOnly =
         type == kGetCoreInfo || type == kRequestMesh ||
         type == kRequestSketch || type == kPreviewSketch ||
-        type == kRequestFaceInfo || type == kRequestSnapshot ||
-        type == kDeleteFeature;  // answers NOT_IMPLEMENTED deterministically
+        type == kRequestFaceInfo || type == kRequestSnapshot;
     const bool preview =
         (type == kSetFeatureParameter || type == kUpdateSketch) &&
         (json_string_field(requestJson, "isPreview", "") == "true" ||
@@ -846,6 +852,15 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         body << "\"path\":\"" << escape(path) << "\"," << feature_list_body();
         return make_response(requestId, "ok", body.str());
       }
+      // Opaque renderer metadata is escaped as one string, never injected
+      // into the manifest. Older clients preserve it when omitting the field.
+      const std::string references = json_string_field_strict(
+          requestJson, "referencePlanesJson",
+          DocumentStore::instance().referencePlanesJson());
+      if (references.size() > 100 * 1024 * 1024) {
+        return make_response(requestId, "error",
+                             error_body("SAVE_FAILED", "reference metadata too large"));
+      }
       std::error_code ec;
       const std::string tmp = uniqueTempDir("kreoda-save", ec);
       if (tmp.empty()) {
@@ -860,7 +875,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
                              error_body("SAVE_FAILED", error));
       }
       fs::create_directories(fs::path(path).parent_path(), ec);
-      const std::string manifest = manifest_json(documentId);
+      const std::string manifest = manifest_json(documentId, references);
       if (!saveAtomically(
               path,
               [&](const std::string& tmp, std::string* e) {
@@ -872,6 +887,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
                              error_body("SAVE_FAILED", error));
       }
       fs::remove_all(tmp, ec);
+      DocumentStore::instance().setReferencePlanesJson(references);
       std::ostringstream body;
       body << "\"path\":\"" << escape(path) << "\"," << feature_list_body();
       return make_response(requestId, "ok", body.str());
@@ -898,6 +914,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
           return make_response(requestId, "error",
                                error_body("OPEN_FAILED", error));
         }
+        CrashTestBarrier("step-import-before-adoption");
         for (const auto& id : created) {
           ShapeRecord rec;
           DocumentStore::instance().noteFeature(
@@ -1003,15 +1020,27 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         return make_response(requestId, "error",
                              error_body("OPEN_FAILED", error));
       }
+      const std::string references = json_string_field_strict(manifest, "referencePlanesJson", "[]");
+      if (references.size() > 100 * 1024 * 1024) {
+        fs::remove_all(tmp, ec);
+        discardDocSnapshot(backup);
+        return make_response(requestId, "error",
+                             error_body("OPEN_FAILED", "reference metadata too large"));
+      }
       std::vector<ShapeRecord> records;
       std::vector<std::string> sketchJsons;
+      std::vector<BodyRecord> declaredBodies;
+      const bool allowEmpty =
+          ParseBodiesJson(manifest, &declaredBodies) && declaredBodies.empty() &&
+          manifest.find("\"bodies\":[]") != std::string::npos;
       // Fresh baseline BEFORE load (clears stores + OCAF); Load then opens
       // the file into the live doc with all labels (solids, sketches,
       // selections, evolution) intact — no re-mirroring needed.
       // C5: backup already taken above; restore it if Load fails.
       // C8: validate adopted Instances (nested/self/missing never open).
       DocumentStore::instance().create(documentId);
-      if (!OcafLive::instance().Load(xbf, &records, &sketchJsons, &error)) {
+      if (!OcafLive::instance().Load(xbf, &records, &sketchJsons, &error,
+                                     allowEmpty)) {
         fs::remove_all(tmp, ec);
         restoreDocSnapshot(backup);
         return make_response(requestId, "error",
@@ -1065,8 +1094,10 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       MeshCache().clear();
       discardDocSnapshot(backup);
       fs::remove_all(tmp, ec);
+      DocumentStore::instance().setReferencePlanesJson(references);
       std::ostringstream body;
-      body << "\"path\":\"" << escape(path) << "\"," << feature_list_body();
+      body << "\"path\":\"" << escape(path) << "\",\"referencePlanesJson\":\""
+           << escape(references) << "\"," << feature_list_body();
       return make_response(requestId, "ok", body.str());
     }
     case kSetFeatureParameter: {
@@ -1352,15 +1383,20 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       const double depth = json_double_field(
           requestJson, "depthMm",
           json_double_field(requestJson, "depth", 0));
+      const auto insertBeforeId = json_string_field(requestJson, "insertBeforeId", "");
+      if (json_has_key(requestJson, "insertBeforeId") && !ShapeStore::ValidFeatureId(insertBeforeId)) {
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "insertBeforeId must be a feature id"));
+      }
       std::string error;
       if (!CreateHoleFeature(featureId, targetId, faceRole, x, y, dia, mode,
-                             depth, &error)) {
+                             depth, &error, insertBeforeId)) {
         return make_response(requestId, "error",
                              error_body("HOLE_FAILED", error));
       }
       ShapeRecord rec;
       ShapeStore::instance().get(featureId, &rec);
-      return make_response(requestId, "ok", shape_body(rec));
+      return make_response(requestId, "ok", shape_body(rec) +
+          (insertBeforeId.empty() ? "" : "," + feature_list_body()));
     }
     case kCreateHolePattern: {
       // M11: 1..4 holes in exactly one OCAF transaction (one Undo step).
@@ -1523,7 +1559,12 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       // the current revision. Read-only: no transaction, no revision bump,
       // safe to call between mutations (callers use revision for deltas).
       std::ostringstream body;
-      body << "\"documentId\":\"" << escape(documentId) << "\","
+      const bool includeReferences = json_string_field(requestJson, "includeReferencePlanes", "") == "true";
+      if (includeReferences) {
+        body << "\"referencePlanesJson\":\""
+             << escape(DocumentStore::instance().referencePlanesJson()) << "\",";
+      }
+      body << "\"documentId\":\"" << escape(includeReferences ? DocumentStore::instance().snapshotDocumentId() : documentId) << "\","
            << feature_list_body();
       return make_response(requestId, "ok", body.str());
     }
@@ -1807,16 +1848,106 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
            << DocumentStore::instance().revision() << "," << undo_counts_body();
       return make_response(requestId, "ok", body.str());
     }
-    case kDeleteFeature:
-      return make_response(requestId, "error",
-                           error_body("NOT_IMPLEMENTED",
-                                      "delete arrives separately (no delete path yet — "
-                                      "instances of deleted targets only via crafted files, guarded)"));
+    case kDeleteFeature: {
+      const std::string featureId =
+          json_string_field(requestJson, "featureId", "");
+      if (!ShapeStore::ValidFeatureId(featureId)) {
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "invalid featureId"));
+      }
+      const bool isShape = ShapeStore::instance().contains(featureId);
+      const bool isSketch = SketchStore::instance().contains(featureId);
+      if (!isShape && !isSketch) {
+        return make_response(requestId, "error",
+                             error_body("NOT_FOUND", featureId));
+      }
+      if (isShape && isSketch) {
+        return make_response(requestId, "error",
+                             error_body("DELETE_FAILED",
+                                        "feature id is ambiguous across stores"));
+      }
+
+      // No cascade exists. Refuse direct geometry/sketch dependencies and
+      // formula references before touching OCAF, including Instance targets.
+      std::set<std::string> dependents;
+      for (const auto& rec : ShapeStore::instance().listInOrder()) {
+        if (rec.featureId != featureId &&
+            std::find(rec.dependsOn.begin(), rec.dependsOn.end(), featureId) !=
+                rec.dependsOn.end()) {
+          dependents.insert(rec.featureId);
+        }
+      }
+      for (const auto& sketch : SketchStore::instance().listInOrder()) {
+        if (sketch.id != featureId &&
+            (sketch.supportRef == featureId ||
+             sketch.supportRef.rfind(featureId + ":", 0) == 0)) {
+          dependents.insert(sketch.id);
+        }
+      }
+      for (const auto& entry : ExpressionStore::instance().listInOrder()) {
+        if (entry.featureId == featureId) continue;
+        std::vector<std::pair<std::string, std::string>> refs;
+        std::string parseError;
+        if (!ParseExpression(entry.expression, &refs, &parseError)) {
+          return make_response(
+              requestId, "error",
+              error_body("DELETE_FAILED",
+                         "cannot inspect expression on " + entry.featureId +
+                             "." + entry.paramName + ": " + parseError));
+        }
+        for (const auto& [referencedId, param] : refs) {
+          (void)param;
+          if ((referencedId.empty() ? entry.featureId : referencedId) ==
+              featureId) {
+            dependents.insert(entry.featureId);
+            break;
+          }
+        }
+      }
+      if (!dependents.empty()) {
+        std::string dependentList;
+        for (const auto& id : dependents) {
+          if (!dependentList.empty()) dependentList += ", ";
+          dependentList += id;
+        }
+        return make_response(
+            requestId, "error",
+            error_body("HAS_DEPENDENTS",
+                       "delete dependent features first: " + dependentList));
+      }
+
+      std::string error;
+      if (!OcafLive::instance().BeginCommand(&error)) {
+        return make_response(requestId, "error",
+                             error_body("DELETE_FAILED", error));
+      }
+      if (!OcafLive::instance().RemoveFeature(featureId, &error)) {
+        OcafLive::instance().AbortCommand();
+        return make_response(requestId, "error",
+                             error_body("DELETE_FAILED", error));
+      }
+      bool hadDelta = false;
+      if (!OcafLive::instance().CommitCommand(&hadDelta, &error)) {
+        OcafLive::instance().AbortCommand();
+        return make_response(requestId, "error",
+                             error_body("DELETE_FAILED", error));
+      }
+      if (!OcafLive::instance().ResyncStore(&error)) {
+        return make_response(requestId, "error",
+                             error_body("DELETE_FAILED", error));
+      }
+      SyncGraphFromStore();
+      if (hadDelta) DocumentStore::instance().commit();
+
+      std::ostringstream body;
+      body << "\"deletedFeatureId\":\"" << escape(featureId) << "\","
+           << feature_list_body();
+      return make_response(requestId, "ok", body.str());
+    }
     default:
       return make_response(requestId, "error",
                            error_body("UNKNOWN_COMMAND",
-                                      "unsupported type (core 0.1.0 "
-                                      "implements 1-26; delete arrives separately as NOT_IMPLEMENTED)"));
+                                      "unsupported command type"));
   }
 }
 

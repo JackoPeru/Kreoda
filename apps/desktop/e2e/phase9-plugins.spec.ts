@@ -5,7 +5,7 @@
 
 import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
-import { HERE, MAIN, type Snapshot } from "./helpers";
+import { HERE, MAIN, boot, runBar, type Snapshot } from "./helpers";
 
 const PAIR_PLUGIN = `
 kreoda.register({
@@ -19,6 +19,7 @@ kreoda.register({
     allowedCoreCommands: ["CreateBox"],
   }],
 });
+
 kreoda.onCommand("plugin.e2e.pair.make", async (params) => {
   await kreoda.invoke("CreateBox", {
     featureId: params.a, widthMm: 10, heightMm: 10, depthMm: 10,
@@ -71,6 +72,7 @@ test("plugins: sandboxed commands, escapes refused, crashes isolated", async () 
   try {
     const window = await app.firstWindow({ timeout: 30000 });
     await window.waitForLoadState("domcontentloaded");
+    await window.getByTestId("home-new-project").click();
     await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
       timeout: 20000,
     });
@@ -129,6 +131,23 @@ test("plugins: sandboxed commands, escapes refused, crashes isolated", async () 
     expect(vols[0]).toBeCloseTo(1000, 3);
     expect(vols[1]).toBeCloseTo(8000, 3);
 
+    // Disable the command that just created geometry, then keep modeling.
+    await window.evaluate(() => (window as unknown as {
+      __kreoda_test: { unloadPlugin: (id: string) => Promise<void> };
+    }).__kreoda_test.unloadPlugin("plugin.e2e.pair"));
+    await expect(run("plugin.e2e.pair", "plugin.e2e.pair.make", {})).rejects.toThrow(/plugin not loaded/);
+    expect((await snap()).bodies).toEqual(s1.bodies);
+    await runBar(window, "box 30 30 30");
+    const continued = await snap();
+    expect(continued.bodies).toHaveLength(3);
+    const continuedVolumes = continued.bodies.map((body) => body.volumeMm3).sort((a, b) => a - b);
+    for (const [index, volume] of [1000, 8000, 27000].entries()) {
+      expect(continuedVolumes[index]).toBeCloseTo(volume, 3);
+    }
+    console.log(`PHASE10_PLUGIN_WORKFLOW ${JSON.stringify({ registered_command_ran: true,
+      disabled_command_refused: true, existing_geometry_preserved: true,
+      continued_core_modeling: true, final_bodies: continued.bodies.length })}`);
+
     // 2. Capability escape refused (allowlist is CreateBox only).
     await load(ESCAPE_PLUGIN);
     await expect(
@@ -141,13 +160,65 @@ test("plugins: sandboxed commands, escapes refused, crashes isolated", async () 
       run("plugin.e2e.boom", "plugin.e2e.boom.go", {}),
     ).rejects.toThrow(/boom from inside the sandbox/);
     const s2 = (await snap()) as Snapshot;
-    expect(s2.bodies).toHaveLength(2);
+    expect(s2.bodies).toHaveLength(3);
 
     // 4. Bad manifests never load.
     await expect(load("kreoda.register({});")).rejects.toThrow();
     await expect(load("throw new Error('load boom')")).rejects.toThrow();
 
     await window.screenshot({ path: path.join(HERE, "phase9-plugins.png") });
+  } finally {
+    await app.close();
+  }
+});
+
+test("plugin load/unload cycles release worker URLs", async () => {
+  const { app, window } = await boot();
+  try {
+    // Playwright observes actual dedicated-worker target creation/closure;
+    // URL revocation alone does not establish that a worker was terminated.
+    const baselineWorkers = window.workers().length;
+    const workerSamples: { cycle: number; loaded: number; unloaded: number }[] = [];
+    await window.evaluate(() => {
+      const counts = { created: 0, revoked: 0 };
+      const create = URL.createObjectURL.bind(URL);
+      const revoke = URL.revokeObjectURL.bind(URL);
+      URL.createObjectURL = (object) => {
+        counts.created++;
+        return create(object);
+      };
+      URL.revokeObjectURL = (url) => {
+        counts.revoked++;
+        revoke(url);
+      };
+      (globalThis.window as unknown as { __pluginUrls: typeof counts }).__pluginUrls = counts;
+    });
+    for (let i = 0; i < 20; i++) {
+      await window.evaluate((source) =>
+        (globalThis.window as unknown as {
+          __kreoda_test: { loadPluginSource: (source: string) => Promise<unknown> };
+        }).__kreoda_test.loadPluginSource(source), PAIR_PLUGIN);
+      await expect.poll(() => window.workers().length).toBe(baselineWorkers + 1);
+      const loaded = window.workers().length;
+      await window.evaluate(() =>
+        (globalThis.window as unknown as {
+          __kreoda_test: { unloadPlugin: (id: string) => Promise<void> };
+        }).__kreoda_test.unloadPlugin("plugin.e2e.pair"));
+      await expect.poll(() => window.workers().length).toBe(baselineWorkers);
+      workerSamples.push({ cycle: i + 1, loaded, unloaded: window.workers().length });
+    }
+    const counts = await window.evaluate(() =>
+      (globalThis.window as unknown as {
+        __pluginUrls: { created: number; revoked: number };
+      }).__pluginUrls);
+    expect(counts.created).toBeGreaterThanOrEqual(20);
+    expect(counts.revoked).toBe(counts.created);
+    console.log(`PHASE10_PLUGIN_RESOURCES ${JSON.stringify({
+      cycles: workerSamples.length, baseline_workers: baselineWorkers,
+      final_workers: window.workers().length, workerSamples,
+      created_urls: counts.created, revoked_urls: counts.revoked,
+      worker_count_source: "Playwright dedicated-worker targets observed over CDP",
+    })}`);
   } finally {
     await app.close();
   }

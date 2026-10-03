@@ -1,0 +1,548 @@
+{
+  "baseCommit": "2c5d4d26b982c1ab553c6045e231b3f2c9ba0e27",
+  "sourceDifference": "Uncommitted current-body export correction, complete sketch bracket and persistence tests, owned golden fixtures and protocol inclusion in unified command",
+  "nativeGoogleTests": {
+    "passed": 141,
+    "durationMs": 59856
+  },
+  "focusedExchangeAndNewWorkflowTests": {
+    "passed": 20,
+    "durationMs": 8085
+  },
+  "hiddenElectronGoldenFlows": {
+    "passed": 3,
+    "duration": "8.5s",
+    "visibleLocalWindows": false,
+    "nativeCoreOverride": "C:\\Users\\matte\\Documents\\Codex-tools\\kreoda-export-probe-a43d44c160e14b74a0d1741e446ae6bc\\kreoda-core.exe"
+  },
+  "workspaceUnitTests": {
+    "packages/protocol": 16,
+    "packages/plugin-sdk": 2,
+    "packages/units": 4,
+    "apps/desktop": 94
+  },
+  "preFixReproduction": {
+    "test": "Torture10.GoldenSketchBracketCompleteWorkflow",
+    "expectedStepSolids": 1,
+    "actualStepSolids": 5,
+    "rawFailureLogSha256": "84470ea9057f30fe44851d3b4301e2a608c8c4372b901c28a77342cb333e686c",
+    "failureExcerpt": "imported.size()\r\n    Which is: 5\r\n  1u\r\n    Which is: 1\r\n\r\n"
+  },
+  "sourceSha256": {
+    "package.json": "9e8626b8a0700e23e8a7650d655bdea932cac5d06dfd469ef0a8d3aafcbd1c41",
+    "apps/desktop/e2e/phase10-golden.spec.ts": "a3a423113186b5201104e70f4af79a4c1e7a12edcff3ed11377997e882841759",
+    "native/kreoda-core/tests/test_torture_phase10.cpp": "cdc5dc2a4d57506e3508aa94a3fa44b7b81a7992c44d9da487faa8073170d860",
+    "native/kreoda-core/tests/test_step.cpp": "0caf4cf442604697301eb1e5ed3cb2684b31312d8c2c0bdd8db5c7d71838511f",
+    "native/kreoda-core/src/exchange/sew.h": "518cc23625632a8766ae2ec2286e2fb6667ab79ba103444b65510f5b6f978662",
+    "native/kreoda-core/src/exchange/sew.cpp": "cc01506ddf7cd17604f8339cdb89cc08b759e05f48151b3ec5954776d844b851",
+    "native/kreoda-core/src/exchange/gltf_exchange.cpp": "392b959ffbeeb3bad576e493c572c8ceecd5dd80723e1ee6ac49025926ea3097",
+    "native/kreoda-core/src/exchange/threemf_exchange.cpp": "f4596db678b4c65d9b625711b0b3b827a746ac78b5294bd4efc323c721087a9a"
+  },
+  "runtimeSha256": {
+    "C:/Users/matte/AppData/Local/Kreoda-tools/native-static-build/Release/kreoda-core.exe": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+    "C:/Users/matte/AppData/Local/Kreoda-tools/native-static-build/tests/Release/kreoda-core-tests.exe": "5694da5c6c33051eeecbe3ac6705fa7847942e6242114a59cc828b9c41c16e26",
+    "C:\\Users\\matte\\Documents\\Codex-tools\\kreoda-export-probe-a43d44c160e14b74a0d1741e446ae6bc\\kreoda-core.exe": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+    "C:\\Users\\matte\\Documents\\Codex-tools\\kreoda-export-probe-a43d44c160e14b74a0d1741e446ae6bc\\run-hidden.ps1": "6f49030b84d8891b014e24eeb38d7f66d860e0d9d5216432c5303998594a4d21",
+    "apps/desktop/.vite/build/main.cjs": "72737557291f929a425f7dcfa75c7e743b2755d0994a3e0d90eb8bd428fb61d4"
+  },
+  "logSha256": {
+    "fullNative": "044b75dd365bd92a52ca1913d584452b3cfe7e079cdfe4a7aa5cf49c30ed2504",
+    "focusedNative": "d0a0840eed293e7756a926d7375cb7d2f6c1165295332c701ed94d880c20236a",
+    "hiddenGolden": "ece85af8bc28b70fdcbb4fbfe771785381d97ec7b586693e2c30c4a1e6398bc8",
+    "nativeBuild": "600421fc106119fa7e124e4e2456dda944c4d859f69bf587a3fd5f119c1745ea",
+    "workspaceUnits": "0df0ed88475aa5fcc87d74b9b7fc4f2c694f03473c59cb8d3f74ba38ab6f2a36",
+    "types": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "blockedAppDataGolden": "5a8530102819f938f4546e788d45f43d0bafec784444242113bd733a545b67f0"
+  },
+  "samples": [
+    {
+      "kind": "PHASE10_PERSISTENCE_SEQUENCE",
+      "measurements": {
+        "cycles": 100,
+        "features": 4,
+        "bodies": 2,
+        "placed_instances": 1,
+        "sequence": "edit-save-close-open-edit-save_as-undo-redo-close-open",
+        "reference_metadata": true,
+        "revision_scope": "new session baseline plus one increment per committed mutation"
+      }
+    },
+    {
+      "kind": "PHASE10_SKETCH_BRACKET",
+      "measurements": {
+        "workflow": "sketch-extrude-second_feature-hole-pattern-fillet-expression-upstream_edit-undo-redo-save-close-open-step",
+        "features": 6,
+        "bodies": 1,
+        "before_edit_volume_mm3": 87309.5577302,
+        "after_edit_volume_mm3": 105309.5577302,
+        "step_bytes": 48173,
+        "reopened_editable": true,
+        "step_round_trip": true
+      }
+    },
+    {
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "step_import_25",
+        "cycles": 25,
+        "elapsed_ms": 125,
+        "ms_per_cycle": 5.0,
+        "working_set_baseline_bytes": 34349056,
+        "working_set_after_warm_bytes": 34508800,
+        "working_set_final_bytes": 34287616,
+        "peak_working_set_bytes": 34582528,
+        "private_baseline_bytes": 10125312,
+        "private_after_warm_bytes": 10326016,
+        "private_final_bytes": 10326016,
+        "handles_baseline": 151,
+        "handles_after_warm": 151,
+        "handles_final": 151
+      }
+    },
+    {
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "document_open_close_100",
+        "cycles": 100,
+        "elapsed_ms": 510,
+        "ms_per_cycle": 5.1,
+        "handles_baseline": 151,
+        "handles_after_10": 151,
+        "handles_after_100": 151,
+        "working_set_baseline_bytes": 34406400,
+        "working_set_final_bytes": 34422784,
+        "peak_working_set_bytes": 34582528,
+        "private_final_bytes": 10383360
+      }
+    },
+    {
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "body_create_delete_1000",
+        "cycles": 1000,
+        "elapsed_ms": 674,
+        "ms_per_cycle": 0.67,
+        "handles_baseline": 151,
+        "handles_after_10": 151,
+        "handles_after_1000": 151,
+        "working_set_baseline_bytes": 34430976,
+        "working_set_after_10_bytes": 34435072,
+        "working_set_final_bytes": 51564544,
+        "peak_working_set_bytes": 51564544,
+        "private_baseline_bytes": 10383360,
+        "private_after_10_bytes": 10383360,
+        "private_final_bytes": 27447296
+      }
+    },
+    {
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 20,
+        "working_set_bytes": 45064192,
+        "peak_working_set_bytes": 77475840,
+        "private_bytes": 20791296,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 50,
+        "working_set_bytes": 44875776,
+        "peak_working_set_bytes": 78553088,
+        "private_bytes": 20787200,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation",
+        "cycles": 100,
+        "working_set_bytes": 44855296,
+        "peak_working_set_bytes": 78565376,
+        "private_bytes": 20738048,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_RESOURCE_NATIVE",
+      "measurements": {
+        "scenario": "fresh_sphere_tessellation_100",
+        "cycles": 100,
+        "elapsed_ms": 21358,
+        "ms_per_cycle": 213.58,
+        "working_set_baseline_bytes": 34930688,
+        "working_set_after_warm_bytes": 38395904,
+        "working_set_final_bytes": 44855296,
+        "peak_working_set_bytes": 78565376,
+        "private_baseline_bytes": 10612736,
+        "private_after_warm_bytes": 13709312,
+        "private_final_bytes": 20738048,
+        "handles_baseline": 151,
+        "handles_after_warm": 151,
+        "handles_final": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "sphere_r50_lod1_tris": 10150,
+        "sphere_r50_lod1_ms": 14,
+        "sphere_r50_lod2_tris": 50540,
+        "sphere_r50_lod2_ms": 98,
+        "cyl_r20_h100_lod2_tris": 1004,
+        "cyl_r20_h100_lod2_ms": 4
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "sphere_r200_lod2_tris": 201374,
+        "sphere_r200_lod2_ms": 515
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 200,
+        "triangles": 201374,
+        "tessellation_ms": 506,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 51888128,
+        "peak_working_set_bytes": 116932608,
+        "private_bytes": 27668480,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 2048,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 74211328,
+        "peak_working_set_bytes": 267956224,
+        "private_bytes": 53227520,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "sphere_lod2",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 4794,
+        "windows_process_metrics_available": true,
+        "working_set_bytes": 102920192,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 85573632,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "target": "500k",
+        "radius_mm": 600,
+        "triangles": 604110,
+        "tessellation_ms": 2048,
+        "working_set_bytes": 74211328,
+        "peak_working_set_bytes": 267956224,
+        "private_bytes": 53227520,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "target": "1M",
+        "radius_mm": 1100,
+        "triangles": 1108272,
+        "tessellation_ms": 4794,
+        "working_set_bytes": 102920192,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 85573632,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "hole_features": 40,
+        "feature_count": 41,
+        "body_count": 1,
+        "feature_build_ms": 2272,
+        "recompute_ms": 1003,
+        "save_icad_ms": 38,
+        "icad_bytes": 75552,
+        "load_icad_ms": 265,
+        "final_volume_mm3": 4129212.392
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "baseline",
+        "working_set_bytes": 35500032,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 10641408,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_feature_build",
+        "working_set_bytes": 54648832,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 30085120,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_recompute",
+        "working_set_bytes": 54648832,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 30085120,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_save",
+        "working_set_bytes": 54697984,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 30085120,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "high_feature_chain",
+        "stage": "after_load",
+        "working_set_bytes": 39456768,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 17149952,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 128,
+        "feature_count": 128,
+        "create_bodies_ms": 82,
+        "recompute_bodies": 128,
+        "recompute_ms": 93,
+        "save_icad_ms": 27,
+        "icad_bytes": 32571,
+        "load_icad_ms": 172,
+        "step_export_ms": 190,
+        "step_bytes": 2161008,
+        "step_import_ms": 673,
+        "imported_solids": 128,
+        "total_volume_mm3": 274856.891
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 39657472,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 18001920,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 41422848,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 19030016,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 43458560,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 20656128,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 43978752,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 21131264,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 40513536,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 15409152,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 53956608,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 29454336,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 41033728,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 16109568,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "body_count": 1024,
+        "feature_count": 1024,
+        "create_bodies_ms": 646,
+        "recompute_bodies": 1024,
+        "recompute_ms": 1187,
+        "save_icad_ms": 143,
+        "icad_bytes": 246052,
+        "load_icad_ms": 745,
+        "step_export_ms": 1574,
+        "step_bytes": 18017251,
+        "step_import_ms": 4664,
+        "imported_solids": 1024,
+        "total_volume_mm3": 8982630.672
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "baseline",
+        "working_set_bytes": 38121472,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 13025280,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_create",
+        "working_set_bytes": 59109376,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 34643968,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_recompute",
+        "working_set_bytes": 75657216,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 51994624,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_save",
+        "working_set_bytes": 79888384,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 56295424,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_load",
+        "working_set_bytes": 59113472,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 34975744,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_export",
+        "working_set_bytes": 78344192,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 54956032,
+        "handles": 151
+      }
+    },
+    {
+      "kind": "PHASE10_PERF_NATIVE",
+      "measurements": {
+        "scenario": "many_body_step_roundtrip",
+        "stage": "after_step_import",
+        "working_set_bytes": 95174656,
+        "peak_working_set_bytes": 466989056,
+        "private_bytes": 72568832,
+        "handles": 151
+      }
+    }
+  ],
+  "limits": [
+    "Native checks and hidden Electron use real OCCT8.0.1 static-MD diagnostic binaries, not installed DLL payload",
+    "Three initial hidden golden attempts failed before core readiness; Code Integrity blocked the AppData package-cache executable. Same-hash owned Documents copy passed; no security-policy change",
+    "The 141 GoogleTests exclude separately hosted solver/self-test control gates",
+    "Integrated Sketch->Extrude bracket runs in the native suite; older box bracket remains separate Electron regression",
+    "Whole top-level test:all was not run locally; its pnpm test segment includes all116 workspace unit checks",
+    "Revision checks verify new-session baseline and committed-mutation increments, not restored old revision numbers",
+    "Plugin-owned project persistence is unsupported by current API and not claimed",
+    "Hosted candidate verification and real human audit remain pending"
+  ]
+}
