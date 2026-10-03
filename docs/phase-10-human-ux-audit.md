@@ -1,9 +1,11 @@
 # Phase 10 human beginner UX audit
 
-**Status: RUN — PARTICIPANT REPORT RECEIVED; CORRECTIONS LOCALLY VERIFIED; RETEST REQUIRED.**
-The participant reports completing all eight tasks. Acceptance remains open while
-the revised flows are retested by the participant. Reported friction has been corrected and locally verified. No quantitative time
-or click count was supplied; no values are invented.
+**Status: COMPLETE — ORIGINAL TASKS REPORTED COMPLETE; REVISED UX ACCEPTED.**
+### Participant acceptance — 2026-10-03
+
+The participant requested launch of the revised app, then replied **“ok è ottimo, prosegui”**. The launched ASAR matches the verified revision `0c944b7e9770ba915e3554f9ea9ad721b907bee5`; the visible Kreoda window and process were verified before the participant used it. This accepts the four revised UX flows and authorizes continuation. It is participant feedback, not an independently recorded repeat of all eight original tasks; numeric duration and wrong-click counts remain unrecorded. The earlier explicit deferral and failed usability findings below are preserved as history.
+
+The current exact full Windows run37136496515 passed native144/144, public-native141/141, .NET21/21, workspace133/133, ordinary54/54 including four real native dialogs, crash29/29, ON/OFF controls and production-core restoration, installation/provenance, topology/persistence/current-project reopen/assembly/plugin/resource gates. All117 measurement rows and33 completed steps are retained. Combined with original eight-task completion and accepted corrections, **Phase10 COMPLETE; Ready for Phase11 YES**. Publisher entitlement remains a later distribution requirement and is not inferred from the clean-host installer test.
 
 ## Session
 
@@ -68,7 +70,7 @@ First hosted correction run 7438 failed 50/54 ordinary cases and never reached t
 
 The participant chose **“La provo più tardi”** for the revised app. Acceptance remains open; do not infer acceptance from automated checks.
 
-## Retest and acceptance
+## Historical retest requirements before acceptance
 
 - The four reported corrections are implemented and locally verified; [exact hosted CI passed](evidence/phase10-runtime-37136496515.json).
 - Let the participant repeat the affected flows in the revised app.
@@ -77,5 +79,5 @@ The participant chose **“La provo più tardi”** for the revised app. Accepta
 - Preserve saved/output file paths when supplied. Do not fabricate missing metrics.
 - Accept only after critical reported blockers are resolved and outcomes recorded.
 
-**Observed audit outcome: PARTICIPANT COMPLETED TASKS; LOCAL CORRECTIONS VERIFIED; PARTICIPANT RETEST DEFERRED.**
-**Ready for Phase 11: NO.**
+**Observed audit outcome: ORIGINAL TASKS COMPLETED; REVISED UX ACCEPTED BY PARTICIPANT.**
+**Ready for Phase 11: YES.**

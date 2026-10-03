@@ -1,9 +1,16 @@
 # Phase 10 Completion Report
 
-**Status: PARTIAL**  
-**Ready for Phase 11: NO**
+**Status: COMPLETE**
+
+**Ready for Phase 11: YES**
 
 ## Current evidence
+
+### Participant acceptance — 2026-10-03
+
+The participant requested launch of the revised app, then replied **“ok è ottimo, prosegui”**. The launched ASAR matches the verified revision `0c944b7e9770ba915e3554f9ea9ad721b907bee5`; the visible Kreoda window and process were verified before the participant used it. This accepts the four revised UX flows and authorizes continuation. It is participant feedback, not an independently recorded repeat of all eight original tasks; numeric duration and wrong-click counts remain unrecorded. The earlier explicit deferral and failed usability findings below are preserved as history.
+
+The current exact full Windows run37136496515 passed native144/144, public-native141/141, .NET21/21, workspace133/133, ordinary54/54 including four real native dialogs, crash29/29, ON/OFF controls and production-core restoration, installation/provenance, topology/persistence/current-project reopen/assembly/plugin/resource gates. All117 measurement rows and33 completed steps are retained. Combined with original eight-task completion and accepted corrections, **Phase10 COMPLETE; Ready for Phase11 YES**. Publisher entitlement remains a later distribution requirement and is not inferred from the clean-host installer test.
 
 ### Human UX session — 2026-10-03
 
@@ -314,4 +321,8 @@ HolePattern canonical slots are `[diameterMm, depthMm, count]`; its `refExtra` k
 
 Latest complete hosted `5f9fc9b` passed the actual public `pnpm test:all`: 141 GoogleTests, 21 .NET checks, 116 workspace units, 53 ordinary Electron cases including the real native picker, 29 crash cases, and both ON/OFF solver controls with production-core restoration. Initial gates also passed all 144 native checks. The preceding `6cf1848` initial-boot failure remains retained with its diagnostic limits; the corrected helper is now fully hosted-verified. Packaging, clean-host Squirrel installation, signed payload provenance and the actual installed desktop round trip also passed. All six workload classes have scoped local and hosted baseline rows. Capture overhead, offscreen caps, software rendering and IPC/decode costs are identified; these measurements cannot establish physical-display FPS or isolated mesh residency. Roadmap section 10.7 asks for recorded baselines, not an invented GPU-duration or residency threshold. Human UX acceptance remains incomplete.
 
-**Gate:** Phase 10 is not complete. The complete public unified command, exact assembly/plugin workflows and boot correction are verified on `5f9fc9b`; the preceding failed `6cf1848` run remains preserved. The correction batch also requires its own full hosted command. Keep Phase 11–16 stopped until that command passes and the participant retest accepts the locally verified section 10.8 corrections, then reassess Ready for Phase 11. The Delabella peak correction, runtime servicing procedure and clean-host installation have evidence above. Publisher entitlement remains a distribution requirement.
+**Historical gate before participant acceptance:** Phase 10 was not complete. The complete public unified command, exact assembly/plugin workflows and boot correction are verified on `5f9fc9b`; the preceding failed `6cf1848` run remains preserved. The correction batch also requires its own full hosted command. Keep Phase 11–16 stopped until that command passes and the participant retest accepts the locally verified section 10.8 corrections, then reassess Ready for Phase 11. The Delabella peak correction, runtime servicing procedure and clean-host installation have evidence above. Publisher entitlement remains a distribution requirement.
+
+## Current continuation gate
+
+Participant acceptance above closes the final Phase10 UX gate. All current automated requirements have exact hosted proof; **Ready for Phase11: YES**. Phase11 may proceed under the existing approved roadmap and Slice7 protocol decision.
