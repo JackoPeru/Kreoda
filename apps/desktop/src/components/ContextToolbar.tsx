@@ -4,7 +4,6 @@ import {
   connectedEdgeIds,
   similarFaceIds,
 } from "../interaction/selectSimilar";
-import { selectionAnchorPoint } from "../interaction/selectionAnchor";
 import {
   isSketchId,
   selectionKindOf,
@@ -17,9 +16,7 @@ import { useT } from "../i18n";
 
 /**
  * Context-sensitive tools (§18, §69): exposes ONLY actions valid for the
- * current selection, floating near the selection anchor (UX-2). Position
- * is set imperatively every frame from selectionAnchorPoint() — no React
- * state at pointer frequency (§15). Availability itself comes from the
+ * current selection, docked to the viewport edge. Availability comes from the
  * command registry (same definitions gating toolbar, palette and AI tools).
  */
 export function ContextToolbar({
@@ -44,43 +41,18 @@ export function ContextToolbar({
   const setTool = useToolStore((s) => s.setTool);
   const [moreOpen, setMoreOpen] = useState(false);
   const t = useT();
-  const rootRef = useRef<HTMLDivElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   // Re-render trigger for registry reads touching the sketch store (M12):
   // availability is computed live at render/click from getState().
   useDocumentUiStore((s) => s.sketches.length);
   useDocumentUiStore((s) => s.features.length);
 
-  // Imperative anchor tracking: selection/mesh reads only, no re-renders.
-  // Writes are skipped when the anchor hasn't moved (no per-frame layout).
-  // Y is clamped so the toolbar never leaves the viewport top edge.
   useEffect(() => {
-    let raf = 0;
-    let lastX = NaN;
-    let lastY = NaN;
-    const tick = (): void => {
-      raf = requestAnimationFrame(tick);
-      const el = rootRef.current;
-      if (!el) return;
-      const anchor = selectionAnchorPoint();
-      const x = anchor ? anchor.x : -1;
-      const y = anchor ? Math.max(anchor.y, 64) : -1;
-      if (x === lastX && y === lastY) return;
-      lastX = x;
-      lastY = y;
-      if (anchor) {
-        el.style.left = `${x}px`;
-        el.style.top = `${y}px`;
-        el.style.transform = "translate(-50%,-135%)";
-      } else {
-        // Sketches and off-screen anchors: default docked spot.
-        el.style.left = "50%";
-        el.style.top = "68px";
-        el.style.transform = "translateX(-50%)";
-      }
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
+    if (moreOpen) {
+      moreMenuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus();
+    }
+  }, [moreOpen]);
 
   const kinds = new Set(selectedIds.map(selectionKindOf));
   const candidates: { id: string; label: string; hint: string }[] = [];
@@ -153,6 +125,9 @@ export function ContextToolbar({
     );
   }
   if (candidates.length === 0) return null;
+  const secondaryIds = new Set(["SelectSimilar", "SelectConnected"]);
+  const primary = candidates.filter((candidate) => !secondaryIds.has(candidate.id));
+  const secondary = candidates.filter((candidate) => secondaryIds.has(candidate.id));
 
   const selectLiveIds = (ids: string[]): void => {
     // Drop ids whose body vanished (e.g. post-undo stale mesh).
@@ -227,28 +202,35 @@ export function ContextToolbar({
         <DismissBackdrop onClose={() => setMoreOpen(false)} label={t("ctx.closeMore")} />
       )}
       <div
-        ref={rootRef}
-        className="pointer-events-auto absolute z-40 flex items-center gap-1 rounded-lg border border-white/10 bg-black/70 px-2 py-1 backdrop-blur-[var(--kreoda-surface-blur)]"
-        style={{ left: "50%", top: "68px", transform: "translateX(-50%)" }}
+        className="pointer-events-auto absolute left-1/2 top-[68px] z-40 flex max-w-[calc(100vw-16px)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-lg border border-white/10 bg-black/70 px-2 py-1 backdrop-blur-[var(--kreoda-surface-blur)]"
         data-testid="context-toolbar"
+        role="toolbar"
+        aria-orientation="horizontal"
+        aria-label={t("ctx.toolbar")}
         onKeyDown={(e) => {
-          if (e.key === "Escape") setMoreOpen(false);
+          if (e.key === "Escape" && moreOpen) {
+            e.stopPropagation();
+            setMoreOpen(false);
+            moreButtonRef.current?.focus();
+          }
         }}
       >
-        {candidates.map((c) => (
+        {primary.map((c) => (
           <button
             key={c.id}
             onClick={() => run(c.id)}
             disabled={!isAvailable(c.id)}
             title={c.hint}
-            className={`rounded-md px-2.5 py-1.5 text-xs hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 ${c.id === "PullFace" && activeTool === "pull" ? "bg-white/15 text-white" : "text-white/85"}`}
+            className={`rounded-md px-2 py-1.5 text-xs hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 ${c.id === "PullFace" && activeTool === "pull" ? "bg-white/15 text-white" : "text-white/85"}`}
           >
             {c.label}
           </button>
         ))}
         <div className="relative">
           <button
+            ref={moreButtonRef}
             onClick={() => setMoreOpen((o) => !o)}
+            aria-haspopup="menu"
             aria-label={t("ctx.moreActions")}
             aria-expanded={moreOpen}
             title={t("ctx.moreActionsHint")}
@@ -257,8 +239,42 @@ export function ContextToolbar({
             ⋯
           </button>
           {moreOpen && (
-            <div role="menu" className="kreoda-float-elevated absolute right-0 top-full z-50 mt-2 w-44 p-1.5">
+            <div
+              ref={moreMenuRef}
+              role="menu"
+              aria-label={t("ctx.moreActions")}
+              className="kreoda-float-elevated absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-56 overflow-auto p-1.5"
+              onKeyDown={(event) => {
+                if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const items = [...(moreMenuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? [])];
+                if (items.length === 0) return;
+                const current = items.indexOf(document.activeElement as HTMLButtonElement);
+                const next = event.key === "Home" ? 0
+                  : event.key === "End" ? items.length - 1
+                  : (current + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+                items[next]?.focus();
+              }}
+            >
+              {secondary.map((candidate) => (
+                <button
+                  key={candidate.id}
+                  role="menuitem"
+                  disabled={!isAvailable(candidate.id)}
+                  title={candidate.hint}
+                  data-testid={`context-menu-item-${candidate.id}`}
+                  onClick={() => {
+                    setMoreOpen(false);
+                    run(candidate.id);
+                    moreButtonRef.current?.focus();
+                  }}
+                  className="flex w-full items-center rounded-[var(--kreoda-radius-sm)] px-2.5 py-1.5 text-left text-sm text-white/85 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {candidate.label}
+                </button>
+              ))}
               <button
+                role="menuitem"
                 onClick={() => {
                   setMoreOpen(false);
                   onOpenProps();

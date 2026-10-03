@@ -237,9 +237,11 @@ test("dismiss paths persist; similar select; chip edit commits", async () => {
         ).__kreoda_test.selectFace(f, "box.+Z"),
       { f: boxId },
     );
+    const contextToolbar = window.getByTestId("context-toolbar");
+    await contextToolbar.getByRole("button", { name: "More actions" }).click();
     await window
-      .getByTestId("context-toolbar")
-      .getByRole("button", { name: "Similar" })
+      .getByRole("menu", { name: "More actions" })
+      .getByRole("menuitem", { name: "Similar" })
       .click();
     await expect
       .poll(

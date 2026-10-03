@@ -1,21 +1,15 @@
-// UX-2 E2E: contextual toolbar follows the selection anchor and exposes
-// only valid actions per selection kind (face / edge / sketch / bodies).
+// UX-2 E2E: contextual toolbar stays docked while selection changes and
+// exposes the primary and secondary actions per selection kind.
 // (Properties-drawer-closed-by-default and viewport dimension edit are
 // covered by workspace-shell.spec.ts and phase6-ux.spec.ts T1.)
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 import { HERE, boot, runBar, snapOf, type Snapshot } from "./helpers";
 
-interface Anchor {
-  x: number;
-  y: number;
-  nx: number;
-  ny: number;
-}
-
-test("context toolbar follows the selected face", async () => {
+test("context toolbar stays docked when the selected face changes", async () => {
   const { app, window } = await boot();
   try {
+    await window.setViewportSize({ width: 1536, height: 1024 });
     await runBar(window, "box 100 50 20");
     await expect
       .poll(async () => (await snapOf(window)).bodies.length, {
@@ -41,47 +35,23 @@ test("context toolbar follows the selected face", async () => {
           ).__kreoda_test.selectFace(f, r),
         { f: boxId, r: role },
       );
-    const anchorOf = (role: string): Promise<Anchor> =>
-      window.evaluate(
-        ({ f, r }) =>
-          (
-            window as unknown as {
-              __kreoda_test: {
-                faceScreenPoint: (id: string, role: string) => Anchor;
-              };
-            }
-          ).__kreoda_test.faceScreenPoint(f, r),
-        { f: boxId, r: role },
-      ) as Promise<Anchor>;
-    const toolbarCenter = async (): Promise<{ x: number; y: number }> => {
-      const box = (await window
-        .getByTestId("context-toolbar")
-        .boundingBox())!;
-      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-    };
-
     await selectFace(roleA);
     const bar = window.getByTestId("context-toolbar");
     await expect(bar).toBeVisible({ timeout: 5000 });
-    const a = await anchorOf(roleA);
-    const c1 = await toolbarCenter();
-    // Anchored near the face (above it), not docked at a fixed spot.
-    expect(Math.hypot(c1.x - a.x, c1.y - a.y)).toBeLessThan(250);
+    await expect(bar).toHaveAttribute("role", "toolbar");
+    const first = await bar.boundingBox();
+    expect(first).not.toBeNull();
+    expect(Math.abs(first!.x + first!.width / 2 - 768)).toBeLessThan(8);
+    expect(first!.y).toBeGreaterThanOrEqual(0);
+    expect(first!.y).toBeLessThan(100);
 
     await selectFace(roleB);
-    const b = await anchorOf(roleB);
-    // The anchor loop runs on rAF: poll until the toolbar arrives.
-    await expect
-      .poll(
-        async () => {
-          const c = await toolbarCenter();
-          return Math.hypot(c.x - c1.x, c.y - c1.y);
-        },
-        { timeout: 5000 },
-      )
-      .toBeGreaterThan(5);
-    const c2 = await toolbarCenter();
-    expect(Math.hypot(c2.x - b.x, c2.y - b.y)).toBeLessThan(250);
+    const second = await bar.boundingBox();
+    expect(second).not.toBeNull();
+    expect(Math.abs(second!.x - first!.x)).toBeLessThan(1);
+    expect(Math.abs(second!.y - first!.y)).toBeLessThan(1);
+    expect(Math.abs(second!.width - first!.width)).toBeLessThan(1);
+    expect(Math.abs(second!.height - first!.height)).toBeLessThan(1);
 
     await window.screenshot({ path: path.join(HERE, "context-face.png") });
   } finally {
@@ -123,6 +93,12 @@ test("toolbar actions change with selection kind", async () => {
     );
     await expect(hole).toBeVisible({ timeout: 5000 });
     await expect(round).toHaveCount(0);
+    await expect(bar.getByRole("button", { name: "Similar" })).toHaveCount(0);
+    await bar.getByRole("button", { name: "More actions" }).click();
+    const secondary = window.getByRole("menu", { name: "More actions" });
+    await expect(secondary.getByRole("menuitem", { name: "Similar" })).toBeVisible();
+    await window.keyboard.press("Escape");
+    await expect(secondary).toBeHidden();
 
     // Edge: dress-up tools, no face tools.
     await window.evaluate(
@@ -137,9 +113,11 @@ test("toolbar actions change with selection kind", async () => {
       { f: idA },
     );
     await expect(round).toBeVisible({ timeout: 5000 });
-    await expect(
-      bar.getByRole("button", { name: "Connected" }),
-    ).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Connected" })).toHaveCount(0);
+    await bar.getByRole("button", { name: "More actions" }).click();
+    await expect(secondary.getByRole("menuitem", { name: "Connected" })).toBeVisible();
+    await window.keyboard.press("Escape");
+    await expect(secondary).toBeHidden();
     await expect(hole).toHaveCount(0);
 
     // Sketch: extrude + edit, nothing else.
@@ -219,7 +197,10 @@ test("toolbar actions change with selection kind", async () => {
     );
     await expect(window.getByTestId("properties-drawer")).not.toBeVisible();
     await bar.getByRole("button", { name: "More actions" }).click();
-    await bar.getByRole("button", { name: "Properties" }).click();
+    await bar
+      .getByRole("menu", { name: "More actions" })
+      .getByRole("menuitem", { name: "Properties" })
+      .click();
     await expect(window.getByTestId("properties-drawer")).toBeVisible({
       timeout: 5000,
     });

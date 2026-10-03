@@ -28,15 +28,29 @@ vi.mock("../src/ipc/coreClient", () => ({
       ),
     ),
     requestMesh: vi.fn().mockResolvedValue({
-      positions: new Float32Array(36),
-      normals: new Float32Array(36),
-      indices: new Uint32Array(36),
-      faces: [],
+      positions: new Float32Array([
+        0, 0, 10,
+        100, 0, 10,
+        100, 50, 10,
+        0, 50, 10,
+      ]),
+      normals: new Float32Array(12),
+      indices: new Uint32Array([0, 1, 2, 0, 2, 3]),
+      faces: [
+        { persistentFaceId: "box-1:box.+Z", triangleStart: 0, triangleCount: 2 },
+      ],
       edgeVertices: new Float32Array(0),
       edges: [],
       volumeMm3: 49497.3,
       bboxMm: [0, 0, 0, 100, 50, 10],
-      triangleCount: 12,
+      triangleCount: 2,
+      revision: 2,
+    }),
+    requestFaceInfo: vi.fn().mockResolvedValue({
+      originMm: [0, 0, 10],
+      xAxis: [1, 0, 0],
+      yAxis: [0, 1, 0],
+      normal: [0, 0, 1],
       revision: 2,
     }),
   },
@@ -65,6 +79,7 @@ describe("HoleDialog (§62 Scenario A widgets)", () => {
     useSelectionStore.getState().select("box-1:box.+Z", false);
     render(<HoleDialog onClose={() => {}} />);
     expect(screen.getByText("Make hole")).toBeTruthy();
+    await screen.findByTestId("hole-placement-preview");
     const inputs = screen.getAllByRole("textbox");
     // diameter, X, Y (depth hidden in through mode)
     fireEvent.change(inputs[0]!, { target: { value: "8" } });
@@ -84,6 +99,29 @@ describe("HoleDialog (§62 Scenario A widgets)", () => {
     expect(
       useDocumentUiStore.getState().features.some((f) => f.type === "Hole"),
     ).toBe(true);
+  });
+
+  it("keeps the visible preview Y label aligned with positive and negative input", async () => {
+    useDocumentUiStore.getState().resetDocument("doc-test");
+    useDocumentUiStore.getState().setCoreStatus(true, "test");
+    useDocumentUiStore.getState().setFeatures([box], 1);
+    useSelectionStore.getState().select("box-1:box.+Z", false);
+    render(<HoleDialog onClose={() => {}} />);
+
+    const preview = await screen.findByTestId("hole-placement-preview");
+    const xInput = screen.getByTestId("hole-center-x") as HTMLInputElement;
+    const yInput = screen.getByTestId("hole-center-y") as HTMLInputElement;
+    const label = preview.querySelector("g[aria-label^='Center X'] text");
+    expect(label).not.toBeNull();
+
+    fireEvent.change(xInput, { target: { value: "13" } });
+    for (const y of ["12", "-12"]) {
+      fireEvent.change(yInput, { target: { value: y } });
+      await waitFor(() => {
+        expect(yInput.value).toBe(y);
+        expect(label?.textContent).toBe(`13, ${y}`);
+      });
+    }
   });
 });
 

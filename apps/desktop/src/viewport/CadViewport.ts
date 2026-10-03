@@ -55,6 +55,15 @@ export class CadViewport {
     resolve: (pts: [number, number][] | null) => void;
   } | null = null;
   private refMeasureTimer: ReturnType<typeof setTimeout> | null = null;
+  private onCanvasPointerMove = (event: PointerEvent): void => {
+    if (!this.controls.isNavigating()) this.pick(event, false);
+  };
+  private onCanvasClick = (event: MouseEvent): void => {
+    if (event.button !== 0 || this.controls.consumeClick()) return;
+    // Calibration capture runs before normal picking (§29 Stage A).
+    if (this.refMeasure && this.captureMeasureClick(event)) return;
+    this.pick(event, true);
+  };
 
   constructor(
     private container: HTMLElement,
@@ -75,6 +84,8 @@ export class CadViewport {
     );
     this.controls = new CameraController(this.camera, this.renderer.domElement, {
       onChange: () => this.requestRender(),
+      onFrameAll: () => this.frameAll(),
+      onFrameSelection: () => this.frameSelection(),
     });
 
     const hemi = new THREE.HemisphereLight(0xffffff, 0x1a2230, 0.9);
@@ -90,14 +101,8 @@ export class CadViewport {
     // kreoda-core tessellation via syncMeshes() (§9, §67) — the viewport never
     // builds CAD geometry itself (grid/lights are display helpers only).
 
-    this.renderer.domElement.addEventListener("pointermove", (e) =>
-      this.pick(e, false),
-    );
-    this.renderer.domElement.addEventListener("click", (e) => {
-      // Calibration capture runs before normal picking (§29 Stage A).
-      if (this.refMeasure && this.captureMeasureClick(e)) return;
-      this.pick(e, true);
-    });
+    this.renderer.domElement.addEventListener("pointermove", this.onCanvasPointerMove);
+    this.renderer.domElement.addEventListener("click", this.onCanvasClick);
     window.addEventListener("resize", this.onResize);
     this.loop();
   }
@@ -118,6 +123,73 @@ export class CadViewport {
 
   setPickMode(mode: PickMode): void {
     this.pickMode = mode;
+  }
+
+  /** Fit all actual mesh bounds; empty document keeps the useful origin view. */
+  frameAll(): void {
+    const bounds = new THREE.Box3().makeEmpty();
+    for (const entry of this.bodies.values()) {
+      const geometry = entry.mesh.geometry;
+      if (!geometry.boundingBox) geometry.computeBoundingBox();
+      if (geometry.boundingBox) bounds.union(geometry.boundingBox);
+    }
+    if (bounds.isEmpty()) {
+      this.controls.frameAll();
+      return;
+    }
+    const center = bounds.getCenter(new THREE.Vector3());
+    const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+    const vertical = THREE.MathUtils.degToRad(this.camera.fov / 2);
+    const horizontal = Math.atan(Math.tan(vertical) * Math.max(1e-3, this.camera.aspect));
+    const halfFov = Math.min(vertical, horizontal);
+    const distance = Math.max(60, sphere.radius / Math.sin(halfFov) * 1.15);
+    this.controls.frameAll(distance, center);
+  }
+
+  /** Fit selected body, persistent face triangles, and/or edge polylines. */
+  frameSelection(): void {
+    const bounds = new THREE.Box3().makeEmpty();
+    for (const id of this.selectedIds) {
+      const cut = id.indexOf(":");
+      const featureId = cut < 0 ? id : id.slice(0, cut);
+      const entry = this.bodies.get(featureId);
+      if (!entry) continue;
+      if (cut < 0) {
+        const geometry = entry.mesh.geometry;
+        if (!geometry.boundingBox) geometry.computeBoundingBox();
+        if (geometry.boundingBox) bounds.union(geometry.boundingBox);
+        continue;
+      }
+      const face = entry.faces.find((item) =>
+        item.persistentFaceId === id || item.persistentFaceId === id.slice(cut + 1),
+      );
+      if (face) {
+        const position = entry.mesh.geometry.getAttribute("position");
+        const index = entry.mesh.geometry.getIndex();
+        if (!position) continue;
+        for (let triangle = face.triangleStart; triangle < face.triangleStart + face.triangleCount; triangle++) {
+          for (let vertex = 0; vertex < 3; vertex++) {
+            const vertexIndex = index ? index.getX(triangle * 3 + vertex) : triangle * 3 + vertex;
+            bounds.expandByPoint(new THREE.Vector3().fromBufferAttribute(position, vertexIndex));
+          }
+        }
+        continue;
+      }
+      const positions = entry.edgeLines?.geometry.getAttribute("position");
+      if (!positions) continue;
+      for (let segment = 0; segment < entry.segToEdge.length; segment++) {
+        if (entry.segToEdge[segment] !== id) continue;
+        bounds.expandByPoint(new THREE.Vector3().fromBufferAttribute(positions, segment * 2));
+        bounds.expandByPoint(new THREE.Vector3().fromBufferAttribute(positions, segment * 2 + 1));
+      }
+    }
+    if (bounds.isEmpty()) {
+      this.frameAll();
+      return;
+    }
+    const center = bounds.getCenter(new THREE.Vector3());
+    const radius = bounds.getBoundingSphere(new THREE.Sphere()).radius;
+    this.controls.frameSelection(center, radius);
   }
 
   /**
@@ -402,6 +474,10 @@ export class CadViewport {
 
   setCameraInputEnabled(on: boolean): void {
     this.controls.inputEnabled = on;
+  }
+
+  cancelCameraGesture(): void {
+    this.controls.cancelGesture();
   }
 
   /** Named view preset from the view cube (§23). */
@@ -746,6 +822,9 @@ export class CadViewport {
     this.disposed = true;
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.onResize);
+    this.renderer.domElement.removeEventListener("pointermove", this.onCanvasPointerMove);
+    this.renderer.domElement.removeEventListener("click", this.onCanvasClick);
+    this.controls.dispose();
     if (this.refMeasureTimer) {
       clearTimeout(this.refMeasureTimer);
       this.refMeasureTimer = null;

@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-03",
+  "timezone": "Europe/Rome",
+  "kind": "participant-report",
+  "tasksReportedComplete": 8,
+  "totalDurationReported": "pochissimo tempo",
+  "totalDurationSeconds": null,
+  "wrongClicks": null,
+  "priorCadExperience": "not quantified",
+  "independentActionRecording": false,
+  "participantCompletionStatement": "ho finito tutto, ci ho messo pochissimo tempo, ti ho descritto solo gli attriti che ho trovato",
+  "originalFeedback": "finito, la ui sulla faccia occupa troppo spazio, il modo in cui posso muovermi e ruotare nell'ambiente 3D è macchinoso e per niente intuitivo, non mi fa muovere come vorrei, il foro viene fatto solo al centro e non dove voglio io, vorrei vedere una visualizzazione che mi fa decidere un punto dove farlo, o a mano o con misure specifiche dal bordo o con combinazione di almeno 2 misure dal bordo, la home page ha ancora il tutto in three.js quando ti avevo chiesto si usare invece come sfondo il video presente nei riferimenti ui",
+  "navigationChoice": "Mouse: sinistro ruota, destro sposta, rotella zoom",
+  "acceptance": "open: fixes and participant retest required",
+  "readyForPhase11": false
+}

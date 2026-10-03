@@ -36,6 +36,22 @@ vi.mock("../src/ipc/coreClient", () => ({
 // No WebGL in jsdom: the home 3D lounge falls back to its CSS gradient.
 // Stub getContext so jsdom stays silent (real browsers use real WebGL).
 vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  writable: true,
+  value: vi.fn((media: string) => ({
+    matches: false,
+    media,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }) as unknown as MediaQueryList),
+});
+vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
 
 import { App } from "../src/app/App";
 import { addReferencePlane, loadReferences, serializeReferences, useReferenceStore } from "../src/reference/store";

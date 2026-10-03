@@ -4,41 +4,8 @@ import path from "node:path";
 import { MAIN } from "./helpers";
 
 const screenshots = path.join(import.meta.dirname, "..", "test-results", "home-visual-qa");
-const difference = async (
-  app: import("@playwright/test").ElectronApplication,
-  first: Buffer,
-  second: Buffer,
-  boxes: Record<string, { left: number; top: number; right: number; bottom: number }>,
-) => app.evaluate(({ nativeImage }, { a, b, boxes }) => {
-  // Decode on the CPU in main, avoiding two uploads/readbacks in the busy 3D renderer.
-  const one = nativeImage.createFromBuffer(Buffer.from(a, "base64"));
-  const two = nativeImage.createFromBuffer(Buffer.from(b, "base64"));
-  const { width, height } = one.getSize();
-  if (one.isEmpty() || two.isEmpty() || width !== two.getSize().width || height !== two.getSize().height) {
-    throw new Error("Screenshots must have matching non-empty dimensions");
-  }
-  const firstPixels = one.toBitmap();
-  const secondPixels = two.toBitmap();
-  return Object.fromEntries(Object.entries(boxes).map(([name, box]) => {
-    let difference = 0;
-    let changed = 0;
-    let count = 0;
-    for (let y = box.top; y < box.bottom; y += 2) {
-      for (let x = box.left; x < box.right; x += 2) {
-        const i = (y * width + x) * 4;
-        const delta = Math.abs(firstPixels[i] - secondPixels[i]) +
-          Math.abs(firstPixels[i + 1] - secondPixels[i + 1]) +
-          Math.abs(firstPixels[i + 2] - secondPixels[i + 2]);
-        difference += delta;
-        if (delta >= 36) changed++;
-        count++;
-      }
-    }
-    return [name, { mean: difference / (count * 3), changedFraction: changed / count }];
-  }));
-}, { a: first.toString("base64"), b: second.toString("base64"), boxes });
 
-test("home renders a real 3D studio with accessible responsive controls", async () => {
+test("home uses the supplied video and keeps accessible responsive controls", async () => {
   test.slow();
   fs.mkdirSync(screenshots, { recursive: true });
   const app = await electron.launch({ args: [MAIN, "--no-sandbox", "--lang=en-US"] });
@@ -84,39 +51,22 @@ test("home renders a real 3D studio with accessible responsive controls", async 
     await captureMappedViewport(1280, 720, "home-1280x720.png");
     await window.setViewportSize({ width: 1536, height: 1024 });
 
-    const scene = window.getByTestId("home-scene");
-    await expect(scene).toHaveAttribute("data-scene-ready", "true");
-    await expect(scene).toHaveAttribute("data-baked-k", "video", { timeout: 20000 });
-    await expect(scene.locator("canvas")).toHaveCount(1);
-    await expect(scene).not.toHaveAttribute("data-webgl", "unavailable");
-
-    const resting = await window.screenshot({ path: path.join(screenshots, "home-1536.png"), timeout: 60000 });
-    // Rendering clamps simulation delta and the plant sways periodically.
-    // Wait for a distinct rendered pose; wall time does not identify that pose.
-    await expect.poll(async () => {
-      const animated = await window.screenshot({ path: path.join(screenshots, "home-animated.png"), timeout: 60000 });
-      const motion = await difference(app, resting, animated, {
-        room: { left: 400, top: 95, right: 1120, bottom: 180 },
-        letter: { left: 615, top: 250, right: 925, bottom: 505 },
-        plant: { left: 0, top: 370, right: 180, bottom: 670 },
-      });
-      console.log(`HOME_MOTION ${JSON.stringify(motion)}`);
-      expect(motion.room.mean).toBeLessThan(0.12);
-      return motion.letter.mean > 0.12 && motion.plant.changedFraction > 0.0005;
-    }, { timeout: 30000, intervals: [750] }).toBe(true);
-
-    await window.mouse.move(20, 145);
-    const pointerAway = await window.screenshot({ timeout: 60000 });
-    await window.mouse.move(768, 605);
-    await window.waitForTimeout(120);
-    const pointerNear = await window.screenshot({ path: path.join(screenshots, "home-glow.png"), timeout: 60000 });
-    const pointerMotion = await difference(app, pointerAway, pointerNear, {
-      room: { left: 400, top: 95, right: 1120, bottom: 180 },
-      glow: { left: 590, top: 525, right: 950, bottom: 675 },
-    });
-    console.log(`Pointer ROI: room ${pointerMotion.room.mean.toFixed(3)}, glow ${pointerMotion.glow.mean.toFixed(3)}`);
-    expect(pointerMotion.room.mean).toBeLessThan(0.12);
-    expect(pointerMotion.glow.mean).toBeGreaterThan(0.2);
+    const video = window.getByTestId("home-background-video");
+    await expect(video).toHaveAttribute("src", /home\/assets\/reference-home\.mp4$/);
+    await expect(video).toHaveAttribute("poster", /home\/assets\/reference-home-poster\.png$/);
+    await expect(video).toHaveJSProperty("muted", true);
+    await expect(video).toHaveJSProperty("loop", true);
+    await expect(video).toHaveJSProperty("playsInline", true);
+    await expect.poll(() => video.evaluate(element => (element as HTMLVideoElement).readyState)).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => video.evaluate(element => (element as HTMLVideoElement).videoWidth)).toBeGreaterThan(0);
+    await expect.poll(() => video.evaluate(element => (element as HTMLVideoElement).videoHeight)).toBeGreaterThan(0);
+    await expect.poll(() => video.evaluate(element => {
+      const media = element as HTMLVideoElement;
+      return !media.paused && media.currentTime > 0;
+    })).toBe(true);
+    expect(await video.evaluate(element => getComputedStyle(element).objectFit)).toBe("cover");
+    await expect(window.locator(".home-scene, [data-testid='home-scene'], canvas")).toHaveCount(0);
+    await window.screenshot({ path: path.join(screenshots, "home-video.png"), timeout: 60000 });
 
     await window.setViewportSize({ width: 1280, height: 800 });
     await expect(window.getByTestId("home-screen")).toBeVisible();
@@ -149,31 +99,16 @@ test("home renders a real 3D studio with accessible responsive controls", async 
     await window.emulateMedia({ reducedMotion: "reduce" });
     await window.reload();
     await expect(window.getByTestId("home-screen")).toBeVisible();
-    await expect(window.getByTestId("home-scene")).toHaveAttribute("data-scene-ready", "true");
-    await expect(window.getByTestId("home-scene")).toHaveAttribute("data-motion", "reduced");
-    await expect(window.getByTestId("home-scene")).toHaveAttribute("data-baked-k", "ready");
+    const reducedVideo = window.getByTestId("home-background-video");
+    await expect(reducedVideo).toHaveAttribute("data-reduced-motion", "true");
+    await expect(reducedVideo).toHaveAttribute("poster", /reference-home-poster\.png$/);
+    await expect.poll(() => reducedVideo.evaluate(element => (element as HTMLVideoElement).paused)).toBe(true);
+    const reducedTime = await reducedVideo.evaluate(element => (element as HTMLVideoElement).currentTime);
     await window.waitForTimeout(500);
-    const reduced = await window.screenshot({ timeout: 60000 });
-    await window.mouse.move(20, 145);
-    await window.waitForTimeout(400);
-    await window.mouse.move(768, 605);
-    await window.waitForTimeout(400);
-    expect((await window.screenshot({ timeout: 60000 })).equals(reduced)).toBe(true);
-
-    await window.addInitScript(() => {
-      const prototype = HTMLCanvasElement.prototype as unknown as {
-        getContext: (kind: string, ...args: unknown[]) => unknown;
-      };
-      const getContext = prototype.getContext;
-      prototype.getContext = function (kind, ...args) {
-        if (kind.startsWith("webgl")) return null;
-        return getContext.call(this, kind, ...args);
-      };
-    });
-    await window.reload();
-    await expect(window.getByTestId("home-screen")).toBeVisible();
-    await expect(window.getByTestId("home-scene")).toHaveAttribute("data-webgl", "unavailable");
-    await expect(window.getByTestId("home-reference")).toHaveCount(0);
+    expect(await reducedVideo.evaluate(element => (element as HTMLVideoElement).currentTime)).toBe(reducedTime);
+    await reducedVideo.evaluate(element => element.dispatchEvent(new Event("error")));
+    await expect(window.getByTestId("home-screen")).toHaveAttribute("data-video-error", "true");
+    await expect(reducedVideo).toHaveAttribute("poster", /reference-home-poster\.png$/);
     await expect(window.getByTestId("home-new-project")).toBeVisible();
     console.log(`Home screenshots: ${path.join(screenshots, "home-1920x1080.png")}; ${path.join(screenshots, "home-1280x720.png")}`);
   } finally {

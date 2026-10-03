@@ -10,6 +10,7 @@ import { useReferenceStore } from "../reference/store";
 import { t } from "../i18n";
 
 interface PullSession {
+  pointerId: number;
   featureId: string;
   faceId: string;
   paramName: string;
@@ -113,6 +114,7 @@ export function Viewport() {
       const s = sessionRef.current;
       sessionRef.current = null;
       if (vp) {
+        if (cancelled) vp.cancelCameraGesture();
         vp.setCameraInputEnabled(true);
         vp.showPreviewMesh(null);
       }
@@ -146,6 +148,7 @@ export function Viewport() {
       const len = Math.hypot(dx, dy);
       if (len < 1e-6) return;
       sessionRef.current = {
+        pointerId: e.pointerId,
         featureId: hit.featureId,
         faceId: hit.faceId,
         paramName: resolved.target.paramName,
@@ -160,7 +163,6 @@ export function Viewport() {
         moved: false,
       };
       vp.setCameraInputEnabled(false);
-      el.setPointerCapture(e.pointerId);
       setPullHint(
         t("viewport.dragging", { p: resolved.target.paramName, v: resolved.target.startValueMm.toFixed(1) }),
       );
@@ -169,7 +171,7 @@ export function Viewport() {
     const onPointerMove = (e: PointerEvent): void => {
       const vp = vpRef.current;
       const s = sessionRef.current;
-      if (!vp || !s) return;
+      if (!vp || !s || e.pointerId !== s.pointerId) return;
       const dxPx = e.clientX - s.startClientX;
       const dyPx = e.clientY - s.startClientY;
       if (Math.hypot(dxPx, dyPx) > 3) s.moved = true;
@@ -205,7 +207,7 @@ export function Viewport() {
 
     const onPointerUp = (e: PointerEvent): void => {
       const s = sessionRef.current;
-      if (!s) return;
+      if (!s || e.pointerId !== s.pointerId) return;
       const wasDrag = s.moved;
       const dxPx = e.clientX - s.startClientX;
       const dyPx = e.clientY - s.startClientY;
@@ -232,6 +234,14 @@ export function Viewport() {
       );
     };
 
+    const onPointerCancel = (e: PointerEvent): void => {
+      if (sessionRef.current?.pointerId === e.pointerId) endSession(true);
+    };
+
+    const onLostPointerCapture = (e: PointerEvent): void => {
+      if (sessionRef.current?.pointerId === e.pointerId) endSession(true);
+    };
+
     const onKeyDown = (e: KeyboardEvent): void => {
       if (e.key === "Escape" && sessionRef.current) {
         endSession(true);
@@ -241,11 +251,16 @@ export function Viewport() {
     el.addEventListener("pointerdown", onPointerDown);
     el.addEventListener("pointermove", onPointerMove);
     el.addEventListener("pointerup", onPointerUp);
+    el.addEventListener("pointercancel", onPointerCancel);
+    el.addEventListener("lostpointercapture", onLostPointerCapture);
     window.addEventListener("keydown", onKeyDown);
     return () => {
+      endSession(true);
       el.removeEventListener("pointerdown", onPointerDown);
       el.removeEventListener("pointermove", onPointerMove);
       el.removeEventListener("pointerup", onPointerUp);
+      el.removeEventListener("pointercancel", onPointerCancel);
+      el.removeEventListener("lostpointercapture", onLostPointerCapture);
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [activeTool, select]);
