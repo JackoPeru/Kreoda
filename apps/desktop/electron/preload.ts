@@ -1,5 +1,7 @@
 // Preload — strict narrow typed API only (§48). No fs/child_process/shell.
 import { contextBridge, ipcRenderer } from "electron";
+import type { SessionModelSnapshot, SessionIncrementalDelta } from "@kreoda/protocol";
+import type { SessionSnapshotRequired } from "./session";
 
 export interface KreodaApi {
   invoke: (framedBase64: string) => Promise<string>;
@@ -25,36 +27,12 @@ export interface KreodaApi {
   onUpdateAvailable: (cb: (info: { version: string }) => void) => () => void;
   onCoreCrashed: (cb: (info: { code: number | null }) => void) => () => void;
   onCoreRestarted: (cb: () => void) => () => void;
-  // Phase 11b: authoritative model deltas from other session clients
-  // (Quest/agent/second desktop). The renderer applies them when their
-  // revision is newer than the local projection (§11.6).
-  onSessionDelta: (
-    cb: (delta: {
-      originClientId: string;
-      documentId: string;
-      revision: number;
-      features: {
-        featureId: string;
-        type: string;
-        paramsMm: number[];
-        volumeMm3: number;
-        dependsOn: string[];
-        refExtra: string;
-        expressions: Record<string, string>;
-      }[];
-      sketches: {
-        featureId: string;
-        planeKind: string;
-        points: number;
-        lines: number;
-        circles: number;
-        constraints: number;
-      }[];
-    }) => void,
-  ) => () => void;
+  // Authoritative incremental events and explicit snapshot recovery.
+  onSessionDelta: (cb: (delta: SessionIncrementalDelta | SessionSnapshotRequired) => void) => () => void;
+  sessionSnapshot: () => Promise<SessionModelSnapshot>;
   // Phase 11b: the renderer tells the session relay about mutations it
   // committed itself (toolbar/palette/AI paths bypass the relay socket), so
-  // remote clients get the same delta broadcast. No-op when disabled.
+  // remote clients get the same delta broadcast.
   sessionNote: (
     documentId: string,
     revision: number,
@@ -64,6 +42,7 @@ export interface KreodaApi {
 }
 
 const api: KreodaApi = {
+  sessionSnapshot: () => ipcRenderer.invoke("kreoda:session-snapshot") as Promise<SessionModelSnapshot>,
   invoke: (framedBase64: string) =>
     ipcRenderer.invoke("kreoda:invoke", framedBase64) as Promise<string>,
   coreInfo: () =>
@@ -167,7 +146,7 @@ const api: KreodaApi = {
       "kreoda:session-note",
       documentId,
       revision,
-      // Missing lists request a canonical snapshot; [] means an empty document.
+      // Retained call shape; the service reads canonical native state.
       features,
       sketches,
     ) as Promise<void>,

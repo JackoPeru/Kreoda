@@ -60,6 +60,22 @@ beforeEach(() => {
   vi.mocked(coreClient.requestMesh).mockClear();
 });
 
+it("hydrates only changed visible meshes and preserves an untouched buffer and selection", async () => {
+  const a = box(), b = feat("box-2", "Box", [], [5, 5, 5]);
+  await syncFromCoreList([a, b], 1);
+  const untouched = useDocumentUiStore.getState().meshes["box-2"];
+  vi.mocked(coreClient.requestMesh).mockClear();
+  await syncFromCoreList([{ ...a, paramsMm: [120, 50, 10] }, b], 2, [], ["box-1"]);
+  expect(vi.mocked(coreClient.requestMesh).mock.calls.map(([id]) => id)).toEqual(["box-1"]);
+  expect(useDocumentUiStore.getState().meshes["box-2"]).toBe(untouched);
+});
+
+it("stores the canonical changed sketch model instead of keeping stale coordinates", async () => {
+  const model = { points: [{ id: "p", x: 40, y: 20, fixed: false }], lines: [], circles: [], arcs: [], constraints: [] };
+  await syncFromCoreList([], 3, [{ featureId: "sketch", planeKind: "XY", points: 1, lines: 0, circles: 0, constraints: 0, model }], []);
+  expect(useDocumentUiStore.getState().sketches[0]?.model).toBe(model);
+});
+
 describe("buildBodies (Slice 4 body projection)", () => {
   it("hydrates an inserted predecessor created after its successor with the original tip", async () => {
     const features = [box(), fillet(), hole()];

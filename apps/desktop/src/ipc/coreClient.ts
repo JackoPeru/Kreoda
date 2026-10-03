@@ -5,6 +5,7 @@ import {
   CommandType,
   CoreMeshData,
   PROTOCOL_VERSION,
+  type SketchModel,
   decodeMeshFrame,
   decodeMeshResponse,
   frameMessage,
@@ -53,6 +54,7 @@ export interface SketchSummary {
   lines: number;
   circles: number;
   constraints: number;
+  model?: SketchModel;
 }
 
 function b64encode(bytes: Uint8Array): string {

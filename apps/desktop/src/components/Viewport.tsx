@@ -68,6 +68,7 @@ export function Viewport() {
         vpRef.current?.beginReferenceMeasure(id) ?? Promise.resolve(null),
       cancelReferenceMeasure: () => vpRef.current?.cancelReferenceMeasure(),
       renderStats: () => vpRef.current?.renderStats() ?? null,
+      meshIdentity: (featureId) => vpRef.current?.meshIdentity(featureId) ?? null,
     });
     return () => {
       try {

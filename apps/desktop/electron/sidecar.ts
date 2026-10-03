@@ -106,6 +106,7 @@ export class SidecarManager {
       stubEnv = { ELECTRON_RUN_AS_NODE: "1" };
     }
     this.proc = spawn(cmd, args, {
+      windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, ...stubEnv },
     });

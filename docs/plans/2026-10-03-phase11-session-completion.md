@@ -253,7 +253,20 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    sketch edits, dependent Extrude/Instance invalidation and Undo snapshot
    agreement. Native PID exited. Evidence:
    `docs/evidence/phase11-incremental-local-2026-10-04.json`.
-   Desktop and C# application/recovery remain packet 4b; Phase 11 is incomplete.
+   Packet 4b: Desktop applies patches through one ordered recovery/hydration
+   chain and local snapshot IPC. Only changed/new visible meshes hydrate;
+   unchanged buffers, geometry/BVH, camera and valid selections stay intact.
+   C# negotiates incremental events, maintains a typed model, serializes sends
+   and recovers outside its receive loop. The local service exists without a
+   listener; a foreign transaction blocks local snapshot recovery.
+   Parent rerun: 173 workspace tests, 31 .NET tests, Desktop typecheck/build,
+   .NET probe build (zero warnings/errors) PASS. Hidden Electron/real OCCT
+   verifies remote edit, actual geometry identity, camera/selection and one
+   lost-event recovery with zero GUI input. Compiled C#/real OCCT verifies
+   eight runtime checks, including Undo and lost-event snapshot agreement.
+   Source hashes stayed fixed, instrumented main was restored, owned PIDs
+   exited. Evidence: `docs/evidence/phase11-incremental-clients-local-2026-10-04.json`.
+   Unified Desktop mutation ownership remains packet 8. Phase 11 is incomplete.
 5. Typed commands and generated control contract conformance.
 6. Native semantic geometry, accurate measurements/reference validation.
 7. LAN pairing, trusted devices, revocation and local interface guards.

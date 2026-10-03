@@ -9,6 +9,54 @@ namespace Kreoda.SessionClient.Tests;
 /// events, close-rejection of pending calls.</summary>
 public sealed class SessionClientTests
 {
+    [Fact]
+    public async Task IncrementalModelRecoversGapOutsideReceiveLoopAndNewLineage()
+    {
+        var revision = 0;
+        var session = "session-a";
+        var snapshots = 0;
+        await using var server = new LoopbackWsServer(req =>
+        {
+            if (req.GetProperty("method").GetString() == "hello")
+                return Reply(req, new Dictionary<string, object?> { ["clientId"] = "client-1", ["sessionId"] = session,
+                    ["documentId"] = "doc-phase1", ["capabilities"] = new[] { "operation-replay", "incremental-deltas" } });
+            if (req.GetProperty("method").GetString() == "snapshot")
+            {
+                Interlocked.Increment(ref snapshots);
+                return Reply(req, new Dictionary<string, object?> { ["sessionId"] = session, ["documentId"] = "doc-phase1", ["revision"] = revision,
+                    ["features"] = new[] { new { featureId = "box", width = revision } }, ["sketches"] = Array.Empty<object>(), ["bodies"] = Array.Empty<object>() });
+            }
+            return Reply(req, new Dictionary<string, object?>());
+        });
+        server.Start();
+        await using var client = await BootAsync(server);
+        Assert.Equal(0, client.Model!.Revision);
+        Assert.Equal(1, snapshots);
+        async Task Push(int before, int after, string lineage)
+        {
+            var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Updated(SessionModelUpdate update) { if (update.Model.Revision == after && update.Model.SessionId == lineage) done.TrySetResult(); }
+            client.ModelChanged += Updated;
+            try
+            {
+                await server.PushAsync(JsonSerializer.Serialize(new { @event = "delta", sessionId = lineage, documentId = "doc-phase1", originClientId = "remote", baseRevision = before, newRevision = after, revision = after,
+                    added = Array.Empty<object>(), updated = new[] { new { kind = "feature", id = "box", index = 0, value = new { featureId = "box", width = after } } }, removedIds = Array.Empty<string>(), changedMeshIds = new[] { "box" }, referenceRemaps = Array.Empty<object>(), warnings = Array.Empty<object>() }));
+                await done.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            finally { client.ModelChanged -= Updated; }
+        }
+        await Push(0, 1, session);
+        Assert.Equal(1, snapshots);
+        revision = 4;
+        await Push(3, 4, session);
+        Assert.Equal(2, snapshots); // Receive loop routed the awaited recovery reply.
+        revision = 1; session = "session-b";
+        await Push(0, 1, session);
+        Assert.Equal(3, snapshots);
+        Assert.Equal("session-b", client.SessionId);
+        Assert.Equal(1, client.Model!.Features[0].GetProperty("width").GetInt32());
+    }
+
     private static string Reply(JsonElement req, object payload)
     {
         var id = req.TryGetProperty("requestId", out var r) ? r.GetString() : "?";

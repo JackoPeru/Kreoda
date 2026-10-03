@@ -19,6 +19,7 @@ export type ViewportEvents = {
 };
 
 interface BodyEntry {
+  coreMesh: CoreMeshData;
   mesh: THREE.Mesh;
   faces: { persistentFaceId: string; triangleStart: number; triangleCount: number }[];
   edgeLines: THREE.LineSegments | null;
@@ -671,6 +672,8 @@ export class CadViewport {
   }
 
   upsertBodyMesh(persistentId: string, data: CoreMeshData): void {
+    const existing = this.bodies.get(persistentId);
+    if (existing?.coreMesh === data) return;
     const geometry = this.geometryFromCore(data);
     // One group per persistent face → per-face highlight via material index.
     geometry.clearGroups();
@@ -678,17 +681,18 @@ export class CadViewport {
       geometry.addGroup(f.triangleStart * 3, f.triangleCount * 3, 0);
     }
     geometry.boundsTree = new MeshBVH(geometry);
-    const existing = this.bodies.get(persistentId);
     if (existing) {
       existing.mesh.geometry.dispose();
       existing.mesh.geometry = geometry;
       existing.faces = data.faces;
+      existing.coreMesh = data;
       this.refreshEdgeOverlay(persistentId, existing, data);
     } else {
       const materials = this.makeBodyMaterials();
       const mesh = new THREE.Mesh(geometry, materials);
       mesh.userData.persistentId = persistentId;
       const entry: BodyEntry = {
+        coreMesh: data,
         mesh,
         faces: data.faces,
         edgeLines: null,
@@ -807,6 +811,11 @@ export class CadViewport {
   }
 
   /** Renderer submissions and object counts; CPU time excludes GPU completion. */
+  meshIdentity(featureId: string): { geometryId: string; revision: number } | null {
+    const body = this.bodies.get(featureId);
+    return body ? { geometryId: body.mesh.geometry.uuid, revision: body.coreMesh.revision } : null;
+  }
+
   renderStats() {
     return {
       renderedFrames: this.renderedFrames,

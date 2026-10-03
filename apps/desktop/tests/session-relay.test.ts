@@ -331,6 +331,33 @@ function fakeSidecar(options: {
 }
 
 describe("SessionRelay", () => {
+  it("provides a canonical local snapshot without a network listener", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    const snapshot = await relay.localSnapshot();
+    expect(snapshot.documentId).toBe("doc-phase1");
+    expect(snapshot.revision).toBe(0);
+    expect(snapshot.features).toEqual([]);
+    expect(snapshot.bodies).toEqual([]);
+    expect(snapshot.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(relay.clientCount).toBe(0);
+  });
+
+  it("blocks local recovery while a remote transaction owns uncommitted state", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    const owner = new SessionClient();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await owner.connect(TOKEN, port);
+      await owner.call("txnBegin", { transactionId: "remote-unit" });
+      await expect(relay.localSnapshot()).rejects.toMatchObject({ code: "BUSY" });
+      await owner.call("txnRollback", { transactionId: "remote-unit" });
+      await expect(relay.localSnapshot()).resolves.toMatchObject({ revision: 0 });
+    } finally { owner.closeRaw(); relay.stop(); }
+  });
+
   it("serializes trusted native envelope fields before nested command fields", async () => {
     const fake = fakeSidecar();
     const port = await freePort();

@@ -30,6 +30,7 @@ interface ViewportHandle {
   beginReferenceMeasure: (id: string) => Promise<[number, number][] | null>;
   cancelReferenceMeasure: () => void;
   renderStats: () => ViewportRenderStats | null;
+  meshIdentity: (featureId: string) => { geometryId: string; revision: number } | null;
 }
 
 let handle: ViewportHandle | null = null;
@@ -74,4 +75,8 @@ export function viewportCancelReferenceMeasure(): void {
 
 export function viewportRenderStats(): ViewportRenderStats | null {
   return handle?.renderStats() ?? null;
+}
+
+export function viewportMeshIdentity(featureId: string): { geometryId: string; revision: number } | null {
+  return handle?.meshIdentity(featureId) ?? null;
 }

@@ -17,7 +17,7 @@ import {
 let mainWindow: BrowserWindow | null = null;
 let sidecar: SidecarManager | null = null;
 // Phase 11b: unified session relay (Quest/agent/second-client front for the
-// local authoritative core). Null unless KREODA_SESSION_PORT is set.
+// local authoritative core). Listener is optional; the service always exists.
 let sessionRelay: SessionRelay | null = null;
 
 const isDev = !app.isPackaged;
@@ -87,22 +87,14 @@ async function initSidecar(): Promise<void> {
 app.whenReady().then(() => {
   createWindow();
   void initSidecar();
-  // Phase 11b session relay: inert unless KREODA_SESSION_PORT is set (§11.16:
-  // loopback by default, LAN only via KREODA_SESSION_HOST, token-gated).
-  // KREODA_SESSION_TOKEN pins the pairing token (tests/isolation); otherwise
-  // a one-time token is printed for manual pairing (Quest UI lands later).
+  sessionRelay = new SessionRelay(() => sidecar, (delta: SessionDelta) => {
+    mainWindow?.webContents.send("kreoda:session-delta", delta);
+  });
+  // The local session service exists without a listener. Environment settings
+  // enable the development/test network endpoint; production pairing follows.
   const sessionPort = Number(process.env["KREODA_SESSION_PORT"] ?? "");
   if (Number.isInteger(sessionPort) && sessionPort > 0) {
     const token = process.env["KREODA_SESSION_TOKEN"] ?? randomUUID();
-    if (!process.env["KREODA_SESSION_TOKEN"]) {
-      console.log(`[session] one-time pairing token: ${token}`);
-    }
-    sessionRelay = new SessionRelay(
-      () => sidecar,
-      (delta: SessionDelta) => {
-        mainWindow?.webContents.send("kreoda:session-delta", delta);
-      },
-    );
     try {
       sessionRelay.start({
         port: sessionPort,
@@ -111,7 +103,6 @@ app.whenReady().then(() => {
       });
     } catch (e) {
       console.error("[session] relay failed to start", e);
-      sessionRelay = null;
     }
   }
   // Signed-update check runs after boot; inert without a feed (§61).
@@ -120,6 +111,10 @@ app.whenReady().then(() => {
   }, 5000);
 
   // Typed IPC routing main ⇄ sidecar (§7-§8). Renderer never spawns processes.
+  ipcMain.handle("kreoda:session-snapshot", () => {
+    if (!sessionRelay) throw new Error("session service not running");
+    return sessionRelay.localSnapshot();
+  });
   ipcMain.handle("kreoda:invoke", async (_event, framedBase64: string) => {
     if (!sidecar) throw new Error("geometry engine not running");
     const bytes = Buffer.from(framedBase64, "base64");

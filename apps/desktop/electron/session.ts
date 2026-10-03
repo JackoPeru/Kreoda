@@ -260,6 +260,28 @@ export class SessionRelay {
     return this.clients.size;
   }
 
+  /** Local recovery shares queue order with network mutations; no listener needed. */
+  localSnapshot(): Promise<import("@kreoda/protocol").SessionModelSnapshot> {
+    const run = this.queue.then(async () => {
+      if (this.txn && this.txn.ownerClientId !== "desktop") {
+        throw Object.assign(new Error("another client owns an open transaction"), { code: "BUSY" });
+      }
+      const snapshot = await this.coreSnapshot(this.documentId);
+      const entity = (value: unknown): SessionModelEntity => {
+        const result = asRecord(value);
+        if (!result) throw new Error("snapshot contains a non-object entity");
+        return result;
+      };
+      return {
+        sessionId: this.sessionId, documentId: snapshot.documentId, revision: snapshot.revision,
+        features: snapshot.features.map(entity), sketches: snapshot.sketches.map(entity),
+        bodies: snapshot.bodies.map((body) => ({ ...body })),
+      };
+    });
+    this.queue = run.then(() => {}, () => {});
+    return run;
+  }
+
   start(opts: { port: number; host: string; token: string }): void {
     if (this.server) throw new Error("session relay already running");
     const token = opts.token;

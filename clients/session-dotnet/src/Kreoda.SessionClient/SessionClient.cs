@@ -17,7 +17,12 @@ namespace Kreoda.Session;
 public sealed class SessionClient : IAsyncDisposable
 {
     private readonly ClientWebSocket _ws = new();
-    private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonElement>> _pending = new();
+    private sealed record PendingCall(string Method, TaskCompletionSource<JsonElement> Completion);
+    private readonly ConcurrentDictionary<string, PendingCall> _pending = new();
+    private readonly SemaphoreSlim _sendGate = new(1, 1);
+    private readonly object _updateGate = new();
+    private Task _updates = Task.CompletedTask;
+    private SessionModelState? _model;
     private readonly CancellationTokenSource _loopCts = new();
     private Task? _loop;
     private int _seq;
@@ -30,6 +35,9 @@ public sealed class SessionClient : IAsyncDisposable
         new HashSet<string>(StringComparer.Ordinal);
 
     public event Action<JsonElement>? Delta;
+    public SessionModelState? Model => Volatile.Read(ref _model);
+    public event Action<SessionModelUpdate>? ModelChanged;
+    public event Action<SessionException>? ModelError;
     public event Action<JsonElement>? Selection;
     public event Action? CoreRestarted;
 
@@ -57,7 +65,7 @@ public sealed class SessionClient : IAsyncDisposable
                 ["protocolVersion"] = 1,
                 ["token"] = token,
                 ["clientId"] = client.LogicalClientId,
-                ["capabilities"] = new[] { SessionMethods.OperationReplayCapability },
+                ["capabilities"] = new[] { SessionMethods.OperationReplayCapability, "incremental-deltas" },
             }, ct).ConfigureAwait(false);
             client.ClientId = hello.TryGetProperty("clientId", out var id)
                 ? id.GetString()
@@ -72,6 +80,8 @@ public sealed class SessionClient : IAsyncDisposable
                         .Select(capability => capability.GetString()!)
                         .ToHashSet(StringComparer.Ordinal)
                     : new HashSet<string>(StringComparer.Ordinal);
+            if (client.ServerCapabilities.Contains("incremental-deltas"))
+                await client.SnapshotAsync(hello.TryGetProperty("documentId", out var document) ? document.GetString()! : "doc-phase1", ct).ConfigureAwait(false);
             return client;
         }
         catch
@@ -81,13 +91,22 @@ public sealed class SessionClient : IAsyncDisposable
         }
     }
 
-    public Task<JsonElement> SnapshotAsync(
+    public async Task<JsonElement> SnapshotAsync(
         string documentId = "doc-phase1",
-        CancellationToken ct = default) =>
-        CallAsync(SessionMethods.Snapshot, new Dictionary<string, object?>
+        CancellationToken ct = default)
+    {
+        var reply = await CallAsync(SessionMethods.Snapshot, new Dictionary<string, object?>
         {
             ["documentId"] = documentId,
-        }, ct);
+        }, ct).ConfigureAwait(false);
+        if (ServerCapabilities.Contains("incremental-deltas"))
+        {
+            Task updates;
+            lock (_updateGate) updates = _updates;
+            await updates.WaitAsync(ct).ConfigureAwait(false);
+        }
+        return reply;
+    }
 
     public Task<JsonElement> InvokeAsync(
         InvokeRequest request,
@@ -175,7 +194,7 @@ public sealed class SessionClient : IAsyncDisposable
             operationId = Guid.NewGuid().ToString("D");
         var tcs = new TaskCompletionSource<JsonElement>(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[requestId] = tcs;
+        _pending[requestId] = new(method, tcs);
         try
         {
             var envelope = new Dictionary<string, object?>
@@ -187,11 +206,12 @@ public sealed class SessionClient : IAsyncDisposable
             if (operationId is not null) envelope["operationId"] = operationId;
             if (sessionId is not null) envelope["sessionId"] = sessionId;
             var text = JsonSerializer.Serialize(envelope);
-            await _ws.SendAsync(
-                Encoding.UTF8.GetBytes(text),
-                WebSocketMessageType.Text,
-                endOfMessage: true,
-                ct).ConfigureAwait(false);
+            await _sendGate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                await _ws.SendAsync(Encoding.UTF8.GetBytes(text), WebSocketMessageType.Text, endOfMessage: true, ct).ConfigureAwait(false);
+            }
+            finally { _sendGate.Release(); }
         }
         catch (Exception ex)
         {
@@ -201,7 +221,7 @@ public sealed class SessionClient : IAsyncDisposable
         using (ct.Register(() =>
         {
             if (_pending.TryRemove(requestId, out var p))
-                p.TrySetException(new SessionException("CANCELLED", "session call cancelled"));
+                p.Completion.TrySetException(new SessionException("CANCELLED", "session call cancelled"));
         }))
         {
             return await tcs.Task.ConfigureAwait(false);
@@ -271,12 +291,15 @@ public sealed class SessionClient : IAsyncDisposable
             var root = doc.RootElement;
             if (root.TryGetProperty("requestId", out var idProp) &&
                 idProp.ValueKind == JsonValueKind.String &&
-                _pending.TryRemove(idProp.GetString()!, out var tcs))
+                _pending.TryRemove(idProp.GetString()!, out var pending))
             {
                 if (root.TryGetProperty("ok", out var ok) &&
                     ok.ValueKind == JsonValueKind.True)
                 {
-                    tcs.TrySetResult(root.Clone());
+                    var cloned = root.Clone();
+                    if (pending.Method == SessionMethods.Snapshot && ServerCapabilities.Contains("incremental-deltas"))
+                        QueueUpdate(() => { ApplySnapshot(cloned); return Task.CompletedTask; });
+                    pending.Completion.TrySetResult(cloned);
                 }
                 else
                 {
@@ -288,27 +311,45 @@ public sealed class SessionClient : IAsyncDisposable
                         m.ValueKind == JsonValueKind.String
                         ? m.GetString()!
                         : "session call failed";
-                    tcs.TrySetException(new SessionException(code, message));
+                    pending.Completion.TrySetException(new SessionException(code, message));
                 }
                 return;
             }
             if (root.TryGetProperty("event", out var ev) &&
                 ev.ValueKind == JsonValueKind.String)
             {
-                if (root.TryGetProperty("sessionId", out var sessionId) &&
-                    sessionId.ValueKind == JsonValueKind.String)
-                    SessionId = sessionId.GetString();
                 var cloned = root.Clone();
                 switch (ev.GetString())
                 {
                     case "delta":
-                        Delta?.Invoke(cloned);
+                        QueueUpdate(async () =>
+                        {
+                            if (ServerCapabilities.Contains("incremental-deltas"))
+                            {
+                                var update = Model?.Apply(cloned);
+                                if (update is null || update.Kind == SessionModelUpdateKind.NeedsSnapshot)
+                                    await RecoverModelAsync(cloned.GetProperty("documentId").GetString()!).ConfigureAwait(false);
+                                else if (update.Kind == SessionModelUpdateKind.Applied) PublishModel(update);
+                            }
+                            Delta?.Invoke(cloned);
+                        });
+                        break;
+                    case "snapshot-required":
+                        if (ServerCapabilities.Contains("incremental-deltas"))
+                            QueueUpdate(() => RecoverModelAsync(cloned.GetProperty("documentId").GetString()!));
                         break;
                     case "selection":
-                        Selection?.Invoke(cloned);
+                        QueueUpdate(() => { Selection?.Invoke(cloned); return Task.CompletedTask; });
                         break;
                     case "core-restarted":
-                        CoreRestarted?.Invoke();
+                        QueueUpdate(() =>
+                        {
+                            Volatile.Write(ref _model, null);
+                            if (cloned.TryGetProperty("sessionId", out var restartedSession) && restartedSession.ValueKind == JsonValueKind.String)
+                                SessionId = restartedSession.GetString();
+                            CoreRestarted?.Invoke();
+                            return Task.CompletedTask;
+                        });
                         break;
                 }
             }
@@ -320,8 +361,51 @@ public sealed class SessionClient : IAsyncDisposable
         foreach (var key in _pending.Keys)
         {
             if (_pending.TryRemove(key, out var tcs))
-                tcs.TrySetException(ex);
+                tcs.Completion.TrySetException(ex);
         }
+    }
+
+    private void QueueUpdate(Func<Task> update)
+    {
+        lock (_updateGate)
+            _updates = _updates.ContinueWith(async _ =>
+            {
+                if (_disposed != 0) return;
+                try { await update().ConfigureAwait(false); }
+                catch (Exception error)
+                {
+                    Volatile.Write(ref _model, null);
+                    if (_disposed == 0)
+                    {
+                        try { ModelError?.Invoke(error as SessionException ?? new SessionException("MODEL_SYNC_FAILED", error.Message)); }
+                        catch { /* Subscriber errors cannot stop routing later replies. */ }
+                    }
+                }
+            }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default).Unwrap();
+    }
+
+    private async Task RecoverModelAsync(string documentId)
+    {
+        // CallAsync waits only for the receive loop to route the reply. The
+        // separately queued snapshot application must never be awaited here.
+        var reply = await CallAsync(SessionMethods.Snapshot,
+            new Dictionary<string, object?> { ["documentId"] = documentId }, _loopCts.Token).ConfigureAwait(false);
+        ApplySnapshot(reply);
+    }
+
+    private void ApplySnapshot(JsonElement reply)
+    {
+        var snapshot = SessionModelState.FromSnapshot(reply);
+        var current = Model;
+        if (current is not null && current.SessionId == snapshot.SessionId && current.DocumentId == snapshot.DocumentId && snapshot.Revision <= current.Revision) return;
+        PublishModel(new(SessionModelUpdateKind.Applied, snapshot));
+    }
+
+    private void PublishModel(SessionModelUpdate update)
+    {
+        Volatile.Write(ref _model, update.Model);
+        SessionId = update.Model.SessionId;
+        ModelChanged?.Invoke(update);
     }
 
     public async ValueTask DisposeAsync()
@@ -336,15 +420,15 @@ public sealed class SessionClient : IAsyncDisposable
                 // Close handshake with a bound: a wedged peer must not hang
                 // disposal (found by the close-rejection conformance test).
                 using var closeCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                await _ws.CloseOutputAsync(
-                    WebSocketCloseStatus.NormalClosure, "bye", closeCts.Token);
+                await _sendGate.WaitAsync(closeCts.Token).ConfigureAwait(false);
+                try { await _ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "bye", closeCts.Token).ConfigureAwait(false); }
+                finally { _sendGate.Release(); }
             }
         }
         catch
         {
         }
         _ws.Dispose();
-        _loopCts.Dispose();
         if (_loop is not null)
         {
             try
@@ -355,5 +439,9 @@ public sealed class SessionClient : IAsyncDisposable
             {
             }
         }
+        Task updates;
+        lock (_updateGate) updates = _updates;
+        await updates.ConfigureAwait(false);
+        _loopCts.Dispose();
     }
 }
