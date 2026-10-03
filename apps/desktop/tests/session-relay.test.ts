@@ -298,6 +298,118 @@ function fakeSidecar() {
 }
 
 describe("SessionRelay", () => {
+  it("rejects malformed frames before core dispatch and keeps valid frames working", async () => {
+    const fake = fakeSidecar();
+    const port = PORT + 3;
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+
+    const connect = async (): Promise<WebSocket> => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+      await new Promise<void>((resolve, reject) => {
+        ws.once("open", resolve);
+        ws.once("error", reject);
+      });
+      return ws;
+    };
+    const nextMessage = (ws: WebSocket): Promise<Record<string, unknown>> =>
+      new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("reply timeout")), 1000);
+        ws.once("message", (data) => {
+          clearTimeout(timer);
+          try {
+            resolve(JSON.parse(String(data)) as Record<string, unknown>);
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+    const authenticate = async (ws: WebSocket): Promise<void> => {
+      const reply = nextMessage(ws);
+      ws.send(JSON.stringify({
+        requestId: "hello",
+        method: "hello",
+        params: { protocolVersion: 1, token: TOKEN },
+      }));
+      expect((await reply)["ok"]).toBe(true);
+    };
+    const expectMalformedClose = async (frame: string): Promise<void> => {
+      const ws = await connect();
+      try {
+        await authenticate(ws);
+        const type3Calls = fake.calls.filter((type) => type === 3).length;
+        const closed = new Promise<number>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("socket did not close")), 1000);
+          ws.once("close", (code) => {
+            clearTimeout(timer);
+            resolve(code);
+          });
+        });
+        ws.send(frame);
+        await expect(closed).resolves.toBe(4400);
+        expect(fake.calls.filter((type) => type === 3)).toHaveLength(type3Calls);
+      } finally {
+        ws.close();
+      }
+    };
+
+    try {
+      const mutation = {
+        method: "invoke",
+        params: {
+          documentId: "doc-phase1",
+          type: 3,
+          fields: { featureId: "malformed-box", widthMm: 10, heightMm: 10, depthMm: 10 },
+        },
+      };
+      for (const requestId of [undefined, "", "   ", null, 7]) {
+        await expectMalformedClose(JSON.stringify({ ...mutation, requestId }));
+      }
+      for (const frame of ["{malformed", "null", "[]", "42", '"frame"']) {
+        await expectMalformedClose(frame);
+      }
+
+      const ws = await connect();
+      try {
+        await authenticate(ws);
+        const callsBeforeBadParams = fake.calls.length;
+        for (const [index, params] of [null, [], "text", 7].entries()) {
+          const reply = nextMessage(ws);
+          const requestId = `bad-params-${index}`;
+          ws.send(JSON.stringify({ requestId, method: "snapshot", params }));
+          await expect(reply).resolves.toMatchObject({
+            requestId,
+            ok: false,
+            errorCode: "BAD_PARAMS",
+          });
+        }
+        expect(fake.calls).toHaveLength(callsBeforeBadParams);
+        expect(fake.calls.filter((type) => type === 3)).toHaveLength(0);
+
+        const validReply = nextMessage(ws);
+        ws.send(JSON.stringify({
+          requestId: "valid-command",
+          method: "invoke",
+          params: {
+            documentId: "doc-phase1",
+            type: 3,
+            fields: { featureId: "valid-box", widthMm: 10, heightMm: 10, depthMm: 10 },
+          },
+        }));
+        await expect(validReply).resolves.toMatchObject({
+          requestId: "valid-command",
+          ok: true,
+          featureId: "valid-box",
+        });
+        expect(fake.calls.filter((type) => type === 3)).toHaveLength(1);
+      } finally {
+        ws.close();
+      }
+    } finally {
+      relay.stop();
+    }
+  });
+
   it("hello pairing, snapshot, invoke, undo broadcast, rejects", async () => {
     const fake = fakeSidecar();
     const deltas: unknown[] = [];
