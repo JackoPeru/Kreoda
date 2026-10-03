@@ -1,5 +1,5 @@
 {
-  "status": "CURRENT_LOCAL_AUTOMATED_PASS; fresh Sol SHIP; previous hosted run failed; new full hosted CI pending; participant retest deferred",
+  "status": "LOCAL_AND_HOSTED_AUTOMATED_PASS; participant retest deferred",
   "date": "2026-10-03",
   "baseCommit": "b1836d705b6883b04ac9639c552b2f6d872ea07c",
   "productionAndTestChangesSha256": {
@@ -156,7 +156,7 @@
     "allBuiltRendererAndElectronBytesMatchPackagedArchive": true
   },
   "portableManifest": {
-    "status": "Latest local correction verified; fresh Sol SHIP; new exact full hosted CI pending; participant retest deferred",
+    "status": "Locally verified; fresh Sol SHIP; exact published code hosted CI SUCCESS; participant retest deferred",
     "sourceCopy": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\Kreoda-win32-x64",
     "app": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-ux-20261003-94ac367f10ec4a778a47d986f221dfcb\\Kreoda-win32-x64",
     "sourceCodeBaseline": "b1836d705b6883b04ac9639c552b2f6d872ea07c",
@@ -166,9 +166,14 @@
     "coreSha256": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
     "referenceVideoSha256": "2cd0f274a9f6686c22a30e70e836c57f415e18b4ffa9a4fd2d060cb958c364ed",
     "originalAsarPreserved": true,
-    "publishedCodeRevision": "7438d5036a2c1ee0b7fd2b8d7800b3027b63a72a",
-    "currentHostedRun": "https://github.com/JackoPeru/Kreoda/actions/runs/37120184052",
-    "currentHostedStatus": "FAILURE"
+    "publishedCodeRevision": "0c944b7e9770ba915e3554f9ea9ad721b907bee5",
+    "currentHostedRun": "https://github.com/JackoPeru/Kreoda/actions/runs/37136496515",
+    "currentHostedStatus": "SUCCESS",
+    "precedingHostedFailure": {
+      "codeRevision": "7438d5036a2c1ee0b7fd2b8d7800b3027b63a72a",
+      "run": "https://github.com/JackoPeru/Kreoda/actions/runs/37120184052",
+      "conclusion": "FAILURE"
+    }
   },
   "originalHumanAuditArchiveUnchanged": {
     "path": "C:\\Users\\matte\\Documents\\Codex-tools\\human-audit-5f84f01-7660d864ef894b56a5e30eff6e15dc17\\Kreoda-win32-x64\\resources\\app.asar",
@@ -370,13 +375,10 @@
     "scope": "Actual accumulated diff against b183 plus latest hosted-failure follow-up; source/artifact freeze unchanged before metadata recording; no actionable P1/P2"
   },
   "currentHostedVerification": {
-    "run": "https://github.com/JackoPeru/Kreoda/actions/runs/37120184052",
-    "commit": "7438d5036a2c1ee0b7fd2b8d7800b3027b63a72a",
-    "conclusion": "failure",
-    "evidence": "docs/evidence/phase10-runtime-37120184052-failed.json",
-    "ordinaryPassed": 50,
-    "ordinaryFailed": 4,
-    "crashNotExecuted": true
+    "commit": "0c944b7e9770ba915e3554f9ea9ad721b907bee5",
+    "run": "https://github.com/JackoPeru/Kreoda/actions/runs/37136496515",
+    "conclusion": "success",
+    "evidence": "docs/evidence/phase10-runtime-37136496515.json"
   },
   "priorLocalVerificationBeforeHostedFailure": {
     "unitCounts": {
@@ -536,5 +538,14 @@
     },
     "parentScope": "Quota fallback diagnosis and regression/E2E tests; parent independently reran all units/build/15 hidden cases/package/bundle",
     "workerWrongCheckoutChecks": "First Home follow-up checks accidentally ran in primary and returned131/109; disregarded. Worker corrected cwd,133/111 passed; parent verified all27 prior copied primary file hashes unchanged."
+  },
+  "precedingHostedFailure": {
+    "run": "https://github.com/JackoPeru/Kreoda/actions/runs/37120184052",
+    "commit": "7438d5036a2c1ee0b7fd2b8d7800b3027b63a72a",
+    "conclusion": "failure",
+    "evidence": "docs/evidence/phase10-runtime-37120184052-failed.json",
+    "ordinaryPassed": 50,
+    "ordinaryFailed": 4,
+    "crashNotExecuted": true
   }
 }

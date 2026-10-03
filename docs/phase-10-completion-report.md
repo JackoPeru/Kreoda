@@ -7,7 +7,7 @@
 
 ### Human UX session — 2026-10-03
 
-The participant reports completing all eight tasks in “pochissimo tempo”, without numeric duration or click counts. The real portable window was launched on request; no app input automation drove the participant session. [Original feedback and provenance](evidence/phase10-human-feedback-2026-10-03.json) and [the updated audit record](phase-10-human-ux-audit.md) retain four actionable findings: oversized face UI, cumbersome 3D navigation, undiscoverable arbitrary/edge-dimensioned hole placement, and Home using Three.js instead of the supplied video. Participant chose left-drag orbit, right-drag pan and wheel zoom. Tasks are reported complete; UX acceptance is **OPEN**, with corrections now locally verified and participant retest still required. Missing timing/click counts are not fabricated. Phase 10 remains PARTIAL and Ready for Phase 11 remains NO.
+The participant reports completing all eight tasks in “pochissimo tempo”, without numeric duration or click counts. The real portable window was launched on request; no app input automation drove the participant session. [Original feedback and provenance](evidence/phase10-human-feedback-2026-10-03.json) and [the updated audit record](phase-10-human-ux-audit.md) retain four actionable findings: oversized face UI, cumbersome 3D navigation, undiscoverable arbitrary/edge-dimensioned hole placement, and Home using Three.js instead of the supplied video. Participant chose left-drag orbit, right-drag pan and wheel zoom. Tasks are reported complete; UX acceptance is **OPEN**, with corrections now locally verified and participant retest still required (participant chose to try later). Missing timing/click counts are not fabricated. Phase 10 remains PARTIAL and Ready for Phase 11 remains NO.
 
 ### Local corrections after the participant audit — 2026-10-03
 
@@ -15,19 +15,39 @@ The four requested corrections are implemented and [locally verified on the exac
 
 Parent current verification passed **133 workspace units** (111 desktop, 16 protocol, two SDK, four units), desktop typecheck/build and **15/15 hidden Electron cases in 1.1m**. The expanded suite preserves the full centered-hole/four-fillets/edit/STEP beginner flow, actual second upstream insertion after reopen with native two-hole volume readback, manual/two-edge hole placement, navigation and responsive controls. It also verifies real Chromium missing-video error with a loadable poster and usable project controls, and reduced-motion pause/resume. All 33 built renderer/Electron files match the latest delivered ASAR byte-for-byte; the packaged hidden clone passes real file:// video playback, three mouse gestures, manual native hole placement, editable ICAD and one-current-solid STEP readback. Native/client/protocol source and the original participant app are unchanged.
 
-First hosted correction run7438 failed50/54 ordinary cases and never reached the crash gate; its complete failure evidence is retained. The second-hole async center/input race is fixed by disabling X/Y until placement is ready. Old blank-center/retired Home3D expectations are replaced without reducing the54-case ordinary cohort. New real media probes exposed stale play-promise rejection after reduced-motion pause; a minimal effect cleanup guard fixes it, with a focused previously failing regression. Luna/Max owns the two minimal production fixes; parent owns diagnosis, tests and independent verification. Previous fresh Sol SHIP applies to7438 only; fresh GPT-6-Sol/high **SHIP**; all533 source files and51 artifacts unchanged across review. **A new exact full hosted run remains pending**. Participant explicitly deferred retest: **“La provo più tardi”**. Phase10 remains PARTIAL, Ready11 NO.
+First hosted correction run 7438 failed 50/54 ordinary cases and never reached the crash gate; its complete failure evidence is retained. The second-hole async center/input race is fixed by disabling X/Y until placement is ready. Old blank-center/retired Home3D expectations are replaced without reducing the 54-case ordinary cohort. New real media probes exposed stale play-promise rejection after reduced-motion pause; a minimal effect cleanup guard fixes it, with a focused previously failing regression. Luna/Max owns the two minimal production fixes; parent owns diagnosis, tests and independent verification. Previous fresh Sol SHIP applies to 7438 only; fresh GPT-6-Sol/high **SHIP**; all 533 source files and 51 artifacts unchanged across review. Exact current full hosted CI **SUCCESS**. Participant explicitly deferred retest: **“La provo più tardi”**. Phase 10 remains PARTIAL, Ready for Phase 11 NO.
 
 ### First hosted UX correction run — failure retained
 
-[CI37120184052](evidence/phase10-runtime-37120184052-failed.json) on exact code `7438d5036a2c1ee0b7fd2b8d7800b3027b63a72a` completed **FAILURE**: ordinary50/54 passed, four failed; the public command stopped before the crash gate. Initial native/.NET/workspace, desktop build, packaging, clean-host Squirrel installation and runtime provenance completed successfully. Native/.NET/workspace public-command reruns completed before the ordinary cases.
+[CI 37120184052](evidence/phase10-runtime-37120184052-failed.json) on exact code `7438d5036a2c1ee0b7fd2b8d7800b3027b63a72a` completed **FAILURE**: ordinary 50/54 passed, four failed; the public command stopped before the crash gate. Initial native/.NET/workspace, desktop build, packaging, clean-host Squirrel installation and runtime provenance completed successfully. Native/.NET/workspace public-command reruns completed before the ordinary cases.
 
-Three failures retain obsolete pre-correction UI expectations: blank default hole coordinates and two removed HomeScene3D diagnostics. The history upstream-hole case is a real product regression on the second insertion after reopen: async preview initialization writes X50 during entry of20, yielding X5020 and valid outside-trim rejection. A local real Electron replay captured that exact value with a valid preview; the first insertion, Undo/Redo and reopen passed. X/Y must stay disabled until the preview/default initialization finishes. The local correction and new video probes pass;54 ordinary cases and all native modeling assertions are retained. New exact hosted verification will be required. No timeout increase, retry-to-green or gate bypass is claimed.
+Three failures retain obsolete pre-correction UI expectations: blank default hole coordinates and two removed HomeScene3D diagnostics. The history upstream-hole case is a real product regression on the second insertion after reopen: async preview initialization writes X50 during entry of20, yielding X5020 and valid outside-trim rejection. A local real Electron replay captured that exact value with a valid preview; the first insertion, Undo/Redo and reopen passed. X/Y must stay disabled until the preview/default initialization finishes. The local correction and new video probes pass; 54 ordinary cases and all native modeling assertions are retained. A new exact hosted run was required; the passing follow-up is retained below. No timeout increase, retry-to-green or gate bypass is claimed.
 
-The participant explicitly deferred the new-app retest: **“La provo più tardi”**. Phase10 remains PARTIAL, Ready11 NO.
+The participant explicitly deferred the new-app retest: **“La provo più tardi”**. Phase 10 remains PARTIAL, Ready for Phase 11 NO.
 
-### Verified automated baseline
+### Verified hosted UX corrections — 2026-10-03
 
-Latest complete hosted verification: `5f9fc9bf88ea5cb6e58978a8cb27064fecd97bb9` completed [Windows CI run 36908707407](https://github.com/JackoPeru/Kreoda/actions/runs/36908707407) with **SUCCESS**. The actual public **`pnpm test:all`** passed after packaging and runtime provenance, including the complete isolated crash gate and production-core restoration. The corrected shared boot helper is verified by this full run; the formerly failed main-kill/recompute case passed in 24.3 seconds.
+The exact code revision `0c944b7e9770ba915e3554f9ea9ad721b907bee5` completed [Windows CI 37136496515](https://github.com/JackoPeru/Kreoda/actions/runs/37136496515) with **SUCCESS**. The real public **`pnpm test:all`** passed after packaging, installation and provenance checks; the preceding hosted success below is retained as a historical baseline.
+
+| Gate | Current result |
+| --- | --- |
+| Initial real OCCT checks (141 GoogleTests plus three controls) | 144/144 |
+| Public-command native GoogleTest rerun | 141/141 |
+| .NET, initial and public-command rerun | 21/21 each |
+| Workspace units, initial and public-command rerun (111 desktop, 16 protocol, two SDK, four units) | 133/133 each |
+| Ordinary Electron, including native picker and new quoted-hole case | 54/54, 4.8m |
+| Real Save/Open dialogs within ordinary suite | Four measured steps |
+| Crash recovery | 29/29, 2.2m |
+| Executed ON/OFF solver controls and production-core restoration | Passed; crash gate true/restored true |
+| Package, silent Squirrel installation, installed desktop and signed-runtime provenance | Passed |
+
+[All 117 raw measurement rows and 33 completed steps](evidence/phase10-runtime-37136496515.json) retain exact source/log identity, actual repeated gates, independent renderer termination/recovery and worker/thread scopes. The [retained runtime manifest fields](evidence/native-runtime-0c944b7.json) contain 45 payload files and three valid Microsoft-signed CRTs; downloaded artifact raw SHA256 `f560eae7091e9eb1601d83a4b41969250f11957a473e35f6548a27f6ee076ff7` is recorded separately from Git newline normalization. Hosted native core SHA256 is `4896dd296dfb6ec2a3824b20edc2e4102b0943b12e2d7d31bdc61ea5ba184223`; this DLL payload remains distinct from the local static-MD portable.
+
+The participant explicitly deferred the revised-app retest: **“La provo più tardi”**. The separate updated shortcut is ready and no visible app was launched during these corrections. Human acceptance remains open; **Phase 10 PARTIAL, Ready for Phase 11 NO**.
+
+### Preceding verified automated baseline
+
+Preceding complete hosted verification: `5f9fc9bf88ea5cb6e58978a8cb27064fecd97bb9` completed [Windows CI run 36908707407](https://github.com/JackoPeru/Kreoda/actions/runs/36908707407) with **SUCCESS**. The actual public **`pnpm test:all`** passed after packaging and runtime provenance, including the complete isolated crash gate and production-core restoration. The corrected shared boot helper is verified by this full run; the formerly failed main-kill/recompute case passed in 24.3 seconds.
 
 | Gate | Result |
 | --- | --- |
@@ -45,7 +65,7 @@ Latest complete hosted verification: `5f9fc9bf88ea5cb6e58978a8cb27064fecd97bb9` 
 
 Both complete native persistence/sketch rows are present in the initial and public-command runs. The exact assembly row confirms two independent bodies, one placed instance, cold restart and source edit after reopen with preserved placement; the plugin row confirms registered-command execution, disabled-command refusal, preserved geometry and continued modeling. All 11 renderer deaths independently returned ESRCH followed by distinct positive loaded renderer PIDs and native killed notifications. All 20 dedicated-worker cycles returned to baseline; all 33 OS thread samples were positive, without claiming native worker-role classification. The scripted beginner flow passed in 13,332 ms with two dialogs; it is not the required participant audit. The previously failed `6cf1848` result remains preserved below.
 
-**Remaining acceptance:** roadmap section 10.8 has a participant report; **corrections are locally verified; current hosted CI and participant retest are pending**. The historical baseline public command is green; current complete hosted verification and participant retest remain required before Ready for Phase 11 can become YES. The prepared local portable GUI was launched for the participant session after verifying its unchanged ASAR hash, and production desktop/native source has no changes from the verified `5f84f01` baseline to `5f9fc9b`. Its local static-MD variant remains distinct from the hosted Squirrel payload.
+**Remaining acceptance:** corrections locally and hosted verified; participant retest deferred. The current public command is green; participant retest remains required before Ready for Phase 11 can become YES. The prepared local portable GUI was launched for the participant session after verifying its unchanged ASAR hash, and production desktop/native source has no changes from the verified `5f84f01` baseline to `5f9fc9b`. Its local static-MD variant remains distinct from the hosted Squirrel payload.
 
 ### Preceding current-body export baseline
 
