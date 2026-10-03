@@ -19,6 +19,16 @@ import type { SidecarManager } from "../electron/sidecar";
 import { SessionClient } from "../e2e/ws-test-client";
 
 const TOKEN = "unit-token";
+const LOGICAL_CLIENT_ID = "client-550e8400-e29b-41d4-a716-446655440000";
+const OPERATION_IDS = [
+  "11111111-1111-4111-8111-111111111111",
+  "22222222-2222-4222-8222-222222222222",
+  "33333333-3333-4333-8333-333333333333",
+  "44444444-4444-4444-8444-444444444444",
+  "55555555-5555-4555-8555-555555555555",
+  "66666666-6666-4666-8666-666666666666",
+  "77777777-7777-4777-8777-777777777777",
+] as const;
 
 async function freePort(): Promise<number> {
   const server = createServer();
@@ -60,6 +70,7 @@ function fakeSidecar(options: {
   // Keys present at begin: rollback drops everything added inside the unit.
   let txnBaseline: Set<string> | null = null;
   const calls: number[] = [];
+  const envelopeTexts: string[] = [];
   const b64 = (a: Float32Array | Uint32Array): string =>
     Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString("base64");
   // Two-quad box mesh (top +Z / bottom -Z) for the given owner id.
@@ -102,9 +113,9 @@ function fakeSidecar(options: {
     );
   };
   const invoke = async (frame: Uint8Array): Promise<Uint8Array> => {
-    const envelope = JSON.parse(
-      new TextDecoder().decode(frame.slice(4)),
-    ) as {
+    const envelopeText = new TextDecoder().decode(frame.slice(4));
+    envelopeTexts.push(envelopeText);
+    const envelope = JSON.parse(envelopeText) as {
       requestId: string;
       documentId: string;
       type: number;
@@ -314,11 +325,544 @@ function fakeSidecar(options: {
   return {
     manager: { invoke } as unknown as SidecarManager,
     calls,
+    envelopeTexts,
     features: () => [...features.values()],
   };
 }
 
 describe("SessionRelay", () => {
+  it("serializes trusted native envelope fields before nested command fields", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port);
+      const before = fake.envelopeTexts.length;
+      await client.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: {
+          featureId: "lexical-box",
+          widthMm: 10,
+          heightMm: 10,
+          depthMm: 10,
+          nested: { type: 28, requestId: "nested-request", documentId: "nested-doc", transactionId: "nested-txn", isPreview: true },
+        },
+      }, { sessionId: hello["sessionId"] });
+      const envelopeText = fake.envelopeTexts[before]!;
+      const envelope = JSON.parse(envelopeText) as Record<string, unknown>;
+      const nested = envelope["nested"] as Record<string, unknown>;
+
+      expect(envelope["type"]).toBe(3);
+      expect(envelope["requestId"]).toMatch(/^relay-/);
+      expect(nested["type"]).toBe(28);
+      expect(nested["requestId"]).toBe("nested-request");
+      expect(nested["isPreview"]).toBe(true);
+      expect(envelopeText.indexOf('"protocolVersion":')).toBeLessThan(envelopeText.indexOf('"requestId":"relay-'));
+      expect(envelopeText.indexOf('"requestId":"relay-')).toBeLessThan(envelopeText.indexOf('"documentId":"doc-phase1"'));
+      expect(envelopeText.indexOf('"documentId":"doc-phase1"')).toBeLessThan(envelopeText.indexOf('"type":3'));
+      expect(envelopeText.indexOf('"type":3')).toBeLessThan(envelopeText.indexOf('"transactionId":""'));
+      expect(envelopeText.indexOf('"transactionId":""')).toBeLessThan(envelopeText.indexOf('"nested"'));
+      expect(envelopeText.indexOf('"isPreview":false')).toBeLessThan(envelopeText.indexOf('"nested"'));
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(1);
+      expect(fake.calls.filter((type) => type === 28)).toHaveLength(0);
+    } finally {
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("replays by operationId across request IDs, key order, and changed payloads", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const metadata = {
+        operationId: OPERATION_IDS[0],
+        sessionId: hello["sessionId"],
+      };
+      const original = await client.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "replayed-box", widthMm: 3, heightMm: 4, depthMm: 5 },
+      }, metadata);
+      const replay = await client.call("invoke", {
+        fields: { depthMm: 5, heightMm: 4, widthMm: 3, featureId: "replayed-box" },
+        type: 3,
+        documentId: "doc-phase1",
+      }, metadata);
+
+      expect(replay["requestId"]).not.toBe(original["requestId"]);
+      expect(replay["featureId"]).toBe("replayed-box");
+      expect(replay["revision"]).toBe(original["revision"]);
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(1);
+      await expect(client.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "replayed-box", widthMm: 30, heightMm: 4, depthMm: 5 },
+      }, metadata)).rejects.toMatchObject({ code: "CONFLICT" });
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(1);
+    } finally {
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("treats distinct operation IDs as distinct when requestId is reused", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const sessionId = hello["sessionId"];
+      const requestId = "reused-request-id";
+      const first = await client.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "request-id-first", widthMm: 1, heightMm: 1, depthMm: 1 },
+      }, { operationId: OPERATION_IDS[0], sessionId, requestId });
+      const second = await client.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "request-id-second", widthMm: 2, heightMm: 2, depthMm: 2 },
+      }, { operationId: OPERATION_IDS[1], sessionId, requestId });
+
+      expect(first["featureId"]).toBe("request-id-first");
+      expect(second["featureId"]).toBe("request-id-second");
+      expect(second["revision"]).toBeGreaterThan(first["revision"] as number);
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(2);
+    } finally {
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("keeps requestId-only mutation replay scoped to one connection", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const firstClient = new SessionClient();
+    const resumedClient = new SessionClient();
+    try {
+      const hello = await firstClient.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const metadata = { sessionId: hello["sessionId"], requestId: "legacy-request-id" };
+      const firstParams = {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "legacy-first", widthMm: 1, heightMm: 1, depthMm: 1 },
+      };
+      const first = await firstClient.call("invoke", firstParams, metadata);
+      const sameConnectionReplay = await firstClient.call("invoke", firstParams, metadata);
+      expect(sameConnectionReplay["revision"]).toBe(first["revision"]);
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(1);
+
+      await firstClient.closed();
+      const resumedHello = await resumedClient.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const second = await resumedClient.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "legacy-second", widthMm: 2, heightMm: 2, depthMm: 2 },
+      }, { sessionId: resumedHello["sessionId"], requestId: "legacy-request-id" });
+      expect(second["featureId"]).toBe("legacy-second");
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(2);
+    } finally {
+      firstClient.closeRaw();
+      resumedClient.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("advertises server-supported capabilities, not client offers", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port, undefined, [
+        "operation-replay",
+        "client-only-feature",
+      ]);
+      expect(hello["capabilities"]).toEqual(["operation-replay"]);
+    } finally {
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("shares a pending operation between concurrent identical requests", async () => {
+    let releaseInvoke!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseInvoke = resolve;
+    });
+    let started!: () => void;
+    const invokeStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const fake = fakeSidecar({
+      beforeInvoke: async (type) => {
+        if (type === 3) {
+          started();
+          await gate;
+        }
+      },
+    });
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const metadata = { operationId: OPERATION_IDS[1], sessionId: hello["sessionId"] };
+      const first = client.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "pending-box", widthMm: 3, heightMm: 4, depthMm: 5 },
+      }, metadata);
+      await invokeStarted;
+      const second = client.call("invoke", {
+        fields: { depthMm: 5, featureId: "pending-box", heightMm: 4, widthMm: 3 },
+        type: 3,
+        documentId: "doc-phase1",
+      }, metadata);
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      releaseInvoke();
+      const [firstResult, secondResult] = await Promise.all([first, second]);
+
+      expect(firstResult["featureId"]).toBe("pending-box");
+      expect(secondResult["featureId"]).toBe("pending-box");
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(1);
+      expect(fake.features().map((feature) => feature.featureId)).toEqual(["pending-box"]);
+    } finally {
+      releaseInvoke();
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("replays after disconnect only for the same authenticated logical client", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    const reconnect = new SessionClient();
+    const collision = new SessionClient();
+    const foreign = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const metadata = { operationId: OPERATION_IDS[2], sessionId: hello["sessionId"] };
+      const params = {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "reconnect-box", widthMm: 3, heightMm: 4, depthMm: 5 },
+      };
+      const original = await client.call("invoke", params, metadata);
+      const liveCollision = await collision.connect(TOKEN, port, LOGICAL_CLIENT_ID).then(
+        () => null,
+        (error: unknown) => error,
+      );
+      expect(liveCollision).toMatchObject({ code: "CONFLICT" });
+      await expect(foreign.connect("other-principal", port, LOGICAL_CLIENT_ID)).rejects.toThrow();
+      expect(relay.clientCount).toBe(1);
+
+      await client.closed();
+      const resumedHello = await reconnect.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      expect(resumedHello["clientId"]).toBe(LOGICAL_CLIENT_ID);
+      expect(resumedHello["sessionId"]).toBe(hello["sessionId"]);
+      const replay = await reconnect.call("invoke", params, metadata);
+
+      expect(replay["featureId"]).toBe("reconnect-box");
+      expect(replay["revision"]).toBe(original["revision"]);
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(1);
+    } finally {
+      await client.closed();
+      reconnect.closeRaw();
+      collision.closeRaw();
+      foreign.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("replays transaction begin and consumed preview commit before state guards", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const metadata = (operationId: string) => ({ operationId, sessionId: hello["sessionId"] });
+      const beginParams = { transactionId: "replay-txn" };
+      const begin = await client.call("txnBegin", beginParams, metadata(OPERATION_IDS[3]));
+      const beginReplay = await client.call("txnBegin", beginParams, metadata(OPERATION_IDS[3]));
+      expect(beginReplay["transactionId"]).toBe("replay-txn");
+      expect(fake.calls.filter((type) => type === 27)).toHaveLength(1);
+      const rolledBack = await client.call("txnRollback", beginParams, metadata(OPERATION_IDS[4]));
+      const rollbackReplay = await client.call("txnRollback", beginParams, metadata(OPERATION_IDS[4]));
+      expect(rollbackReplay["transactionId"]).toBe(rolledBack["transactionId"]);
+      expect(fake.calls.filter((type) => type === 29)).toHaveLength(1);
+
+      await client.call("txnBegin", { transactionId: "commit-txn" });
+      const commitParams = { transactionId: "commit-txn" };
+      const commitOperation = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+      const committedTxn = await client.call("txnCommit", commitParams, metadata(commitOperation));
+      const commitReplay = await client.call("txnCommit", commitParams, metadata(commitOperation));
+      expect(commitReplay["transactionId"]).toBe(committedTxn["transactionId"]);
+      expect(fake.calls.filter((type) => type === 28)).toHaveLength(1);
+
+      await client.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "preview-box", widthMm: 10, heightMm: 10, depthMm: 10 },
+      }, metadata(OPERATION_IDS[5]));
+      const preview = await client.call("previewBegin", {
+        featureId: "preview-box",
+        paramName: "widthMm",
+        valueMm: 20,
+      }, metadata(OPERATION_IDS[6]));
+      const previewId = (preview["result"] as Record<string, unknown>)["previewId"];
+      const previewCommitParams = { previewId };
+      const previewCommitOperation = "88888888-8888-4888-8888-888888888888";
+      const beforeCommit = fake.calls.filter((type) => type === 6).length;
+      const committed = await client.call("previewCommit", previewCommitParams, metadata(previewCommitOperation));
+      const replayedCommit = await client.call("previewCommit", previewCommitParams, metadata(previewCommitOperation));
+
+      expect(replayedCommit["revision"]).toBe(committed["revision"]);
+      expect(fake.calls.filter((type) => type === 6)).toHaveLength(beforeCommit + 1);
+      expect(begin["transactionId"]).toBe(beginReplay["transactionId"]);
+    } finally {
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("replays orphan force rollback without repeating its native control call", async () => {
+    let failAutoRollback = true;
+    const fake = fakeSidecar({
+      beforeInvoke: (type) => {
+        if (type === 29 && failAutoRollback) {
+          failAutoRollback = false;
+          throw new Error("simulated rollback transport failure");
+        }
+      },
+    });
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const owner = new SessionClient();
+    const recovery = new SessionClient();
+    try {
+      await owner.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const hello = await recovery.connect(
+        TOKEN,
+        port,
+        "client-660e8400-e29b-41d4-a716-446655440000",
+      );
+      await owner.call("txnBegin", { transactionId: "orphan-txn" });
+      await owner.closed();
+      const failedRollbackDeadline = Date.now() + 500;
+      while (fake.calls.filter((type) => type === 29).length < 1 && Date.now() < failedRollbackDeadline) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+
+      const params = { transactionId: "orphan-txn" };
+      const metadata = {
+        operationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        sessionId: hello["sessionId"],
+      };
+      const rolledBack = await recovery.call("txnForceRollback", params, metadata);
+      const replay = await recovery.call("txnForceRollback", params, metadata);
+      const status = await recovery.call("txnStatus", {});
+
+      expect(rolledBack["transactionId"]).toBe("orphan-txn");
+      expect(replay["transactionId"]).toBe("orphan-txn");
+      expect(fake.calls.filter((type) => type === 29)).toHaveLength(2);
+      const rollbackRequestIds = fake.envelopeTexts
+        .map((text) => JSON.parse(text) as { type: number; requestId: string })
+        .filter((envelope) => envelope.type === 29)
+        .map((envelope) => envelope.requestId);
+      expect(new Set(rollbackRequestIds).size).toBe(2);
+      expect(status["open"]).toBe(false);
+    } finally {
+      await owner.closed();
+      recovery.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("retains replay entries beyond 200 without evicting the first result", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const oldSession = hello["sessionId"] as string;
+      const firstParams = {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "first-of-many", widthMm: 1, heightMm: 1, depthMm: 1 },
+      };
+      const firstMetadata = {
+        operationId: "99999999-9999-4999-8999-999999999999",
+        sessionId: oldSession,
+      };
+      const first = await client.call("invoke", firstParams, firstMetadata);
+      for (let i = 0; i < 205; i += 1) {
+        const operationId = `aaaaaaaa-aaaa-4aaa-8aaa-${i.toString(16).padStart(12, "0")}`;
+        await client.call("invoke", {
+          documentId: "doc-phase1",
+          type: 3,
+          fields: { featureId: `many-${i}`, widthMm: 1, heightMm: 1, depthMm: 1 },
+        }, { operationId, sessionId: oldSession });
+      }
+      const replay = await client.call("invoke", firstParams, firstMetadata);
+      expect(replay["revision"]).toBe(first["revision"]);
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(206);
+    } finally {
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("invalidates old operation and document identities after lineage resets", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const oldSession = hello["sessionId"] as string;
+      const params = {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "before-restart", widthMm: 1, heightMm: 1, depthMm: 1 },
+      };
+      const metadata = { operationId: OPERATION_IDS[0], sessionId: oldSession };
+      await client.call("invoke", params, metadata);
+      const nativeCalls = fake.calls.filter((type) => type === 3).length;
+
+      relay.onSidecarCrashed();
+      const restart = client.events.find((event) => event["event"] === "core-restarted");
+      expect(restart?.["sessionId"]).not.toBe(oldSession);
+      await expect(client.call("invoke", params, metadata))
+        .rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(nativeCalls);
+
+      await relay.noteLocal("doc-phase2", 0, [], []);
+      const replacementDeadline = Date.now() + 500;
+      let replacement = client.events.find((event) =>
+        event["event"] === "delta" && event["documentId"] === "doc-phase2",
+      );
+      while (!replacement && Date.now() < replacementDeadline) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        replacement = client.events.find((event) =>
+          event["event"] === "delta" && event["documentId"] === "doc-phase2",
+        );
+      }
+      expect(replacement?.["sessionId"]).not.toBe(restart?.["sessionId"]);
+      const currentSession = replacement?.["sessionId"];
+      await expect(client.call("snapshot", { documentId: "doc-phase1" }, {
+        sessionId: currentSession,
+      })).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+    } finally {
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("validates operation metadata and rejects queries for another document", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const sessionId = hello["sessionId"] as string;
+      const mutation = {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "metadata-box", widthMm: 1, heightMm: 1, depthMm: 1 },
+      };
+      const before = fake.calls.filter((type) => type === 3).length;
+      await expect(client.call("invoke", mutation, { operationId: "bad-id", sessionId }))
+        .rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await expect(client.call("invoke", mutation, { operationId: OPERATION_IDS[0] }))
+        .rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await expect(client.call("invoke", mutation, {
+        operationId: OPERATION_IDS[0],
+        sessionId: 5,
+      })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await expect(client.call("invoke", mutation, {
+        operationId: OPERATION_IDS[0],
+        sessionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      })).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      await expect(client.call("snapshot", { documentId: "other-doc" }, { sessionId }))
+        .rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      await expect(client.call("getDocumentInfo", { documentId: "other-doc" }, { sessionId }))
+        .rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      expect(fake.calls.filter((type) => type === 3)).toHaveLength(before);
+      expect(fake.calls.filter((type) => type === 26)).toHaveLength(1);
+    } finally {
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
+  it("replays selection and preview begin, update, and cancel without repeating effects", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const meta = (operationId: string) => ({ operationId, sessionId: hello["sessionId"] });
+      await client.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "selection-box", widthMm: 10, heightMm: 10, depthMm: 10 },
+      }, meta("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"));
+      const selectionParams = { ids: ["selection-box:box.+Z"] };
+      await client.call("setSelection", selectionParams, meta("cccccccc-cccc-4ccc-8ccc-cccccccccccc"));
+      await client.call("setSelection", selectionParams, meta("cccccccc-cccc-4ccc-8ccc-cccccccccccc"));
+      expect(client.events.filter((event) => event["event"] === "selection")).toHaveLength(1);
+
+      const previewParams = { featureId: "selection-box", paramName: "widthMm", valueMm: 20 };
+      const preview = await client.call("previewBegin", previewParams, meta("dddddddd-dddd-4ddd-8ddd-dddddddddddd"));
+      const previewId = (preview["result"] as Record<string, unknown>)["previewId"];
+      const previewCount = fake.calls.filter((type) => type === 6).length;
+      await client.call("previewBegin", previewParams, meta("dddddddd-dddd-4ddd-8ddd-dddddddddddd"));
+      expect(fake.calls.filter((type) => type === 6)).toHaveLength(previewCount);
+
+      const updateParams = { previewId, valueMm: 30 };
+      await client.call("previewUpdate", updateParams, meta("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"));
+      const afterUpdate = fake.calls.filter((type) => type === 6).length;
+      await client.call("previewUpdate", updateParams, meta("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"));
+      expect(fake.calls.filter((type) => type === 6)).toHaveLength(afterUpdate);
+
+      const cancelParams = { previewId };
+      await client.call("previewCancel", cancelParams, meta("ffffffff-ffff-4fff-8fff-ffffffffffff"));
+      const cancelReplay = await client.call("previewCancel", cancelParams, meta("ffffffff-ffff-4fff-8fff-ffffffffffff"));
+      expect((cancelReplay["result"] as Record<string, unknown>)["cancelled"]).toBe(true);
+    } finally {
+      client.closeRaw();
+      relay.stop();
+    }
+  });
+
   it("rejects repeat hello and rolls back the real transaction on owner disconnect", async () => {
     const fake = fakeSidecar();
     const port = await freePort();
@@ -464,6 +1008,7 @@ describe("SessionRelay", () => {
         "documentId",
         "type",
         "transactionId",
+        "isPreview",
       ]) {
         await expect(client.call("invoke", {
           documentId: "doc-phase1",
@@ -894,7 +1439,7 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
       })) as unknown as { revision: number };
       expect(committed.revision).toBeGreaterThan(0);
       // A consumed preview is gone: second commit (new requestId) is
-      // NOT_FOUND, while a same-requestId retry would replay via dedup.
+      // NOT_FOUND, while a same-requestId retry would replay from the request envelope cache.
       const again = (await q("previewCommit", {
         previewId: begun.previewId,
       }).catch((e: Error) => e)) as unknown;

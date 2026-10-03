@@ -36,9 +36,21 @@ An additive named `command` method maps registry IDs to native operations;
 legacy integer `invoke` remains compatible but receives the same validation.
 Reject unimplemented commands honestly instead of advertising support.
 Reject fields which override native envelope identity/type/transaction
-metadata; spread user fields before trusted envelope fields. Validate that
+metadata. Serialize trusted envelope keys first and filter reserved user
+keys: the current native parser reads the first lexical occurrence, even
+when a user field contains nested metadata. Validate that
 fields are an object and numeric revisions are finite nonnegative integers.
 Network preview operations use their dedicated lifecycle methods.
+The protected prefix also includes the internal transactionId and isPreview
+flags before arbitrary nested fields; omitted flags mean empty/false.
+Packet 6 also replaces native lexical scalar lookup with top-level typed
+JSON lookup using `nlohmann-json` (header-only vcpkg dependency). The current
+Boost PropertyTree headers are installed but lose number/string/bool type
+information, so they cannot preserve strict numeric validation. Keep the
+existing JSON wire and helper interfaces; malformed/non-object payloads
+reject before dispatch, nested metadata never becomes envelope metadata,
+and quoted numbers remain invalid where strict numeric validation applies.
+Add real native regressions for reordered/nested fields and invalid JSON.
 
 ### Session, ownership and serialization
 
@@ -50,6 +62,8 @@ selection/highlights is explicit. Active preview targets and transactions
 hold real ownership until commit, cancel or disconnect; conflicting clients
 receive BUSY/CONFLICT. One shared serialized mutation entry owns both
 Desktop IPC and network calls. Preserve binary return bytes for Desktop.
+`setSelection`/`clearSelection` use optional `publish: true` to emit shared
+highlight metadata; omitting it changes only that client's selection.
 Read-only queries remain read-only and cannot escape transaction fences.
 Disconnect must roll back an owned transaction without leaking identities.
 Instantiate the shared service even with its network listener disabled;
@@ -105,11 +119,46 @@ send the former full-list delta as a negotiated compatibility fallback.
 New-client runtime acceptance must assert the actual wire event contains no
 complete arrays; do not hide a full-list event behind client projections.
 
+The incremental control event uses `added` and `updated` arrays of entity
+records `{ kind, id, index, value }`: kind is feature, sketch or body; index
+is its position in the authoritative collection, and value is that entity's
+semantic record. Identity is the pair (kind, id), since a sketch summary and
+its feature may share an ID. `removedIds` removes that ID from every entity
+collection. Include `baseRevision`, `newRevision`, compatibility `revision`,
+`sessionId`, `documentId`, `originClientId`, `changedMeshIds`,
+`referenceRemaps` and `warnings`. No complete current collections or tips
+array is present on incremental wire events. The existing FlatBuffers mesh
+delta layout stays compatible; these are JSON control entity records.
+
+Compare semantic values and collection positions. Also mark the mutated
+feature/sketch and its dependency descendants as affected even if summary
+counts and the body tip ID stayed unchanged: changing sketch coordinates
+must invalidate the dependent tip mesh. Include displayed Instance meshes
+whose source was affected. Baseline capture happens before native mutation,
+inside the serialized queue; transaction begin captures the committed
+baseline before its first joined step, and only its terminal result emits.
+If a legacy local notification arrives without a known committed baseline,
+send an explicit snapshot-required event and seed from the current snapshot;
+do not invent a base revision. Packet 8 removes that bypass.
+
+Client application is serialized, including snapshot recovery. Drop only
+duplicates for the same session/document with newRevision at or below the
+current revision; a lineage switch always requires a snapshot. A gap fetches
+the authoritative snapshot and resumes from it. A pure shared TypeScript
+helper validates and patches model entities; Desktop preserves unaffected
+mesh buffers and hydrates only changed/new visible IDs, pruning obsolete
+meshes and selections. Mirror the semantics in C#, with a typed model state
+and recovery outside its WebSocket receive loop so replies remain routable.
+
 ### Semantic geometry and machine API
 
 Keep semantic snapshot projections for document, history and dependencies.
 Count visible body tips for total volume; never sum intermediate features.
 Resolve body IDs to their tip and history for body-scoped queries.
+For document material volume, use the same current solids/occurrences as
+`CollectSolidsCompound` in the exchange pipeline. Include displayed linked
+instances once per occurrence and report that aggregate basis; it is a sum
+of part volumes, not the volume of a boolean union of overlapping parts.
 Add a native read-only session query command, using the next unused wire
 type, for geometric metadata, measurement and B-Rep/reference validation.
 The next unused native type is 30 (`RequestSessionQuery`): method plus
@@ -170,7 +219,21 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    Parent rerun: 134 workspace tests, Desktop typecheck/build, diff check PASS.
    Commit: `6b1f8cf`.
 2. Single hello identity, transaction ownership and disconnect rollback.
+   Parent rerun: 138 workspace tests, Desktop typecheck/build, diff check PASS.
+   Includes disconnect during native begin, hostile envelope fields and
+   blocked raw native transaction controls. Commit: `397c89e`.
+   Follow-up native probe found fields-first serialization can dispatch a
+   nested type instead of the requested type. Parent corrected its earlier
+   ordering specification; correction is required in packet 3.
 3. Operation identity, replay across reconnect, preview/transaction retry.
+   Parent rerun: 152 workspace tests (129 Desktop, 17 protocol, 2 SDK,
+   4 units), 25 .NET tests, Desktop typecheck/build, protocol build and diff
+   check PASS. Real OCCT probe: concurrent CreateBox and reconnect replay
+   execute one native create, consumed preview commit executes once, repeated
+   transaction begin executes once; final one feature has volume 72000 mm3.
+   The isolated native PID exited; loaded source hashes remained unchanged.
+   Evidence: `docs/evidence/phase11-operation-replay-local-2026-10-03.json`.
+   This is packet-level headless evidence, not full Desktop acceptance.
 4. Incremental deltas and Desktop/C# revision-gap recovery.
 5. Typed commands and generated control contract conformance.
 6. Native semantic geometry, accurate measurements/reference validation.
@@ -211,3 +274,5 @@ Command-schema conversion uses the installed Zod v3 schemas with the
 not a broad Zod migration. Native distance and validity use the official
 [OCCT distance API](https://www.occt3d.com/dev/doc/refman/html/class_b_rep_extrema___dist_shape_shape.html)
 and [BRepCheck API](https://occt3d.com/dev/doc/refman/html/class_b_rep_check___analyzer.html).
+Boost documents the [PropertyTree parser's scalar type loss](https://www.boost.org/latest/doc/html/doxygen/namespaceboost_1_1property__tree_1_1json__parser_1aa8344dc0b7987cba89b0630195d7a34d.html),
+which prevents its use as the typed native request parser.

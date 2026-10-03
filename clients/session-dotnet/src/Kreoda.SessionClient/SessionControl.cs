@@ -16,6 +16,7 @@ public static class SessionMethods
     public const string TxnRollback = "txnRollback";
     public const string TxnForceRollback = "txnForceRollback";
     public const string TxnStatus = "txnStatus";
+    public const string OperationReplayCapability = "operation-replay";
 
     public static readonly string[] All =
     [
@@ -31,6 +32,17 @@ public static class SessionMethods
         "listCommands", "getCommandSchema", "getCapabilities",
         "previewBegin", "previewUpdate", "previewCommit", "previewCancel",
     ];
+
+    /// <summary>Methods whose effects are protected by operation replay metadata.</summary>
+    public static readonly string[] OperationReplayMethods =
+    [
+        Invoke, TxnBegin, TxnCommit, TxnRollback, TxnForceRollback,
+        "previewBegin", "previewUpdate", "previewCommit", "previewCancel",
+        "setSelection", "clearSelection",
+    ];
+
+    public static bool SupportsOperationReplay(string method) =>
+        Array.IndexOf(OperationReplayMethods, method) >= 0;
 
     /// <summary>Relay/query-enforced required params per method.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> RequiredParams =

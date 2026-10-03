@@ -14,7 +14,7 @@
 // loopback by default (KREODA_SESSION_HOST opts into LAN); every client
 // must present the pairing token in `hello` or the socket is closed.
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { decodeMeshFrame, frameMessage } from "@kreoda/protocol";
 import type { SidecarManager } from "./sidecar";
@@ -34,6 +34,7 @@ export const SESSION_PROTOCOL_VERSION = 1;
 /** Model delta broadcast to session clients + the local renderer. */
 export interface SessionDelta {
   originClientId: string;
+  sessionId: string;
   documentId: string;
   revision: number;
   features: unknown[];
@@ -51,14 +52,68 @@ export interface SessionDelta {
 }
 
 interface ClientInfo {
+  /** Per-socket key. Never reused after a reconnect. */
   id: string;
+  logicalClientId: string;
+  principalId: string;
   ws: WebSocket;
   clientType: string;
   name: string;
+  capabilities: string[];
 }
 
 interface PendingHello {
   authed: boolean;
+}
+
+interface CachedReply {
+  ok: boolean;
+  payload: Record<string, unknown>;
+}
+
+interface ReplayEntry {
+  fingerprint: string;
+  promise: Promise<CachedReply>;
+  resolve: (reply: CachedReply) => void;
+  settled: boolean;
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const LOGICAL_CLIENT_PATTERN = /^client-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const OPERATION_METHODS = new Set([
+  "invoke",
+  "txnBegin",
+  "txnCommit",
+  "txnRollback",
+  "txnForceRollback",
+  "previewBegin",
+  "previewUpdate",
+  "previewCommit",
+  "previewCancel",
+  "setSelection",
+  "clearSelection",
+]);
+const CORE_ENVELOPE_FIELDS = new Set([
+  "protocolVersion",
+  "requestId",
+  "documentId",
+  "type",
+  "transactionId",
+  "isPreview",
+]);
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
+  }
+  if (typeof value === "object" && value !== null) {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
 }
 
 /** Feature ids touched by one mutation (for §11.13 conflict locks). */
@@ -93,16 +148,21 @@ function mutationFeatures(
 
 export class SessionRelay {
   private server: WebSocketServer | null = null;
+  // Socket and logical client identities are distinct: legacy requestId replay
+  // is per connection; explicit operation replay survives reconnect.
   private clients = new Map<string, ClientInfo>();
+  private clientPrincipals = new Map<string, string>();
+  private sessionId = randomUUID();
   private documentId = "doc-phase1";
   private revisionCache: number | null = null;
   private revisionPending: Promise<number> | null = null;
   // Mutation serialization (§11.13): one core mutation at a time.
   private queue: Promise<void> = Promise.resolve();
   private inFlight = new Set<string>();
-  // Idempotent retries (§11.14): bounded clientId:requestId → result.
-  private static readonly DEDUP_MAX = 200;
-  private dedup = new Map<string, unknown>();
+  // operationId entries live for the complete session/document lineage.
+  private operationReplay = new Map<string, ReplayEntry>();
+  // Legacy requestId replay lasts only until its socket closes.
+  private requestReplay = new Map<string, ReplayEntry>();
   private seq = 0;
   // Client-local selections published as shared metadata (§11.5).
   private selections = new Map<string, string[]>();
@@ -148,6 +208,7 @@ export class SessionRelay {
     if (this.server) throw new Error("session relay already running");
     const token = opts.token;
     if (!token) throw new Error("session relay requires a pairing token");
+    this.sessionId = randomUUID();
     this.server = new WebSocketServer({
       port: opts.port,
       host: opts.host,
@@ -170,16 +231,21 @@ export class SessionRelay {
       }
     }
     this.clients.clear();
+    this.clientPrincipals.clear();
     this.selections.clear();
     this.previews.clear();
     this.txn = null;
+    this.operationReplay.clear();
+    this.requestReplay.clear();
     this.server?.close();
     this.server = null;
   }
   /** Sidecar died/restarted: drop in-flight state; clients resync by revision. */
   onSidecarCrashed(): void {
+    this.sessionId = randomUUID();
     this.inFlight.clear();
-    this.dedup.clear();
+    this.operationReplay.clear();
+    this.requestReplay.clear();
     this.previews.clear();
     this.txn = null;
     this.revisionCache = null;
@@ -188,6 +254,7 @@ export class SessionRelay {
     this.lastSent = null;
     const note = JSON.stringify({
       event: "core-restarted",
+      sessionId: this.sessionId,
       documentId: this.documentId,
     });
     for (const c of this.clients.values()) {
@@ -199,7 +266,7 @@ export class SessionRelay {
    * A mutation committed through a non-relay path (the local renderer's
    * toolbar/palette/AI flows call the sidecar directly). The renderer pings
    * here after every commit so remote clients observe the same delta stream.
-   * Adopt document switches (new lineage: drop dedup/locks), broadcast only
+   * Adopt document switches (new lineage: drop replay/locks), broadcast only
    * when the revision actually advanced.
    */
   async noteLocal(
@@ -211,8 +278,10 @@ export class SessionRelay {
     if (!Number.isFinite(revision) || revision < 0) return;
     if (documentId !== this.documentId) {
       this.documentId = documentId;
+      this.sessionId = randomUUID();
       this.inFlight.clear();
-      this.dedup.clear();
+      this.operationReplay.clear();
+      this.requestReplay.clear();
       this.revisionCache = null;
       this.lastBroadcastRevision = null;
       this.lastSent = null;
@@ -261,7 +330,7 @@ export class SessionRelay {
 
   private handleConnection(ws: WebSocket, token: string): void {
     const hello = { authed: false } as PendingHello;
-    let clientId: string | null = null;
+    let connectionId: string | null = null;
     const timer = setTimeout(() => {
       if (!hello.authed) {
         try {
@@ -272,7 +341,7 @@ export class SessionRelay {
       }
     }, 10000);
     ws.on("message", (data) => {
-      void this.handleMessage(ws, hello, (id) => (clientId = id), data, token)
+      void this.handleMessage(ws, hello, (id) => (connectionId = id), data, token)
         .catch((e: unknown) => {
           console.error("[session] message handler failed", e);
           if (ws.readyState === WebSocket.OPEN) {
@@ -282,15 +351,20 @@ export class SessionRelay {
     });
     const drop = (): void => {
       clearTimeout(timer);
-      if (clientId) {
-        this.clients.delete(clientId);
-        this.selections.delete(clientId);
+      if (connectionId) {
+        const client = this.clients.get(connectionId);
+        this.clients.delete(connectionId);
+        for (const key of this.requestReplay.keys()) {
+          if (key.startsWith(`${connectionId}:`)) this.requestReplay.delete(key);
+        }
+        const clientId = client?.logicalClientId;
+        if (clientId) this.selections.delete(clientId);
         for (const [id, p] of this.previews) {
           if (p.clientId === clientId) this.previews.delete(id);
         }
         // A dead owner must not wedge the core: best-effort rollback of its
         // open unit (recoverable via txnStatus/txnForceRollback if lost).
-        this.autoRollback(clientId);
+        if (clientId) this.autoRollback(clientId);
       }
     };
     ws.on("close", drop);
@@ -302,7 +376,7 @@ export class SessionRelay {
   private async handleMessage(
     ws: WebSocket,
     hello: PendingHello,
-    setClientId: (id: string) => void,
+    setConnectionId: (id: string) => void,
     data: unknown,
     token: string,
   ): Promise<void> {
@@ -310,7 +384,10 @@ export class SessionRelay {
       requestId?: unknown;
       method?: unknown;
       params?: unknown;
+      operationId?: unknown;
+      sessionId?: unknown;
     };
+    let activeReplay: ReplayEntry | null = null;
     try {
       const text = typeof data === "string" ? data : Buffer.from(data as Uint8Array).toString("utf8");
       const parsed: unknown = JSON.parse(text);
@@ -329,6 +406,9 @@ export class SessionRelay {
       return;
     }
     const reply = (ok: boolean, payload: Record<string, unknown>): void => {
+      if (activeReplay && !activeReplay.settled) {
+        this.settleReplay(activeReplay, { ok, payload });
+      }
       if (ws.readyState !== WebSocket.OPEN) return;
       ws.send(JSON.stringify({ requestId, ok, ...payload }));
     };
@@ -373,11 +453,50 @@ export class SessionRelay {
         });
         return;
       }
-      const id = `client-${randomUUID()}`;
+      const hasClientId = Object.prototype.hasOwnProperty.call(params, "clientId");
+      if (
+        hasClientId &&
+        (typeof params["clientId"] !== "string" ||
+          !LOGICAL_CLIENT_PATTERN.test(params["clientId"] as string) ||
+          params["clientId"] === "client-desktop")
+      ) {
+        reply(false, { errorCode: "BAD_PARAMS", error: "clientId must use client-UUID syntax" });
+        return;
+      }
+      const hasCapabilities = Object.prototype.hasOwnProperty.call(params, "capabilities");
+      const rawCapabilities = params["capabilities"];
+      if (
+        hasCapabilities &&
+        (!Array.isArray(rawCapabilities) ||
+          !rawCapabilities.every((capability) =>
+            typeof capability === "string" && capability.trim().length > 0,
+          ))
+      ) {
+        reply(false, { errorCode: "BAD_PARAMS", error: "capabilities must be a string array" });
+        return;
+      }
+      const logicalClientId =
+        typeof params["clientId"] === "string"
+          ? params["clientId"].toLowerCase()
+          : `client-${randomUUID()}`;
+      const principalId = createHash("sha256").update(token).digest("hex");
+      const priorPrincipal = this.clientPrincipals.get(logicalClientId);
+      if (priorPrincipal !== undefined && priorPrincipal !== principalId) {
+        reply(false, { errorCode: "CONFLICT", error: "client identity belongs to another principal" });
+        return;
+      }
+      if ([...this.clients.values()].some((client) => client.logicalClientId === logicalClientId)) {
+        reply(false, { errorCode: "CONFLICT", error: "client identity is already connected" });
+        return;
+      }
+      const id = `socket-${randomUUID()}`;
+      this.clientPrincipals.set(logicalClientId, principalId);
       hello.authed = true;
-      setClientId(id);
+      setConnectionId(id);
       this.clients.set(id, {
         id,
+        logicalClientId,
+        principalId,
         ws,
         clientType:
           typeof params["clientType"] === "string"
@@ -387,11 +506,15 @@ export class SessionRelay {
           typeof params["clientName"] === "string"
             ? (params["clientName"] as string)
             : "",
+        capabilities: Array.isArray(rawCapabilities)
+          ? [...new Set(rawCapabilities as string[])]
+          : [],
       });
       reply(true, {
-        clientId: id,
-        sessionId: `session-${this.documentId}`,
+        clientId: logicalClientId,
+        sessionId: this.sessionId,
         documentId: this.documentId,
+        capabilities: ["operation-replay"],
         revision: await this.currentRevision(),
       });
       return;
@@ -400,24 +523,103 @@ export class SessionRelay {
       reply(false, { errorCode: "NOT_AUTHED", error: "send hello first" });
       return;
     }
-    const clientId = [...this.clients.entries()].find(
-      ([, c]) => c.ws === ws,
-    )?.[0];
-    if (!clientId) {
+    const connection = [...this.clients.entries()].find(([, c]) => c.ws === ws);
+    if (!connection) {
       reply(false, { errorCode: "NOT_AUTHED", error: "send hello first" });
       return;
+    }
+    const [connectionId, clientInfo] = connection;
+    const clientId = clientInfo.logicalClientId;
+
+    const hasSessionId = Object.prototype.hasOwnProperty.call(msg, "sessionId");
+    const hasOperationId = Object.prototype.hasOwnProperty.call(msg, "operationId");
+    if (
+      hasSessionId &&
+      (typeof msg.sessionId !== "string" || !UUID_PATTERN.test(msg.sessionId))
+    ) {
+      reply(false, { errorCode: "BAD_PARAMS", error: "sessionId must be a UUID" });
+      return;
+    }
+    if (
+      hasOperationId &&
+      (typeof msg.operationId !== "string" || !UUID_PATTERN.test(msg.operationId))
+    ) {
+      reply(false, { errorCode: "BAD_PARAMS", error: "operationId must be a UUID" });
+      return;
+    }
+    if (hasOperationId && (!hasSessionId || !OPERATION_METHODS.has(msg.method))) {
+      reply(false, { errorCode: "BAD_PARAMS", error: "operationId requires a mutating method and sessionId" });
+      return;
+    }
+    if (
+      hasSessionId &&
+      (msg.sessionId as string).toLowerCase() !== this.sessionId
+    ) {
+      reply(false, {
+        errorCode: "NEED_FULL_SNAPSHOT",
+        error: "session identity changed; fetch a full snapshot",
+      });
+      return;
+    }
+    const hasDocumentId = Object.prototype.hasOwnProperty.call(params, "documentId");
+    if (
+      hasDocumentId &&
+      (typeof params["documentId"] !== "string" ||
+        (params["documentId"] as string).trim().length === 0)
+    ) {
+      reply(false, { errorCode: "BAD_PARAMS", error: "documentId must be a non-empty string" });
+      return;
+    }
+    const documentId =
+      typeof params["documentId"] === "string"
+        ? (params["documentId"] as string)
+        : this.documentId;
+    if (documentId !== this.documentId) {
+      reply(false, {
+        errorCode: "NEED_FULL_SNAPSHOT",
+        error: "document identity changed; fetch a full snapshot",
+      });
+      return;
+    }
+
+    if (OPERATION_METHODS.has(msg.method)) {
+      const fingerprint = canonicalJson({ method: msg.method, params });
+      const operationId =
+        typeof msg.operationId === "string" ? msg.operationId.toLowerCase() : null;
+      const replayMap = operationId ? this.operationReplay : this.requestReplay;
+      const replayKey = operationId
+        ? JSON.stringify([
+            clientInfo.principalId,
+            clientId,
+            this.sessionId,
+            documentId,
+            operationId,
+          ])
+        : `${connectionId}:${requestId}`;
+      const existing = replayMap.get(replayKey);
+      if (existing) {
+        if (existing.fingerprint !== fingerprint) {
+          reply(false, {
+            errorCode: "CONFLICT",
+            error: "operation identity was already used for a different request",
+          });
+          return;
+        }
+        const cached = await existing.promise;
+        reply(cached.ok, cached.payload);
+        return;
+      }
+      activeReplay = this.createReplayEntry(fingerprint);
+      replayMap.set(replayKey, activeReplay);
     }
 
     try {
       switch (msg.method) {
         case "snapshot": {
           const snap = await this.coreSnapshot(
-            typeof params["documentId"] === "string" &&
-              params["documentId"] !== ""
-              ? (params["documentId"] as string)
-              : this.documentId,
+            documentId,
           );
-          reply(true, snap);
+          reply(true, { ...snap, sessionId: this.sessionId });
           return;
         }
         case "invoke": {
@@ -451,17 +653,10 @@ export class SessionRelay {
           }
           const fields =
             (rawFields as Record<string, unknown> | undefined) ?? {};
-          const reservedFields = [
-            "protocolVersion",
-            "requestId",
-            "documentId",
-            "type",
-            "transactionId",
-          ];
-          if (reservedFields.some((key) => Object.hasOwn(fields, key))) {
+          if ([...CORE_ENVELOPE_FIELDS].some((key) => Object.hasOwn(fields, key))) {
             reply(false, {
               errorCode: "BAD_PARAMS",
-              error: "invoke fields cannot override the core envelope",
+              error: "invoke fields cannot override core envelope or preview metadata",
             });
             return;
           }
@@ -478,7 +673,6 @@ export class SessionRelay {
               : undefined;
           const result = await this.runMutation(
             clientId,
-            requestId as string,
             typeof params["documentId"] === "string" &&
               params["documentId"] !== ""
               ? (params["documentId"] as string)
@@ -504,28 +698,24 @@ export class SessionRelay {
           if (msg.method === "txnBegin") {
             result = await this.txnBegin(
               clientId,
-              requestId as string,
               doc,
               transactionId,
             );
           } else if (msg.method === "txnCommit") {
             result = await this.txnCommit(
               clientId,
-              requestId as string,
               doc,
               transactionId,
             );
           } else if (msg.method === "txnForceRollback") {
             result = await this.txnForceRollback(
               clientId,
-              requestId as string,
               doc,
               transactionId,
             );
           } else {
             result = await this.txnRollback(
               clientId,
-              requestId as string,
               doc,
               transactionId,
             );
@@ -540,7 +730,7 @@ export class SessionRelay {
               ? {
                   transactionId: this.txn.transactionId,
                   ownerClientId: this.txn.ownerClientId,
-                  ownerConnected: this.clients.has(this.txn.ownerClientId),
+                  ownerConnected: this.isLogicalClientConnected(this.txn.ownerClientId),
                 }
               : {}),
           });
@@ -592,6 +782,27 @@ export class SessionRelay {
     return e instanceof Error ? e.message : String(e);
   }
 
+  private createReplayEntry(fingerprint: string): ReplayEntry {
+    let resolve!: (reply: CachedReply) => void;
+    const promise = new Promise<CachedReply>((done) => {
+      resolve = done;
+    });
+    return { fingerprint, promise, resolve, settled: false };
+  }
+
+  private settleReplay(entry: ReplayEntry, reply: CachedReply): void {
+    if (entry.settled) return;
+    entry.settled = true;
+    const payload = JSON.parse(JSON.stringify(reply.payload)) as Record<string, unknown>;
+    entry.resolve({ ok: reply.ok, payload });
+  }
+
+  private isLogicalClientConnected(clientId: string): boolean {
+    return [...this.clients.values()].some(
+      (client) => client.logicalClientId === clientId,
+    );
+  }
+
   private async currentRevision(): Promise<number> {
     if (this.revisionCache !== null) return this.revisionCache;
     if (!this.revisionPending) {
@@ -636,12 +847,20 @@ export class SessionRelay {
   ): Promise<Uint8Array> {
     const sidecar = this.sidecar();
     if (!sidecar) throw new Error("geometry engine not running");
+    const commandFields = Object.fromEntries(
+      Object.entries(fields).filter(([key]) => !CORE_ENVELOPE_FIELDS.has(key)),
+    );
     const envelope = {
-      ...fields,
       protocolVersion: SESSION_PROTOCOL_VERSION,
       requestId: `relay-${++this.seq}`,
       documentId,
       type,
+      transactionId:
+        typeof fields["transactionId"] === "string"
+          ? (fields["transactionId"] as string)
+          : "",
+      isPreview: fields["isPreview"] === true,
+      ...commandFields,
     };
     const framed = frameMessage(
       new TextEncoder().encode(JSON.stringify(envelope)),
@@ -786,7 +1005,6 @@ export class SessionRelay {
         const state = this.previewState(clientId, previewId);
         const result = await this.runMutation(
           clientId,
-          `${previewId}:commit`,
           state.documentId,
           6,
           {
@@ -874,14 +1092,14 @@ export class SessionRelay {
   }
 
   /**
-   * One serialized mutation (§11.13): idempotent on clientId:requestId
-   * (§11.14), fenced by baseRevision (§11.6), conflict-locked per feature.
+   * One serialized mutation (§11.13): replay is handled by the request
+   * envelope before this queue; fence by baseRevision (§11.6), conflict-lock
+   * per feature.
    * Joined transaction steps (opts.joinTxn) skip fencing and broadcast —
    * the commit/rollback publishes the single atomic delta.
    */
   private runMutation(
     clientId: string,
-    requestId: string,
     documentId: string,
     type: number,
     fields: Record<string, unknown>,
@@ -894,12 +1112,8 @@ export class SessionRelay {
     } = {},
   ): Promise<Record<string, unknown>> {
     const run = this.queue.then(async () => {
-      const dedupKey = `${clientId}:${requestId}`;
-      const cached = this.dedup.get(dedupKey);
-      if (cached !== undefined) return cached as Record<string, unknown>;
-
       if (opts.beginTxn) {
-        if (!this.clients.has(opts.beginTxn.ownerClientId)) {
+        if (!this.isLogicalClientConnected(opts.beginTxn.ownerClientId)) {
           const err = new Error("transaction owner disconnected before begin") as Error & {
             code?: string;
           };
@@ -1021,12 +1235,6 @@ export class SessionRelay {
           ...rest,
           revision: this.revisionCache ?? parsed["revision"],
         };
-        this.dedup.set(dedupKey, result);
-        while (this.dedup.size > SessionRelay.DEDUP_MAX) {
-          const oldest = this.dedup.keys().next();
-          if (oldest.done) break;
-          this.dedup.delete(oldest.value);
-        }
         // Server-pushed delta (§11.6): every other client + the renderer.
         // Single-record commits (creates, dimension edits) carry no list —
         // snapshot the committed state so the delta is always complete.
@@ -1108,7 +1316,6 @@ export class SessionRelay {
 
   private async txnBegin(
     clientId: string,
-    requestId: string,
     documentId: string,
     transactionId: string,
   ): Promise<Record<string, unknown>> {
@@ -1119,8 +1326,6 @@ export class SessionRelay {
       err.code = "BAD_PARAMS";
       throw err;
     }
-    const cached = this.dedup.get(`${clientId}:${requestId}`);
-    if (cached !== undefined) return cached as Record<string, unknown>;
     if (this.txn) {
       const err = new Error(
         `transaction ${this.txn.transactionId} already open`,
@@ -1128,7 +1333,7 @@ export class SessionRelay {
       err.code = "TRANSACTION_BUSY";
       throw err;
     }
-    return this.runMutation(clientId, requestId, documentId, 27, {
+    return this.runMutation(clientId, documentId, 27, {
         transactionId,
       },
       null,
@@ -1138,14 +1343,12 @@ export class SessionRelay {
 
   private async txnCommit(
     clientId: string,
-    requestId: string,
     documentId: string,
     transactionId: string,
   ): Promise<Record<string, unknown>> {
     try {
       const result = await this.runMutation(
         clientId,
-        requestId,
         documentId,
         28,
         { transactionId },
@@ -1164,14 +1367,12 @@ export class SessionRelay {
 
   private async txnRollback(
     clientId: string,
-    requestId: string,
     documentId: string,
     transactionId: string,
   ): Promise<Record<string, unknown>> {
     try {
       const result = await this.runMutation(
         clientId,
-        requestId,
         documentId,
         29,
         { transactionId },
@@ -1187,12 +1388,9 @@ export class SessionRelay {
 
   private async txnForceRollback(
     clientId: string,
-    requestId: string,
     documentId: string,
     transactionId: string,
   ): Promise<Record<string, unknown>> {
-    const cached = this.dedup.get(`${clientId}:${requestId}`);
-    if (cached !== undefined) return cached as Record<string, unknown>;
     if (!transactionId) {
       const err = new Error("transactionId is required") as Error & {
         code?: string;
@@ -1209,7 +1407,7 @@ export class SessionRelay {
       err.code = "NO_TRANSACTION";
       throw err;
     }
-    if (this.clients.has(open.ownerClientId)) {
+    if (this.isLogicalClientConnected(open.ownerClientId)) {
       const err = new Error(
         "transaction owner still connected — ask it to roll back",
       ) as Error & { code?: string };
@@ -1218,7 +1416,6 @@ export class SessionRelay {
     }
     const result = await this.runMutation(
       clientId,
-      requestId,
       documentId,
       29,
       { transactionId },
@@ -1235,9 +1432,14 @@ export class SessionRelay {
   private autoRollback(clientId: string): void {
     const open = this.txn;
     if (!open || open.ownerClientId !== clientId) return;
-    void this.runMutation(clientId, `auto-rollback-${open.transactionId}`, this.documentId, 29, {
-      transactionId: open.transactionId,
-    }, null).then(
+    // coreInvokeRaw assigns this internal cleanup a fresh relay-N requestId.
+    void this.runMutation(
+      clientId,
+      this.documentId,
+      29,
+      { transactionId: open.transactionId },
+      null,
+    ).then(
       () => {
         if (this.txn?.transactionId === open.transactionId) this.txn = null;
       },
@@ -1298,6 +1500,7 @@ export class SessionRelay {
     };
     const delta: SessionDelta = {
       originClientId,
+      sessionId: this.sessionId,
       documentId,
       revision,
       features,
@@ -1308,8 +1511,8 @@ export class SessionRelay {
       changedMeshIds: [...changedTips],
       disappearedIds,
     };
-    for (const [id, c] of this.clients) {
-      if (id === originClientId) continue;
+    for (const c of this.clients.values()) {
+      if (c.logicalClientId === originClientId) continue;
       if (c.ws.readyState === WebSocket.OPEN) {
         c.ws.send(JSON.stringify({ event: "delta", ...delta }));
       }

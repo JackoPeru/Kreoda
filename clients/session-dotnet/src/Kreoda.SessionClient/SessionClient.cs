@@ -24,6 +24,10 @@ public sealed class SessionClient : IAsyncDisposable
     private int _disposed;
 
     public string? ClientId { get; private set; }
+    public string? LogicalClientId { get; private set; }
+    public string? SessionId { get; private set; }
+    public IReadOnlySet<string> ServerCapabilities { get; private set; } =
+        new HashSet<string>(StringComparer.Ordinal);
 
     public event Action<JsonElement>? Delta;
     public event Action<JsonElement>? Selection;
@@ -33,14 +37,16 @@ public sealed class SessionClient : IAsyncDisposable
     {
     }
 
-    /// <summary>Connect and pair with the relay (wrong token ⇒ socket closed).</summary>
+    /// <summary>Connect; supply logicalClientId after ct to resume a logical client.</summary>
     public static async Task<SessionClient> ConnectAsync(
         Uri wsUri,
         string token,
         string clientType,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? logicalClientId = null)
     {
         var client = new SessionClient();
+        client.LogicalClientId = (logicalClientId ?? $"client-{Guid.NewGuid():D}").ToLowerInvariant();
         await client._ws.ConnectAsync(wsUri, ct).ConfigureAwait(false);
         client._loop = Task.Run(() => client.ReceiveLoopAsync(client._loopCts.Token));
         try
@@ -50,10 +56,22 @@ public sealed class SessionClient : IAsyncDisposable
                 ["clientType"] = clientType,
                 ["protocolVersion"] = 1,
                 ["token"] = token,
+                ["clientId"] = client.LogicalClientId,
+                ["capabilities"] = new[] { SessionMethods.OperationReplayCapability },
             }, ct).ConfigureAwait(false);
             client.ClientId = hello.TryGetProperty("clientId", out var id)
                 ? id.GetString()
                 : null;
+            client.SessionId = hello.TryGetProperty("sessionId", out var sessionId)
+                ? sessionId.GetString()
+                : null;
+            client.ServerCapabilities = hello.TryGetProperty("capabilities", out var capabilities) &&
+                capabilities.ValueKind == JsonValueKind.Array
+                    ? capabilities.EnumerateArray()
+                        .Where(capability => capability.ValueKind == JsonValueKind.String)
+                        .Select(capability => capability.GetString()!)
+                        .ToHashSet(StringComparer.Ordinal)
+                    : new HashSet<string>(StringComparer.Ordinal);
             return client;
         }
         catch
@@ -130,7 +148,9 @@ public sealed class SessionClient : IAsyncDisposable
     public async Task<JsonElement> CallAsync(
         string method,
         IDictionary<string, object?> @params,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? operationId = null,
+        string? expectedSessionId = null)
     {
         bool open;
         try
@@ -144,17 +164,29 @@ public sealed class SessionClient : IAsyncDisposable
         if (!open)
             throw new SessionException("NOT_CONNECTED", "session socket is not open");
         var requestId = $"cs-{Interlocked.Increment(ref _seq)}";
+        var sessionId = expectedSessionId ?? SessionId;
+        if (operationId is not null && !ServerCapabilities.Contains(SessionMethods.OperationReplayCapability))
+            throw new SessionException("NOT_IMPLEMENTED", "server does not support operation replay");
+        if (operationId is not null && sessionId is null)
+            throw new SessionException("BAD_PARAMS", "operation replay requires a session id");
+        if (operationId is null && sessionId is not null &&
+            ServerCapabilities.Contains(SessionMethods.OperationReplayCapability) &&
+            SessionMethods.SupportsOperationReplay(method))
+            operationId = Guid.NewGuid().ToString("D");
         var tcs = new TaskCompletionSource<JsonElement>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         _pending[requestId] = tcs;
         try
         {
-            var text = JsonSerializer.Serialize(new Dictionary<string, object?>
+            var envelope = new Dictionary<string, object?>
             {
                 ["requestId"] = requestId,
                 ["method"] = method,
                 ["params"] = @params,
-            });
+            };
+            if (operationId is not null) envelope["operationId"] = operationId;
+            if (sessionId is not null) envelope["sessionId"] = sessionId;
+            var text = JsonSerializer.Serialize(envelope);
             await _ws.SendAsync(
                 Encoding.UTF8.GetBytes(text),
                 WebSocketMessageType.Text,
@@ -174,6 +206,21 @@ public sealed class SessionClient : IAsyncDisposable
         {
             return await tcs.Task.ConfigureAwait(false);
         }
+    }
+
+    /// <summary>Resend one mutation with its original operation and session identity.</summary>
+    public Task<JsonElement> ReplayOperationAsync(
+        string method,
+        IDictionary<string, object?> @params,
+        string operationId,
+        string expectedSessionId,
+        CancellationToken ct = default)
+    {
+        if (!SessionMethods.SupportsOperationReplay(method))
+            throw new ArgumentException("method does not support operation replay", nameof(method));
+        if (!ServerCapabilities.Contains(SessionMethods.OperationReplayCapability))
+            throw new SessionException("NOT_IMPLEMENTED", "server does not support operation replay");
+        return CallAsync(method, @params, ct, operationId, expectedSessionId);
     }
 
     private async Task ReceiveLoopAsync(CancellationToken ct)
@@ -248,6 +295,9 @@ public sealed class SessionClient : IAsyncDisposable
             if (root.TryGetProperty("event", out var ev) &&
                 ev.ValueKind == JsonValueKind.String)
             {
+                if (root.TryGetProperty("sessionId", out var sessionId) &&
+                    sessionId.ValueKind == JsonValueKind.String)
+                    SessionId = sessionId.GetString();
                 var cloned = root.Clone();
                 switch (ev.GetString())
                 {

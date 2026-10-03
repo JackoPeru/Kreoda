@@ -21,6 +21,8 @@ public sealed class SessionClientTests
     private static string HelloReply(JsonElement req) => Reply(req, new Dictionary<string, object?>
     {
         ["clientId"] = "client-1",
+        ["sessionId"] = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        ["capabilities"] = new[] { "operation-replay" },
         ["revision"] = 0,
     });
 
@@ -42,8 +44,9 @@ public sealed class SessionClientTests
                 "hello" => Reply(req, new Dictionary<string, object?>
                 {
                     ["clientId"] = "client-1",
-                    ["sessionId"] = "session-doc-phase1",
+                    ["sessionId"] = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
                     ["documentId"] = "doc-phase1",
+                    ["capabilities"] = new[] { "operation-replay" },
                     ["revision"] = 0,
                 }),
                 "snapshot" => Reply(req, new Dictionary<string, object?>
@@ -163,12 +166,14 @@ public sealed class SessionClientTests
         await server.PushAsync(JsonSerializer.Serialize(new Dictionary<string, object?>
         {
             ["event"] = "core-restarted",
+            ["sessionId"] = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
         }));
         await Task.Delay(500);
         Assert.Single(deltas);
         Assert.Equal(7, deltas[0].GetProperty("revision").GetInt32());
         Assert.Single(selections);
         Assert.Equal(1, restarted);
+        Assert.Equal("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", client.SessionId);
     }
 
     [Fact]

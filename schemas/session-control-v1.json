@@ -3,12 +3,12 @@
   "protocolVersion": 1,
   "transport": "WebSocket JSON text frames (both directions). No binary frames on this plane.",
   "envelope": {
-    "request": { "requestId": "required non-empty string", "method": "required string", "params": "optional object (default {})" },
+    "request": { "requestId": "required non-empty string", "method": "required string", "params": "optional object (default {})", "optional": ["operationId", "sessionId"] },
     "okReply": { "requestId": "string", "ok": true, "plus": "method-specific payload" },
     "errReply": { "requestId": "string", "ok": false, "errorCode": "required string", "error": "required string" }
   },
   "methods": [
-    { "method": "hello", "required": ["token", "protocolVersion"], "optional": ["clientType", "clientName"], "reply": "flat {clientId, sessionId, documentId, revision}; wrong token closes the socket (no reply)" },
+    { "method": "hello", "required": ["token", "protocolVersion"], "optional": ["clientType", "clientName", "clientId", "capabilities"], "reply": "flat {clientId, sessionId, documentId, revision, capabilities[]}; capabilities lists server-supported features; wrong token closes the socket (no reply)" },
     { "method": "snapshot", "required": [], "optional": ["documentId"], "reply": "flat {documentId, revision, features[], sketches[], bodies[], tips[]} (Slice 6 bodies)" },
     { "method": "invoke", "required": ["type"], "optional": ["documentId", "fields", "baseRevision", "transactionId"], "reply": "flat core result + revision" },
     { "method": "txnBegin", "required": ["transactionId"], "optional": ["documentId"], "reply": "flat core result" },
@@ -49,7 +49,7 @@
     { "method": "previewCommit", "required": ["previewId"], "optional": [], "reply": "flat mutation result" },
     { "method": "previewCancel", "required": ["previewId"], "optional": [], "reply": "{result:{previewId, cancelled:true}}" }
   ],
-  "wireErrorCodes": ["MALFORMED", "BAD_HELLO", "NOT_AUTHED", "BAD_PARAMS", "NOT_FOUND", "NOT_IMPLEMENTED", "NEED_FULL_SNAPSHOT", "BUSY", "SESSION_FAILED", "TRANSACTION_BUSY", "NO_TRANSACTION", "NOT_OWNER", "TRANSACTION_TAINTED", "TRANSACTION_OPEN", "CORE_FAILED", "PREVIEW_FAILED", "UNKNOWN_COMMAND"],
+  "wireErrorCodes": ["MALFORMED", "BAD_HELLO", "NOT_AUTHED", "BAD_PARAMS", "NOT_FOUND", "NOT_IMPLEMENTED", "NEED_FULL_SNAPSHOT", "BUSY", "SESSION_FAILED", "TRANSACTION_BUSY", "NO_TRANSACTION", "NOT_OWNER", "TRANSACTION_TAINTED", "TRANSACTION_OPEN", "CORE_FAILED", "PREVIEW_FAILED", "UNKNOWN_COMMAND", "CLIENT_DISCONNECTED", "CONFLICT"],
   "clientOnlyErrorCodes": ["NOT_CONNECTED", "SEND_FAILED", "CANCELLED", "CLOSED", "RECEIVE_FAILED"],
   "serverEvents": ["delta", "selection", "core-restarted"]
 }

@@ -6,6 +6,16 @@
 import { z } from "zod";
 
 export const SESSION_CONTROL_VERSION = 1 as const;
+const LOGICAL_CLIENT_ID = /^client-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Additive top-level request metadata for reconnect-safe operation replay. */
+export const RequestMetadataSchema = z.object({
+  operationId: z.string().uuid().optional(),
+  sessionId: z.string().uuid().optional(),
+}).refine((metadata) => metadata.operationId === undefined || metadata.sessionId !== undefined, {
+  message: "operationId requires sessionId",
+});
+export type RequestMetadata = z.infer<typeof RequestMetadataSchema>;
 
 /** Relay control methods (flat replies). */
 export const CONTROL_METHODS = [
@@ -117,6 +127,8 @@ export const HelloParamsSchema = z.object({
   protocolVersion: z.literal(SESSION_CONTROL_VERSION),
   clientType: z.string().optional(),
   clientName: z.string().optional(),
+  clientId: z.string().regex(LOGICAL_CLIENT_ID).optional(),
+  capabilities: z.array(z.string().min(1)).optional(),
 });
 export type HelloParams = z.infer<typeof HelloParamsSchema>;
 

@@ -1,0 +1,47 @@
+{
+  "phase": 11,
+  "packet": 3,
+  "status": "PACKET_PASS_PHASE_IN_PROGRESS",
+  "recordedAtUtc": "2026-10-03T18:43:49Z",
+  "parentCommit": "397c89e301a72a9160e0b6c500e3259b6577fda1",
+  "sourceState": "Verified packet changes before their commit; exact loaded source hashes below.",
+  "worker": { "threadId": "01a102b6-2cdf-7940-b91e-abb0bf863249", "model": "gpt-6-luna", "reasoningEffort": "max" },
+  "parentVerification": {
+    "workspace": { "passed": 152, "desktop": 129, "protocol": 17, "pluginSdk": 2, "units": 4 },
+    "dotnet": { "passed": 25, "failed": 0, "skipped": 0 },
+    "desktopTypecheck": "PASS",
+    "desktopBuild": "PASS",
+    "protocolBuild": "PASS",
+    "diffCheck": "PASS",
+    "buildWarning": "Existing renderer chunk over 500 kB; build exited 0."
+  },
+  "workerObservedRed": {
+    "initialReplay": { "relayFailed": 10, "relayPassed": 12, "protocolFailed": 1, "dotnetFailed": 3, "dotnetPassed": 20 },
+    "parentFollowup": { "relayFailed": 2, "relayPassed": 23, "dotnetFailed": 2, "dotnetPassed": 23 },
+    "sourceCompatibility": "The ConnectAsync fourth-argument default probe compiled before the API consolidation; no observed RED claimed for that case."
+  },
+  "actualNativeProbe": {
+    "status": "PASS",
+    "kernel": "8.0.1-native",
+    "coreSha256": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+    "probeSha256": "d5b1b4eae9b53f4c540faa29e59e12e0fb0b50e9a72069339b126d7b8c1047ad",
+    "sourceSha256": {
+      "apps/desktop/electron/sidecar.ts": "a9e89e2b0e411d88e713b48c25156aad74c9ef3963838d050b77bb1af266f4b8",
+      "apps/desktop/electron/session.ts": "8fb9ca99a495c608efbab99851f099b2f7f0c223e9cda39785e8fa190712dab6",
+      "apps/desktop/electron/session-queries.ts": "624cb0e9a67bbbd4382a97e39820a486e4069fe9f8fe46e387761fcc4c5fd004"
+    },
+    "sourceHashesUnchangedDuringProbe": true,
+    "concurrentCreateBoxNativeCalls": 1,
+    "reconnectReplay": "PASS_WITHOUT_SECOND_NATIVE_CREATE",
+    "sameOperationDifferentPayload": "CONFLICT",
+    "committedPreviewNativeCalls": 1,
+    "transactionBeginNativeCalls": 1,
+    "finalFeatureCount": 1,
+    "finalVolumeMm3": 72000,
+    "nativePid": 10284,
+    "nativePidAbsentAfterCleanup": true,
+    "visibleWindows": false,
+    "boundary": "Production SessionRelay and SidecarManager sources, real OCCT over stdio and real loopback WebSocket. Electron app path is supplied by the harness; no Electron renderer or full Phase 11 acceptance in this packet probe."
+  },
+  "remaining": ["Incremental model deltas and recovery", "Generated typed control contract", "Native semantic geometry and typed JSON parsing", "LAN pairing and revocation", "Unified Desktop mutation entry", "Full hidden Desktop/native/network acceptance", "Exact hosted CI and fresh whole-phase Sol review"]
+}

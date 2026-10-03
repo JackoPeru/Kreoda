@@ -13,7 +13,12 @@ export class SessionClient {
   >();
   readonly events: Record<string, unknown>[] = [];
 
-  async connect(token: string, port: number): Promise<Record<string, unknown>> {
+  async connect(
+    token: string,
+    port: number,
+    logicalClientId?: string,
+    capabilities?: string[],
+  ): Promise<Record<string, unknown>> {
     this.ws = new WebSocket(`ws://127.0.0.1:${port}`);
     await new Promise<void>((resolve, reject) => {
       this.ws!.once("open", () => resolve());
@@ -55,20 +60,23 @@ export class SessionClient {
       clientName: "phase11-acceptance",
       protocolVersion: 1,
       token,
+      ...(logicalClientId ? { clientId: logicalClientId } : {}),
+      ...(capabilities ? { capabilities } : {}),
     });
   }
 
   call(
     method: string,
     params: Record<string, unknown> = {},
+    metadata: { operationId?: unknown; sessionId?: unknown; requestId?: string } = {},
   ): Promise<Record<string, unknown>> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return Promise.reject(new Error("not connected"));
     }
-    const requestId = `t-${++this.seq}`;
+    const requestId = metadata.requestId ?? `t-${++this.seq}`;
     return new Promise((resolve, reject) => {
       this.pending.set(requestId, { resolve, reject });
-      this.ws!.send(JSON.stringify({ requestId, method, params }));
+      this.ws!.send(JSON.stringify({ ...metadata, requestId, method, params }));
     });
   }
 
