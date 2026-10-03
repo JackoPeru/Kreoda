@@ -11,6 +11,7 @@ public static class SessionMethods
     public const string Hello = "hello";
     public const string Snapshot = "snapshot";
     public const string Invoke = "invoke";
+    public const string Command = "command";
     public const string TxnBegin = "txnBegin";
     public const string TxnCommit = "txnCommit";
     public const string TxnRollback = "txnRollback";
@@ -20,7 +21,7 @@ public static class SessionMethods
 
     public static readonly string[] All =
     [
-        "hello", "snapshot", "invoke",
+        "hello", "snapshot", "invoke", "command",
         "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus",
         "getDocumentInfo", "getBodies", "getFeatures", "getFeature",
         "getParameters", "getDependencies", "getModelTree", "describeModel",
@@ -36,7 +37,7 @@ public static class SessionMethods
     /// <summary>Methods whose effects are protected by operation replay metadata.</summary>
     public static readonly string[] OperationReplayMethods =
     [
-        Invoke, TxnBegin, TxnCommit, TxnRollback, TxnForceRollback,
+        Invoke, Command, TxnBegin, TxnCommit, TxnRollback, TxnForceRollback,
         "previewBegin", "previewUpdate", "previewCommit", "previewCancel",
         "setSelection", "clearSelection",
     ];
@@ -51,6 +52,7 @@ public static class SessionMethods
             ["hello"] = ["token", "protocolVersion"],
             ["snapshot"] = [],
             ["invoke"] = ["type"],
+            ["command"] = ["commandId"],
             ["txnBegin"] = ["transactionId"],
             ["txnCommit"] = ["transactionId"],
             ["txnRollback"] = ["transactionId"],

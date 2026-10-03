@@ -113,6 +113,17 @@ public sealed class SessionClient : IAsyncDisposable
         CancellationToken ct = default) =>
         CallAsync(SessionMethods.Invoke, request.ToDictionary(), ct);
 
+    public Task<JsonElement> CommandAsync(string commandId, IDictionary<string, object?> parameters,
+        string documentId = "doc-phase1", string? featureId = null, double? baseRevision = null,
+        string? transactionId = null, CancellationToken ct = default)
+    {
+        var fields = new Dictionary<string, object?> { ["commandId"] = commandId, ["parameters"] = parameters, ["documentId"] = documentId };
+        if (featureId is not null) fields["featureId"] = featureId;
+        if (baseRevision.HasValue) fields["baseRevision"] = baseRevision.Value;
+        if (transactionId is not null) fields["transactionId"] = transactionId;
+        return CallAsync(SessionMethods.Command, fields, ct);
+    }
+
     public Task<JsonElement> InvokeAsync(
         int type,
         IDictionary<string, object?> fields,

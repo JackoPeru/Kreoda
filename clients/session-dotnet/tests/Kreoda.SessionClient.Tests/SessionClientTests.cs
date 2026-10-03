@@ -82,6 +82,30 @@ public sealed class SessionClientTests
     }
 
     [Fact]
+    public async Task NamedCommandCarriesParametersAndReplayMetadata()
+    {
+        JsonElement sent = default;
+        await using var server = new LoopbackWsServer(req =>
+        {
+            if (req.GetProperty("method").GetString() == "hello") return HelloReply(req);
+            sent = req.Clone();
+            return Reply(req, new Dictionary<string, object?> { ["featureId"] = "box", ["revision"] = 1 });
+        });
+        server.Start();
+        await using var client = await BootAsync(server);
+        await client.CommandAsync("CreateBox", new Dictionary<string, object?>
+            { ["widthMm"] = 20, ["heightMm"] = 30, ["depthMm"] = 10 }, featureId: "box", baseRevision: 0);
+        Assert.Equal("command", sent.GetProperty("method").GetString());
+        Assert.True(Guid.TryParse(sent.GetProperty("operationId").GetString(), out _));
+        Assert.Equal(client.SessionId, sent.GetProperty("sessionId").GetString());
+        var parameters = sent.GetProperty("params");
+        Assert.Equal("CreateBox", parameters.GetProperty("commandId").GetString());
+        Assert.Equal("box", parameters.GetProperty("featureId").GetString());
+        Assert.Equal(20, parameters.GetProperty("parameters").GetProperty("widthMm").GetInt32());
+        Assert.Equal(0, parameters.GetProperty("baseRevision").GetInt32());
+    }
+
+    [Fact]
     public async Task HelloSnapshotInvokeUndoRoundTrip()
     {
         await using var server = new LoopbackWsServer(static req =>

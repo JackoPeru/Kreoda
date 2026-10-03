@@ -16,7 +16,8 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
-import { decodeMeshFrame, frameMessage } from "@kreoda/protocol";
+import { decodeMeshFrame, frameMessage, InvokeParamsSchema, NamedCommandParamsSchema } from "@kreoda/protocol";
+import { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "@kreoda/command-schema";
 import type {
   SessionEntityChange,
   SessionEntityKind,
@@ -109,6 +110,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const LOGICAL_CLIENT_PATTERN = /^client-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const OPERATION_METHODS = new Set([
   "invoke",
+  "command",
   "txnBegin",
   "txnCommit",
   "txnRollback",
@@ -725,23 +727,35 @@ export class SessionRelay {
           reply(true, { ...snap, sessionId: this.sessionId });
           return;
         }
-        case "invoke": {
+        case "invoke":
+        case "command": {
+          const named = msg.method === "command";
+          const checked = (named ? NamedCommandParamsSchema : InvokeParamsSchema).safeParse(params);
+          if (!checked.success) {
+            reply(false, { errorCode: "BAD_PARAMS", error: checked.error.message });
+            return;
+          }
+          const commandId = params["commandId"];
           const type = params["type"];
-          if (typeof type !== "number" || !Number.isInteger(type)) {
+          if (named && (typeof commandId !== "string" || !commandId)) {
+            reply(false, { errorCode: "BAD_PARAMS", error: "command needs commandId" });
+            return;
+          }
+          if (!named && (typeof type !== "number" || !Number.isInteger(type))) {
             reply(false, {
               errorCode: "BAD_PARAMS",
               error: "invoke needs an integer core command type",
             });
             return;
           }
-          if (type === 27 || type === 28 || type === 29) {
+          if (!named && (type === 27 || type === 28 || type === 29)) {
             reply(false, {
               errorCode: "BAD_PARAMS",
               error: "use txnBegin, txnCommit, or txnRollback for transaction control",
             });
             return;
           }
-          const rawFields = params["fields"];
+          const rawFields = named ? params["parameters"] : params["fields"];
           if (
             rawFields !== undefined &&
             (typeof rawFields !== "object" ||
@@ -750,7 +764,7 @@ export class SessionRelay {
           ) {
             reply(false, {
               errorCode: "BAD_PARAMS",
-              error: "invoke fields must be an object",
+              error: "CAD parameters must be an object",
             });
             return;
           }
@@ -763,6 +777,9 @@ export class SessionRelay {
             });
             return;
           }
+          const prepared = named ? commandNativeRequest(commandId as string, fields,
+            params["featureId"] ?? (commandCreatesFeature(commandId as string) ? randomUUID() : undefined)) :
+            validateLegacyNativeCommand(type as number, fields);
           const base =
             typeof params["baseRevision"] === "number"
               ? (params["baseRevision"] as number)
@@ -780,8 +797,8 @@ export class SessionRelay {
               params["documentId"] !== ""
               ? (params["documentId"] as string)
               : this.documentId,
-            type,
-            fields,
+            prepared.type,
+            prepared.fields,
             base,
             joinTxn ? { joinTxn } : {},
           );
@@ -1068,21 +1085,11 @@ export class SessionRelay {
         return { originMm, xAxis, yAxis, normal };
       },
       previewBegin: async (clientId, docId, params) => {
-        const featureId =
-          typeof params["featureId"] === "string" ? params["featureId"] : "";
-        const paramName =
-          typeof params["paramName"] === "string" ? params["paramName"] : "";
-        const valueMm =
-          typeof params["valueMm"] === "number" ? params["valueMm"] : 0;
-        const expression =
-          typeof params["expression"] === "string" ? params["expression"] : "";
-        if (!featureId || !paramName || (params["valueMm"] === undefined && !expression)) {
-          const err = new Error(
-            "previewBegin needs featureId, paramName and valueMm or expression",
-          ) as Error & { code?: string };
-          err.code = "BAD_PARAMS";
-          throw err;
-        }
+        const fields = commandNativeRequest("SetDimension", params).fields;
+        const featureId = fields["featureId"] as string;
+        const paramName = fields["paramName"] as string;
+        const valueMm = (fields["valueMm"] as number | undefined) ?? 0;
+        const expression = (fields["expression"] as string | undefined) ?? "";
         const id = `preview-${randomUUID()}`;
         const baseRevision = await this.currentRevision();
         this.previews.set(id, {
@@ -1101,13 +1108,14 @@ export class SessionRelay {
       },
       previewUpdate: async (clientId, previewId, params) => {
         const state = this.previewState(clientId, previewId);
-        if (typeof params["valueMm"] === "number") {
-          state.valueMm = params["valueMm"] as number;
-          state.expression = "";
-        }
-        if (typeof params["expression"] === "string") {
-          state.expression = params["expression"] as string;
-        }
+        const fields = commandNativeRequest("SetDimension", {
+          featureId: state.featureId, paramName: state.paramName,
+          valueMm: state.valueMm, expression: state.expression,
+          ...(Object.hasOwn(params, "valueMm") ? { valueMm: params["valueMm"], expression: "" } : {}),
+          ...(Object.hasOwn(params, "expression") ? { expression: params["expression"] } : {}),
+        }).fields;
+        state.valueMm = (fields["valueMm"] as number | undefined) ?? 0;
+        state.expression = (fields["expression"] as string | undefined) ?? "";
         return {
           previewId,
           ...(await this.runPreview(

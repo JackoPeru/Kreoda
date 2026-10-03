@@ -225,12 +225,12 @@ async function buildBoxHoleFillet(
   await remote.call("invoke", {
     documentId: "doc-phase1",
     type: 20,
-    fields: { featureId: holeId, targetId: boxId, diameterMm: 8, depthMm: 10 },
+    fields: { featureId: holeId, targetId: boxId, faceRole: "box.+Z", diameterMm: 8, depthMm: 10 },
   });
   await remote.call("invoke", {
     documentId: "doc-phase1",
     type: 21,
-    fields: { featureId: filletId, targetId: holeId, radiusMm: 2 },
+    fields: { featureId: filletId, targetId: holeId, edgeIds: [`${holeId}:box.+Z&+X`], radiusMm: 2 },
   });
 }
 
@@ -435,7 +435,7 @@ describe("Slice 6 TEST G: session Body semantics", () => {
       const holed = await remote.call("invoke", {
         documentId: "doc-phase1",
         type: 20,
-        fields: { featureId: holeId, targetId: boxId, diameterMm: 4, depthMm: 5 },
+        fields: { featureId: holeId, targetId: boxId, faceRole: "box.+Z", diameterMm: 4, depthMm: 5 },
       });
       const holeRev = holed["revision"] as number;
       const delta = await desktop.waitDelta(holeRev);

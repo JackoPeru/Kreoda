@@ -268,6 +268,18 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    exited. Evidence: `docs/evidence/phase11-incremental-clients-local-2026-10-04.json`.
    Unified Desktop mutation ownership remains packet 8. Phase 11 is incomplete.
 5. Typed commands and generated control contract conformance.
+   Packet 5a: named commands and legacy integer invokes share the canonical
+   parameter registry and native adapter. Seventeen implemented commands
+   export their real JSON parameter schemas through zod-to-json-schema.
+   Generated creation identity is replayed once; invalid parameters, binary
+   mesh control calls and malformed previews are rejected before native
+   dispatch. Native sketch drag hints and valid field aliases are preserved.
+   Parent rerun: 186 workspace tests, 32 .NET tests, workspace build/typecheck
+   PASS. Real OCCT/WebSocket probe verifies eleven checks, including named
+   existing-parameter edit, Undo restoration and dependency-free deletion.
+   Source hashes stayed fixed and owned native PID exited. Evidence:
+   `docs/evidence/phase11-typed-commands-local-2026-10-04.json`.
+   Packet 5b generated control DTOs/drift gate remains outstanding.
 6. Native semantic geometry, accurate measurements/reference validation.
 7. LAN pairing, trusted devices, revocation and local interface guards.
 8. Unified Desktop mutation entry and active-edit ownership.

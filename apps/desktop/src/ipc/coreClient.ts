@@ -365,6 +365,18 @@ export class CoreClient {
     };
   }
 
+  async deleteFeature(featureId: string): Promise<{ features: FeatureSummary[]; sketches: SketchSummary[]; revision: number }> {
+    const parsed = await this.invoke(CommandType.DeleteFeature, this.documentId, { featureId });
+    const checked = FeatureListSchema.parse(parsed);
+    return { features: checked.features, sketches: checked.sketches, revision: checked.revision };
+  }
+
+  async requestSnapshot(): Promise<{ features: FeatureSummary[]; sketches: SketchSummary[]; revision: number }> {
+    const parsed = await this.invoke(CommandType.RequestSnapshot, this.documentId, {});
+    const checked = FeatureListSchema.parse(parsed);
+    return { features: checked.features, sketches: checked.sketches, revision: checked.revision };
+  }
+
   // ── Sketches (§21) ──────────────────────────────────────────────
 
   async createSketch(params: {

@@ -6,6 +6,7 @@
 import { z } from "zod";
 
 export const SESSION_CONTROL_VERSION = 1 as const;
+export const StableFeatureIdSchema = z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/);
 const LOGICAL_CLIENT_ID = /^client-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Additive top-level request metadata for reconnect-safe operation replay. */
@@ -22,6 +23,7 @@ export const CONTROL_METHODS = [
   "hello",
   "snapshot",
   "invoke",
+  "command",
   "txnBegin",
   "txnCommit",
   "txnRollback",
@@ -78,6 +80,7 @@ export const REQUIRED_PARAMS: Record<string, readonly string[]> = {
   hello: ["token", "protocolVersion"],
   snapshot: [],
   invoke: ["type"],
+  command: ["commandId"],
   txnBegin: ["transactionId"],
   txnCommit: ["transactionId"],
   txnRollback: ["transactionId"],
@@ -163,10 +166,20 @@ export const InvokeParamsSchema = z.object({
   documentId: z.string().min(1).optional(),
   type: z.number().int(),
   fields: z.record(z.unknown()).optional(),
-  baseRevision: z.number().nullable().optional(),
+  baseRevision: z.number().int().nonnegative().nullable().optional(),
   transactionId: z.string().min(1).optional(),
 });
 export type InvokeParams = z.infer<typeof InvokeParamsSchema>;
+
+export const NamedCommandParamsSchema = z.object({
+  commandId: z.string().min(1),
+  parameters: z.record(z.unknown()).optional(),
+  featureId: StableFeatureIdSchema.optional(),
+  documentId: z.string().min(1).optional(),
+  baseRevision: z.number().int().nonnegative().nullable().optional(),
+  transactionId: z.string().min(1).optional(),
+});
+export type NamedCommandParams = z.infer<typeof NamedCommandParamsSchema>;
 
 export const TxnParamsSchema = z.object({
   documentId: z.string().min(1).optional(),

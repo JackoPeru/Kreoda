@@ -4,7 +4,7 @@
 // fakes. Nothing here invents geometry — parameters come from the core
 // summaries, axes/origins from mesh bboxes and face frames.
 
-import { COMMANDS } from "@kreoda/command-schema";
+import { COMMANDS, commandJsonSchema } from "@kreoda/command-schema";
 
 export interface SnapFeature {
   featureId: string;
@@ -1028,12 +1028,11 @@ export async function runSessionQuery(
       };
     }
     case "getCommandSchema": {
-      // Full zod→JSON-Schema conversion arrives with the agent slice
-      // (Phase 14); listCommands already exposes the surface honestly.
-      throw coded(
-        "NOT_IMPLEMENTED",
-        "per-command JSON schemas arrive with the agent slice (listCommands works now)",
-      );
+      if (params["id"] === undefined) return { result: { commands: COMMANDS.map(command => commandJsonSchema(command.id)) } };
+      if (typeof params["id"] !== "string") throw coded("BAD_PARAMS", "command id must be a string");
+      const schema = commandJsonSchema(params["id"]);
+      if (!schema) throw coded("NOT_FOUND", "unknown command id");
+      return { result: schema };
     }
     case "getCapabilities": {
       return {

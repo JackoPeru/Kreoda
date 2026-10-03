@@ -331,6 +331,41 @@ function fakeSidecar(options: {
 }
 
 describe("SessionRelay", () => {
+  it("runs a named command once, replays its generated identity and exports its registry schema", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    const client = new SessionClient();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const metadata = { sessionId: hello["sessionId"], operationId: OPERATION_IDS[0] };
+      const parameters = { commandId: "CreateBox", parameters: { widthMm: 10, heightMm: 20, depthMm: 30 } };
+      const created = await client.call("command", parameters, metadata);
+      expect(created["featureId"]).toMatch(/^[0-9a-f-]{36}$/);
+      expect((await client.call("command", parameters, metadata))["featureId"]).toBe(created["featureId"]);
+      expect(fake.calls.filter(type => type === 3)).toHaveLength(1);
+      const schema = await client.call("getCommandSchema", { id: "CreateBox" });
+      expect(schema["result"]).toMatchObject({ id: "CreateBox", nativeType: 3, parameters: { type: "object", required: ["widthMm", "heightMm", "depthMm"] } });
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
+  it("rejects invalid named and legacy parameters or binary control calls before native dispatch", async () => {
+    const fake = fakeSidecar();
+    const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager);
+    const client = new SessionClient();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await client.connect(TOKEN, port);
+      const before = fake.calls.length;
+      await expect(client.call("command", { commandId: "CreateBox", parameters: { widthMm: -1, heightMm: 20, depthMm: 30 } })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await expect(client.call("invoke", { type: 3, fields: { featureId: "bad-box", widthMm: -1, heightMm: 20, depthMm: 30 } })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await expect(client.call("invoke", { type: 12, fields: { featureId: "box" } })).rejects.toMatchObject({ code: "NOT_IMPLEMENTED" });
+      expect(fake.calls).toHaveLength(before);
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
   it("provides a canonical local snapshot without a network listener", async () => {
     const fake = fakeSidecar();
     const relay = new SessionRelay(() => fake.manager);
@@ -358,7 +393,7 @@ describe("SessionRelay", () => {
     } finally { owner.closeRaw(); relay.stop(); }
   });
 
-  it("serializes trusted native envelope fields before nested command fields", async () => {
+  it("strips unknown command fields and preserves the trusted native envelope prefix", async () => {
     const fake = fakeSidecar();
     const port = await freePort();
     const relay = new SessionRelay(() => fake.manager);
@@ -382,19 +417,16 @@ describe("SessionRelay", () => {
         .slice(before)
         .find((text) => (JSON.parse(text) as { type?: number }).type === 3)!;
       const envelope = JSON.parse(envelopeText) as Record<string, unknown>;
-      const nested = envelope["nested"] as Record<string, unknown>;
 
       expect(envelope["type"]).toBe(3);
       expect(envelope["requestId"]).toMatch(/^relay-/);
-      expect(nested["type"]).toBe(28);
-      expect(nested["requestId"]).toBe("nested-request");
-      expect(nested["isPreview"]).toBe(true);
+      expect(envelope["nested"]).toBeUndefined();
       expect(envelopeText.indexOf('"protocolVersion":')).toBeLessThan(envelopeText.indexOf('"requestId":"relay-'));
       expect(envelopeText.indexOf('"requestId":"relay-')).toBeLessThan(envelopeText.indexOf('"documentId":"doc-phase1"'));
       expect(envelopeText.indexOf('"documentId":"doc-phase1"')).toBeLessThan(envelopeText.indexOf('"type":3'));
       expect(envelopeText.indexOf('"type":3')).toBeLessThan(envelopeText.indexOf('"transactionId":""'));
-      expect(envelopeText.indexOf('"transactionId":""')).toBeLessThan(envelopeText.indexOf('"nested"'));
-      expect(envelopeText.indexOf('"isPreview":false')).toBeLessThan(envelopeText.indexOf('"nested"'));
+      expect(envelopeText.indexOf('"transactionId":""')).toBeLessThan(envelopeText.indexOf('"featureId":"lexical-box"'));
+      expect(envelopeText.indexOf('"isPreview":false')).toBeLessThan(envelopeText.indexOf('"featureId":"lexical-box"'));
       expect(fake.calls.filter((type) => type === 3)).toHaveLength(1);
       expect(fake.calls.filter((type) => type === 28)).toHaveLength(0);
     } finally {
@@ -1058,9 +1090,14 @@ describe("SessionRelay", () => {
       }
       expect(fake.calls).toHaveLength(before);
 
+      await expect(client.call("invoke", {
+        documentId: "doc-phase1", type: 3,
+      })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      expect(fake.calls).toHaveLength(before);
       const valid = await client.call("invoke", {
         documentId: "doc-phase1",
         type: 3,
+        fields: { featureId: "box-x", widthMm: 10, heightMm: 10, depthMm: 10 },
       });
       expect(valid["featureId"]).toBe("box-x");
       expect(fake.features()).toHaveLength(1);
@@ -1336,6 +1373,7 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
     relay: SessionRelay;
     client: SessionClient;
     boxId: string;
+    fake: ReturnType<typeof fakeSidecar>;
   }> {
     const fake = fakeSidecar();
     const relay = new SessionRelay(() => fake.manager);
@@ -1348,7 +1386,7 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
       type: 3,
       fields: { featureId: "box-q", widthMm: 10, heightMm: 10, depthMm: 10 },
     });
-    return { relay, client, boxId: "box-q" };
+    return { relay, client, boxId: "box-q", fake };
   }
 
   it("introspection, selection, find, manipulators, measures, validate", async () => {
@@ -1435,9 +1473,7 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
         commands: { id: string }[];
       };
       expect(cmds.commands.map((c) => c.id)).toContain("CreateBox");
-      await expect(q("getCommandSchema", { id: "CreateBox" })).rejects.toMatchObject({
-        code: "NOT_IMPLEMENTED",
-      });
+      await expect(q("getCommandSchema", { id: "CreateBox" })).resolves.toMatchObject({ id: "CreateBox", nativeType: 3 });
       const caps = (await q("getCapabilities", {})) as unknown as {
         transactions: boolean;
         previews: boolean;
@@ -1447,6 +1483,31 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
     } finally {
       client.closeRaw();
       relay.stop();
+    }
+  });
+
+  it("rejects invalid preview values before native dispatch or state changes", async () => {
+    const { relay, client, boxId, fake } = await bootBox();
+    try {
+      const before = fake.calls.length;
+      await expect(client.call("previewBegin", {
+        featureId: boxId, paramName: "widthMm", valueMm: "20",
+      })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      expect(fake.calls).toHaveLength(before);
+      const begun = await client.call("previewBegin", {
+        featureId: boxId, paramName: "widthMm", valueMm: 20,
+      });
+      const previewId = (begun["result"] as { previewId: string }).previewId;
+      const afterBegin = fake.calls.length;
+      await expect(client.call("previewUpdate", { previewId, valueMm: "30" }))
+        .rejects.toMatchObject({ code: "BAD_PARAMS" });
+      expect(fake.calls).toHaveLength(afterBegin);
+      await client.call("previewCommit", { previewId });
+      const committed = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+        .filter(envelope => envelope["type"] === 6 && envelope["isPreview"] === false);
+      expect(committed.at(-1)).toMatchObject({ valueMm: 20 });
+    } finally {
+      client.closeRaw(); relay.stop();
     }
   });
 
@@ -1659,18 +1720,11 @@ describe("SessionControlContract (Slice 7)", () => {
           const reply = await client.call(m, params[m] ?? {});
           expect(reply["requestId"]).toBeDefined();
           expect(reply["ok"]).toBe(true);
-          if (m === "getCommandSchema") {
-            throw new Error("getCommandSchema should reject");
-          }
         } catch (e) {
           const code = (e as Error & { code?: string }).code;
           expect(typeof code).toBe("string");
-          if (m === "getCommandSchema") {
-            expect(code).toBe("NOT_IMPLEMENTED");
-          } else {
-            // Box has no radius: the call is valid wire, core says no.
-            expect(["BAD_PARAMS", "NOT_FOUND"]).toContain(code);
-          }
+          // Box has no radius: the call is valid wire, core says no.
+          expect(["BAD_PARAMS", "NOT_FOUND"]).toContain(code);
         }
       }
     } finally {
@@ -1689,10 +1743,11 @@ describe("SessionControlContract (Slice 7)", () => {
     try {
       const cases: [string, Record<string, unknown>, string][] = [
         ["invoke", {}, "BAD_PARAMS"],
+        ["command", {}, "BAD_PARAMS"],
         ["txnBegin", {}, "BAD_PARAMS"],
         ["getFeature", {}, "BAD_PARAMS"],
         ["measureDistance", { a: "x:box.+Z" }, "BAD_PARAMS"],
-        ["getCommandSchema", { id: "CreateBox" }, "NOT_IMPLEMENTED"],
+        ["getCommandSchema", { id: "CreateShell" }, "NOT_FOUND"],
         ["nope", {}, "NOT_IMPLEMENTED"],
       ];
       for (const [method, p, code] of cases) {

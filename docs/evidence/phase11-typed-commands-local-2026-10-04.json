@@ -1,0 +1,57 @@
+{
+  "recordedAtUtc": "2026-10-03T23:54:43.5576451Z",
+  "sourceBaseCommit": "c7763ccc203f805d86cf87fa7d8a0838b225fe95",
+  "status": "packet-5a-PASS",
+  "phase11Complete": false,
+  "workspaceTests": {
+    "desktop": 145,
+    "passed": 186,
+    "protocol": 25,
+    "pluginSdk": 2,
+    "commandSchema": 10,
+    "units": 4
+  },
+  "dotnetTests": {
+    "passed": 32
+  },
+  "workspaceBuild": "PASS",
+  "desktopTypecheck": "PASS",
+  "nativeRuntime": {
+    "kernel": "8.0.1-native",
+    "corePid": 18140,
+    "coreSha256": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+    "sourceSha256": {
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\sidecar.ts": "9d5968356285019e8b8a122538c1e3666f4ef996cfdaaeeface719fbfa47dae9",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session.ts": "c8d937fe2b24e3cd67277f9217bdc3401896d8f75421469fe26d4d12647bb9c1",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-queries.ts": "c7c10ef198472b16e3f4c43b94725154f5b28b50c18c9f38d4f8dfcd8af654c9",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\packages\\command-schema\\src\\index.ts": "15b119b47157fc6d686c426f306d70d532f54e012a3ec8592b6219adc9121492",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\packages\\command-schema\\src\\native-command.ts": "d78021e60613b79ae78ed9fe7f0e2d3ec9a25672e13359440b5327e5b1976c9e",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\packages\\protocol\\src\\session-control.ts": "daeb34fbe1cfeb353787df61d6a9e0c92e16a30768e05a6337985fea65b28598"
+    },
+    "passed": [
+      "named-creation-generated-stable-id",
+      "operation-replay-one-native-create",
+      "registry-schema-export",
+      "unsupported-command-not-advertised",
+      "invalid-named-and-legacy-before-native",
+      "binary-mesh-control-rejected",
+      "invalid-preview-before-native",
+      "existing-parameter-edit",
+      "named-undo-native-restoration",
+      "legacy-field-aliases",
+      "named-delete-dependency-free"
+    ],
+    "finalRevision": 5,
+    "finalFeatureCount": 1,
+    "volumeMm3": 6000,
+    "visibleWindows": false,
+    "boundary": "Real OCCT, SessionRelay and WebSocket; no Desktop renderer or C# runtime in this packet probe."
+  },
+  "ownedNativeProcessExited": true,
+  "boundaries": [
+    "Loopback native packet probe, not full Desktop or private-interface acceptance",
+    "Generated DTOs and drift gate remain packet 5b",
+    "No new native binary in this packet; typed native parser remains packet 6",
+    "Accepted portable and primary checkout untouched"
+  ]
+}

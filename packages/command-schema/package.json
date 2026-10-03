@@ -10,7 +10,9 @@
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "zod": "^3.25.76"
+    "@kreoda/protocol": "workspace:*",
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "3.25.2"
   },
   "devDependencies": {
     "typescript": "~5.9.3",
