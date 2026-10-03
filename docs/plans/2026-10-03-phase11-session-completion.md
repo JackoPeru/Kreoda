@@ -129,6 +129,19 @@ of a consumed/expired pairing token fails. Existing environment token is
 an explicit test/developer bootstrap path, not the production device store.
 No credentials in logs, screenshots, evidence or committed files.
 
+Pairing wire sequence is settled: pre-auth `pair` exchanges the one-use
+pairing token for a random 256-bit device credential and a random token for
+that device in the current server session. Persist only SHA-256 credential
+digests; compare with timingSafeEqual. A returning device uses pre-auth
+`authenticate` with its deviceId and credential to obtain its current
+per-session token; `hello` then requires deviceId plus that session token.
+Authentication cannot create a connected client identity. Revoked device
+authentication fails, all its sockets close, and a new server lifetime
+rotates all session tokens. The high-entropy pairing token expires after
+five minutes or its first successful exchange. Do not replace it with an
+unprotected six-digit code. Default local-only mode needs no token display
+or listener. The local connection panel owns enabling, pairing and revoking.
+
 ## Implementation packets
 
 1. Malformed-frame boundary guards and raw WebSocket regression.
