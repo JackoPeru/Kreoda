@@ -60,7 +60,7 @@ These are retained as the original failed usability observations. The centered-h
 baseline can be completed while arbitrary placement remains confusing; the two facts
 are compatible. Fixing automated cases alone does not close participant acceptance.
 
-## Local corrections verified
+## Historical local corrections before participant acceptance
 
 [Exact source, logs, packaged identity and boundaries](evidence/phase10-local-human-ux-corrections-b1836d7.json) retain the current results.
 

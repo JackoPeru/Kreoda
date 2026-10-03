@@ -272,7 +272,13 @@ export class SessionRelay {
       }
     }, 10000);
     ws.on("message", (data) => {
-      void this.handleMessage(ws, hello, (id) => (clientId = id), data, token);
+      void this.handleMessage(ws, hello, (id) => (clientId = id), data, token)
+        .catch((e: unknown) => {
+          console.error("[session] message handler failed", e);
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.close(1011, "SESSION_FAILED");
+          }
+        });
     });
     const drop = (): void => {
       clearTimeout(timer);
@@ -307,13 +313,22 @@ export class SessionRelay {
     };
     try {
       const text = typeof data === "string" ? data : Buffer.from(data as Uint8Array).toString("utf8");
-      msg = JSON.parse(text) as typeof msg;
+      const parsed: unknown = JSON.parse(text);
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        ws.close(4400, "MALFORMED");
+        return;
+      }
+      msg = parsed as typeof msg;
     } catch {
-      return; // No requestId to correlate — drop silently.
+      ws.close(4400, "MALFORMED");
+      return; // No requestId to correlate.
     }
     const requestId = msg.requestId;
+    if (typeof requestId !== "string" || requestId.trim().length === 0) {
+      ws.close(4400, "MALFORMED");
+      return;
+    }
     const reply = (ok: boolean, payload: Record<string, unknown>): void => {
-      if (typeof requestId !== "string" || requestId.length === 0) return;
       if (ws.readyState !== WebSocket.OPEN) return;
       ws.send(JSON.stringify({ requestId, ok, ...payload }));
     };
@@ -321,10 +336,15 @@ export class SessionRelay {
       reply(false, { errorCode: "MALFORMED", error: "method is required" });
       return;
     }
-    const params =
-      msg.params !== undefined && msg.params !== null
-        ? (msg.params as Record<string, unknown>)
-        : {};
+    const hasParams = Object.prototype.hasOwnProperty.call(msg, "params");
+    if (
+      hasParams &&
+      (typeof msg.params !== "object" || msg.params === null || Array.isArray(msg.params))
+    ) {
+      reply(false, { errorCode: "BAD_PARAMS", error: "params must be an object" });
+      return;
+    }
+    const params = hasParams ? (msg.params as Record<string, unknown>) : {};
 
     // The pairing gate (§11.16): only `hello` is reachable pre-auth, and a
     // wrong token closes the socket (no oracle beyond the close code).

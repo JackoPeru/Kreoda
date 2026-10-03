@@ -12,6 +12,8 @@ The participant requested launch of the revised app, then replied **“ok è ott
 
 The current exact full Windows run37136496515 passed native144/144, public-native141/141, .NET21/21, workspace133/133, ordinary54/54 including four real native dialogs, crash29/29, ON/OFF controls and production-core restoration, installation/provenance, topology/persistence/current-project reopen/assembly/plugin/resource gates. All117 measurement rows and33 completed steps are retained. Combined with original eight-task completion and accepted corrections, **Phase10 COMPLETE; Ready for Phase11 YES**. Publisher entitlement remains a later distribution requirement and is not inferred from the clean-host installer test.
 
+## Historical evidence before participant acceptance
+
 ### Human UX session — 2026-10-03
 
 The participant reports completing all eight tasks in “pochissimo tempo”, without numeric duration or click counts. The real portable window was launched on request; no app input automation drove the participant session. [Original feedback and provenance](evidence/phase10-human-feedback-2026-10-03.json) and [the updated audit record](phase-10-human-ux-audit.md) retain four actionable findings: oversized face UI, cumbersome 3D navigation, undiscoverable arbitrary/edge-dimensioned hole placement, and Home using Three.js instead of the supplied video. Participant chose left-drag orbit, right-drag pan and wheel zoom. Tasks are reported complete; UX acceptance is **OPEN**, with corrections now locally verified and participant retest still required (participant chose to try later). Missing timing/click counts are not fabricated. Phase 10 remains PARTIAL and Ready for Phase 11 remains NO.
