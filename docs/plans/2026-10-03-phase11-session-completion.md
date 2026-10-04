@@ -1,6 +1,7 @@
 # Phase 11: authoritative shared CAD session
 
-Status: IN PROGRESS. Phase 10 accepted by the participant on 2026-10-03.
+Status: COMPLETE on 2026-10-04 at verified product source `4f357355fd4c860a7094a9067bfb4db2e4fed7a4`.
+Phase 10 accepted by the participant on 2026-10-03.
 Baseline: `88a85aabcfdb297164c48273573ee0904bed0941`; implementation branch
 `codex/phase11-session-service`. This plan implements the approved roadmap
 sections 11.0–11.17 and Slice 7 decision B. It does not redefine acceptance
@@ -413,6 +414,16 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    C# probe under bin/x64; the workflow now explicitly builds it as AnyCPU.
    The prior local evidence remains historical; new full gates and a fresh
    final review are required after these corrections.
+   Final product gates at 4f35735 PASS: 219 workspace, 36 .NET, 156 real
+   OCCT native, local ordinary 53/two hosted-only skips, crash 29 and nine
+   unchanged production portable runtime checks. Exact hosted run
+   37207487694 succeeds with all 55 ordinary and 29 crash scenarios,
+   clean-host Squirrel install, compatible CRT provenance and production
+   crash barriers restored OFF. Fresh GPT-6-Sol/High review returns ship;
+   all 581 frozen tracked/untracked file hashes remain intact afterward.
+   Completion: `docs/phase-11-completion-report.md`. Quest toolchain and
+   managed compatibility preparation are separate Phase 12 prerequisites,
+   with no headset or Unity CAD client acceptance claim.
 
 ## Required verification gates
 

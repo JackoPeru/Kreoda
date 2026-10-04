@@ -1,0 +1,345 @@
+{
+  "recordedAt": "2026-10-04T14:29:56.258903+00:00",
+  "status": "PHASE_11_COMPLETE",
+  "verifiedProductSource": "4f357355fd4c860a7094a9067bfb4db2e4fed7a4",
+  "hosted": {
+    "conclusion": "success",
+    "headSha": "4f357355fd4c860a7094a9067bfb4db2e4fed7a4",
+    "jobs": [
+      {
+        "completedAt": "2026-10-04T14:23:33Z",
+        "conclusion": "success",
+        "databaseId": 111451621168,
+        "name": "build-and-test",
+        "startedAt": "2026-10-04T13:57:39Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-04T13:57:42Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-04T13:57:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:57:50Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 2,
+            "startedAt": "2026-10-04T13:57:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:57:53Z",
+            "conclusion": "success",
+            "name": "Run pnpm/action-setup@v4",
+            "number": 3,
+            "startedAt": "2026-10-04T13:57:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:58:00Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v4",
+            "number": 4,
+            "startedAt": "2026-10-04T13:57:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:58:04Z",
+            "conclusion": "success",
+            "name": "Run ilammy/msvc-dev-cmd@v1",
+            "number": 5,
+            "startedAt": "2026-10-04T13:58:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:58:15Z",
+            "conclusion": "success",
+            "name": "JS deps",
+            "number": 6,
+            "startedAt": "2026-10-04T13:58:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:58:20Z",
+            "conclusion": "success",
+            "name": "Build workspace packages",
+            "number": 7,
+            "startedAt": "2026-10-04T13:58:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:58:22Z",
+            "conclusion": "success",
+            "name": "Verify generated session contract",
+            "number": 8,
+            "startedAt": "2026-10-04T13:58:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:58:33Z",
+            "conclusion": "success",
+            "name": "JS lint",
+            "number": 9,
+            "startedAt": "2026-10-04T13:58:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:58:52Z",
+            "conclusion": "success",
+            "name": "JS unit tests",
+            "number": 10,
+            "startedAt": "2026-10-04T13:58:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:58:59Z",
+            "conclusion": "success",
+            "name": "Verify hidden renderer crash harness",
+            "number": 11,
+            "startedAt": "2026-10-04T13:58:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:59:27Z",
+            "conclusion": "success",
+            "name": "Setup vcpkg (manifest: OCCT 8.0.1, release-only triplet)",
+            "number": 12,
+            "startedAt": "2026-10-04T13:58:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:59:28Z",
+            "conclusion": "success",
+            "name": "Identify native cache toolchain",
+            "number": 13,
+            "startedAt": "2026-10-04T13:59:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:59:32Z",
+            "conclusion": "success",
+            "name": "Restore vcpkg binaries",
+            "number": 14,
+            "startedAt": "2026-10-04T13:59:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T13:59:32Z",
+            "conclusion": "success",
+            "name": "Use supported vcpkg cache backend",
+            "number": 15,
+            "startedAt": "2026-10-04T13:59:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:00:30Z",
+            "conclusion": "success",
+            "name": "Configure native core",
+            "number": 16,
+            "startedAt": "2026-10-04T13:59:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:00:30Z",
+            "conclusion": "skipped",
+            "name": "Save vcpkg binaries",
+            "number": 17,
+            "startedAt": "2026-10-04T14:00:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:04:18Z",
+            "conclusion": "success",
+            "name": "Build native core",
+            "number": 18,
+            "startedAt": "2026-10-04T14:00:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:05:28Z",
+            "conclusion": "success",
+            "name": "Native self-test + gtest",
+            "number": 19,
+            "startedAt": "2026-10-04T14:04:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:05:31Z",
+            "conclusion": "success",
+            "name": "Setup .NET 8",
+            "number": 20,
+            "startedAt": "2026-10-04T14:05:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:06:19Z",
+            "conclusion": "success",
+            "name": ".NET build + tests",
+            "number": 21,
+            "startedAt": "2026-10-04T14:05:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:06:26Z",
+            "conclusion": "success",
+            "name": "Build paired C# acceptance client",
+            "number": 22,
+            "startedAt": "2026-10-04T14:06:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:06:37Z",
+            "conclusion": "success",
+            "name": "Build desktop shell",
+            "number": 23,
+            "startedAt": "2026-10-04T14:06:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:08:46Z",
+            "conclusion": "success",
+            "name": "Windows packaging smoke",
+            "number": 24,
+            "startedAt": "2026-10-04T14:06:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:08:50Z",
+            "conclusion": "success",
+            "name": "Build GPU memory diagnostic",
+            "number": 25,
+            "startedAt": "2026-10-04T14:08:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:09:25Z",
+            "conclusion": "success",
+            "name": "Verify Squirrel install and packaged core",
+            "number": 26,
+            "startedAt": "2026-10-04T14:08:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:09:26Z",
+            "conclusion": "success",
+            "name": "Retain native runtime provenance",
+            "number": 27,
+            "startedAt": "2026-10-04T14:09:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:23:14Z",
+            "conclusion": "success",
+            "name": "Full regression (test:all)",
+            "number": 28,
+            "startedAt": "2026-10-04T14:09:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:23:16Z",
+            "conclusion": "success",
+            "name": "Upload E2E diagnostics",
+            "number": 29,
+            "startedAt": "2026-10-04T14:23:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:23:16Z",
+            "conclusion": "success",
+            "name": "Upload crash E2E diagnostics",
+            "number": 30,
+            "startedAt": "2026-10-04T14:23:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:23:16Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 8",
+            "number": 57,
+            "startedAt": "2026-10-04T14:23:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:23:29Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v4",
+            "number": 58,
+            "startedAt": "2026-10-04T14:23:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:23:29Z",
+            "conclusion": "success",
+            "name": "Post Run pnpm/action-setup@v4",
+            "number": 59,
+            "startedAt": "2026-10-04T14:23:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:23:31Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 60,
+            "startedAt": "2026-10-04T14:23:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T14:23:31Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 61,
+            "startedAt": "2026-10-04T14:23:31Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/JackoPeru/Kreoda/actions/runs/37207487694/job/111451621168"
+      }
+    ],
+    "status": "completed",
+    "url": "https://github.com/JackoPeru/Kreoda/actions/runs/37207487694"
+  },
+  "hostedRawLog": {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase11-4f35735-hosted-success.txt",
+    "sha256": "6c7fa9a4e3722ee16fddffb1fde4e53e28b0ca1abe686fdfbb1d7aaec71f7a39",
+    "matchingOutcomes": [
+      "build-and-test\tNative self-test + gtest\t2026-10-04T14:05:28.0233126Z 100% tests passed out of 159",
+      "build-and-test\t.NET build + tests\t2026-10-04T14:06:19.2749721Z Passed!  - Failed:     0, Passed:    36, Skipped:     0, Total:    36, Duration: 1 s - Kreoda.SessionClient.Tests.dll (net8.0)",
+      "build-and-test\tVerify Squirrel install and packaged core\t2026-10-04T14:09:25.3317140Z Native runtime provenance: D:\\a\\Kreoda\\Kreoda\\artifacts\\native-runtime-manifest.json (45 payload files)",
+      "build-and-test\tFull regression (test:all)\t2026-10-04T14:10:35.7224500Z [==========] 156 tests from 27 test suites ran. (57817 ms total)",
+      "build-and-test\tFull regression (test:all)\t2026-10-04T14:10:35.7225018Z [  PASSED  ] 156 tests.",
+      "build-and-test\tFull regression (test:all)\t2026-10-04T14:10:43.6986927Z Passed!  - Failed:     0, Passed:    36, Skipped:     0, Total:    36, Duration: 1 s - Kreoda.SessionClient.Tests.dll (net8.0)",
+      "build-and-test\tFull regression (test:all)\t2026-10-04T14:16:50.1289156Z   55 passed (5.7m)",
+      "build-and-test\tFull regression (test:all)\t2026-10-04T14:19:06.8575089Z 100% tests passed out of 1",
+      "build-and-test\tFull regression (test:all)\t2026-10-04T14:21:06.3034029Z   29 passed (2.0m)",
+      "build-and-test\tFull regression (test:all)\t2026-10-04T14:23:14.3881412Z 100% tests passed out of 1"
+    ]
+  },
+  "localEvidence": "phase11-preview-fixed-regression-local-2026-10-04.json",
+  "localEvidenceSha256": "ff5a54678a979308771d350b8ff52278e52ea35224ee4afb98dddf88813df81b",
+  "review": {
+    "verdict": "ship",
+    "runtime": {
+      "thread_id": "01a10742-bd9f-7142-abec-130b43d51357",
+      "agent_role": "sol_advisor_sol_reviewer",
+      "model": "gpt-6-sol",
+      "effort": "high",
+      "cwd": "C:\\Users\\matte\\Desktop\\Saas\\Kreoda",
+      "approval_policy": "never",
+      "sandbox_policy_type": "danger-full-access",
+      "permission_profile_type": "disabled",
+      "metadataSource": "Unique exact-ID rollout, one session header, consistent turn contexts; no enforced read-only sandbox claim."
+    },
+    "freezePath": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase11-preview-final-review-freeze.json",
+    "freezeSha256": "e5c3d2af84cb33999ca628f7550e09466a45a97af9d99288d7bcb310b9a1e195",
+    "filesVerifiedUnchangedAfterReview": 581,
+    "readOnlyBoundary": "Behaviorally read-only; no sandbox-enforced isolation claim.",
+    "inspectedScope": "Whole accumulated Phase 11 diff; previous preview findings corrected; no remaining required code correction."
+  },
+  "primaryCopy": "Required predecessor hash checks and backup before copying; completed copy attestation stored separately.",
+  "questHardwareAccepted": false,
+  "unityCadClientAccepted": false,
+  "mergedOrReleased": false
+}
