@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 469759d65430c8f8ad5b910da45fe80637728b8d60e9f294fcca2eca7587e705
+// Source SHA256: d5804785c2840e6cec157bd09648cda36f56ced3cbd1128f352a99352e18d16e
 type StableFeatureID = string;
 
 export interface RequestMetadata {
@@ -22,6 +22,29 @@ export interface HelloParams {
 export interface SnapshotParams {
     documentId?: string;
     [property: string]: unknown;
+}
+
+export interface RequestMeshLODParams {
+    bodyId:           string;
+    documentId:       string;
+    expectedRevision: number;
+    quality:          number;
+}
+
+export interface MeshReply {
+    result: MeshHeader;
+}
+
+export interface MeshHeader {
+    bodyId:          string;
+    byteLength:      number;
+    documentId:      string;
+    featureId:       string;
+    nativeRequestId: string;
+    quality:         number;
+    revision:        number;
+    sessionId:       string;
+    tipId:           string;
 }
 
 export interface InvokeParams {

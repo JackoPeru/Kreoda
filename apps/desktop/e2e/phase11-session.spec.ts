@@ -160,6 +160,31 @@ test("unified session: saved document, paired client, existing edit, Desktop und
     await expect.poll(async () => (await snapOf(window)).revision).toBe((await returning.call("snapshot"))["revision"]);
     await expect.poll(async () => (await snapOf(window)).bodies.find(b => b.id === "box")?.volumeMm3).toBeCloseTo(6000, 4);
     checks.push("compiled-csharp-pair-edit-undo-metadata-and-reconnect");
+
+    const csMeshPair = await window.evaluate(() => globalThis.window.kreoda.sessionPair());
+    const meshDll = path.resolve(HERE, "../../../clients/session-dotnet/probes/Kreoda.SessionProbe/bin/Release/net8.0/Kreoda.SessionProbe.dll");
+    let meshDotnetPid: number | undefined;
+    const meshProbe = await new Promise<{ passed: string[]; meshHeaders: unknown[]; meshHashes: string[] }>((resolve, reject) => {
+      const child = spawn("dotnet", [meshDll], { windowsHide: true, env: {
+        ...process.env,
+        KREODA_SESSION_PROBE_URL: url,
+        KREODA_SESSION_PROBE_MESH: "1",
+        KREODA_SESSION_PROBE_PAIR: csMeshPair.token,
+        KREODA_SESSION_PROBE_FEATURE: "box",
+        KREODA_SESSION_PROBE_UNTOUCHED: "untouched",
+      } });
+      meshDotnetPid = child.pid;
+      let output = "", errors = "";
+      child.stdout.on("data", b => output += String(b)); child.stderr.on("data", b => errors += String(b));
+      child.once("error", reject);
+      const timer = setTimeout(() => { child.kill(); reject(new Error("compiled mesh client timed out")); }, 30000);
+      child.once("exit", code => { clearTimeout(timer); if (code !== 0) reject(new Error(`compiled mesh client failed: ${errors}`)); else resolve(JSON.parse(output.trim()) as { passed: string[]; meshHeaders: unknown[]; meshHashes: string[] }); });
+    });
+    expect(meshProbe.passed).toHaveLength(4);
+    expect(meshProbe.meshHeaders).toHaveLength(6);
+    expect(meshProbe.meshHashes).toHaveLength(6);
+    await expect.poll(async () => (await snapOf(window)).bodies.find(b => b.id === "box")?.volumeMm3).toBeCloseTo(6000, 4);
+    checks.push("compiled-csharp-real-flatbuffers-all-lods-edit-undo-reconnect-and-stale-revision");
     await window.evaluate(id => globalThis.window.kreoda.sessionRevoke(id), paired.deviceId);
     await expect.poll(() => returning.call("getSessionInfo").then(() => false, () => true)).toBe(true);
     const revoked = new SessionClient(); clients.push(revoked);
@@ -169,8 +194,8 @@ test("unified session: saved document, paired client, existing edit, Desktop und
     const visible = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(w => w.isVisible()));
     if (process.env["KREODA_LOCAL_CORE_PROBE"]) expect(visible).toBe(false);
     const runtime = test.info().outputPath("session-acceptance-runtime.json");
-    writeFileSync(runtime, JSON.stringify({ checks, dotnetChecks: cs.passed, kernel: kernel["occtVersion"],
-      mainPid: app.process().pid, corePid: native.pid, dotnetPid, visibleWindows: visible,
+    writeFileSync(runtime, JSON.stringify({ checks, dotnetChecks: cs.passed, meshProbe, kernel: kernel["occtVersion"],
+      mainPid: app.process().pid, corePid: native.pid, dotnetPid, meshDotnetPid, visibleWindows: visible,
       finalRevision: (await snapOf(window)).revision, inputActions: 0, host,
       boundary: "Actual Electron renderer/main, OCCT and paired WebSocket plus compiled C# clients on the same host; no Unity or remote hardware." }));
     await test.info().attach("session-acceptance-runtime", { contentType: "application/json", path: runtime });

@@ -1,7 +1,12 @@
 {
   "$comment": "Canonical session control contract. Metadata, TypeScript/C# DTOs and standalone runtime validators are generated from this file. Binary meshes remain cad_protocol.fbs.",
   "protocolVersion": 1,
-  "transport": "WebSocket JSON text frames (both directions). No binary frames on this plane.",
+  "transport": "WebSocket JSON text control frames. With binary-mesh-v1, requestMeshLOD sends a JSON identity header followed by the unchanged cad_protocol.fbs MeshUpdate binary frame.",
+  "serverCapabilities": [
+    "operation-replay",
+    "incremental-deltas",
+    "binary-mesh-v1"
+  ],
   "envelope": {
     "request": {
       "requestId": "required non-empty string",
@@ -184,6 +189,19 @@
       "required": [],
       "optional": [],
       "reply": "{result:{revision, bodies[{bodyId, tip, history}], tips, sketches}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "requestMeshLOD",
+      "required": [
+        "bodyId",
+        "quality",
+        "documentId",
+        "expectedRevision"
+      ],
+      "optional": [],
+      "reply": "JSON {result:{nativeRequestId,sessionId,documentId,revision,bodyId,featureId,tipId,quality,byteLength}} immediately followed by the exact native MeshUpdate binary frame",
       "plane": "query",
       "operationReplay": false
     },
@@ -701,6 +719,60 @@
       },
       "required": [],
       "additionalProperties": true
+    },
+    "RequestMeshLODParams": {
+      "type": "object",
+      "properties": {
+        "bodyId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "quality": {
+          "type": "integer",
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "bodyId",
+        "quality",
+        "documentId",
+        "expectedRevision"
+      ],
+      "additionalProperties": false
+    },
+    "MeshHeader": {
+      "type": "object",
+      "properties": {
+        "nativeRequestId": { "type": "string", "minLength": 1 },
+        "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "documentId": { "type": "string", "minLength": 1 },
+        "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "bodyId": { "$ref": "#/definitions/StableFeatureId" },
+        "featureId": { "$ref": "#/definitions/StableFeatureId" },
+        "tipId": { "$ref": "#/definitions/StableFeatureId" },
+        "quality": { "type": "integer", "enum": [0, 1, 2] },
+        "byteLength": { "type": "integer", "minimum": 1, "maximum": 67108864 }
+      },
+      "required": ["nativeRequestId", "sessionId", "documentId", "revision", "bodyId", "featureId", "tipId", "quality", "byteLength"],
+      "additionalProperties": false
+    },
+    "MeshReply": {
+      "type": "object",
+      "properties": { "result": { "$ref": "#/definitions/MeshHeader" } },
+      "required": ["result"],
+      "additionalProperties": false
     },
     "InvokeParams": {
       "type": "object",

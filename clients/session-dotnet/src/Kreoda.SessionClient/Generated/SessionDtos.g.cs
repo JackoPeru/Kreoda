@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 469759d65430c8f8ad5b910da45fe80637728b8d60e9f294fcca2eca7587e705
+// Source SHA256: d5804785c2840e6cec157bd09648cda36f56ced3cbd1128f352a99352e18d16e
 #nullable enable annotations
 #nullable disable warnings
 namespace Kreoda.Session.Generated
@@ -59,6 +59,64 @@ namespace Kreoda.Session.Generated
         [JsonPropertyName("documentId")]
         [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
         public string? DocumentId { get; set; }
+    }
+
+    public partial class RequestMeshLodParams
+    {
+        [JsonPropertyName("bodyId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string BodyId { get; set; }
+
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("quality")]
+        public long Quality { get; set; }
+    }
+
+    public partial class MeshReply
+    {
+        [JsonPropertyName("result")]
+        public MeshHeader Result { get; set; }
+    }
+
+    public partial class MeshHeader
+    {
+        [JsonPropertyName("bodyId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string BodyId { get; set; }
+
+        [JsonPropertyName("byteLength")]
+        public long ByteLength { get; set; }
+
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string FeatureId { get; set; }
+
+        [JsonPropertyName("nativeRequestId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string NativeRequestId { get; set; }
+
+        [JsonPropertyName("quality")]
+        public long Quality { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+
+        [JsonPropertyName("tipId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string TipId { get; set; }
     }
 
     public partial class InvokeParams

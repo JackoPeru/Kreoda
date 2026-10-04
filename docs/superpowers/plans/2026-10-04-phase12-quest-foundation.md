@@ -46,13 +46,13 @@
 
 **Files:** schemas/session-control-v1.json; generated contract outputs; apps/desktop/electron/session.ts; protocol mesh validators; shared SessionClient mesh transport/decoder; relay/.NET/integration tests.
 
-- [ ] Add typed RequestMeshLOD/body-tip request and capability. Validate quality, session lineage, revision, body ownership and pending transaction fences in the existing ordered read queue.
-- [ ] Forward actual native FlatBuffers MeshUpdate bytes. Correlate native request ID to the outer request in a typed JSON header delivered before the binary frame. Register correlation synchronously in the receive loop, before completing any task, so fast binary arrival cannot be lost.
-- [ ] Header records session/document/revision/body/tip/quality. Fail both JSON and binary pending operations on disconnect, cancellation and malformed replies; bound payload sizes. Never emit base64 geometry in JSON.
-- [ ] Verify FlatBuffers structure, vector/index/range bounds and finite coordinates before allocation/upload. Preserve normals, edge polylines, face spans and semantic IDs.
-- [ ] Test fragmented binary receipt, simultaneous request IDs on different clients, stale delivery, malformed frames, all three LODs, cancellation and a core error without a binary response.
-- [ ] Real OCCT/Desktop + compiled C# proof: two bodies, request meshes, edit one existing feature, re-request only its changed body, Undo, reconnect and reject old lineage.
-- [ ] Commit generated contract and exact raw-byte/source evidence.
+- [x] Add typed RequestMeshLOD/body-tip request and capability. Validate quality, session lineage, revision, body ownership and pending transaction fences in the existing ordered read queue.
+- [x] Forward actual native FlatBuffers MeshUpdate bytes. Correlate native request ID to the outer request in a typed JSON header delivered before the binary frame. Register correlation synchronously in the receive loop, before completing any task, so fast binary arrival cannot be lost.
+- [x] Header records session/document/revision/body/tip/quality. Fail both JSON and binary pending operations on disconnect, cancellation and malformed replies; bound payload sizes. Never emit base64 geometry in JSON.
+- [x] Verify FlatBuffers structure, vector/index/range bounds and finite coordinates before allocation/upload. Preserve normals, edge polylines, face spans and semantic IDs.
+- [x] Test fragmented binary receipt, simultaneous request IDs on different clients, stale delivery, malformed frames, all three LODs, cancellation and a core error without a binary response.
+- [x] Real OCCT/Desktop + compiled C# proof: two bodies, request meshes, edit one existing feature, re-request only its changed body, Undo, reconnect and reject old lineage.
+- [x] Commit generated contract and exact raw-byte/source evidence.
 
 ## Packet 3 — Unity CAD scene and connection UI
 

@@ -1,11 +1,14 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 469759d65430c8f8ad5b910da45fe80637728b8d60e9f294fcca2eca7587e705
-export const CONTRACT_SCHEMA_SHA256 = "469759d65430c8f8ad5b910da45fe80637728b8d60e9f294fcca2eca7587e705" as const;
+// Source SHA256: d5804785c2840e6cec157bd09648cda36f56ced3cbd1128f352a99352e18d16e
+export const CONTRACT_SCHEMA_SHA256 = "d5804785c2840e6cec157bd09648cda36f56ced3cbd1128f352a99352e18d16e" as const;
 export const SESSION_DTO_NAMES = [
   "StableFeatureId",
   "RequestMetadata",
   "HelloParams",
   "SnapshotParams",
+  "RequestMeshLODParams",
+  "MeshHeader",
+  "MeshReply",
   "InvokeParams",
   "NamedCommandParams",
   "TxnParams",
@@ -45,6 +48,7 @@ export const CONTROL_METHODS = [
 export const QUERY_METHODS_CONTRACT = [
   "getDocumentInfo",
   "getBodies",
+  "requestMeshLOD",
   "getFeatures",
   "getFeature",
   "getParameters",
@@ -92,6 +96,7 @@ export const SESSION_CONTROL_METHODS = [
   "txnStatus",
   "getDocumentInfo",
   "getBodies",
+  "requestMeshLOD",
   "getFeatures",
   "getFeature",
   "getParameters",
@@ -138,6 +143,11 @@ export const OPERATION_METHODS = [
   "previewCommit",
   "previewCancel"
 ] as const;
+export const SESSION_SERVER_CAPABILITIES = [
+  "operation-replay",
+  "incremental-deltas",
+  "binary-mesh-v1"
+] as const;
 export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
   "pair": [
     "pairingToken",
@@ -174,6 +184,12 @@ export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
   "txnStatus": [],
   "getDocumentInfo": [],
   "getBodies": [],
+  "requestMeshLOD": [
+    "bodyId",
+    "quality",
+    "documentId",
+    "expectedRevision"
+  ],
   "getFeatures": [],
   "getFeature": [
     "featureId"

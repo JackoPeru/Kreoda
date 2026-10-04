@@ -364,6 +364,13 @@ export interface CoreMeshData {
   revision: number;
 }
 
+export interface CoreMeshUpdate extends CoreMeshData {
+  featureId: string;
+  bodyId: string;
+  requestId: string;
+  lod: number;
+}
+
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
@@ -432,18 +439,24 @@ function u8ToF32(bytes: Uint8Array | null, what: string): Float32Array {
   if (!bytes || bytes.byteLength % 4 !== 0) {
     throw new Error(`mesh buffer ${what} not float32`);
   }
-  return new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
+  const values = new Float32Array(bytes.byteLength / 4);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  for (let index = 0; index < values.length; index++) values[index] = view.getFloat32(index * 4, true);
+  return values;
 }
 
 function u8ToU32(bytes: Uint8Array | null, what: string): Uint32Array {
   if (!bytes || bytes.byteLength % 4 !== 0) {
     throw new Error(`mesh buffer ${what} not uint32`);
   }
-  return new Uint32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
+  const values = new Uint32Array(bytes.byteLength / 4);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  for (let index = 0; index < values.length; index++) values[index] = view.getUint32(index * 4, true);
+  return values;
 }
 
 /** Decode + validate a FlatBuffers MeshUpdate frame. Throws on corrupt data. */
-export function decodeMeshUpdateFb(bytes: Uint8Array): CoreMeshData {
+export function decodeMeshUpdateFb(bytes: Uint8Array): CoreMeshUpdate {
   const mesh = tryDecodeMeshUpdateFb(bytes);
   if (!mesh) throw new Error("mesh frame is not a MeshUpdate table");
   return mesh;
@@ -455,9 +468,9 @@ export function decodeMeshUpdateFb(bytes: Uint8Array): CoreMeshData {
  * fall back to the JSON path instead of misrouting on one byte (a
  * FlatBuffers uoffset low byte may legally be 0x7B).
  */
-export function tryDecodeMeshUpdateFb(bytes: Uint8Array): CoreMeshData | null {
+export function tryDecodeMeshUpdateFb(bytes: Uint8Array): CoreMeshUpdate | null {
   try {
-    if (bytes.byteLength < 16) return null;
+    if (bytes.byteLength < 16 || bytes.byteLength > 64 * 1024 * 1024) return null;
     const bb = new flatbuffers.ByteBuffer(bytes);
     const update = MeshUpdate.getRootAsMeshUpdate(bb);
     // Loop-cap: a FaceRange/EdgeRange table needs ≥8 bytes; a larger count
@@ -516,76 +529,145 @@ export function responseRequestId(bytes: Uint8Array): string | null {
   }
 }
 
-function decodeUpdate(update: MeshUpdate): CoreMeshData {
-  const pos = u8ToF32(update.positionsArray(), "positions");
-  const nor = u8ToF32(update.normalsArray(), "normals");
-  const idx = u8ToU32(update.indicesArray(), "indices");
-  if (pos.byteLength !== nor.byteLength) {
+const MAX_MESH_VECTOR_BYTES = 64 * 1024 * 1024;
+const MAX_MESH_TABLE_COUNT = 1_000_000;
+const EMPTY_MESH_BYTES = new Uint8Array(0);
+
+function validateFiniteFloat32Bytes(bytes: Uint8Array, what: string): void {
+  if (bytes.byteLength % 4 !== 0) throw new Error(`mesh buffer ${what} not float32`);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  for (let offset = 0; offset < bytes.byteLength; offset += 4) {
+    if (!Number.isFinite(view.getFloat32(offset, true))) throw new Error(`non-finite mesh ${what}`);
+  }
+}
+
+function validateIndexBytes(bytes: Uint8Array, vertexCount: number): void {
+  if (bytes.byteLength % 4 !== 0) throw new Error("mesh buffer indices not uint32");
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  for (let offset = 0; offset < bytes.byteLength; offset += 4) {
+    if (view.getUint32(offset, true) >= vertexCount) throw new Error("mesh index out of bounds");
+  }
+}
+
+function decodeUpdate(update: MeshUpdate): CoreMeshUpdate {
+  const posBytes = update.positionsArray();
+  const norBytes = update.normalsArray();
+  const idxBytes = update.indicesArray();
+  const edgeBytes = update.edgeVerticesArray() ?? EMPTY_MESH_BYTES;
+  if (!posBytes || !norBytes || !idxBytes ||
+      posBytes.byteLength > MAX_MESH_VECTOR_BYTES || norBytes.byteLength > MAX_MESH_VECTOR_BYTES ||
+      idxBytes.byteLength > MAX_MESH_VECTOR_BYTES || edgeBytes.byteLength > MAX_MESH_VECTOR_BYTES) {
+    throw new Error("mesh buffer missing or too large");
+  }
+  if (posBytes.byteLength !== norBytes.byteLength) {
     throw new Error("positions/normals length mismatch");
   }
-  if (pos.length % 3 !== 0) throw new Error("positions not xyz triplets");
-  if (update.positionsCount() !== pos.length) {
+  if (posBytes.byteLength % 12 !== 0) throw new Error("positions not xyz triplets");
+  if (idxBytes.byteLength % 4 !== 0) throw new Error("mesh buffer indices not uint32");
+  if (update.positionsCount() !== posBytes.byteLength / 4) {
     throw new Error("positions count mismatch");
   }
-  if (update.indicesCount() !== idx.length) {
+  if (update.normalsCount() !== norBytes.byteLength / 4) {
+    throw new Error("normals count mismatch");
+  }
+  if (update.indicesCount() !== idxBytes.byteLength / 4) {
     throw new Error("indices count mismatch");
   }
-  const positions = new Float32Array(pos);
-  const normals = new Float32Array(nor);
-  const indices = new Uint32Array(idx);
-  const edgeRaw = update.edgeVerticesArray() ?? new Uint8Array(0);
-  if (edgeRaw.byteLength % 4 !== 0) {
+  if (idxBytes.byteLength % 12 !== 0) {
+    throw new Error("indices are not complete triangles");
+  }
+  if (edgeBytes.byteLength % 12 !== 0) {
     throw new Error("edge buffer not float32");
   }
-  const edgeVertices = new Float32Array(
-    edgeRaw.buffer,
-    edgeRaw.byteOffset,
-    edgeRaw.byteLength / 4,
-  );
-  if (edgeVertices.length % 3 !== 0) {
-    throw new Error("edge verts not triplets");
+  if (update.positionsCount() !== posBytes.byteLength / 4 || update.normalsCount() !== norBytes.byteLength / 4 ||
+      update.indicesCount() !== idxBytes.byteLength / 4) {
+    throw new Error("mesh element counts do not match vector lengths");
   }
+  const vertexCount = posBytes.byteLength / 12;
+  const triangleCount = idxBytes.byteLength / 12;
+  const edgeVertexCount = edgeBytes.byteLength / 12;
+  validateFiniteFloat32Bytes(posBytes, "position");
+  validateFiniteFloat32Bytes(norBytes, "normal");
+  validateFiniteFloat32Bytes(edgeBytes, "edge vertex");
+  validateIndexBytes(idxBytes, vertexCount);
+
+  const featureId = update.featureId() ?? "";
+  const bodyId = update.bodyId() ?? "";
+  const requestId = update.requestId() ?? "";
+  const lod = update.lod();
+  if (!featureId || !bodyId || !requestId || featureId.length > 4096 || bodyId.length > 4096 || requestId.length > 4096) {
+    throw new Error("mesh identity missing or too long");
+  }
+  if (!Number.isInteger(lod) || lod < 0 || lod > 2) throw new Error("mesh quality invalid");
   const faces: FaceRange[] = [];
   const nf = update.facesLength();
+  const ne = update.edgesLength();
+  if (nf > MAX_MESH_TABLE_COUNT || ne > MAX_MESH_TABLE_COUNT) throw new Error("mesh semantic table count exceeds limit");
+  const faceIds = new Set<string>();
+  let nextTriangle = 0;
   for (let i = 0; i < nf; i++) {
     const f = update.faces(i);
     if (!f) throw new Error("mesh face missing");
-    faces.push({
-      persistentFaceId: f.persistentFaceId() ?? "",
-      triangleStart: f.triangleStart(),
-      triangleCount: f.triangleCount(),
-    });
+    const persistentFaceId = f.persistentFaceId() ?? "";
+    const triangleStart = f.triangleStart();
+    const triangleCount = f.triangleCount();
+    if (!persistentFaceId || persistentFaceId.length > 4096 || faceIds.has(persistentFaceId) || triangleCount === 0 ||
+        triangleStart < nextTriangle || triangleStart + triangleCount > idxBytes.byteLength / 12) {
+      throw new Error("mesh face range invalid");
+    }
+    faceIds.add(persistentFaceId);
+    nextTriangle = triangleStart + triangleCount;
+    faces.push({ persistentFaceId, triangleStart, triangleCount });
   }
   const edges: EdgeRange[] = [];
-  const ne = update.edgesLength();
+  const edgeIds = new Set<string>();
+  let nextEdgeVertex = 0;
   for (let i = 0; i < ne; i++) {
     const e = update.edges(i);
     if (!e) throw new Error("mesh edge missing");
-    edges.push({
-      persistentEdgeId: e.persistentEdgeId() ?? "",
-      vertexStart: e.vertexStart(),
-      vertexCount: e.vertexCount(),
-    });
+    const persistentEdgeId = e.persistentEdgeId() ?? "";
+    const vertexStart = e.vertexStart();
+    const edgeCount = e.vertexCount();
+    if (!persistentEdgeId || persistentEdgeId.length > 4096 || edgeIds.has(persistentEdgeId) || edgeCount === 0 ||
+        vertexStart < nextEdgeVertex || vertexStart + edgeCount > edgeVertexCount) {
+      throw new Error("mesh edge range invalid");
+    }
+    edgeIds.add(persistentEdgeId);
+    nextEdgeVertex = vertexStart + edgeCount;
+    edges.push({ persistentEdgeId, vertexStart, vertexCount: edgeCount });
   }
   const bboxRaw = update.bboxMmArray();
-  const bbox: CoreMeshData["bboxMm"] =
-    bboxRaw && bboxRaw.length === 6
-      ? [bboxRaw[0]!, bboxRaw[1]!, bboxRaw[2]!, bboxRaw[3]!, bboxRaw[4]!, bboxRaw[5]!]
-      : [0, 0, 0, 0, 0, 0];
+  if (!bboxRaw || bboxRaw.length !== 6) throw new Error("mesh bounds malformed");
+  const bbox: CoreMeshData["bboxMm"] = [bboxRaw[0]!, bboxRaw[1]!, bboxRaw[2]!, bboxRaw[3]!, bboxRaw[4]!, bboxRaw[5]!];
+  if (bbox.some((value, index) => !Number.isFinite(value) || (index < 3 && value > bbox[index + 3]!))) {
+    throw new Error("mesh bounds invalid");
+  }
+  const volumeMm3 = update.volumeMm3();
+  if (!Number.isFinite(volumeMm3) || volumeMm3 < 0) throw new Error("mesh volume invalid");
   const revision = Number(update.revision());
   if (!Number.isSafeInteger(revision) || revision < 0) {
     throw new Error("mesh revision invalid");
   }
+  // Only allocate/copy large typed geometry arrays after raw-byte preflight
+  // has validated counts, finite coordinates, indices, and semantic spans.
+  const positions = u8ToF32(posBytes, "positions");
+  const normals = u8ToF32(norBytes, "normals");
+  const indices = u8ToU32(idxBytes, "indices");
+  const edgeVertices = u8ToF32(edgeBytes, "edge vertices");
   return {
+    featureId,
+    bodyId,
+    requestId,
+    lod,
     positions,
     normals,
     indices,
     faces,
-    edgeVertices: new Float32Array(edgeVertices),
+    edgeVertices,
     edges,
-    volumeMm3: update.volumeMm3(),
+    volumeMm3,
     bboxMm: bbox,
-    triangleCount: indices.length / 3,
+    triangleCount,
     revision,
   };
 }

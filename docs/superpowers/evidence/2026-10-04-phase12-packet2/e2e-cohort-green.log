@@ -1,0 +1,10 @@
+
+Running 1 test using 1 worker
+
+(node:21420) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 e2e\phase11-session.spec.ts:26:1 › unified session: saved document, paired client, existing edit, Desktop undo, reconnect and rejects without GUI input (2.9s)
+
+  1 passed (4.2s)
+
+{"cohort": "ordinary", "exitCode": 0, "corePath": "C:\\Users\\matte\\Documents\\Codex-tools\\kreoda-phase11-geometry-complete-afcf09131b204c79a2f1488eca44b895\\kreoda-core.exe", "coreSha256": "80d7120494a298ab4ce74a5f6790bf94a8d4dab920b5bb79bafc259eb06ee99c", "compiledMainRestoredSha256": "3d29990e6382b1733806942a503b132cd0a32a7f63b6d42073e636b2e402770e", "runnerSha256": "82c4135de41adfa854317ca9ec191253197b5c7c8a5af581f6e03735e14d2da1", "prefixSha256": "83f8c2d17270b6e38e0ea5518bf248ad03aabec386365b82836c84afdeab0846", "log": "C:\\Users\\matte\\Documents\\Codex-tools\\kreoda-phase11-ordinary-77248c753eb64da087faba15bf322982\\playwright.txt"}
