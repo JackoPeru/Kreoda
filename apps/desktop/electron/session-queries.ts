@@ -1,3 +1,4 @@
+import { QUERY_METHODS_CONTRACT } from "@kreoda/protocol";
 // Session semantic query API (§11.7–§11.9, §11.11, §11.15): read-only
 // projections over the authoritative snapshot plus manipulator metadata.
 // Transport-agnostic: the relay injects core access; unit tests inject
@@ -467,42 +468,7 @@ async function manipulatorsFor(
   return [];
 }
 
-export const QUERY_METHODS = [
-  "getDocumentInfo",
-  "getBodies",
-  "getFeatures",
-  "getFeature",
-  "getParameters",
-  "getDependencies",
-  "getModelTree",
-  "describeModel",
-  "getSelection",
-  "setSelection",
-  "clearSelection",
-  "findFaces",
-  "findEdges",
-  "findBodies",
-  "getManipulators",
-  "measureVolume",
-  "measureArea",
-  "getBoundingBox",
-  "measureDistance",
-  "measureAngle",
-  "measureRadius",
-  "measureDiameter",
-  "validateDocument",
-  "validateBody",
-  "validateFeature",
-  "listCommands",
-  // Slice 7: advertised so relay + query layers agree it exists (the handler
-  // answers NOT_IMPLEMENTED until the agent slice ships per-command schemas).
-  "getCommandSchema",
-  "getCapabilities",
-  "previewBegin",
-  "previewUpdate",
-  "previewCommit",
-  "previewCancel",
-] as const;
+export const QUERY_METHODS = QUERY_METHODS_CONTRACT;
 
 export type QueryMethod = (typeof QUERY_METHODS)[number];
 

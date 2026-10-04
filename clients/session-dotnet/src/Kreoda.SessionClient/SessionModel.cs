@@ -16,17 +16,17 @@ public sealed record SessionModelState(
     string SessionId, string DocumentId, long Revision,
     IReadOnlyList<JsonElement> Features, IReadOnlyList<JsonElement> Sketches, IReadOnlyList<JsonElement> Bodies)
 {
-    private const long MaxSafeRevision = 9007199254740991;
-    private static readonly JsonSerializerOptions Options = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private const long MaxSafeRevision = SessionContract.MaximumRevision;
     private static readonly string[] Kinds = ["feature", "sketch", "body"];
 
     public static SessionModelState FromSnapshot(JsonElement raw)
     {
         try
         {
-            var session = raw.GetProperty("sessionId").GetString();
-            var document = raw.GetProperty("documentId").GetString();
-            var revision = raw.GetProperty("revision").GetInt64();
+            var snapshot = GeneratedControl.Read<Generated.SessionSnapshotPayload>(raw, "SessionSnapshotPayload");
+            var session = snapshot.SessionId;
+            var document = snapshot.DocumentId;
+            var revision = snapshot.Revision;
             if (string.IsNullOrEmpty(session) || string.IsNullOrEmpty(document) || !ValidRevision(revision))
                 throw new JsonException("invalid snapshot lineage or revision");
             var features = ReadCollection(raw.GetProperty("features"), "feature");
@@ -47,7 +47,14 @@ public sealed record SessionModelState(
             // Missing numeric fields cannot silently become zero through deserialization.
             foreach (var key in new[] { "baseRevision", "newRevision", "revision" })
                 if (!raw.TryGetProperty(key, out var number) || !number.TryGetInt64(out var revision) || !ValidRevision(revision)) return recovery;
-            var delta = raw.Deserialize<SessionIncrementalDelta>(Options);
+            if (raw.GetProperty("event").GetString() != "delta") return recovery;
+            var wire = GeneratedControl.Read<Generated.SessionIncrementalEvent>(raw, "SessionIncrementalEvent");
+            var delta = new SessionIncrementalDelta("delta", wire.SessionId, wire.DocumentId, wire.OriginClientId,
+                wire.BaseRevision, wire.NewRevision, wire.Revision,
+                ReadChanges(raw.GetProperty("added")), ReadChanges(raw.GetProperty("updated")),
+                wire.RemovedIds, wire.ChangedMeshIds,
+                raw.GetProperty("referenceRemaps").EnumerateArray().Select(value => value.Clone()).ToArray(),
+                raw.GetProperty("warnings").EnumerateArray().Select(value => value.Clone()).ToArray());
             if (delta is null || delta.Event != "delta" || string.IsNullOrEmpty(delta.SessionId) ||
                 string.IsNullOrEmpty(delta.DocumentId) || string.IsNullOrEmpty(delta.OriginClientId) ||
                 delta.Revision != delta.NewRevision || delta.NewRevision <= delta.BaseRevision ||
@@ -74,6 +81,13 @@ public sealed record SessionModelState(
     }
 
     private static bool ValidRevision(long revision) => revision >= 0 && revision <= MaxSafeRevision;
+    private static SessionEntityChange[] ReadChanges(JsonElement raw) => raw.EnumerateArray().Select(value =>
+    {
+        var change = GeneratedControl.Read<Generated.SessionEntityPatch>(value, "SessionEntityPatch");
+        if (change.Index < 0 || change.Index > int.MaxValue) throw new JsonException("invalid entity index");
+        return new SessionEntityChange(change.Kind.ToString().ToLowerInvariant(), change.Id, (int)change.Index,
+            value.GetProperty("value").Clone());
+    }).ToArray();
     private static string? GetId(JsonElement entity, string kind)
     {
         if (entity.ValueKind != JsonValueKind.Object || !entity.TryGetProperty(kind == "body" ? "bodyId" : "featureId", out var id) || id.ValueKind != JsonValueKind.String) return null;

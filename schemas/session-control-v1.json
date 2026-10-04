@@ -1,69 +1,1185 @@
 {
-  "$comment": "Slice 7: single source of truth for the session CONTROL plane (WebSocket JSON). Data plane (binary mesh) stays in schemas/cad_protocol.fbs. protocolVersion = 1 on both planes.",
+  "$comment": "Canonical session control contract. Metadata, TypeScript/C# DTOs and standalone runtime validators are generated from this file. Binary meshes remain cad_protocol.fbs.",
   "protocolVersion": 1,
   "transport": "WebSocket JSON text frames (both directions). No binary frames on this plane.",
   "envelope": {
-    "request": { "requestId": "required non-empty string", "method": "required string", "params": "optional object (default {})", "optional": ["operationId", "sessionId"] },
-    "okReply": { "requestId": "string", "ok": true, "plus": "method-specific payload" },
-    "errReply": { "requestId": "string", "ok": false, "errorCode": "required string", "error": "required string" }
+    "request": {
+      "requestId": "required non-empty string",
+      "method": "required string",
+      "params": "optional object (default {})",
+      "optional": [
+        "operationId",
+        "sessionId"
+      ]
+    },
+    "okReply": {
+      "requestId": "string",
+      "ok": true,
+      "plus": "method-specific payload"
+    },
+    "errReply": {
+      "requestId": "string",
+      "ok": false,
+      "errorCode": "required string",
+      "error": "required string"
+    }
   },
   "methods": [
-    { "method": "hello", "required": ["token", "protocolVersion"], "optional": ["clientType", "clientName", "clientId", "capabilities"], "reply": "flat {clientId, sessionId, documentId, revision, capabilities[]}; capabilities lists server-supported features; wrong token closes the socket (no reply)" },
-    { "method": "snapshot", "required": [], "optional": ["documentId"], "reply": "flat {documentId, revision, features[], sketches[], bodies[], tips[]} (Slice 6 bodies)" },
-    { "method": "invoke", "required": ["type"], "optional": ["documentId", "fields", "baseRevision", "transactionId"], "reply": "flat core result + revision" },
-    { "method": "command", "required": ["commandId"], "optional": ["parameters", "featureId", "documentId", "baseRevision", "transactionId"], "reply": "flat core result + revision; parameters use the command registry; creation featureId is optional and generated once per operation" },
-    { "method": "txnBegin", "required": ["transactionId"], "optional": ["documentId"], "reply": "flat core result" },
-    { "method": "txnCommit", "required": ["transactionId"], "optional": ["documentId"], "reply": "flat core result, one atomic delta" },
-    { "method": "txnRollback", "required": ["transactionId"], "optional": ["documentId"], "reply": "flat core result" },
-    { "method": "txnForceRollback", "required": ["transactionId"], "optional": ["documentId"], "reply": "flat core result; rejected while the owner is still connected" },
-    { "method": "txnStatus", "required": [], "optional": ["documentId"], "reply": "{open, transactionId?, ownerClientId?, ownerConnected?}" },
-    { "method": "getDocumentInfo", "required": [], "optional": [], "reply": "{result:{documentId, revision, bodies, features, sketches, tips}}" },
-    { "method": "getBodies", "required": [], "optional": [], "reply": "{result:{revision, bodies[{bodyId, tip, history}], tips, sketches}}" },
-    { "method": "getFeatures", "required": [], "optional": ["bodyId"], "reply": "{result:{revision, features[], bodies[], tips[]}}" },
-    { "method": "getFeature", "required": ["featureId"], "optional": [], "reply": "{result:feature}" },
-    { "method": "getParameters", "required": ["featureId"], "optional": [], "reply": "{result:{featureId, paramsMm, expressions}}" },
-    { "method": "getDependencies", "required": ["featureId"], "optional": [], "reply": "{result:{featureId, dependsOn[{id, known}]}}" },
-    { "method": "getModelTree", "required": [], "optional": [], "reply": "same shape as getBodies" },
-    { "method": "describeModel", "required": [], "optional": [], "reply": "{result:{documentId, revision, bodies, features, sketches, types, tips, summary}}" },
-    { "method": "getSelection", "required": [], "optional": ["clientId"], "reply": "{result:{clientId, ids}}" },
-    { "method": "setSelection", "required": ["ids"], "optional": [], "reply": "{result:{clientId, ids}} + selection broadcast" },
-    { "method": "clearSelection", "required": [], "optional": [], "reply": "{result:{clientId, ids:[]}} + selection broadcast" },
-    { "method": "findFaces", "required": [], "optional": ["ownerBody", "role", "minTriangles"], "reply": "{result:{faces[]}}" },
-    { "method": "findEdges", "required": [], "optional": ["ownerBody", "role"], "reply": "{result:{edges[]}}" },
-    { "method": "findBodies", "required": [], "optional": ["type", "minVolumeMm3"], "reply": "{result:{bodies[]}}" },
-    { "method": "getManipulators", "required": ["featureId"], "optional": [], "reply": "{result:{featureId, manipulators[]}}" },
-    { "method": "measureVolume", "required": [], "optional": ["featureId"], "reply": "{result:{volumeMm3}}" },
-    { "method": "measureArea", "required": ["featureId"], "optional": [], "reply": "{result:{featureId, areaMm2}}" },
-    { "method": "getBoundingBox", "required": ["featureId"], "optional": [], "reply": "{result:{featureId, bboxMm, volumeMm3}}" },
-    { "method": "measureDistance", "required": ["a", "b"], "optional": [], "reply": "{result:{a, b, distanceMm}}" },
-    { "method": "measureAngle", "required": ["a", "b"], "optional": [], "reply": "{result:{a, b, angleDeg}}" },
-    { "method": "measureRadius", "required": ["featureId"], "optional": [], "reply": "{result:{featureId, radiusMm}}" },
-    { "method": "measureDiameter", "required": ["featureId"], "optional": [], "reply": "{result:{featureId, diameterMm}}" },
-    { "method": "validateDocument", "required": [], "optional": [], "reply": "{result:{scope:'structural', valid, checks[]}}" },
-    { "method": "validateBody", "required": [], "optional": ["bodyId", "featureId"], "reply": "structural checks (needs bodyId or featureId)" },
-    { "method": "validateFeature", "required": [], "optional": ["featureId", "bodyId"], "reply": "structural checks (needs featureId or bodyId)" },
-    { "method": "listCommands", "required": [], "optional": [], "reply": "{result:{commands[{id, label, description, supportsPreview}]}}" },
-    { "method": "getCommandSchema", "required": [], "optional": ["id"], "reply": "{result:{id,nativeType,description,parameters:JSONSchema}} or {result:{commands[]}} when id is absent" },
-    { "method": "getCapabilities", "required": [], "optional": [], "reply": "{result:{protocolVersion, mutations, queries[], previews, transactions, multiClient, notes}}" },
-    { "method": "previewBegin", "required": ["featureId", "paramName"], "optional": ["valueMm", "expression"], "reply": "{result:{previewId, triangles, volumeMm3, bboxMm, revision}}" },
-    { "method": "previewUpdate", "required": ["previewId"], "optional": ["valueMm", "expression"], "reply": "{result:{previewId, ...}}" },
-    { "method": "previewCommit", "required": ["previewId"], "optional": [], "reply": "flat mutation result" },
-    { "method": "previewCancel", "required": ["previewId"], "optional": [], "reply": "{result:{previewId, cancelled:true}}" }
+    {
+      "method": "hello",
+      "required": [
+        "token",
+        "protocolVersion"
+      ],
+      "optional": [
+        "clientType",
+        "clientName",
+        "clientId",
+        "capabilities"
+      ],
+      "reply": "flat {clientId, sessionId, documentId, revision, capabilities[]}; capabilities lists server-supported features; wrong token closes the socket (no reply)",
+      "plane": "control",
+      "operationReplay": false
+    },
+    {
+      "method": "snapshot",
+      "required": [],
+      "optional": [
+        "documentId"
+      ],
+      "reply": "flat {documentId, revision, features[], sketches[], bodies[], tips[]} (Slice 6 bodies)",
+      "plane": "control",
+      "operationReplay": false
+    },
+    {
+      "method": "invoke",
+      "required": [
+        "type"
+      ],
+      "optional": [
+        "documentId",
+        "fields",
+        "baseRevision",
+        "transactionId"
+      ],
+      "reply": "flat core result + revision",
+      "plane": "control",
+      "operationReplay": true
+    },
+    {
+      "method": "command",
+      "required": [
+        "commandId"
+      ],
+      "optional": [
+        "parameters",
+        "featureId",
+        "documentId",
+        "baseRevision",
+        "transactionId"
+      ],
+      "reply": "flat core result + revision; parameters use the command registry; creation featureId is optional and generated once per operation",
+      "plane": "control",
+      "operationReplay": true
+    },
+    {
+      "method": "txnBegin",
+      "required": [
+        "transactionId"
+      ],
+      "optional": [
+        "documentId"
+      ],
+      "reply": "flat core result",
+      "plane": "control",
+      "operationReplay": true
+    },
+    {
+      "method": "txnCommit",
+      "required": [
+        "transactionId"
+      ],
+      "optional": [
+        "documentId"
+      ],
+      "reply": "flat core result, one atomic delta",
+      "plane": "control",
+      "operationReplay": true
+    },
+    {
+      "method": "txnRollback",
+      "required": [
+        "transactionId"
+      ],
+      "optional": [
+        "documentId"
+      ],
+      "reply": "flat core result",
+      "plane": "control",
+      "operationReplay": true
+    },
+    {
+      "method": "txnForceRollback",
+      "required": [
+        "transactionId"
+      ],
+      "optional": [
+        "documentId"
+      ],
+      "reply": "flat core result; rejected while the owner is still connected",
+      "plane": "control",
+      "operationReplay": true
+    },
+    {
+      "method": "txnStatus",
+      "required": [],
+      "optional": [
+        "documentId"
+      ],
+      "reply": "{open, transactionId?, ownerClientId?, ownerConnected?}",
+      "plane": "control",
+      "operationReplay": false
+    },
+    {
+      "method": "getDocumentInfo",
+      "required": [],
+      "optional": [],
+      "reply": "{result:{documentId, revision, bodies, features, sketches, tips}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getBodies",
+      "required": [],
+      "optional": [],
+      "reply": "{result:{revision, bodies[{bodyId, tip, history}], tips, sketches}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getFeatures",
+      "required": [],
+      "optional": [
+        "bodyId"
+      ],
+      "reply": "{result:{revision, features[], bodies[], tips[]}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getFeature",
+      "required": [
+        "featureId"
+      ],
+      "optional": [],
+      "reply": "{result:feature}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getParameters",
+      "required": [
+        "featureId"
+      ],
+      "optional": [],
+      "reply": "{result:{featureId, paramsMm, expressions}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getDependencies",
+      "required": [
+        "featureId"
+      ],
+      "optional": [],
+      "reply": "{result:{featureId, dependsOn[{id, known}]}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getModelTree",
+      "required": [],
+      "optional": [],
+      "reply": "same shape as getBodies",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "describeModel",
+      "required": [],
+      "optional": [],
+      "reply": "{result:{documentId, revision, bodies, features, sketches, types, tips, summary}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getSelection",
+      "required": [],
+      "optional": [
+        "clientId"
+      ],
+      "reply": "{result:{clientId, ids}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "setSelection",
+      "required": [
+        "ids"
+      ],
+      "optional": [],
+      "reply": "{result:{clientId, ids}} + selection broadcast",
+      "plane": "query",
+      "operationReplay": true
+    },
+    {
+      "method": "clearSelection",
+      "required": [],
+      "optional": [],
+      "reply": "{result:{clientId, ids:[]}} + selection broadcast",
+      "plane": "query",
+      "operationReplay": true
+    },
+    {
+      "method": "findFaces",
+      "required": [],
+      "optional": [
+        "ownerBody",
+        "role",
+        "minTriangles"
+      ],
+      "reply": "{result:{faces[]}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "findEdges",
+      "required": [],
+      "optional": [
+        "ownerBody",
+        "role"
+      ],
+      "reply": "{result:{edges[]}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "findBodies",
+      "required": [],
+      "optional": [
+        "type",
+        "minVolumeMm3"
+      ],
+      "reply": "{result:{bodies[]}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getManipulators",
+      "required": [
+        "featureId"
+      ],
+      "optional": [],
+      "reply": "{result:{featureId, manipulators[]}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "measureVolume",
+      "required": [],
+      "optional": [
+        "featureId"
+      ],
+      "reply": "{result:{volumeMm3}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "measureArea",
+      "required": [
+        "featureId"
+      ],
+      "optional": [],
+      "reply": "{result:{featureId, areaMm2}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getBoundingBox",
+      "required": [
+        "featureId"
+      ],
+      "optional": [],
+      "reply": "{result:{featureId, bboxMm, volumeMm3}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "measureDistance",
+      "required": [
+        "a",
+        "b"
+      ],
+      "optional": [],
+      "reply": "{result:{a, b, distanceMm}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "measureAngle",
+      "required": [
+        "a",
+        "b"
+      ],
+      "optional": [],
+      "reply": "{result:{a, b, angleDeg}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "measureRadius",
+      "required": [
+        "featureId"
+      ],
+      "optional": [],
+      "reply": "{result:{featureId, radiusMm}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "measureDiameter",
+      "required": [
+        "featureId"
+      ],
+      "optional": [],
+      "reply": "{result:{featureId, diameterMm}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "validateDocument",
+      "required": [],
+      "optional": [],
+      "reply": "{result:{scope:'structural', valid, checks[]}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "validateBody",
+      "required": [],
+      "optional": [
+        "bodyId",
+        "featureId"
+      ],
+      "reply": "structural checks (needs bodyId or featureId)",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "validateFeature",
+      "required": [],
+      "optional": [
+        "featureId",
+        "bodyId"
+      ],
+      "reply": "structural checks (needs featureId or bodyId)",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "listCommands",
+      "required": [],
+      "optional": [],
+      "reply": "{result:{commands[{id, label, description, supportsPreview}]}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getCommandSchema",
+      "required": [],
+      "optional": [
+        "id"
+      ],
+      "reply": "{result:{id,nativeType,description,parameters:JSONSchema}} or {result:{commands[]}} when id is absent",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getCapabilities",
+      "required": [],
+      "optional": [],
+      "reply": "{result:{protocolVersion, mutations, queries[], previews, transactions, multiClient, notes}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "previewBegin",
+      "required": [
+        "featureId",
+        "paramName"
+      ],
+      "optional": [
+        "valueMm",
+        "expression"
+      ],
+      "reply": "{result:{previewId, triangles, volumeMm3, bboxMm, revision}}",
+      "plane": "query",
+      "operationReplay": true
+    },
+    {
+      "method": "previewUpdate",
+      "required": [
+        "previewId"
+      ],
+      "optional": [
+        "valueMm",
+        "expression"
+      ],
+      "reply": "{result:{previewId, ...}}",
+      "plane": "query",
+      "operationReplay": true
+    },
+    {
+      "method": "previewCommit",
+      "required": [
+        "previewId"
+      ],
+      "optional": [],
+      "reply": "flat mutation result",
+      "plane": "query",
+      "operationReplay": true
+    },
+    {
+      "method": "previewCancel",
+      "required": [
+        "previewId"
+      ],
+      "optional": [],
+      "reply": "{result:{previewId, cancelled:true}}",
+      "plane": "query",
+      "operationReplay": true
+    }
   ],
-  "wireErrorCodes": ["MALFORMED", "BAD_HELLO", "NOT_AUTHED", "BAD_PARAMS", "NOT_FOUND", "NOT_IMPLEMENTED", "NEED_FULL_SNAPSHOT", "BUSY", "SESSION_FAILED", "TRANSACTION_BUSY", "NO_TRANSACTION", "NOT_OWNER", "TRANSACTION_TAINTED", "TRANSACTION_OPEN", "CORE_FAILED", "PREVIEW_FAILED", "UNKNOWN_COMMAND", "CLIENT_DISCONNECTED", "CONFLICT"],
-  "clientOnlyErrorCodes": ["NOT_CONNECTED", "SEND_FAILED", "CANCELLED", "CLOSED", "RECEIVE_FAILED"],
-  "serverEvents": ["delta", "selection", "core-restarted", "snapshot-required"],
+  "wireErrorCodes": [
+    "MALFORMED",
+    "BAD_HELLO",
+    "NOT_AUTHED",
+    "BAD_PARAMS",
+    "NOT_FOUND",
+    "NOT_IMPLEMENTED",
+    "NEED_FULL_SNAPSHOT",
+    "BUSY",
+    "SESSION_FAILED",
+    "TRANSACTION_BUSY",
+    "NO_TRANSACTION",
+    "NOT_OWNER",
+    "TRANSACTION_TAINTED",
+    "TRANSACTION_OPEN",
+    "CORE_FAILED",
+    "PREVIEW_FAILED",
+    "UNKNOWN_COMMAND",
+    "CLIENT_DISCONNECTED",
+    "CONFLICT"
+  ],
+  "clientOnlyErrorCodes": [
+    "NOT_CONNECTED",
+    "SEND_FAILED",
+    "CANCELLED",
+    "CLOSED",
+    "RECEIVE_FAILED"
+  ],
+  "serverEvents": [
+    "delta",
+    "selection",
+    "core-restarted",
+    "snapshot-required"
+  ],
   "serverEventMetadata": {
     "delta": {
       "mode": "negotiated",
       "capability": "incremental-deltas",
-      "incrementalFields": ["baseRevision", "newRevision", "revision", "sessionId", "documentId", "originClientId", "added", "updated", "removedIds", "changedMeshIds", "referenceRemaps", "warnings"],
-      "entityKinds": ["feature", "sketch", "body"],
-      "entityFields": ["kind", "id", "index", "value"],
-      "legacyFields": ["features", "sketches", "bodies", "tips", "changedBodyIds", "changedMeshIds", "disappearedIds"]
+      "incrementalFields": [
+        "baseRevision",
+        "newRevision",
+        "revision",
+        "sessionId",
+        "documentId",
+        "originClientId",
+        "added",
+        "updated",
+        "removedIds",
+        "changedMeshIds",
+        "referenceRemaps",
+        "warnings"
+      ],
+      "entityKinds": [
+        "feature",
+        "sketch",
+        "body"
+      ],
+      "entityFields": [
+        "kind",
+        "id",
+        "index",
+        "value"
+      ],
+      "legacyFields": [
+        "features",
+        "sketches",
+        "bodies",
+        "tips",
+        "changedBodyIds",
+        "changedMeshIds",
+        "disappearedIds"
+      ]
     },
     "snapshot-required": {
-      "fields": ["sessionId", "documentId", "revision", "originClientId"]
+      "fields": [
+        "sessionId",
+        "documentId",
+        "revision",
+        "originClientId"
+      ]
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kreoda.local/schemas/session-control-v1.json",
+  "type": "object",
+  "definitions": {
+    "StableFeatureId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "RequestMetadata": {
+      "type": "object",
+      "properties": {
+        "operationId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        }
+      },
+      "required": [],
+      "additionalProperties": true,
+      "dependencies": {
+        "operationId": [
+          "sessionId"
+        ]
+      }
+    },
+    "HelloParams": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocolVersion": {
+          "type": "integer",
+          "enum": [
+            1
+          ]
+        },
+        "clientType": {
+          "type": "string"
+        },
+        "clientName": {
+          "type": "string"
+        },
+        "clientId": {
+          "type": "string",
+          "pattern": "^client-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "token",
+        "protocolVersion"
+      ],
+      "additionalProperties": true
+    },
+    "SnapshotParams": {
+      "type": "object",
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "InvokeParams": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "integer"
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "baseRevision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transactionId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": true
+    },
+    "NamedCommandParams": {
+      "type": "object",
+      "properties": {
+        "commandId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "baseRevision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transactionId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "commandId"
+      ],
+      "additionalProperties": true
+    },
+    "TxnParams": {
+      "type": "object",
+      "properties": {
+        "transactionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "transactionId"
+      ],
+      "additionalProperties": true
+    },
+    "ErrorReply": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ok": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "errorCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "error": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "requestId",
+        "ok",
+        "errorCode",
+        "error"
+      ],
+      "additionalProperties": true
+    },
+    "SessionRequestEnvelope": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "operationId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        }
+      },
+      "required": [
+        "requestId",
+        "method"
+      ],
+      "additionalProperties": true,
+      "dependencies": {
+        "operationId": [
+          "sessionId"
+        ]
+      }
+    },
+    "HelloReply": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ok": {
+          "type": "boolean",
+          "enum": [
+            true
+          ]
+        },
+        "clientId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "requestId",
+        "ok",
+        "clientId",
+        "sessionId",
+        "documentId",
+        "revision",
+        "capabilities"
+      ],
+      "additionalProperties": true
+    },
+    "FeatureDescriptor": {
+      "type": "object",
+      "properties": {
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "paramsMm": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "volumeMm3": {
+          "type": "number"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "refExtra": {
+          "type": "string"
+        },
+        "expressions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "featureId",
+        "type"
+      ],
+      "additionalProperties": true
+    },
+    "SketchDescriptor": {
+      "type": "object",
+      "properties": {
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "id": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "planeKind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "plane": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "supportRef": {
+          "type": "string"
+        },
+        "model": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "featureId"
+      ],
+      "additionalProperties": true
+    },
+    "BodyDescriptor": {
+      "type": "object",
+      "properties": {
+        "bodyId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tip": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "bodyId",
+        "tip",
+        "history"
+      ],
+      "additionalProperties": true
+    },
+    "SessionSnapshotPayload": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FeatureDescriptor"
+          }
+        },
+        "sketches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SketchDescriptor"
+          }
+        },
+        "bodies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BodyDescriptor"
+          }
+        },
+        "tips": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "sessionId",
+        "documentId",
+        "revision",
+        "features",
+        "sketches",
+        "bodies"
+      ],
+      "additionalProperties": true
+    },
+    "SessionEntityPatch": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "feature",
+            "sketch",
+            "body"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "value": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "index",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "SessionIncrementalEvent": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "string",
+          "enum": [
+            "delta"
+          ]
+        },
+        "baseRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "newRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "originClientId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "added": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SessionEntityPatch"
+          }
+        },
+        "updated": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SessionEntityPatch"
+          }
+        },
+        "removedIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "changedMeshIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "referenceRemaps": {
+          "type": "array",
+          "items": {}
+        },
+        "warnings": {
+          "type": "array",
+          "items": {}
+        }
+      },
+      "required": [
+        "event",
+        "baseRevision",
+        "newRevision",
+        "revision",
+        "sessionId",
+        "documentId",
+        "originClientId",
+        "added",
+        "updated",
+        "removedIds",
+        "changedMeshIds",
+        "referenceRemaps",
+        "warnings"
+      ],
+      "additionalProperties": false
+    },
+    "SessionSnapshotRequiredEvent": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "string",
+          "enum": [
+            "snapshot-required"
+          ]
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "originClientId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "event",
+        "sessionId",
+        "documentId",
+        "revision",
+        "originClientId"
+      ],
+      "additionalProperties": true
+    },
+    "SelectionEvent": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "string",
+          "enum": [
+            "selection"
+          ]
+        },
+        "clientId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "event",
+        "clientId",
+        "ids"
+      ],
+      "additionalProperties": true
+    },
+    "CoreRestartedEvent": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "string",
+          "enum": [
+            "core-restarted"
+          ]
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        }
+      },
+      "required": [
+        "event",
+        "sessionId"
+      ],
+      "additionalProperties": true
     }
   }
 }

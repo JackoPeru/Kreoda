@@ -1,0 +1,164 @@
+{
+  "packet": "phase11-5b-generated-control-contract-runtime",
+  "status": "PASS",
+  "recordedAtUtc": "2026-10-04T02:08:38.036194+02:00",
+  "sourceBaseCommit": "4d36c78e7ca3d3057ad0c91a1a4f7db35aa47de7",
+  "sourceSha256": {
+    "apps/desktop/electron/main.ts": "bf32d7573a788bff14ab8a1ab1ce1cd058f45c64b931af9fdf0a8e792724abbe",
+    "apps/desktop/electron/session.ts": "3724d27c0c7f4948afdfc21ec0072834443c047ea70700784b3e888873ff455f",
+    "apps/desktop/electron/sidecar.ts": "9d5968356285019e8b8a122538c1e3666f4ef996cfdaaeeface719fbfa47dae9",
+    "apps/desktop/electron/preload.ts": "3d74a6aea2224709154115c44d2a32b91153cf69adfc05cfd240048c105efb1c",
+    "apps/desktop/src/app/App.tsx": "f97775b287f31a206fe33c7398052fb73362297c0d82702aa0db702386a85afd",
+    "apps/desktop/src/components/Viewport.tsx": "a5a42b6c0543830b6f19ec321f396eaa8aab2c822089a113f1440a5612705375",
+    "apps/desktop/src/ipc/coreClient.ts": "e705686960bbdc9574518157db958ff02fcb683960941e792f3ccc82e518a8a1",
+    "apps/desktop/src/model/sync.ts": "fa7e065ef15e5bed08d6e9c3ac47ce3987a5a0b642c78e6c44c4d196c9220247",
+    "apps/desktop/src/model/session-update-queue.ts": "80f930f158d2fa280b8b2f0d2b687a53ab7b8e54fcdd65e5d8c79f768eefea1a",
+    "apps/desktop/src/viewport/CadViewport.ts": "dcc36db5135ee7caf4b817fd499aed5c81e221344db7ca4768145d1a429b8178",
+    "apps/desktop/src/viewport/viewportHandle.ts": "cbe432cf0dcf2a32b26f05c4c91254448182b1a4caa6ec7ddfb4294a36250098",
+    "apps/desktop/e2e/phase11-incremental.spec.ts": "440656cd12a62f442908c816db457841afd5f07d45a000d588daa11533ae93d5",
+    "clients/session-dotnet/src/Kreoda.SessionClient/SessionClient.cs": "e283847404a4134d536d5807426972c0ea5c2a9d54871b69f5cd43232cc5f00b",
+    "clients/session-dotnet/src/Kreoda.SessionClient/SessionModel.cs": "bbb2e5d107cf32c006cec4e8c37b3c688339cb7a99784ff62206d0211b3ae8c3",
+    "clients/session-dotnet/probes/Kreoda.SessionProbe/Program.cs": "e2d90be44ad780407200a7bbb1a44bcbdac380591599951ea5caf95e64ced362",
+    "packages/protocol/src/session-control.ts": "b749589a1ddb331ab8094caedf00e6b2f56255e81d0e7666b1e96c3f1f7a5422",
+    "packages/protocol/src/session-model.ts": "1ff6a8f8cafa129501f4eb3bf35db6b8843a069a79bf470698a957db402a62c9",
+    "packages/protocol/src/generated/session-dtos.ts": "ab93b55e770dbec8727f105af6d10673def259f1011db430a699ad7c59f13453",
+    "packages/protocol/src/generated/session-metadata.ts": "1c1e70865bfba596e6a82110563eff5d12ff1a5091af9c371fd07a3762a681d1",
+    "packages/protocol/src/generated/session-validators.ts": "17c2f72a990c15b9706bf313c4a9304cffdd699f2b1db57241078405ccff5591",
+    "schemas/session-control-v1.json": "41ed0a01287a297f3a6d52e40efb0ffa06270bb9d8debe0fe3f7c0d1a28a4ddb",
+    "scripts/generate-session-contract.mjs": "db0c8c38ad29a7e8e962cdd0a403f0524ae285da7db432e2619674db521fd471",
+    "clients/session-dotnet/src/Kreoda.SessionClient/SessionControl.cs": "7003f9c5c66ed2ed431961403c1c56b24e411fa867f20c651457e7b27c7e8511",
+    "clients/session-dotnet/src/Kreoda.SessionClient/Generated/SessionDtos.g.cs": "c095a85ecb357c1ffd59cd7de58c9ff4fc36b8b0bc87ada184b896eb6b9b7d0a",
+    "clients/session-dotnet/src/Kreoda.SessionClient/Generated/SessionMethods.g.cs": "664b394be54404894002fb7ba1ed55b479093081e25e95635b4f79de89aac8a5",
+    "apps/desktop/electron/session-queries.ts": "c0e324eb896ab7527e720340db7f54a362c12dc093ad4341e1e693f56f73211c"
+  },
+  "compiledMainRestoredSha256": "635cbe4186b0481be493ef2764b5c40602699f4ec8f7f32658d80b76c49fb727",
+  "desktopRuntime": {
+    "kernel": "8.0.1-native",
+    "mainPid": 28604,
+    "corePid": 28172,
+    "visibleWindows": false,
+    "changedGeometryReplaced": true,
+    "untouchedGeometryPreserved": true,
+    "cameraPreserved": true,
+    "selectionPreserved": true,
+    "lostEventRecovered": true,
+    "baseRevision": 2,
+    "editedRevision": 3,
+    "recoveredRevision": 5,
+    "finalVolumeMm3": 90000,
+    "inputActions": 0
+  },
+  "dotnetNativeRuntime": {
+    "kernel": "8.0.1-native",
+    "initialRevision": 3,
+    "finalRevision": 7,
+    "passed": [
+      "native-join-snapshot",
+      "existing-parameter-edit",
+      "typed-incremental-model",
+      "dependent-instance-invalidation",
+      "untouched-entity-preserved",
+      "native-undo",
+      "lost-event-gap-recovery",
+      "native-snapshot-model-match"
+    ],
+    "boundary": "Actual SessionRelay/OCCT and compiled C# SessionClient over loopback WebSocket; no Unity or Quest device.",
+    "corePid": 35008,
+    "coreSha256": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+    "sourceSha256": {
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\sidecar.ts": "9d5968356285019e8b8a122538c1e3666f4ef996cfdaaeeface719fbfa47dae9",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session.ts": "3724d27c0c7f4948afdfc21ec0072834443c047ea70700784b3e888873ff455f",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-queries.ts": "c0e324eb896ab7527e720340db7f54a362c12dc093ad4341e1e693f56f73211c"
+    },
+    "clientDllSha256": "bc3382c03532d2f3e66da9194c9e291eb7f8cf80aa9eb5914b4d67a2cc581d0e",
+    "probeDllSha256": "d4f1334e8f992e7fc3944eec5c73c1ed6ae027d1ab2a44a37723d69c0973ef46",
+    "injectedDroppedEvents": 1,
+    "visibleWindows": false
+  },
+  "runnerSha256": "6f49030b84d8891b014e24eeb38d7f66d860e0d9d5216432c5303998594a4d21",
+  "dotnetDriverSha256": "38140028164556689c39c573ff1498660df47bfd0f896ee5a2246362913ebe06",
+  "validation": {
+    "workspaceTests": {
+      "desktop": 145,
+      "protocol": 27,
+      "commandSchema": 10,
+      "pluginSdk": 2,
+      "units": 4,
+      "total": 188
+    },
+    "dotnetTests": 33,
+    "desktopTypecheckBuild": "PASS",
+    "dotnetProbeBuildWarnings": 0,
+    "dotnetProbeBuildErrors": 0
+  },
+  "regressions": {
+    "generatedContract": "missing generated module RED; source-driven validators/DTOs GREEN",
+    "incompleteModel": "missing event/kind/index and null arrays request recovery",
+    "contentSecurityPolicy": "standalone validators bundled ahead of time; no runtime compilation"
+  },
+  "ownedPidsExited": [
+    28604,
+    28172,
+    35008,
+    20892
+  ],
+  "limits": [
+    "Packet-level runtime evidence; full Phase 11 acceptance, hosted CI, final review and remaining roadmap phases are not complete.",
+    "Desktop mutation ownership and network pairing remain later packets.",
+    "No Unity or Quest hardware tested."
+  ],
+  "generatedNativeSnapshotDeltaRuntime": {
+    "kernel": "8.0.1-native",
+    "corePid": 20892,
+    "coreSha256": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+    "sourceSha256": {
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\sidecar.ts": "9d5968356285019e8b8a122538c1e3666f4ef996cfdaaeeface719fbfa47dae9",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session.ts": "3724d27c0c7f4948afdfc21ec0072834443c047ea70700784b3e888873ff455f",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-queries.ts": "c0e324eb896ab7527e720340db7f54a362c12dc093ad4341e1e693f56f73211c"
+    },
+    "passed": [
+      "existing-parameter-edit",
+      "same-tip-mesh-invalidation",
+      "instance-mesh-invalidation",
+      "unrelated-entity-exclusion",
+      "incremental-raw-wire",
+      "origin-and-remote-delta",
+      "legacy-full-list-fallback",
+      "local-incremental-callback",
+      "undo-native-snapshot-match",
+      "shared-helper-native-match",
+      "replay-no-extra-delta",
+      "empty-rollback-no-phantom-delta",
+      "canonical-sketch-equal-count-edit",
+      "sketch-dependent-extrusion-and-instance",
+      "canonical-sketch-undo-snapshot-match"
+    ],
+    "nativeSketch": {
+      "sameEntityCounts": true,
+      "beforeVolumeMm3": 6000,
+      "afterVolumeMm3": 8000,
+      "restoredVolumeMm3": 6000,
+      "dependentInstanceInvalidated": true,
+      "snapshotMatch": true
+    },
+    "baseRevision": 3,
+    "editedRevision": 4,
+    "undoRevision": 5,
+    "finalFeatureCount": 3,
+    "visibleWindows": false,
+    "boundary": "Real SessionRelay/SidecarManager/OCCT and three loopback WebSockets; no Electron renderer or C# client in this packet probe.",
+    "generatedWireValidators": "PASS: real native snapshots, equal-count sketches and incremental events"
+  },
+  "generationDriftGate": {
+    "positive": "PASS",
+    "deliberateArtifactCorruption": "REJECTED",
+    "artifactRestoredSha256": "1c1e70865bfba596e6a82110563eff5d12ff1a5091af9c371fd07a3762a681d1",
+    "sourceSchemas": 19,
+    "outputs": 5,
+    "tools": {
+      "quicktype-core": "26.0.0",
+      "ajv": "8.17.1",
+      "esbuild": "0.28.2"
+    }
+  }
+}

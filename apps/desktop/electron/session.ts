@@ -16,7 +16,8 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
-import { decodeMeshFrame, frameMessage, InvokeParamsSchema, NamedCommandParamsSchema } from "@kreoda/protocol";
+import { decodeMeshFrame, frameMessage, InvokeParamsSchema, NamedCommandParamsSchema,
+  OPERATION_METHODS as OPERATION_METHOD_NAMES, SESSION_CONTROL_VERSION } from "@kreoda/protocol";
 import { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "@kreoda/command-schema";
 import type {
   SessionEntityChange,
@@ -36,7 +37,7 @@ import {
   type SnapshotData,
 } from "./session-queries";
 
-export const SESSION_PROTOCOL_VERSION = 1;
+export const SESSION_PROTOCOL_VERSION = SESSION_CONTROL_VERSION;
 
 /** Former full-list delta retained for legacy v1 network clients. */
 interface LegacySessionDelta {
@@ -108,20 +109,7 @@ interface ReplayEntry {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LOGICAL_CLIENT_PATTERN = /^client-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const OPERATION_METHODS = new Set([
-  "invoke",
-  "command",
-  "txnBegin",
-  "txnCommit",
-  "txnRollback",
-  "txnForceRollback",
-  "previewBegin",
-  "previewUpdate",
-  "previewCommit",
-  "previewCancel",
-  "setSelection",
-  "clearSelection",
-]);
+const OPERATION_METHODS = new Set<string>(OPERATION_METHOD_NAMES);
 const CORE_ENVELOPE_FIELDS = new Set([
   "protocolVersion",
   "requestId",

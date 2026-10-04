@@ -59,14 +59,12 @@ public sealed class SessionClient : IAsyncDisposable
         client._loop = Task.Run(() => client.ReceiveLoopAsync(client._loopCts.Token));
         try
         {
-            var hello = await client.CallAsync(SessionMethods.Hello, new Dictionary<string, object?>
+            var hello = await client.CallAsync(SessionMethods.Hello, GeneratedControl.Parameters(new Generated.HelloParams
             {
-                ["clientType"] = clientType,
-                ["protocolVersion"] = 1,
-                ["token"] = token,
-                ["clientId"] = client.LogicalClientId,
-                ["capabilities"] = new[] { SessionMethods.OperationReplayCapability, "incremental-deltas" },
-            }, ct).ConfigureAwait(false);
+                ClientType = clientType, ProtocolVersion = SessionMethods.ProtocolVersion,
+                Token = token, ClientId = client.LogicalClientId,
+                Capabilities = new[] { SessionMethods.OperationReplayCapability, "incremental-deltas" },
+            }), ct).ConfigureAwait(false);
             client.ClientId = hello.TryGetProperty("clientId", out var id)
                 ? id.GetString()
                 : null;
@@ -95,10 +93,8 @@ public sealed class SessionClient : IAsyncDisposable
         string documentId = "doc-phase1",
         CancellationToken ct = default)
     {
-        var reply = await CallAsync(SessionMethods.Snapshot, new Dictionary<string, object?>
-        {
-            ["documentId"] = documentId,
-        }, ct).ConfigureAwait(false);
+        var reply = await CallAsync(SessionMethods.Snapshot, GeneratedControl.Parameters(new Generated.SnapshotParams
+            { DocumentId = documentId }), ct).ConfigureAwait(false);
         if (ServerCapabilities.Contains("incremental-deltas"))
         {
             Task updates;
@@ -117,11 +113,11 @@ public sealed class SessionClient : IAsyncDisposable
         string documentId = "doc-phase1", string? featureId = null, double? baseRevision = null,
         string? transactionId = null, CancellationToken ct = default)
     {
-        var fields = new Dictionary<string, object?> { ["commandId"] = commandId, ["parameters"] = parameters, ["documentId"] = documentId };
-        if (featureId is not null) fields["featureId"] = featureId;
-        if (baseRevision.HasValue) fields["baseRevision"] = baseRevision.Value;
-        if (transactionId is not null) fields["transactionId"] = transactionId;
-        return CallAsync(SessionMethods.Command, fields, ct);
+        return CallAsync(SessionMethods.Command, GeneratedControl.Parameters(new Generated.NamedCommandParams
+        {
+            CommandId = commandId, Parameters = GeneratedControl.Fields(parameters), DocumentId = documentId,
+            FeatureId = featureId, BaseRevision = GeneratedControl.Revision(baseRevision), TransactionId = transactionId,
+        }), ct);
     }
 
     public Task<JsonElement> InvokeAsync(
@@ -132,15 +128,7 @@ public sealed class SessionClient : IAsyncDisposable
         string? transactionId = null,
         CancellationToken ct = default)
     {
-        var p = new Dictionary<string, object?>
-        {
-            ["documentId"] = documentId,
-            ["type"] = type,
-            ["fields"] = fields,
-        };
-        if (baseRevision.HasValue) p["baseRevision"] = baseRevision.Value;
-        if (transactionId is not null) p["transactionId"] = transactionId;
-        return CallAsync(SessionMethods.Invoke, p, ct);
+        return InvokeAsync(new InvokeRequest(type, fields, documentId, baseRevision, transactionId), ct);
     }
 
     public Task<JsonElement> TxnBeginAsync(

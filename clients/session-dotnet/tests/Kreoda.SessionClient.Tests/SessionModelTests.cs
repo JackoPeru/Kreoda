@@ -9,6 +9,19 @@ public sealed class SessionModelTests
     private static JsonElement Json(string value) => JsonDocument.Parse(value).RootElement.Clone();
 
     [Fact]
+    public void GeneratedRequiredFieldsRejectMissingPatchMetadataAndNullArrays()
+    {
+        var model = SessionModelState.FromSnapshot(Json("""{"sessionId":"s","documentId":"d","revision":0,"features":[],"sketches":[],"bodies":[]}"""));
+        var valid = """{"event":"delta","sessionId":"s","documentId":"d","baseRevision":0,"newRevision":1,"revision":1,"originClientId":"c","added":[{"kind":"body","id":"b","index":0,"value":{"bodyId":"b"}}],"updated":[],"removedIds":[],"changedMeshIds":[],"referenceRemaps":[],"warnings":[]}""";
+        foreach (var invalid in new[] {
+            valid.Replace("\"index\":0,", ""), valid.Replace("\"kind\":\"body\",", ""),
+            valid.Replace("\"event\":\"delta\",", ""), valid.Replace("\"changedMeshIds\":[]", "\"changedMeshIds\":null"),
+            valid.Replace("\"kind\":\"body\"", "\"kind\":\"unknown\""),
+        }) Assert.Equal(SessionModelUpdateKind.NeedsSnapshot, model.Apply(Json(invalid)).Kind);
+        Assert.Empty(model.Bodies);
+    }
+
+    [Fact]
     public void OrderedChangesPreserveOtherEntitiesAndApplySharedFeatureSketchIds()
     {
         var model = SessionModelState.FromSnapshot(Json("""{"sessionId":"s","documentId":"d","revision":0,"features":[{"featureId":"a"},{"featureId":"sk"}],"sketches":[{"featureId":"sk","model":{"x":1}}],"bodies":[]}"""));

@@ -279,7 +279,20 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    existing-parameter edit, Undo restoration and dependency-free deletion.
    Source hashes stayed fixed and owned native PID exited. Evidence:
    `docs/evidence/phase11-typed-commands-local-2026-10-04.json`.
-   Packet 5b generated control DTOs/drift gate remains outstanding.
+   Packet 5b: the same JSON Schema source generates nineteen control/model DTO
+   schemas, TypeScript/C# metadata and standalone Ajv validators. quicktype
+   generates types; esbuild bundles standard validator helpers ahead of time,
+   preserving renderer CSP. C# helpers serialize generated request DTOs and
+   decode generated model DTOs while preserving raw semantic entity content.
+   Required-field metadata rejects incomplete patches; ordering/conflict and
+   lineage checks remain in the model applicator. CI has a generation drift
+   gate. Parent rerun: 188 workspace tests, 33 .NET tests, workspace build and
+   compiled probe build (zero warnings/errors) PASS. Hidden Desktop and real
+   C# gap-recovery probes PASS; real OCCT snapshots, constrained sketches and
+   deltas validate against the generated schemas. Deliberately corrupted
+   generated output is rejected; restoration and positive drift check PASS.
+   Evidence: `docs/evidence/phase11-generated-contract-local-2026-10-04.json`.
+   Phase 11 remains incomplete; hosted CI/final review are later gates.
 6. Native semantic geometry, accurate measurements/reference validation.
 7. LAN pairing, trusted devices, revocation and local interface guards.
 8. Unified Desktop mutation entry and active-edit ownership.

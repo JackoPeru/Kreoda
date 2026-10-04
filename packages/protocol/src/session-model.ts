@@ -1,37 +1,15 @@
-export type SessionEntityKind = "feature" | "sketch" | "body";
+import type { SessionEntityPatch, SessionIncrementalEvent, SessionSnapshotPayload } from "./generated/session-dtos.js";
+export type SessionEntityKind = SessionEntityPatch["kind"];
 export type SessionModelEntity = Record<string, unknown>;
 
-export interface SessionModelSnapshot {
-  sessionId: string;
-  documentId: string;
-  revision: number;
+export interface SessionModelSnapshot extends Pick<SessionSnapshotPayload, "sessionId" | "documentId" | "revision"> {
   features: SessionModelEntity[];
   sketches: SessionModelEntity[];
   bodies: SessionModelEntity[];
 }
 
-export interface SessionEntityChange {
-  kind: SessionEntityKind;
-  id: string;
-  index: number;
-  value: SessionModelEntity;
-}
-
-export interface SessionIncrementalDelta {
-  event: "delta";
-  baseRevision: number;
-  newRevision: number;
-  revision: number;
-  sessionId: string;
-  documentId: string;
-  originClientId: string;
-  added: SessionEntityChange[];
-  updated: SessionEntityChange[];
-  removedIds: string[];
-  changedMeshIds: string[];
-  referenceRemaps: unknown[];
-  warnings: unknown[];
-}
+export type SessionEntityChange = SessionEntityPatch;
+export type SessionIncrementalDelta = SessionIncrementalEvent;
 
 export type SessionDeltaDecision =
   | {
