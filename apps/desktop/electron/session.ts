@@ -300,12 +300,12 @@ export class SessionRelay {
     if (active && active.ownerClientId !== clientId) throw coded("BUSY", "another client owns an active transaction");
   }
 
-  private orderedRead<T>(clientId: string, documentId: string, read: () => Promise<T>, localGeneration?: number): Promise<T> {
-    try { this.assertReadOwner(clientId); } catch (error) { return Promise.reject(error); }
+  private orderedRead<T>(clientId: string, documentId: string | null, read: () => Promise<T>, localGeneration?: number): Promise<T> {
+    try { if (documentId !== null) this.assertReadOwner(clientId); } catch (error) { return Promise.reject(error); }
     const lineage = this.sessionId;
     const run = this.queue.then(async () => {
-      this.assertReadOwner(clientId);
-      if (lineage !== this.sessionId || documentId !== this.documentId) throw coded("NEED_FULL_SNAPSHOT", "document lineage changed before query");
+      if (documentId !== null) this.assertReadOwner(clientId);
+      if (documentId !== null && (lineage !== this.sessionId || documentId !== this.documentId)) throw coded("NEED_FULL_SNAPSHOT", "document lineage changed before query");
       if (localGeneration !== undefined && localGeneration !== this.localGeneration) throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed");
       if (clientId !== "desktop" && !this.isLogicalClientConnected(clientId)) throw coded("CLIENT_DISCONNECTED", "query client disconnected");
       return read();
@@ -327,16 +327,17 @@ export class SessionRelay {
       const fields = Object.fromEntries(Object.entries(request).filter(([key]) => !["protocolVersion", "requestId", "documentId", "type"].includes(key)));
       const generation = this.localGeneration;
       const encode = (value: Record<string, unknown>): Uint8Array => new TextEncoder().encode(JSON.stringify({ ...value, protocolVersion: SESSION_PROTOCOL_VERSION, requestId }));
-      if (![2, 11].includes(type) && documentId !== this.documentId) throw coded("NEED_FULL_SNAPSHOT", "document identity changed");
+      if (![1, 2, 11].includes(type) && documentId !== this.documentId) throw coded("NEED_FULL_SNAPSHOT", "document identity changed");
       if ([1, 12, 17, 18, 23, 26, 30].includes(type) || fields["isPreview"] === true) {
-        this.assertReadOwner("desktop");
+        if (type !== 1) this.assertReadOwner("desktop");
         const featureId = typeof fields["featureId"] === "string" ? fields["featureId"] : "";
         let added = false;
         if (fields["isPreview"] === true && [6, 14].includes(type) && !this.localPreviews.has(featureId)) {
           this.localPreviews.set(featureId, this.reserve("desktop", mutationFeatures(type, fields)));added = true;
         }
         try {
-          const response = await this.orderedRead("desktop", documentId, async () => {
+          // Engine metadata follows queue order but survives document replacement.
+          const response = await this.orderedRead("desktop", type === 1 ? null : documentId, async () => {
             const sidecar = this.sidecar();if (!sidecar) throw coded("CORE_FAILED", "geometry engine not running");
             return sidecar.invoke(framed);
           }, generation);

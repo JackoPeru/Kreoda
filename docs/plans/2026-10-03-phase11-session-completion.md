@@ -390,6 +390,16 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    session identity even when it correctly discards the stale view reply.
    The new regression is RED before/GREEN after, and the actual 100k-triangle
    saved-file/parameter/Open/orbit/pick test passes. Full rerun follows.
+   Full ordinary cohort at 8531a46: 53 passed, two intentionally skipped
+   locally (native dialog and installed executable); hosted coverage remains
+   required. Workspace rerun: 215 tests PASS. Crash cohort: 28 passed, one
+   failed during renderer termination in STEP Open. A queued GetCoreInfo
+   incorrectly inherited the old document lineage; the recovered renderer
+   therefore stayed offline. Engine metadata now retains queue order and
+   renderer generation checks without document/transaction ownership fences.
+   Deterministic regression RED before/GREEN after, 44 relay tests and all
+   216 workspace tests PASS. Actual focused STEP crash and full 29-case crash
+   cohort PASS after correction. No timeout or retry-to-green changes.
 
 ## Required verification gates
 

@@ -162,6 +162,9 @@ function fakeSidecar(options: {
       // resolve with the payload only — not the framed envelope.
       return bytes;
     };
+    if (envelope.type === 1) {
+      return respond({ status: "ok", coreVersion: "0.1.0", undos: 0, redos: 0 });
+    }
     if (envelope.type === 26) {
       return respond({
         status: "ok",
@@ -442,6 +445,7 @@ describe("SessionRelay", () => {
         await expect(other.call(method, { featureId: "working-box" })).rejects.toMatchObject({ code: "BUSY" });
       expect(await local(relay, 12, { featureId: "working-box", lod: 1 })).toMatchObject({ errorCode: "BUSY" });
       expect(fake.calls).toHaveLength(before);
+      expect(await local(relay, 1)).toMatchObject({ status: "ok", coreVersion: "0.1.0" });
       expect((await other.call("getCapabilities"))["ok"]).toBe(true);
       expect((await other.call("txnStatus"))["open"]).toBe(true);
       const info = SessionInfoPayloadSchema.parse((await other.call("getSessionInfo"))["result"]);
@@ -461,6 +465,22 @@ describe("SessionRelay", () => {
     expect(after.documentId).toBe(before.documentId);
     expect(await local(relay, 2)).toMatchObject({ status: "ok" });
     expect((await relay.localSnapshot()).sessionId).not.toBe(after.sessionId);
+  });
+
+  it("reports engine health after renderer recovery queues behind document replacement", async () => {
+    let entered!: () => void;let release!: () => void;
+    const arrived = new Promise<void>(ready => entered = ready);
+    const held = new Promise<void>(ready => release = ready);
+    const fake = fakeSidecar({ beforeInvoke: async type => { if (type === 2) { entered();await held; } } });
+    const relay = new SessionRelay(() => fake.manager);
+    const replacement = local(relay, 2);
+    await arrived;
+    relay.onRendererDisconnected();relay.onRendererConnected();
+    const health = local(relay, 1, {}, "");
+    release();
+    expect(await replacement).toMatchObject({ status: "ok" });
+    expect(await health).toMatchObject({ status: "ok", coreVersion: "0.1.0" });
+    expect(await local(relay, 1, {}, "old-document")).toMatchObject({ status: "ok", coreVersion: "0.1.0" });
   });
 
   it("keeps selection private unless explicitly published", async () => {
