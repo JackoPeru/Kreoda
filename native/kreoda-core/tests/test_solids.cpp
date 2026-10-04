@@ -263,13 +263,13 @@ TEST(Solids, SaveOpenKeepsHoleAndFillet) {
   const std::string save =
       std::string(
           R"({"protocolVersion":1,"requestId":"s1","documentId":"sv1","type":10,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   ASSERT_TRUE(ok(rpc(save)));
   NewDoc("sv1b");
   const std::string open =
       std::string(
           R"({"protocolVersion":1,"requestId":"s2","documentId":"sv1b","type":11,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   const std::string opened = rpc(open);
   ASSERT_TRUE(ok(opened)) << opened;
   EXPECT_NE(opened.find("Hole"), std::string::npos);

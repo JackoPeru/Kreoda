@@ -1,4 +1,5 @@
 #include "sketch_json.h"
+#include "protocol/json_fields.h"
 
 #include <cctype>
 #include <iomanip>
@@ -7,152 +8,8 @@
 
 namespace kreoda {
 
-namespace {
-
-std::string Trim(const std::string& s) {
-  size_t a = 0;
-  while (a < s.size() && std::isspace((unsigned char)s[a])) ++a;
-  size_t b = s.size();
-  while (b > a && std::isspace((unsigned char)s[b - 1])) --b;
-  return s.substr(a, b - a);
-}
-
-// Splits a JSON array body into top-level element strings.
-std::vector<std::string> SplitTopLevel(const std::string& body) {
-  std::vector<std::string> out;
-  int depthBrace = 0, depthBracket = 0;
-  bool inStr = false, esc = false;
-  size_t start = 0;
-  for (size_t i = 0; i < body.size(); ++i) {
-    const char c = body[i];
-    if (inStr) {
-      if (esc) {
-        esc = false;
-      } else if (c == '\\') {
-        esc = true;
-      } else if (c == '"') {
-        inStr = false;
-      }
-      continue;
-    }
-    if (c == '"') {
-      inStr = true;
-    } else if (c == '{') {
-      ++depthBrace;
-    } else if (c == '}') {
-      --depthBrace;
-    } else if (c == '[') {
-      ++depthBracket;
-    } else if (c == ']') {
-      --depthBracket;
-    } else if (c == ',' && depthBrace == 0 && depthBracket == 0) {
-      out.push_back(Trim(body.substr(start, i - start)));
-      start = i + 1;
-    }
-  }
-  const std::string tail = Trim(body.substr(start));
-  if (!tail.empty()) out.push_back(tail);
-  return out;
-}
-
-std::string Unquote(const std::string& s) {
-  const std::string t = Trim(s);
-  if (t.size() >= 2 && t.front() == '"' && t.back() == '"') {
-    std::string out;
-    for (size_t i = 1; i + 1 < t.size(); ++i) {
-      if (t[i] == '\\' && i + 1 + 1 < t.size() + 1) {
-        ++i;
-        out.push_back(t[i]);
-      } else {
-        out.push_back(t[i]);
-      }
-    }
-    return out;
-  }
-  return t;
-}
-
-double ToDouble(const std::string& s, bool* ok) {
-  try {
-    size_t pos = 0;
-    const double v = std::stod(Trim(s), &pos);
-    if (ok) *ok = true;
-    return v;
-  } catch (...) {
-    if (ok) *ok = false;
-    return 0.0;
-  }
-}
-
-}  // namespace
-
-bool ExtractJsonValue(const std::string& json, const std::string& key,
-                      std::string* rawOut) {
-  const std::string pat = "\"" + key + "\"";
-  const size_t pos = json.find(pat);
-  if (pos == std::string::npos) return false;
-  size_t colon = json.find(':', pos + pat.size());
-  if (colon == std::string::npos) return false;
-  size_t i = colon + 1;
-  while (i < json.size() && std::isspace((unsigned char)json[i])) ++i;
-  if (i >= json.size()) return false;
-  const char c = json[i];
-  if (c == '"') {
-    size_t j = i + 1;
-    bool esc = false;
-    while (j < json.size()) {
-      if (esc) {
-        esc = false;
-      } else if (json[j] == '\\') {
-        esc = true;
-      } else if (json[j] == '"') {
-        break;
-      }
-      ++j;
-    }
-    if (j >= json.size()) return false;
-    if (rawOut) *rawOut = json.substr(i, j - i + 1);
-    return true;
-  }
-  if (c == '{' || c == '[') {
-    const char open = c, close = (c == '{' ? '}' : ']');
-    int depth = 0;
-    bool inStr = false, esc = false;
-    size_t j = i;
-    for (; j < json.size(); ++j) {
-      const char d = json[j];
-      if (inStr) {
-        if (esc) {
-          esc = false;
-        } else if (d == '\\') {
-          esc = true;
-        } else if (d == '"') {
-          inStr = false;
-        }
-        continue;
-      }
-      if (d == '"') {
-        inStr = true;
-      } else if (d == open) {
-        ++depth;
-      } else if (d == close) {
-        --depth;
-        if (depth == 0) {
-          if (rawOut) *rawOut = json.substr(i, j - i + 1);
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-  // number / true / false / null
-  size_t j = i;
-  while (j < json.size() && json[j] != ',' && json[j] != '}' &&
-         json[j] != ']') {
-    ++j;
-  }
-  if (rawOut) *rawOut = Trim(json.substr(i, j - i));
-  return true;
+bool ExtractJsonValue(const std::string& text, const std::string& key, std::string* raw) {
+  return json_value_field(parse_json_object(text), key.c_str(), raw);
 }
 
 bool ConstraintKindFromString(const std::string& s,
@@ -194,165 +51,71 @@ std::string ConstraintKindToString(SketchConstraintKind kind) {
 }
 
 namespace {
-
-bool ParseStringArray(const std::string& raw, std::vector<std::string>* out,
-                      std::string* error) {
-  const std::string t = Trim(raw);
-  if (t.empty() || t.front() != '[') {
-    if (error) *error = "expected string array";
-    return false;
-  }
-  const std::string body = t.substr(1, t.size() - 2);
-  for (const auto& el : SplitTopLevel(body)) {
-    out->push_back(Unquote(el));
-  }
-  return true;
+const Json& ArrayItems(const Json& value, const char* key) {
+  static const Json empty = Json::array();
+  if (!value.contains(key)) return empty;
+  if (!value.at(key).is_array()) throw JsonFieldError(std::string(key) + " must be a JSON array");
+  return value.at(key);
 }
-
-bool GetString(const std::string& obj, const std::string& key,
-               std::string* out, bool required, std::string* error) {
-  std::string raw;
-  if (!ExtractJsonValue(obj, key, &raw)) {
-    if (required && error) *error = "missing key " + key;
-    return !required;
-  }
-  *out = Unquote(raw);
-  return true;
+std::string RequiredString(const Json& value, const char* key) {
+  if (!value.is_object() || !value.contains(key)) throw JsonFieldError(std::string("missing ") + key);
+  const auto text = json_string_field(value, key);
+  if (text.empty()) throw JsonFieldError(std::string(key) + " must be non-empty");
+  return text;
 }
-
-bool GetDouble(const std::string& obj, const std::string& key, double* out,
-               bool required, std::string* error) {
-  std::string raw;
-  if (!ExtractJsonValue(obj, key, &raw)) {
-    if (required && error) *error = "missing key " + key;
-    return !required;
-  }
-  bool ok = false;
-  *out = ToDouble(raw, &ok);
-  if (!ok && error) *error = "bad number for " + key;
-  return ok;
+double RequiredNumber(const Json& value, const char* key) {
+  if (!value.is_object() || !value.contains(key)) throw JsonFieldError(std::string("missing ") + key);
+  return json_double_field(value, key);
 }
-
-bool GetBool(const std::string& obj, const std::string& key, bool* out) {
-  std::string raw;
-  if (!ExtractJsonValue(obj, key, &raw)) return false;
-  const std::string t = Trim(raw);
-  *out = (t == "true" || t == "1");
-  return true;
-}
-
 }  // namespace
 
-bool ParseSketchModel(const std::string& json, SketchModel* out,
-                      std::string* error) {
-  const std::string t0 = Trim(json);
-  if (t0.size() < 2 || t0.front() != '{' || t0.back() != '}') {
-    if (error) *error = "sketch model must be a JSON object";
-    return false;
-  }
-  SketchModel m;
-  std::string raw;
-  // points
-  if (ExtractJsonValue(json, "points", &raw)) {
-    const std::string t = Trim(raw);
-    if (t.size() < 2 || t.front() != '[') {
-      if (error) *error = "points must be an array";
-      return false;
+bool ParseSketchModel(const std::string& text, SketchModel* out, std::string* error) {
+  const Json value = parse_json_object(text);
+  if (!value.is_object()) { if (error) *error = "sketch model must be a JSON object"; return false; }
+  try {
+    SketchModel model;
+    for (const auto& row : ArrayItems(value, "points")) {
+      SketchPoint point;
+      point.id = RequiredString(row, "id"); point.x = RequiredNumber(row, "x"); point.y = RequiredNumber(row, "y");
+      point.fixed = json_bool_field(row, "fixed", false);
+      model.points.push_back(std::move(point));
     }
-    for (const auto& el : SplitTopLevel(t.substr(1, t.size() - 2))) {
-      SketchPoint p;
-      if (!GetString(el, "id", &p.id, true, error)) return false;
-      if (!GetDouble(el, "x", &p.x, true, error)) return false;
-      if (!GetDouble(el, "y", &p.y, true, error)) return false;
-      GetBool(el, "fixed", &p.fixed);
-      m.points.push_back(std::move(p));
+    for (const auto& row : ArrayItems(value, "lines")) {
+      SketchLine line;
+      line.id = RequiredString(row, "id"); line.p1 = RequiredString(row, "p1"); line.p2 = RequiredString(row, "p2");
+      model.lines.push_back(std::move(line));
     }
-  }
-  // lines
-  if (ExtractJsonValue(json, "lines", &raw)) {
-    const std::string t = Trim(raw);
-    if (t.size() < 2 || t.front() != '[') {
-      if (error) *error = "lines must be an array";
-      return false;
+    for (const auto& row : ArrayItems(value, "circles")) {
+      SketchCircle circle;
+      circle.id = RequiredString(row, "id"); circle.center = RequiredString(row, "center"); circle.r = RequiredNumber(row, "r");
+      model.circles.push_back(std::move(circle));
     }
-    for (const auto& el : SplitTopLevel(t.substr(1, t.size() - 2))) {
-      SketchLine l;
-      if (!GetString(el, "id", &l.id, true, error)) return false;
-      if (!GetString(el, "p1", &l.p1, true, error)) return false;
-      if (!GetString(el, "p2", &l.p2, true, error)) return false;
-      m.lines.push_back(std::move(l));
+    for (const auto& row : ArrayItems(value, "arcs")) {
+      SketchArc arc;
+      arc.id = RequiredString(row, "id"); arc.center = RequiredString(row, "center"); arc.r = RequiredNumber(row, "r");
+      arc.startAngleRad = json_double_field(row, "startAngleRad", arc.startAngleRad);
+      arc.endAngleRad = json_double_field(row, "endAngleRad", arc.endAngleRad);
+      model.arcs.push_back(std::move(arc));
     }
-  }
-  // circles
-  if (ExtractJsonValue(json, "circles", &raw)) {
-    const std::string t = Trim(raw);
-    if (t.size() < 2 || t.front() != '[') {
-      if (error) *error = "circles must be an array";
-      return false;
+    for (const auto& row : ArrayItems(value, "constraints")) {
+      SketchConstraint constraint;
+      constraint.id = RequiredString(row, "id");
+      const auto kind = RequiredString(row, "kind");
+      if (!ConstraintKindFromString(kind, &constraint.kind)) throw JsonFieldError("unknown constraint kind " + kind);
+      constraint.refs = json_string_array(row, "refs");
+      constraint.value = json_double_field(row, "value", 0);
+      model.constraints.push_back(std::move(constraint));
     }
-    for (const auto& el : SplitTopLevel(t.substr(1, t.size() - 2))) {
-      SketchCircle c;
-      if (!GetString(el, "id", &c.id, true, error)) return false;
-      if (!GetString(el, "center", &c.center, true, error)) return false;
-      if (!GetDouble(el, "r", &c.r, true, error)) return false;
-      m.circles.push_back(std::move(c));
-    }
-  }
-  // arcs
-  if (ExtractJsonValue(json, "arcs", &raw)) {
-    const std::string t = Trim(raw);
-    if (t.size() < 2 || t.front() != '[') {
-      if (error) *error = "arcs must be an array";
-      return false;
-    }
-    for (const auto& el : SplitTopLevel(t.substr(1, t.size() - 2))) {
-      SketchArc a;
-      if (!GetString(el, "id", &a.id, true, error)) return false;
-      if (!GetString(el, "center", &a.center, true, error)) return false;
-      if (!GetDouble(el, "r", &a.r, true, error)) return false;
-      GetDouble(el, "startAngleRad", &a.startAngleRad, false, nullptr);
-      GetDouble(el, "endAngleRad", &a.endAngleRad, false, nullptr);
-      // Also accept degrees from sloppy clients? No — canonical rad only.
-      m.arcs.push_back(std::move(a));
-    }
-  }
-  // constraints
-  if (ExtractJsonValue(json, "constraints", &raw)) {
-    const std::string t = Trim(raw);
-    if (t.size() < 2 || t.front() != '[') {
-      if (error) *error = "constraints must be an array";
-      return false;
-    }
-    for (const auto& el : SplitTopLevel(t.substr(1, t.size() - 2))) {
-      SketchConstraint c;
-      if (!GetString(el, "id", &c.id, true, error)) return false;
-      std::string kind;
-      if (!GetString(el, "kind", &kind, true, error)) return false;
-      if (!ConstraintKindFromString(kind, &c.kind)) {
-        if (error) *error = "unknown constraint kind " + kind;
-        return false;
-      }
-      std::string refsRaw;
-      if (ExtractJsonValue(el, "refs", &refsRaw)) {
-        if (!ParseStringArray(refsRaw, &c.refs, error)) return false;
-      }
-      GetDouble(el, "value", &c.value, false, nullptr);
-      m.constraints.push_back(std::move(c));
-    }
-  }
-  *out = std::move(m);
-  return true;
+    *out = std::move(model); return true;
+  } catch (const JsonFieldError& failure) { if (error) *error = failure.what(); return false; }
+    catch (const Json::exception& failure) { if (error) *error = failure.what(); return false; }
 }
 
 namespace {
 
-std::string Esc(const std::string& s) {
-  std::string out;
-  for (char c : s) {
-    if (c == '"' || c == '\\') out.push_back('\\');
-    out.push_back(c);
-  }
-  return out;
+std::string Esc(const std::string& value) {
+  const auto quoted = Json(value).dump();
+  return quoted.substr(1, quoted.size() - 2);
 }
 
 }  // namespace
@@ -422,39 +185,22 @@ std::string SerializeSketchFeature(const SketchFeature& sketch) {
   return os.str();
 }
 
-bool ParseSketchFeature(const std::string& json, SketchFeature* out,
-                        std::string* error) {
-  SketchFeature s;
-  std::string raw;
-  if (!GetString(json, "id", &s.id, false, nullptr)) {
-    if (!ExtractJsonValue(json, "featureId", &raw)) {
-      if (error) *error = "sketch id/featureId required";
-      return false;
-    }
-    s.id = Unquote(raw);
-  }
-  if (ExtractJsonValue(json, "planeKind", &raw)) {
-    s.planeKind = Unquote(raw);
-  } else {
-    s.planeKind = "XY";
-  }
-  if (s.planeKind != "XY" && s.planeKind != "XZ" && s.planeKind != "YZ") {
-    if (error) *error = "planeKind must be XY|XZ|YZ";
-    return false;
-  }
-  s.plane = PrincipalPlane(s.planeKind);
-  if (ExtractJsonValue(json, "supportRef", &raw)) {
-    s.supportRef = Unquote(raw);
-  }
-  std::string modelRaw;
-  if (ExtractJsonValue(json, "model", &modelRaw)) {
-    if (!ParseSketchModel(modelRaw, &s.model, error)) return false;
-  } else {
-    // Flat form: points/lines/... at top level (UI sends model inline).
-    if (!ParseSketchModel(json, &s.model, error)) return false;
-  }
-  *out = std::move(s);
-  return true;
+bool ParseSketchFeature(const std::string& text, SketchFeature* out, std::string* error) {
+  const Json value = parse_json_object(text);
+  if (!value.is_object()) { if (error) *error = "sketch feature must be a JSON object"; return false; }
+  try {
+    SketchFeature sketch;
+    sketch.id = json_string_field(value, "id", json_string_field(value, "featureId", ""));
+    if (sketch.id.empty()) throw JsonFieldError("sketch id/featureId required");
+    sketch.planeKind = json_string_field(value, "planeKind", "XY");
+    if (sketch.planeKind != "XY" && sketch.planeKind != "XZ" && sketch.planeKind != "YZ") throw JsonFieldError("planeKind must be XY|XZ|YZ");
+    sketch.plane = PrincipalPlane(sketch.planeKind);
+    sketch.supportRef = json_string_field(value, "supportRef", "");
+    const auto model = value.contains("model") ? value.at("model").dump() : value.dump();
+    if (!ParseSketchModel(model, &sketch.model, error)) return false;
+    *out = std::move(sketch); return true;
+  } catch (const JsonFieldError& failure) { if (error) *error = failure.what(); return false; }
+    catch (const Json::exception& failure) { if (error) *error = failure.what(); return false; }
 }
 
 }  // namespace kreoda

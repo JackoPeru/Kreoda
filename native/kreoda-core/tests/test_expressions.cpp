@@ -117,14 +117,14 @@ TEST(Expressions, PersistAndUndo) {
   const std::string save =
       std::string(
           R"({"protocolVersion":1,"requestId":"e1","documentId":"expr-doc3","type":10,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   ASSERT_NE(kreoda_test::rpcText(save).find("\"status\":\"ok\""),
             std::string::npos);
   kreoda::DocumentStore::instance().create("expr-doc3b");
   const std::string open =
       std::string(
           R"({"protocolVersion":1,"requestId":"e2","documentId":"expr-doc3b","type":11,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   const std::string opened = kreoda_test::rpcText(open);
   ASSERT_NE(opened.find("\"status\":\"ok\""), std::string::npos) << opened;
   std::string stored;

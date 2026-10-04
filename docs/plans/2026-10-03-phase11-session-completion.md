@@ -294,6 +294,17 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    Evidence: `docs/evidence/phase11-generated-contract-local-2026-10-04.json`.
    Phase 11 remains incomplete; hosted CI/final review are later gates.
 6. Native semantic geometry, accurate measurements/reference validation.
+   Packet 6a: nlohmann-json DOM reads only typed top-level fields; nested
+   metadata cannot replace request/transaction identities. Typed sketch
+   parsing rejects scalar coercion, malformed arrays and wrong field types.
+   Five new regressions failed before implementation and pass now. Full
+   real OCCT native suite: 146/146 PASS. Old Windows-path fixtures were
+   corrected to serialize valid JSON; all persistence/torture assertions
+   remain. New isolated native build passes sixteen real Sidecar/WebSocket
+   checks, including mutation replay, parameter edit and Undo. Owned PID
+   exited; source and binary hashes recorded. Evidence:
+   `docs/evidence/phase11-typed-native-json-local-2026-10-04.json`.
+   Semantic queries remain packet 6b; Phase 11 remains incomplete.
 7. LAN pairing, trusted devices, revocation and local interface guards.
 8. Unified Desktop mutation entry and active-edit ownership.
 9. Real native, Desktop and second-client acceptance with no GUI input.

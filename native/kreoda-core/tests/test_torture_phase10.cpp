@@ -3,6 +3,7 @@
 // tessellation, undo/redo interleave, atomic-overwrite contract.
 
 #include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -116,18 +117,12 @@ kreoda::SketchModel RectModel(double w, double h) {
   return m;
 }
 
-std::string saveRpc(const std::string& req, const std::string& doc,
-                    const std::string& path) {
-  return rpc(std::string(R"({"protocolVersion":1,"requestId":")") + req +
-             R"(","documentId":")" + doc + R"(","type":10,"path":")" + path +
-             "\"}");
+std::string saveRpc(const std::string& req, const std::string& doc, const std::string& path) {
+  return rpc(nlohmann::json{{"protocolVersion", 1}, {"requestId", req}, {"documentId", doc}, {"type", 10}, {"path", path}}.dump());
 }
 
-std::string openRpc(const std::string& req, const std::string& doc,
-                    const std::string& path) {
-  return rpc(std::string(R"({"protocolVersion":1,"requestId":")") + req +
-             R"(","documentId":")" + doc + R"(","type":11,"path":")" + path +
-             "\"}");
+std::string openRpc(const std::string& req, const std::string& doc, const std::string& path) {
+  return rpc(nlohmann::json{{"protocolVersion", 1}, {"requestId", req}, {"documentId", doc}, {"type", 11}, {"path", path}}.dump());
 }
 
 std::string createDocumentRpc(const std::string& req,
@@ -368,7 +363,7 @@ TEST(Torture10, SaveOpenPreservesTipAndRefs) {
   const fs::path dir = fs::temp_directory_path() / "kreoda-torture-tip";
   std::error_code ec;
   fs::create_directories(dir, ec);
-  // NOTE: filename must avoid \t \n \r sequences (JSON escapes in rpc).
+  // The fixture serializer escapes Windows path separators.
   const std::string path = (dir / "state.icad").string();
   const std::string saved = saveRpc("s", "tt-save", path);
   ASSERT_TRUE(ok(saved)) << saved;

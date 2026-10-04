@@ -186,12 +186,12 @@ TEST(HolePattern, Section51_FourHolePlate) {
   const fs::path icad = fs::temp_directory_path() / "kreoda-pattern51.icad";
   const std::string saveReq =
       std::string(R"({"protocolVersion":1,"requestId":"hp51-s","documentId":"hp51","type":10,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   ASSERT_TRUE(ok(rpc(saveReq))) << saveReq;
   NewDoc("hp51b");
   const std::string openReq =
       std::string(R"({"protocolVersion":1,"requestId":"hp51-o","documentId":"hp51b","type":11,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   ASSERT_TRUE(ok(rpc(openReq))) << openReq;
   ASSERT_TRUE(Contains("pat"));
   EXPECT_NEAR(VolumeOf("pat"), 60000.0 - 4 * kTool6x10, 1.0);

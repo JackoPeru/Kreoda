@@ -1,4 +1,5 @@
 #include "dispatcher.h"
+#include "protocol/json_fields.h"
 #include "diagnostics/crash_barrier.h"
 
 #include <algorithm>
@@ -78,23 +79,6 @@ std::string uniqueTempDir(const std::string& base, std::error_code& ec) {
 }
 
 std::string undo_counts_body();
-
-std::string find_raw(const std::string& json, const char* key) {
-  const std::string pat = std::string("\"") + key + "\"";
-  const auto pos = json.find(pat);
-  if (pos == std::string::npos) return "";
-  const auto colon = json.find(':', pos + pat.size());
-  if (colon == std::string::npos) return "";
-  const auto start = json.find_first_not_of(" \t", colon + 1);
-  if (start == std::string::npos) return "";
-  if (json[start] == '"') {
-    const auto end = json.find('"', start + 1);
-    if (end == std::string::npos) return "";
-    return json.substr(start + 1, end - start - 1);
-  }
-  const auto end = json.find_first_of(",}", start);
-  return json.substr(start, end == std::string::npos ? end : end - start);
-}
 
 std::string escape(const std::string& s) {
   // Full JSON string escaping (§63.10): error paths carry OCCT what(),
@@ -415,111 +399,26 @@ bool saveAtomically(const std::string& finalPath, Writer&& write,
 
 }  // namespace
 
-std::string json_string_field(const std::string& json, const char* key,
-                              const std::string& fallback) {
-  // Minor: naive quote scan breaks on escaped \" — delegate quoted values
-  // to the escape-aware parser (ids/paths gate via cleanId/cleanPath too).
-  const std::string pat = std::string("\"") + key + "\"";
-  const auto pos = json.find(pat);
-  if (pos == std::string::npos) return fallback;
-  const auto colon = json.find(':', pos + pat.size());
-  if (colon == std::string::npos) return fallback;
-  const auto start = json.find_first_not_of(" \t", colon + 1);
-  if (start == std::string::npos) return fallback;
-  if (json[start] == '"') return json_string_field_strict(json, key, fallback);
-  const auto v = find_raw(json, key);
-  return v.empty() ? fallback : v;
+std::string json_string_field(const std::string& text, const char* key, const std::string& fallback) {
+  try { return json_string_field(parse_json_object(text), key, fallback); }
+  catch (const JsonFieldError&) { return fallback; }
 }
-
-// Minor: find_raw's naive quote scan breaks on escaped \" inside strings.
-// Handle backslash escapes when extracting a quoted value.
-std::string json_string_field_strict(const std::string& json, const char* key,
-                              const std::string& fallback) {
-  const std::string pat = std::string("\"") + key + "\"";
-  const auto pos = json.find(pat);
-  if (pos == std::string::npos) return fallback;
-  const auto colon = json.find(':', pos + pat.size());
-  if (colon == std::string::npos) return fallback;
-  auto start = json.find_first_not_of(" \t", colon + 1);
-  if (start == std::string::npos) return fallback;
-  if (json[start] != '"') return find_raw(json, key).empty() ? fallback : find_raw(json, key);
-  std::string out;
-  for (size_t i = start + 1; i < json.size(); ++i) {
-    char c = json[i];
-    if (c == '\\' && i + 1 < json.size()) {
-      char n = json[i + 1];
-      if (n == '"' || n == '\\' || n == '/') { out.push_back(n); ++i; }
-      else if (n == 'n') { out.push_back('\n'); ++i; }
-      else if (n == 't') { out.push_back('\t'); ++i; }
-      else if (n == 'r') { out.push_back('\r'); ++i; }
-      else { out.push_back(c); }
-    } else if (c == '"') {
-      return out;
-    } else {
-      out.push_back(c);
-    }
-  }
-  return fallback;
+std::string json_string_field_strict(const std::string& text, const char* key, const std::string& fallback) {
+  return json_string_field(text, key, fallback);
 }
-
-bool json_has_key(const std::string& json, const char* key) {
-  const std::string pat = std::string("\"") + key + "\"";
-  const auto pos = json.find(pat);
-  if (pos == std::string::npos) return false;
-  const auto colon = json.find(':', pos + pat.size());
-  return colon != std::string::npos;
+bool json_has_key(const std::string& text, const char* key) {
+  return json_has_key(parse_json_object(text), key);
 }
-
-// M3: strict numeric parse — a present-but-non-numeric value (e.g.
-// "txMm":"evil" or txMm:"oops") must be BAD_PARAMS, never silent 0.
-bool json_double_strict(const std::string& json, const char* key, double* out) {
-  const auto v = find_raw(json, key);
-  if (v.empty()) return false;
-  // Quoted strings are never numbers (find_raw strips quotes, so "evil"
-  // arrives as evil — reject unless the raw JSON had a bare number).
-  const std::string pat = std::string("\"") + key + "\"";
-  const auto pos = json.find(pat);
-  if (pos == std::string::npos) return false;
-  const auto colon = json.find(':', pos + pat.size());
-  if (colon == std::string::npos) return false;
-  const auto start = json.find_first_not_of(" \t", colon + 1);
-  if (start == std::string::npos) return false;
-  if (json[start] == '"') return false;
-  try {
-    size_t len = 0;
-    double d = std::stod(v, &len);
-    // Trailing garbage (e.g. "12abc") is not a number.
-    std::string tail = v.substr(len);
-    // find_raw truncates at , or }, so tail should be whitespace only.
-    for (char c : tail) {
-      if (c != ' ' && c != '\t' && c != '\n' && c != '\r') return false;
-    }
-    if (out) *out = d;
-    return true;
-  } catch (...) {
-    return false;
-  }
+bool json_double_strict(const std::string& text, const char* key, double* out) {
+  return json_double_strict(parse_json_object(text), key, out);
 }
-
-int json_int_field(const std::string& json, const char* key, int fallback) {
-  const auto v = find_raw(json, key);
-  if (v.empty()) return fallback;
-  try {
-    return std::stoi(v);
-  } catch (...) {
-    return fallback;
-  }
+int json_int_field(const std::string& text, const char* key, int fallback) {
+  try { return json_int_field(parse_json_object(text), key, fallback); }
+  catch (const JsonFieldError&) { return fallback; }
 }
-
-double json_double_field(const std::string& json, const char* key,
-                         double fallback) {
-  const auto v = find_raw(json, key);
-  if (v.empty()) return fallback;
-  try {
-    return std::stod(v);
-  } catch (...) {
-    return fallback;
-  }
+double json_double_field(const std::string& text, const char* key, double fallback) {
+  try { return json_double_field(parse_json_object(text), key, fallback); }
+  catch (const JsonFieldError&) { return fallback; }
 }
 
 std::vector<uint8_t> make_response(const std::string& requestId,
@@ -564,7 +463,7 @@ std::vector<uint8_t> mesh_success(const std::string& requestId,
 }
 }  // namespace
 
-std::vector<uint8_t> handle_command(const std::string& requestJson) {
+static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
   const std::string requestId = json_string_field(requestJson, "requestId", "");
   const int type = json_int_field(requestJson, "type", 0);
   const std::string documentId =
@@ -572,8 +471,8 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
 
   // Envelope gate (§63.10, bug-hunt C3): ids/paths must be inert strings —
   // no quotes/controls that could confuse field extraction or the fs layer.
-  // (Full strict-DOM envelope parsing is the follow-up; this kills the
-  // cheapest injection shapes at the boundary.)
+  // Envelope scalar types were checked before dispatch; ids retain the
+  // existing canonical character/range gate.
   auto cleanId = [](const std::string& s) {
     if (s.size() > 128) return false;
     for (unsigned char c : s) {
@@ -613,8 +512,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         type == kRequestFaceInfo || type == kRequestSnapshot;
     const bool preview =
         (type == kSetFeatureParameter || type == kUpdateSketch) &&
-        (json_string_field(requestJson, "isPreview", "") == "true" ||
-         json_int_field(requestJson, "isPreview", 0) == 1);
+        (json_bool_field(requestJson, "isPreview"));
       const bool lifecycle =
           type == kCreateDocument || type == kUndo || type == kRedo ||
           type == kSaveDocument || type == kOpenDocument;
@@ -1122,8 +1020,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         }
       }
       const bool isPreview =
-          json_string_field(requestJson, "isPreview", "") == "true" ||
-          json_int_field(requestJson, "isPreview", 0) == 1;
+          json_bool_field(requestJson, "isPreview");
       // Phase 9a: an expression replaces the bare value (validated + stored
       // core-side; evaluated before the DAG recompute).
       const std::string expression =
@@ -1204,16 +1101,10 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
     case kCreateSketch: {
       const std::string featureId =
           json_string_field(requestJson, "featureId", "");
-      std::string planeRaw;
-      std::string planeKind = "XY";
-      if (ExtractJsonValue(requestJson, "planeKind", &planeRaw)) {
-        planeKind = planeRaw.size() >= 2 && planeRaw.front() == '"'
-                        ? planeRaw.substr(1, planeRaw.size() - 2)
-                        : planeRaw;
-      }
+      const auto planeKind = json_string_field(requestJson, "planeKind", "XY");
       std::string modelRaw;
       SketchModel model;
-      if (ExtractJsonValue(requestJson, "model", &modelRaw)) {
+      if (json_value_field(requestJson, "model", &modelRaw)) {
         std::string error;
         if (!ParseSketchModel(modelRaw, &model, &error)) {
           return make_response(requestId, "error",
@@ -1222,7 +1113,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       } else {
         // Inline flat form (points/lines/... at top level).
         std::string error;
-        if (!ParseSketchModel(requestJson, &model, &error)) {
+        if (!ParseSketchModel(requestJson.dump(), &model, &error)) {
           return make_response(requestId, "error",
                                error_body("BAD_SKETCH", error));
         }
@@ -1240,11 +1131,10 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       const std::string featureId =
           json_string_field(requestJson, "featureId", "");
       const bool isPreview =
-          json_string_field(requestJson, "isPreview", "") == "true" ||
-          json_int_field(requestJson, "isPreview", 0) == 1;
+          json_bool_field(requestJson, "isPreview");
       std::string modelRaw;
       SketchModel model;
-      if (ExtractJsonValue(requestJson, "model", &modelRaw)) {
+      if (json_value_field(requestJson, "model", &modelRaw)) {
         std::string error;
         if (!ParseSketchModel(modelRaw, &model, &error)) {
           return make_response(requestId, "error",
@@ -1252,7 +1142,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         }
       } else {
         std::string error;
-        if (!ParseSketchModel(requestJson, &model, &error)) {
+        if (!ParseSketchModel(requestJson.dump(), &model, &error)) {
           return make_response(requestId, "error",
                                error_body("BAD_SKETCH", error));
         }
@@ -1263,11 +1153,9 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         const bool hasStored =
             SketchStore::instance().get(featureId, &stored);
         SolveOptions opts;
-        std::string dragRaw;
-        if (ExtractJsonValue(requestJson, "dragPointId", &dragRaw) &&
-            dragRaw.size() >= 2) {
+        if (json_has_key(requestJson, "dragPointId")) {
           opts.hasDragTarget = true;
-          opts.dragPointId = dragRaw.substr(1, dragRaw.size() - 2);
+          opts.dragPointId = json_string_field(requestJson, "dragPointId");
           opts.dragX = json_double_field(requestJson, "dragX", 0);
           opts.dragY = json_double_field(requestJson, "dragY", 0);
         }
@@ -1433,81 +1321,8 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
                                           "depthMm must be a JSON number"));
         }
       }
-      // featureIds: ["ho-…", …] (1..4, frontend-owned ids).
-      // m10: empties are preserved (not dropped) so validation below blames
-      // the right field; duplicates are BAD_PARAMS here, not HOLE_FAILED.
-      std::vector<std::string> featureIds;
-      {
-        std::string raw;
-        if (ExtractJsonValue(requestJson, "featureIds", &raw)) {
-          size_t pos = 0;
-          while (pos < raw.size()) {
-            while (pos < raw.size() && (raw[pos] == ' ' || raw[pos] == '\t' ||
-                                        raw[pos] == '\n' || raw[pos] == '\r' ||
-                                        raw[pos] == '[' || raw[pos] == ']' ||
-                                        raw[pos] == ',')) {
-              ++pos;
-            }
-            if (pos >= raw.size()) break;
-            if (raw[pos] == '"') {
-              ++pos;
-              std::string id;
-              while (pos < raw.size() && raw[pos] != '"') {
-                if (raw[pos] == '\\' && pos + 1 < raw.size()) {
-                  ++pos;
-                  id.push_back(raw[pos]);
-                } else {
-                  id.push_back(raw[pos]);
-                }
-                ++pos;
-              }
-              if (pos < raw.size() && raw[pos] == '"') ++pos;
-              featureIds.push_back(id);
-            } else {
-              break;
-            }
-          }
-        }
-      }
-      // points: flat [x0,y0,x1,y1,…] (2..8 numbers).
-      // M3: same strictness as diameter/depth — any character outside a
-      // JSON number array is BAD_PARAMS, never silent truncation
-      // ("12abc" used to parse as 12, "12abc34" as two numbers).
-      std::vector<double> nums;
-      {
-        std::string raw;
-        if (ExtractJsonValue(requestJson, "points", &raw)) {
-          for (char c : raw) {
-            const bool numeric = (c >= '0' && c <= '9') || c == '-' ||
-                                 c == '+' || c == '.' || c == 'e' || c == 'E';
-            const bool structural = c == '[' || c == ']' || c == ',' ||
-                                    c == ' ' || c == '\t' || c == '\n' ||
-                                    c == '\r';
-            if (!numeric && !structural) {
-              return make_response(requestId, "error",
-                                   error_body("BAD_PARAMS",
-                                              "points must be JSON numbers"));
-            }
-          }
-          std::string cur;
-          for (size_t i = 0; i <= raw.size(); ++i) {
-            char c = (i < raw.size()) ? raw[i] : ',';
-            if ((c >= '0' && c <= '9') || c == '-' || c == '+' || c == '.' ||
-                c == 'e' || c == 'E') {
-              cur.push_back(c);
-            } else if (!cur.empty()) {
-              try {
-                nums.push_back(std::stod(cur));
-              } catch (...) {
-                return make_response(requestId, "error",
-                                     error_body("BAD_PARAMS",
-                                                "points must be JSON numbers"));
-              }
-              cur.clear();
-            }
-          }
-        }
-      }
+      const auto featureIds = json_string_array(requestJson, "featureIds");
+      const auto nums = json_number_array(requestJson, "points");
       if (featureIds.empty() || featureIds.size() > 4) {
         return make_response(requestId, "error",
                              error_body("BAD_PARAMS",
@@ -1559,7 +1374,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       // the current revision. Read-only: no transaction, no revision bump,
       // safe to call between mutations (callers use revision for deltas).
       std::ostringstream body;
-      const bool includeReferences = json_string_field(requestJson, "includeReferencePlanes", "") == "true";
+      const bool includeReferences = json_bool_field(requestJson, "includeReferencePlanes");
       if (includeReferences) {
         body << "\"referencePlanesJson\":\""
              << escape(DocumentStore::instance().referencePlanesJson()) << "\",";
@@ -1660,45 +1475,10 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
           json_string_field(requestJson, "featureId", "");
       const std::string targetId =
           json_string_field(requestJson, "targetId", "");
-      // edgeIds may arrive as a JSON array string or repeated fields;
-      // accept both 'edgeIds' (JSON array) and 'edgeId' (single).
       std::vector<std::string> edgeIds;
-      std::string raw;
-      if (ExtractJsonValue(requestJson, "edgeIds", &raw)) {
-        size_t a = 0;
-        while (a < raw.size() && std::isspace((unsigned char)raw[a])) ++a;
-        size_t b = raw.size();
-        while (b > a && std::isspace((unsigned char)raw[b - 1])) --b;
-        const std::string t = (b > a) ? raw.substr(a, b - a) : "";
-        // Guard: malformed/empty envelopes must not index front()/back().
-        if (t.size() >= 2 && t.front() == '[') {
-          size_t start = 1;
-          const size_t end =
-              (t.back() == ']') ? t.size() - 1 : t.size();
-          std::set<std::string> seen;  // dedupe: double Add() fails loudly
-          size_t pos = start;
-          while (pos < end) {
-            while (pos < end &&
-                   (t[pos] == ' ' || t[pos] == '\t' || t[pos] == '\n' ||
-                    t[pos] == '\r' || t[pos] == ',' || t[pos] == '"')) {
-              ++pos;
-            }
-            size_t stop = pos;
-            while (stop < end && t[stop] != '"' && t[stop] != ',') ++stop;
-            if (stop > pos) {
-              const std::string id = t.substr(pos, stop - pos);
-              // Trim trailing whitespace run-ups (e.g. "id" \t]).
-              const size_t last = id.find_last_not_of(" \t\n\r");
-              const std::string clean =
-                  (last == std::string::npos) ? "" : id.substr(0, last + 1);
-              if (!clean.empty() && !seen.count(clean)) {
-                seen.insert(clean);
-                edgeIds.push_back(clean);
-              }
-            }
-            pos = stop;
-          }
-        }
+      std::set<std::string> seen;
+      for (const auto& id : json_string_array(requestJson, "edgeIds")) {
+        if (seen.insert(id).second) edgeIds.push_back(id);
       }
       const std::string single = json_string_field(requestJson, "edgeId", "");
       if (!single.empty()) edgeIds.push_back(single);
@@ -1777,7 +1557,7 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       }
       SketchModel model = stored.model;
       std::string modelRaw;
-      if (ExtractJsonValue(requestJson, "model", &modelRaw)) {
+      if (json_value_field(requestJson, "model", &modelRaw)) {
         std::string error;
         if (!ParseSketchModel(modelRaw, &model, &error)) {
           return make_response(requestId, "error",
@@ -1785,11 +1565,9 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
         }
       }
       SolveOptions opts;
-      std::string dragRaw;
-      if (ExtractJsonValue(requestJson, "dragPointId", &dragRaw) &&
-          dragRaw.size() >= 2) {
+      if (json_has_key(requestJson, "dragPointId")) {
         opts.hasDragTarget = true;
-        opts.dragPointId = dragRaw.substr(1, dragRaw.size() - 2);
+        opts.dragPointId = json_string_field(requestJson, "dragPointId");
         opts.dragX = json_double_field(requestJson, "dragX", 0);
         opts.dragY = json_double_field(requestJson, "dragY", 0);
       }
@@ -1948,6 +1726,31 @@ std::vector<uint8_t> handle_command(const std::string& requestJson) {
       return make_response(requestId, "error",
                            error_body("UNKNOWN_COMMAND",
                                       "unsupported command type"));
+  }
+}
+
+std::vector<uint8_t> handle_command(const std::string& text) {
+  const Json request = parse_json_object(text);
+  const std::string requestId = json_string_field(text, "requestId", "");
+  if (!request.is_object() || !request.contains("type") || !request.at("type").is_number_integer())
+    return make_response(requestId, "error", error_body("BAD_ENVELOPE", "expected an object with integer command type"));
+  for (const auto* key : {"requestId", "documentId", "transactionId"}) {
+    if (request.contains(key) && !request.at(key).is_string())
+      return make_response(requestId, "error", error_body("BAD_ENVELOPE", std::string(key) + " must be a JSON string"));
+  }
+  try {
+    // Validate every present numeric alias too; a valid alternate field must
+    // not conceal malformed canonical values. Nested metadata is ignored.
+    for (const auto* key : {"widthMm", "heightMm", "depthMm", "radiusMm", "diameterMm", "distanceMm", "angleDeg", "valueMm", "xMm", "yMm",
+        "width", "height", "depth", "radius", "diameter", "distance", "angle", "value", "x", "y",
+        "txMm", "tyMm", "tzMm", "rxDeg", "ryDeg", "rzDeg", "dragX", "dragY"})
+      if (request.contains(key)) json_double_field(request, key);
+    if (request.contains("isPreview")) json_bool_field(request, "isPreview");
+    return handle_command_typed(request);
+  } catch (const JsonFieldError& error) {
+    return make_response(requestId, "error", error_body("BAD_PARAMS", error.what()));
+  } catch (const Json::exception& error) {
+    return make_response(requestId, "error", error_body("BAD_PARAMS", error.what()));
   }
 }
 

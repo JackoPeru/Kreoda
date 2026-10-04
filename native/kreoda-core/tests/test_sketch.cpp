@@ -16,6 +16,20 @@
 #include "rpc_text.h"
 #include "../src/document/document_store.h"
 #include "../src/model/shapes.h"
+
+TEST(SketchJson, StrictModelFieldsIgnoreNestedKeysAndRejectWrongTypes) {
+  kreoda::SketchModel model;
+  std::string error;
+  for (const auto& malformed : {
+      R"({"points":[{"id":"p","metadata":{"x":1},"y":2}]})",
+      R"({"points":[{"id":3,"x":1,"y":2}]})",
+      R"({"points":[{"id":"p","x":1,"y":2,"fixed":"true"}]})",
+      R"({"constraints":[{"id":"c","kind":"fixed","refs":[1]}]})",
+      R"({"constraints":[{"id":"c","kind":"fixed","refs":["p"],"value":"1"}]})",
+  }) EXPECT_FALSE(kreoda::ParseSketchModel(malformed, &model, &error)) << malformed;
+  EXPECT_TRUE(kreoda::ParseSketchModel(R"({"points":[{"id":"p\u002d1","x":1,"y":2}]})", &model, &error));
+  EXPECT_EQ(model.points[0].id, "p-1");
+}
 #include "../src/protocol/dispatcher.h"
 
 namespace fs = std::filesystem;
@@ -374,13 +388,13 @@ TEST(Sketch, SaveOpenKeepsSketchAndSolid) {
   const std::string save =
       std::string(
           R"({"protocolVersion":1,"requestId":"q1","documentId":"sk7","type":10,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   ASSERT_TRUE(ok(rpc(save))) << save;
   NewDoc("sk7b");
   const std::string open =
       std::string(
           R"({"protocolVersion":1,"requestId":"q2","documentId":"sk7b","type":11,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   const std::string opened = rpc(open);
   ASSERT_TRUE(ok(opened)) << opened;
   EXPECT_NE(opened.find("sk-s"), std::string::npos);

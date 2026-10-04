@@ -1,0 +1,100 @@
+{
+  "recordedAtUtc": "2026-10-04T08:28:49.614511+00:00",
+  "sourceBaseCommit": "23536e2b8b763232fd00b814f071ad30a062e0fa",
+  "status": "packet-6a-PASS",
+  "phase11Complete": false,
+  "nativeTests": {
+    "passed": 146,
+    "suites": 26,
+    "durationMs": 58710,
+    "xmlPath": "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\native\\kreoda-core\\build\\session-json-tests.xml",
+    "xmlSha256": "7e2993255bc9447e6c539b2a444c0c2e98963169372f54cf3ace248a08dfae50",
+    "logPath": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-native-json-tests.txt",
+    "logSha256": "b41c08b38b02464e81d655389cfe72e44b5b76cec02d0fa949a9737c0c6d6444",
+    "redBeforeImplementation": [
+      "4 Session11Json tests fail on lexical envelope parser",
+      "SketchJson strict model test fails on lexical sketch parser"
+    ],
+    "firstFullRun": {
+      "passed": 129,
+      "failed": 16,
+      "total": 145,
+      "cause": "Invalid Windows backslash path JSON in old fixtures; changed fixture serialization, retained rigorous production parser and existing assertions"
+    }
+  },
+  "nativeBuild": {
+    "status": "PASS",
+    "occt": "8.0.1",
+    "withOcct": true,
+    "stub": false,
+    "crashBarriers": false,
+    "parser": "nlohmann-json 3.12.0#2",
+    "logPath": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-native-json-final-build.txt"
+  },
+  "nativeRuntime": {
+    "kernel": "8.0.1-native",
+    "corePid": 18864,
+    "coreSha256": "3b46e30e7be96e7a0bb213561e09d4681bb22887ae5026ff8db4bd3df62bf98e",
+    "sourceSha256": {
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\sidecar.ts": "9d5968356285019e8b8a122538c1e3666f4ef996cfdaaeeface719fbfa47dae9",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session.ts": "3724d27c0c7f4948afdfc21ec0072834443c047ea70700784b3e888873ff455f",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-queries.ts": "c0e324eb896ab7527e720340db7f54a362c12dc093ad4341e1e693f56f73211c",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\native\\kreoda-core\\src\\protocol\\json_fields.h": "d2dc26b9ced12a6346ae467b38d5e40f313f6c30868220f4caf8769bbbc29395",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\native\\kreoda-core\\src\\protocol\\dispatcher.cpp": "5eb6e43e77d73366d03868824ee2b87a58f689acb4828d15daa35df2682d2dbf",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\native\\kreoda-core\\src\\features\\sketch\\sketch_json.cpp": "8b7d18f303eeb87803d98b888acb6f02dab58d8ee096a7e4fe877aa37f9e1481",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\packages\\command-schema\\src\\index.ts": "15b119b47157fc6d686c426f306d70d532f54e012a3ec8592b6219adc9121492",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\packages\\command-schema\\src\\native-command.ts": "d78021e60613b79ae78ed9fe7f0e2d3ec9a25672e13359440b5327e5b1976c9e",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\packages\\protocol\\src\\session-control.ts": "b749589a1ddb331ab8094caedf00e6b2f56255e81d0e7666b1e96c3f1f7a5422"
+    },
+    "passed": [
+      "typed-top-level-real-sidecar",
+      "nested-transaction-rejected",
+      "quoted-native-number-rejected",
+      "malformed-envelope-rejected",
+      "invalid-native-no-mutation",
+      "named-creation-generated-stable-id",
+      "operation-replay-one-native-create",
+      "registry-schema-export",
+      "unsupported-command-not-advertised",
+      "invalid-named-and-legacy-before-native",
+      "binary-mesh-control-rejected",
+      "invalid-preview-before-native",
+      "existing-parameter-edit",
+      "named-undo-native-restoration",
+      "legacy-field-aliases",
+      "named-delete-dependency-free"
+    ],
+    "finalRevision": 5,
+    "finalFeatureCount": 1,
+    "volumeMm3": 6000,
+    "visibleWindows": false,
+    "boundary": "Real OCCT, SessionRelay and WebSocket; no Desktop renderer or C# runtime in this packet probe."
+  },
+  "ownedNativeProcessExited": true,
+  "sourceSha256": {
+    "native/kreoda-core/CMakeLists.txt": "6e43d077004bb08331294b9456730440fc557ec378cde62eff5eef4b74a01b98",
+    "native/kreoda-core/src/features/sketch/sketch_json.cpp": "8b7d18f303eeb87803d98b888acb6f02dab58d8ee096a7e4fe877aa37f9e1481",
+    "native/kreoda-core/src/features/sketch/sketch_json.h": "9f0e3a61546a4f3be4b664fc08624411729ced7956e81dd8321c65f9f8b4cb71",
+    "native/kreoda-core/src/protocol/dispatcher.cpp": "5eb6e43e77d73366d03868824ee2b87a58f689acb4828d15daa35df2682d2dbf",
+    "native/kreoda-core/src/protocol/dispatcher.h": "bd7908b7df54845d5cad4eead03a70ad67d63725c67b2677161bc4629a61a3c3",
+    "native/kreoda-core/tests/CMakeLists.txt": "0a6501c0916790666ac87933a488bb98d2c4b90513f0477426811aa3f127c1f4",
+    "native/kreoda-core/tests/test_body.cpp": "51f82635fb86932d66bc2db518633ce2330eaaf16a1ec4b00cc96f945f6252e5",
+    "native/kreoda-core/tests/test_expressions.cpp": "387eb727810b243cdf67071b2c4cd3801504362d7c0b0002aa17aef47552af68",
+    "native/kreoda-core/tests/test_hole_pattern.cpp": "ae9582261e13268d339fae7ced054766ae504c3716b32707cd88df35ab76f7da",
+    "native/kreoda-core/tests/test_persistence.cpp": "77163f81f93a3b6b20e9a0bcb7697322662d4e0b1e0c81bb95d04896a44a3c10",
+    "native/kreoda-core/tests/test_session11.cpp": "6fe96326fea1a9b8e54024c58b23768f4f0f2b840ff2e9a14d099d4632fe77fa",
+    "native/kreoda-core/tests/test_sketch.cpp": "1736ffc014e0479b517e6bac2994d407ce4210b6ba026fc478df6dc01cceb775",
+    "native/kreoda-core/tests/test_solids.cpp": "469a7f55234ffd52955d4769081ea8a5f01d43416d1e904df2ff38ac39847f99",
+    "native/kreoda-core/tests/test_topology.cpp": "7ebe6b972452b9e1eab9388e84bafc6067fd907e98e1a903a4c2cafee16107b0",
+    "native/kreoda-core/tests/test_torture_phase10.cpp": "ece664a44dc3d7fb0708735ddca8cc58aef67220892543c6950977cf2de9c92a",
+    "native/kreoda-core/vcpkg.json": "b7afcd0c78dc816a81e0f74959dc98b2fe19e7f1d2bd5c2dd016916f89168348",
+    "native/kreoda-core/src/protocol/json_fields.h": "d2dc26b9ced12a6346ae467b38d5e40f313f6c30868220f4caf8769bbbc29395"
+  },
+  "runtimeStage": "C:\\Users\\matte\\Documents\\Codex-tools\\kreoda-phase11-json-probe-b356ee05d03a4487a2379bcb17ecdd13",
+  "boundaries": [
+    "Native unit tests directly reject malformed JSON; Sidecar rejects missing JSON envelopes before dispatch",
+    "Real loopback OCCT, Sidecar and WebSocket; not full Desktop acceptance",
+    "Accepted portable and primary checkout untouched",
+    "Native semantic geometry queries remain packet 6b"
+  ]
+}

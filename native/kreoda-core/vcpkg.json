@@ -15,7 +15,8 @@
     "minizip-ng",
     "eigen3",
     "boost-graph",
-    "boost-math"
+    "boost-math",
+    "nlohmann-json"
   ],
   "overrides": [],
   "features": {
