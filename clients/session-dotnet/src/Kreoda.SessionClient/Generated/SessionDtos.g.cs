@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89
+// Source SHA256: 93e9e8283b745c4ea77c001d2093ec711161c16ad847705b1c5b194f8fb67ef5
 #nullable enable annotations
 #nullable disable warnings
 namespace Kreoda.Session.Generated
@@ -40,6 +40,10 @@ namespace Kreoda.Session.Generated
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("clientType")]
         public string? ClientType { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("deviceId")]
+        public string? DeviceId { get; set; }
 
         [JsonPropertyName("protocolVersion")]
         public long ProtocolVersion { get; set; }
@@ -171,6 +175,10 @@ namespace Kreoda.Session.Generated
         [JsonPropertyName("clientId")]
         [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
         public string ClientId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("deviceId")]
+        public string? DeviceId { get; set; }
 
         [JsonPropertyName("documentId")]
         [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
@@ -396,6 +404,46 @@ namespace Kreoda.Session.Generated
 
         [JsonPropertyName("sessionId")]
         public string SessionId { get; set; }
+    }
+
+    public partial class PairParams
+    {
+        [JsonPropertyName("deviceName")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string DeviceName { get; set; }
+
+        [JsonPropertyName("pairingToken")]
+        public string PairingToken { get; set; }
+    }
+
+    public partial class AuthenticateParams
+    {
+        [JsonPropertyName("credential")]
+        public string Credential { get; set; }
+
+        [JsonPropertyName("deviceId")]
+        public string DeviceId { get; set; }
+    }
+
+    public partial class PairReply
+    {
+        [JsonPropertyName("credential")]
+        public string Credential { get; set; }
+
+        [JsonPropertyName("deviceId")]
+        public string DeviceId { get; set; }
+
+        [JsonPropertyName("sessionToken")]
+        public string SessionToken { get; set; }
+    }
+
+    public partial class AuthenticateReply
+    {
+        [JsonPropertyName("deviceId")]
+        public string DeviceId { get; set; }
+
+        [JsonPropertyName("sessionToken")]
+        public string SessionToken { get; set; }
     }
 
     public enum Kind { Body, Feature, Sketch };
@@ -656,6 +704,33 @@ namespace Kreoda.Session.Generated
         }
 
         public static readonly CoreRestartedEventEventConverter Singleton = new CoreRestartedEventEventConverter();
+    }
+
+    internal class TentacledMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length >= 1 && value.Length <= 80)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length >= 1 && value.Length <= 80)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly TentacledMinMaxLengthCheckConverter Singleton = new TentacledMinMaxLengthCheckConverter();
     }
 
     internal class IsoDateTimeOffsetConverter : JsonConverter<DateTimeOffset>

@@ -10,6 +10,59 @@ namespace Kreoda.SessionClient.Tests;
 public sealed class SessionClientTests
 {
     [Fact]
+    public async Task PairAndReturningDeviceAuthenticateBeforeHello()
+    {
+        const string deviceId = "device-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        var credential = new string('c', 43);
+        var token = new string('t', 43);
+        await using var server = new LoopbackWsServer(req =>
+        {
+            return req.GetProperty("method").GetString() switch
+            {
+                "pair" => Reply(req, new Dictionary<string, object?>
+                    { ["deviceId"] = deviceId, ["credential"] = credential, ["sessionToken"] = token }),
+                "authenticate" => Reply(req, new Dictionary<string, object?>
+                    { ["deviceId"] = deviceId, ["sessionToken"] = token }),
+                "hello" => HelloReply(req),
+                _ => throw new InvalidOperationException("unexpected method"),
+            };
+        });
+        server.Start();
+        var uri = new Uri($"ws://127.0.0.1:{server.Port}/");
+        var paired = await Session.SessionClient.PairAsync(uri, new string('p', 43), "Quest", "xunit");
+        await paired.Client.DisposeAsync();
+        Assert.Equal(deviceId, paired.DeviceId);
+        Assert.Equal(credential, paired.Credential);
+        await using var returning = await Session.SessionClient.ConnectDeviceAsync(uri, paired.DeviceId, paired.Credential, "xunit");
+        Assert.Equal(deviceId, returning.DeviceId);
+        JsonElement[] calls;
+        lock (server.Received) calls = server.Received.Select(raw => JsonSerializer.Deserialize<JsonElement>(raw)).ToArray();
+        Assert.Equal(new[] { "pair", "hello", "authenticate", "hello" }, calls.Select(call => call.GetProperty("method").GetString()));
+        foreach (var hello in calls.Where(call => call.GetProperty("method").GetString() == "hello"))
+        {
+            Assert.Equal(deviceId, hello.GetProperty("params").GetProperty("deviceId").GetString());
+            Assert.Equal(token, hello.GetProperty("params").GetProperty("token").GetString());
+            Assert.False(hello.GetProperty("params").TryGetProperty("credential", out _));
+        }
+        Assert.Equal(credential, calls[2].GetProperty("params").GetProperty("credential").GetString());
+    }
+
+    [Fact]
+    public async Task RejectedPairNeverSendsHello()
+    {
+        await using var server = new LoopbackWsServer(req => JsonSerializer.Serialize(new
+        {
+            requestId = req.GetProperty("requestId").GetString(), ok = false,
+            errorCode = "UNAUTHORIZED", error = "pairing expired",
+        }));
+        server.Start();
+        var error = await Assert.ThrowsAsync<SessionException>(() => Session.SessionClient.PairAsync(
+            new Uri($"ws://127.0.0.1:{server.Port}/"), new string('p', 43), "Quest", "xunit"));
+        Assert.Equal("UNAUTHORIZED", error.Code);
+        lock (server.Received) Assert.Single(server.Received);
+    }
+
+    [Fact]
     public async Task IncrementalModelRecoversGapOutsideReceiveLoopAndNewLineage()
     {
         var revision = 0;

@@ -319,6 +319,24 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    fixed. Evidence: `docs/evidence/phase11-native-geometry-local-2026-10-04.json`.
    Phase 11 remains incomplete; LAN and unified ownership are next packets.
 7. LAN pairing, trusted devices, revocation and local interface guards.
+   Packet 7: trusted device pairing/authentication now precedes hello. Tokens
+   are single-use for five minutes; stored credentials are digests protected
+   by owner-only Windows DACLs (0700/0600 on Unix). Session tokens rotate with
+   listener lifetime. Explicit interfaces permit loopback or assigned RFC1918
+   IPv4 only; public/wildcard/unassigned hosts fail before bind. Revocation
+   persists before closing device sockets and rejecting queued device edits.
+   Desktop More menu exposes narrow IPC controls for enable/disable, pairing,
+   trusted-device status and revoke; closing the panel cancels pairing.
+   Disabling transport preserves the local CAD lineage and processes remote
+   transaction cleanup. Environment bootstrap tokens are development-only.
+   Generated contract contains 23 DTO schemas; C# SDK supports pairing and
+   returning-device authentication. Parent rerun: 204 workspace tests,
+   35 .NET tests, workspace build/typecheck, final Electron build and contract
+   drift PASS. Eleven actual native/compiled-C#/WebSocket/DACL checks PASS
+   on this host's assigned private Ethernet interface. Owned PIDs exited.
+   Evidence: `docs/evidence/phase11-device-pairing-local-2026-10-04.json`.
+   This is same-host private-interface evidence, not a remote Quest test.
+   Phase 11 remains incomplete; unified Desktop mutation ownership is next.
 8. Unified Desktop mutation entry and active-edit ownership.
 9. Real native, Desktop and second-client acceptance with no GUI input.
 10. Exact hosted CI, evidence report, fresh Sol review, primary safe copy.

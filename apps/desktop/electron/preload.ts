@@ -2,6 +2,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { SessionModelSnapshot, SessionIncrementalDelta } from "@kreoda/protocol";
 import type { SessionSnapshotRequired } from "./session";
+import type { SessionConnectionStatus } from "./session-control-ui";
 
 export interface KreodaApi {
   invoke: (framedBase64: string) => Promise<string>;
@@ -30,6 +31,12 @@ export interface KreodaApi {
   // Authoritative incremental events and explicit snapshot recovery.
   onSessionDelta: (cb: (delta: SessionIncrementalDelta | SessionSnapshotRequired) => void) => () => void;
   sessionSnapshot: () => Promise<SessionModelSnapshot>;
+  sessionConnectionStatus: () => Promise<SessionConnectionStatus>;
+  sessionEnable: (host: string, port: number) => Promise<SessionConnectionStatus>;
+  sessionDisable: () => Promise<SessionConnectionStatus>;
+  sessionPair: () => Promise<{ token: string; expiresAt: string }>;
+  sessionCancelPair: () => Promise<void>;
+  sessionRevoke: (deviceId: string) => Promise<SessionConnectionStatus>;
   // Phase 11b: the renderer tells the session relay about mutations it
   // committed itself (toolbar/palette/AI paths bypass the relay socket), so
   // remote clients get the same delta broadcast.
@@ -42,6 +49,12 @@ export interface KreodaApi {
 }
 
 const api: KreodaApi = {
+  sessionConnectionStatus: () => ipcRenderer.invoke("kreoda:session-status") as Promise<SessionConnectionStatus>,
+  sessionEnable: (host, port) => ipcRenderer.invoke("kreoda:session-enable", host, port) as Promise<SessionConnectionStatus>,
+  sessionDisable: () => ipcRenderer.invoke("kreoda:session-disable") as Promise<SessionConnectionStatus>,
+  sessionPair: () => ipcRenderer.invoke("kreoda:session-pair") as Promise<{ token: string; expiresAt: string }>,
+  sessionCancelPair: () => ipcRenderer.invoke("kreoda:session-cancel-pair") as Promise<void>,
+  sessionRevoke: (deviceId) => ipcRenderer.invoke("kreoda:session-revoke", deviceId) as Promise<SessionConnectionStatus>,
   sessionSnapshot: () => ipcRenderer.invoke("kreoda:session-snapshot") as Promise<SessionModelSnapshot>,
   invoke: (framedBase64: string) =>
     ipcRenderer.invoke("kreoda:invoke", framedBase64) as Promise<string>,

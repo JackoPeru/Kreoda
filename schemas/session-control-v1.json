@@ -26,6 +26,28 @@
   },
   "methods": [
     {
+      "method": "pair",
+      "required": [
+        "pairingToken",
+        "deviceName"
+      ],
+      "optional": [],
+      "reply": "flat {deviceId,credential,sessionToken}; pre-auth only, consumes one-use five-minute token; does not create a connected client",
+      "plane": "control",
+      "operationReplay": false
+    },
+    {
+      "method": "authenticate",
+      "required": [
+        "deviceId",
+        "credential"
+      ],
+      "optional": [],
+      "reply": "flat {deviceId,sessionToken}; pre-auth only; revoked credentials reject; hello creates client identity",
+      "plane": "control",
+      "operationReplay": false
+    },
+    {
       "method": "hello",
       "required": [
         "token",
@@ -35,9 +57,10 @@
         "clientType",
         "clientName",
         "clientId",
-        "capabilities"
+        "capabilities",
+        "deviceId"
       ],
-      "reply": "flat {clientId, sessionId, documentId, revision, capabilities[]}; capabilities lists server-supported features; wrong token closes the socket (no reply)",
+      "reply": "flat hello result; trusted devices require deviceId plus current session token; explicit developer bootstrap token remains available in test mode",
       "plane": "control",
       "operationReplay": false
     },
@@ -642,6 +665,10 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "deviceId": {
+          "type": "string",
+          "pattern": "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
         }
       },
       "required": [
@@ -855,6 +882,10 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "deviceId": {
+          "type": "string",
+          "pattern": "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
         }
       },
       "required": [
@@ -1219,6 +1250,85 @@
       "required": [
         "event",
         "sessionId"
+      ],
+      "additionalProperties": true
+    },
+    "PairParams": {
+      "type": "object",
+      "properties": {
+        "pairingToken": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        "deviceName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        }
+      },
+      "required": [
+        "pairingToken",
+        "deviceName"
+      ],
+      "additionalProperties": true
+    },
+    "AuthenticateParams": {
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "pattern": "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "credential": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "deviceId",
+        "credential"
+      ],
+      "additionalProperties": true
+    },
+    "PairReply": {
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "pattern": "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "credential": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        "sessionToken": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "deviceId",
+        "credential",
+        "sessionToken"
+      ],
+      "additionalProperties": true
+    },
+    "AuthenticateReply": {
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "pattern": "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "sessionToken": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "deviceId",
+        "sessionToken"
       ],
       "additionalProperties": true
     }

@@ -16,7 +16,7 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
-import { decodeMeshFrame, frameMessage, InvokeParamsSchema, NamedCommandParamsSchema,
+import { decodeMeshFrame, frameMessage, InvokeParamsSchema, NamedCommandParamsSchema, PairParamsSchema, AuthenticateParamsSchema,
   OPERATION_METHODS as OPERATION_METHOD_NAMES, SESSION_CONTROL_VERSION } from "@kreoda/protocol";
 import { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "@kreoda/command-schema";
 import type {
@@ -26,6 +26,9 @@ import type {
   SessionModelEntity,
 } from "@kreoda/protocol";
 import type { SidecarManager } from "./sidecar";
+import type { SessionDevices } from "./session-devices";
+import { validateSessionListener } from "./session-listener";
+import type { SessionConnectionStatus } from "./session-control-ui";
 import {
   normalizeSnapshot,
   runSessionQuery,
@@ -86,6 +89,7 @@ interface ClientInfo {
   id: string;
   logicalClientId: string;
   principalId: string;
+  deviceId?: string;
   ws: WebSocket;
   clientType: string;
   name: string;
@@ -245,6 +249,7 @@ export class SessionRelay {
   constructor(
     private readonly sidecar: () => SidecarManager | null,
     private readonly onDelta?: (delta: SessionDelta) => void,
+    private readonly devices?: SessionDevices,
   ) {}
 
   get clientCount(): number {
@@ -273,16 +278,12 @@ export class SessionRelay {
     return run;
   }
 
-  start(opts: { port: number; host: string; token: string }): void {
+  start(opts: { port: number; host: string; token?: string }): void {
     if (this.server) throw new Error("session relay already running");
-    const token = opts.token;
-    if (!token) throw new Error("session relay requires a pairing token");
-    this.sessionId = randomUUID();
-    this.committedBaseline = null;
-    this.clearTransactionTracking();
-    this.lastBroadcastRevision = null;
-    this.lastSent = null;
-    this.revisionCache = null;
+    validateSessionListener(opts);
+    const token = opts.token ?? "";
+    if (!token && !this.devices) throw new Error("session relay requires trusted device storage or an explicit test token");
+    this.devices?.rotateSessionTokens();
     this.server = new WebSocketServer({
       port: opts.port,
       host: opts.host,
@@ -291,12 +292,55 @@ export class SessionRelay {
     this.server.on("connection", (ws: WebSocket) =>
       this.handleConnection(ws, token),
     );
+    this.server.on("error", (error: NodeJS.ErrnoException) => {
+      console.error("[session] listener failed", error.code ?? "LISTENER_FAILED");
+    });
     console.log(
       `[session] relay listening on ${opts.host}:${opts.port} (protocol ${SESSION_PROTOCOL_VERSION})`,
     );
   }
 
+  async enableListener(opts: { port: number; host: string; token?: string }): Promise<void> {
+    this.start(opts);
+    const server = this.server!;
+    try {
+      await new Promise<void>((ready, failed) => {
+        const listening = (): void => { server.off("error", error);ready(); };
+        const error = (reason: Error): void => { server.off("listening", listening);failed(reason); };
+        server.once("listening", listening);server.once("error", error);
+      });
+    } catch {
+      if (this.server === server) this.server = null;
+      this.devices?.rotateSessionTokens();
+      throw coded("LISTENER_FAILED", "cannot start session listener");
+    }
+  }
+
+  /** Disable transport while preserving the authoritative CAD lineage. */
+  async disableListener(): Promise<void> {
+    const server = this.server;
+    this.server = null;
+    this.devices?.rotateSessionTokens();
+    if (!server) return;
+    for (const ws of server.clients) ws.terminate();
+    await new Promise<void>(ready => server.close(() => ready()));
+    // Socket close schedules rollback for an interrupted remote transaction.
+    await this.queue;
+  }
+
+  connectionStatus(): Pick<SessionConnectionStatus, "listener" | "clients" | "transaction"> {
+    const address = this.server?.address();
+    return {
+      listener: address && typeof address !== "string" ? { host: address.address, port: address.port } : null,
+      clients: [...this.clients.values()].map(client => ({
+        deviceId: client.deviceId, name: client.name, clientType: client.clientType, capabilities: [...client.capabilities],
+      })),
+      transaction: this.txn ? { ownerClientId: this.txn.ownerClientId, transactionId: this.txn.transactionId } : null,
+    };
+  }
+
   stop(): void {
+    this.devices?.rotateSessionTokens();
     for (const c of this.clients.values()) {
       try {
         c.ws.close(1001, "relay stopping");
@@ -315,6 +359,11 @@ export class SessionRelay {
     this.requestReplay.clear();
     this.server?.close();
     this.server = null;
+  }
+  async revokeDevice(deviceId: string): Promise<void> {
+    if (!this.devices) throw coded("NOT_IMPLEMENTED", "trusted device storage is unavailable");
+    await this.devices.revoke(deviceId);
+    for (const client of this.clients.values()) if (client.deviceId === deviceId) client.ws.close(4403, "device revoked");
   }
   /** Sidecar died/restarted: drop in-flight state; clients resync by revision. */
   onSidecarCrashed(): void {
@@ -520,19 +569,44 @@ export class SessionRelay {
     }
     const params = hasParams ? (msg.params as Record<string, unknown>) : {};
 
-    // The pairing gate (§11.16): only `hello` is reachable pre-auth, and a
-    // wrong token closes the socket (no oracle beyond the close code).
+    if (msg.method === "pair" || msg.method === "authenticate") {
+      if (hello.authed) { reply(false, { errorCode: "BAD_PARAMS", error: "device authentication must precede hello" });return; }
+      if (!this.devices) { reply(false, { errorCode: "NOT_IMPLEMENTED", error: "trusted device storage unavailable" });return; }
+      try {
+        if (msg.method === "pair") {
+          const parsed = PairParamsSchema.safeParse(params);
+          if (!parsed.success) throw coded("BAD_PARAMS", "invalid pair parameters");
+          reply(true, await this.devices.pair(parsed.data.pairingToken, parsed.data.deviceName));
+        } else {
+          const parsed = AuthenticateParamsSchema.safeParse(params);
+          if (!parsed.success) throw coded("BAD_PARAMS", "invalid authenticate parameters");
+          reply(true, this.devices.authenticate(parsed.data.deviceId, parsed.data.credential));
+        }
+      } catch (error) {
+        reply(false, { errorCode: (error as { code?: string }).code ?? "SESSION_STORAGE", error: (error as Error).message });
+      }
+      return;
+    }
+
+    // Device exchange is pre-auth only; hello creates the connected identity.
     if (msg.method === "hello") {
       if (hello.authed) {
         reply(false, { errorCode: "BAD_HELLO", error: "hello already completed" });
         return;
       }
+      const deviceId = typeof params["deviceId"] === "string" ? params["deviceId"] : undefined;
+      if (Object.hasOwn(params, "deviceId") && deviceId === undefined) {
+        reply(false, { errorCode: "BAD_PARAMS", error: "deviceId must be a string" });return;
+      }
+      const accepted = deviceId !== undefined ?
+        typeof params["token"] === "string" && this.devices?.authorize(deviceId, params["token"]) === true :
+        token.length > 0 && params["token"] === token;
       if (
         typeof requestId !== "string" ||
-        params["token"] !== token ||
+        !accepted ||
         params["protocolVersion"] !== SESSION_PROTOCOL_VERSION
       ) {
-        if (params["token"] !== token) {
+        if (!accepted) {
           console.warn("[session] rejected client (bad pairing token)");
           try {
             ws.close(4403, "bad token");
@@ -573,7 +647,7 @@ export class SessionRelay {
         typeof params["clientId"] === "string"
           ? params["clientId"].toLowerCase()
           : `client-${randomUUID()}`;
-      const principalId = createHash("sha256").update(token).digest("hex");
+      const principalId = deviceId === undefined ? createHash("sha256").update(token).digest("hex") : `device:${deviceId}`;
       const priorPrincipal = this.clientPrincipals.get(logicalClientId);
       if (priorPrincipal !== undefined && priorPrincipal !== principalId) {
         reply(false, { errorCode: "CONFLICT", error: "client identity belongs to another principal" });
@@ -591,6 +665,7 @@ export class SessionRelay {
         id,
         logicalClientId,
         principalId,
+        ...(deviceId === undefined ? {} : { deviceId }),
         ws,
         clientType:
           typeof params["clientType"] === "string"
@@ -606,6 +681,7 @@ export class SessionRelay {
       });
       reply(true, {
         clientId: logicalClientId,
+        ...(deviceId === undefined ? {} : { deviceId }),
         sessionId: this.sessionId,
         documentId: this.documentId,
         capabilities: ["operation-replay", "incremental-deltas"],
@@ -623,6 +699,9 @@ export class SessionRelay {
       return;
     }
     const [connectionId, clientInfo] = connection;
+    if (clientInfo.deviceId && !this.devices?.isTrusted(clientInfo.deviceId)) {
+      ws.close(4403, "device revoked");return;
+    }
     const clientId = clientInfo.logicalClientId;
 
     const hasSessionId = Object.prototype.hasOwnProperty.call(msg, "sessionId");
@@ -908,7 +987,8 @@ export class SessionRelay {
 
   private isLogicalClientConnected(clientId: string): boolean {
     return [...this.clients.values()].some(
-      (client) => client.logicalClientId === clientId,
+      (client) => client.logicalClientId === clientId && client.ws.readyState === WebSocket.OPEN &&
+        (client.deviceId === undefined || this.devices?.isTrusted(client.deviceId) === true),
     );
   }
 
@@ -1232,6 +1312,9 @@ export class SessionRelay {
     } = {},
   ): Promise<Record<string, unknown>> {
     const run = this.queue.then(async () => {
+      if (clientId !== "desktop" && type !== 29 && !this.isLogicalClientConnected(clientId)) {
+        throw coded("CLIENT_DISCONNECTED", "mutation client disconnected or its device was revoked");
+      }
       if (opts.beginTxn) {
         if (!this.isLogicalClientConnected(opts.beginTxn.ownerClientId)) {
           const err = new Error("transaction owner disconnected before begin") as Error & {

@@ -5,6 +5,9 @@ using System.Text.Json;
 
 namespace Kreoda.Session;
 
+/// <summary>The caller stores the credential securely for later device connections.</summary>
+public sealed record PairedSession(SessionClient Client, string DeviceId, string Credential);
+
 /// <summary>
 /// Headless client for the Kreoda CAD session relay (§11): hello pairing,
 /// snapshot, typed mutations, semantic queries, spatial previews and
@@ -29,6 +32,7 @@ public sealed class SessionClient : IAsyncDisposable
     private int _disposed;
 
     public string? ClientId { get; private set; }
+    public string? DeviceId { get; private set; }
     public string? LogicalClientId { get; private set; }
     public string? SessionId { get; private set; }
     public IReadOnlySet<string> ServerCapabilities { get; private set; } =
@@ -53,33 +57,10 @@ public sealed class SessionClient : IAsyncDisposable
         CancellationToken ct = default,
         string? logicalClientId = null)
     {
-        var client = new SessionClient();
-        client.LogicalClientId = (logicalClientId ?? $"client-{Guid.NewGuid():D}").ToLowerInvariant();
-        await client._ws.ConnectAsync(wsUri, ct).ConfigureAwait(false);
-        client._loop = Task.Run(() => client.ReceiveLoopAsync(client._loopCts.Token));
+        var client = await OpenAsync(wsUri, logicalClientId, ct).ConfigureAwait(false);
         try
         {
-            var hello = await client.CallAsync(SessionMethods.Hello, GeneratedControl.Parameters(new Generated.HelloParams
-            {
-                ClientType = clientType, ProtocolVersion = SessionMethods.ProtocolVersion,
-                Token = token, ClientId = client.LogicalClientId,
-                Capabilities = new[] { SessionMethods.OperationReplayCapability, "incremental-deltas" },
-            }), ct).ConfigureAwait(false);
-            client.ClientId = hello.TryGetProperty("clientId", out var id)
-                ? id.GetString()
-                : null;
-            client.SessionId = hello.TryGetProperty("sessionId", out var sessionId)
-                ? sessionId.GetString()
-                : null;
-            client.ServerCapabilities = hello.TryGetProperty("capabilities", out var capabilities) &&
-                capabilities.ValueKind == JsonValueKind.Array
-                    ? capabilities.EnumerateArray()
-                        .Where(capability => capability.ValueKind == JsonValueKind.String)
-                        .Select(capability => capability.GetString()!)
-                        .ToHashSet(StringComparer.Ordinal)
-                    : new HashSet<string>(StringComparer.Ordinal);
-            if (client.ServerCapabilities.Contains("incremental-deltas"))
-                await client.SnapshotAsync(hello.TryGetProperty("documentId", out var document) ? document.GetString()! : "doc-phase1", ct).ConfigureAwait(false);
+            await client.HelloAsync(token, clientType, null, ct).ConfigureAwait(false);
             return client;
         }
         catch
@@ -87,6 +68,69 @@ public sealed class SessionClient : IAsyncDisposable
             await client.DisposeAsync().ConfigureAwait(false);
             throw;
         }
+    }
+
+    public static async Task<PairedSession> PairAsync(Uri wsUri, string pairingToken, string deviceName,
+        string clientType, CancellationToken ct = default, string? logicalClientId = null)
+    {
+        var client = await OpenAsync(wsUri, logicalClientId, ct).ConfigureAwait(false);
+        try
+        {
+            var raw = await client.CallAsync(SessionMethods.Pair, GeneratedControl.Parameters(new Generated.PairParams
+                { PairingToken = pairingToken, DeviceName = deviceName }), ct).ConfigureAwait(false);
+            var paired = GeneratedControl.Read<Generated.PairReply>(raw, "PairReply");
+            await client.HelloAsync(paired.SessionToken, clientType, paired.DeviceId, ct).ConfigureAwait(false);
+            return new PairedSession(client, paired.DeviceId, paired.Credential);
+        }
+        catch { await client.DisposeAsync().ConfigureAwait(false); throw; }
+    }
+
+    public static async Task<SessionClient> ConnectDeviceAsync(Uri wsUri, string deviceId, string credential,
+        string clientType, CancellationToken ct = default, string? logicalClientId = null)
+    {
+        var client = await OpenAsync(wsUri, logicalClientId, ct).ConfigureAwait(false);
+        try
+        {
+            var raw = await client.CallAsync(SessionMethods.Authenticate, GeneratedControl.Parameters(new Generated.AuthenticateParams
+                { DeviceId = deviceId, Credential = credential }), ct).ConfigureAwait(false);
+            var authenticated = GeneratedControl.Read<Generated.AuthenticateReply>(raw, "AuthenticateReply");
+            if (authenticated.DeviceId != deviceId) throw new SessionException("UNAUTHORIZED", "device identity mismatch");
+            await client.HelloAsync(authenticated.SessionToken, clientType, deviceId, ct).ConfigureAwait(false);
+            return client;
+        }
+        catch { await client.DisposeAsync().ConfigureAwait(false); throw; }
+    }
+
+    private static async Task<SessionClient> OpenAsync(Uri wsUri, string? logicalClientId, CancellationToken ct)
+    {
+        var client = new SessionClient
+            { LogicalClientId = (logicalClientId ?? $"client-{Guid.NewGuid():D}").ToLowerInvariant() };
+        try
+        {
+            await client._ws.ConnectAsync(wsUri, ct).ConfigureAwait(false);
+            client._loop = Task.Run(() => client.ReceiveLoopAsync(client._loopCts.Token));
+            return client;
+        }
+        catch { await client.DisposeAsync().ConfigureAwait(false); throw; }
+    }
+
+    private async Task HelloAsync(string token, string clientType, string? deviceId, CancellationToken ct)
+    {
+        var hello = await CallAsync(SessionMethods.Hello, GeneratedControl.Parameters(new Generated.HelloParams
+        {
+            ClientType = clientType, ProtocolVersion = SessionMethods.ProtocolVersion,
+            Token = token, DeviceId = deviceId, ClientId = LogicalClientId,
+            Capabilities = new[] { SessionMethods.OperationReplayCapability, "incremental-deltas" },
+        }), ct).ConfigureAwait(false);
+        ClientId = hello.TryGetProperty("clientId", out var id) ? id.GetString() : null;
+        DeviceId = deviceId;
+        SessionId = hello.TryGetProperty("sessionId", out var sessionId) ? sessionId.GetString() : null;
+        ServerCapabilities = hello.TryGetProperty("capabilities", out var capabilities) && capabilities.ValueKind == JsonValueKind.Array
+            ? capabilities.EnumerateArray().Where(capability => capability.ValueKind == JsonValueKind.String)
+                .Select(capability => capability.GetString()!).ToHashSet(StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
+        if (ServerCapabilities.Contains("incremental-deltas"))
+            await SnapshotAsync(hello.TryGetProperty("documentId", out var document) ? document.GetString()! : "doc-phase1", ct).ConfigureAwait(false);
     }
 
     public async Task<JsonElement> SnapshotAsync(

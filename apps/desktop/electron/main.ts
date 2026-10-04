@@ -4,10 +4,12 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { randomUUID } from "node:crypto";
 import { SidecarManager } from "./sidecar";
 import { installRendererRecovery } from "./renderer-recovery";
 import { SessionRelay, type SessionDelta } from "./session";
+import { SessionDevices } from "./session-devices";
+import { sessionInterfaces } from "./session-listener";
+import type { SessionConnectionStatus } from "./session-control-ui";
 import {
   checkFeed,
   downloadPinned,
@@ -84,25 +86,29 @@ async function initSidecar(): Promise<void> {
   }
 }
 
-app.whenReady().then(() => {
-  createWindow();
+app.whenReady().then(async () => {
+  let devices: SessionDevices | undefined;
+  try {
+    const storage = new SessionDevices(app.getPath("userData"));
+    await storage.load();devices = storage;
+  } catch { console.error("[session] trusted device storage unavailable"); }
   void initSidecar();
   sessionRelay = new SessionRelay(() => sidecar, (delta: SessionDelta) => {
     mainWindow?.webContents.send("kreoda:session-delta", delta);
-  });
+  }, devices);
   // The local session service exists without a listener. Environment settings
   // enable the development/test network endpoint; production pairing follows.
   const sessionPort = Number(process.env["KREODA_SESSION_PORT"] ?? "");
-  if (Number.isInteger(sessionPort) && sessionPort > 0) {
-    const token = process.env["KREODA_SESSION_TOKEN"] ?? randomUUID();
+  const testToken = process.env["KREODA_SESSION_TOKEN"];
+  if (isDev && testToken && Number.isInteger(sessionPort) && sessionPort > 0) {
     try {
-      sessionRelay.start({
+      await sessionRelay.enableListener({
         port: sessionPort,
         host: process.env["KREODA_SESSION_HOST"] ?? "127.0.0.1",
-        token,
+        token: testToken,
       });
     } catch (e) {
-      console.error("[session] relay failed to start", e);
+      console.error("[session] development listener failed to start");
     }
   }
   // Signed-update check runs after boot; inert without a feed (§61).
@@ -115,6 +121,35 @@ app.whenReady().then(() => {
     if (!sessionRelay) throw new Error("session service not running");
     return sessionRelay.localSnapshot();
   });
+  const connectionStatus = (): SessionConnectionStatus => ({
+    ...sessionRelay!.connectionStatus(), interfaces: sessionInterfaces().map(item => ({ name: item.name, host: item.address })),
+    devices: devices?.list() ?? [], pairingAvailable: !!devices,
+  });
+  // Serialize listener controls so overlapping clicks cannot reopen a
+  // listener while another request is disabling it.
+  let connectionQueue: Promise<void> = Promise.resolve();
+  const control = <T>(run: () => Promise<T> | T): Promise<T> => {
+    const pending = connectionQueue.then(run);
+    connectionQueue = pending.then(() => {}, () => {});return pending;
+  };
+  ipcMain.handle("kreoda:session-status", () => control(connectionStatus));
+  ipcMain.handle("kreoda:session-enable", (_event, host: unknown, port: unknown) => control(async () => {
+    if (typeof host !== "string" || typeof port !== "number") throw new Error("invalid session address");
+    if (!devices) throw new Error("trusted device storage unavailable");
+    await sessionRelay!.enableListener({ host, port });return connectionStatus();
+  }));
+  ipcMain.handle("kreoda:session-disable", () => control(async () => {
+    await sessionRelay!.disableListener();return connectionStatus();
+  }));
+  ipcMain.handle("kreoda:session-pair", () => control(() => {
+    if (!devices || !sessionRelay!.connectionStatus().listener) throw new Error("enable a session listener first");
+    return devices.beginPairing();
+  }));
+  ipcMain.handle("kreoda:session-cancel-pair", () => control(() => devices?.cancelPairing()));
+  ipcMain.handle("kreoda:session-revoke", (_event, deviceId: unknown) => control(async () => {
+    if (typeof deviceId !== "string") throw new Error("invalid device identity");
+    await sessionRelay!.revokeDevice(deviceId);return connectionStatus();
+  }));
   ipcMain.handle("kreoda:invoke", async (_event, framedBase64: string) => {
     if (!sidecar) throw new Error("geometry engine not running");
     const bytes = Buffer.from(framedBase64, "base64");
@@ -432,6 +467,7 @@ app.whenReady().then(() => {
     };
   });
 
+  createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

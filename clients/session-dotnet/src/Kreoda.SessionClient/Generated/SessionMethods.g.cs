@@ -1,12 +1,14 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89
+// Source SHA256: 93e9e8283b745c4ea77c001d2093ec711161c16ad847705b1c5b194f8fb67ef5
 namespace Kreoda.Session;
 
 public static class SessionMethods
 {
     public const int ProtocolVersion = 1;
-    public const string ContractSchemaSha256 = "a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89";
+    public const string ContractSchemaSha256 = "93e9e8283b745c4ea77c001d2093ec711161c16ad847705b1c5b194f8fb67ef5";
     public const string OperationReplayCapability = "operation-replay";
+    public const string Pair = "pair";
+    public const string Authenticate = "authenticate";
     public const string Hello = "hello";
     public const string Snapshot = "snapshot";
     public const string Invoke = "invoke";
@@ -49,11 +51,13 @@ public static class SessionMethods
     public const string PreviewUpdate = "previewUpdate";
     public const string PreviewCommit = "previewCommit";
     public const string PreviewCancel = "previewCancel";
-    public static readonly string[] All = ["hello", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "validateReferences", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel"];
+    public static readonly string[] All = ["pair", "authenticate", "hello", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "validateReferences", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel"];
     public static readonly string[] OperationReplayMethods = ["invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "setSelection", "clearSelection", "previewBegin", "previewUpdate", "previewCommit", "previewCancel"];
     public static bool SupportsOperationReplay(string method) => Array.IndexOf(OperationReplayMethods, method) >= 0;
     public static readonly IReadOnlyDictionary<string, string[]> RequiredParams = new Dictionary<string, string[]>
     {
+        ["pair"] = ["pairingToken", "deviceName"],
+        ["authenticate"] = ["deviceId", "credential"],
         ["hello"] = ["token", "protocolVersion"],
         ["snapshot"] = [],
         ["invoke"] = ["type"],
@@ -123,5 +127,9 @@ public static class SessionContract
         ["SessionSnapshotRequiredEvent"] = ["event", "sessionId", "documentId", "revision", "originClientId"],
         ["SelectionEvent"] = ["event", "clientId", "ids"],
         ["CoreRestartedEvent"] = ["event", "sessionId"],
+        ["PairParams"] = ["pairingToken", "deviceName"],
+        ["AuthenticateParams"] = ["deviceId", "credential"],
+        ["PairReply"] = ["deviceId", "credential", "sessionToken"],
+        ["AuthenticateReply"] = ["deviceId", "sessionToken"],
     };
 }

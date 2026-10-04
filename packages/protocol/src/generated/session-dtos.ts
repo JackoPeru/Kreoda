@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89
+// Source SHA256: 93e9e8283b745c4ea77c001d2093ec711161c16ad847705b1c5b194f8fb67ef5
 type StableFeatureID = string;
 
 export interface RequestMetadata {
@@ -13,6 +13,7 @@ export interface HelloParams {
     clientId?:       string;
     clientName?:     string;
     clientType?:     string;
+    deviceId?:       string;
     protocolVersion: number;
     token:           string;
     [property: string]: unknown;
@@ -68,6 +69,7 @@ export interface SessionRequestEnvelope {
 export interface HelloReply {
     capabilities: string[];
     clientId:     string;
+    deviceId?:    string;
     documentId:   string;
     ok:           boolean;
     requestId:    string;
@@ -169,4 +171,29 @@ export interface CoreRestartedEvent {
 }
 
 export type CoreRestartedEventEvent = "core-restarted";
+
+export interface PairParams {
+    deviceName:   string;
+    pairingToken: string;
+    [property: string]: unknown;
+}
+
+export interface AuthenticateParams {
+    credential: string;
+    deviceId:   string;
+    [property: string]: unknown;
+}
+
+export interface PairReply {
+    credential:   string;
+    deviceId:     string;
+    sessionToken: string;
+    [property: string]: unknown;
+}
+
+export interface AuthenticateReply {
+    deviceId:     string;
+    sessionToken: string;
+    [property: string]: unknown;
+}
 

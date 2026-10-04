@@ -28,6 +28,7 @@ import { DismissBackdrop } from "./DismissBackdrop";
 import { WorkspaceActions, openDocument } from "./WorkspaceActions";
 import { useT } from "../../i18n";
 import { commandText, localizeReason } from "../../i18n/commands";
+import { SessionConnectionPanel } from "./SessionConnectionPanel";
 
 const PRIMITIVE_ICONS: Record<string, React.ReactNode> = {
   box: <Box size={16} />,
@@ -71,6 +72,7 @@ export function TopToolDock({
 }) {
   const [open, setOpen] = useState<"add" | "more" | null>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
+  const [sessionOpen, setSessionOpen] = useState(false);
   const t = useT();
   const { beginnerMode, toggleMode } = usePreferencesStore();
   const { activeTool, setTool } = useToolStore();
@@ -117,6 +119,7 @@ export function TopToolDock({
 
   return (
     <>
+      {sessionOpen && <SessionConnectionPanel onClose={() => setSessionOpen(false)} />}
       {open !== null && (
         <DismissBackdrop onClose={close} label={t("topdock.closeMenu")} />
       )}
@@ -253,6 +256,9 @@ export function TopToolDock({
               {t("topdock.open")}
             </button>
             <MenuHeader label={t("common.system")} />
+            <button role="button" className={menuItemClass} onClick={() => { setSessionOpen(true);close(); }}>
+              {t("session.title")}
+            </button>
             <button
               role="button"
               onClick={() => { onPlugins(); close(); }}

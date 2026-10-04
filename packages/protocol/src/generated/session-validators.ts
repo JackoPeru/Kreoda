@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89
+// Source SHA256: 93e9e8283b745c4ea77c001d2093ec711161c16ad847705b1c5b194f8fb67ef5
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __commonJS = (cb, mod) => function __require() {
   try {
@@ -164,8 +164,9 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.HelloParams = validate13;
-    var schema14 = { "type": "object", "properties": { "token": { "type": "string", "minLength": 1 }, "protocolVersion": { "type": "integer", "enum": [1] }, "clientType": { "type": "string" }, "clientName": { "type": "string" }, "clientId": { "type": "string", "pattern": "^client-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } } }, "required": ["token", "protocolVersion"], "additionalProperties": true };
+    var schema14 = { "type": "object", "properties": { "token": { "type": "string", "minLength": 1 }, "protocolVersion": { "type": "integer", "enum": [1] }, "clientType": { "type": "string" }, "clientName": { "type": "string" }, "clientId": { "type": "string", "pattern": "^client-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "deviceId": { "type": "string", "pattern": "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" } }, "required": ["token", "protocolVersion"], "additionalProperties": true };
     var pattern3 = new RegExp("^client-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", "u");
+    var pattern4 = new RegExp("^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$", "u");
     function validate13(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -311,12 +312,34 @@ var require_session_validators = __commonJS({
             errors++;
           }
         }
+        if (data.deviceId !== void 0) {
+          let data7 = data.deviceId;
+          if (typeof data7 === "string") {
+            if (!pattern4.test(data7)) {
+              const err13 = { instancePath: instancePath + "/deviceId", schemaPath: "#/properties/deviceId/pattern", keyword: "pattern", params: { pattern: "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" }, message: 'must match pattern "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"' };
+              if (vErrors === null) {
+                vErrors = [err13];
+              } else {
+                vErrors.push(err13);
+              }
+              errors++;
+            }
+          } else {
+            const err14 = { instancePath: instancePath + "/deviceId", schemaPath: "#/properties/deviceId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err14];
+            } else {
+              vErrors.push(err14);
+            }
+            errors++;
+          }
+        }
       } else {
-        const err13 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        const err15 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
         if (vErrors === null) {
-          vErrors = [err13];
+          vErrors = [err15];
         } else {
-          vErrors.push(err13);
+          vErrors.push(err15);
         }
         errors++;
       }
@@ -1104,7 +1127,7 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.HelloReply = validate20;
-    var schema22 = { "type": "object", "properties": { "requestId": { "type": "string", "minLength": 1 }, "ok": { "type": "boolean", "enum": [true] }, "clientId": { "type": "string", "minLength": 1 }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } } }, "required": ["requestId", "ok", "clientId", "sessionId", "documentId", "revision", "capabilities"], "additionalProperties": true };
+    var schema22 = { "type": "object", "properties": { "requestId": { "type": "string", "minLength": 1 }, "ok": { "type": "boolean", "enum": [true] }, "clientId": { "type": "string", "minLength": 1 }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "deviceId": { "type": "string", "pattern": "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" } }, "required": ["requestId", "ok", "clientId", "sessionId", "documentId", "revision", "capabilities"], "additionalProperties": true };
     function validate20(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -1349,12 +1372,34 @@ var require_session_validators = __commonJS({
             errors++;
           }
         }
+        if (data.deviceId !== void 0) {
+          let data8 = data.deviceId;
+          if (typeof data8 === "string") {
+            if (!pattern4.test(data8)) {
+              const err23 = { instancePath: instancePath + "/deviceId", schemaPath: "#/properties/deviceId/pattern", keyword: "pattern", params: { pattern: "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" }, message: 'must match pattern "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"' };
+              if (vErrors === null) {
+                vErrors = [err23];
+              } else {
+                vErrors.push(err23);
+              }
+              errors++;
+            }
+          } else {
+            const err24 = { instancePath: instancePath + "/deviceId", schemaPath: "#/properties/deviceId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err24];
+            } else {
+              vErrors.push(err24);
+            }
+            errors++;
+          }
+        }
       } else {
-        const err23 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        const err25 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
         if (vErrors === null) {
-          vErrors = [err23];
+          vErrors = [err25];
         } else {
-          vErrors.push(err23);
+          vErrors.push(err25);
         }
         errors++;
       }
@@ -3401,6 +3446,373 @@ var require_session_validators = __commonJS({
         errors++;
       }
       validate32.errors = vErrors;
+      return errors === 0;
+    }
+    exports.PairParams = validate33;
+    var pattern18 = new RegExp("^[A-Za-z0-9_-]{43}$", "u");
+    var pattern19 = new RegExp("^[^\\u0000-\\u001f\\u007f]+$", "u");
+    function validate33(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
+      let vErrors = null;
+      let errors = 0;
+      if (data && typeof data == "object" && !Array.isArray(data)) {
+        if (data.pairingToken === void 0) {
+          const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "pairingToken" }, message: "must have required property 'pairingToken'" };
+          if (vErrors === null) {
+            vErrors = [err0];
+          } else {
+            vErrors.push(err0);
+          }
+          errors++;
+        }
+        if (data.deviceName === void 0) {
+          const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "deviceName" }, message: "must have required property 'deviceName'" };
+          if (vErrors === null) {
+            vErrors = [err1];
+          } else {
+            vErrors.push(err1);
+          }
+          errors++;
+        }
+        if (data.pairingToken !== void 0) {
+          let data0 = data.pairingToken;
+          if (typeof data0 === "string") {
+            if (!pattern18.test(data0)) {
+              const err2 = { instancePath: instancePath + "/pairingToken", schemaPath: "#/properties/pairingToken/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]{43}$" }, message: 'must match pattern "^[A-Za-z0-9_-]{43}$"' };
+              if (vErrors === null) {
+                vErrors = [err2];
+              } else {
+                vErrors.push(err2);
+              }
+              errors++;
+            }
+          } else {
+            const err3 = { instancePath: instancePath + "/pairingToken", schemaPath: "#/properties/pairingToken/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err3];
+            } else {
+              vErrors.push(err3);
+            }
+            errors++;
+          }
+        }
+        if (data.deviceName !== void 0) {
+          let data1 = data.deviceName;
+          if (typeof data1 === "string") {
+            if (func2(data1) > 80) {
+              const err4 = { instancePath: instancePath + "/deviceName", schemaPath: "#/properties/deviceName/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
+              if (vErrors === null) {
+                vErrors = [err4];
+              } else {
+                vErrors.push(err4);
+              }
+              errors++;
+            }
+            if (func2(data1) < 1) {
+              const err5 = { instancePath: instancePath + "/deviceName", schemaPath: "#/properties/deviceName/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              if (vErrors === null) {
+                vErrors = [err5];
+              } else {
+                vErrors.push(err5);
+              }
+              errors++;
+            }
+            if (!pattern19.test(data1)) {
+              const err6 = { instancePath: instancePath + "/deviceName", schemaPath: "#/properties/deviceName/pattern", keyword: "pattern", params: { pattern: "^[^\\u0000-\\u001f\\u007f]+$" }, message: 'must match pattern "^[^\\u0000-\\u001f\\u007f]+$"' };
+              if (vErrors === null) {
+                vErrors = [err6];
+              } else {
+                vErrors.push(err6);
+              }
+              errors++;
+            }
+          } else {
+            const err7 = { instancePath: instancePath + "/deviceName", schemaPath: "#/properties/deviceName/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err7];
+            } else {
+              vErrors.push(err7);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err8 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+      validate33.errors = vErrors;
+      return errors === 0;
+    }
+    exports.AuthenticateParams = validate34;
+    function validate34(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
+      let vErrors = null;
+      let errors = 0;
+      if (data && typeof data == "object" && !Array.isArray(data)) {
+        if (data.deviceId === void 0) {
+          const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "deviceId" }, message: "must have required property 'deviceId'" };
+          if (vErrors === null) {
+            vErrors = [err0];
+          } else {
+            vErrors.push(err0);
+          }
+          errors++;
+        }
+        if (data.credential === void 0) {
+          const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "credential" }, message: "must have required property 'credential'" };
+          if (vErrors === null) {
+            vErrors = [err1];
+          } else {
+            vErrors.push(err1);
+          }
+          errors++;
+        }
+        if (data.deviceId !== void 0) {
+          let data0 = data.deviceId;
+          if (typeof data0 === "string") {
+            if (!pattern4.test(data0)) {
+              const err2 = { instancePath: instancePath + "/deviceId", schemaPath: "#/properties/deviceId/pattern", keyword: "pattern", params: { pattern: "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" }, message: 'must match pattern "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"' };
+              if (vErrors === null) {
+                vErrors = [err2];
+              } else {
+                vErrors.push(err2);
+              }
+              errors++;
+            }
+          } else {
+            const err3 = { instancePath: instancePath + "/deviceId", schemaPath: "#/properties/deviceId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err3];
+            } else {
+              vErrors.push(err3);
+            }
+            errors++;
+          }
+        }
+        if (data.credential !== void 0) {
+          let data1 = data.credential;
+          if (typeof data1 === "string") {
+            if (!pattern18.test(data1)) {
+              const err4 = { instancePath: instancePath + "/credential", schemaPath: "#/properties/credential/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]{43}$" }, message: 'must match pattern "^[A-Za-z0-9_-]{43}$"' };
+              if (vErrors === null) {
+                vErrors = [err4];
+              } else {
+                vErrors.push(err4);
+              }
+              errors++;
+            }
+          } else {
+            const err5 = { instancePath: instancePath + "/credential", schemaPath: "#/properties/credential/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err5];
+            } else {
+              vErrors.push(err5);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err6 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+      validate34.errors = vErrors;
+      return errors === 0;
+    }
+    exports.PairReply = validate35;
+    function validate35(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
+      let vErrors = null;
+      let errors = 0;
+      if (data && typeof data == "object" && !Array.isArray(data)) {
+        if (data.deviceId === void 0) {
+          const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "deviceId" }, message: "must have required property 'deviceId'" };
+          if (vErrors === null) {
+            vErrors = [err0];
+          } else {
+            vErrors.push(err0);
+          }
+          errors++;
+        }
+        if (data.credential === void 0) {
+          const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "credential" }, message: "must have required property 'credential'" };
+          if (vErrors === null) {
+            vErrors = [err1];
+          } else {
+            vErrors.push(err1);
+          }
+          errors++;
+        }
+        if (data.sessionToken === void 0) {
+          const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "sessionToken" }, message: "must have required property 'sessionToken'" };
+          if (vErrors === null) {
+            vErrors = [err2];
+          } else {
+            vErrors.push(err2);
+          }
+          errors++;
+        }
+        if (data.deviceId !== void 0) {
+          let data0 = data.deviceId;
+          if (typeof data0 === "string") {
+            if (!pattern4.test(data0)) {
+              const err3 = { instancePath: instancePath + "/deviceId", schemaPath: "#/properties/deviceId/pattern", keyword: "pattern", params: { pattern: "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" }, message: 'must match pattern "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"' };
+              if (vErrors === null) {
+                vErrors = [err3];
+              } else {
+                vErrors.push(err3);
+              }
+              errors++;
+            }
+          } else {
+            const err4 = { instancePath: instancePath + "/deviceId", schemaPath: "#/properties/deviceId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err4];
+            } else {
+              vErrors.push(err4);
+            }
+            errors++;
+          }
+        }
+        if (data.credential !== void 0) {
+          let data1 = data.credential;
+          if (typeof data1 === "string") {
+            if (!pattern18.test(data1)) {
+              const err5 = { instancePath: instancePath + "/credential", schemaPath: "#/properties/credential/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]{43}$" }, message: 'must match pattern "^[A-Za-z0-9_-]{43}$"' };
+              if (vErrors === null) {
+                vErrors = [err5];
+              } else {
+                vErrors.push(err5);
+              }
+              errors++;
+            }
+          } else {
+            const err6 = { instancePath: instancePath + "/credential", schemaPath: "#/properties/credential/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err6];
+            } else {
+              vErrors.push(err6);
+            }
+            errors++;
+          }
+        }
+        if (data.sessionToken !== void 0) {
+          let data2 = data.sessionToken;
+          if (typeof data2 === "string") {
+            if (!pattern18.test(data2)) {
+              const err7 = { instancePath: instancePath + "/sessionToken", schemaPath: "#/properties/sessionToken/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]{43}$" }, message: 'must match pattern "^[A-Za-z0-9_-]{43}$"' };
+              if (vErrors === null) {
+                vErrors = [err7];
+              } else {
+                vErrors.push(err7);
+              }
+              errors++;
+            }
+          } else {
+            const err8 = { instancePath: instancePath + "/sessionToken", schemaPath: "#/properties/sessionToken/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err8];
+            } else {
+              vErrors.push(err8);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err9 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        if (vErrors === null) {
+          vErrors = [err9];
+        } else {
+          vErrors.push(err9);
+        }
+        errors++;
+      }
+      validate35.errors = vErrors;
+      return errors === 0;
+    }
+    exports.AuthenticateReply = validate36;
+    function validate36(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
+      let vErrors = null;
+      let errors = 0;
+      if (data && typeof data == "object" && !Array.isArray(data)) {
+        if (data.deviceId === void 0) {
+          const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "deviceId" }, message: "must have required property 'deviceId'" };
+          if (vErrors === null) {
+            vErrors = [err0];
+          } else {
+            vErrors.push(err0);
+          }
+          errors++;
+        }
+        if (data.sessionToken === void 0) {
+          const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "sessionToken" }, message: "must have required property 'sessionToken'" };
+          if (vErrors === null) {
+            vErrors = [err1];
+          } else {
+            vErrors.push(err1);
+          }
+          errors++;
+        }
+        if (data.deviceId !== void 0) {
+          let data0 = data.deviceId;
+          if (typeof data0 === "string") {
+            if (!pattern4.test(data0)) {
+              const err2 = { instancePath: instancePath + "/deviceId", schemaPath: "#/properties/deviceId/pattern", keyword: "pattern", params: { pattern: "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" }, message: 'must match pattern "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"' };
+              if (vErrors === null) {
+                vErrors = [err2];
+              } else {
+                vErrors.push(err2);
+              }
+              errors++;
+            }
+          } else {
+            const err3 = { instancePath: instancePath + "/deviceId", schemaPath: "#/properties/deviceId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err3];
+            } else {
+              vErrors.push(err3);
+            }
+            errors++;
+          }
+        }
+        if (data.sessionToken !== void 0) {
+          let data1 = data.sessionToken;
+          if (typeof data1 === "string") {
+            if (!pattern18.test(data1)) {
+              const err4 = { instancePath: instancePath + "/sessionToken", schemaPath: "#/properties/sessionToken/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]{43}$" }, message: 'must match pattern "^[A-Za-z0-9_-]{43}$"' };
+              if (vErrors === null) {
+                vErrors = [err4];
+              } else {
+                vErrors.push(err4);
+              }
+              errors++;
+            }
+          } else {
+            const err5 = { instancePath: instancePath + "/sessionToken", schemaPath: "#/properties/sessionToken/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err5];
+            } else {
+              vErrors.push(err5);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err6 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+      validate36.errors = vErrors;
       return errors === 0;
     }
   }

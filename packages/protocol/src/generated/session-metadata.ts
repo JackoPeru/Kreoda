@@ -1,6 +1,6 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89
-export const CONTRACT_SCHEMA_SHA256 = "a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89" as const;
+// Source SHA256: 93e9e8283b745c4ea77c001d2093ec711161c16ad847705b1c5b194f8fb67ef5
+export const CONTRACT_SCHEMA_SHA256 = "93e9e8283b745c4ea77c001d2093ec711161c16ad847705b1c5b194f8fb67ef5" as const;
 export const SESSION_DTO_NAMES = [
   "StableFeatureId",
   "RequestMetadata",
@@ -20,10 +20,16 @@ export const SESSION_DTO_NAMES = [
   "SessionIncrementalEvent",
   "SessionSnapshotRequiredEvent",
   "SelectionEvent",
-  "CoreRestartedEvent"
+  "CoreRestartedEvent",
+  "PairParams",
+  "AuthenticateParams",
+  "PairReply",
+  "AuthenticateReply"
 ] as const;
 export const SESSION_CONTROL_VERSION = 1 as const;
 export const CONTROL_METHODS = [
+  "pair",
+  "authenticate",
   "hello",
   "snapshot",
   "invoke",
@@ -70,6 +76,8 @@ export const QUERY_METHODS_CONTRACT = [
   "previewCancel"
 ] as const;
 export const SESSION_CONTROL_METHODS = [
+  "pair",
+  "authenticate",
   "hello",
   "snapshot",
   "invoke",
@@ -128,6 +136,14 @@ export const OPERATION_METHODS = [
   "previewCancel"
 ] as const;
 export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
+  "pair": [
+    "pairingToken",
+    "deviceName"
+  ],
+  "authenticate": [
+    "deviceId",
+    "credential"
+  ],
   "hello": [
     "token",
     "protocolVersion"
