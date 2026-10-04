@@ -35,8 +35,8 @@ public sealed class SessionClient : IAsyncDisposable
     public string? DeviceId { get; private set; }
     public string? LogicalClientId { get; private set; }
     public string? SessionId { get; private set; }
-    public IReadOnlySet<string> ServerCapabilities { get; private set; } =
-        new HashSet<string>(StringComparer.Ordinal);
+    public IReadOnlyCollection<string> ServerCapabilities { get; private set; } =
+        Array.AsReadOnly(Array.Empty<string>());
 
     public event Action<JsonElement>? Delta;
     public SessionModelState? Model => Volatile.Read(ref _model);
@@ -125,10 +125,11 @@ public sealed class SessionClient : IAsyncDisposable
         ClientId = hello.TryGetProperty("clientId", out var id) ? id.GetString() : null;
         DeviceId = deviceId;
         SessionId = hello.TryGetProperty("sessionId", out var sessionId) ? sessionId.GetString() : null;
-        ServerCapabilities = hello.TryGetProperty("capabilities", out var capabilities) && capabilities.ValueKind == JsonValueKind.Array
+        var advertisedCapabilities = hello.TryGetProperty("capabilities", out var capabilities) && capabilities.ValueKind == JsonValueKind.Array
             ? capabilities.EnumerateArray().Where(capability => capability.ValueKind == JsonValueKind.String)
-                .Select(capability => capability.GetString()!).ToHashSet(StringComparer.Ordinal)
-            : new HashSet<string>(StringComparer.Ordinal);
+                .Select(capability => capability.GetString()!).Distinct(StringComparer.Ordinal).ToArray()
+            : Array.Empty<string>();
+        ServerCapabilities = Array.AsReadOnly(advertisedCapabilities);
         if (ServerCapabilities.Contains("incremental-deltas"))
             await SnapshotAsync(hello.TryGetProperty("documentId", out var document) ? document.GetString()! : "doc-phase1", ct).ConfigureAwait(false);
     }

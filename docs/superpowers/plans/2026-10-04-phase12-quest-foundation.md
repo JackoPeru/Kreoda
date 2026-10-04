@@ -35,12 +35,12 @@
 
 **Files:** packages/protocol/csharp/Kreoda.Protocol.csproj; clients/session-dotnet/src/{Kreoda.SessionClient,Kreoda.QuestFoundation} projects and compatibility helpers; scripts/build-quest-managed.mjs; existing .NET tests.
 
-- [ ] Build current libraries targeting netstandard2.1 to capture exact incompatibilities before changing them.
-- [ ] Multi-target net8.0/netstandard2.1. Resolve unsupported runtime APIs with standard equivalents, preserving cancellation, immutable capabilities, number validation and disposal semantics.
-- [ ] Pin serviced compatible System.Text.Json/FlatBuffers packages. Stage dependency DLLs from MSBuild assets, not guessed filenames. Avoid framework DLLs that Unity supplies.
-- [ ] Add managed-plugin import configuration and explicit IL2CPP preservation for generated DTOs and JSON converters.
-- [ ] Run existing .NET tests plus cancellation/serialization checks against the compatibility output. Compile an owned Unity fixture with these actual DLLs, then ARM64 IL2CPP. No network/Quest claim from an empty scene.
-- [ ] Commit verified packet with hashes, pinned package versions and actual compiler outcome.
+- [x] Build current libraries targeting netstandard2.1 to capture exact incompatibilities before changing them.
+- [x] Multi-target net8.0/netstandard2.1. Resolve unsupported runtime APIs with standard equivalents, preserving cancellation, immutable capabilities, number validation and disposal semantics.
+- [x] Pin serviced compatible System.Text.Json/FlatBuffers packages. Stage dependency DLLs from MSBuild assets, not guessed filenames. Avoid framework DLLs that Unity supplies.
+- [x] Add managed-plugin import configuration and explicit IL2CPP preservation for generated DTOs and JSON converters.
+- [x] Run existing .NET tests plus cancellation/serialization checks against the compatibility output. Compile an owned Unity fixture with these actual DLLs, then ARM64 IL2CPP. No network/Quest claim from an empty scene.
+- [x] Commit verified packet with hashes, pinned package versions and actual compiler outcome.
 
 ## Packet 2 — Real binary mesh delivery over the session
 

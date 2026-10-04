@@ -13,9 +13,14 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <KreodaManagedTargetFramework Condition="'$(KreodaManagedTargetFramework)' == ''">net8.0</KreodaManagedTargetFramework>
+    <DefineConstants Condition="'$(KreodaManagedTargetFramework)' == 'netstandard2.1'">$(DefineConstants);KREODA_NETSTANDARD_COMPAT</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Kreoda.SessionClient\Kreoda.SessionClient.csproj" />
-    <ProjectReference Include="..\..\src\Kreoda.QuestFoundation\Kreoda.QuestFoundation.csproj" />
+    <ProjectReference Include="..\..\src\Kreoda.SessionClient\Kreoda.SessionClient.csproj" SetTargetFramework="TargetFramework=$(KreodaManagedTargetFramework)" />
+    <ProjectReference Include="..\..\src\Kreoda.QuestFoundation\Kreoda.QuestFoundation.csproj" SetTargetFramework="TargetFramework=$(KreodaManagedTargetFramework)" />
   </ItemGroup>
 
 </Project>
