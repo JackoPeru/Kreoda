@@ -398,6 +398,56 @@ describe("SessionRelay", () => {
     expect(mesh).toEqual(direct);
   });
 
+  it("rejects unsupported Desktop previews before dispatch or document changes", async () => {
+    const fake = fakeSidecar();const events: unknown[] = [];
+    const relay = new SessionRelay(() => fake.manager, delta => events.push(delta));
+    expect(await local(relay, 3, { featureId: "must-not-exist", widthMm: 10, heightMm: 10, depthMm: 10, isPreview: true }))
+      .toMatchObject({ status: "error", errorCode: "BAD_PARAMS" });
+    expect(fake.calls).toHaveLength(0);
+    expect(fake.features()).toHaveLength(0);
+    expect(events).toHaveLength(0);
+    expect(await local(relay, 3, { featureId: "committed", widthMm: 10, heightMm: 10, depthMm: 10, isPreview: false }))
+      .toMatchObject({ status: "ok", revision: 1 });
+  });
+
+  it.each(["update then commit", "commit then cancel"])("serializes preview actions: %s", async order => {
+    let entered!: () => void;let release!: () => void;let block = false;
+    const arrived = new Promise<void>(ready => entered = ready);
+    const held = new Promise<void>(ready => release = ready);
+    const fake = fakeSidecar({ beforeInvoke: async type => {
+      if (type === 6 && block) { block = false;entered();await held; }
+    } });
+    const port = await freePort();const relay = new SessionRelay(() => fake.manager);
+    const client = new SessionClient();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const pending: Promise<Record<string, unknown>>[] = [];
+    try {
+      await client.connect(TOKEN, port);
+      await local(relay, 3, { featureId: "ordered-preview", widthMm: 10, heightMm: 10, depthMm: 10 });
+      const begun = await client.call("previewBegin", { featureId: "ordered-preview", paramName: "widthMm", valueMm: 20 });
+      const previewId = (begun["result"] as { previewId: string }).previewId;
+      const call = (method: string, fields: Record<string, unknown> = {}): Promise<Record<string, unknown>> => {
+        const result = client.call(method, { previewId, ...fields }).catch(error => ({ errorCode: (error as { code: string }).code }));
+        pending.push(result);return result;
+      };
+      block = true;
+      const first = call(order === "update then commit" ? "previewUpdate" : "previewCommit", { valueMm: 30 });
+      await arrived;
+      const second = call(order === "update then commit" ? "previewCommit" : "previewCancel");
+      // Same socket: this metadata reply proves both actions reached the server.
+      await client.call("getCapabilities");
+      release();
+      expect((await first)["ok"]).toBe(true);
+      const result = await second;
+      if (order === "update then commit") expect(result["ok"]).toBe(true);
+      else expect(result).toMatchObject({ errorCode: "NOT_FOUND" });
+      const committed = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+        .filter(envelope => envelope["type"] === 6 && envelope["isPreview"] === false);
+      expect(committed).toHaveLength(1);
+      expect(committed[0]).toMatchObject({ valueMm: order === "update then commit" ? 30 : 20 });
+      await expect(client.call("previewCommit", { previewId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    } finally { release();await Promise.all(pending);client.closeRaw();relay.stop(); }
+  });
+
   it("rejects overlapping clients before queueing behind a slow native command", async () => {
     let entered!: () => void;let release!: () => void;
     const arrived = new Promise<void>(ready => entered = ready);

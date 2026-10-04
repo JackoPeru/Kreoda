@@ -49,6 +49,10 @@ test("unified session: saved document, paired client, existing edit, Desktop und
     const kernel = await local(1);
     expect(kernel["occtVersion"]).toBe("8.0.1-native");
     expect((await local(2))["status"]).toBe("ok");
+    expect(await local(3, { featureId: "unsupported-preview", widthMm: 10, heightMm: 10, depthMm: 10, isPreview: true }))
+      .toMatchObject({ status: "error", errorCode: "BAD_PARAMS" });
+    expect((await local(26))["features"]).toEqual([]);
+    checks.push("unsupported-local-preview-preserves-native-document");
     for (const featureId of ["box", "untouched"])
       expect((await local(3, { featureId, widthMm: 20, heightMm: 30, depthMm: 10 }))["status"]).toBe("ok");
     await expect.poll(async () => (await snapOf(window)).bodies.filter(b => b.triangles > 0).length).toBe(2);
@@ -116,6 +120,27 @@ test("unified session: saved document, paired client, existing edit, Desktop und
     await expect(returning.call("command", { commandId: "SetDimension", parameters: { featureId: "box", paramName: "widthMm", valueMm: 30 }, baseRevision: 999999 })).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
     expect((await returning.call("snapshot"))["revision"]).toBe(restored["revision"]);
     checks.push("invalid-and-stale-commands-preserve-native-state");
+
+    const preview = async (valueMm: number) => {
+      const begun = await returning.call("previewBegin", { featureId: "box", paramName: "widthMm", valueMm });
+      return (begun["result"] as { previewId: string }).previewId;
+    };
+    const updatedPreview = await preview(20);
+    const update = returning.call("previewUpdate", { previewId: updatedPreview, valueMm: 30 });
+    const commitUpdate = returning.call("previewCommit", { previewId: updatedPreview });
+    await Promise.all([update, commitUpdate]);
+    await expect.poll(async () => (await snapOf(window)).bodies.find(b => b.id === "box")?.volumeMm3).toBeCloseTo(9000, 4);
+    expect((await local(8))["status"]).toBe("ok");
+    await expect.poll(async () => (await snapOf(window)).bodies.find(b => b.id === "box")?.volumeMm3).toBeCloseTo(6000, 4);
+    const committedPreview = await preview(25);
+    const commit = returning.call("previewCommit", { previewId: committedPreview });
+    const cancel = returning.call("previewCancel", { previewId: committedPreview }).catch(error => ({ errorCode: (error as { code: string }).code }));
+    expect((await commit)["ok"]).toBe(true);
+    expect(await cancel).toMatchObject({ errorCode: "NOT_FOUND" });
+    await expect.poll(async () => (await snapOf(window)).bodies.find(b => b.id === "box")?.volumeMm3).toBeCloseTo(7500, 4);
+    expect((await local(8))["status"]).toBe("ok");
+    await expect.poll(async () => (await snapOf(window)).bodies.find(b => b.id === "box")?.volumeMm3).toBeCloseTo(6000, 4);
+    checks.push("preview-update-commit-burst-uses-latest-native-value", "preview-commit-cancel-burst-rejects-false-cancellation");
 
     // Also exercise the compiled generated C# client against this Electron
     // host. Pairing credentials travel only through the child environment.

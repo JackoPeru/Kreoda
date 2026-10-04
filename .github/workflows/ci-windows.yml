@@ -104,7 +104,7 @@ jobs:
         run: pnpm test:dotnet
 
       - name: Build paired C# acceptance client
-        run: dotnet build clients/session-dotnet/probes/Kreoda.DeviceProbe/Kreoda.DeviceProbe.csproj -c Release --nologo
+        run: dotnet build clients/session-dotnet/probes/Kreoda.DeviceProbe/Kreoda.DeviceProbe.csproj -c Release -p:Platform=AnyCPU --nologo
 
       - name: Build desktop shell
         id: desktop-build

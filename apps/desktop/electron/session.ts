@@ -235,6 +235,7 @@ export class SessionRelay {
       expression: string;
       baseRevision: number;
       release: () => void;
+      pending: Promise<void>;
     }
   >();
 
@@ -325,6 +326,7 @@ export class SessionRelay {
       const type = request["type"];
       const documentId = request["documentId"] || this.documentId;
       const fields = Object.fromEntries(Object.entries(request).filter(([key]) => !["protocolVersion", "requestId", "documentId", "type"].includes(key)));
+      if (fields["isPreview"] === true && ![6, 14].includes(type)) throw coded("BAD_PARAMS", "preview is unsupported for this command");
       const generation = this.localGeneration;
       const encode = (value: Record<string, unknown>): Uint8Array => new TextEncoder().encode(JSON.stringify({ ...value, protocolVersion: SESSION_PROTOCOL_VERSION, requestId }));
       if (![1, 2, 11].includes(type) && documentId !== this.documentId) throw coded("NEED_FULL_SNAPSHOT", "document identity changed");
@@ -1240,12 +1242,12 @@ export class SessionRelay {
             const expanded = this.reserve(clientId, [featureId]);release();release = expanded;
             const result = await this.runPreview(docId, featureId, paramName, valueMm, expression);
             if (!this.isLogicalClientConnected(clientId)) throw coded("CLIENT_DISCONNECTED", "preview client disconnected");
-            this.previews.set(id, { clientId, documentId: docId, featureId, paramName, valueMm, expression, baseRevision: snapshot.revision, release });
+            this.previews.set(id, { clientId, documentId: docId, featureId, paramName, valueMm, expression, baseRevision: snapshot.revision, release, pending: Promise.resolve() });
             return { previewId: id, ...result };
           });
         } catch (error) { release();throw error; }
       },
-      previewUpdate: async (clientId, previewId, params) => {
+      previewUpdate: (clientId, previewId, params) => this.serializePreview(clientId, previewId, () => {
         const state = this.previewState(clientId, previewId);
         const fields = commandNativeRequest("SetDimension", {
           featureId: state.featureId, paramName: state.paramName,
@@ -1261,8 +1263,8 @@ export class SessionRelay {
           state.valueMm = valueMm;state.expression = expression;
           return { previewId, ...result };
         });
-      },
-      previewCommit: async (clientId, previewId) => {
+      }),
+      previewCommit: (clientId, previewId) => this.serializePreview(clientId, previewId, async () => {
         const state = this.previewState(clientId, previewId);
         const result = await this.runMutation(
           clientId,
@@ -1278,12 +1280,12 @@ export class SessionRelay {
         );
         state.release();this.previews.delete(previewId);
         return result;
-      },
-      previewCancel: async (clientId, previewId) => {
+      }),
+      previewCancel: (clientId, previewId) => this.serializePreview(clientId, previewId, () => {
         this.previewState(clientId, previewId).release();
         this.previews.delete(previewId);
         return { previewId, cancelled: true as const };
-      },
+      }),
     };
   }
 
@@ -1299,6 +1301,7 @@ export class SessionRelay {
     expression: string;
     baseRevision: number;
     release: () => void;
+    pending: Promise<void>;
   } {
     const state = this.previews.get(previewId);
     if (!state || state.clientId !== clientId) {
@@ -1309,6 +1312,17 @@ export class SessionRelay {
       throw err;
     }
     return state;
+  }
+
+  private serializePreview<T>(clientId: string, previewId: string, action: () => T | Promise<T>): Promise<T> {
+    const state = this.previewState(clientId, previewId);
+    const run = state.pending.then(() => {
+      // Prior commit/cancel, disconnect or document replacement can consume it.
+      if (this.previewState(clientId, previewId) !== state) throw coded("NOT_FOUND", "preview replaced");
+      return action();
+    });
+    state.pending = run.then(() => {}, () => {});
+    return run;
   }
 
   /** Transient core preview (§13): tessellated, never committed. */

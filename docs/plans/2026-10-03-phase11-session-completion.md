@@ -400,6 +400,19 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    Deterministic regression RED before/GREEN after, 44 relay tests and all
    216 workspace tests PASS. Actual focused STEP crash and full 29-case crash
    cohort PASS after correction. No timeout or retry-to-green changes.
+   At ca8e988, local gates pass: 216 workspace, 36 .NET, 156 native,
+   ordinary 53 passed/two local-only skips, crash 29 passed, production
+   portable nine checks with unchanged payloads. Fresh Sol review returned
+   fix-first: unsupported Desktop isPreview commands bypassed mutation
+   ownership, and preview actions could commit an outdated value or report
+   cancellation while a prior commit applied. Three deterministic regressions
+   fail before correction and pass after it; preview actions now serialize
+   per preview, preserving the existing shared native queue.
+   Hosted ca8e988 run 37196940208 failed (ordinary 54 passed/one failed;
+   crash not reached). The MSVC environment's Platform=x64 moved the compiled
+   C# probe under bin/x64; the workflow now explicitly builds it as AnyCPU.
+   The prior local evidence remains historical; new full gates and a fresh
+   final review are required after these corrections.
 
 ## Required verification gates
 
