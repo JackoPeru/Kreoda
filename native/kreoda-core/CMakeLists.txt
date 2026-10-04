@@ -112,6 +112,7 @@ set(CORE_SOURCES
   src/main/main.cpp
   src/protocol/framing.cpp
   src/protocol/dispatcher.cpp
+  src/protocol/session_geometry.cpp
   src/protocol/mesh_fb.cpp
   src/document/document_store.cpp
   src/exchange/gltf_exchange.cpp

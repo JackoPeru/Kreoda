@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 41ed0a01287a297f3a6d52e40efb0ffa06270bb9d8debe0fe3f7c0d1a28a4ddb
+// Source SHA256: a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89
 #nullable enable annotations
 #nullable disable warnings
 namespace Kreoda.Session.Generated

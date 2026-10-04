@@ -1,5 +1,6 @@
 #include "dispatcher.h"
 #include "protocol/json_fields.h"
+#include "protocol/session_geometry.h"
 #include "diagnostics/crash_barrier.h"
 
 #include <algorithm>
@@ -509,7 +510,7 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
     const bool readOnly =
         type == kGetCoreInfo || type == kRequestMesh ||
         type == kRequestSketch || type == kPreviewSketch ||
-        type == kRequestFaceInfo || type == kRequestSnapshot;
+        type == kRequestFaceInfo || type == kRequestSnapshot || type == kRequestSessionQuery;
     const bool preview =
         (type == kSetFeatureParameter || type == kUpdateSketch) &&
         (json_bool_field(requestJson, "isPreview"));
@@ -534,6 +535,18 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
   }
 
   switch (type) {
+    case kRequestSessionQuery: {
+      try {
+        const auto method = json_string_field(requestJson,"method","");
+        const auto params = requestJson.value("params", Json::object());
+        const auto result = RunSessionGeometryQuery(method,params);
+        const Json body={{"result",result},{"revision",DocumentStore::instance().revision()}};
+        const auto text=body.dump();
+        return make_response(requestId,"ok",text.substr(1,text.size()-2));
+      } catch (const SessionQueryError& e) {
+        return make_response(requestId,"error",error_body(e.code,e.what()));
+      }
+    }
     case kGetCoreInfo: {
       std::ostringstream body;
       body << "\"coreVersion\":\"0.1.0\",\"occtVersion\":\""

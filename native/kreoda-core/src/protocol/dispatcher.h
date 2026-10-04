@@ -61,6 +61,7 @@ enum CommandId {
   kBeginTransaction = 27,
   kCommitTransaction = 28,
   kRollbackTransaction = 29,
+  kRequestSessionQuery = 30,
 };
 
 }  // namespace kreoda

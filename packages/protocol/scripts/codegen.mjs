@@ -34,7 +34,9 @@ const vcpkgFlatc =
         "flatc",
       );
 
-const flatc = existsSync(vcpkgFlatc) ? vcpkgFlatc : "flatc";
+const buildFlatc = join(repoRoot, "native", "kreoda-core", "build", "vcpkg_installed",
+  "x64-windows", "tools", "flatbuffers", process.platform === "win32" ? "flatc.exe" : "flatc");
+const flatc = process.env["KREODA_FLATC"] || [vcpkgFlatc, buildFlatc].find(existsSync) || "flatc";
 // NOTE: two output roots — on case-insensitive filesystems (Windows/macOS)
 // flatc's `kreoda/` (TS) and `Kreoda/` (C#) namespaces collapse into one
 // directory, so the passes must not share an out dir.
@@ -42,12 +44,14 @@ const outTs = mkdtempSync(join(tmpdir(), "kreoda-flatc-ts-"));
 const outCs = mkdtempSync(join(tmpdir(), "kreoda-flatc-cs-"));
 
 try {
-  execFileSync(flatc, ["--version"], { stdio: "inherit" });
+  execFileSync(flatc, ["--version"], { stdio: "inherit", windowsHide: true });
   execFileSync(flatc, ["--cpp", "--ts", "-o", outTs, schema], {
     stdio: "inherit",
+    windowsHide: true,
   });
   execFileSync(flatc, ["--csharp", "-o", outCs, schema], {
     stdio: "inherit",
+    windowsHide: true,
   });
 
   const cppSrc = join(outTs, "cad_protocol_generated.h");

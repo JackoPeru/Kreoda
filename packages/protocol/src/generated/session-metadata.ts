@@ -1,6 +1,6 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 41ed0a01287a297f3a6d52e40efb0ffa06270bb9d8debe0fe3f7c0d1a28a4ddb
-export const CONTRACT_SCHEMA_SHA256 = "41ed0a01287a297f3a6d52e40efb0ffa06270bb9d8debe0fe3f7c0d1a28a4ddb" as const;
+// Source SHA256: a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89
+export const CONTRACT_SCHEMA_SHA256 = "a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89" as const;
 export const SESSION_DTO_NAMES = [
   "StableFeatureId",
   "RequestMetadata",
@@ -60,6 +60,7 @@ export const QUERY_METHODS_CONTRACT = [
   "validateDocument",
   "validateBody",
   "validateFeature",
+  "validateReferences",
   "listCommands",
   "getCommandSchema",
   "getCapabilities",
@@ -103,6 +104,7 @@ export const SESSION_CONTROL_METHODS = [
   "validateDocument",
   "validateBody",
   "validateFeature",
+  "validateReferences",
   "listCommands",
   "getCommandSchema",
   "getCapabilities",
@@ -176,12 +178,8 @@ export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
     "featureId"
   ],
   "measureVolume": [],
-  "measureArea": [
-    "featureId"
-  ],
-  "getBoundingBox": [
-    "featureId"
-  ],
+  "measureArea": [],
+  "getBoundingBox": [],
   "measureDistance": [
     "a",
     "b"
@@ -190,15 +188,18 @@ export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
     "a",
     "b"
   ],
-  "measureRadius": [
-    "featureId"
-  ],
-  "measureDiameter": [
-    "featureId"
-  ],
+  "measureRadius": [],
+  "measureDiameter": [],
   "validateDocument": [],
-  "validateBody": [],
-  "validateFeature": [],
+  "validateBody": [
+    "bodyId"
+  ],
+  "validateFeature": [
+    "featureId"
+  ],
+  "validateReferences": [
+    "ids"
+  ],
   "listCommands": [],
   "getCommandSchema": [],
   "getCapabilities": [],

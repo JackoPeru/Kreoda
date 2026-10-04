@@ -244,11 +244,23 @@
       "method": "findFaces",
       "required": [],
       "optional": [
+        "featureId",
+        "bodyId",
         "ownerBody",
         "role",
-        "minTriangles"
+        "surfaceType",
+        "curveType",
+        "orientation",
+        "radiusMm",
+        "normal",
+        "axis",
+        "dimensionsMm",
+        "areaMm2",
+        "lengthMm",
+        "toleranceMm",
+        "angleToleranceDeg"
       ],
-      "reply": "{result:{faces[]}}",
+      "reply": "{result:{candidates with persistent ID, owner, description, confidence, ambiguity and analytic geometric summary}}",
       "plane": "query",
       "operationReplay": false
     },
@@ -256,10 +268,23 @@
       "method": "findEdges",
       "required": [],
       "optional": [
+        "featureId",
+        "bodyId",
         "ownerBody",
-        "role"
+        "role",
+        "surfaceType",
+        "curveType",
+        "orientation",
+        "radiusMm",
+        "normal",
+        "axis",
+        "dimensionsMm",
+        "areaMm2",
+        "lengthMm",
+        "toleranceMm",
+        "angleToleranceDeg"
       ],
-      "reply": "{result:{edges[]}}",
+      "reply": "{result:{candidates with persistent ID, owner, description, confidence, ambiguity and analytic geometric summary}}",
       "plane": "query",
       "operationReplay": false
     },
@@ -288,29 +313,35 @@
       "method": "measureVolume",
       "required": [],
       "optional": [
-        "featureId"
+        "featureId",
+        "bodyId",
+        "referenceId"
       ],
-      "reply": "{result:{volumeMm3}}",
+      "reply": "{result:{B-Rep measurement; omitted scope means current body tips and displayed instances}}",
       "plane": "query",
       "operationReplay": false
     },
     {
       "method": "measureArea",
-      "required": [
-        "featureId"
+      "required": [],
+      "optional": [
+        "featureId",
+        "bodyId",
+        "referenceId"
       ],
-      "optional": [],
-      "reply": "{result:{featureId, areaMm2}}",
+      "reply": "{result:{B-Rep measurement; omitted scope means current body tips and displayed instances}}",
       "plane": "query",
       "operationReplay": false
     },
     {
       "method": "getBoundingBox",
-      "required": [
-        "featureId"
+      "required": [],
+      "optional": [
+        "featureId",
+        "bodyId",
+        "referenceId"
       ],
-      "optional": [],
-      "reply": "{result:{featureId, bboxMm, volumeMm3}}",
+      "reply": "{result:{B-Rep measurement; omitted scope means current body tips and displayed instances}}",
       "plane": "query",
       "operationReplay": false
     },
@@ -338,21 +369,23 @@
     },
     {
       "method": "measureRadius",
-      "required": [
-        "featureId"
+      "required": [],
+      "optional": [
+        "featureId",
+        "referenceId"
       ],
-      "optional": [],
-      "reply": "{result:{featureId, radiusMm}}",
+      "reply": "{result:{analytic radius/diameter}; ambiguous feature radii require referenceId}",
       "plane": "query",
       "operationReplay": false
     },
     {
       "method": "measureDiameter",
-      "required": [
-        "featureId"
+      "required": [],
+      "optional": [
+        "featureId",
+        "referenceId"
       ],
-      "optional": [],
-      "reply": "{result:{featureId, diameterMm}}",
+      "reply": "{result:{analytic radius/diameter}; ambiguous feature radii require referenceId}",
       "plane": "query",
       "operationReplay": false
     },
@@ -360,29 +393,37 @@
       "method": "validateDocument",
       "required": [],
       "optional": [],
-      "reply": "{result:{scope:'structural', valid, checks[]}}",
+      "reply": "{result:{scope:kernel,valid,checks[]}}",
       "plane": "query",
       "operationReplay": false
     },
     {
       "method": "validateBody",
-      "required": [],
-      "optional": [
-        "bodyId",
-        "featureId"
+      "required": [
+        "bodyId"
       ],
-      "reply": "structural checks (needs bodyId or featureId)",
+      "optional": [],
+      "reply": "{result:{scope:kernel,valid,checks[]}}",
       "plane": "query",
       "operationReplay": false
     },
     {
       "method": "validateFeature",
-      "required": [],
-      "optional": [
-        "featureId",
-        "bodyId"
+      "required": [
+        "featureId"
       ],
-      "reply": "structural checks (needs featureId or bodyId)",
+      "optional": [],
+      "reply": "{result:{scope:kernel,valid,checks[]}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "validateReferences",
+      "required": [
+        "ids"
+      ],
+      "optional": [],
+      "reply": "{result:{scope:kernel-references,valid,checks[{id,ok,kind,confidence,errorCode,detail}]}}",
       "plane": "query",
       "operationReplay": false
     },

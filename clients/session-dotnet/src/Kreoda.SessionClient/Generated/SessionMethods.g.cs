@@ -1,11 +1,11 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 41ed0a01287a297f3a6d52e40efb0ffa06270bb9d8debe0fe3f7c0d1a28a4ddb
+// Source SHA256: a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89
 namespace Kreoda.Session;
 
 public static class SessionMethods
 {
     public const int ProtocolVersion = 1;
-    public const string ContractSchemaSha256 = "41ed0a01287a297f3a6d52e40efb0ffa06270bb9d8debe0fe3f7c0d1a28a4ddb";
+    public const string ContractSchemaSha256 = "a14987d192a67d8abbc609cf09a29b6a0c71e7a438ab7d4d506c168ade9a3b89";
     public const string OperationReplayCapability = "operation-replay";
     public const string Hello = "hello";
     public const string Snapshot = "snapshot";
@@ -41,6 +41,7 @@ public static class SessionMethods
     public const string ValidateDocument = "validateDocument";
     public const string ValidateBody = "validateBody";
     public const string ValidateFeature = "validateFeature";
+    public const string ValidateReferences = "validateReferences";
     public const string ListCommands = "listCommands";
     public const string GetCommandSchema = "getCommandSchema";
     public const string GetCapabilities = "getCapabilities";
@@ -48,7 +49,7 @@ public static class SessionMethods
     public const string PreviewUpdate = "previewUpdate";
     public const string PreviewCommit = "previewCommit";
     public const string PreviewCancel = "previewCancel";
-    public static readonly string[] All = ["hello", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel"];
+    public static readonly string[] All = ["hello", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "validateReferences", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel"];
     public static readonly string[] OperationReplayMethods = ["invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "setSelection", "clearSelection", "previewBegin", "previewUpdate", "previewCommit", "previewCancel"];
     public static bool SupportsOperationReplay(string method) => Array.IndexOf(OperationReplayMethods, method) >= 0;
     public static readonly IReadOnlyDictionary<string, string[]> RequiredParams = new Dictionary<string, string[]>
@@ -78,15 +79,16 @@ public static class SessionMethods
         ["findBodies"] = [],
         ["getManipulators"] = ["featureId"],
         ["measureVolume"] = [],
-        ["measureArea"] = ["featureId"],
-        ["getBoundingBox"] = ["featureId"],
+        ["measureArea"] = [],
+        ["getBoundingBox"] = [],
         ["measureDistance"] = ["a", "b"],
         ["measureAngle"] = ["a", "b"],
-        ["measureRadius"] = ["featureId"],
-        ["measureDiameter"] = ["featureId"],
+        ["measureRadius"] = [],
+        ["measureDiameter"] = [],
         ["validateDocument"] = [],
-        ["validateBody"] = [],
-        ["validateFeature"] = [],
+        ["validateBody"] = ["bodyId"],
+        ["validateFeature"] = ["featureId"],
+        ["validateReferences"] = ["ids"],
         ["listCommands"] = [],
         ["getCommandSchema"] = [],
         ["getCapabilities"] = [],

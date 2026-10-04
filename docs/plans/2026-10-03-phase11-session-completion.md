@@ -37,8 +37,8 @@ legacy integer `invoke` remains compatible but receives the same validation.
 Reject unimplemented commands honestly instead of advertising support.
 Reject fields which override native envelope identity/type/transaction
 metadata. Serialize trusted envelope keys first and filter reserved user
-keys: the current native parser reads the first lexical occurrence, even
-when a user field contains nested metadata. Validate that
+keys. This retains compatibility with older lexical parsers; packet 6a
+now reads typed top-level DOM fields. Validate that
 fields are an object and numeric revisions are finite nonnegative integers.
 Network preview operations use their dedicated lifecycle methods.
 The protected prefix also includes the internal transactionId and isPreview
@@ -304,7 +304,20 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    checks, including mutation replay, parameter edit and Undo. Owned PID
    exited; source and binary hashes recorded. Evidence:
    `docs/evidence/phase11-typed-native-json-local-2026-10-04.json`.
-   Semantic queries remain packet 6b; Phase 11 remains incomplete.
+   Packet 6b: native read-only query 30 projects exact OCCT minimum distance,
+   surface/volume properties, analytic directions/radii and bounding boxes.
+   Total material volume uses current body tips and displayed instances.
+   Persistent searches return semantic descriptors and flag duplicate roles;
+   measurements reject ambiguous references/radii. Selection validates actual
+   native references. BRepCheck, solid presence, dependency and authored
+   support-reference checks cover document/body/feature validity. Native
+   manipulators use actual sketch frames, hole centers and degree-based
+   instance placement. No client-side triangle/centroid measure remains.
+   Parent rerun: 156 native tests, 191 workspace tests, 33 .NET tests,
+   workspace build/typecheck and generation drift check PASS. Fifteen real
+   OCCT/Sidecar/WebSocket checks PASS; native PID exited, source/binary hashes
+   fixed. Evidence: `docs/evidence/phase11-native-geometry-local-2026-10-04.json`.
+   Phase 11 remains incomplete; LAN and unified ownership are next packets.
 7. LAN pairing, trusted devices, revocation and local interface guards.
 8. Unified Desktop mutation entry and active-edit ownership.
 9. Real native, Desktop and second-client acceptance with no GUI input.

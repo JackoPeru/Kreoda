@@ -1,0 +1,134 @@
+{
+  "recordedAtUtc": "2026-10-04T08:55:13.608980+00:00",
+  "sourceBaseCommit": "f3e0f53ee4a8cacfa7597657c248607fd6d7aae1",
+  "status": "packet-6b-PASS",
+  "phase11Complete": false,
+  "nativeTests": {
+    "passed": 156,
+    "suites": 27,
+    "durationMs": 64365,
+    "xmlPath": "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\native\\kreoda-core\\build\\session-geometry-complete-tests.xml",
+    "xmlSha256": "fd77dd4af4ef784d1f18ba12e88917f5d155b264cb4dfde156e9da5f9e243218",
+    "newGeometryTests": 10,
+    "redBeforeImplementation": [
+      "Five semantic geometry tests rejected as UNKNOWN_COMMAND before native query 30",
+      "Placed sketch manipulator test rejected as NOT_IMPLEMENTED before native frame projection",
+      "Invalid body search filter test resolved rather than rejecting before strict filter guard"
+    ]
+  },
+  "workspaceTests": {
+    "passed": 191,
+    "desktop": 148,
+    "protocol": 27,
+    "commandSchema": 10,
+    "pluginSdk": 2,
+    "units": 4
+  },
+  "dotnetTests": {
+    "passed": 33
+  },
+  "workspaceBuild": "PASS",
+  "desktopTypecheck": "PASS",
+  "generatedSessionContract": "PASS",
+  "flatbuffersBindings": "generated with flatc 25.12.19; native enum 1-29 unchanged, query 30 appended",
+  "nativeRuntime": {
+    "kernel": "8.0.1-native",
+    "corePid": 6344,
+    "coreSha256": "80d7120494a298ab4ce74a5f6790bf94a8d4dab920b5bb79bafc259eb06ee99c",
+    "sourceSha256": {
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\sidecar.ts": "9d5968356285019e8b8a122538c1e3666f4ef996cfdaaeeface719fbfa47dae9",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session.ts": "6ed25c7ad20e54dedb33bd488963d917fdae40ae3576b4d737f9e47a410b47c5",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-queries.ts": "69493cf4c5a9e21e25d72a3fa1be995b058d3677d732c88b076f9aca7200db2e",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\native\\kreoda-core\\src\\protocol\\session_geometry.cpp": "fa9bd159197aae3d95b5e18c9643908ce1606308ecd7b2be476223a25b5afb38",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\native\\kreoda-core\\src\\protocol\\session_geometry.h": "72b446c99d3bc42d88419665c7d58fc9feed780186ce3cf1f48fc3510e905e1d",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\schemas\\session-control-v1.json": "d37146b46ada63819175715597989b2e53d72701c012be193d189c775b7bd5a4",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\schemas\\cad_protocol.fbs": "c20472f738e3385c291f34f2c7832a4773775717ad16fdebe8de1485bdb8cf90"
+    },
+    "passed": [
+      "minimum-distance-touching-not-centroid",
+      "minimum-distance-parallel",
+      "analytic-plane-angle",
+      "typed-semantic-owner-normal-dimension-search",
+      "analytic-edge-length-search",
+      "invalid-geometry-and-selection-no-mutation",
+      "real-persistent-reference-validation",
+      "kernel-body-feature-validation",
+      "native-validated-selection",
+      "analytic-sphere-area-radius-diameter",
+      "whole-volume-body-tips-instances-without-history-double-count",
+      "instance-bounds-degrees-and-placement",
+      "native-box-hole-instance-manipulator-frames-units",
+      "kernel-document-dependencies-hole-reference",
+      "ambiguous-radii-require-explicit-reference"
+    ],
+    "finalRevision": 6,
+    "visibleWindows": false,
+    "boundary": "Real OCCT, Sidecar, SessionRelay and loopback WebSocket; no GUI input, Desktop renderer or C# execution in this probe."
+  },
+  "ownedNativeProcessExited": true,
+  "runtimeStage": "C:\\Users\\matte\\Documents\\Codex-tools\\kreoda-phase11-geometry-complete-afcf09131b204c79a2f1488eca44b895",
+  "nativeBuild": {
+    "withOcct": true,
+    "occt": "8.0.1",
+    "stub": false,
+    "crashBarriers": false
+  },
+  "sourceSha256": {
+    "apps/desktop/electron/session-queries.ts": "69493cf4c5a9e21e25d72a3fa1be995b058d3677d732c88b076f9aca7200db2e",
+    "apps/desktop/electron/session.ts": "6ed25c7ad20e54dedb33bd488963d917fdae40ae3576b4d737f9e47a410b47c5",
+    "apps/desktop/tests/session-relay.test.ts": "be74c5a2d816735b0e2674cb38601c8a4c90a49157dd3cb54a5c8f85e63628e9",
+    "clients/session-dotnet/src/Kreoda.SessionClient/Generated/SessionDtos.g.cs": "bbdac4a46da98267b5434d54d7d038e660198c6239545fec66a5bcf37b7c3d76",
+    "clients/session-dotnet/src/Kreoda.SessionClient/Generated/SessionMethods.g.cs": "17f53b6ae9c9f476cba13ea5670352a4ca54c6590c966bd101b0e443cd74ce8a",
+    "native/kreoda-core/CMakeLists.txt": "0481dc1e08ce26072e758bf71b75278b3dd8047f47b2eb2897b10e71a7d826bb",
+    "native/kreoda-core/src/protocol/dispatcher.cpp": "2a638a6f97f9ea55ae8deb9885cf72dd1b4d18d534736d6c91ad05e6aa4daba7",
+    "native/kreoda-core/src/protocol/dispatcher.h": "5c9b03587aa77f9d259002697ebf0079c1e30f1797f0f9b8da3feb1d6d1d2292",
+    "native/kreoda-core/src/protocol/generated/cad_protocol_generated.h": "3120f522aeacd7e348a5419b57deb44b08fd5fbcee244c666a88910995e21520",
+    "native/kreoda-core/tests/CMakeLists.txt": "14d27f2fe3f1b2a37feb1b1d5df8a7ec28fa55277ea10e0c30e80afee88c7184",
+    "packages/protocol/csharp/Generated/CommandType.cs": "5ab0340a94dc1d0a08960922da048ccdcc74a0de6ac085f36bc56068dad5e81a",
+    "packages/protocol/scripts/codegen.mjs": "51180bfc91ee2dccdf40d71c2198cd370c782dbfbfbbe23602fc40a8da9bd0eb",
+    "packages/protocol/src/generated/kreoda/protocol/command-type.ts": "45ace7f0fabb1356e50fcbf2924561a6c9a99a4b59fac54884efe36fcbf2c04b",
+    "packages/protocol/src/generated/session-dtos.ts": "f3267b1d4ba2aa39bc3b0c2f7163d3dc31420a0ad17e60535bf19b12aeaa5feb",
+    "packages/protocol/src/generated/session-metadata.ts": "91b0e63eb2223d62bc676f653a645e11dc8040dbc8b36e50615766f485ec2b01",
+    "packages/protocol/src/generated/session-validators.ts": "39d63d4e7dd5e3e9baa524c6b480ae6c2000f9b20af23302085d0a4ddf7a7905",
+    "packages/protocol/src/index.ts": "6aa8679357b92ad185080ed7d74e37964f7ecfd7c26b7ff6bf5b8dab29d2f535",
+    "schemas/cad_protocol.fbs": "c20472f738e3385c291f34f2c7832a4773775717ad16fdebe8de1485bdb8cf90",
+    "schemas/session-control-v1.json": "d37146b46ada63819175715597989b2e53d72701c012be193d189c775b7bd5a4",
+    "native/kreoda-core/src/protocol/session_geometry.cpp": "fa9bd159197aae3d95b5e18c9643908ce1606308ecd7b2be476223a25b5afb38",
+    "native/kreoda-core/src/protocol/session_geometry.h": "72b446c99d3bc42d88419665c7d58fc9feed780186ce3cf1f48fc3510e905e1d",
+    "native/kreoda-core/tests/test_session_geometry.cpp": "df37de283498952076f6537e050bd94870c9f3a0e4fc2569f198669d2074a4cc"
+  },
+  "logs": {
+    "native": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-geometry-complete-tests.txt",
+      "sha256": "003e648924d3bafb2f5f4c64d19ab2b52cf9412b8501ec89d3e47e3c0b9ef81b"
+    },
+    "nativeBuild": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-geometry-complete-build.txt",
+      "sha256": "92396324f69d1368b6e5bb30735c400e94553fc84b65ef4fc4a62c31fdeb34bc"
+    },
+    "workspaceTests": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-geometry-workspace-tests.txt",
+      "sha256": "eb24dd2a8bf4e96e1c82ba3a98718afb2bce68d0e3937d50804d2ff5739644b8"
+    },
+    "workspaceBuild": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-geometry-workspace-build.txt",
+      "sha256": "aea0cd0b51c63d0db2e6cc52a665b6c168499e52eb8eff26ee866da3c77ca5e7"
+    },
+    "typecheck": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-geometry-typecheck.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "dotnet": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-geometry-dotnet-tests.txt",
+      "sha256": "82c9bca07c84361567796da27f06d36b27fb2ebe1f890a0fe89876b425e13871"
+    }
+  },
+  "boundaries": [
+    "Loopback native query acceptance, not complete Desktop/private-interface acceptance",
+    "No raw B-Rep or mesh approximations for measurement",
+    "Aggregate material volume sums current body tips and placed occurrences; not a boolean union of overlapping parts",
+    "Ambiguous topology or multiple analytic radii are explicit errors/candidate sets",
+    "Kernel validity checks solid shapes and dependencies; sketch checks remain explicitly listed structural checks",
+    "Accepted portable and primary checkout untouched; LAN and unified local mutation ownership remain later packets"
+  ]
+}

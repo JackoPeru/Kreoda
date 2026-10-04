@@ -47,6 +47,7 @@ export const CommandType = {
   BeginTransaction: 27,
   CommitTransaction: 28,
   RollbackTransaction: 29,
+  RequestSessionQuery: 30,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 

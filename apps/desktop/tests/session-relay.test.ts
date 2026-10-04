@@ -61,6 +61,7 @@ interface StoredFeature {
 /** Canned core: boxes + snapshot + undo, with a revision counter. */
 function fakeSidecar(options: {
   beforeInvoke?: (type: number) => void | Promise<void>;
+  geometryReply?: Record<string, unknown>;
 } = {}) {
   const features = new Map<string, StoredFeature>();
   let revision = 0;
@@ -126,6 +127,8 @@ function fakeSidecar(options: {
       depthMm?: number;
       isPreview?: boolean;
       transactionId?: string;
+      method?: string;
+      params?: Record<string, unknown>;
     };
     calls.push(envelope.type);
     await options.beforeInvoke?.(envelope.type);
@@ -165,6 +168,45 @@ function fakeSidecar(options: {
         sketches: [],
         revision,
       });
+    }
+    if (envelope.type === 30) {
+      // Canned wire fixtures only. Accurate geometry is tested in OCCT.
+      if (options.geometryReply) return respond(options.geometryReply);
+      const method = envelope.method;
+      const params = envelope.params ?? {};
+      const id = typeof params["featureId"] === "string" ? params["featureId"] : "box-q";
+      if ((method === "measureDistance" || method === "measureAngle") && (!params["a"] || !params["b"])) {
+        return respond({ status: "error", errorCode: "BAD_PARAMS", errorMessage: "a/b are required" });
+      }
+      if (method === "measureRadius" || method === "measureDiameter") {
+        return respond({ status: "error", errorCode: "NOT_IMPLEMENTED", errorMessage: "box has no analytic radius" });
+      }
+      if (method === "validateReferences") {
+        const ids = params["ids"] as string[] | undefined;
+        const valid = Array.isArray(ids) && ids.every(ref => {
+          const [owner, role] = ref.split(":");
+          return features.has(owner!) && (!role || role === "box.+Z" || role === "box.-Z");
+        });
+        return respond({ status: "ok", result: { valid, checks: [] }, revision });
+      }
+      const fixtures: Record<string, unknown> = {
+        findFaces: { faces: [{ persistentFaceId: `${params["ownerBody"] ?? id}:box.+Z`, confidence: 1.0 }] },
+        findEdges: { edges: [] },
+        getManipulators: { featureId: id, manipulators: [
+          { id: "width", type: "linear", parameter: "widthMm", unit: "mm" },
+          { id: "height", type: "linear", parameter: "heightMm", unit: "mm" },
+          { id: "depth", type: "linear", parameter: "depthMm", unit: "mm" },
+        ] },
+        measureVolume: { volumeMm3: 1 },
+        measureArea: { areaMm2: 200 },
+        getBoundingBox: { bboxMm: [0, 0, 0, 10, 10, 10] },
+        measureDistance: { distanceMm: 10 },
+        measureAngle: { angleDeg: 180 },
+        validateDocument: { valid: true, scope: "kernel", checks: [] },
+        validateBody: { valid: true, scope: "kernel", checks: [] },
+        validateFeature: { valid: true, scope: "kernel", checks: [] },
+      };
+      return respond({ status: "ok", result: fixtures[method ?? ""], revision });
     }
     if (envelope.type === 12) {
       const rec = envelope.featureId ? features.get(envelope.featureId) : undefined;
@@ -1369,6 +1411,48 @@ describe("SessionRelay", () => {
 });
 
 describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
+  it("rejects invalid body search filters instead of returning an empty candidate set", async () => {
+    const fake = fakeSidecar(); const relay = new SessionRelay(() => fake.manager);
+    const client = new SessionClient(); const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await client.connect(TOKEN, port);
+      for (const params of [{ type: 3 }, { minVolumeMm3: "10" }, { minVolumeMm3: -1 }]) {
+        await expect(client.call("findBodies", params)).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      }
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
+  it("forwards geometry scopes to native query 30 without mesh approximations", async () => {
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result: { areaMm2: 1234.56789, basis: "brep" } } });
+    const relay = new SessionRelay(() => fake.manager);
+    const client = new SessionClient();
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await client.connect(TOKEN, port);
+      const before = fake.calls.length;
+      const reply = await client.call("measureArea", { referenceId: "shape:face.role" });
+      expect(reply["result"]).toEqual({ areaMm2: 1234.56789, basis: "brep" });
+      expect(fake.calls.slice(before)).toEqual([30]);
+      expect(JSON.parse(fake.envelopeTexts.at(-1)!)).toMatchObject({ type: 30, method: "measureArea", params: { referenceId: "shape:face.role" } });
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
+  it("preserves native ambiguous-reference errors and rejects invalid selections", async () => {
+    const fake = fakeSidecar({ geometryReply: { status: "error", errorCode: "AMBIGUOUS_REFERENCE", errorMessage: "multiple candidates" } });
+    const relay = new SessionRelay(() => fake.manager);
+    const client = new SessionClient(); const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await client.connect(TOKEN, port);
+      await expect(client.call("measureDistance", { a: "shape:duplicate", b: "shape:other" })).rejects.toMatchObject({ code: "AMBIGUOUS_REFERENCE" });
+      const before = fake.calls.length;
+      await expect(client.call("setSelection", { ids: ["shape:other", 3] })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      expect(fake.calls).toHaveLength(before);
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
   async function bootBox(): Promise<{
     relay: SessionRelay;
     client: SessionClient;
@@ -1467,7 +1551,7 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
         scope: string;
       };
       expect(valid.valid).toBe(true);
-      expect(valid.scope).toBe("structural");
+      expect(valid.scope).toBe("kernel");
 
       const cmds = (await q("listCommands", {})) as unknown as {
         commands: { id: string }[];
@@ -1686,8 +1770,9 @@ describe("SessionControlContract (Slice 7)", () => {
         measureRadius: { featureId: box },
         measureDiameter: { featureId: box },
         validateDocument: {},
-        validateBody: { featureId: box },
+        validateBody: { bodyId: `body-${box}` },
         validateFeature: { featureId: box },
+        validateReferences: { ids: [face] },
         listCommands: {},
         getCommandSchema: { id: "CreateBox" },
         getCapabilities: {},
@@ -1724,7 +1809,7 @@ describe("SessionControlContract (Slice 7)", () => {
           const code = (e as Error & { code?: string }).code;
           expect(typeof code).toBe("string");
           // Box has no radius: the call is valid wire, core says no.
-          expect(["BAD_PARAMS", "NOT_FOUND"]).toContain(code);
+          expect(["BAD_PARAMS", "NOT_FOUND", "NOT_IMPLEMENTED"]).toContain(code);
         }
       }
     } finally {

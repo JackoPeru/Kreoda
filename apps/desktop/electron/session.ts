@@ -32,6 +32,7 @@ import {
   QUERY_METHODS,
   type MeshData,
   type QueryEnv,
+  coded,
   type SelectionRegistry,
   type SessionBody,
   type SnapshotData,
@@ -1034,6 +1035,11 @@ export class SessionRelay {
       return [x, y, z];
     };
     return {
+      geometry: async (documentId, method, params) => {
+        const response = await this.coreInvoke(documentId, 30, { method, params });
+        if (response["result"] === undefined) throw coded("CORE_FAILED", "native query result is missing");
+        return response["result"];
+      },
       snapshot: async (documentId: string): Promise<SnapshotData> => {
         const snap = await this.coreSnapshot(documentId);
         return normalizeSnapshot(
