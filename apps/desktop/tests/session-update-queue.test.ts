@@ -101,3 +101,18 @@ it("remembers session lineage when local revision drift invalidates the cached m
   expect(h.commit.mock.calls.at(-1)![2]).toBe(true);
   expect(h.commit.mock.calls.at(-1)![0].revision).toBe(1);
 });
+
+it("learns native lineage from a snapshot discarded after a local edit wins the view race", async () => {
+  const h = harness();
+  let resolve!: (value: SessionModelSnapshot) => void;
+  h.fetchSnapshot.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  const pending = h.queue.refresh();
+  await vi.waitFor(() => expect(resolve).toBeTypeOf("function"));
+  h.changeContext({ epoch: 1, documentId: "doc", revision: 2 });
+  resolve(snapshot(1));
+  await pending;
+  expect(h.commit).not.toHaveBeenCalled();
+  h.fetchSnapshot.mockResolvedValue(snapshot(1, "opened-session"));
+  await h.queue.refreshAndVerify();
+  expect(h.commit.mock.calls.at(-1)![2]).toBe(true);
+});

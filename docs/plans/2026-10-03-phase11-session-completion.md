@@ -384,6 +384,12 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    the correction and passes afterward. The fourth failure was an obsolete
    query expectation (structural instead of the implemented native kernel
    validation scope). The full cohort is being rerun; no completion claim.
+   Second full ordinary attempt at a44589c: 50 passed, three failed, two
+   skipped. The initial native snapshot can itself lose the local view race
+   before any cached baseline exists. The queue now learns that first native
+   session identity even when it correctly discards the stale view reply.
+   The new regression is RED before/GREEN after, and the actual 100k-triangle
+   saved-file/parameter/Open/orbit/pick test passes. Full rerun follows.
 
 ## Required verification gates
 

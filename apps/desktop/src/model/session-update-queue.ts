@@ -29,9 +29,12 @@ export function createSessionUpdateQueue(hooks: {
   async function recover(): Promise<void> {
     const before = hooks.context();
     const snapshot = await hooks.fetchSnapshot();
-    if (disposed || !sameContext(before)) { model = null; return; }
     const lineageChanged = snapshot.documentId !== before.documentId ||
       (sessionId !== null && sessionId !== snapshot.sessionId);
+    // A local edit may win the view race before the first hydration. The
+    // native reply still identifies that session; do not forget it on discard.
+    if (sessionId === null) sessionId = snapshot.sessionId;
+    if (disposed || !sameContext(before)) { model = null; return; }
     if (!lineageChanged && snapshot.revision < before.revision) { model = null; return; }
     await hooks.commit(snapshot, null, lineageChanged);
     if (disposed) return;
