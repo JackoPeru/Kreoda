@@ -299,7 +299,7 @@ test("session queries run against the real core", async () => {
       scope: string;
     };
     expect(valid.valid).toBe(true);
-    expect(valid.scope).toBe("structural");
+    expect(valid.scope).toBe("kernel");
   } finally {
     client.closeRaw();
     await app.close();

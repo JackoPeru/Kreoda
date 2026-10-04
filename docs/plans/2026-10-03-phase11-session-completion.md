@@ -376,6 +376,14 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    Private Ethernet clients run on this host; no remote Quest/Unity claim.
    Phase 11 remains incomplete pending the full regression/CI/review gates.
 10. Exact hosted CI, evidence report, fresh Sol review, primary safe copy.
+   In progress: full local rerun passes 213 workspace and 36 .NET tests;
+   actual OCCT rerun passes 156/156. Initial ordinary hidden cohort at 16f53e3:
+   49 passed, four failed, two skipped. Three large-mesh Open failures exposed
+   lost session identity after local view drift invalidated the cached model.
+   The queue now retains lineage separately; its new regression fails before
+   the correction and passes afterward. The fourth failure was an obsolete
+   query expectation (structural instead of the implemented native kernel
+   validation scope). The full cohort is being rerun; no completion claim.
 
 ## Required verification gates
 

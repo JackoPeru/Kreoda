@@ -15,6 +15,9 @@ export function createSessionUpdateQueue(hooks: {
 }) {
   let chain = Promise.resolve();
   let model: SessionModelSnapshot | null = null;
+  // Local legacy view updates can invalidate the cached projection without
+  // replacing the native session. Retain lineage independently of that cache.
+  let sessionId: string | null = null;
   let epoch: number | null = null;
   let disposed = false;
 
@@ -28,10 +31,11 @@ export function createSessionUpdateQueue(hooks: {
     const snapshot = await hooks.fetchSnapshot();
     if (disposed || !sameContext(before)) { model = null; return; }
     const lineageChanged = snapshot.documentId !== before.documentId ||
-      (model !== null && model.sessionId !== snapshot.sessionId);
+      (sessionId !== null && sessionId !== snapshot.sessionId);
     if (!lineageChanged && snapshot.revision < before.revision) { model = null; return; }
     await hooks.commit(snapshot, null, lineageChanged);
     if (disposed) return;
+    sessionId = snapshot.sessionId;
     const current = hooks.context();
     model = current.documentId === snapshot.documentId && current.revision === snapshot.revision ? snapshot : null;
     epoch = current.epoch;

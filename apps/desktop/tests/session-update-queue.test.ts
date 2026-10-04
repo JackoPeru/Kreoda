@@ -89,3 +89,15 @@ it("Open waits for authoritative hydration and surfaces a failed refresh without
   expect(h.commit.mock.calls.at(-1)![1]).toEqual(["a"]);
   expect(h.fetchSnapshot).toHaveBeenCalledTimes(2);
 });
+
+it("remembers session lineage when local revision drift invalidates the cached model before Open", async () => {
+  const h = harness();
+  await h.queue.refresh();
+  h.changeContext({ epoch: 1, documentId: "doc", revision: 9 });
+  h.fetchSnapshot.mockResolvedValue(snapshot(8));
+  await expect(h.queue.refreshAndVerify()).rejects.toThrow("did not synchronize");
+  h.fetchSnapshot.mockResolvedValue(snapshot(1, "opened-session"));
+  await h.queue.refreshAndVerify();
+  expect(h.commit.mock.calls.at(-1)![2]).toBe(true);
+  expect(h.commit.mock.calls.at(-1)![0].revision).toBe(1);
+});
