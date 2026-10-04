@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 93e9e8283b745c4ea77c001d2093ec711161c16ad847705b1c5b194f8fb67ef5
+// Source SHA256: 469759d65430c8f8ad5b910da45fe80637728b8d60e9f294fcca2eca7587e705
 #nullable enable annotations
 #nullable disable warnings
 namespace Kreoda.Session.Generated
@@ -446,6 +446,68 @@ namespace Kreoda.Session.Generated
         public string SessionToken { get; set; }
     }
 
+    public partial class SessionInfoPayload
+    {
+        [JsonPropertyName("connectedClients")]
+        public ConnectedClient[] ConnectedClients { get; set; }
+
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("documentRevision")]
+        public long? DocumentRevision { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+
+        [JsonPropertyName("transactionState")]
+        public TransactionState? TransactionState { get; set; }
+    }
+
+    public partial class ConnectedClient
+    {
+        [JsonPropertyName("capabilities")]
+        [JsonConverter(typeof(DecodeArrayConverter))]
+        public string[] Capabilities { get; set; }
+
+        [JsonPropertyName("clientId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string ClientId { get; set; }
+
+        [JsonPropertyName("clientType")]
+        public string ClientType { get; set; }
+
+        [JsonPropertyName("connectionState")]
+        public ConnectionState ConnectionState { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("deviceId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string? DeviceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+    }
+
+    public partial class TransactionState
+    {
+        [JsonPropertyName("ownerClientId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string OwnerClientId { get; set; }
+
+        [JsonPropertyName("ownerConnected")]
+        public bool OwnerConnected { get; set; }
+
+        [JsonPropertyName("state")]
+        public State State { get; set; }
+
+        [JsonPropertyName("transactionId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string TransactionId { get; set; }
+    }
+
     public enum Kind { Body, Feature, Sketch };
 
     public enum SessionIncrementalEventEvent { Delta };
@@ -455,6 +517,10 @@ namespace Kreoda.Session.Generated
     public enum SelectionEventEvent { Selection };
 
     public enum CoreRestartedEventEvent { CoreRestarted };
+
+    public enum ConnectionState { Closing, Connected, Reconnecting };
+
+    public enum State { Open, Pending };
 
     internal static class Converter
     {
@@ -467,6 +533,8 @@ namespace Kreoda.Session.Generated
                 SessionSnapshotRequiredEventEventConverter.Singleton,
                 SelectionEventEventConverter.Singleton,
                 CoreRestartedEventEventConverter.Singleton,
+                ConnectionStateConverter.Singleton,
+                StateConverter.Singleton,
                 IsoDateTimeOffsetConverter.Singleton
             },
         };
@@ -731,6 +799,79 @@ namespace Kreoda.Session.Generated
         }
 
         public static readonly TentacledMinMaxLengthCheckConverter Singleton = new TentacledMinMaxLengthCheckConverter();
+    }
+
+    internal class ConnectionStateConverter : JsonConverter<ConnectionState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ConnectionState);
+
+        public override ConnectionState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "closing":
+                    return ConnectionState.Closing;
+                case "connected":
+                    return ConnectionState.Connected;
+                case "reconnecting":
+                    return ConnectionState.Reconnecting;
+            }
+            throw new Exception("Cannot unmarshal type ConnectionState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ConnectionState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ConnectionState.Closing:
+                    JsonSerializer.Serialize(writer, "closing", options);
+                    return;
+                case ConnectionState.Connected:
+                    JsonSerializer.Serialize(writer, "connected", options);
+                    return;
+                case ConnectionState.Reconnecting:
+                    JsonSerializer.Serialize(writer, "reconnecting", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ConnectionState");
+        }
+
+        public static readonly ConnectionStateConverter Singleton = new ConnectionStateConverter();
+    }
+
+    internal class StateConverter : JsonConverter<State>
+    {
+        public override bool CanConvert(Type t) => t == typeof(State);
+
+        public override State Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "open":
+                    return State.Open;
+                case "pending":
+                    return State.Pending;
+            }
+            throw new Exception("Cannot unmarshal type State");
+        }
+
+        public override void Write(Utf8JsonWriter writer, State value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case State.Open:
+                    JsonSerializer.Serialize(writer, "open", options);
+                    return;
+                case State.Pending:
+                    JsonSerializer.Serialize(writer, "pending", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type State");
+        }
+
+        public static readonly StateConverter Singleton = new StateConverter();
     }
 
     internal class IsoDateTimeOffsetConverter : JsonConverter<DateTimeOffset>

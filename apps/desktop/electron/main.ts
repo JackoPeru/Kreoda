@@ -10,6 +10,7 @@ import { SessionRelay, type SessionDelta } from "./session";
 import { SessionDevices } from "./session-devices";
 import { sessionInterfaces } from "./session-listener";
 import type { SessionConnectionStatus } from "./session-control-ui";
+import { FrameDecoder } from "@kreoda/protocol";
 import {
   checkFeed,
   downloadPinned,
@@ -51,7 +52,11 @@ function createWindow(previous?: BrowserWindow): void {
     // Create first: destroying the only window would trigger app.quit().
     createWindow(createdWindow);
     createdWindow.destroy();
+  }, () => sessionRelay?.onRendererDisconnected());
+  createdWindow.webContents.on("did-start-navigation", (_event, _url, inPlace, mainFrame) => {
+    if (mainFrame && !inPlace) sessionRelay?.onRendererDisconnected();
   });
+  createdWindow.webContents.on("did-finish-load", () => sessionRelay?.onRendererConnected());
 
   if (isDev && process.env["VITE_DEV_SERVER_URL"]) {
     void mainWindow.loadURL(process.env["VITE_DEV_SERVER_URL"]);
@@ -151,41 +156,21 @@ app.whenReady().then(async () => {
     await sessionRelay!.revokeDevice(deviceId);return connectionStatus();
   }));
   ipcMain.handle("kreoda:invoke", async (_event, framedBase64: string) => {
-    if (!sidecar) throw new Error("geometry engine not running");
+    if (!sessionRelay) throw new Error("session service not running");
+    if (typeof framedBase64 !== "string" || framedBase64.length > Math.ceil((new FrameDecoder().maxFrameBytes + 4) / 3) * 4) throw new Error("invalid framed command");
     const bytes = Buffer.from(framedBase64, "base64");
-    const response = await sidecar.invoke(bytes);
+    const response = await sessionRelay.invokeLocal(bytes);
     return Buffer.from(response).toString("base64");
+  });
+  ipcMain.handle("kreoda:session-cancel-edit", async (_event, featureId: unknown) => {
+    if (typeof featureId !== "string" || !featureId || featureId.length > 128) throw new Error("invalid feature identity");
+    await sessionRelay?.cancelLocalEdit(featureId);
   });
 
   ipcMain.handle("kreoda:core-info", async () => {
     if (!sidecar) return { running: false };
     return { running: sidecar.isRunning(), pid: sidecar.pid() };
   });
-
-  // Phase 11b: renderer-committed mutations ping the session relay (which
-  // the renderer's own toolbar/palette/AI paths would otherwise bypass),
-  // so remote clients observe the same delta stream. No-op when disabled.
-  ipcMain.handle(
-    "kreoda:session-note",
-    async (
-      _event,
-      documentId: unknown,
-      revision: unknown,
-      features: unknown,
-      sketches: unknown,
-    ) => {
-      if (!sessionRelay) return;
-      if (typeof documentId !== "string" || typeof revision !== "number") {
-        return;
-      }
-      await sessionRelay.noteLocal(
-        documentId,
-        revision,
-        Array.isArray(features) ? features : undefined,
-        Array.isArray(sketches) ? sketches : undefined,
-      );
-    },
-  );
 
   // Signed updates (Phase 8 §61): inert unless KREODA_UPDATE_FEED points
   // at a manifest feed. Renderer can trigger a check; downloads only land

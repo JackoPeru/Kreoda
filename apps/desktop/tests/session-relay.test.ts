@@ -16,6 +16,7 @@ import {
   SESSION_CONTROL_METHODS,
 } from "@kreoda/protocol";
 import type { SidecarManager } from "../electron/sidecar";
+import { frameMessage, SessionInfoPayloadSchema } from "@kreoda/protocol";
 import { SessionClient } from "../e2e/ws-test-client";
 
 const TOKEN = "unit-token";
@@ -168,6 +169,10 @@ function fakeSidecar(options: {
         sketches: [],
         revision,
       });
+    }
+    if (envelope.type === 2) {
+      features.clear();revision = 0;
+      return respond({ status: "ok", documentId: envelope.documentId, revision });
     }
     if (envelope.type === 30) {
       // Canned wire fixtures only. Accurate geometry is tested in OCCT.
@@ -373,6 +378,132 @@ function fakeSidecar(options: {
 }
 
 describe("SessionRelay", () => {
+  const localFrame = (type: number, fields: Record<string, unknown> = {}, documentId = "doc-phase1") =>
+    frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1, requestId: "desktop-request", documentId, type, ...fields })));
+  const local = async (relay: SessionRelay, type: number, fields: Record<string, unknown> = {}, documentId = "doc-phase1") =>
+    JSON.parse(new TextDecoder().decode(await relay.invokeLocal(localFrame(type, fields, documentId)))) as Record<string, unknown>;
+
+  it("routes Desktop commits through the authoritative delta queue without a listener", async () => {
+    const fake = fakeSidecar();const events: unknown[] = [];
+    const relay = new SessionRelay(() => fake.manager, delta => events.push(delta));
+    const result = await local(relay, 3, { featureId: "local-box", widthMm: 10, heightMm: 20, depthMm: 30 });
+    expect(result).toMatchObject({ protocolVersion: 1, requestId: "desktop-request", status: "ok", revision: 1 });
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ originClientId: "desktop", baseRevision: 0, newRevision: 1, changedMeshIds: ["local-box"] });
+    const mesh = await relay.invokeLocal(localFrame(12, { featureId: "local-box", lod: 1 }));
+    const direct = await fake.manager.invoke(localFrame(12, { featureId: "local-box", lod: 1 }));
+    expect(mesh).toEqual(direct);
+  });
+
+  it("rejects overlapping clients before queueing behind a slow native command", async () => {
+    let entered!: () => void;let release!: () => void;
+    const arrived = new Promise<void>(ready => entered = ready);
+    const held = new Promise<void>(ready => release = ready);
+    const fake = fakeSidecar({ beforeInvoke: async type => { if (type === 3) { entered();await held; } } });
+    const port = await freePort();const relay = new SessionRelay(() => fake.manager);
+    const owner = new SessionClient();const other = new SessionClient();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let first: Promise<unknown> | undefined;
+    try {
+      await owner.connect(TOKEN, port);await other.connect(TOKEN, port);
+      first = owner.call("invoke", { type: 3, fields: { featureId: "held-box", widthMm: 10, heightMm: 10, depthMm: 10 } });
+      await arrived;
+      await expect(other.call("invoke", { type: 6, fields: { featureId: "held-box", paramName: "widthMm", valueMm: 20 } }))
+        .rejects.toMatchObject({ code: "BUSY" });
+      expect(fake.calls.filter(type => type === 6)).toHaveLength(0);
+    } finally { release();await first;owner.closeRaw();other.closeRaw();relay.stop(); }
+  });
+
+  it("holds preview targets across calls and releases them on cancel for Desktop and network", async () => {
+    const fake = fakeSidecar();const port = await freePort();const relay = new SessionRelay(() => fake.manager);
+    const owner = new SessionClient();const other = new SessionClient();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await owner.connect(TOKEN, port);await other.connect(TOKEN, port);
+      await local(relay, 3, { featureId: "preview-held", widthMm: 10, heightMm: 10, depthMm: 10 });
+      const preview = await owner.call("previewBegin", { featureId: "preview-held", paramName: "widthMm", valueMm: 20 });
+      expect(await local(relay, 6, { featureId: "preview-held", paramName: "widthMm", valueMm: 30 })).toMatchObject({ status: "error", errorCode: "BUSY" });
+      await expect(other.call("previewBegin", { featureId: "preview-held", paramName: "widthMm", valueMm: 30 })).rejects.toMatchObject({ code: "BUSY" });
+      await owner.call("previewCancel", { previewId: (preview["result"] as { previewId: string }).previewId });
+      expect(await local(relay, 6, { featureId: "preview-held", paramName: "widthMm", valueMm: 30, isPreview: true })).not.toMatchObject({ status: "error" });
+      await expect(owner.call("invoke", { type: 6, fields: { featureId: "preview-held", paramName: "widthMm", valueMm: 40 } })).rejects.toMatchObject({ code: "BUSY" });
+      await relay.cancelLocalEdit("preview-held");
+      expect((await owner.call("invoke", { type: 6, fields: { featureId: "preview-held", paramName: "widthMm", valueMm: 40 } }))["ok"]).toBe(true);
+    } finally { owner.closeRaw();other.closeRaw();relay.stop(); }
+  });
+
+  it("fences foreign snapshot and geometry queries while allowing metadata and owner working state", async () => {
+    const fake = fakeSidecar();const port = await freePort();const relay = new SessionRelay(() => fake.manager);
+    const owner = new SessionClient();const other = new SessionClient();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await owner.connect(TOKEN, port);await other.connect(TOKEN, port);
+      await owner.call("txnBegin", { transactionId: "query-held" });
+      await owner.call("invoke", { type: 3, transactionId: "query-held", fields: { featureId: "working-box", widthMm: 10, heightMm: 10, depthMm: 10 } });
+      const before = fake.calls.length;
+      for (const method of ["snapshot", "getFeatures", "measureVolume", "getManipulators"])
+        await expect(other.call(method, { featureId: "working-box" })).rejects.toMatchObject({ code: "BUSY" });
+      expect(await local(relay, 12, { featureId: "working-box", lod: 1 })).toMatchObject({ errorCode: "BUSY" });
+      expect(fake.calls).toHaveLength(before);
+      expect((await other.call("getCapabilities"))["ok"]).toBe(true);
+      expect((await other.call("txnStatus"))["open"]).toBe(true);
+      const info = SessionInfoPayloadSchema.parse((await other.call("getSessionInfo"))["result"]);
+      expect(info.connectedClients).toHaveLength(3);
+      expect(info.connectedClients.every(client => client.connectionState === "connected")).toBe(true);
+      expect(info.transactionState).toMatchObject({ transactionId: "query-held", state: "open", ownerConnected: true });
+      expect((await owner.call("snapshot"))["features"]).toHaveLength(1);
+      await owner.call("txnRollback", { transactionId: "query-held" });
+    } finally { owner.closeRaw();other.closeRaw();relay.stop(); }
+  });
+
+  it("rotates lineage for document replacement even with the same document identity", async () => {
+    const fake = fakeSidecar();const relay = new SessionRelay(() => fake.manager);
+    const before = await relay.localSnapshot();
+    expect(await local(relay, 2)).toMatchObject({ status: "ok" });
+    const after = await relay.localSnapshot();expect(after.sessionId).not.toBe(before.sessionId);
+    expect(after.documentId).toBe(before.documentId);
+    expect(await local(relay, 2)).toMatchObject({ status: "ok" });
+    expect((await relay.localSnapshot()).sessionId).not.toBe(after.sessionId);
+  });
+
+  it("keeps selection private unless explicitly published", async () => {
+    const fake = fakeSidecar();const port = await freePort();const relay = new SessionRelay(() => fake.manager);
+    const client = new SessionClient();const other = new SessionClient();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      const hello = await client.connect(TOKEN, port);await other.connect(TOKEN, port);
+      await local(relay, 3, { featureId: "selected", widthMm: 10, heightMm: 10, depthMm: 10 });
+      await client.call("setSelection", { ids: ["selected"] });
+      expect(client.events.filter(event => event["event"] === "selection")).toHaveLength(0);
+      expect((await other.call("getSelection", { clientId: hello["clientId"] }))["result"]).toMatchObject({ ids: [] });
+      await client.call("setSelection", { ids: ["selected"], publish: true });
+      expect(client.events.filter(event => event["event"] === "selection")).toHaveLength(1);
+      expect((await other.call("getSelection", { clientId: hello["clientId"] }))["result"]).toMatchObject({ ids: ["selected"] });
+    } finally { client.closeRaw();other.closeRaw();relay.stop(); }
+  });
+
+  it("releases failed previews and rejects malformed Desktop framing before native dispatch", async () => {
+    const fake = fakeSidecar();const relay = new SessionRelay(() => fake.manager);
+    expect(await local(relay, 6, { featureId: "missing", paramName: "widthMm", valueMm: 20, isPreview: true })).toMatchObject({ errorCode: "PREVIEW_FAILED" });
+    expect(await local(relay, 3, { featureId: "missing", widthMm: 10, heightMm: 10, depthMm: 10 })).toMatchObject({ status: "ok" });
+    const before = fake.calls.length;
+    const invalid = localFrame(3);new DataView(invalid.buffer).setUint32(0, 1, true);
+    expect(JSON.parse(new TextDecoder().decode(await relay.invokeLocal(invalid)))).toMatchObject({ errorCode: "BAD_ENVELOPE" });
+    expect(fake.calls).toHaveLength(before);
+    expect(await local(relay, 26, { metadata: "x".repeat(9 * 1024 * 1024) })).toMatchObject({ status: "ok" });
+  });
+
+  it("rolls back Desktop transactions and releases its previews after renderer loss", async () => {
+    const fake = fakeSidecar();const relay = new SessionRelay(() => fake.manager);
+    expect(await local(relay, 27, { transactionId: "desktop-unit" })).toMatchObject({ status: "ok" });
+    expect(await local(relay, 3, { featureId: "uncommitted", widthMm: 10, heightMm: 10, depthMm: 10, transactionId: "desktop-unit" })).toMatchObject({ status: "ok" });
+    relay.onRendererDisconnected();
+    await relay.localSnapshot();
+    expect(fake.features()).toHaveLength(0);
+    expect(relay.sessionInfo().connectedClients[0]?.connectionState).toBe("reconnecting");
+    relay.onRendererConnected();
+    expect(await local(relay, 3, { featureId: "restored", widthMm: 10, heightMm: 10, depthMm: 10 })).toMatchObject({ status: "ok" });
+    await local(relay, 6, { featureId: "restored", paramName: "widthMm", valueMm: 20, isPreview: true });
+    relay.onRendererDisconnected();relay.onRendererConnected();
+    expect(await local(relay, 6, { featureId: "restored", paramName: "widthMm", valueMm: 25 })).toMatchObject({ status: "ok" });
+  });
+
   it("runs a named command once, replays its generated identity and exports its registry schema", async () => {
     const fake = fakeSidecar();
     const port = await freePort();
@@ -848,7 +979,7 @@ describe("SessionRelay", () => {
     relay.start({ port, host: "127.0.0.1", token: TOKEN });
     const client = new SessionClient();
     try {
-      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      const hello = await client.connect(TOKEN, port, LOGICAL_CLIENT_ID, ["operation-replay", "incremental-deltas"]);
       const oldSession = hello["sessionId"] as string;
       const params = {
         documentId: "doc-phase1",
@@ -866,15 +997,15 @@ describe("SessionRelay", () => {
         .rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
       expect(fake.calls.filter((type) => type === 3)).toHaveLength(nativeCalls);
 
-      await relay.noteLocal("doc-phase2", 0, [], []);
+      expect(await local(relay, 2, {}, "doc-phase2")).toMatchObject({ status: "ok" });
       const replacementDeadline = Date.now() + 500;
       let replacement = client.events.find((event) =>
-        event["event"] === "delta" && event["documentId"] === "doc-phase2",
+        event["event"] === "snapshot-required" && event["documentId"] === "doc-phase2",
       );
       while (!replacement && Date.now() < replacementDeadline) {
         await new Promise((resolve) => setTimeout(resolve, 5));
         replacement = client.events.find((event) =>
-          event["event"] === "delta" && event["documentId"] === "doc-phase2",
+          event["event"] === "snapshot-required" && event["documentId"] === "doc-phase2",
         );
       }
       expect(replacement?.["sessionId"]).not.toBe(restart?.["sessionId"]);
@@ -941,7 +1072,7 @@ describe("SessionRelay", () => {
         type: 3,
         fields: { featureId: "selection-box", widthMm: 10, heightMm: 10, depthMm: 10 },
       }, meta("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"));
-      const selectionParams = { ids: ["selection-box:box.+Z"] };
+      const selectionParams = { ids: ["selection-box:box.+Z"], publish: true };
       await client.call("setSelection", selectionParams, meta("cccccccc-cccc-4ccc-8ccc-cccccccccccc"));
       await client.call("setSelection", selectionParams, meta("cccccccc-cccc-4ccc-8ccc-cccccccccccc"));
       expect(client.events.filter((event) => event["event"] === "selection")).toHaveLength(1);

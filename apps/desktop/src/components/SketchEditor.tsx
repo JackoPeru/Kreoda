@@ -75,6 +75,8 @@ export function SketchEditor({
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Escape" && dragRef.current && dragBaseRef.current) {
+        void coreClient.cancelPreview(sketchId).catch((error: unknown) =>
+          setError(error instanceof Error ? error.message : t("sketch.errCommitFailed")));
         dragRef.current = null;
         previewSeq.current++;
         setDragging(null);
@@ -86,7 +88,7 @@ export function SketchEditor({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [sketchId]);
 
   // Load full model on open.
   useEffect(() => {
@@ -137,6 +139,7 @@ export function SketchEditor({
       });
     return () => {
       cancelled = true;
+      void coreClient.cancelPreview(sketchId).catch(() => {});
     };
   }, [sketchId]);
 
@@ -326,7 +329,7 @@ export function SketchEditor({
     setInference(null);
     previewSeq.current++; // invalidate in-flight previews
     const live = modelRef.current;
-    if (!drag?.moved || !live) return;
+    if (!drag?.moved || !live) { await coreClient.cancelPreview(sketchId);return; }
     // Commit the LIVE preview state (not a stale render closure).
     await commitModel(live);
   };

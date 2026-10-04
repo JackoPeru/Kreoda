@@ -171,9 +171,9 @@ export interface QueryEnv {
 
 /** Selection registry: client-local ids, published as shared metadata. */
 export interface SelectionRegistry {
-  get: (clientId: string) => string[];
-  set: (clientId: string, ids: string[]) => void;
-  clear: (clientId: string) => void;
+  get: (clientId: string, requesterId: string) => string[];
+  set: (clientId: string, ids: string[], publish: boolean) => void;
+  clear: (clientId: string, publish: boolean) => void;
   drop: (clientId: string) => void;
 }
 
@@ -278,6 +278,7 @@ export async function runSessionQuery(
   params: Record<string, unknown>,
   documentId: string,
 ): Promise<{ result: unknown; notify?: Record<string, unknown> }> {
+  if ((method === "setSelection" || method === "clearSelection") && Object.hasOwn(params, "publish") && typeof params["publish"] !== "boolean") throw coded("BAD_PARAMS", "publish must be a boolean");
   const needId = (v: unknown, what: string): string => {
     if (typeof v !== "string" || v.length === 0) {
       throw coded("BAD_PARAMS", `${what} must be a non-empty string`);
@@ -416,7 +417,7 @@ export async function runSessionQuery(
         typeof params["clientId"] === "string" && params["clientId"] !== ""
           ? (params["clientId"] as string)
           : clientId;
-      return { result: { clientId: target, ids: selections.get(target) } };
+      return { result: { clientId: target, ids: selections.get(target, clientId) } };
     }
     case "setSelection": {
       if (!Array.isArray(params["ids"])) {
@@ -429,17 +430,17 @@ export async function runSessionQuery(
       const ids = [...new Set(rawIds as string[])];
       const validation = await env.geometry(documentId, "validateReferences", { ids }) as { valid: boolean; checks: unknown[] };
       if (validation.valid !== true) throw coded("BAD_PARAMS", "selection contains unresolved or ambiguous references");
-      selections.set(clientId, ids);
+      selections.set(clientId, ids, params["publish"] === true);
       return {
         result: { clientId, ids },
-        notify: { event: "selection", clientId, ids },
+        ...(params["publish"] === true ? { notify: { event: "selection", clientId, ids } } : {}),
       };
     }
     case "clearSelection": {
-      selections.clear(clientId);
+      selections.clear(clientId, params["publish"] === true);
       return {
         result: { clientId, ids: [] as string[] },
-        notify: { event: "selection", clientId, ids: [] as string[] },
+        ...(params["publish"] === true ? { notify: { event: "selection", clientId, ids: [] as string[] } } : {}),
       };
     }
     case "getManipulators":

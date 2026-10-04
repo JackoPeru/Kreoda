@@ -148,6 +148,12 @@ public sealed class SessionClient : IAsyncDisposable
         return reply;
     }
 
+    public async Task<Generated.SessionInfoPayload> SessionInfoAsync(CancellationToken ct = default)
+    {
+        var reply = await CallAsync(SessionMethods.GetSessionInfo, new Dictionary<string, object?>(), ct).ConfigureAwait(false);
+        return GeneratedControl.Read<Generated.SessionInfoPayload>(reply.GetProperty("result"), "SessionInfoPayload");
+    }
+
     public Task<JsonElement> InvokeAsync(
         InvokeRequest request,
         CancellationToken ct = default) =>

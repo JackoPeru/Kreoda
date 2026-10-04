@@ -24,6 +24,7 @@ vi.mock("../src/viewport/CadViewport", () => ({
 
 vi.mock("../src/ipc/coreClient", () => ({
   coreClient: {
+    cancelPreview: vi.fn().mockResolvedValue(undefined),
     getCoreInfo: vi.fn().mockRejectedValue(new Error("offline")),
     readReferences: vi.fn().mockResolvedValue("[]"),
     requestSketch: vi.fn().mockResolvedValue({

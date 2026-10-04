@@ -1,6 +1,8 @@
 import type { TrustedSessionDevice } from "./session-devices";
+import type { SessionInfoPayload } from "@kreoda/protocol";
 
 export interface SessionConnectionStatus {
+  session: SessionInfoPayload;
   listener: { host: string; port: number } | null;
   interfaces: { name: string; host: string }[];
   devices: TrustedSessionDevice[];

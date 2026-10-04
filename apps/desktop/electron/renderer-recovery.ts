@@ -4,12 +4,13 @@ let crashWindowStart = 0;
 let crashesInWindow = 0;
 
 /** Recover a dead renderer even when Chromium misses render-process-gone. */
-export function installRendererRecovery(window: BrowserWindow, replaceWindow: () => void): void {
+export function installRendererRecovery(window: BrowserWindow, replaceWindow: () => void, disconnected: () => void = () => {}): void {
   const contents = window.webContents;
   let pending = false;
   let missingPid = 0;
   const recover = (reason: string) => {
     if (window.isDestroyed() || pending) return;
+    disconnected();
     const now = Date.now();
     if (now - crashWindowStart > 60_000) {
       crashWindowStart = now;

@@ -10,6 +10,23 @@ namespace Kreoda.SessionClient.Tests;
 public sealed class SessionClientTests
 {
     [Fact]
+    public async Task ReadsGeneratedSessionMetadataWithoutChangingTheModel()
+    {
+        await using var server = new LoopbackWsServer(req => req.GetProperty("method").GetString() == "hello" ? HelloReply(req) :
+            Reply(req, new Dictionary<string, object?> { ["result"] = new {
+                sessionId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", documentId = "doc-phase1", documentRevision = 7,
+                connectedClients = new[] { new { clientId = "desktop", clientType = "desktop", capabilities = new[] { "incremental-deltas" }, connectionState = "connected" } },
+                transactionState = new { ownerClientId = "desktop", transactionId = "unit", ownerConnected = true, state = "open" },
+            } }));
+        server.Start();await using var client = await BootAsync(server);
+        var info = await client.SessionInfoAsync();
+        Assert.Equal(7, info.DocumentRevision);
+        Assert.Single(info.ConnectedClients);
+        Assert.Equal("unit", info.TransactionState?.TransactionId);
+        Assert.Null(client.Model);
+    }
+
+    [Fact]
     public async Task PairAndReturningDeviceAuthenticateBeforeHello()
     {
         const string deviceId = "device-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";

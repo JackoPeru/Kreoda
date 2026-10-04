@@ -338,6 +338,24 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    This is same-host private-interface evidence, not a remote Quest test.
    Phase 11 remains incomplete; unified Desktop mutation ownership is next.
 8. Unified Desktop mutation entry and active-edit ownership.
+   Packet 8: Desktop framed IPC now enters the same SessionRelay queue as
+   network commands. The notification/direct-sidecar bypass is removed;
+   original binary mesh response bytes are preserved. Overlapping scopes
+   reserve ownership before enqueueing and include dependency descendants.
+   Preview targets remain owned through commit/cancel/disconnect. Foreign
+   snapshot/geometry calls cannot observe an active or pending transaction;
+   owner working-state and metadata remain available. Renderer loss cancels
+   previews, rejects queued old-renderer edits and rolls back owned units.
+   Create/Open rotate session lineage even for the same document ID and
+   invalidate old replay; negotiated clients receive recovery events.
+   Selection remains private until publish:true, including foreign lookups.
+   Generated getSessionInfo reports document/session/revision, clients with
+   capabilities/connection state and pending/open transaction ownership.
+   Parent rerun: 212 workspace tests, 36 .NET tests, workspace build/typecheck
+   and generated drift gate PASS. Fourteen actual OCCT/local-framed/two-client
+   checks PASS; owned native PID exited and hashes fixed. Evidence:
+   `docs/evidence/phase11-unified-session-local-2026-10-04.json`.
+   Phase 11 remains incomplete; hidden Desktop acceptance is next.
 9. Real native, Desktop and second-client acceptance with no GUI input.
 10. Exact hosted CI, evidence report, fresh Sol review, primary safe copy.
 

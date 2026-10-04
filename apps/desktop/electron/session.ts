@@ -10,13 +10,14 @@
 // the relay never invents geometry — every mutation runs through the typed
 // core commands with the core's own validation and error codes.
 //
-// Security (§11.16): disabled unless KREODA_SESSION_PORT is set; binds
-// loopback by default (KREODA_SESSION_HOST opts into LAN); every client
-// must present the pairing token in `hello` or the socket is closed.
+// Security (§11.16): transport is disabled by default. Explicit enable binds
+// loopback or an assigned private IPv4 interface. Pair/authenticate exchanges
+// owner-protected device credentials for a current listener token; hello
+// creates the connected identity. Explicit bootstrap tokens are for tests.
 
 import { createHash, randomUUID } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
-import { decodeMeshFrame, frameMessage, InvokeParamsSchema, NamedCommandParamsSchema, PairParamsSchema, AuthenticateParamsSchema,
+import { decodeMeshFrame, frameMessage, FrameDecoder, InvokeParamsSchema, NamedCommandParamsSchema, PairParamsSchema, AuthenticateParamsSchema,
   OPERATION_METHODS as OPERATION_METHOD_NAMES, SESSION_CONTROL_VERSION } from "@kreoda/protocol";
 import { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "@kreoda/command-schema";
 import type {
@@ -144,7 +145,7 @@ function mutationFeatures(
   fields: Record<string, unknown>,
 ): string[] | "*" {
   // Undo/redo and transaction control re-resolve the whole document.
-  if (type === 8 || type === 9 || type === 27 || type === 28 || type === 29) {
+  if ([2, 8, 9, 10, 11, 27, 28, 29].includes(type)) {
     return "*";
   }
   const ids: string[] = [];
@@ -204,7 +205,11 @@ export class SessionRelay {
   private revisionPending: Promise<number> | null = null;
   // Mutation serialization (§11.13): one core mutation at a time.
   private queue: Promise<void> = Promise.resolve();
-  private inFlight = new Set<string>();
+  private reservations = new Map<string, { clientId: string; scope: string[] | "*" }>();
+  private localPreviews = new Map<string, () => void>();
+  private pendingTxn: { ownerClientId: string; transactionId: string } | null = null;
+  private localGeneration = 0;
+  private localConnected = true;
   // operationId entries live for the complete session/document lineage.
   private operationReplay = new Map<string, ReplayEntry>();
   // Legacy requestId replay lasts only until its socket closes.
@@ -217,6 +222,7 @@ export class SessionRelay {
   private seq = 0;
   // Client-local selections published as shared metadata (§11.5).
   private selections = new Map<string, string[]>();
+  private publishedSelections = new Map<string, string[]>();
   // Spatial preview sessions (§11.11): visual-only until commit.
   private previews = new Map<
     string,
@@ -228,20 +234,24 @@ export class SessionRelay {
       valueMm: number;
       expression: string;
       baseRevision: number;
+      release: () => void;
     }
   >();
 
   private selectionRegistry(): SelectionRegistry {
     return {
-      get: (id) => [...(this.selections.get(id) ?? [])],
-      set: (id, ids) => {
+      get: (id, requester) => [...((id === requester ? this.selections : this.publishedSelections).get(id) ?? [])],
+      set: (id, ids, publish) => {
         this.selections.set(id, [...ids]);
+        if (publish) this.publishedSelections.set(id, [...ids]);
       },
-      clear: (id) => {
+      clear: (id, publish) => {
         this.selections.delete(id);
+        if (publish) this.publishedSelections.delete(id);
       },
       drop: (id) => {
         this.selections.delete(id);
+        this.publishedSelections.delete(id);
       },
     };
   }
@@ -256,13 +266,132 @@ export class SessionRelay {
     return this.clients.size;
   }
 
+  private scopeWithDependencies(scope: string[] | "*"): string[] | "*" {
+    if (scope === "*") return scope;
+    const ids = new Set(scope);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const value of this.committedBaseline?.features ?? []) {
+        const feature = asRecord(value);
+        const id = feature?.["featureId"];
+        const dependencies = feature?.["dependsOn"];
+        if (typeof id === "string" && !ids.has(id) && Array.isArray(dependencies) && dependencies.some(parent => ids.has(parent))) {
+          ids.add(id);changed = true;
+        }
+      }
+    }
+    return [...ids];
+  }
+
+  private reserve(clientId: string, scope: string[] | "*"): () => void {
+    scope = this.scopeWithDependencies(scope);
+    for (const held of this.reservations.values()) {
+      if (held.clientId !== clientId && (scope === "*" || held.scope === "*" || scope.some(id => held.scope.includes(id)))) {
+        throw coded("BUSY", "another client owns an overlapping edit");
+      }
+    }
+    const id = randomUUID();this.reservations.set(id, { clientId, scope });
+    return () => { this.reservations.delete(id); };
+  }
+
+  private assertReadOwner(clientId: string): void {
+    const active = this.txn ?? this.pendingTxn;
+    if (active && active.ownerClientId !== clientId) throw coded("BUSY", "another client owns an active transaction");
+  }
+
+  private orderedRead<T>(clientId: string, documentId: string, read: () => Promise<T>, localGeneration?: number): Promise<T> {
+    try { this.assertReadOwner(clientId); } catch (error) { return Promise.reject(error); }
+    const lineage = this.sessionId;
+    const run = this.queue.then(async () => {
+      this.assertReadOwner(clientId);
+      if (lineage !== this.sessionId || documentId !== this.documentId) throw coded("NEED_FULL_SNAPSHOT", "document lineage changed before query");
+      if (localGeneration !== undefined && localGeneration !== this.localGeneration) throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed");
+      if (clientId !== "desktop" && !this.isLogicalClientConnected(clientId)) throw coded("CLIENT_DISCONNECTED", "query client disconnected");
+      return read();
+    });
+    this.queue = run.then(() => {}, () => {});return run;
+  }
+
+  /** Desktop keeps its existing framed API; every CAD operation enters this service. */
+  async invokeLocal(framed: Uint8Array): Promise<Uint8Array> {
+    let requestId = "";
+    let finishingFeatureId = "";
+    try {
+      if (framed.length < 4 || framed.length - 4 > new FrameDecoder().maxFrameBytes || new DataView(framed.buffer, framed.byteOffset, framed.byteLength).getUint32(0, true) !== framed.length - 4) throw coded("BAD_ENVELOPE", "invalid framed command");
+      const request = asRecord(JSON.parse(new TextDecoder().decode(framed.subarray(4))));
+      if (!request || request["protocolVersion"] !== SESSION_PROTOCOL_VERSION || typeof request["requestId"] !== "string" || !request["requestId"] || typeof request["documentId"] !== "string" || !Number.isInteger(request["type"]) || typeof request["type"] !== "number") throw coded("BAD_ENVELOPE", "invalid Desktop envelope");
+      requestId = request["requestId"];
+      const type = request["type"];
+      const documentId = request["documentId"] || this.documentId;
+      const fields = Object.fromEntries(Object.entries(request).filter(([key]) => !["protocolVersion", "requestId", "documentId", "type"].includes(key)));
+      const generation = this.localGeneration;
+      const encode = (value: Record<string, unknown>): Uint8Array => new TextEncoder().encode(JSON.stringify({ ...value, protocolVersion: SESSION_PROTOCOL_VERSION, requestId }));
+      if (![2, 11].includes(type) && documentId !== this.documentId) throw coded("NEED_FULL_SNAPSHOT", "document identity changed");
+      if ([1, 12, 17, 18, 23, 26, 30].includes(type) || fields["isPreview"] === true) {
+        this.assertReadOwner("desktop");
+        const featureId = typeof fields["featureId"] === "string" ? fields["featureId"] : "";
+        let added = false;
+        if (fields["isPreview"] === true && [6, 14].includes(type) && !this.localPreviews.has(featureId)) {
+          this.localPreviews.set(featureId, this.reserve("desktop", mutationFeatures(type, fields)));added = true;
+        }
+        try {
+          const response = await this.orderedRead("desktop", documentId, async () => {
+            const sidecar = this.sidecar();if (!sidecar) throw coded("CORE_FAILED", "geometry engine not running");
+            return sidecar.invoke(framed);
+          }, generation);
+          if (added && response[0] === 0x7b && JSON.parse(new TextDecoder().decode(response))["status"] === "error") await this.cancelLocalEdit(featureId);
+          return response;
+        } catch (error) { if (added) await this.cancelLocalEdit(featureId);throw error; }
+      }
+      let result: Record<string, unknown>;
+      if ([6, 14].includes(type) && typeof fields["featureId"] === "string") finishingFeatureId = fields["featureId"];
+      if (type === 27) result = await this.txnBegin("desktop", documentId, fields["transactionId"] as string, generation);
+      else if (type === 28) result = await this.txnCommit("desktop", documentId, fields["transactionId"] as string, generation);
+      else if (type === 29) result = await this.txnRollback("desktop", documentId, fields["transactionId"] as string, generation);
+      else result = await this.runMutation("desktop", documentId, type, fields, null, {
+        localGeneration: generation,
+        ...(typeof fields["transactionId"] === "string" && fields["transactionId"] ? { joinTxn: fields["transactionId"] } : {}),
+      });
+      return encode(result);
+    } catch (error) {
+      return new TextEncoder().encode(JSON.stringify({ protocolVersion: SESSION_PROTOCOL_VERSION, requestId, status: "error",
+        errorCode: (error as { code?: string }).code ?? "BAD_ENVELOPE", errorMessage: this.errorMessage(error) }));
+    } finally { if (finishingFeatureId) await this.cancelLocalEdit(finishingFeatureId); }
+  }
+
+  async cancelLocalEdit(featureId: string): Promise<void> {
+    const run = this.queue.then(() => { this.localPreviews.get(featureId)?.();this.localPreviews.delete(featureId); });
+    this.queue = run.then(() => {}, () => {});await run;
+  }
+
+  onRendererDisconnected(): void {
+    this.localGeneration++;this.localConnected = false;
+    for (const release of this.localPreviews.values()) release();this.localPreviews.clear();
+    this.autoRollback("desktop");
+  }
+
+  onRendererConnected(): void { this.localConnected = true; }
+
+  sessionInfo(): import("@kreoda/protocol").SessionInfoPayload {
+    const transaction = this.txn ?? this.pendingTxn;
+    return {
+      sessionId: this.sessionId, documentId: this.documentId, documentRevision: this.revisionCache,
+      connectedClients: [{ clientId: "desktop", clientType: "desktop", name: "Desktop",
+        capabilities: ["incremental-deltas"], connectionState: this.localConnected ? "connected" : "reconnecting" },
+        ...[...this.clients.values()].map(client => ({ clientId: client.logicalClientId, clientType: client.clientType,
+          name: client.name, deviceId: client.deviceId, capabilities: [...client.capabilities],
+          connectionState: client.ws.readyState === WebSocket.OPEN ? "connected" as const : "closing" as const }))],
+      transactionState: transaction ? { ...transaction, ownerConnected: this.isLogicalClientConnected(transaction.ownerClientId),
+        state: this.txn ? "open" : "pending" } : null,
+    };
+  }
+
   /** Local recovery shares queue order with network mutations; no listener needed. */
   localSnapshot(): Promise<import("@kreoda/protocol").SessionModelSnapshot> {
-    const run = this.queue.then(async () => {
-      if (this.txn && this.txn.ownerClientId !== "desktop") {
-        throw Object.assign(new Error("another client owns an open transaction"), { code: "BUSY" });
-      }
+    return this.orderedRead("desktop", this.documentId, async () => {
       const snapshot = await this.coreSnapshot(this.documentId);
+      if (!this.txn) this.committedBaseline = this.committedSnapshot(snapshot);
       const entity = (value: unknown): SessionModelEntity => {
         const result = asRecord(value);
         if (!result) throw new Error("snapshot contains a non-object entity");
@@ -274,8 +403,6 @@ export class SessionRelay {
         bodies: snapshot.bodies.map((body) => ({ ...body })),
       };
     });
-    this.queue = run.then(() => {}, () => {});
-    return run;
   }
 
   start(opts: { port: number; host: string; token?: string }): void {
@@ -328,9 +455,10 @@ export class SessionRelay {
     await this.queue;
   }
 
-  connectionStatus(): Pick<SessionConnectionStatus, "listener" | "clients" | "transaction"> {
+  connectionStatus(): Pick<SessionConnectionStatus, "listener" | "clients" | "transaction" | "session"> {
     const address = this.server?.address();
     return {
+      session: this.sessionInfo(),
       listener: address && typeof address !== "string" ? { host: address.address, port: address.port } : null,
       clients: [...this.clients.values()].map(client => ({
         deviceId: client.deviceId, name: client.name, clientType: client.clientType, capabilities: [...client.capabilities],
@@ -351,7 +479,9 @@ export class SessionRelay {
     this.clients.clear();
     this.clientPrincipals.clear();
     this.selections.clear();
+    this.publishedSelections.clear();
     this.previews.clear();
+    this.reservations.clear();this.localPreviews.clear();this.pendingTxn = null;
     this.txn = null;
     this.committedBaseline = null;
     this.clearTransactionTracking();
@@ -368,12 +498,13 @@ export class SessionRelay {
   /** Sidecar died/restarted: drop in-flight state; clients resync by revision. */
   onSidecarCrashed(): void {
     this.sessionId = randomUUID();
-    this.inFlight.clear();
     this.committedBaseline = null;
     this.clearTransactionTracking();
     this.operationReplay.clear();
     this.requestReplay.clear();
     this.previews.clear();
+    this.selections.clear();this.publishedSelections.clear();
+    this.reservations.clear();this.localPreviews.clear();this.pendingTxn = null;
     this.txn = null;
     this.revisionCache = null;
     this.revisionPending = null;
@@ -394,71 +525,6 @@ export class SessionRelay {
     this.transactionAffectedIds.clear();
     this.transactionReferenceRemaps = [];
     this.transactionWarnings = [];
-  }
-
-  /**
-   * A mutation committed through a non-relay path (the local renderer's
-   * toolbar/palette/AI flows call the sidecar directly). The renderer pings
-   * here after every commit so remote clients observe the same delta stream.
-   * Adopt document switches (new lineage: drop replay/locks), broadcast only
-   * when the revision actually advanced.
-   */
-  async noteLocal(
-    documentId: string,
-    revision: number,
-    _features?: unknown[],
-    _sketches?: unknown[],
-  ): Promise<void> {
-    if (!Number.isFinite(revision) || revision < 0) return;
-    if (documentId !== this.documentId) {
-      this.documentId = documentId;
-      this.sessionId = randomUUID();
-      this.txn = null;
-      this.clearTransactionTracking();
-      this.committedBaseline = null;
-      this.inFlight.clear();
-      this.operationReplay.clear();
-      this.requestReplay.clear();
-      this.revisionCache = null;
-      this.revisionPending = null;
-      this.lastBroadcastRevision = null;
-      this.lastSent = null;
-    }
-    if (
-      this.lastBroadcastRevision !== null &&
-      revision <= this.lastBroadcastRevision
-    ) {
-      if (this.revisionCache === null || revision > this.revisionCache) {
-        this.revisionCache = revision;
-      }
-      return;
-    }
-    // Renderer summaries omit sketch coordinates and can lag the kernel.
-    // Use the same canonical state as remote mutations for the delta baseline.
-    let canonical: Awaited<ReturnType<SessionRelay["coreSnapshot"]>>;
-    try {
-      canonical = await this.coreSnapshot(documentId);
-    } catch (e) {
-      console.error("[session] noteLocal snapshot failed", e);
-      return;
-    }
-    const list = canonical.features;
-    const sk = canonical.sketches;
-    revision = canonical.revision;
-    const snap = normalizeSnapshot(documentId, revision, list, sk);
-    const after: CommittedSnapshot = {
-      sessionId: this.sessionId,
-      documentId,
-      revision,
-      features: list,
-      sketches: sk,
-      bodies: snap.bodies,
-      tips: snap.tips,
-    };
-    const before = this.committedBaseline;
-    this.revisionCache = revision;
-    this.committedBaseline = after;
-    this.broadcast("desktop", after, before, new Set(), [], []);
   }
 
   private lastBroadcastRevision: number | null = null;
@@ -501,9 +567,15 @@ export class SessionRelay {
           if (key.startsWith(`${connectionId}:`)) this.requestReplay.delete(key);
         }
         const clientId = client?.logicalClientId;
-        if (clientId) this.selections.delete(clientId);
+        if (clientId) {
+          this.selections.delete(clientId);
+          if (this.publishedSelections.delete(clientId)) {
+            const clear = JSON.stringify({ event: "selection", clientId, ids: [] });
+            for (const other of this.clients.values()) if (other.ws.readyState === WebSocket.OPEN) other.ws.send(clear);
+          }
+        }
         for (const [id, p] of this.previews) {
-          if (p.clientId === clientId) this.previews.delete(id);
+          if (p.clientId === clientId) { p.release();this.previews.delete(id); }
         }
         // A dead owner must not wedge the core: best-effort rollback of its
         // open unit (recoverable via txnStatus/txnForceRollback if lost).
@@ -788,10 +860,9 @@ export class SessionRelay {
 
     try {
       switch (msg.method) {
+        case "getSessionInfo": { reply(true, { result: this.sessionInfo() });return; }
         case "snapshot": {
-          const snap = await this.coreSnapshot(
-            documentId,
-          );
+          const snap = await this.orderedRead(clientId, documentId, () => this.coreSnapshot(documentId));
           reply(true, { ...snap, sessionId: this.sessionId });
           return;
         }
@@ -935,17 +1006,10 @@ export class SessionRelay {
             });
             return;
           }
-          const { result, notify } = await runSessionQuery(
-            this.queryEnv(),
-            this.selectionRegistry(),
-            clientId,
-            msg.method,
-            params,
-            typeof params["documentId"] === "string" &&
-              params["documentId"] !== ""
-              ? (params["documentId"] as string)
-              : this.documentId,
-          );
+          const method = msg.method;
+          const query = () => runSessionQuery(this.queryEnv(), this.selectionRegistry(), clientId, method, params, documentId);
+          const direct = ["previewBegin", "previewUpdate", "previewCommit", "previewCancel", "getSelection", "clearSelection", "listCommands", "getCommandSchema", "getCapabilities"].includes(method);
+          const { result, notify } = await (direct ? query() : this.orderedRead(clientId, documentId, query));
           reply(true, { result });
           if (notify) {
             for (const [, c] of this.clients) {
@@ -986,6 +1050,7 @@ export class SessionRelay {
   }
 
   private isLogicalClientConnected(clientId: string): boolean {
+    if (clientId === "desktop") return this.localConnected;
     return [...this.clients.values()].some(
       (client) => client.logicalClientId === clientId && client.ws.readyState === WebSocket.OPEN &&
         (client.deviceId === undefined || this.devices?.isTrusted(client.deviceId) === true),
@@ -1165,20 +1230,19 @@ export class SessionRelay {
         const valueMm = (fields["valueMm"] as number | undefined) ?? 0;
         const expression = (fields["expression"] as string | undefined) ?? "";
         const id = `preview-${randomUUID()}`;
-        const baseRevision = await this.currentRevision();
-        this.previews.set(id, {
-          clientId,
-          documentId: docId,
-          featureId,
-          paramName,
-          valueMm,
-          expression,
-          baseRevision,
-        });
-        return {
-          previewId: id,
-          ...(await this.runPreview(docId, featureId, paramName, valueMm, expression)),
-        };
+        this.assertReadOwner(clientId);
+        let release = this.reserve(clientId, this.committedBaseline ? [featureId] : "*");
+        try {
+          return await this.orderedRead(clientId, docId, async () => {
+            const snapshot = await this.coreSnapshot(docId);
+            if (!this.txn) this.committedBaseline = this.committedSnapshot(snapshot);
+            const expanded = this.reserve(clientId, [featureId]);release();release = expanded;
+            const result = await this.runPreview(docId, featureId, paramName, valueMm, expression);
+            if (!this.isLogicalClientConnected(clientId)) throw coded("CLIENT_DISCONNECTED", "preview client disconnected");
+            this.previews.set(id, { clientId, documentId: docId, featureId, paramName, valueMm, expression, baseRevision: snapshot.revision, release });
+            return { previewId: id, ...result };
+          });
+        } catch (error) { release();throw error; }
       },
       previewUpdate: async (clientId, previewId, params) => {
         const state = this.previewState(clientId, previewId);
@@ -1188,18 +1252,14 @@ export class SessionRelay {
           ...(Object.hasOwn(params, "valueMm") ? { valueMm: params["valueMm"], expression: "" } : {}),
           ...(Object.hasOwn(params, "expression") ? { expression: params["expression"] } : {}),
         }).fields;
-        state.valueMm = (fields["valueMm"] as number | undefined) ?? 0;
-        state.expression = (fields["expression"] as string | undefined) ?? "";
-        return {
-          previewId,
-          ...(await this.runPreview(
-            state.documentId,
-            state.featureId,
-            state.paramName,
-            state.valueMm,
-            state.expression,
-          )),
-        };
+        const valueMm = (fields["valueMm"] as number | undefined) ?? 0;
+        const expression = (fields["expression"] as string | undefined) ?? "";
+        return this.orderedRead(clientId, state.documentId, async () => {
+          this.previewState(clientId, previewId);
+          const result = await this.runPreview(state.documentId, state.featureId, state.paramName, valueMm, expression);
+          state.valueMm = valueMm;state.expression = expression;
+          return { previewId, ...result };
+        });
       },
       previewCommit: async (clientId, previewId) => {
         const state = this.previewState(clientId, previewId);
@@ -1215,11 +1275,11 @@ export class SessionRelay {
           },
           state.baseRevision,
         );
-        this.previews.delete(previewId);
+        state.release();this.previews.delete(previewId);
         return result;
       },
       previewCancel: async (clientId, previewId) => {
-        this.previewState(clientId, previewId);
+        this.previewState(clientId, previewId).release();
         this.previews.delete(previewId);
         return { previewId, cancelled: true as const };
       },
@@ -1237,6 +1297,7 @@ export class SessionRelay {
     valueMm: number;
     expression: string;
     baseRevision: number;
+    release: () => void;
   } {
     const state = this.previews.get(previewId);
     if (!state || state.clientId !== clientId) {
@@ -1309,9 +1370,26 @@ export class SessionRelay {
       noBroadcast?: boolean;
       allowOrphanRollback?: boolean;
       beginTxn?: { ownerClientId: string; transactionId: string };
+      localGeneration?: number;
     } = {},
   ): Promise<Record<string, unknown>> {
+    const lineage = this.sessionId;
+    let release: () => void;
+    try {
+      if (!opts.allowOrphanRollback) {
+        if (type === 28 || type === 29) {
+          const transactionId = fields["transactionId"];
+          if (typeof transactionId !== "string" || !transactionId) throw coded("BAD_PARAMS", "transactionId is required");
+          if (!this.txn || this.txn.transactionId !== transactionId) throw coded("NO_TRANSACTION", "no matching session transaction");
+          if (this.txn.ownerClientId !== clientId) throw coded("NOT_OWNER", "transaction belongs to another client");
+        } else this.assertReadOwner(clientId);
+      }
+      release = this.reserve(clientId, mutationFeatures(type, fields));
+      if (opts.beginTxn) this.pendingTxn = opts.beginTxn;
+    } catch (error) { return Promise.reject(error); }
     const run = this.queue.then(async () => {
+      if (lineage !== this.sessionId) throw coded("NEED_FULL_SNAPSHOT", "session lineage changed before mutation");
+      if (opts.localGeneration !== undefined && opts.localGeneration !== this.localGeneration) throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed");
       if (clientId !== "desktop" && type !== 29 && !this.isLogicalClientConnected(clientId)) {
         throw coded("CLIENT_DISCONNECTED", "mutation client disconnected or its device was revoked");
       }
@@ -1397,26 +1475,6 @@ export class SessionRelay {
         }
       }
 
-      const scope = mutationFeatures(type, fields);
-      const exclusive = scope === "*";
-      // Jobs run strictly serialized on the queue, so inFlight is normally
-      // empty here — this is defense-in-depth for overlapping scopes (e.g.
-      // a future parallel lane): exclusive ("*") conflicts with anything
-      // in flight, scoped ops conflict with "*" or shared ids.
-      const clash =
-        this.inFlight.size > 0 &&
-        (this.inFlight.has("*") ||
-          exclusive ||
-          (Array.isArray(scope) && scope.some((f) => this.inFlight.has(f))));
-      if (clash) {
-        const err = new Error(
-          "another client is mutating an overlapping feature — retry",
-        ) as Error & { code?: string };
-        err.code = "BUSY";
-        throw err;
-      }
-      const held: string[] = exclusive ? ["*"] : [...(scope as string[])];
-      for (const f of held) this.inFlight.add(f);
       try {
         const terminalTxn = type === 28 || type === 29;
         let before: CommittedSnapshot | null = null;
@@ -1449,6 +1507,7 @@ export class SessionRelay {
           ...fields,
           ...(opts.joinTxn ? { transactionId: opts.joinTxn } : {}),
         });
+        if (lineage !== this.sessionId) throw coded("NEED_FULL_SNAPSHOT", "core lineage changed during mutation");
         this.documentId = documentId;
         if (typeof parsed["revision"] === "number") {
           this.revisionCache = parsed["revision"] as number;
@@ -1486,6 +1545,18 @@ export class SessionRelay {
           ...rest,
           revision: this.revisionCache ?? parsed["revision"],
         };
+        if (type === 2 || type === 11) {
+          this.sessionId = randomUUID();
+          this.operationReplay.clear();this.requestReplay.clear();this.selections.clear();this.publishedSelections.clear();
+          for (const preview of this.previews.values()) preview.release();this.previews.clear();
+          for (const end of this.localPreviews.values()) end();this.localPreviews.clear();
+          this.clearTransactionTracking();this.committedBaseline = null;
+          this.lastSent = null;this.lastBroadcastRevision = null;
+          const after = this.committedSnapshot(await this.coreSnapshot(documentId));
+          this.revisionCache = after.revision;this.committedBaseline = after;
+          this.broadcast(clientId, after, null, new Set(), [], []);
+          return { ...result, revision: after.revision };
+        }
         // Joined steps stay silent. Begin only captures the transaction
         // baseline; terminal commit/rollback publishes one atomic patch.
         if (opts.beginTxn || opts.joinTxn || opts.noBroadcast) return result;
@@ -1533,9 +1604,10 @@ export class SessionRelay {
           this.clearTransactionTracking();
         }
         throw e;
-      } finally {
-        for (const f of held) this.inFlight.delete(f);
       }
+    }).finally(() => {
+      release();
+      if (opts.beginTxn && this.pendingTxn === opts.beginTxn) this.pendingTxn = null;
     });
     // The chain itself never rejects (callers get the per-run outcome);
     // without this, one failure would wedge every later mutation.
@@ -1577,6 +1649,7 @@ export class SessionRelay {
     clientId: string,
     documentId: string,
     transactionId: string,
+    localGeneration?: number,
   ): Promise<Record<string, unknown>> {
     if (!transactionId) {
       const err = new Error("transactionId is required") as Error & {
@@ -1585,9 +1658,9 @@ export class SessionRelay {
       err.code = "BAD_PARAMS";
       throw err;
     }
-    if (this.txn) {
+    if (this.txn || this.pendingTxn) {
       const err = new Error(
-        `transaction ${this.txn.transactionId} already open`,
+        `transaction ${(this.txn ?? this.pendingTxn)!.transactionId} already open`,
       ) as Error & { code?: string };
       err.code = "TRANSACTION_BUSY";
       throw err;
@@ -1596,7 +1669,7 @@ export class SessionRelay {
         transactionId,
       },
       null,
-      { noBroadcast: true, beginTxn: { ownerClientId: clientId, transactionId } },
+      { noBroadcast: true, beginTxn: { ownerClientId: clientId, transactionId }, localGeneration },
     );
   }
 
@@ -1604,6 +1677,7 @@ export class SessionRelay {
     clientId: string,
     documentId: string,
     transactionId: string,
+    localGeneration?: number,
   ): Promise<Record<string, unknown>> {
     try {
       const result = await this.runMutation(
@@ -1612,6 +1686,7 @@ export class SessionRelay {
         28,
         { transactionId },
         null,
+        { localGeneration },
       );
       this.txn = null;
       return result;
@@ -1628,6 +1703,7 @@ export class SessionRelay {
     clientId: string,
     documentId: string,
     transactionId: string,
+    localGeneration?: number,
   ): Promise<Record<string, unknown>> {
     try {
       const result = await this.runMutation(
@@ -1636,6 +1712,7 @@ export class SessionRelay {
         29,
         { transactionId },
         null,
+        { localGeneration },
       );
       this.txn = null;
       return result;

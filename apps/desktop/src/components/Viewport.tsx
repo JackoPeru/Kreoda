@@ -114,6 +114,8 @@ export function Viewport() {
       const vp = vpRef.current;
       const s = sessionRef.current;
       sessionRef.current = null;
+      if (cancelled && s) void coreClient.cancelPreview(s.featureId).catch((error: unknown) =>
+        setPullHint(error instanceof Error ? error.message : t("sketch.errCommitFailed")));
       if (vp) {
         if (cancelled) vp.cancelCameraGesture();
         vp.setCameraInputEnabled(true);
@@ -195,6 +197,7 @@ export function Viewport() {
         .setFeatureParameter(s.featureId, s.paramName, value, true)
         .then(
           (mesh) => {
+            if (sessionRef.current !== s) return;
             if ("positions" in mesh) vp.showPreviewMesh(mesh);
           },
           (err: unknown) => {

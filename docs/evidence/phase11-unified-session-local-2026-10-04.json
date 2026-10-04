@@ -1,0 +1,144 @@
+{
+  "recordedAtUtc": "2026-10-04T10:01:07.616021+00:00",
+  "sourceBaseCommit": "7103bd476a6ef53c621a0e43d667779038a42461",
+  "status": "packet-8-PASS",
+  "phase11Complete": false,
+  "workspaceTests": {
+    "passed": 212,
+    "desktop": 169,
+    "protocol": 27,
+    "commandSchema": 10,
+    "pluginSdk": 2,
+    "units": 4
+  },
+  "dotnetTests": {
+    "passed": 36
+  },
+  "workspaceBuild": "PASS",
+  "workspaceTypecheck": "PASS",
+  "generatedSessionContract": {
+    "status": "PASS",
+    "dtoSchemas": 24,
+    "sourceSha256": "469759d65430c8f8ad5b910da45fe80637728b8d60e9f294fcca2eca7587e705"
+  },
+  "nativeRuntime": {
+    "kernel": "8.0.1-native",
+    "corePid": 15444,
+    "coreSha256": "80d7120494a298ab4ce74a5f6790bf94a8d4dab920b5bb79bafc259eb06ee99c",
+    "sourceSha256": {
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\sidecar.ts": "9d5968356285019e8b8a122538c1e3666f4ef996cfdaaeeface719fbfa47dae9",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session.ts": "80ea6861864e5c1ad04b1a1221d071f500966d2e401924771c2f53b61785c9b1",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-listener.ts": "58ee8221ce480b5940d1f8e5259db15fe40687ddbf71804dbc72ef4c57a8ba7a",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-queries.ts": "99d14f74ab6c8cdade2586e42bcdae1ad9d2168bcc4ad730c5bf38c59e46913b",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\main.ts": "95cbd94bb27d5c27a6677d57ee74b0b3f5f63a3ab0ea77a86809596e7b7205e4",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\preload.ts": "f0c4eea2deb4b4043d8ed298c48439d90955137c88580bb472c46b51326a2ddf",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\renderer-recovery.ts": "baad6e4b7148ff577a55c456e69b1ac02d2d98bc6db7e6d583fa19ba54674cd7",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\src\\ipc\\coreClient.ts": "d1b48252af150ee65b6a95092b8c0c32e89d4d98bc2d24dd98d202383531880d",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\src\\components\\Viewport.tsx": "0c616752277f941aa1034943217d0786377adddc58784f3e685c298639380aa0",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\src\\components\\SketchEditor.tsx": "07de2906a584af5611deea63f028acc634319299061f9f0e400099c32b8a469a",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\schemas\\session-control-v1.json": "052bfad79210686944b2747660a12851b2917cef30dd0c19bac02c5a14b107f6"
+    },
+    "passed": [
+      "local-create-new-lineage-same-document",
+      "local-commit-incremental-authoritative-patch",
+      "remote-edit-existing-local-feature",
+      "desktop-undo-same-queue-network-snapshot",
+      "desktop-binary-mesh-bytes-preserved",
+      "network-preview-blocks-desktop-and-foreign-mutation",
+      "desktop-preview-ownership-and-explicit-cancel",
+      "foreign-native-snapshot-geometry-transaction-fence",
+      "generated-session-metadata-available-during-transaction",
+      "owned-native-rollback-restores-committed-state",
+      "renderer-disconnect-rolls-back-native-desktop-unit",
+      "overlap-rejected-before-queued-native-edit",
+      "saved-native-open-replaces-same-id-lineage-and-rejects-old-replay",
+      "invalid-stale-command-no-native-revision-change"
+    ],
+    "finalRevision": 1,
+    "visibleWindows": false,
+    "boundary": "Real OCCT, Sidecar, unified SessionRelay local framed entry and two loopback WebSockets. No Electron renderer or GUI input; native transport latency injected only for the overlap admission check."
+  },
+  "ownedNativeProcessExited": true,
+  "regressions": {
+    "initialRedFailures": 6,
+    "selectionPrivacy": "Foreign selection lookup exposed unpublished local IDs before requester-aware registry; RED/GREEN verified",
+    "additionalChecks": [
+      "Malformed Desktop frame rejected before dispatch",
+      "9 MiB local frame retains the existing native framing limit",
+      "Failed preview releases ownership",
+      "Renderer loss rolls back native Desktop transaction",
+      "Repeated renderer crash releases edits even when recovery is bounded"
+    ]
+  },
+  "sourceSha256": {
+    "apps/desktop/electron/main.ts": "95cbd94bb27d5c27a6677d57ee74b0b3f5f63a3ab0ea77a86809596e7b7205e4",
+    "apps/desktop/electron/preload.ts": "f0c4eea2deb4b4043d8ed298c48439d90955137c88580bb472c46b51326a2ddf",
+    "apps/desktop/electron/renderer-recovery.ts": "baad6e4b7148ff577a55c456e69b1ac02d2d98bc6db7e6d583fa19ba54674cd7",
+    "apps/desktop/electron/session-control-ui.ts": "bed51a625e8b004d0a82d4e72043375251e5c1d1880d10f9fd845bde9c21cb82",
+    "apps/desktop/electron/session-queries.ts": "99d14f74ab6c8cdade2586e42bcdae1ad9d2168bcc4ad730c5bf38c59e46913b",
+    "apps/desktop/electron/session.ts": "80ea6861864e5c1ad04b1a1221d071f500966d2e401924771c2f53b61785c9b1",
+    "apps/desktop/src/components/SketchEditor.tsx": "07de2906a584af5611deea63f028acc634319299061f9f0e400099c32b8a469a",
+    "apps/desktop/src/components/Viewport.tsx": "0c616752277f941aa1034943217d0786377adddc58784f3e685c298639380aa0",
+    "apps/desktop/src/ipc/coreClient.ts": "d1b48252af150ee65b6a95092b8c0c32e89d4d98bc2d24dd98d202383531880d",
+    "apps/desktop/tests/app.test.tsx": "b9d762040db30a47cf88390aca99568526497a8a29d1dbe95b3fe0be5f10de88",
+    "apps/desktop/tests/preload-session.test.ts": "1176c023bde41e90cdbd0c0a9b2a2a10567f0cee5ebecda47be6f9f0891818ee",
+    "apps/desktop/tests/renderer-recovery.test.ts": "9c5de16b064b56c7e7f8881bd4d88c35d666ba7b460c38ec666537cbaaf7a943",
+    "apps/desktop/tests/session-connection-panel.test.tsx": "741dd2b2aad2e332a326442765062815ecd243a54c97ed0607119648357683a6",
+    "apps/desktop/tests/session-relay.test.ts": "d67f00d545c2d4ec472c650d90e5dc8c34ea65809779a7d8a3a32c5e44201784",
+    "clients/session-dotnet/src/Kreoda.SessionClient/Generated/SessionDtos.g.cs": "788b54ede21397f8301219654628aba825a278557be9c673b8d1ae83441dc04e",
+    "clients/session-dotnet/src/Kreoda.SessionClient/Generated/SessionMethods.g.cs": "1689c75498318901415099b782d79e8ae0511bde999fc5d3f88d0073988d8f45",
+    "clients/session-dotnet/src/Kreoda.SessionClient/SessionClient.cs": "37b51af7a5132a5e0980498b6e8b87b419238ac9f0a03a8d8d895263bed0aa6c",
+    "clients/session-dotnet/tests/Kreoda.SessionClient.Tests/SessionClientTests.cs": "47dabfe7e1555ec5b557736d3e3b13ab2853b0dfbcfad7a4708e5827da5ef693",
+    "packages/protocol/src/generated/session-dtos.ts": "effba3dea4c582af84e44e1ebbd1eb9ff948b57c9c115d983ed3db9a48cb2ed6",
+    "packages/protocol/src/generated/session-metadata.ts": "5f5215f0d198de7aec5bdf241938d69ecf1f71f90b5231a20eba994ae491d76b",
+    "packages/protocol/src/generated/session-validators.ts": "4296603f782e2946086d61af6abab9ae9384d7a27bb694c42ffa79c545fab817",
+    "packages/protocol/src/session-control.ts": "ec0940d525b721ef6b4af50f15bf45b3f5775b01b943ffbed967ed80cd3b3db8",
+    "schemas/session-control-v1.json": "052bfad79210686944b2747660a12851b2917cef30dd0c19bac02c5a14b107f6"
+  },
+  "compiledMainSha256": "48a3ed2e9433d35c176c89768f5eb2a55c81f37363e01a879f92aefc02a87f27",
+  "logs": {
+    "kreoda-session-unified-red.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-unified-red.txt",
+      "sha256": "91e29138854a47b6bf1cba6da3ded9b36b6e6082f27b49090be0f16791ee4860"
+    },
+    "kreoda-session-private-selection-red.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-private-selection-red.txt",
+      "sha256": "1e3bf98b6bf9c5694ee72ce8db1e0a7b5f38a217ceeb1a736f72367e252d9c8f"
+    },
+    "kreoda-session-unified-workspace-tests.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-unified-workspace-tests.txt",
+      "sha256": "071a65ad307b01c271f06ba551706dd3bfa1dc21febc52511c50a816a6086ff7"
+    },
+    "kreoda-session-unified-workspace-build.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-unified-workspace-build.txt",
+      "sha256": "257f5eccac26fe72f4b9e0dbda3c53e5de59e53fa7f1ea0a4f47b715c8748d6a"
+    },
+    "kreoda-session-unified-typecheck.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-unified-typecheck.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kreoda-session-unified-dotnet-tests.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-unified-dotnet-tests.txt",
+      "sha256": "a0f3c12c2280433dfc381c1884136388ed15f261e2ba69297e9b57db8efc0740"
+    },
+    "kreoda-session-unified-contract-check.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-unified-contract-check.txt",
+      "sha256": "3f722b70d3819d469319d70222c04055292bda172aa62eb4d2eaf2e727467078"
+    },
+    "kreoda-session-unified-final-focused-tests.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-unified-final-focused-tests.txt",
+      "sha256": "6d00e193fa982b238cb0c797a5e7362d1ee0abf5bb1a111b7711baa0af2cd1e6"
+    },
+    "kreoda-phase11-unified-runtime-probe-result.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase11-unified-runtime-probe-result.txt",
+      "sha256": "83e30a68f9699e3288f13ae9f732b32884eb907e25c56ae414d6b4a20c85949b"
+    }
+  },
+  "boundaries": [
+    "Real native service/local framed API and two loopback WebSockets; no Electron renderer or GUI input in this packet runtime",
+    "Overlap check delays one native transport invocation; CAD results still come from OCCT",
+    "Workspace UI/recovery tests use declared mocks; full hidden Desktop acceptance remains packet 9",
+    "No native source changes or repeated full native unit cohort; binary remains the verified packet 6b build",
+    "Accepted portable and dirty primary untouched; exact hosted CI and fresh Sol review remain packet 10"
+  ]
+}

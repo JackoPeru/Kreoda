@@ -70,31 +70,6 @@ function b64decode(b64: string): Uint8Array {
   return out;
 }
 
-// Core command types that commit model state (Phase 11b session pings).
-// Read-only types (GetCoreInfo, RequestMesh/Sketch/FaceInfo, previews) and
-// RequestSnapshot never ping: nothing changed, no delta exists.
-const MUTATING_COMMANDS = new Set<number>([
-  CommandType.CreateDocument,
-  CommandType.CreateBox,
-  CommandType.CreateCylinder,
-  CommandType.CreateSphere,
-  CommandType.SetFeatureParameter,
-  CommandType.Undo,
-  CommandType.Redo,
-  CommandType.SaveDocument,
-  CommandType.OpenDocument,
-  CommandType.CreateSketch,
-  CommandType.UpdateSketch,
-  CommandType.CreateExtrude,
-  CommandType.CreateRevolve,
-  CommandType.CreateBoolean,
-  CommandType.CreateHole,
-  CommandType.CreateFillet,
-  CommandType.CreateChamfer,
-  CommandType.CreateInstance,
-  CommandType.CreateHolePattern,
-]);
-
 const CreatedFeatureSchema = z.object({
   protocolVersion: z.literal(PROTOCOL_VERSION),
   requestId: z.string(),
@@ -180,14 +155,14 @@ export class CoreClient {
   }
 
   async createDocument(documentId: string): Promise<void> {
-    this.documentId = documentId;
     await this.invoke(CommandType.CreateDocument, documentId, {});
+    this.documentId = documentId;
     await loadReferences("[]");
   }
 
   async readReferences(documentId: string): Promise<string> {
     const parsed = await this.invoke(CommandType.RequestSnapshot, documentId,
-      { includeReferencePlanes: true }, { silent: true });
+      { includeReferencePlanes: true });
     if (parsed.documentId !== documentId) throw new Error("document changed while loading reference images");
     return FeatureListSchema.parse(parsed).referencePlanesJson;
   }
@@ -284,6 +259,10 @@ export class CoreClient {
       // Old core without the list: single-id path still works.
     }
     return { ...base, ...(features ? { features } : {}), ...(sketches ? { sketches } : {}) };
+  }
+
+  cancelPreview(featureId: string): Promise<void> {
+    return window.kreoda.sessionCancelEdit(featureId);
   }
 
   async saveDocument(path: string): Promise<{
@@ -413,8 +392,6 @@ export class CoreClient {
       CommandType.UpdateSketch,
       this.documentId,
       { ...params },
-      // Transient drag previews (§13) commit nothing — never ping.
-      { silent: params.isPreview === true },
     );
     const sketch = parsed.sketch as {
       model?: import("@kreoda/protocol").SketchModel;
@@ -644,7 +621,6 @@ export class CoreClient {
     type: number,
     documentId: string,
     fields: Record<string, unknown>,
-    opts: { silent?: boolean } = {},
   ): Promise<Record<string, unknown>> {
     const raw = await this.roundTrip({
       protocolVersion: PROTOCOL_VERSION,
@@ -679,28 +655,6 @@ export class CoreClient {
       throw new Error(
         (parsed.errorMessage as string | undefined) ?? "core error",
       );
-    }
-    // Phase 11b: committed mutations ping the session relay (fire-and-forget;
-    // previews pass silent:true). The relay re-snapshots single-record
-    // commits itself, so remote clients observe the same delta stream.
-    if (!opts.silent && MUTATING_COMMANDS.has(type)) {
-      const revision =
-        typeof parsed["revision"] === "number"
-          ? (parsed["revision"] as number)
-          : null;
-      if (revision !== null) {
-        const features = Array.isArray(parsed["features"])
-          ? (parsed["features"] as unknown[])
-          : undefined;
-        const sketches = Array.isArray(parsed["sketches"])
-          ? (parsed["sketches"] as unknown[])
-          : undefined;
-        void window.kreoda
-          .sessionNote(documentId, revision, features, sketches)
-          .catch(() => {
-            // Relay disabled or busy — local commit already applied.
-          });
-      }
     }
     return parsed;
   }

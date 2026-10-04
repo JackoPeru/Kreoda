@@ -65,6 +65,14 @@
       "operationReplay": false
     },
     {
+      "method": "getSessionInfo",
+      "required": [],
+      "optional": [],
+      "reply": "{result:SessionInfoPayload}; metadata remains available during an active transaction",
+      "plane": "control",
+      "operationReplay": false
+    },
+    {
       "method": "snapshot",
       "required": [],
       "optional": [
@@ -250,16 +258,20 @@
       "required": [
         "ids"
       ],
-      "optional": [],
-      "reply": "{result:{clientId, ids}} + selection broadcast",
+      "optional": [
+        "publish"
+      ],
+      "reply": "{result:{clientId, ids}} + selection broadcast; selection broadcast only when publish is explicitly true",
       "plane": "query",
       "operationReplay": true
     },
     {
       "method": "clearSelection",
       "required": [],
-      "optional": [],
-      "reply": "{result:{clientId, ids:[]}} + selection broadcast",
+      "optional": [
+        "publish"
+      ],
+      "reply": "{result:{clientId, ids:[]}} + selection broadcast; selection broadcast only when publish is explicitly true",
       "plane": "query",
       "operationReplay": true
     },
@@ -543,7 +555,9 @@
     "PREVIEW_FAILED",
     "UNKNOWN_COMMAND",
     "CLIENT_DISCONNECTED",
-    "CONFLICT"
+    "CONFLICT",
+    "UNAUTHORIZED",
+    "SESSION_STORAGE"
   ],
   "clientOnlyErrorCodes": [
     "NOT_CONNECTED",
@@ -1329,6 +1343,112 @@
       "required": [
         "deviceId",
         "sessionToken"
+      ],
+      "additionalProperties": true
+    },
+    "SessionInfoPayload": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "documentRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "connectedClients": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "clientId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "clientType": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "deviceId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "connectionState": {
+                "type": "string",
+                "enum": [
+                  "connected",
+                  "closing",
+                  "reconnecting"
+                ]
+              }
+            },
+            "required": [
+              "clientId",
+              "clientType",
+              "capabilities",
+              "connectionState"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "transactionState": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "ownerClientId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "transactionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ownerConnected": {
+              "type": "boolean"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "open"
+              ]
+            }
+          },
+          "required": [
+            "ownerClientId",
+            "transactionId",
+            "ownerConnected",
+            "state"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "sessionId",
+        "documentId",
+        "documentRevision",
+        "connectedClients",
+        "transactionState"
       ],
       "additionalProperties": true
     }

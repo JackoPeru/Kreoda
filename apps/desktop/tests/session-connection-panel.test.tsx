@@ -9,6 +9,7 @@ afterEach(() => { cleanup();vi.unstubAllGlobals(); });
 it("enables the selected interface, pairs explicitly and revokes a connected device", async () => {
   setLocale("en");
   let status: SessionConnectionStatus = {
+    session: { sessionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", documentId: "doc-phase1", documentRevision: 0, connectedClients: [], transactionState: null },
     listener: null, interfaces: [{ name: "Local", host: "127.0.0.1" }, { name: "Wi-Fi", host: "192.168.1.10" }],
     clients: [], transaction: null, devices: [], pairingAvailable: true,
   };

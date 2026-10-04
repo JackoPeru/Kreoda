@@ -37,15 +37,7 @@ export interface KreodaApi {
   sessionPair: () => Promise<{ token: string; expiresAt: string }>;
   sessionCancelPair: () => Promise<void>;
   sessionRevoke: (deviceId: string) => Promise<SessionConnectionStatus>;
-  // Phase 11b: the renderer tells the session relay about mutations it
-  // committed itself (toolbar/palette/AI paths bypass the relay socket), so
-  // remote clients get the same delta broadcast.
-  sessionNote: (
-    documentId: string,
-    revision: number,
-    features?: unknown[],
-    sketches?: unknown[],
-  ) => Promise<void>;
+  sessionCancelEdit: (featureId: string) => Promise<void>;
 }
 
 const api: KreodaApi = {
@@ -154,15 +146,7 @@ const api: KreodaApi = {
         listener as (...args: unknown[]) => void,
       );
   },
-  sessionNote: (documentId, revision, features, sketches) =>
-    ipcRenderer.invoke(
-      "kreoda:session-note",
-      documentId,
-      revision,
-      // Retained call shape; the service reads canonical native state.
-      features,
-      sketches,
-    ) as Promise<void>,
+  sessionCancelEdit: (featureId) => ipcRenderer.invoke("kreoda:session-cancel-edit", featureId) as Promise<void>,
 };
 
 contextBridge.exposeInMainWorld("kreoda", api);

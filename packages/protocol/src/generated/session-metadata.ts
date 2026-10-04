@@ -1,6 +1,6 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 93e9e8283b745c4ea77c001d2093ec711161c16ad847705b1c5b194f8fb67ef5
-export const CONTRACT_SCHEMA_SHA256 = "93e9e8283b745c4ea77c001d2093ec711161c16ad847705b1c5b194f8fb67ef5" as const;
+// Source SHA256: 469759d65430c8f8ad5b910da45fe80637728b8d60e9f294fcca2eca7587e705
+export const CONTRACT_SCHEMA_SHA256 = "469759d65430c8f8ad5b910da45fe80637728b8d60e9f294fcca2eca7587e705" as const;
 export const SESSION_DTO_NAMES = [
   "StableFeatureId",
   "RequestMetadata",
@@ -24,13 +24,15 @@ export const SESSION_DTO_NAMES = [
   "PairParams",
   "AuthenticateParams",
   "PairReply",
-  "AuthenticateReply"
+  "AuthenticateReply",
+  "SessionInfoPayload"
 ] as const;
 export const SESSION_CONTROL_VERSION = 1 as const;
 export const CONTROL_METHODS = [
   "pair",
   "authenticate",
   "hello",
+  "getSessionInfo",
   "snapshot",
   "invoke",
   "command",
@@ -79,6 +81,7 @@ export const SESSION_CONTROL_METHODS = [
   "pair",
   "authenticate",
   "hello",
+  "getSessionInfo",
   "snapshot",
   "invoke",
   "command",
@@ -148,6 +151,7 @@ export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
     "token",
     "protocolVersion"
   ],
+  "getSessionInfo": [],
   "snapshot": [],
   "invoke": [
     "type"

@@ -7,6 +7,8 @@ import { CONTROL_METHODS, QUERY_METHODS_CONTRACT, SESSION_DTO_NAMES } from './ge
 export * from './generated/session-metadata.js';
 export type { PairParams, AuthenticateParams, PairReply, AuthenticateReply, HelloParams, SnapshotParams, InvokeParams, NamedCommandParams, TxnParams, ErrorReply, RequestMetadata } from './generated/session-dtos.js';
 export type ControlMethod = (typeof CONTROL_METHODS)[number];
+export type { SessionInfoPayload } from './generated/session-dtos.js';
+export const SessionInfoPayloadSchema = schema<DTO.SessionInfoPayload>('SessionInfoPayload');
 export type QueryMethodContract = (typeof QUERY_METHODS_CONTRACT)[number];
 
 function schema<T>(name: (typeof SESSION_DTO_NAMES)[number]): z.ZodType<T> {
