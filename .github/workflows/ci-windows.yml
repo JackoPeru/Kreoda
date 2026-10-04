@@ -103,6 +103,9 @@ jobs:
       - name: .NET build + tests
         run: pnpm test:dotnet
 
+      - name: Build paired C# acceptance client
+        run: dotnet build clients/session-dotnet/probes/Kreoda.DeviceProbe/Kreoda.DeviceProbe.csproj -c Release --nologo
+
       - name: Build desktop shell
         id: desktop-build
         run: pnpm --filter @kreoda/desktop build

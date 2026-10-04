@@ -11,6 +11,10 @@ await using (var client = pair.Client)
     Check(client.DeviceId == pair.DeviceId && client.Model is not null);
     var info = await client.InvokeAsync(1, new Dictionary<string, object?>());
     Check(info.GetProperty("occtVersion").GetString() == "8.0.1-native");
+    var metadata = await client.SessionInfoAsync();
+    Check(metadata.SessionId == client.SessionId && metadata.DocumentRevision == client.Model?.Revision);
+    Check(metadata.ConnectedClients.Any(x => x.ClientId == "desktop" && x.ConnectionState == Kreoda.Session.Generated.ConnectionState.Connected));
+    passed.Add("compiled-csharp-generated-session-metadata");
     var edited = await client.CommandAsync("SetDimension", new Dictionary<string, object?>
         { ["featureId"] = "box", ["paramName"] = "widthMm", ["valueMm"] = 25 });
     var snapshot = await client.SnapshotAsync();

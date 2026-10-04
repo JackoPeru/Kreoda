@@ -36,7 +36,7 @@ import {
   restoreRecovery,
 } from "../recovery/autosave";
 import { executeCommand } from "../commands/execute";
-import { pullFeatureMesh, syncFromCoreList, updateFeatureSummary } from "../model/sync";
+import { bindOpenedSessionRefresh, pullFeatureMesh, syncFromCoreList, syncOpenedDocument, updateFeatureSummary } from "../model/sync";
 import { createSessionUpdateQueue } from "../model/session-update-queue";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 import {
@@ -224,9 +224,11 @@ export function App() {
       onError: (error) => console.warn("[session] delta apply failed", error),
     });
     const off = window.kreoda?.onSessionDelta?.((delta) => { void updates.push(delta); });
+    const unbindOpen = bindOpenedSessionRefresh(updates.refreshAndVerify);
     const offRestart = window.kreoda?.onCoreRestarted?.(() => { void updates.refresh(); });
     return () => {
       updates.dispose();
+      unbindOpen();
       off?.();
       offRestart?.();
     };
@@ -292,8 +294,7 @@ export function App() {
           await coreClient.openDocument(path);
         // Document replacement = new epoch (C5): the core revision resets
         // on fresh baselines, so staleness guards key lineage, not numbers.
-        useDocumentUiStore.getState().resetDocument(coreClient.documentId);
-        await syncFromCoreList(list, revision, sketches);
+        await syncOpenedDocument(list, revision, sketches);
         return (
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
         ).__kreoda_test.snapshot();

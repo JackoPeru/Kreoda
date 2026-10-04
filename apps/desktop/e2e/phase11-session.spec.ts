@@ -7,9 +7,13 @@
 // Uses KREODA_SESSION_PORT/TOKEN (relay stays off for every other spec, so
 // no port collisions across workers).
 
-import { test, expect } from "@playwright/test";
+import { test, expect, _electron as electron } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
+import { createRequire } from "node:module";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { MAIN } from "./helpers";
 import { HERE, boot, openProject, runBar, snapOf } from "./helpers";
 import { SessionClient } from "./ws-test-client";
 
@@ -17,137 +21,136 @@ const PORT = 44731;
 const TOKEN = "s11-acceptance-token";
 const RECOVERY_DIR = path.join(os.tmpdir(), "kreoda-phase11-session-e2e");
 
-test("unified session: join, mutate, desktop sync, undo, resync, rejects", async () => {
-  const env = {
-    ...process.env,
-    KREODA_SESSION_PORT: String(PORT),
-    KREODA_SESSION_TOKEN: TOKEN,
-    KREODA_RECOVERY_DIR: RECOVERY_DIR,
-  };
-  const { app, window } = await boot(env);
-  const client = new SessionClient();
+// This acceptance deliberately sends no mouse or keyboard actions: both
+// clients use the production IPC/WebSocket entry points and the real OCCT core.
+test("unified session: saved document, paired client, existing edit, Desktop undo, reconnect and rejects without GUI input", async () => {
+  const profile = mkdtempSync(path.join(os.tmpdir(), "kreoda-session-acceptance-"));
+  const app = await electron.launch({
+    executablePath: createRequire(import.meta.url)("electron") as string,
+    args: [MAIN, "--no-sandbox", "--lang=en-US", `--user-data-dir=${profile}`],
+    env: { ...process.env, KREODA_SESSION_PORT: "", KREODA_SESSION_TOKEN: "", KREODA_RECOVERY_DIR: profile },
+  });
+  const clients: SessionClient[] = [];
+  const checks: string[] = [];
   try {
-    // 1. Desktop opens a (fresh, empty) document.
+    const window = await app.firstWindow();
+    await expect.poll(() => window.evaluate(() => !!(window as unknown as { __kreoda_test?: unknown }).__kreoda_test)).toBe(true);
+    await expect.poll(() => window.evaluate(() => globalThis.window.kreoda.coreInfo().then(info => info.running))).toBe(true);
+    await window.evaluate(() => (window as unknown as { __kreoda_test: { openWorkspace(): void } }).__kreoda_test.openWorkspace());
+    await expect(window.getByTestId("workspace-chrome")).toBeVisible();
+    const local = (type: number, fields: Record<string, unknown> = {}) => window.evaluate(async ({ type, fields }) => {
+      const payload = new TextEncoder().encode(JSON.stringify({ protocolVersion: 1, requestId: crypto.randomUUID(), documentId: "doc-phase1", type, ...fields }));
+      const framed = new Uint8Array(payload.length + 4);
+      new DataView(framed.buffer).setUint32(0, payload.length, true);
+      framed.set(payload, 4);
+      const reply = await globalThis.window.kreoda.invoke(btoa(Array.from(framed, b => String.fromCharCode(b)).join("")));
+      return JSON.parse(atob(reply)) as Record<string, unknown>;
+    }, { type, fields });
+    const kernel = await local(1);
+    expect(kernel["occtVersion"]).toBe("8.0.1-native");
+    expect((await local(2))["status"]).toBe("ok");
+    for (const featureId of ["box", "untouched"])
+      expect((await local(3, { featureId, widthMm: 20, heightMm: 30, depthMm: 10 }))["status"]).toBe("ok");
+    await expect.poll(async () => (await snapOf(window)).bodies.filter(b => b.triangles > 0).length).toBe(2);
+    const saved = path.join(profile, "saved-session.icad");
+    await window.evaluate(saved => (window as unknown as { __kreoda_test: { saveIcad(path: string): Promise<unknown> } }).__kreoda_test.saveIcad(saved), saved);
+    expect((await local(2))["status"]).toBe("ok");
+    await expect.poll(async () => (await snapOf(window)).bodies.length).toBe(0);
+    await window.evaluate(saved => (window as unknown as { __kreoda_test: { openIcad(path: string): Promise<unknown> } }).__kreoda_test.openIcad(saved), saved);
+    await expect.poll(async () => (await snapOf(window)).bodies.filter(b => b.triangles > 0).length).toBe(2);
+    checks.push("desktop-opens-saved-native-document");
 
-    // 2. Second client connects over the network protocol.
-    const hello = await client.connect(TOKEN, PORT);
-    expect(typeof hello["clientId"]).toBe("string");
-    expect(hello["documentId"]).toBe("doc-phase1");
-    expect(hello["revision"]).toBe(0);
-
-    // 3. Full snapshot on join (empty model).
-    const empty = (await client.call("snapshot", {})) as {
-      features: unknown[];
-      revision: number;
-    };
-    expect(empty.features).toHaveLength(0);
-
-    // 4. Second client changes a parameter of the shared model: it creates
-    // a box through the typed core command (type 3 = CreateBox).
-    const boxId = `box-${crypto.randomUUID()}`;
-    const created = await client.call("invoke", {
-      documentId: "doc-phase1",
-      type: 3,
-      fields: { featureId: boxId, widthMm: 100, heightMm: 60, depthMm: 10 },
+    const disabled = await window.evaluate(() => globalThis.window.kreoda.sessionConnectionStatus());
+    expect(disabled.listener).toBeNull();
+    const host = disabled.interfaces.find(i => i.host !== "127.0.0.1")?.host ?? "127.0.0.1";
+    const enabled = await window.evaluate(host => globalThis.window.kreoda.sessionEnable(host, 0), host);
+    const url = `ws://${host}:${enabled.listener!.port}`;
+    const pairing = await window.evaluate(() => globalThis.window.kreoda.sessionPair());
+    const client = new SessionClient(); clients.push(client);
+    const paired = await client.pair(url, pairing.token);
+    const snapshot = await client.call("snapshot");
+    expect((snapshot["features"] as { featureId: string }[]).map(f => f.featureId)).toEqual(["box", "untouched"]);
+    expect(snapshot["revision"]).toBe((await snapOf(window)).revision);
+    checks.push("production-pairing-and-full-snapshot-on-join");
+    const identities = () => window.evaluate(() => {
+      const hooks = (window as unknown as { __kreoda_test: { meshIdentity(id: string): { geometryId: string }; viewDir(): unknown } }).__kreoda_test;
+      return { box: hooks.meshIdentity("box"), other: hooks.meshIdentity("untouched"), camera: hooks.viewDir() };
     });
-    expect(created["featureId"]).toBe(boxId);
-    const rev1 = created["revision"] as number;
-    expect(rev1).toBeGreaterThan(0);
+    await window.evaluate(() => (window as unknown as { __kreoda_test: { selectFace(id: string, role: string): void } }).__kreoda_test.selectFace("untouched", "box.+Z"));
+    const before = await identities();
+    const edited = await client.call("command", { commandId: "SetDimension", parameters: { featureId: "box", paramName: "widthMm", valueMm: 25 }, baseRevision: snapshot["revision"] },
+      { sessionId: paired.hello["sessionId"], operationId: crypto.randomUUID() });
+    const delta = await client.waitDelta(edited["revision"] as number) as unknown as Record<string, unknown>;
+    expect(delta["originClientId"]).toBe(paired.hello["clientId"]);
+    expect(delta["changedMeshIds"]).toEqual(["box"]);
+    expect(delta).not.toHaveProperty("features");
+    await expect.poll(async () => (await snapOf(window)).bodies.find(b => b.id === "box")?.volumeMm3).toBeCloseTo(7500, 4);
+    await expect.poll(async () => (await identities()).box.geometryId).not.toBe(before.box.geometryId);
+    expect((await identities()).other.geometryId).toBe(before.other.geometryId);
+    expect((await identities()).camera).toEqual(before.camera);
+    expect((await snapOf(window)).selectedIds).toContain("untouched:box.+Z");
+    checks.push("network-edits-existing-parameter", "desktop-applies-incremental-geometry-and-retains-context");
 
-    // 5. Desktop receives the delta and updates with no reload.
-    await expect
-      .poll(async () => (await snapOf(window)).bodies.length, {
-        timeout: 30000,
-      })
-      .toBe(1);
-    await openProject(window);
-    await expect(window.getByText(/Box 100×60×10/).first()).toBeVisible({
-      timeout: 10000,
-    });
-    const desk = await snapOf(window);
-    expect(desk.bodies[0]!.id).toBe(boxId);
-    expect(desk.bodies[0]!.volumeMm3).toBeCloseTo(60000, 3);
+    const undone = await local(8);
+    expect(undone["status"]).toBe("ok");
+    const undoDelta = await client.waitDelta(undone["revision"] as number) as unknown as Record<string, unknown>;
+    expect(undoDelta["originClientId"]).toBe("desktop");
+    await expect.poll(async () => (await snapOf(window)).bodies.find(b => b.id === "box")?.volumeMm3).toBeCloseTo(6000, 4);
+    const restored = await client.call("snapshot");
+    expect((restored["features"] as { featureId: string; volumeMm3: number }[]).find(f => f.featureId === "box")?.volumeMm3).toBeCloseTo(6000, 4);
+    expect(restored["revision"]).toBe((await snapOf(window)).revision);
+    checks.push("desktop-undo-through-authoritative-ipc", "network-receives-desktop-undo", "matching-native-renderer-network-revisions");
+    const metadata = (await client.call("getSessionInfo"))["result"] as { documentRevision: number; connectedClients: { clientId: string }[] };
+    expect(metadata.documentRevision).toBe(restored["revision"]);
+    expect(metadata.connectedClients.map(c => c.clientId)).toContain("desktop");
+    checks.push("generated-session-metadata-with-real-desktop");
 
-    // 6. Desktop performs Undo; the second client receives the delta.
-    await window.locator('button[title^="Undo"]').click();
-    const undone = await client.waitDelta(rev1 + 1);
-    expect(undone.features).toHaveLength(0);
-    await expect
-      .poll(async () => (await snapOf(window)).bodies.length, {
-        timeout: 20000,
-      })
-      .toBe(0);
-
-    // Redo restores on both sides (same revision everywhere).
-    await window.locator('button[title^="Redo"]').click();
-    const redone = await client.waitDelta(rev1 + 2);
-    expect(redone.features.map((b) => b.featureId)).toContain(boxId);
-
-    // 7. Both clients on the same revision.
-    const relaySnap = (await client.call("snapshot", {})) as {
-      revision: number;
-    };
-    const deskSnap = await snapOf(window);
-    expect(deskSnap.revision).toBe(relaySnap.revision);
-
-    // 8. Disconnect + reconnect recovers the same state.
     await client.closed();
-    const client2 = new SessionClient();
-    try {
-      const hello2 = await client2.connect(TOKEN, PORT);
-      expect(hello2["revision"]).toBe(relaySnap.revision);
-      const re = (await client2.call("snapshot", {})) as {
-        features: { featureId: string }[];
-      };
-      expect(re.features.map((b) => b.featureId)).toContain(boxId);
-    } finally {
-      client2.closeRaw();
-    }
+    const returning = new SessionClient(); clients.push(returning);
+    await returning.connectDevice(url, paired.deviceId, paired.credential);
+    const reconnected = await returning.call("snapshot");
+    expect(reconnected["revision"]).toBe(restored["revision"]);
+    expect(reconnected["features"]).toEqual(restored["features"]);
+    checks.push("device-credential-reconnect-recovers-state");
+    await expect(returning.call("command", { commandId: "SetDimension", parameters: { featureId: "box", paramName: "widthMm", valueMm: "bad" } })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+    await expect(returning.call("command", { commandId: "SetDimension", parameters: { featureId: "box", paramName: "widthMm", valueMm: 30 }, baseRevision: 999999 })).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+    expect((await returning.call("snapshot"))["revision"]).toBe(restored["revision"]);
+    checks.push("invalid-and-stale-commands-preserve-native-state");
 
-    // 9. Invalid and stale mutations are rejected safely.
-    const evil = new SessionClient();
-    try {
-      await evil.connect("wrong-token", PORT);
-      throw new Error("bad token was accepted");
-    } catch (e) {
-      // Either the socket closed (no hello reply) or hello errored.
-      expect(String(e)).not.toContain("bad token was accepted");
-    } finally {
-      evil.closeRaw();
-    }
-    const client3 = new SessionClient();
-    try {
-      await client3.connect(TOKEN, PORT);
-      await expect(
-        client3.call("invoke", {
-          documentId: "doc-phase1",
-          type: 3,
-          baseRevision: 999999,
-          fields: {
-            featureId: `box-${crypto.randomUUID()}`,
-            widthMm: 10,
-            heightMm: 10,
-            depthMm: 10,
-          },
-        }),
-      ).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
-      await expect(
-        client3.call("frobnicate", {}),
-      ).rejects.toMatchObject({ code: "NOT_IMPLEMENTED" });
-      await expect(
-        client3.call("invoke", {
-          documentId: "doc-phase1",
-          type: 999,
-          fields: {},
-        }),
-      ).rejects.toThrow();
-    } finally {
-      client3.closeRaw();
-    }
-
-    await window.screenshot({ path: path.join(HERE, "phase11-session.png") });
+    // Also exercise the compiled generated C# client against this Electron
+    // host. Pairing credentials travel only through the child environment.
+    const csPair = await window.evaluate(() => globalThis.window.kreoda.sessionPair());
+    const dll = path.resolve(HERE, "../../../clients/session-dotnet/probes/Kreoda.DeviceProbe/bin/Release/net8.0/Kreoda.DeviceProbe.dll");
+    let dotnetPid: number | undefined;
+    const cs = await new Promise<{ passed: string[] }>((resolve, reject) => {
+      const child = spawn("dotnet", [dll], { windowsHide: true, env: { ...process.env, KREODA_DEVICE_PROBE_URL: url, KREODA_DEVICE_PROBE_PAIR: csPair.token } });
+      dotnetPid = child.pid;
+      let output = "", errors = "";
+      child.stdout.on("data", b => output += String(b)); child.stderr.on("data", b => errors += String(b));
+      child.once("error", reject);
+      const timer = setTimeout(() => { child.kill(); reject(new Error("compiled client timed out")); }, 30000);
+      child.once("exit", code => { clearTimeout(timer); if (code !== 0) reject(new Error(`compiled client failed: ${errors}`)); else resolve(JSON.parse(output.trim()) as { passed: string[] }); });
+    });
+    expect(cs.passed).toHaveLength(5);
+    await expect.poll(async () => (await snapOf(window)).revision).toBe((await returning.call("snapshot"))["revision"]);
+    await expect.poll(async () => (await snapOf(window)).bodies.find(b => b.id === "box")?.volumeMm3).toBeCloseTo(6000, 4);
+    checks.push("compiled-csharp-pair-edit-undo-metadata-and-reconnect");
+    await window.evaluate(id => globalThis.window.kreoda.sessionRevoke(id), paired.deviceId);
+    await expect.poll(() => returning.call("getSessionInfo").then(() => false, () => true)).toBe(true);
+    const revoked = new SessionClient(); clients.push(revoked);
+    await expect(revoked.connectDevice(url, paired.deviceId, paired.credential)).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    checks.push("production-revocation-closes-and-rejects-device");
+    const native = await window.evaluate(() => globalThis.window.kreoda.coreInfo());
+    const visible = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(w => w.isVisible()));
+    if (process.env["KREODA_LOCAL_CORE_PROBE"]) expect(visible).toBe(false);
+    const runtime = test.info().outputPath("session-acceptance-runtime.json");
+    writeFileSync(runtime, JSON.stringify({ checks, dotnetChecks: cs.passed, kernel: kernel["occtVersion"],
+      mainPid: app.process().pid, corePid: native.pid, dotnetPid, visibleWindows: visible,
+      finalRevision: (await snapOf(window)).revision, inputActions: 0, host,
+      boundary: "Actual Electron renderer/main, OCCT and paired WebSocket plus compiled C# clients on the same host; no Unity or remote hardware." }));
+    await test.info().attach("session-acceptance-runtime", { contentType: "application/json", path: runtime });
   } finally {
-    client.closeRaw();
+    for (const client of clients) client.closeRaw();
     await app.close();
   }
 });

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Redo2, Save, Undo2 } from "lucide-react";
 import { useDocumentUiStore } from "../../stores";
 import { coreClient } from "../../ipc/coreClient";
-import { syncFromCoreList } from "../../model/sync";
+import { syncOpenedDocument } from "../../model/sync";
 import { executeCommand } from "../../commands/execute";
 import { clearRecoveryAfterSave } from "../../recovery/autosave";
 import { t, useT } from "../../i18n";
@@ -31,8 +31,7 @@ export async function openDocument(): Promise<string | null> {
     if (!path) return null;
     const { features: list, sketches, revision } =
       await coreClient.openDocument(path);
-    useDocumentUiStore.getState().resetDocument(coreClient.documentId);
-    await syncFromCoreList(list, revision, sketches);
+    await syncOpenedDocument(list, revision, sketches);
     return null;
   } catch (e) {
     return e instanceof Error ? e.message : t("actions.errOpenFailed");

@@ -19,7 +19,27 @@ export class SessionClient {
     logicalClientId?: string,
     capabilities?: string[],
   ): Promise<Record<string, unknown>> {
-    this.ws = new WebSocket(`ws://127.0.0.1:${port}`);
+    await this.open(`ws://127.0.0.1:${port}`);
+    return this.hello(token, logicalClientId, capabilities);
+  }
+
+  async pair(url: string, pairingToken: string) {
+    await this.open(url);
+    const paired = await this.call("pair", { pairingToken, deviceName: "phase11-acceptance" });
+    const hello = await this.hello(paired["sessionToken"] as string, undefined,
+      ["incremental-deltas", "operation-replay"], paired["deviceId"] as string);
+    return { hello, deviceId: paired["deviceId"] as string, credential: paired["credential"] as string };
+  }
+
+  async connectDevice(url: string, deviceId: string, credential: string) {
+    await this.open(url);
+    const authenticated = await this.call("authenticate", { deviceId, credential });
+    return this.hello(authenticated["sessionToken"] as string, undefined,
+      ["incremental-deltas", "operation-replay"], deviceId);
+  }
+
+  private async open(url: string): Promise<void> {
+    this.ws = new WebSocket(url);
     await new Promise<void>((resolve, reject) => {
       this.ws!.once("open", () => resolve());
       this.ws!.once("error", (e) => reject(e));
@@ -55,11 +75,15 @@ export class SessionClient {
       }
       this.events.push(msg);
     });
+  }
+
+  private hello(token: string, logicalClientId?: string, capabilities?: string[], deviceId?: string) {
     return this.call("hello", {
       clientType: "test",
       clientName: "phase11-acceptance",
       protocolVersion: 1,
       token,
+      ...(deviceId ? { deviceId } : {}),
       ...(logicalClientId ? { clientId: logicalClientId } : {}),
       ...(capabilities ? { capabilities } : {}),
     });

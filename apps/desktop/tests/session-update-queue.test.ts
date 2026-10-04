@@ -78,3 +78,14 @@ it("retries recovery after a failed hydration and ignores pending work after dis
   await h.queue.push(delta(2, 3));
   expect(h.commit).toHaveBeenCalledTimes(2);
 });
+
+it("Open waits for authoritative hydration and surfaces a failed refresh without poisoning later work", async () => {
+  const h = harness();
+  h.commit.mockRejectedValueOnce(new Error("mesh failed"));
+  await expect(h.queue.refreshAndVerify()).rejects.toThrow("did not synchronize");
+  h.fetchSnapshot.mockResolvedValue(snapshot(2, "opened-session"));
+  await h.queue.refreshAndVerify();
+  await h.queue.push(delta(2, 3, "opened-session"));
+  expect(h.commit.mock.calls.at(-1)![1]).toEqual(["a"]);
+  expect(h.fetchSnapshot).toHaveBeenCalledTimes(2);
+});

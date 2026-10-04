@@ -12,6 +12,24 @@ import {
   visibleFeatureIds,
 } from "../stores";
 
+let refreshOpenedSession: (() => Promise<void>) | null = null;
+
+/** Open and recovery await the same queue that owns incoming session events. */
+export function bindOpenedSessionRefresh(refresh: () => Promise<void>): () => void {
+  refreshOpenedSession = refresh;
+  return () => { if (refreshOpenedSession === refresh) refreshOpenedSession = null; };
+}
+
+export async function syncOpenedDocument(features: FeatureSummary[], revision: number, sketches: SketchSummary[]): Promise<number> {
+  if (refreshOpenedSession) {
+    await refreshOpenedSession();
+  } else {
+    useDocumentUiStore.getState().resetDocument(coreClient.documentId);
+    await syncFromCoreList(features, revision, sketches);
+  }
+  return useDocumentUiStore.getState().epoch;
+}
+
 /** Re-request + store the mesh for one feature at the given core revision. */
 export async function pullFeatureMesh(
   featureId: string,

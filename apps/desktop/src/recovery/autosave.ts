@@ -8,7 +8,7 @@
 // (crash AND quit-without-save both restore — indistinguishable by design).
 
 import { coreClient } from "../ipc/coreClient";
-import { syncFromCoreList } from "../model/sync";
+import { syncOpenedDocument } from "../model/sync";
 import { useDocumentUiStore } from "../stores";
 import { useReferenceStore } from "../reference/store";
 
@@ -67,9 +67,7 @@ export async function restoreRecovery(): Promise<void> {
   const { features: list, sketches, revision } =
     await coreClient.openDocument(path);
   // Document replacement = new epoch (C5): core revisions reset.
-  useDocumentUiStore.getState().resetDocument(coreClient.documentId);
-  const restoreEpoch = useDocumentUiStore.getState().epoch;
-  await syncFromCoreList(list, revision, sketches);
+  const restoreEpoch = await syncOpenedDocument(list, revision, sketches);
   // Keep the file: quitting again without saving must prompt again.
   const restored = docState();
   if (restored.epoch === restoreEpoch && restored.revision === revision) {

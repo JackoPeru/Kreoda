@@ -48,6 +48,13 @@ export function createSessionUpdateQueue(hooks: {
 
   return {
     refresh: () => enqueue(recover),
+    refreshAndVerify: async () => {
+      await enqueue(recover);
+      const current = hooks.context();
+      if (!model || epoch !== current.epoch || model.documentId !== current.documentId || model.revision !== current.revision) {
+        throw new Error("Session view did not synchronize");
+      }
+    },
     push: (delta: unknown) => enqueue(async () => {
       const current = hooks.context();
       if (!model || epoch !== current.epoch || model.documentId !== current.documentId || model.revision !== current.revision) {

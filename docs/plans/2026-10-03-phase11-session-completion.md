@@ -357,6 +357,24 @@ or listener. The local connection panel owns enabling, pairing and revoking.
    `docs/evidence/phase11-unified-session-local-2026-10-04.json`.
    Phase 11 remains incomplete; hidden Desktop acceptance is next.
 9. Real native, Desktop and second-client acceptance with no GUI input.
+   Packet 9: all ten roadmap actions pass against actual hidden Electron,
+   the current OCCT core and production device pairing. Desktop opens a saved
+   two-body ICAD file; the paired client edits an existing dimension; Desktop
+   applies the patch and performs Undo through its framed IPC; the network
+   client receives Undo, agrees on revision, reconnects using its credential
+   and rejects invalid/stale commands without changing the model. Unchanged
+   geometry identity, camera and selection are retained. Generated metadata,
+   compiled C# pairing/edit/Undo/reconnect and device revocation also pass.
+   The acceptance found competing Open synchronization: local Open/recovery
+   now await the authoritative renderer queue, including hydration errors,
+   instead of resetting a second epoch after its event. The regression failed
+   before this correction and passes afterward. Fourteen focused unit tests,
+   Desktop typecheck/build and the compiled probe build (zero warnings/errors)
+   PASS. Two hidden integration scenarios PASS with zero mouse/keyboard input;
+   source hashes fixed, original compiled main restored, owned PIDs exited.
+   Evidence: `docs/evidence/phase11-desktop-network-acceptance-local-2026-10-04.json`.
+   Private Ethernet clients run on this host; no remote Quest/Unity claim.
+   Phase 11 remains incomplete pending the full regression/CI/review gates.
 10. Exact hosted CI, evidence report, fresh Sol review, primary safe copy.
 
 ## Required verification gates
