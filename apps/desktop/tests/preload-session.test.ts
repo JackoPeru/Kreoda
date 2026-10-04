@@ -9,13 +9,14 @@ vi.mock("electron", () => ({
   contextBridge: { exposeInMainWorld: expose },
 }));
 
-test("session notes preserve absent snapshots and explicit empty documents", async () => {
+test("session recovery and preview cancellation use narrow IPC entries", async () => {
   await import("../electron/preload");
   const api = expose.mock.calls[0]![1] as {
-    sessionNote: (id: string, revision: number, features?: unknown[], sketches?: unknown[]) => Promise<void>;
+    sessionSnapshot: () => Promise<unknown>;
+    sessionCancelEdit: (id: string) => Promise<void>;
   };
-  await api.sessionNote("doc", 1);
-  expect(invoke).toHaveBeenLastCalledWith("kreoda:session-note", "doc", 1, undefined, undefined);
-  await api.sessionNote("doc", 2, [], []);
-  expect(invoke).toHaveBeenLastCalledWith("kreoda:session-note", "doc", 2, [], []);
+  await api.sessionCancelEdit("box");
+  expect(invoke).toHaveBeenLastCalledWith("kreoda:session-cancel-edit", "box");
+  await api.sessionSnapshot();
+  expect(invoke).toHaveBeenLastCalledWith("kreoda:session-snapshot");
 });

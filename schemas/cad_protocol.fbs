@@ -36,7 +36,8 @@ enum CommandType : ushort {
   RequestSnapshot,
   BeginTransaction,
   CommitTransaction,
-  RollbackTransaction
+  RollbackTransaction,
+  RequestSessionQuery
 }
 
 enum StatusCode : byte {

@@ -30,6 +30,43 @@ bool has(const std::string& r, const std::string& s) {
 
 }  // namespace
 
+TEST(Session11Json, TopLevelFieldsIgnoreNestedMetadataAndDecodeEscapes) {
+  const std::string value = R"({"meta":{"type":27,"requestId":"forged","widthMm":999},"type":1,"requestId":"actual\u002drequest","widthMm":20})";
+  EXPECT_EQ(kreoda::json_int_field(value, "type", 0), 1);
+  EXPECT_EQ(kreoda::json_string_field(value, "requestId", ""), "actual-request");
+  EXPECT_EQ(kreoda::json_double_field(value, "widthMm", 0), 20);
+  EXPECT_FALSE(kreoda::json_has_key(R"({"meta":{"transactionId":"other"}})", "transactionId"));
+}
+
+TEST(Session11Json, DoesNotCoerceScalarsOrAcceptMalformedObjects) {
+  EXPECT_EQ(kreoda::json_int_field(R"({"type":"3"})", "type", -1), -1);
+  EXPECT_EQ(kreoda::json_double_field(R"({"widthMm":"20"})", "widthMm", -1), -1);
+  EXPECT_EQ(kreoda::json_string_field(R"({"featureId":3})", "featureId", "fallback"), "fallback");
+  for (const auto& malformed : {"[]", "null", "{\"type\":1,}", "{\"type\":1}garbage"}) {
+    EXPECT_TRUE(has(rpc(malformed), "BAD_ENVELOPE")) << malformed;
+  }
+}
+
+TEST(Session11Json, NestedTransactionCannotJoinAnOpenUnit) {
+  kreoda::DocumentStore::instance().create("typed-json");
+  ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"begin","documentId":"typed-json","type":27,"transactionId":"owner"})")));
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto rejected = rpc(R"({"meta":{"transactionId":"owner"},"protocolVersion":1,"requestId":"nested","documentId":"typed-json","type":3,"featureId":"forged-box","widthMm":10,"heightMm":10,"depthMm":10})");
+  EXPECT_TRUE(has(rejected, "TRANSACTION_OPEN")) << rejected;
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("forged-box"));
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"rollback","documentId":"typed-json","type":29,"transactionId":"owner"})")));
+}
+
+TEST(Session11Json, InvalidNumbersAndNestedArraysCannotCreateFeatures) {
+  kreoda::DocumentStore::instance().create("typed-json");
+  const auto invalid = rpc(R"({"protocolVersion":1,"requestId":"quoted","documentId":"typed-json","type":3,"featureId":"quoted-box","widthMm":"20","heightMm":10,"depthMm":10})");
+  EXPECT_TRUE(has(invalid, "BAD_PARAMS")) << invalid;
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("quoted-box"));
+  const auto nested = rpc(R"({"protocolVersion":1,"requestId":"nested-array","documentId":"typed-json","type":25,"targetId":"missing","faceRole":"box.+Z","diameterMm":2,"featureIds":["h"],"points":[[1,2]]})");
+  EXPECT_TRUE(has(nested, "BAD_PARAMS")) << nested;
+}
+
 TEST(Session11, SnapshotListsFeaturesWithoutMutating) {
   kreoda::DocumentStore::instance().create("snap-doc");
   std::string err;

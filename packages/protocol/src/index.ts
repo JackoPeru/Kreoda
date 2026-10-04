@@ -12,6 +12,7 @@ import * as flatbuffers from "flatbuffers";
 import { MeshUpdate } from "./generated/kreoda/protocol.js";
 
 export * from "./session-control.js";
+export * from "./session-model.js";
 
 export const PROTOCOL_VERSION = 1 as const;
 
@@ -46,6 +47,7 @@ export const CommandType = {
   BeginTransaction: 27,
   CommitTransaction: 28,
   RollbackTransaction: 29,
+  RequestSessionQuery: 30,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 

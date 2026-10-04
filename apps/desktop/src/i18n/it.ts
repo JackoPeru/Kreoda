@@ -3,6 +3,28 @@
 import type { EnKey } from "./en";
 
 export const it: Record<EnKey, string> = {
+  "session.title": "Sessione condivisa",
+  "session.description": "Collega un altro dispositivo a questo documento CAD. Scegli un'interfaccia di rete per consentire i dispositivi della tua rete locale.",
+  "session.enabled": "Connessioni attive",
+  "session.disabled": "Connessioni disattivate",
+  "session.address": "Indirizzo di connessione",
+  "session.interface": "Interfaccia di rete",
+  "session.local": "Solo questo computer",
+  "session.port": "Porta (0 sceglie una porta disponibile)",
+  "session.enable": "Attiva connessioni",
+  "session.disable": "Disattiva connessioni",
+  "session.pair": "Associa un dispositivo",
+  "session.pairHint": "Inserisci questo token monouso sul dispositivo entro 5 minuti. Chiudendo questo pannello annulli l'associazione.",
+  "session.pairToken": "Token di associazione",
+  "session.copy": "Copia token",
+  "session.devices": "Dispositivi autorizzati",
+  "session.noDevices": "Nessun dispositivo associato",
+  "session.connected": "connesso",
+  "session.revoke": "Revoca",
+  "session.clientCount": "Client connessi: {n}",
+  "session.transaction": "Un client sta modificando una transazione.",
+  "session.storageUnavailable": "L'archivio dei dispositivi non è disponibile. Impossibile attivare le connessioni.",
+  "session.failed": "Operazione non riuscita. Controlla l'indirizzo o riprova.",
   // ── shared ──────────────────────────────────────────────
   "common.cancel": "Annulla",
   "common.close": "Chiudi",

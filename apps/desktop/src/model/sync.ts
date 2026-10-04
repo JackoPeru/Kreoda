@@ -12,6 +12,24 @@ import {
   visibleFeatureIds,
 } from "../stores";
 
+let refreshOpenedSession: (() => Promise<void>) | null = null;
+
+/** Open and recovery await the same queue that owns incoming session events. */
+export function bindOpenedSessionRefresh(refresh: () => Promise<void>): () => void {
+  refreshOpenedSession = refresh;
+  return () => { if (refreshOpenedSession === refresh) refreshOpenedSession = null; };
+}
+
+export async function syncOpenedDocument(features: FeatureSummary[], revision: number, sketches: SketchSummary[]): Promise<number> {
+  if (refreshOpenedSession) {
+    await refreshOpenedSession();
+  } else {
+    useDocumentUiStore.getState().resetDocument(coreClient.documentId);
+    await syncFromCoreList(features, revision, sketches);
+  }
+  return useDocumentUiStore.getState().epoch;
+}
+
 /** Re-request + store the mesh for one feature at the given core revision. */
 export async function pullFeatureMesh(
   featureId: string,
@@ -64,6 +82,7 @@ export async function syncFromCoreList(
   features: FeatureSummary[],
   revision: number,
   sketches: SketchSummary[] = [],
+  changedMeshIds: readonly string[] | null = null,
 ): Promise<void> {
   const s = useDocumentUiStore.getState();
   const epoch = s.epoch;
@@ -76,6 +95,7 @@ export async function syncFromCoreList(
       lines: k.lines,
       circles: k.circles,
       constraints: k.constraints,
+      ...(k.model ? { model: k.model } : {}),
     })),
     revision,
     epoch,
@@ -86,16 +106,18 @@ export async function syncFromCoreList(
   // errors collected — fail-fast would strand the summaries behind (C4).
   // Historical meshes stay core-side, pulled on demand.
   const visible = visibleFeatureIds(features);
+  const changed = changedMeshIds === null ? null : new Set(changedMeshIds);
+  const hydrate = visible.filter((id) => changed === null || changed.has(id) || !s.meshes[id]);
   const results: (
     | { ok: true; id: string; mesh: Awaited<ReturnType<typeof coreClient.requestMesh>> }
     | { ok: false; id: string; error: string }
-  )[] = new Array(visible.length);
+  )[] = new Array(hydrate.length);
   const LANES = 6;
   let cursor = 0;
   async function lane(): Promise<void> {
-    while (cursor < visible.length) {
+    while (cursor < hydrate.length) {
       const i = cursor++;
-      const id = visible[i]!;
+      const id = hydrate[i]!;
       try {
         results[i] = { ok: true, id, mesh: await coreClient.requestMesh(id, 1) };
       } catch (e) {
@@ -103,8 +125,9 @@ export async function syncFromCoreList(
       }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(LANES, visible.length) }, lane));
-  const meshes: Record<string, Parameters<typeof s.upsertMesh>[1]> = {};
+  await Promise.all(Array.from({ length: Math.min(LANES, hydrate.length) }, lane));
+  const meshes: Record<string, Parameters<typeof s.upsertMesh>[1]> = changed === null ? {} :
+    Object.fromEntries(visible.filter((id) => !changed.has(id) && s.meshes[id]).map((id) => [id, s.meshes[id]!]));
   const failed: string[] = [];
   for (const r of results) {
     if (r.ok) meshes[r.id] = r.mesh;
@@ -118,6 +141,8 @@ export async function syncFromCoreList(
   }
   // Drop selections pointing at features that no longer exist (solids AND
   // sketches — sketch nouns select by bare UUID too, §26).
+  const current = useDocumentUiStore.getState();
+  if (current.epoch !== epoch || current.revision !== revision) return;
   const alive = new Set([
     ...features.map((f) => f.featureId),
     ...sketches.map((k) => k.featureId),

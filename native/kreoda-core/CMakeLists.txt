@@ -66,6 +66,7 @@ if(WITH_FLATBUFFERS)
   find_package(flatbuffers CONFIG QUIET)
 endif()
 find_package(lib3mf CONFIG QUIET)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 # Sketch constraint solver deps (header-only): Eigen3 + Boost graph/math.
 find_package(Eigen3 CONFIG QUIET)
@@ -111,6 +112,7 @@ set(CORE_SOURCES
   src/main/main.cpp
   src/protocol/framing.cpp
   src/protocol/dispatcher.cpp
+  src/protocol/session_geometry.cpp
   src/protocol/mesh_fb.cpp
   src/document/document_store.cpp
   src/exchange/gltf_exchange.cpp
@@ -195,6 +197,7 @@ if(HAVE_PLANEGCS)
 endif()
 
 add_executable(kreoda-core ${CORE_SOURCES})
+target_link_libraries(kreoda-core PRIVATE nlohmann_json::nlohmann_json)
 target_compile_definitions(kreoda-core PRIVATE KREODA_CRASH_TEST_BARRIERS=$<BOOL:${KREODA_CRASH_TEST_BARRIERS}>)
 
 if(MSVC AND WIN32)

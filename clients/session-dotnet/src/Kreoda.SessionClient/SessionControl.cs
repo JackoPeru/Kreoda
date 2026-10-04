@@ -1,112 +1,50 @@
-// Slice 7: typed mirror of schemas/session-control-v1.json (session CONTROL
-// plane: WebSocket JSON, protocolVersion = 1). The JSON file is the single
-// source of truth; SessionControlContractTests pins this mirror to it.
-// The wire stays Dictionary-built JSON inside one place (ToDictionary);
-// open-ended query params keep using CallAsync directly (follow-up).
+// Public convenience records preserve the existing API while serializing
+// generated control DTOs. Contract metadata is SessionMethods.g.cs.
+using System.Text.Json;
+using Kreoda.Session.Generated;
 namespace Kreoda.Session;
 
-/// <summary>Control-plane method names (contract order).</summary>
-public static class SessionMethods
+internal static class GeneratedControl
 {
-    public const string Hello = "hello";
-    public const string Snapshot = "snapshot";
-    public const string Invoke = "invoke";
-    public const string TxnBegin = "txnBegin";
-    public const string TxnCommit = "txnCommit";
-    public const string TxnRollback = "txnRollback";
-    public const string TxnForceRollback = "txnForceRollback";
-    public const string TxnStatus = "txnStatus";
-
-    public static readonly string[] All =
-    [
-        "hello", "snapshot", "invoke",
-        "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus",
-        "getDocumentInfo", "getBodies", "getFeatures", "getFeature",
-        "getParameters", "getDependencies", "getModelTree", "describeModel",
-        "getSelection", "setSelection", "clearSelection",
-        "findFaces", "findEdges", "findBodies",
-        "getManipulators", "measureVolume", "measureArea", "getBoundingBox",
-        "measureDistance", "measureAngle", "measureRadius", "measureDiameter",
-        "validateDocument", "validateBody", "validateFeature",
-        "listCommands", "getCommandSchema", "getCapabilities",
-        "previewBegin", "previewUpdate", "previewCommit", "previewCancel",
-    ];
-
-    /// <summary>Relay/query-enforced required params per method.</summary>
-    public static readonly IReadOnlyDictionary<string, string[]> RequiredParams =
-        new Dictionary<string, string[]>
-        {
-            ["hello"] = ["token", "protocolVersion"],
-            ["snapshot"] = [],
-            ["invoke"] = ["type"],
-            ["txnBegin"] = ["transactionId"],
-            ["txnCommit"] = ["transactionId"],
-            ["txnRollback"] = ["transactionId"],
-            ["txnForceRollback"] = ["transactionId"],
-            ["txnStatus"] = [],
-            ["getDocumentInfo"] = [],
-            ["getBodies"] = [],
-            ["getFeatures"] = [],
-            ["getFeature"] = ["featureId"],
-            ["getParameters"] = ["featureId"],
-            ["getDependencies"] = ["featureId"],
-            ["getModelTree"] = [],
-            ["describeModel"] = [],
-            ["getSelection"] = [],
-            ["setSelection"] = ["ids"],
-            ["clearSelection"] = [],
-            ["findFaces"] = [],
-            ["findEdges"] = [],
-            ["findBodies"] = [],
-            ["getManipulators"] = ["featureId"],
-            ["measureVolume"] = [],
-            ["measureArea"] = ["featureId"],
-            ["getBoundingBox"] = ["featureId"],
-            ["measureDistance"] = ["a", "b"],
-            ["measureAngle"] = ["a", "b"],
-            ["measureRadius"] = ["featureId"],
-            ["measureDiameter"] = ["featureId"],
-            ["validateDocument"] = [],
-            ["validateBody"] = [],
-            ["validateFeature"] = [],
-            ["listCommands"] = [],
-            ["getCommandSchema"] = [],
-            ["getCapabilities"] = [],
-            ["previewBegin"] = ["featureId", "paramName"],
-            ["previewUpdate"] = ["previewId"],
-            ["previewCommit"] = ["previewId"],
-            ["previewCancel"] = ["previewId"],
-        };
-}
-
-/// <summary>Typed <c>invoke</c> params (fields stay open: core command payloads).</summary>
-public sealed record InvokeRequest(
-    int Type,
-    IDictionary<string, object?> Fields,
-    string DocumentId = "doc-phase1",
-    double? BaseRevision = null,
-    string? TransactionId = null)
-{
-    public Dictionary<string, object?> ToDictionary()
+    internal static T Read<T>(JsonElement raw, string schemaName)
     {
-        var p = new Dictionary<string, object?>
-        {
-            ["documentId"] = DocumentId,
-            ["type"] = Type,
-            ["fields"] = Fields,
-        };
-        if (BaseRevision.HasValue) p["baseRevision"] = BaseRevision.Value;
-        if (TransactionId is not null) p["transactionId"] = TransactionId;
-        return p;
+        foreach (var field in SessionContract.DtoRequiredFields[schemaName])
+            if (!raw.TryGetProperty(field, out _)) throw new JsonException("missing " + field);
+        try { return raw.Deserialize<T>(Converter.Settings) ?? throw new JsonException("null control DTO"); }
+        // quicktype's standard constraint converters throw plain Exception
+        // for invalid enum/length values. Normalize that transport failure.
+        catch (Exception error) when (error.GetType() == typeof(Exception) || error is NullReferenceException)
+        { throw new JsonException("invalid control DTO", error); }
+    }
+
+    internal static Dictionary<string, object?> Parameters(object value) =>
+        JsonSerializer.SerializeToElement(value, Converter.Settings).EnumerateObject()
+            .ToDictionary(property => property.Name, property => (object?)property.Value.Clone());
+
+    internal static Dictionary<string, object> Fields(IDictionary<string, object?> fields) =>
+        fields.ToDictionary(pair => pair.Key, pair => pair.Value!);
+
+    internal static long? Revision(double? value)
+    {
+        if (!value.HasValue) return null;
+        if (!double.IsFinite(value.Value) || value.Value < 0 || value.Value > SessionContract.MaximumRevision || Math.Truncate(value.Value) != value.Value)
+            throw new SessionException("BAD_PARAMS", "baseRevision must be a nonnegative safe integer");
+        return (long)value.Value;
     }
 }
 
-/// <summary>Typed transaction-control params.</summary>
+public sealed record InvokeRequest(int Type, IDictionary<string, object?> Fields,
+    string DocumentId = "doc-phase1", double? BaseRevision = null, string? TransactionId = null)
+{
+    public Dictionary<string, object?> ToDictionary() => GeneratedControl.Parameters(new InvokeParams
+    {
+        Type = Type, Fields = GeneratedControl.Fields(Fields), DocumentId = DocumentId,
+        BaseRevision = GeneratedControl.Revision(BaseRevision), TransactionId = TransactionId,
+    });
+}
+
 public sealed record TxnRequest(string TransactionId, string DocumentId = "doc-phase1")
 {
-    public Dictionary<string, object?> ToDictionary() => new()
-    {
-        ["documentId"] = DocumentId,
-        ["transactionId"] = TransactionId,
-    };
+    public Dictionary<string, object?> ToDictionary() => GeneratedControl.Parameters(new TxnParams
+        { TransactionId = TransactionId, DocumentId = DocumentId });
 }

@@ -24,6 +24,7 @@ vi.mock("../src/viewport/CadViewport", () => ({
 
 vi.mock("../src/ipc/coreClient", () => ({
   coreClient: {
+    cancelPreview: vi.fn().mockResolvedValue(undefined),
     getCoreInfo: vi.fn().mockRejectedValue(new Error("offline")),
     readReferences: vi.fn().mockResolvedValue("[]"),
     requestSketch: vi.fn().mockResolvedValue({
@@ -59,6 +60,20 @@ import { useDocumentUiStore } from "../src/stores";
 import { act } from "@testing-library/react";
 import { coreClient } from "../src/ipc/coreClient";
 
+function installSessionRecovery() {
+  let callback!: (event: unknown) => void;
+  let snapshot: unknown;
+  Object.defineProperty(window, "kreoda", { configurable: true, value: {
+    onSessionDelta: (receive: typeof callback) => { callback = receive; return () => {}; },
+    sessionSnapshot: vi.fn(async () => snapshot),
+  } });
+  return (model: { documentId: string; revision: number; features: unknown[]; sketches: unknown[] }) => {
+    const sessionId = `session-${model.documentId}`;
+    snapshot = { ...model, sessionId, bodies: [] };
+    callback({ event: "snapshot-required", sessionId, documentId: model.documentId, revision: model.revision, originClientId: "remote" });
+  };
+}
+
 describe("beginner shell (§24)", () => {
   it("closes a transient sketch editor when the core crashes", async () => {
     let crash!: (info: { code: number }) => void;
@@ -85,10 +100,7 @@ describe("beginner shell (§24)", () => {
     }
   });
   it("clears previous project references when a session switches documents", async () => {
-    let receive!: (delta: { documentId: string; revision: number; features: unknown[]; sketches: unknown[] }) => void;
-    Object.defineProperty(window, "kreoda", { configurable: true, value: {
-      onSessionDelta: (callback: typeof receive) => { receive = callback; return () => {}; },
-    } });
+    const receive = installSessionRecovery();
     useDocumentUiStore.getState().resetDocument("old-document");
     addReferencePlane({ name: "old", dataUrl: "data:image/png;base64,AAAA", imageW: 1, imageH: 1 });
     render(<App />);
@@ -97,12 +109,9 @@ describe("beginner shell (§24)", () => {
     delete (window as unknown as { kreoda?: unknown }).kreoda;
   });
   it("blocks saving during a remote switch and loads the new project references", async () => {
-    let receive!: (delta: { documentId: string; revision: number; features: unknown[]; sketches: unknown[] }) => void;
+    const receive = installSessionRecovery();
     let finish!: (json: string) => void;
     vi.mocked(coreClient.readReferences).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-    Object.defineProperty(window, "kreoda", { configurable: true, value: {
-      onSessionDelta: (callback: typeof receive) => { receive = callback; return () => {}; },
-    } });
     useDocumentUiStore.getState().resetDocument("remote-old");
     render(<App />);
     await act(async () => receive({ documentId: "remote-new", revision: 1, features: [], sketches: [] }));
@@ -115,11 +124,8 @@ describe("beginner shell (§24)", () => {
     delete (window as unknown as { kreoda?: unknown }).kreoda;
   });
   it("applies CAD changes after a reference read fails and retries on the next delta", async () => {
-    let receive!: (delta: { documentId: string; revision: number; features: unknown[]; sketches: unknown[] }) => void;
+    const receive = installSessionRecovery();
     vi.mocked(coreClient.readReferences).mockRejectedValueOnce(new Error("offline"));
-    Object.defineProperty(window, "kreoda", { configurable: true, value: {
-      onSessionDelta: (callback: typeof receive) => { receive = callback; return () => {}; },
-    } });
     useDocumentUiStore.getState().resetDocument("retry-old");
     render(<App />);
     await act(async () => receive({ documentId: "retry-new", revision: 7, features: [], sketches: [] }));
@@ -130,25 +136,23 @@ describe("beginner shell (§24)", () => {
     expect(serializeReferences()).toBe("[]");
     delete (window as unknown as { kreoda?: unknown }).kreoda;
   });
-  it("keeps newer references when an older read finishes last", async () => {
-    let receive!: (delta: { documentId: string; revision: number; features: unknown[]; sketches: unknown[] }) => void;
+  it("serializes document reference reads and finishes with the newest document", async () => {
+    const receive = installSessionRecovery();
     let older!: (json: string) => void;
     let newer!: (json: string) => void;
     vi.mocked(coreClient.readReferences)
       .mockImplementationOnce(() => new Promise(resolve => { older = resolve; }))
       .mockImplementationOnce(() => new Promise(resolve => { newer = resolve; }));
-    Object.defineProperty(window, "kreoda", { configurable: true, value: {
-      onSessionDelta: (callback: typeof receive) => { receive = callback; return () => {}; },
-    } });
     useDocumentUiStore.getState().resetDocument("read-race");
     void loadReferences(null);
     render(<App />);
     await act(async () => receive({ documentId: "read-race", revision: 1, features: [], sketches: [] }));
-    await act(async () => receive({ documentId: "read-race", revision: 2, features: [], sketches: [] }));
+    await act(async () => receive({ documentId: "read-new", revision: 2, features: [], sketches: [] }));
+    expect(newer).toBeUndefined();
     const reference = { id: "race-ref", name: "new", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lZkAAAAASUVORK5CYII=",
       imageW: 1, imageH: 1, widthMm: 10, heightMm: 10, mmPerPx: 10, plane: "XY", opacity: 0.4 };
-    await act(async () => newer(JSON.stringify([reference])));
     await act(async () => older(JSON.stringify([{ ...reference, name: "old" }])));
+    await act(async () => newer(JSON.stringify([reference])));
     expect(useReferenceStore.getState().planes[0]!.name).toBe("new");
     await loadReferences("[]");
     delete (window as unknown as { kreoda?: unknown }).kreoda;

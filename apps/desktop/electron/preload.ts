@@ -1,5 +1,8 @@
 // Preload — strict narrow typed API only (§48). No fs/child_process/shell.
 import { contextBridge, ipcRenderer } from "electron";
+import type { SessionModelSnapshot, SessionIncrementalDelta } from "@kreoda/protocol";
+import type { SessionSnapshotRequired } from "./session";
+import type { SessionConnectionStatus } from "./session-control-ui";
 
 export interface KreodaApi {
   invoke: (framedBase64: string) => Promise<string>;
@@ -25,45 +28,26 @@ export interface KreodaApi {
   onUpdateAvailable: (cb: (info: { version: string }) => void) => () => void;
   onCoreCrashed: (cb: (info: { code: number | null }) => void) => () => void;
   onCoreRestarted: (cb: () => void) => () => void;
-  // Phase 11b: authoritative model deltas from other session clients
-  // (Quest/agent/second desktop). The renderer applies them when their
-  // revision is newer than the local projection (§11.6).
-  onSessionDelta: (
-    cb: (delta: {
-      originClientId: string;
-      documentId: string;
-      revision: number;
-      features: {
-        featureId: string;
-        type: string;
-        paramsMm: number[];
-        volumeMm3: number;
-        dependsOn: string[];
-        refExtra: string;
-        expressions: Record<string, string>;
-      }[];
-      sketches: {
-        featureId: string;
-        planeKind: string;
-        points: number;
-        lines: number;
-        circles: number;
-        constraints: number;
-      }[];
-    }) => void,
-  ) => () => void;
-  // Phase 11b: the renderer tells the session relay about mutations it
-  // committed itself (toolbar/palette/AI paths bypass the relay socket), so
-  // remote clients get the same delta broadcast. No-op when disabled.
-  sessionNote: (
-    documentId: string,
-    revision: number,
-    features?: unknown[],
-    sketches?: unknown[],
-  ) => Promise<void>;
+  // Authoritative incremental events and explicit snapshot recovery.
+  onSessionDelta: (cb: (delta: SessionIncrementalDelta | SessionSnapshotRequired) => void) => () => void;
+  sessionSnapshot: () => Promise<SessionModelSnapshot>;
+  sessionConnectionStatus: () => Promise<SessionConnectionStatus>;
+  sessionEnable: (host: string, port: number) => Promise<SessionConnectionStatus>;
+  sessionDisable: () => Promise<SessionConnectionStatus>;
+  sessionPair: () => Promise<{ token: string; expiresAt: string }>;
+  sessionCancelPair: () => Promise<void>;
+  sessionRevoke: (deviceId: string) => Promise<SessionConnectionStatus>;
+  sessionCancelEdit: (featureId: string) => Promise<void>;
 }
 
 const api: KreodaApi = {
+  sessionConnectionStatus: () => ipcRenderer.invoke("kreoda:session-status") as Promise<SessionConnectionStatus>,
+  sessionEnable: (host, port) => ipcRenderer.invoke("kreoda:session-enable", host, port) as Promise<SessionConnectionStatus>,
+  sessionDisable: () => ipcRenderer.invoke("kreoda:session-disable") as Promise<SessionConnectionStatus>,
+  sessionPair: () => ipcRenderer.invoke("kreoda:session-pair") as Promise<{ token: string; expiresAt: string }>,
+  sessionCancelPair: () => ipcRenderer.invoke("kreoda:session-cancel-pair") as Promise<void>,
+  sessionRevoke: (deviceId) => ipcRenderer.invoke("kreoda:session-revoke", deviceId) as Promise<SessionConnectionStatus>,
+  sessionSnapshot: () => ipcRenderer.invoke("kreoda:session-snapshot") as Promise<SessionModelSnapshot>,
   invoke: (framedBase64: string) =>
     ipcRenderer.invoke("kreoda:invoke", framedBase64) as Promise<string>,
   coreInfo: () =>
@@ -162,15 +146,7 @@ const api: KreodaApi = {
         listener as (...args: unknown[]) => void,
       );
   },
-  sessionNote: (documentId, revision, features, sketches) =>
-    ipcRenderer.invoke(
-      "kreoda:session-note",
-      documentId,
-      revision,
-      // Missing lists request a canonical snapshot; [] means an empty document.
-      features,
-      sketches,
-    ) as Promise<void>,
+  sessionCancelEdit: (featureId) => ipcRenderer.invoke("kreoda:session-cancel-edit", featureId) as Promise<void>,
 };
 
 contextBridge.exposeInMainWorld("kreoda", api);

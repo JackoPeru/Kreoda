@@ -190,13 +190,13 @@ TEST(Bodies, SaveOpenKeepsBodyIdentity) {
   const fs::path icad = fs::temp_directory_path() / "kreoda-bodies.icad";
   const std::string saveReq =
       std::string(R"({"protocolVersion":1,"requestId":"bg-s","documentId":"bd-g","type":10,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   const std::string saveResp = rpc(saveReq);
   ASSERT_TRUE(ok(saveResp)) << saveResp;
   NewDoc("bd-g2");
   const std::string openReq =
       std::string(R"({"protocolVersion":1,"requestId":"bg-o","documentId":"bd-g2","type":11,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   const std::string opened = rpc(openReq);
   ASSERT_TRUE(ok(opened)) << opened;
   // Same geometry, same body + history + tip.
@@ -384,12 +384,12 @@ TEST(Bodies, UndoRedoMovesTipWithoutGhosts) {
   const fs::path icad = fs::temp_directory_path() / "kreoda-tip-undo.icad";
   const std::string saveReq =
       std::string(R"({"protocolVersion":1,"requestId":"ur-s","documentId":"bd-ur","type":10,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   ASSERT_TRUE(ok(rpc(saveReq))) << saveReq;
   NewDoc("bd-ur2");
   const std::string openReq =
       std::string(R"({"protocolVersion":1,"requestId":"ur-o","documentId":"bd-ur2","type":11,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   ASSERT_TRUE(ok(rpc(openReq))) << openReq;
   EXPECT_EQ(kreoda::BodyStore::instance().size(), 1u);
   kreoda::BodyRecord opened;
@@ -425,12 +425,12 @@ TEST(Bodies, LegacyFileMigratesByCreationOrder) {
   const std::string legacyManifest =
       R"({"format":"kreoda-project","schemaVersion":1,)"
       R"("appVersion":"0.1.0","documentId":"bd-h","units":"mm"})";
-  ASSERT_TRUE(kreoda::WriteIcad(icad.string(), legacyManifest, xbf, &err))
+  ASSERT_TRUE(kreoda::WriteIcad(icad.generic_string(), legacyManifest, xbf, &err))
       << err;
   NewDoc("bd-h2");
   const std::string openReq =
       std::string(R"({"protocolVersion":1,"requestId":"bl-o","documentId":"bd-h2","type":11,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   const std::string opened = rpc(openReq);
   ASSERT_TRUE(ok(opened)) << opened;
   // Same geometry; bodies reconstructed: root opens, hole joins in order.

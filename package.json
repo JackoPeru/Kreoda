@@ -8,6 +8,8 @@
     "node": ">=22"
   },
   "scripts": {
+    "generate:session": "node scripts/generate-session-contract.mjs",
+    "check:session-contract": "node scripts/generate-session-contract.mjs --check",
     "dev": "pnpm --filter @kreoda/desktop dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
@@ -22,6 +24,9 @@
     "test:e2e:crash:full": "node scripts/run-crash-tests.mjs"
   },
   "devDependencies": {
+    "ajv": "8.17.1",
+    "esbuild": "0.28.2",
+    "quicktype-core": "26.0.0",
     "typescript": "~5.9.3"
   }
 }

@@ -4,10 +4,13 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { randomUUID } from "node:crypto";
 import { SidecarManager } from "./sidecar";
 import { installRendererRecovery } from "./renderer-recovery";
 import { SessionRelay, type SessionDelta } from "./session";
+import { SessionDevices } from "./session-devices";
+import { sessionInterfaces } from "./session-listener";
+import type { SessionConnectionStatus } from "./session-control-ui";
+import { FrameDecoder } from "@kreoda/protocol";
 import {
   checkFeed,
   downloadPinned,
@@ -17,7 +20,7 @@ import {
 let mainWindow: BrowserWindow | null = null;
 let sidecar: SidecarManager | null = null;
 // Phase 11b: unified session relay (Quest/agent/second-client front for the
-// local authoritative core). Null unless KREODA_SESSION_PORT is set.
+// local authoritative core). Listener is optional; the service always exists.
 let sessionRelay: SessionRelay | null = null;
 
 const isDev = !app.isPackaged;
@@ -49,7 +52,11 @@ function createWindow(previous?: BrowserWindow): void {
     // Create first: destroying the only window would trigger app.quit().
     createWindow(createdWindow);
     createdWindow.destroy();
+  }, () => sessionRelay?.onRendererDisconnected());
+  createdWindow.webContents.on("did-start-navigation", (_event, _url, inPlace, mainFrame) => {
+    if (mainFrame && !inPlace) sessionRelay?.onRendererDisconnected();
   });
+  createdWindow.webContents.on("did-finish-load", () => sessionRelay?.onRendererConnected());
 
   if (isDev && process.env["VITE_DEV_SERVER_URL"]) {
     void mainWindow.loadURL(process.env["VITE_DEV_SERVER_URL"]);
@@ -84,34 +91,29 @@ async function initSidecar(): Promise<void> {
   }
 }
 
-app.whenReady().then(() => {
-  createWindow();
+app.whenReady().then(async () => {
+  let devices: SessionDevices | undefined;
+  try {
+    const storage = new SessionDevices(app.getPath("userData"));
+    await storage.load();devices = storage;
+  } catch { console.error("[session] trusted device storage unavailable"); }
   void initSidecar();
-  // Phase 11b session relay: inert unless KREODA_SESSION_PORT is set (§11.16:
-  // loopback by default, LAN only via KREODA_SESSION_HOST, token-gated).
-  // KREODA_SESSION_TOKEN pins the pairing token (tests/isolation); otherwise
-  // a one-time token is printed for manual pairing (Quest UI lands later).
+  sessionRelay = new SessionRelay(() => sidecar, (delta: SessionDelta) => {
+    mainWindow?.webContents.send("kreoda:session-delta", delta);
+  }, devices);
+  // The local session service exists without a listener. Environment settings
+  // enable the development/test network endpoint; production pairing follows.
   const sessionPort = Number(process.env["KREODA_SESSION_PORT"] ?? "");
-  if (Number.isInteger(sessionPort) && sessionPort > 0) {
-    const token = process.env["KREODA_SESSION_TOKEN"] ?? randomUUID();
-    if (!process.env["KREODA_SESSION_TOKEN"]) {
-      console.log(`[session] one-time pairing token: ${token}`);
-    }
-    sessionRelay = new SessionRelay(
-      () => sidecar,
-      (delta: SessionDelta) => {
-        mainWindow?.webContents.send("kreoda:session-delta", delta);
-      },
-    );
+  const testToken = process.env["KREODA_SESSION_TOKEN"];
+  if (isDev && testToken && Number.isInteger(sessionPort) && sessionPort > 0) {
     try {
-      sessionRelay.start({
+      await sessionRelay.enableListener({
         port: sessionPort,
         host: process.env["KREODA_SESSION_HOST"] ?? "127.0.0.1",
-        token,
+        token: testToken,
       });
     } catch (e) {
-      console.error("[session] relay failed to start", e);
-      sessionRelay = null;
+      console.error("[session] development listener failed to start");
     }
   }
   // Signed-update check runs after boot; inert without a feed (§61).
@@ -120,42 +122,55 @@ app.whenReady().then(() => {
   }, 5000);
 
   // Typed IPC routing main ⇄ sidecar (§7-§8). Renderer never spawns processes.
+  ipcMain.handle("kreoda:session-snapshot", () => {
+    if (!sessionRelay) throw new Error("session service not running");
+    return sessionRelay.localSnapshot();
+  });
+  const connectionStatus = (): SessionConnectionStatus => ({
+    ...sessionRelay!.connectionStatus(), interfaces: sessionInterfaces().map(item => ({ name: item.name, host: item.address })),
+    devices: devices?.list() ?? [], pairingAvailable: !!devices,
+  });
+  // Serialize listener controls so overlapping clicks cannot reopen a
+  // listener while another request is disabling it.
+  let connectionQueue: Promise<void> = Promise.resolve();
+  const control = <T>(run: () => Promise<T> | T): Promise<T> => {
+    const pending = connectionQueue.then(run);
+    connectionQueue = pending.then(() => {}, () => {});return pending;
+  };
+  ipcMain.handle("kreoda:session-status", () => control(connectionStatus));
+  ipcMain.handle("kreoda:session-enable", (_event, host: unknown, port: unknown) => control(async () => {
+    if (typeof host !== "string" || typeof port !== "number") throw new Error("invalid session address");
+    if (!devices) throw new Error("trusted device storage unavailable");
+    await sessionRelay!.enableListener({ host, port });return connectionStatus();
+  }));
+  ipcMain.handle("kreoda:session-disable", () => control(async () => {
+    await sessionRelay!.disableListener();return connectionStatus();
+  }));
+  ipcMain.handle("kreoda:session-pair", () => control(() => {
+    if (!devices || !sessionRelay!.connectionStatus().listener) throw new Error("enable a session listener first");
+    return devices.beginPairing();
+  }));
+  ipcMain.handle("kreoda:session-cancel-pair", () => control(() => devices?.cancelPairing()));
+  ipcMain.handle("kreoda:session-revoke", (_event, deviceId: unknown) => control(async () => {
+    if (typeof deviceId !== "string") throw new Error("invalid device identity");
+    await sessionRelay!.revokeDevice(deviceId);return connectionStatus();
+  }));
   ipcMain.handle("kreoda:invoke", async (_event, framedBase64: string) => {
-    if (!sidecar) throw new Error("geometry engine not running");
+    if (!sessionRelay) throw new Error("session service not running");
+    if (typeof framedBase64 !== "string" || framedBase64.length > Math.ceil((new FrameDecoder().maxFrameBytes + 4) / 3) * 4) throw new Error("invalid framed command");
     const bytes = Buffer.from(framedBase64, "base64");
-    const response = await sidecar.invoke(bytes);
+    const response = await sessionRelay.invokeLocal(bytes);
     return Buffer.from(response).toString("base64");
+  });
+  ipcMain.handle("kreoda:session-cancel-edit", async (_event, featureId: unknown) => {
+    if (typeof featureId !== "string" || !featureId || featureId.length > 128) throw new Error("invalid feature identity");
+    await sessionRelay?.cancelLocalEdit(featureId);
   });
 
   ipcMain.handle("kreoda:core-info", async () => {
     if (!sidecar) return { running: false };
     return { running: sidecar.isRunning(), pid: sidecar.pid() };
   });
-
-  // Phase 11b: renderer-committed mutations ping the session relay (which
-  // the renderer's own toolbar/palette/AI paths would otherwise bypass),
-  // so remote clients observe the same delta stream. No-op when disabled.
-  ipcMain.handle(
-    "kreoda:session-note",
-    async (
-      _event,
-      documentId: unknown,
-      revision: unknown,
-      features: unknown,
-      sketches: unknown,
-    ) => {
-      if (!sessionRelay) return;
-      if (typeof documentId !== "string" || typeof revision !== "number") {
-        return;
-      }
-      await sessionRelay.noteLocal(
-        documentId,
-        revision,
-        Array.isArray(features) ? features : undefined,
-        Array.isArray(sketches) ? sketches : undefined,
-      );
-    },
-  );
 
   // Signed updates (Phase 8 §61): inert unless KREODA_UPDATE_FEED points
   // at a manifest feed. Renderer can trigger a check; downloads only land
@@ -437,6 +452,7 @@ app.whenReady().then(() => {
     };
   });
 
+  createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

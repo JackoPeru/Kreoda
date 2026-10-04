@@ -167,11 +167,12 @@ enum CommandType : uint16_t {
   CommandType_BeginTransaction = 27,
   CommandType_CommitTransaction = 28,
   CommandType_RollbackTransaction = 29,
+  CommandType_RequestSessionQuery = 30,
   CommandType_MIN = CommandType_None,
-  CommandType_MAX = CommandType_RollbackTransaction
+  CommandType_MAX = CommandType_RequestSessionQuery
 };
 
-inline const CommandType (&EnumValuesCommandType())[30] {
+inline const CommandType (&EnumValuesCommandType())[31] {
   static const CommandType values[] = {
     CommandType_None,
     CommandType_GetCoreInfo,
@@ -202,13 +203,14 @@ inline const CommandType (&EnumValuesCommandType())[30] {
     CommandType_RequestSnapshot,
     CommandType_BeginTransaction,
     CommandType_CommitTransaction,
-    CommandType_RollbackTransaction
+    CommandType_RollbackTransaction,
+    CommandType_RequestSessionQuery
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandType() {
-  static const char * const names[31] = {
+  static const char * const names[32] = {
     "None",
     "GetCoreInfo",
     "CreateDocument",
@@ -239,13 +241,14 @@ inline const char * const *EnumNamesCommandType() {
     "BeginTransaction",
     "CommitTransaction",
     "RollbackTransaction",
+    "RequestSessionQuery",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandType(CommandType e) {
-  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_RollbackTransaction)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_RequestSessionQuery)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandType()[index];
 }

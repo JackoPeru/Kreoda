@@ -45,7 +45,7 @@ TEST(Persistence, SaveReopenRoundTrip) {
   const std::string save =
       std::string(
           R"({"protocolVersion":1,"requestId":"p3","documentId":"dp","type":10,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   const std::string saved = kreoda_test::rpcText(save);
   ASSERT_NE(saved.find("\"status\":\"ok\""), std::string::npos)
       << saved;
@@ -57,7 +57,7 @@ TEST(Persistence, SaveReopenRoundTrip) {
   const std::string open =
       std::string(
           R"({"protocolVersion":1,"requestId":"p5","documentId":"dp2","type":11,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   const std::string opened = kreoda_test::rpcText(open);
   ASSERT_NE(opened.find("\"status\":\"ok\""), std::string::npos) << opened;
   EXPECT_NE(opened.find("persist-box"), std::string::npos);

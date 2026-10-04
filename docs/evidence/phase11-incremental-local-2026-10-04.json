@@ -1,0 +1,69 @@
+{
+  "packet": "phase11-4a-incremental-server-and-shared-model",
+  "recordedAtUtc": "2026-10-03T22:56:45.789185+00:00",
+  "status": "PASS",
+  "sourceBaseCommit": "012ee5e73179025526fb4c8a737d6dc5a697c72a",
+  "runtime": {
+    "kernel": "8.0.1-native",
+    "corePid": 34584,
+    "coreSha256": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+    "sourceSha256": {
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\sidecar.ts": "a9e89e2b0e411d88e713b48c25156aad74c9ef3963838d050b77bb1af266f4b8",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session.ts": "ec329bfe4c18efa2f4301e62bfcb219a8400a455e080522de794554e43c41b08",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-queries.ts": "624cb0e9a67bbbd4382a97e39820a486e4069fe9f8fe46e387761fcc4c5fd004"
+    },
+    "passed": [
+      "existing-parameter-edit",
+      "same-tip-mesh-invalidation",
+      "instance-mesh-invalidation",
+      "unrelated-entity-exclusion",
+      "incremental-raw-wire",
+      "origin-and-remote-delta",
+      "legacy-full-list-fallback",
+      "local-incremental-callback",
+      "undo-native-snapshot-match",
+      "shared-helper-native-match",
+      "replay-no-extra-delta",
+      "empty-rollback-no-phantom-delta",
+      "canonical-sketch-equal-count-edit",
+      "sketch-dependent-extrusion-and-instance",
+      "canonical-sketch-undo-snapshot-match"
+    ],
+    "nativeSketch": {
+      "sameEntityCounts": true,
+      "beforeVolumeMm3": 6000,
+      "afterVolumeMm3": 8000,
+      "restoredVolumeMm3": 6000,
+      "dependentInstanceInvalidated": true,
+      "snapshotMatch": true
+    },
+    "baseRevision": 3,
+    "editedRevision": 4,
+    "undoRevision": 5,
+    "finalFeatureCount": 3,
+    "visibleWindows": false,
+    "boundary": "Real SessionRelay/SidecarManager/OCCT and three loopback WebSockets; no Electron renderer or C# client in this packet probe."
+  },
+  "probeSha256": "98815d8a919735531e5625ab41afcf06964bd4169fc4970db3063fc3aa28f3f0",
+  "nativePidExited": true,
+  "validation": {
+    "workspaceTests": {
+      "desktop": 133,
+      "protocol": 25,
+      "pluginSdk": 2,
+      "units": 4,
+      "total": 164
+    },
+    "dotnetTests": 25,
+    "desktopTypecheck": "PASS",
+    "desktopBuild": "PASS"
+  },
+  "regression": {
+    "unchangedTipUndoInvalidation": "RED observed before semantic closure fix; GREEN afterward",
+    "equalCountSketch": "scripted boundary regression and actual OCCT runtime PASS"
+  },
+  "limits": [
+    "Desktop application and C# incremental application/recovery are packet 4b, not verified by this artifact.",
+    "Full Phase 11 and the overall roadmap remain in progress."
+  ]
+}

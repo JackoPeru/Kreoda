@@ -8,6 +8,7 @@
 // client itself is NOT duplicated here).
 
 import { describe, expect, it } from "vitest";
+import { createServer } from "node:net";
 import { SessionRelay } from "../electron/session";
 import type { SidecarManager } from "../electron/sidecar";
 import { SessionClient } from "../e2e/ws-test-client";
@@ -27,6 +28,10 @@ interface StoredFeature {
 /** Fake core with Box→Hole→Fillet history + in-place param edits + undo. */
 function fakeBodySidecar() {
   const features = new Map<string, StoredFeature>();
+  const undoStates: StoredFeature[][] = [];
+  const redoStates: StoredFeature[][] = [];
+  const snapshot = (): StoredFeature[] => JSON.parse(JSON.stringify([...features.values()]));
+  const remember = (): void => { undoStates.push(snapshot()); redoStates.length = 0; };
   let revision = 0;
   const paramIndex = (type: string, name: string): number => {
     const tables: Record<string, Record<string, number>> = {
@@ -70,6 +75,7 @@ function fakeBodySidecar() {
       });
     }
     if (envelope.type === 3) {
+      remember();
       revision += 1;
       const rec: StoredFeature = {
         featureId: envelope.featureId ?? "box-x",
@@ -84,6 +90,7 @@ function fakeBodySidecar() {
       return respond({ status: "ok", ...rec, revision });
     }
     if (envelope.type === 20) {
+      remember();
       revision += 1;
       const target = envelope.targetId ?? "";
       const rec: StoredFeature = {
@@ -99,6 +106,7 @@ function fakeBodySidecar() {
       return respond({ status: "ok", ...rec, revision });
     }
     if (envelope.type === 21) {
+      remember();
       revision += 1;
       const target = envelope.targetId ?? "";
       const rec: StoredFeature = {
@@ -133,6 +141,7 @@ function fakeBodySidecar() {
           errorMessage: "unknown parameter",
         });
       }
+      remember();
       revision += 1;
       rec.paramsMm[idx] = envelope.valueMm;
       if (rec.type === "Box") {
@@ -145,10 +154,16 @@ function fakeBodySidecar() {
         revision,
       });
     }
-    if (envelope.type === 8) {
+    if (envelope.type === 8 || envelope.type === 9) {
+      const from = envelope.type === 8 ? undoStates : redoStates;
+      const to = envelope.type === 8 ? redoStates : undoStates;
+      const prior = from.pop();
+      if (prior) {
+        to.push(snapshot());
+        features.clear();
+        for (const feature of prior) features.set(feature.featureId, feature);
+      }
       revision += 1;
-      const last = [...features.keys()].pop();
-      if (last) features.delete(last);
       return respond({
         status: "ok",
         features: [...features.values()],
@@ -171,18 +186,28 @@ interface SessionBodyWire {
   history: string[];
 }
 
-async function bootPair(port: number): Promise<{
+async function bootPair(incremental = false, manager?: SidecarManager): Promise<{
   relay: SessionRelay;
   desktop: SessionClient;
   remote: SessionClient;
 }> {
+  const allocation = createServer();
+  await new Promise<void>((resolve, reject) => {
+    allocation.once("error", reject);
+    allocation.listen(0, "127.0.0.1", resolve);
+  });
+  const address = allocation.address();
+  if (!address || typeof address === "string") throw new Error("no test port");
+  const port = address.port;
+  await new Promise<void>((resolve) => allocation.close(() => resolve()));
   const fake = fakeBodySidecar();
-  const relay = new SessionRelay(() => fake.manager);
+  const relay = new SessionRelay(() => manager ?? fake.manager);
   relay.start({ port, host: "127.0.0.1", token: TOKEN });
   const desktop = new SessionClient();
-  await desktop.connect(TOKEN, port);
+  const capabilities = incremental ? ["incremental-deltas"] : undefined;
+  await desktop.connect(TOKEN, port, undefined, capabilities);
   const remote = new SessionClient();
-  await remote.connect(TOKEN, port);
+  await remote.connect(TOKEN, port, undefined, capabilities);
   return { relay, desktop, remote };
 }
 
@@ -200,18 +225,123 @@ async function buildBoxHoleFillet(
   await remote.call("invoke", {
     documentId: "doc-phase1",
     type: 20,
-    fields: { featureId: holeId, targetId: boxId, diameterMm: 8, depthMm: 10 },
+    fields: { featureId: holeId, targetId: boxId, faceRole: "box.+Z", diameterMm: 8, depthMm: 10 },
   });
   await remote.call("invoke", {
     documentId: "doc-phase1",
     type: 21,
-    fields: { featureId: filletId, targetId: holeId, radiusMm: 2 },
+    fields: { featureId: filletId, targetId: holeId, edgeIds: [`${holeId}:box.+Z&+X`], radiusMm: 2 },
   });
 }
 
 describe("Slice 6 TEST G: session Body semantics", () => {
+  it("compares canonical sketch coordinates despite equal counts and propagates to dependent meshes", async () => {
+    let revision = 10;
+    let model = { points: [{ id: "p", x: 0, y: 0 }], lines: [], circles: [], constraints: [] };
+    const manager = { invoke: async (frame: Uint8Array) => {
+      const request = JSON.parse(Buffer.from(frame).subarray(4).toString()) as Record<string, unknown>;
+      let payload: Record<string, unknown>;
+      if (request["type"] === 26) {
+        payload = {
+          features: [
+            { featureId: "extrude", type: "Extrude", paramsMm: [10], volumeMm3: 1, dependsOn: ["sk"] },
+            { featureId: "occurrence", type: "Instance", paramsMm: [100, 0, 0], volumeMm3: 1, dependsOn: ["extrude"] },
+          ],
+          sketches: [{ featureId: "sk", planeKind: "XY", points: 1, lines: 0, circles: 0, constraints: 0 }],
+        };
+      } else if (request["type"] === 17) {
+        payload = { sketch: { id: "sk", planeKind: "XY", model } };
+      } else if (request["type"] === 14) {
+        model = request["model"] as typeof model;
+        revision += 1;
+        payload = {};
+      } else if (request["type"] === 8) {
+        model = { ...model, points: [{ id: "p", x: 0, y: 0 }] };
+        revision += 1;
+        payload = {};
+      } else throw new Error(`unexpected fixture command: ${request["type"]}`);
+      return Buffer.from(JSON.stringify({ protocolVersion: 1, requestId: request["requestId"], status: "ok", revision, ...payload }));
+    } } as unknown as SidecarManager;
+    const { relay, desktop, remote } = await bootPair(true, manager);
+    try {
+      for (const type of [14, 8]) {
+        const result = await remote.call("invoke", { type, fields: { featureId: "sk", model: { ...model, points: [{ id: "p", x: 1, y: 0 }] } } });
+        const event = await desktop.waitDelta(result["revision"] as number) as unknown as Record<string, unknown>;
+        expect(event["changedMeshIds"]).toEqual(["extrude", "occurrence"]);
+        expect(event["updated"]).toEqual(expect.arrayContaining([
+          expect.objectContaining({ kind: "sketch", id: "sk", value: expect.objectContaining({ points: 1, model }) }),
+          expect.objectContaining({ kind: "feature", id: "extrude" }),
+          expect.objectContaining({ kind: "feature", id: "occurrence" }),
+        ]));
+      }
+    } finally { desktop.closeRaw(); remote.closeRaw(); relay.stop(); }
+  });
+  it("invalidates an unchanged body tip on parameter edit, Undo and Redo", async () => {
+    const { relay, desktop, remote } = await bootPair(true);
+    try {
+      const created = await remote.call("invoke", {
+        type: 3,
+        fields: { featureId: "edited-box", widthMm: 10, heightMm: 10, depthMm: 10 },
+      });
+      const edited = await remote.call("invoke", {
+        type: 6,
+        fields: { featureId: "edited-box", paramName: "widthMm", valueMm: 12 },
+      });
+      const editDelta = await desktop.waitDelta(edited["revision"] as number) as unknown as Record<string, unknown>;
+      expect(editDelta["baseRevision"]).toBe(created["revision"]);
+      expect(editDelta["changedMeshIds"]).toEqual(["edited-box"]);
+      for (const type of [8, 9]) {
+        const result = await remote.call("invoke", { type, fields: {} });
+        const wire = await desktop.waitDelta(result["revision"] as number) as unknown as Record<string, unknown>;
+        expect(wire["changedMeshIds"]).toEqual(["edited-box"]);
+        expect(wire["updated"]).toEqual(expect.arrayContaining([
+          expect.objectContaining({ kind: "feature", id: "edited-box" }),
+        ]));
+        expect(wire["added"]).toEqual([]);
+        expect(wire["removedIds"]).toEqual([]);
+      }
+    } finally {
+      desktop.closeRaw(); remote.closeRaw(); relay.stop();
+    }
+  });
+  it("seeds before first mutation and emits incremental wire without full arrays", async () => {
+    const { relay, desktop, remote } = await bootPair(true);
+    try {
+      const created = await remote.call("invoke", {
+        documentId: "doc-phase1",
+        type: 3,
+        fields: { featureId: "box-incremental", widthMm: 10, heightMm: 10, depthMm: 10 },
+      });
+      const wire = await desktop.waitDelta(created["revision"] as number) as unknown as Record<string, unknown>;
+      expect(wire).toMatchObject({
+        event: "delta",
+        baseRevision: 0,
+        newRevision: created["revision"],
+        revision: created["revision"],
+        sessionId: expect.any(String),
+        documentId: "doc-phase1",
+        originClientId: expect.any(String),
+        changedMeshIds: ["box-incremental"],
+        referenceRemaps: [],
+        warnings: [],
+      });
+      for (const fullField of ["features", "sketches", "bodies", "tips"]) {
+        expect(Object.hasOwn(wire, fullField)).toBe(false);
+      }
+      expect(wire["added"]).toEqual(expect.arrayContaining([
+        expect.objectContaining({ kind: "feature", id: "box-incremental", index: 0 }),
+        expect.objectContaining({ kind: "body", id: "body-box-incremental", index: 0 }),
+      ]));
+      expect(remote.events.some((event) => event["event"] === "delta")).toBe(true);
+    } finally {
+      desktop.closeRaw();
+      remote.closeRaw();
+      relay.stop();
+    }
+  });
+
   it("one-body model stays 1 Body across history + remote param edit; snapshots agree", async () => {
-    const { relay, desktop, remote } = await bootPair(44995);
+    const { relay, desktop, remote } = await bootPair();
     try {
       const boxId = "box-g";
       const holeId = "hole-g";
@@ -292,7 +422,7 @@ describe("Slice 6 TEST G: session Body semantics", () => {
   });
 
   it("tip-change delta names the body (not N features) + undo names disappeared ids", async () => {
-    const { relay, desktop, remote } = await bootPair(44996);
+    const { relay, desktop, remote } = await bootPair();
     try {
       const boxId = "box-d";
       const holeId = "hole-d";
@@ -305,7 +435,7 @@ describe("Slice 6 TEST G: session Body semantics", () => {
       const holed = await remote.call("invoke", {
         documentId: "doc-phase1",
         type: 20,
-        fields: { featureId: holeId, targetId: boxId, diameterMm: 4, depthMm: 5 },
+        fields: { featureId: holeId, targetId: boxId, faceRole: "box.+Z", diameterMm: 4, depthMm: 5 },
       });
       const holeRev = holed["revision"] as number;
       const delta = await desktop.waitDelta(holeRev);
@@ -351,7 +481,7 @@ describe("Slice 6 TEST G: session Body semantics", () => {
   });
 
   it("stale client must not mutate silently (revision fencing preserved)", async () => {
-    const { relay, desktop, remote } = await bootPair(44997);
+    const { relay, desktop, remote } = await bootPair();
     try {
       await remote.call("invoke", {
         documentId: "doc-phase1",

@@ -142,10 +142,10 @@ async function dispatchCommand(
       return { kind: "created", feature: created };
     }
     case "CreateSketch": {
-      const { planeKind } = p as { planeKind: "XY" | "XZ" | "YZ" };
+      const { planeKind, model } = p as { planeKind: "XY" | "XZ" | "YZ"; model?: SketchModel };
       const { featureId, revision } = await coreClient.createSketch({
         planeKind: planeKind ?? "XY",
-        model: emptySketchModel(),
+        model: model ?? emptySketchModel(),
       });
       const full = await coreClient.requestSketch(featureId);
       useDocumentUiStore.getState().upsertSketch({
@@ -169,6 +169,23 @@ async function dispatchCommand(
       );
       await pullAndAppend(created);
       return { kind: "created", feature: created };
+    }
+    case "CreateRevolve": {
+      const created = await coreClient.createRevolve(p as { sketchId: string; angleDeg: number });
+      await pullAndAppend(created);
+      return { kind: "created", feature: created };
+    }
+    case "UpdateSketch": {
+      const { featureId, model } = p as { featureId: string; model: SketchModel };
+      await coreClient.updateSketch({ featureId, model });
+      const snapshot = await coreClient.requestSnapshot();
+      await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches);
+      return { kind: "list", features: snapshot.features, revision: snapshot.revision };
+    }
+    case "DeleteFeature": {
+      const result = await coreClient.deleteFeature(p["featureId"] as string);
+      await syncFromCoreList(result.features, result.revision, result.sketches);
+      return { kind: "list", features: result.features, revision: result.revision };
     }
     case "CreateBoolean": {
       const created = await coreClient.createBoolean(

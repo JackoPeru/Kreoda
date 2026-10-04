@@ -217,7 +217,7 @@ TEST(Topology, SelectionSurvivesSaveOpen) {
   const std::string save =
       std::string(
           R"({"protocolVersion":1,"requestId":"t1","documentId":"topo7","type":10,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   ASSERT_NE(kreoda_test::rpcText(save).find("\"status\":\"ok\""),
             std::string::npos);
 
@@ -225,7 +225,7 @@ TEST(Topology, SelectionSurvivesSaveOpen) {
   const std::string open =
       std::string(
           R"({"protocolVersion":1,"requestId":"t2","documentId":"topo7b","type":11,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   const std::string opened = kreoda_test::rpcText(open);
   ASSERT_NE(opened.find("\"status\":\"ok\""), std::string::npos) << opened;
 
@@ -356,7 +356,7 @@ TEST(Topology, SaveOpenPreservesBodyTip) {
   const std::string save =
       std::string(
           R"({"protocolVersion":1,"requestId":"ts1","documentId":"topo-tip4","type":10,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   ASSERT_NE(kreoda_test::rpcText(save).find("\"status\":\"ok\""),
             std::string::npos);
 
@@ -364,7 +364,7 @@ TEST(Topology, SaveOpenPreservesBodyTip) {
   const std::string open =
       std::string(
           R"({"protocolVersion":1,"requestId":"to1","documentId":"topo-tip4b","type":11,"path":")") +
-      icad.string() + "\"}";
+      icad.generic_string() + "\"}";
   ASSERT_NE(kreoda_test::rpcText(open).find("\"status\":\"ok\""),
             std::string::npos)
       << open;

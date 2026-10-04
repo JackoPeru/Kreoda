@@ -23,6 +23,9 @@ jobs:
       - name: Build workspace packages
         run: pnpm --filter './packages/*' -r build
 
+      - name: Verify generated session contract
+        run: pnpm check:session-contract
+
       - name: JS lint
         run: pnpm -r lint
 
@@ -99,6 +102,9 @@ jobs:
 
       - name: .NET build + tests
         run: pnpm test:dotnet
+
+      - name: Build paired C# acceptance client
+        run: dotnet build clients/session-dotnet/probes/Kreoda.DeviceProbe/Kreoda.DeviceProbe.csproj -c Release -p:Platform=AnyCPU --nologo
 
       - name: Build desktop shell
         id: desktop-build

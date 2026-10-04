@@ -1,0 +1,145 @@
+{
+  "recordedAtUtc": "2026-10-04T09:32:28.266299+00:00",
+  "sourceBaseCommit": "4c31ea1f398d87f37d5924209bbfdbf5a1e19d0f",
+  "status": "packet-7-PASS",
+  "phase11Complete": false,
+  "workspaceTests": {
+    "passed": 204,
+    "desktop": 161,
+    "protocol": 27,
+    "commandSchema": 10,
+    "pluginSdk": 2,
+    "units": 4
+  },
+  "dotnetTests": {
+    "passed": 35
+  },
+  "workspaceBuild": "PASS",
+  "workspaceTypecheck": "PASS",
+  "finalElectronBuild": "PASS",
+  "generatedSessionContract": {
+    "status": "PASS",
+    "dtoSchemas": 23,
+    "sourceSha256": "93e9e8283b745c4ea77c001d2093ec711161c16ad847705b1c5b194f8fb67ef5"
+  },
+  "nativeRuntime": {
+    "kernel": "8.0.1-native",
+    "corePid": 22656,
+    "coreSha256": "80d7120494a298ab4ce74a5f6790bf94a8d4dab920b5bb79bafc259eb06ee99c",
+    "dotnetPid": 24428,
+    "aclPid": 17368,
+    "privateInterface": {
+      "name": "Ethernet",
+      "host": "192.168.1.7",
+      "port": 52641
+    },
+    "sourceSha256": {
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\sidecar.ts": "9d5968356285019e8b8a122538c1e3666f4ef996cfdaaeeface719fbfa47dae9",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session.ts": "322c749a48f59cb340c9c5e989a58a33eab8ffbd10a2c4d863670077ebd7ddb3",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-listener.ts": "58ee8221ce480b5940d1f8e5259db15fe40687ddbf71804dbc72ef4c57a8ba7a",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-queries.ts": "69493cf4c5a9e21e25d72a3fa1be995b058d3677d732c88b076f9aca7200db2e",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-devices.ts": "9ba4650cb706390db1ea1a886bc516593fbd988d8c1fe84b965c39c6bdd043df",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\clients\\session-dotnet\\src\\Kreoda.SessionClient\\SessionClient.cs": "170e052cbb6d84e3cf97062bbbeaa756bd5e8a0ecf99d8d940758a2d61d93989",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\clients\\session-dotnet\\probes\\Kreoda.DeviceProbe\\Program.cs": "f040ac715e6428b68449e9c2c88e69b9250d6f3eb7453bb63fe3ad4090466371",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\schemas\\session-control-v1.json": "9b3a47e4683ac519bbad13afc524e2fa125090081d7cfa52fefa6afdbf03ad48"
+    },
+    "passed": [
+      "private-interface-preauthentication-cad-gate",
+      "compiled-csharp-pair-and-hello",
+      "paired-csharp-existing-native-edit",
+      "paired-csharp-native-undo",
+      "returning-csharp-credential-authentication-snapshot",
+      "private-interface-pair-token-consumed",
+      "paired-native-snapshot-agreement",
+      "private-interface-live-revocation",
+      "persistent-digests-no-plaintext-credentials",
+      "real-windows-owner-only-file-and-directory-acl",
+      "disable-reenable-preserves-cad-lineage"
+    ],
+    "credentialsLogged": false,
+    "visibleWindows": false,
+    "boundary": "Real OCCT/Sidecar/WebSocket/compiled C# and Windows DACL on an assigned private IPv4 interface of this host. No remote device, Unity, Desktop renderer or GUI input."
+  },
+  "ownedProcessesExited": true,
+  "redBeforeImplementation": [
+    "Three real-WebSocket device tests failed before trusted registry gate and private-interface validation",
+    "C# pair/device API tests failed compilation before SDK implementation"
+  ],
+  "uiVerification": "React interaction test: selected interface, explicit pairing, live device status, revoke and pairing cancellation on unmount; no GUI input",
+  "storage": "Actual Windows protected owner-only DACL on app-owned store directory and file; atomic write; digest-only credentials; one-use 5-minute pairing token and current listener device tokens",
+  "sourceSha256": {
+    "apps/desktop/electron/main.ts": "aaffaa0b92cb7ced682652d85ca51aa371d292bd64f18cbf710bffaa90106d1d",
+    "apps/desktop/electron/preload.ts": "84d842676b5c56ea16e1543cba86b56387122e668205e28a941a5cbde685f6e3",
+    "apps/desktop/electron/session-control-ui.ts": "176ad1fb806778f76cd43dc1d77516fc08fbf247abf23f62cfc063d53f1272b1",
+    "apps/desktop/electron/session-devices.ts": "9ba4650cb706390db1ea1a886bc516593fbd988d8c1fe84b965c39c6bdd043df",
+    "apps/desktop/electron/session-listener.ts": "58ee8221ce480b5940d1f8e5259db15fe40687ddbf71804dbc72ef4c57a8ba7a",
+    "apps/desktop/electron/session.ts": "322c749a48f59cb340c9c5e989a58a33eab8ffbd10a2c4d863670077ebd7ddb3",
+    "apps/desktop/src/components/workspace/SessionConnectionPanel.tsx": "7ac6c81ab00b1a01d7302dce949534ad90e7f963c619190095891279c3376f82",
+    "apps/desktop/src/components/workspace/TopToolDock.tsx": "adbd7c427a66da8a58c49a5073416f10b5616238adfa889570a52577a814df7e",
+    "apps/desktop/src/i18n/en.ts": "3e3a3ee35580c30a414a75634d6d3d210044b0e7fddde6f52ad7e28694c224c5",
+    "apps/desktop/src/i18n/it.ts": "389c3cc2a60ed04a0d630207ba33bd26032f4032ca9fc8d75cb08e20013d9e16",
+    "apps/desktop/tests/session-connection-panel.test.tsx": "b9a090fec6645a1fb2e7a3506032b37a30183bac7eda55b3118b62ae742aa78a",
+    "apps/desktop/tests/session-devices.test.ts": "9acff7c5dd9285ecb570c560de4045ff60591f2180306cb021a4f3951e225e74",
+    "apps/desktop/tests/session-pairing.test.ts": "a40d9e5579abd079473b50cbe2060595eea59e3323fcc92dacfc3b9113b5ec23",
+    "clients/session-dotnet/probes/Kreoda.DeviceProbe/Kreoda.DeviceProbe.csproj": "bc6c59385ddf5435f881f99d3b56e04d2933514f46ba08b2260056269baf54fa",
+    "clients/session-dotnet/probes/Kreoda.DeviceProbe/Program.cs": "f040ac715e6428b68449e9c2c88e69b9250d6f3eb7453bb63fe3ad4090466371",
+    "clients/session-dotnet/src/Kreoda.SessionClient/Generated/SessionDtos.g.cs": "d2a3a5d46a8c9efbcadd62ba63232c42b65c9ab36bfbdb0b308fa7867cef8d5a",
+    "clients/session-dotnet/src/Kreoda.SessionClient/Generated/SessionMethods.g.cs": "b25b191ac3e5a7c899df6392df4b65f8034768afb80cc9a9c22f28a1d3c32dcf",
+    "clients/session-dotnet/src/Kreoda.SessionClient/SessionClient.cs": "170e052cbb6d84e3cf97062bbbeaa756bd5e8a0ecf99d8d940758a2d61d93989",
+    "clients/session-dotnet/tests/Kreoda.SessionClient.Tests/SessionClientTests.cs": "17dd50e237d406de240b1be56e38cbd37dc53857182f30a99be3248528812488",
+    "packages/protocol/src/generated/session-dtos.ts": "67288b08a3767c9798ac8a2776fe2c0d896c9a3e21688d9fd94dc3fe21166c1f",
+    "packages/protocol/src/generated/session-metadata.ts": "7df20304d9d25937d1e78591c19c1081c25c18c56d7f7a6e607e64612d2707a2",
+    "packages/protocol/src/generated/session-validators.ts": "752932f973224667cfd513cc8611b69e35421f6051cf81ede5f64b0395f421a7",
+    "packages/protocol/src/session-control.ts": "82f19850f4ba24f2d9f700f8a94d0ee302c09212b4795b275d004bb29a4101f8",
+    "schemas/session-control-v1.json": "9b3a47e4683ac519bbad13afc524e2fa125090081d7cfa52fefa6afdbf03ad48"
+  },
+  "logs": {
+    "kreoda-session-devices-workspace-tests.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-devices-workspace-tests.txt",
+      "sha256": "a8124fdb05c270047f5caedecc78d49eb2abf0e38d1598a208f7aeab487503f3"
+    },
+    "kreoda-session-devices-workspace-build.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-devices-workspace-build.txt",
+      "sha256": "4f40fbfe1fdee0b5bd3b3790b9835388a7a3f24f90f71f3f72099cb134fcd102"
+    },
+    "kreoda-session-devices-electron-build.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-devices-electron-build.txt",
+      "sha256": "d70ca6af30b35421a025b24f8314f3c11857083d118955bfcfc3d9b013bd439c"
+    },
+    "kreoda-session-devices-typecheck.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-devices-typecheck.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kreoda-session-device-sdk-red.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-device-sdk-red.txt",
+      "sha256": "11de35b989d9999dd16fd7f9c5b006cb756886ca905af99781eb8b9692dff042"
+    },
+    "kreoda-session-device-sdk-green.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-device-sdk-green.txt",
+      "sha256": "32c78b3f14baba2f7757edcb5a1da3e69ab617a3c111b67ac6805dcfb2ca4f25"
+    },
+    "kreoda-session-device-probe-build.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-device-probe-build.txt",
+      "sha256": "b6547d5c0253ede53297415fae1b4b149a3ce94572e6feed4276ae432ef8d294"
+    },
+    "kreoda-session-pairing-contract-tests.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-pairing-contract-tests.txt",
+      "sha256": "888da2d6648c8356880ee95db69a462b2b5d7137125b02785ce343bfeaa35dcc"
+    },
+    "kreoda-session-device-ui-tests.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-session-device-ui-tests.txt",
+      "sha256": "05417a5aeea8d65374bceb41fda96c3e410a7bfaa8c6b7690666339cf4136ee5"
+    },
+    "kreoda-phase11-device-runtime-probe-result.txt": {
+      "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase11-device-runtime-probe-result.txt",
+      "sha256": "36890c62e2f5f22c3cfcbc8fc5608889640e46cf67c51f9adc18fdc273ccf8f2"
+    }
+  },
+  "boundaries": [
+    "Assigned Ethernet IPv4 connection is between processes on this host, not remote hardware or a Quest device",
+    "Compiled C# exchanges pairing/authentication and edits existing native CAD; no Unity runtime",
+    "UI verified with React interaction test; real hidden Desktop renderer acceptance remains packet 9",
+    "Native executable unchanged from verified packet 6b; this packet runs native session acceptance, not a repeated full native unit cohort",
+    "Accepted portable and dirty primary checkout untouched; unified Desktop mutation ownership remains packet 8"
+  ]
+}

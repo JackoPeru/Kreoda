@@ -1,0 +1,97 @@
+{
+  "packet": "phase11-4b-incremental-desktop-and-dotnet-recovery",
+  "status": "PASS",
+  "recordedAtUtc": "2026-10-03T23:27:24.531027+00:00",
+  "sourceBaseCommit": "04f67c98ea958919d126b0afc4935781d0c78d28",
+  "sourceSha256": {
+    "apps/desktop/electron/main.ts": "bf32d7573a788bff14ab8a1ab1ce1cd058f45c64b931af9fdf0a8e792724abbe",
+    "apps/desktop/electron/session.ts": "8251743dd0ff9d9f34fcc510c40fe7b6bc28bf9853535f8fb20602852204c973",
+    "apps/desktop/electron/sidecar.ts": "9d5968356285019e8b8a122538c1e3666f4ef996cfdaaeeface719fbfa47dae9",
+    "apps/desktop/electron/preload.ts": "3d74a6aea2224709154115c44d2a32b91153cf69adfc05cfd240048c105efb1c",
+    "apps/desktop/src/app/App.tsx": "f97775b287f31a206fe33c7398052fb73362297c0d82702aa0db702386a85afd",
+    "apps/desktop/src/components/Viewport.tsx": "a5a42b6c0543830b6f19ec321f396eaa8aab2c822089a113f1440a5612705375",
+    "apps/desktop/src/ipc/coreClient.ts": "5ab4a354d104b4a4c339151d9baab485447c27969261bd2c053d65554930ca33",
+    "apps/desktop/src/model/sync.ts": "fa7e065ef15e5bed08d6e9c3ac47ce3987a5a0b642c78e6c44c4d196c9220247",
+    "apps/desktop/src/model/session-update-queue.ts": "80f930f158d2fa280b8b2f0d2b687a53ab7b8e54fcdd65e5d8c79f768eefea1a",
+    "apps/desktop/src/viewport/CadViewport.ts": "dcc36db5135ee7caf4b817fd499aed5c81e221344db7ca4768145d1a429b8178",
+    "apps/desktop/src/viewport/viewportHandle.ts": "cbe432cf0dcf2a32b26f05c4c91254448182b1a4caa6ec7ddfb4294a36250098",
+    "apps/desktop/e2e/phase11-incremental.spec.ts": "440656cd12a62f442908c816db457841afd5f07d45a000d588daa11533ae93d5",
+    "clients/session-dotnet/src/Kreoda.SessionClient/SessionClient.cs": "5df783331c0ae4928f17621f4795fa7b207f05da25267c56b5dab88fb02f778e",
+    "clients/session-dotnet/src/Kreoda.SessionClient/SessionModel.cs": "9c8e74c44e5bb490a6bc7619153b9d0dd2302b677e530a2db097d3c06539b092",
+    "clients/session-dotnet/probes/Kreoda.SessionProbe/Program.cs": "e2d90be44ad780407200a7bbb1a44bcbdac380591599951ea5caf95e64ced362"
+  },
+  "compiledMainRestoredSha256": "030c7db59d40eef7e159b8a14c49638c19ce279ebba023fc5761d501cd054b23",
+  "desktopRuntime": {
+    "kernel": "8.0.1-native",
+    "mainPid": 30236,
+    "corePid": 40116,
+    "visibleWindows": false,
+    "changedGeometryReplaced": true,
+    "untouchedGeometryPreserved": true,
+    "cameraPreserved": true,
+    "selectionPreserved": true,
+    "lostEventRecovered": true,
+    "baseRevision": 2,
+    "editedRevision": 3,
+    "recoveredRevision": 5,
+    "finalVolumeMm3": 90000,
+    "inputActions": 0
+  },
+  "dotnetNativeRuntime": {
+    "kernel": "8.0.1-native",
+    "initialRevision": 3,
+    "finalRevision": 7,
+    "passed": [
+      "native-join-snapshot",
+      "existing-parameter-edit",
+      "typed-incremental-model",
+      "dependent-instance-invalidation",
+      "untouched-entity-preserved",
+      "native-undo",
+      "lost-event-gap-recovery",
+      "native-snapshot-model-match"
+    ],
+    "boundary": "Actual SessionRelay/OCCT and compiled C# SessionClient over loopback WebSocket; no Unity or Quest device.",
+    "corePid": 40168,
+    "coreSha256": "14c38e2a38589ce31eb8e900ddb042d2ba63085197bce363153eb6f23199826e",
+    "sourceSha256": {
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\sidecar.ts": "9d5968356285019e8b8a122538c1e3666f4ef996cfdaaeeface719fbfa47dae9",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session.ts": "8251743dd0ff9d9f34fcc510c40fe7b6bc28bf9853535f8fb20602852204c973",
+      "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\electron\\session-queries.ts": "624cb0e9a67bbbd4382a97e39820a486e4069fe9f8fe46e387761fcc4c5fd004"
+    },
+    "clientDllSha256": "71071a1415388d2717c8d1ba33550fa77ca8709681c4e110ecca598a8d6a9c66",
+    "probeDllSha256": "c472b3f61607ba53b179dd2d896e78812d49192ac77f46fdcc7cd010620dcf24",
+    "injectedDroppedEvents": 1,
+    "visibleWindows": false
+  },
+  "runnerSha256": "6f49030b84d8891b014e24eeb38d7f66d860e0d9d5216432c5303998594a4d21",
+  "dotnetDriverSha256": "38140028164556689c39c573ff1498660df47bfd0f896ee5a2246362913ebe06",
+  "validation": {
+    "workspaceTests": {
+      "desktop": 142,
+      "protocol": 25,
+      "pluginSdk": 2,
+      "units": 4,
+      "total": 173
+    },
+    "dotnetTests": 31,
+    "desktopTypecheckBuild": "PASS",
+    "dotnetProbeBuildWarnings": 0,
+    "dotnetProbeBuildErrors": 0
+  },
+  "regressions": {
+    "viewportGeometryIdentity": "RED before immutable mesh cache; GREEN after",
+    "desktopOrderedRecovery": "missing implementation RED; four recovery tests GREEN",
+    "dotnetModelRecovery": "missing model API RED; typed model and actual loopback recovery GREEN"
+  },
+  "ownedPidsExited": [
+    30236,
+    40116,
+    40168
+  ],
+  "limits": [
+    "Packet-level runtime evidence; full Phase 11 acceptance, hosted CI, final review and remaining roadmap phases are not complete.",
+    "Desktop mutation ownership and network pairing remain later packets.",
+    "No Unity or Quest hardware tested."
+  ]
+}

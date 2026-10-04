@@ -13,8 +13,33 @@ export class SessionClient {
   >();
   readonly events: Record<string, unknown>[] = [];
 
-  async connect(token: string, port: number): Promise<Record<string, unknown>> {
-    this.ws = new WebSocket(`ws://127.0.0.1:${port}`);
+  async connect(
+    token: string,
+    port: number,
+    logicalClientId?: string,
+    capabilities?: string[],
+  ): Promise<Record<string, unknown>> {
+    await this.open(`ws://127.0.0.1:${port}`);
+    return this.hello(token, logicalClientId, capabilities);
+  }
+
+  async pair(url: string, pairingToken: string) {
+    await this.open(url);
+    const paired = await this.call("pair", { pairingToken, deviceName: "phase11-acceptance" });
+    const hello = await this.hello(paired["sessionToken"] as string, undefined,
+      ["incremental-deltas", "operation-replay"], paired["deviceId"] as string);
+    return { hello, deviceId: paired["deviceId"] as string, credential: paired["credential"] as string };
+  }
+
+  async connectDevice(url: string, deviceId: string, credential: string) {
+    await this.open(url);
+    const authenticated = await this.call("authenticate", { deviceId, credential });
+    return this.hello(authenticated["sessionToken"] as string, undefined,
+      ["incremental-deltas", "operation-replay"], deviceId);
+  }
+
+  private async open(url: string): Promise<void> {
+    this.ws = new WebSocket(url);
     await new Promise<void>((resolve, reject) => {
       this.ws!.once("open", () => resolve());
       this.ws!.once("error", (e) => reject(e));
@@ -50,25 +75,32 @@ export class SessionClient {
       }
       this.events.push(msg);
     });
+  }
+
+  private hello(token: string, logicalClientId?: string, capabilities?: string[], deviceId?: string) {
     return this.call("hello", {
       clientType: "test",
       clientName: "phase11-acceptance",
       protocolVersion: 1,
       token,
+      ...(deviceId ? { deviceId } : {}),
+      ...(logicalClientId ? { clientId: logicalClientId } : {}),
+      ...(capabilities ? { capabilities } : {}),
     });
   }
 
   call(
     method: string,
     params: Record<string, unknown> = {},
+    metadata: { operationId?: unknown; sessionId?: unknown; requestId?: string } = {},
   ): Promise<Record<string, unknown>> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return Promise.reject(new Error("not connected"));
     }
-    const requestId = `t-${++this.seq}`;
+    const requestId = metadata.requestId ?? `t-${++this.seq}`;
     return new Promise((resolve, reject) => {
       this.pending.set(requestId, { resolve, reject });
-      this.ws!.send(JSON.stringify({ requestId, method, params }));
+      this.ws!.send(JSON.stringify({ ...metadata, requestId, method, params }));
     });
   }
 

@@ -7,7 +7,7 @@
 
 namespace kreoda {
 
-// Minimal JSON (de)serialization for sketches — no external dep in core.
+// Typed DOM JSON (de)serialization for canonical sketches.
 // The wire format mirrors the TS types (SketchModel JSON):
 // {points:[{id,x,y,fixed?}], lines:[{id,p1,p2}], circles:[{id,center,r}],
 //  arcs:[{id,center,r,startAngleRad,endAngleRad}], constraints:[{id,kind,refs,value?}]}

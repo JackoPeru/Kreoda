@@ -6,8 +6,9 @@
 
 namespace kreoda {
 
-// Minimal JSON field extraction for Phase-1 envelopes (no JSON dep in core).
-// Full validation moves to FlatBuffers codegen (schemas/cad_protocol.fbs).
+// Typed top-level JSON reads. Missing, malformed or wrong scalar types
+// return the fallback in these public inspection helpers. Dispatch uses a
+// parsed DOM and reports wrong parameter types before invoking the kernel.
 std::string json_string_field(const std::string& json, const char* key,
                               const std::string& fallback = "");
 // Strict variant honoring backslash escapes inside quoted strings.
@@ -60,6 +61,7 @@ enum CommandId {
   kBeginTransaction = 27,
   kCommitTransaction = 28,
   kRollbackTransaction = 29,
+  kRequestSessionQuery = 30,
 };
 
 }  // namespace kreoda
