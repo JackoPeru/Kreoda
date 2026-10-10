@@ -3,7 +3,8 @@
 // Mesh successes cross the wire as MeshUpdate tables (§8).
 
 import * as flatbuffers from "flatbuffers";
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
 import {
   CommandType as Handwritten,
   decodeMeshFrame,
@@ -16,6 +17,72 @@ import { CommandType as Generated } from "./generated/kreoda/protocol/command-ty
 import { CreateBoxCommand } from "./generated/kreoda/protocol/create-box-command.js";
 import { MeshUpdate } from "./generated/kreoda/protocol/mesh-update.js";
 import { FaceRange } from "./generated/kreoda/protocol/face-range.js";
+import { EdgeRange } from "./generated/kreoda/protocol/edge-range.js";
+
+type MeshFixtureOverrides = {
+  requestId?: string;
+  featureId?: string;
+  bodyId?: string;
+  lod?: number;
+  positions?: number[];
+  normals?: number[];
+  indices?: number[];
+  edgeVertices?: number[];
+  faces?: { id: string; start: number; count: number }[];
+  edges?: { id: string; start: number; count: number }[];
+  omitEdgeVertices?: boolean;
+  positionsCount?: number;
+  normalsCount?: number;
+  indicesCount?: number;
+  volumeMm3?: number;
+  bboxMm?: number[];
+  revision?: bigint;
+};
+
+function meshFixture(overrides: MeshFixtureOverrides = {}): Uint8Array {
+  const builder = new flatbuffers.Builder(512);
+  const positions = overrides.positions ?? [0, 0, 0, 1, 0, 0, 0, 1, 0];
+  const normals = overrides.normals ?? [0, 0, 1, 0, 0, 1, 0, 0, 1];
+  const indices = overrides.indices ?? [0, 1, 2];
+  const edgeVertices = overrides.edgeVertices ?? [];
+  const bytes = (values: number[]) => new Uint8Array(new Float32Array(values).buffer);
+  const indicesBytes = new Uint8Array(new Uint32Array(indices).buffer);
+  const fid = builder.createString(overrides.featureId ?? "tip-1");
+  const body = builder.createString(overrides.bodyId ?? "tip-1");
+  const req = builder.createString(overrides.requestId ?? "relay-1");
+  const positionsOffset = MeshUpdate.createPositionsVector(builder, bytes(positions));
+  const normalsOffset = MeshUpdate.createNormalsVector(builder, bytes(normals));
+  const indicesOffset = MeshUpdate.createIndicesVector(builder, indicesBytes);
+  const edgeVerticesOffset = overrides.omitEdgeVertices ? 0 : MeshUpdate.createEdgeVerticesVector(builder, bytes(edgeVertices));
+  const faceOffsets = (overrides.faces ?? [{ id: "face-1", start: 0, count: 1 }]).map(face =>
+    FaceRange.createFaceRange(builder, builder.createString(face.id), face.start, face.count));
+  const facesOffset = MeshUpdate.createFacesVector(builder, faceOffsets);
+  const edgeOffsets = (overrides.edges ?? []).map(edge =>
+    EdgeRange.createEdgeRange(builder, builder.createString(edge.id), edge.start, edge.count));
+  const edgesOffset = MeshUpdate.createEdgesVector(builder, edgeOffsets);
+  const bboxOffset = MeshUpdate.createBboxMmVector(builder, overrides.bboxMm ?? [0, 0, 0, 1, 1, 1]);
+  const update = MeshUpdate.createMeshUpdate(
+    builder,
+    fid,
+    body,
+    overrides.lod ?? 1,
+    req,
+    overrides.positionsCount ?? positions.length,
+    overrides.normalsCount ?? normals.length,
+    overrides.indicesCount ?? indices.length,
+    positionsOffset,
+    normalsOffset,
+    indicesOffset,
+    edgeVerticesOffset,
+    facesOffset,
+    edgesOffset,
+    overrides.volumeMm3 ?? 1,
+    bboxOffset,
+    overrides.revision ?? BigInt(7),
+  );
+  builder.finish(update);
+  return builder.asUint8Array();
+}
 
 describe("flatc codegen parity (§61)", () => {
   it("generated CommandType matches the handwritten registry", () => {
@@ -106,6 +173,79 @@ describe("flatc codegen parity (§61)", () => {
     expect(mesh.bboxMm).toEqual([0, 0, 0, 100, 60, 10]);
     expect(mesh.triangleCount).toBe(1);
     expect(mesh.revision).toBe(7);
+  });
+
+  it("preserves native blind-hole spans that share ambiguous semantic IDs", () => {
+    const bytes = readFileSync(new URL("../fixtures/native-blind-hole.meshfb", import.meta.url));
+    const mesh = decodeMeshUpdateFb(bytes);
+    expect(mesh.featureId).toBe("hole-blind");
+    expect(mesh.bodyId).toBe("hole-blind");
+    expect(mesh.requestId).toBe("mesh-blind-hole");
+    expect(mesh.triangleCount).toBe(264);
+    expect(mesh.faces.filter((range) => range.persistentFaceId === "hole-blind:box.+Z")).toEqual([
+      { persistentFaceId: "hole-blind:box.+Z", triangleStart: 4, triangleCount: 67 },
+      { persistentFaceId: "hole-blind:box.+Z", triangleStart: 203, triangleCount: 61 },
+    ]);
+    expect(mesh.edges.filter((range) => range.persistentEdgeId === "hole-blind:edge.cir.box.+Z~wall.0")).toEqual([
+      { persistentEdgeId: "hole-blind:edge.cir.box.+Z~wall.0", vertexStart: 18, vertexCount: 21 },
+      { persistentEdgeId: "hole-blind:edge.cir.box.+Z~wall.0", vertexStart: 47, vertexCount: 21 },
+    ]);
+  });
+
+  it("accepts an omitted optional edge-vertex vector when there are no edges", () => {
+    const mesh = decodeMeshUpdateFb(meshFixture({ omitEdgeVertices: true, edges: [] }));
+    expect(mesh.edgeVertices).toEqual(new Float32Array());
+    expect(mesh.edges).toEqual([]);
+  });
+
+  it("checks raw geometry semantics before allocating output vectors", () => {
+    const bytes = meshFixture({ positions: [0, 0, 0, Number.NaN, 0, 0, 0, 1, 0] });
+    const NativeFloat32Array = globalThis.Float32Array;
+    let outputVectorAllocations = 0;
+    vi.stubGlobal("Float32Array", new Proxy(NativeFloat32Array, {
+      construct(target, args) {
+        if (typeof args[0] === "number" && args[0] > 0) outputVectorAllocations++;
+        return Reflect.construct(target, args, target);
+      },
+    }));
+    try {
+      expect(() => decodeMeshUpdateFb(bytes)).toThrow();
+      expect(outputVectorAllocations).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  const invalidMeshCases: [string, MeshFixtureOverrides][] = [
+    ["normals count", { normalsCount: 8 }],
+    ["non-triangle indices", { indices: [0, 1] }],
+    ["out-of-range indices", { indices: [0, 1, 9] }],
+    ["non-finite positions", { positions: [0, 0, 0, Number.NaN, 0, 0, 0, 1, 0] }],
+    ["non-finite normals", { normals: [0, 0, 1, 0, Number.POSITIVE_INFINITY, 1, 0, 0, 1] }],
+    ["non-finite edge vertices", { edgeVertices: [0, 0, 0, Number.NaN, 0, 0], edges: [{ id: "edge-1", start: 0, count: 2 }] }],
+    ["invalid face span", { faces: [{ id: "face-1", start: 1, count: 1 }] }],
+    ["overlapping repeated face spans", { faces: [{ id: "same", start: 0, count: 1 }, { id: "same", start: 0, count: 1 }] }],
+    ["empty face spans", { faces: [{ id: "face-1", start: 0, count: 0 }] }],
+    ["invalid edge span", { edgeVertices: [0, 0, 0, 1, 0, 0], edges: [{ id: "edge-1", start: 1, count: 2 }] }],
+    ["overlapping repeated edge spans", { edgeVertices: [0, 0, 0, 1, 0, 0, 2, 0, 0], edges: [{ id: "same", start: 0, count: 2 }, { id: "same", start: 1, count: 2 }] }],
+    ["empty edge spans", { edgeVertices: [0, 0, 0], edges: [{ id: "edge-1", start: 0, count: 0 }] }],
+    ["empty semantic ids", { requestId: "", featureId: "" }],
+    ["reversed bounding box", { bboxMm: [1, 0, 0, 0, 1, 1] }],
+    ["non-finite volume", { volumeMm3: Number.NaN }],
+    ["unsafe revision", { revision: BigInt(Number.MAX_SAFE_INTEGER) + BigInt(1) }],
+  ];
+
+  it.each(invalidMeshCases)("rejects invalid MeshUpdate data: %s", (_name, overrides) => {
+    expect(() => decodeMeshUpdateFb(meshFixture(overrides))).toThrow();
+  });
+
+  it("checks declared lengths before accepting hostile vector lengths", () => {
+    const bytes = meshFixture();
+    const update = MeshUpdate.getRootAsMeshUpdate(new flatbuffers.ByteBuffer(bytes));
+    const vector = update.positionsArray()!;
+    const vectorOffset = vector.byteOffset - bytes.byteOffset;
+    new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint32(vectorOffset - 4, 0xffffffff, true);
+    expect(() => decodeMeshUpdateFb(bytes)).toThrow();
   });
 
   it("corrupt mesh frames throw honestly", () => {

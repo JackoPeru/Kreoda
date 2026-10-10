@@ -1,0 +1,16 @@
+{
+  "verdict": "fix-first",
+  "threadId": "01a125df-649f-7092-8535-86eef5e2be2f",
+  "agentPath": "/root/review_phase12_packet34_fresh",
+  "model": "gpt-6-sol",
+  "effort": "high",
+  "sandboxPolicy": "danger-full-access",
+  "permissionProfile": "disabled",
+  "readOnlyEnforced": false,
+  "sourceFiles": 754,
+  "sourceBeforeAfterUnchanged": true,
+  "sourceManifestSha256": "ce5224702987b2cd8f6bb5f6a19d37a17a54d5a329041e060da1f2333edfdfaa",
+  "finding": "Packet3 transparent preview style absent; selection material does not provide a preview path.",
+  "rootCorrection": "Distinct referenced Preview material and client-local placement preview flag, preserving meshes/semantics; upload/incoming body style retained; confirm/cancel restores surface and shared assets survive.",
+  "correctionVerified": "Meaningful Unity RED1/15 then GREEN15/15. Corrected normal ARM64 APK succeeds; fresh reviewer required."
+}

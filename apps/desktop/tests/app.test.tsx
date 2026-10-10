@@ -14,6 +14,8 @@ vi.mock("../src/viewport/CadViewport", () => ({
   CadViewport: class {
     setHover = vi.fn();
     setSelected = vi.fn();
+    setSharedTargets = vi.fn();
+    sharedTargetSummary = () => ({ ids: [], faceGroups: 0, edgeSegments: 0 });
     setPickMode = vi.fn();
     syncMeshes = vi.fn();
     syncReferencePlanes = vi.fn();
@@ -128,6 +130,7 @@ describe("beginner shell (§24)", () => {
     vi.mocked(coreClient.readReferences).mockRejectedValueOnce(new Error("offline"));
     useDocumentUiStore.getState().resetDocument("retry-old");
     render(<App />);
+    expect(window.kreoda.sessionSnapshot).not.toHaveBeenCalled();
     await act(async () => receive({ documentId: "retry-new", revision: 7, features: [], sketches: [] }));
     expect(useDocumentUiStore.getState().revision).toBe(7);
     expect(() => serializeReferences()).toThrow(/retry/i);

@@ -1,0 +1,76 @@
+{
+  "sourceCommit": "a697acd735fb9e900148ad47331fd2bd33a319f5",
+  "nativeKernel": "8.0.1-native",
+  "initialRevision": 9,
+  "editedRevision": 10,
+  "undoRevision": 11,
+  "frames": [
+    {
+      "nativeRequestId": "relay-66",
+      "bodyId": "body-box",
+      "featureId": "box",
+      "tipId": "box",
+      "revision": 9,
+      "quality": 0,
+      "byteLength": 2088,
+      "rawPayloadSha256": "66b0a3b4bd94209f44d96bb13155a08efdc7d97611c359ff3d774bb56637aa53"
+    },
+    {
+      "nativeRequestId": "relay-68",
+      "bodyId": "body-box",
+      "featureId": "box",
+      "tipId": "box",
+      "revision": 9,
+      "quality": 1,
+      "byteLength": 2096,
+      "rawPayloadSha256": "de4b13892e45500f47527f03ecb08999e80b05bed7d190ac7f13904cbb239dc3"
+    },
+    {
+      "nativeRequestId": "relay-70",
+      "bodyId": "body-box",
+      "featureId": "box",
+      "tipId": "box",
+      "revision": 9,
+      "quality": 2,
+      "byteLength": 2096,
+      "rawPayloadSha256": "23275d27e410685192e414137e11ccf81b0283bc6e43d70fe67842e64ebd3313"
+    },
+    {
+      "nativeRequestId": "relay-72",
+      "bodyId": "body-untouched",
+      "featureId": "untouched",
+      "tipId": "untouched",
+      "revision": 9,
+      "quality": 1,
+      "byteLength": 2248,
+      "rawPayloadSha256": "4dbe69e9d9a2e6a0de16aadd0432e7afcec213619f540def00df24640c821e9e"
+    },
+    {
+      "nativeRequestId": "relay-77",
+      "bodyId": "body-box",
+      "featureId": "box",
+      "tipId": "box",
+      "revision": 10,
+      "quality": 1,
+      "byteLength": 2096,
+      "rawPayloadSha256": "10bb0abb3704cf32ee4bd202b2239977c0ac5aab02cc6740f913c7711ff68460"
+    },
+    {
+      "nativeRequestId": "relay-82",
+      "bodyId": "body-box",
+      "featureId": "box",
+      "tipId": "box",
+      "revision": 11,
+      "quality": 1,
+      "byteLength": 2096,
+      "rawPayloadSha256": "0d6666633204bb852cab513b37beda7f23cd649e591ac7bf408c1259baa7f851"
+    }
+  ],
+  "passed": [
+    "real-native-mesh-headers-and-flatbuffers-at-all-lods-for-two-bodies",
+    "real-native-edit-invalidates-and-refetches-only-the-changed-body",
+    "real-native-undo-refreshes-the-restored-body-mesh",
+    "credential-reconnect-recovers-current-lineage-and-rejects-stale-revision"
+  ],
+  "evidenceBoundary": "Actual Desktop session relay and native OCCT over WebSocket with compiled C# SessionClient; no Unity or Quest hardware."
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Kreoda.QuestEditor",
+  "references": ["Kreoda.QuestRuntime", "Oculus.VR", "Oculus.VR.Editor", "Unity.XR.Management", "Unity.XR.Management.Editor", "Unity.XR.OpenXR", "Unity.XR.OpenXR.Editor"],
+  "includePlatforms": ["Editor"]
+}

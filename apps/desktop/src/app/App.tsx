@@ -38,12 +38,14 @@ import {
 import { executeCommand } from "../commands/execute";
 import { bindOpenedSessionRefresh, pullFeatureMesh, syncFromCoreList, syncOpenedDocument, updateFeatureSummary } from "../model/sync";
 import { createSessionUpdateQueue } from "../model/session-update-queue";
+import { useSharedTargetStore } from "../model/shared-targets";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 import {
   faceScreenPoint,
   viewportViewDir,
   viewportRenderStats,
   viewportMeshIdentity,
+  viewportSharedTargetSummary,
 } from "../viewport/viewportHandle";
 
 /** Minimal workspace shell (UX-1): viewport-first, floating docks. */
@@ -164,6 +166,7 @@ export function App() {
     // A recovery file at boot means the previous session kept unsaved work.
     checkRecovery();
     const offCrash = window.kreoda?.onCoreCrashed?.((info) => {
+      useSharedTargetStore.getState().reset();
       setCrashed(info.code);
       setCoreStatus(false, null);
       // A drag owns solved preview coordinates from the dead engine. Unmount
@@ -220,16 +223,30 @@ export function App() {
           model.features as unknown as FeatureSummary[], model.revision,
           model.sketches as unknown as SketchSummary[], changedMeshIds,
         );
+        if (useDocumentUiStore.getState().epoch === epoch)
+          useSharedTargetStore.getState().setContext(model);
       },
       onError: (error) => console.warn("[session] delta apply failed", error),
     });
     const off = window.kreoda?.onSessionDelta?.((delta) => { void updates.push(delta); });
+    const offSelection = window.kreoda?.onSessionSelection?.(event => {
+      const targets = useSharedTargetStore.getState();
+      targets.receive(event);
+      // New/open/edit deltas normally establish context. A target arriving
+      // first requests one authoritative snapshot instead of racing boot.
+      if (!targets.context) void updates.refresh();
+    });
     const unbindOpen = bindOpenedSessionRefresh(updates.refreshAndVerify);
-    const offRestart = window.kreoda?.onCoreRestarted?.(() => { void updates.refresh(); });
+    const offRestart = window.kreoda?.onCoreRestarted?.(() => {
+      useSharedTargetStore.getState().reset();
+      void updates.refresh();
+    });
     return () => {
       updates.dispose();
       unbindOpen();
       off?.();
+      offSelection?.();
+      useSharedTargetStore.getState().reset();
       offRestart?.();
     };
   }, []);
@@ -250,6 +267,7 @@ export function App() {
           revision: s.revision,
           references: useReferenceStore.getState().planes,
           selectedIds: useSelectionStore.getState().selectedIds,
+          sharedTarget: viewportSharedTargetSummary(),
           sketches: s.sketches.map((k) => ({
             id: k.featureId,
             planeKind: k.planeKind,

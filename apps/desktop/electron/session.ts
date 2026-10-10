@@ -5,10 +5,8 @@
 // feature locks (§11.13), idempotent retries (§11.14), base-revision
 // fencing with full-snapshot recovery (§11.6), and server-pushed deltas.
 //
-// Transport (§11.3): JSON text frames. Binary mesh streaming stays
-// sidecar-direct for Desktop until the Quest slice needs it (Phase 12);
-// the relay never invents geometry — every mutation runs through the typed
-// core commands with the core's own validation and error codes.
+// Transport (§11.3): JSON control frames; opted-in clients receive the
+// unchanged native MeshUpdate as a binary frame after its JSON identity header.
 //
 // Security (§11.16): transport is disabled by default. Explicit enable binds
 // loopback or an assigned private IPv4 interface. Pair/authenticate exchanges
@@ -17,8 +15,10 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
-import { decodeMeshFrame, frameMessage, FrameDecoder, InvokeParamsSchema, NamedCommandParamsSchema, PairParamsSchema, AuthenticateParamsSchema,
-  OPERATION_METHODS as OPERATION_METHOD_NAMES, SESSION_CONTROL_VERSION } from "@kreoda/protocol";
+import { decodeMeshFrame, decodeMeshUpdateFb, frameMessage, FrameDecoder, InvokeParamsSchema, NamedCommandParamsSchema, PairParamsSchema, AuthenticateParamsSchema,
+  MeshHeaderSchema, RequestMeshLODParamsSchema, OPERATION_METHODS as OPERATION_METHOD_NAMES,
+  SESSION_CONTROL_VERSION, SESSION_SERVER_CAPABILITIES } from "@kreoda/protocol";
+import type { RequestMeshLODParams, SelectionEvent } from "@kreoda/protocol";
 import { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "@kreoda/command-schema";
 import type {
   SessionEntityChange,
@@ -43,6 +43,9 @@ import {
 } from "./session-queries";
 
 export const SESSION_PROTOCOL_VERSION = SESSION_CONTROL_VERSION;
+const MAX_CONTROL_PAYLOAD_BYTES = 4 * 1024 * 1024;
+const MAX_BINARY_MESH_BYTES = 64 * 1024 * 1024;
+const MAX_OUTBOUND_PEER_BYTES = 64 * 1024 * 1024;
 
 /** Former full-list delta retained for legacy v1 network clients. */
 interface LegacySessionDelta {
@@ -74,6 +77,7 @@ export interface SessionSnapshotRequired {
 
 /** Incremental events delivered to the renderer and opted-in clients. */
 export type SessionDelta = SessionIncrementalDelta | SessionSnapshotRequired;
+export type SessionSelection = SelectionEvent & { sessionId: string; documentId: string; revision: number };
 
 interface CommittedSnapshot {
   sessionId: string;
@@ -261,7 +265,28 @@ export class SessionRelay {
     private readonly sidecar: () => SidecarManager | null,
     private readonly onDelta?: (delta: SessionDelta) => void,
     private readonly devices?: SessionDevices,
+    private readonly onSelection?: (event: SessionSelection) => void,
   ) {}
+
+  private selectionStamp(clientId: string, ids: string[]): SessionSelection {
+    return { event: "selection", clientId, ids: [...ids],
+      sessionId: this.sessionId, documentId: this.documentId,
+      revision: this.committedBaseline?.revision ?? this.revisionCache ?? 0 };
+  }
+
+  private emitSelection(clientId: string, ids: string[], captured?: SessionSelection): void {
+    const event = captured ?? this.selectionStamp(clientId, ids);
+    const serialized = JSON.stringify(event);
+    for (const client of this.clients.values())
+      if (client.ws.readyState === WebSocket.OPEN) client.ws.send(serialized);
+    try { this.onSelection?.(event); }
+    catch { console.error("[session] selection forward failed"); }
+  }
+
+  private clearSharedTargets(): void {
+    for (const clientId of this.publishedSelections.keys()) this.emitSelection(clientId, []);
+    this.publishedSelections.clear();
+  }
 
   get clientCount(): number {
     return this.clients.size;
@@ -417,7 +442,7 @@ export class SessionRelay {
     this.server = new WebSocketServer({
       port: opts.port,
       host: opts.host,
-      maxPayload: 1024 * 1024,
+      maxPayload: MAX_CONTROL_PAYLOAD_BYTES,
     });
     this.server.on("connection", (ws: WebSocket) =>
       this.handleConnection(ws, token),
@@ -448,6 +473,7 @@ export class SessionRelay {
 
   /** Disable transport while preserving the authoritative CAD lineage. */
   async disableListener(): Promise<void> {
+    this.clearSharedTargets();
     const server = this.server;
     this.server = null;
     this.devices?.rotateSessionTokens();
@@ -471,6 +497,7 @@ export class SessionRelay {
   }
 
   stop(): void {
+    this.clearSharedTargets();
     this.devices?.rotateSessionTokens();
     for (const c of this.clients.values()) {
       try {
@@ -500,6 +527,7 @@ export class SessionRelay {
   }
   /** Sidecar died/restarted: drop in-flight state; clients resync by revision. */
   onSidecarCrashed(): void {
+    this.clearSharedTargets();
     this.sessionId = randomUUID();
     this.committedBaseline = null;
     this.clearTransactionTracking();
@@ -552,8 +580,8 @@ export class SessionRelay {
         }
       }
     }, 10000);
-    ws.on("message", (data) => {
-      void this.handleMessage(ws, hello, (id) => (connectionId = id), data, token)
+    ws.on("message", (data, isBinary) => {
+      void this.handleMessage(ws, hello, (id) => (connectionId = id), data, isBinary, token)
         .catch((e: unknown) => {
           console.error("[session] message handler failed", e);
           if (ws.readyState === WebSocket.OPEN) {
@@ -573,8 +601,7 @@ export class SessionRelay {
         if (clientId) {
           this.selections.delete(clientId);
           if (this.publishedSelections.delete(clientId)) {
-            const clear = JSON.stringify({ event: "selection", clientId, ids: [] });
-            for (const other of this.clients.values()) if (other.ws.readyState === WebSocket.OPEN) other.ws.send(clear);
+            this.emitSelection(clientId, []);
           }
         }
         for (const [id, p] of this.previews) {
@@ -596,8 +623,13 @@ export class SessionRelay {
     hello: PendingHello,
     setConnectionId: (id: string) => void,
     data: unknown,
+    isBinary: boolean,
     token: string,
   ): Promise<void> {
+    if (isBinary) {
+      if (ws.readyState === WebSocket.OPEN) ws.close(4400, "CONTROL_TEXT_ONLY");
+      return;
+    }
     let msg: {
       requestId?: unknown;
       method?: unknown;
@@ -650,7 +682,10 @@ export class SessionRelay {
       try {
         if (msg.method === "pair") {
           const parsed = PairParamsSchema.safeParse(params);
-          if (!parsed.success) throw coded("BAD_PARAMS", "invalid pair parameters");
+          if (!parsed.success) {
+            this.devices.noteFailedPairingGuess(params["pairingToken"]);
+            throw coded("BAD_PARAMS", "invalid pair parameters");
+          }
           reply(true, await this.devices.pair(parsed.data.pairingToken, parsed.data.deviceName));
         } else {
           const parsed = AuthenticateParamsSchema.safeParse(params);
@@ -759,7 +794,7 @@ export class SessionRelay {
         ...(deviceId === undefined ? {} : { deviceId }),
         sessionId: this.sessionId,
         documentId: this.documentId,
-        capabilities: ["operation-replay", "incremental-deltas"],
+        capabilities: [...SESSION_SERVER_CAPABILITIES],
         revision: await this.currentRevision(),
       });
       return;
@@ -864,6 +899,37 @@ export class SessionRelay {
     try {
       switch (msg.method) {
         case "getSessionInfo": { reply(true, { result: this.sessionInfo() });return; }
+        case "requestMeshLOD": {
+          if (!clientInfo.capabilities.includes("binary-mesh-v1")) {
+            reply(false, { errorCode: "NOT_IMPLEMENTED", error: "client did not negotiate binary-mesh-v1" });
+            return;
+          }
+          if (typeof msg.sessionId !== "string") {
+            reply(false, { errorCode: "BAD_PARAMS", error: "requestMeshLOD requires sessionId" });
+            return;
+          }
+          const checked = RequestMeshLODParamsSchema.safeParse(params);
+          if (!checked.success) {
+            reply(false, { errorCode: "BAD_PARAMS", error: checked.error.message });
+            return;
+          }
+          await this.requestMeshFrame(clientId, msg.sessionId, checked.data, (header, raw) => {
+            if (ws.readyState !== WebSocket.OPEN) return;
+            const text = JSON.stringify({ requestId, ok: true, result: header });
+            if (ws.bufferedAmount + Buffer.byteLength(text) + raw.byteLength > MAX_OUTBOUND_PEER_BYTES) {
+              reply(false, { errorCode: "SLOW_CONSUMER", error: "mesh output queue exceeds 64 MiB" });
+              ws.close(4429, "slow consumer");
+              return;
+            }
+            // Enqueue both frames before releasing the ordered read. A following
+            // mutation cannot overtake this native query result.
+            ws.send(text);
+            ws.send(raw, { binary: true }, (error?: Error) => {
+              if (error && ws.readyState === WebSocket.OPEN) ws.close(1011, "MESH_SEND_FAILED");
+            });
+          });
+          return;
+        }
         case "snapshot": {
           const snap = await this.orderedRead(clientId, documentId, () => this.coreSnapshot(documentId));
           reply(true, { ...snap, sessionId: this.sessionId });
@@ -1010,16 +1076,15 @@ export class SessionRelay {
             return;
           }
           const method = msg.method;
-          const query = () => runSessionQuery(this.queryEnv(), this.selectionRegistry(), clientId, method, params, documentId);
+          const query = async () => {
+            const response = await runSessionQuery(this.queryEnv(), this.selectionRegistry(), clientId, method, params, documentId);
+            return { ...response, selection: response.notify
+              ? this.selectionStamp(clientId, response.notify["ids"] as string[]) : undefined };
+          };
           const direct = ["previewBegin", "previewUpdate", "previewCommit", "previewCancel", "getSelection", "clearSelection", "listCommands", "getCommandSchema", "getCapabilities"].includes(method);
-          const { result, notify } = await (direct ? query() : this.orderedRead(clientId, documentId, query));
+          const { result, selection } = await (direct ? query() : this.orderedRead(clientId, documentId, query));
           reply(true, { result });
-          if (notify) {
-            for (const [, c] of this.clients) {
-              if (c.ws.readyState !== WebSocket.OPEN) continue;
-              c.ws.send(JSON.stringify({ ...notify }));
-            }
-          }
+          if (selection) this.emitSelection(clientId, selection.ids, selection);
         }
       }
     } catch (e) {
@@ -1101,6 +1166,7 @@ export class SessionRelay {
     documentId: string,
     type: number,
     fields: Record<string, unknown>,
+    nativeRequestId?: string,
   ): Promise<Uint8Array> {
     const sidecar = this.sidecar();
     if (!sidecar) throw new Error("geometry engine not running");
@@ -1109,7 +1175,7 @@ export class SessionRelay {
     );
     const envelope = {
       protocolVersion: SESSION_PROTOCOL_VERSION,
-      requestId: `relay-${++this.seq}`,
+      requestId: nativeRequestId ?? `relay-${++this.seq}`,
       documentId,
       type,
       transactionId:
@@ -1123,6 +1189,98 @@ export class SessionRelay {
       new TextEncoder().encode(JSON.stringify(envelope)),
     );
     return sidecar.invoke(new Uint8Array(framed));
+  }
+
+  private async requestMeshFrame(
+    clientId: string,
+    requestedSessionId: string,
+    params: RequestMeshLODParams,
+    emit: (header: unknown, raw: Uint8Array) => void,
+  ): Promise<void> {
+    return this.orderedRead(clientId, params.documentId, async () => {
+      const lineage = this.sessionId;
+      if (lineage !== requestedSessionId) throw coded("NEED_FULL_SNAPSHOT", "session identity changed before mesh query");
+      const snapshot = await this.coreSnapshot(params.documentId);
+      if (lineage !== this.sessionId || params.documentId !== this.documentId || snapshot.documentId !== params.documentId) {
+        throw coded("NEED_FULL_SNAPSHOT", "document lineage changed before mesh query");
+      }
+      if (snapshot.revision !== params.expectedRevision) throw coded("NEED_FULL_SNAPSHOT", "mesh request revision is stale");
+      const body = snapshot.bodies.find(candidate => candidate.bodyId === params.bodyId);
+      if (!body || body.history.length === 0 || body.bodyId !== `body-${body.history[0]}` ||
+          body.tip !== body.history.at(-1) || !snapshot.tips.includes(body.tip)) {
+        throw coded("NOT_FOUND", "body is missing or has no visible tip");
+      }
+      const allFeatures = snapshot.features
+        .map(asRecord)
+        .filter((feature): feature is Record<string, unknown> => feature !== null && typeof feature["featureId"] === "string");
+      const isVisible = (feature: Record<string, unknown> | undefined): feature is Record<string, unknown> =>
+        !!feature && feature["suppressed"] !== true && feature["state"] !== "suppressed" &&
+        feature["status"] !== "suppressed" && feature["visible"] !== false;
+      const historyFeatures = snapshot.features
+        .map(asRecord)
+        .filter((feature): feature is Record<string, unknown> => feature !== null && typeof feature["featureId"] === "string" && body.history.includes(feature["featureId"] as string));
+      const tip = historyFeatures.find(feature => feature["featureId"] === body.tip);
+      if (!tip || historyFeatures.length !== body.history.length || historyFeatures.some(feature =>
+        feature["suppressed"] === true || feature["state"] === "suppressed" || feature["status"] === "suppressed")) {
+        throw coded("NOT_FOUND", "body is suppressed or its visible tip is missing");
+      }
+
+      let nativeFeatureId = body.tip;
+      if (params.instanceId !== undefined) {
+        const instance = allFeatures.find(feature => feature["featureId"] === params.instanceId);
+        const dependencies = instance?.["dependsOn"];
+        if (!isVisible(instance) || instance["type"] !== "Instance" || !Array.isArray(dependencies) ||
+            dependencies.length !== 1 || typeof dependencies[0] !== "string" || dependencies[0] === params.instanceId) {
+          throw coded("NOT_FOUND", "instance is missing, hidden, nested, self-referential, or unsupported");
+        }
+        const sourceId = dependencies[0];
+        const source = allFeatures.find(feature => feature["featureId"] === sourceId);
+        if (!body.history.includes(sourceId) || !isVisible(source) || source["type"] === "Instance") {
+          throw coded("NOT_FOUND", "instance source does not belong to the requested visible body");
+        }
+        nativeFeatureId = params.instanceId;
+      }
+
+      const expectedNativeRequestId = `relay-${++this.seq}`;
+      const raw = await this.coreInvokeRaw(params.documentId, 12, { featureId: nativeFeatureId, lod: params.quality }, expectedNativeRequestId);
+      if (raw.byteLength > MAX_BINARY_MESH_BYTES) throw coded("MESH_TOO_LARGE", "native mesh exceeds 64 MiB");
+      let mesh;
+      try {
+        mesh = decodeMeshUpdateFb(raw);
+      } catch (error) {
+        if (raw[0] === 0x7b) {
+          const response = asRecord(JSON.parse(new TextDecoder().decode(raw)));
+          if (response?.["status"] === "error") {
+            throw coded(
+              typeof response["errorCode"] === "string" ? response["errorCode"] : "CORE_FAILED",
+              typeof response["errorMessage"] === "string" ? response["errorMessage"] : "native mesh request failed",
+            );
+          }
+        }
+        throw coded("INVALID_MESH", this.errorMessage(error));
+      }
+      if (lineage !== this.sessionId || params.documentId !== this.documentId ||
+          mesh.revision !== snapshot.revision) {
+        throw coded("NEED_FULL_SNAPSHOT", "mesh result belongs to a stale model lineage");
+      }
+      if (mesh.requestId !== expectedNativeRequestId || mesh.featureId !== nativeFeatureId ||
+          mesh.bodyId !== nativeFeatureId || mesh.lod !== params.quality) {
+        throw coded("INVALID_MESH", "native mesh identity does not match the request");
+      }
+      const header = MeshHeaderSchema.parse({
+        nativeRequestId: mesh.requestId,
+        sessionId: lineage,
+        documentId: params.documentId,
+        revision: mesh.revision,
+        bodyId: body.bodyId,
+        featureId: mesh.featureId,
+        tipId: nativeFeatureId,
+        ...(params.instanceId !== undefined ? { instanceId: params.instanceId } : {}),
+        quality: mesh.lod,
+        byteLength: raw.byteLength,
+      });
+      emit(header, raw);
+    });
   }
 
   private async coreSnapshot(documentId: string): Promise<{
@@ -1561,6 +1719,7 @@ export class SessionRelay {
           revision: this.revisionCache ?? parsed["revision"],
         };
         if (type === 2 || type === 11) {
+          this.clearSharedTargets();
           this.sessionId = randomUUID();
           this.operationReplay.clear();this.requestReplay.clear();this.selections.clear();this.publishedSelections.clear();
           for (const preview of this.previews.values()) preview.release();this.previews.clear();
@@ -2022,6 +2181,10 @@ export class SessionRelay {
     referenceRemaps: unknown[],
     warnings: unknown[],
   ): void {
+    // A published reference is stamped at its validated revision. Require
+    // explicit republication after an authoritative edit instead of silently
+    // promoting potentially changed topology to the new revision.
+    this.clearSharedTargets();
     if (
       before &&
       before.sessionId === after.sessionId &&

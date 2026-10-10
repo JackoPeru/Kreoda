@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { SidecarManager } from "./sidecar";
 import { installRendererRecovery } from "./renderer-recovery";
-import { SessionRelay, type SessionDelta } from "./session";
+import { SessionRelay, type SessionDelta, type SessionSelection } from "./session";
 import { SessionDevices } from "./session-devices";
 import { sessionInterfaces } from "./session-listener";
 import type { SessionConnectionStatus } from "./session-control-ui";
@@ -100,7 +100,9 @@ app.whenReady().then(async () => {
   void initSidecar();
   sessionRelay = new SessionRelay(() => sidecar, (delta: SessionDelta) => {
     mainWindow?.webContents.send("kreoda:session-delta", delta);
-  }, devices);
+  }, devices, (selection: SessionSelection) => {
+    mainWindow?.webContents.send("kreoda:session-selection", selection);
+  });
   // The local session service exists without a listener. Environment settings
   // enable the development/test network endpoint; production pairing follows.
   const sessionPort = Number(process.env["KREODA_SESSION_PORT"] ?? "");

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <map>
 #include <vector>
 
 #include "tessellation/mesh.h"
@@ -61,5 +62,13 @@ bool RebuildNodeFromStore(const std::string& featureId, std::string* error);
 bool BuildPreviewMesh(const std::string& featureId,
                       const std::string& paramName, double valueMm,
                       CoreMesh* out, std::string* error);
+
+// Rebuild a requested dependent tip in detached scratch geometry only.
+bool BuildPreviewBodyMesh(const std::string& featureId,
+                         const std::string& paramName, double valueMm,
+                         const std::string& tipId, CoreMesh* out,
+                         std::string* error,
+                         const std::string& expression = "",
+                         const std::map<std::string, double>& otherValues = {});
 
 }  // namespace kreoda

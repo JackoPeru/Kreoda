@@ -5,7 +5,13 @@ import {
   ErrorReplySchema,
   HelloParamsSchema,
   InvokeParamsSchema,
+  MeshHeaderSchema,
+  MeshReplySchema,
+  PairParamsSchema,
+  AuthenticateParamsSchema,
+  RequestMeshLODParamsSchema,
   REQUIRED_PARAMS,
+  SESSION_SERVER_CAPABILITIES,
   SERVER_EVENTS,
   SESSION_EVENT_METADATA,
   SESSION_CONTROL_METHODS,
@@ -31,6 +37,7 @@ describe("session control contract", () => {
     );
     expect([...SERVER_EVENTS]).toEqual(contract.serverEvents);
     expect(SESSION_EVENT_METADATA).toEqual(contract.serverEventMetadata);
+    expect([...SESSION_SERVER_CAPABILITIES]).toEqual(contract.serverCapabilities);
   });
 
   it("validates fixed-message fixtures (and rejects missing required)", () => {
@@ -55,6 +62,13 @@ describe("session control contract", () => {
     expect(() =>
       ErrorReplySchema.parse({ requestId: "r1", ok: false }),
     ).toThrow();
+  });
+
+  it("accepts exact eight digit pairing codes without widening credential auth", () => {
+    expect(PairParamsSchema.parse({ pairingToken: "00000007", deviceName: "Quest" })).toMatchObject({ pairingToken: "00000007" });
+    expect(PairParamsSchema.parse({ pairingToken: "p".repeat(43), deviceName: "Quest" })).toBeTruthy();
+    expect(() => PairParamsSchema.parse({ pairingToken: "1234567", deviceName: "Quest" })).toThrow();
+    expect(() => AuthenticateParamsSchema.parse({ deviceId: "device-00000000-0000-0000-0000-000000000000", credential: "00000007" })).toThrow();
   });
 
   it("contracts operation metadata, stable client identity, capabilities, and replay errors", () => {
@@ -93,5 +107,46 @@ describe("session control contract", () => {
       sessionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     })).toBeTruthy();
     expect(() => metadataSchema?.parse({ operationId: "invalid" })).toThrow();
+  });
+
+  it("validates typed requestMeshLOD identity and quality", () => {
+    const params = {
+      bodyId: "body-root",
+      quality: 2,
+      documentId: "doc-phase1",
+      expectedRevision: 7,
+    };
+    expect(RequestMeshLODParamsSchema.parse(params)).toBeTruthy();
+    for (const quality of [-1, 3, 1.5, "2"]) {
+      expect(() => RequestMeshLODParamsSchema.parse({
+        bodyId: "body-root",
+        quality,
+        documentId: "doc-phase1",
+        expectedRevision: 7,
+      })).toThrow();
+    }
+    expect(() => RequestMeshLODParamsSchema.parse({
+      bodyId: "body-root",
+      quality: 2,
+      documentId: "doc-phase1",
+      expectedRevision: -1,
+    })).toThrow();
+    const header = {
+      nativeRequestId: "relay-7",
+      sessionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      documentId: "doc-phase1",
+      revision: 7,
+      bodyId: "body-root",
+      featureId: "tip-1",
+      tipId: "tip-1",
+      quality: 2,
+      byteLength: 128,
+    };
+    expect(MeshHeaderSchema.parse(header)).toEqual(header);
+    expect(MeshReplySchema.parse({ result: header })).toEqual({ result: header });
+    expect(() => MeshHeaderSchema.parse({ ...header, byteLength: 67108865 })).toThrow();
+    const instanceHeader = { ...header, instanceId: "instance-1", featureId: "instance-1", tipId: "instance-1" };
+    expect(MeshHeaderSchema.parse(instanceHeader)).toEqual(instanceHeader);
+    expect(RequestMeshLODParamsSchema.parse({ ...params, instanceId: "instance-1" })).toMatchObject({ instanceId: "instance-1" });
   });
 });

@@ -34,15 +34,21 @@ const tsConst = (name, value) => `export const ${name} = ${JSON.stringify(value,
 const metadata = header + tsConst("CONTRACT_SCHEMA_SHA256", hash) + tsConst("SESSION_DTO_NAMES", names) + tsConst("SESSION_CONTROL_VERSION", contract.protocolVersion)
   + tsConst("CONTROL_METHODS", control) + tsConst("QUERY_METHODS_CONTRACT", queries)
   + tsConst("SESSION_CONTROL_METHODS", methods.map(method => method.method)) + tsConst("OPERATION_METHODS", replay)
+  + tsConst("SESSION_SERVER_CAPABILITIES", contract.serverCapabilities)
   + `export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = ${JSON.stringify(required, null, 2)};\n` + tsConst("SERVER_EVENTS", contract.serverEvents)
   + tsConst("SESSION_EVENT_METADATA", contract.serverEventMetadata);
 const quote = value => JSON.stringify(value);
 const csArray = values => "[" + values.map(quote).join(", ") + "]";
 const csName = name => name[0].toUpperCase() + name.slice(1);
+const capabilityName = capability => capability === "operation-replay"
+  ? "OperationReplayCapability"
+  : capability.split("-").map(part => part[0].toUpperCase() + part.slice(1)).join("") + "Capability";
 const csMetadata = header + `namespace Kreoda.Session;\n\npublic static class SessionMethods\n{\n`
-  + `    public const int ProtocolVersion = ${contract.protocolVersion};\n    public const string ContractSchemaSha256 = "${hash}";\n    public const string OperationReplayCapability = "operation-replay";\n`
+  + `    public const int ProtocolVersion = ${contract.protocolVersion};\n    public const string ContractSchemaSha256 = "${hash}";\n`
+  + contract.serverCapabilities.map(capability => `    public const string ${capabilityName(capability)} = ${quote(capability)};`).join("\n") + "\n"
   + methods.map(method => `    public const string ${csName(method.method)} = ${quote(method.method)};`).join("\n")
   + `\n    public static readonly string[] All = ${csArray(methods.map(method => method.method))};\n`
+  + `    public static readonly string[] ServerCapabilities = ${csArray(contract.serverCapabilities)};\n`
   + `    public static readonly string[] OperationReplayMethods = ${csArray(replay)};\n`
   + `    public static bool SupportsOperationReplay(string method) => Array.IndexOf(OperationReplayMethods, method) >= 0;\n`
   + `    public static readonly IReadOnlyDictionary<string, string[]> RequiredParams = new Dictionary<string, string[]>\n    {\n`

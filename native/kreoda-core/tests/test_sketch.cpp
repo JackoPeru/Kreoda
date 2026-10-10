@@ -5,6 +5,8 @@
 #include <filesystem>
 
 #include "../src/features/extrusion/extrude.h"
+#include "../src/features/hole/hole.h"
+#include "../src/persistence/ocaf_live.h"
 #include "../src/features/primitives/primitives.h"
 #include "../src/features/revolve/revolve.h"
 #include "../src/features/sketch/sketch_commands.h"
@@ -335,6 +337,42 @@ TEST(Sketch, ExtrudePreviewDoesNotCommit) {
   kreoda::ShapeRecord rec;
   ASSERT_TRUE(kreoda::ShapeStore::instance().get("ex-p", &rec));
   EXPECT_NEAR(rec.volumeMm3, 100000.0, 1e-3);
+}
+
+TEST(Sketch, BodyPreviewCarriesExtrudeAndHoleWithoutChangingSketch) {
+  NewDoc("p13-sketch-preview");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateSketchFeature("p13-sk", "XY", RectModel(100, 50), &error)) << error;
+  ASSERT_TRUE(kreoda::CreateExtrudeFeature("p13-ex", "p13-sk", 20, &error)) << error;
+  kreoda::ShapeRecord extrude;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("p13-ex", &extrude));
+  double origin[3]{}, u[3]{}, v[3]{}, normal[3]{};
+  ASSERT_TRUE(kreoda::FaceFrameInfo(extrude.shape, "p13-ex", "Extrude", "extrude.+Z", origin, u, v, normal));
+  const double delta[3] = {50 - origin[0], 25 - origin[1], extrude.bboxMm[5] - origin[2]};
+  const double x = delta[0] * u[0] + delta[1] * u[1] + delta[2] * u[2];
+  const double y = delta[0] * v[0] + delta[1] * v[1] + delta[2] * v[2];
+  ASSERT_TRUE(kreoda::CreateHoleFeature("p13-ex-hole", "p13-ex", "extrude.+Z", x, y,
+      6, "blind", 5, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  kreoda::SketchFeature before;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("p13-sk", &before));
+  kreoda::CoreMesh preview;
+  ASSERT_TRUE(kreoda::BuildPreviewBodyMesh("p13-ex", "distanceMm", 40, "p13-ex-hole", &preview, &error)) << error;
+  EXPECT_NEAR(preview.volumeMm3, 200000 - std::acos(-1.0) * 9 * 5, .001);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  kreoda::SketchFeature after;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("p13-sk", &after));
+  ASSERT_EQ(after.model.points.size(), before.model.points.size());
+  for (size_t i = 0; i < before.model.points.size(); ++i) {
+    EXPECT_DOUBLE_EQ(after.model.points[i].x, before.model.points[i].x);
+    EXPECT_DOUBLE_EQ(after.model.points[i].y, before.model.points[i].y);
+  }
+  ASSERT_TRUE(kreoda::RebuildFeature("p13-ex", "distanceMm", 40, &error)) << error;
+  kreoda::ShapeRecord committed;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("p13-ex-hole", &committed));
+  EXPECT_NEAR(preview.volumeMm3, committed.volumeMm3, .001);
 }
 
 TEST(Sketch, UndoSketchEditRestoresDownstream) {

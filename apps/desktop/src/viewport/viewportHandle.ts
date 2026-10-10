@@ -31,6 +31,7 @@ interface ViewportHandle {
   cancelReferenceMeasure: () => void;
   renderStats: () => ViewportRenderStats | null;
   meshIdentity: (featureId: string) => { geometryId: string; revision: number } | null;
+  sharedTargetSummary: () => { ids: string[]; faceGroups: number; edgeSegments: number } | null;
 }
 
 let handle: ViewportHandle | null = null;
@@ -79,4 +80,8 @@ export function viewportRenderStats(): ViewportRenderStats | null {
 
 export function viewportMeshIdentity(featureId: string): { geometryId: string; revision: number } | null {
   return handle?.meshIdentity(featureId) ?? null;
+}
+
+export function viewportSharedTargetSummary(): { ids: string[]; faceGroups: number; edgeSegments: number } | null {
+  return handle?.sharedTargetSummary() ?? null;
 }

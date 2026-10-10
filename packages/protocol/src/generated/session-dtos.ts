@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 469759d65430c8f8ad5b910da45fe80637728b8d60e9f294fcca2eca7587e705
+// Source SHA256: a03adde0580bff1da306e5b0adea3e5ad6ca8d5eacb4d9fbc88cef4fd6487904
 type StableFeatureID = string;
 
 export interface RequestMetadata {
@@ -22,6 +22,31 @@ export interface HelloParams {
 export interface SnapshotParams {
     documentId?: string;
     [property: string]: unknown;
+}
+
+export interface RequestMeshLODParams {
+    bodyId:           string;
+    documentId:       string;
+    expectedRevision: number;
+    instanceId?:      string;
+    quality:          number;
+}
+
+export interface MeshReply {
+    result: MeshHeader;
+}
+
+export interface MeshHeader {
+    bodyId:          string;
+    byteLength:      number;
+    documentId:      string;
+    featureId:       string;
+    instanceId?:     string;
+    nativeRequestId: string;
+    quality:         number;
+    revision:        number;
+    sessionId:       string;
+    tipId:           string;
 }
 
 export interface InvokeParams {
@@ -156,9 +181,12 @@ export interface SessionSnapshotRequiredEvent {
 export type SessionSnapshotRequiredEventEvent = "snapshot-required";
 
 export interface SelectionEvent {
-    clientId: string;
-    event:    SelectionEventEvent;
-    ids:      string[];
+    clientId:    string;
+    documentId?: string;
+    event:       SelectionEventEvent;
+    ids:         string[];
+    revision?:   number;
+    sessionId?:  string;
     [property: string]: unknown;
 }
 

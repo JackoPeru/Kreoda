@@ -2,6 +2,9 @@
 #include "diagnostics/crash_barrier.h"
 
 #include <cmath>
+#include <algorithm>
+#include <functional>
+#include <set>
 
 #include "document/document_store.h"
 #include "expressions/expressions.h"
@@ -10,6 +13,7 @@
 #include "model/feature_graph.h"
 #include "model/shapes.h"
 #include "features/extrusion/extrude.h"
+#include "features/booleans/boolean.h"
 #include "features/fillet/fillet.h"
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
@@ -20,6 +24,7 @@
 
 #if KREODA_WITH_OCCT
 #include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepBuilderAPI_Copy.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <Standard_Failure.hxx>
@@ -209,6 +214,111 @@ bool ResolveParamsForEdit(const ShapeRecord& rec, const std::string& paramName,
 
 // DAG recompute dispatch lives in features/rebuild.cpp (all B-Rep types).
 
+#if KREODA_WITH_OCCT
+namespace {
+bool BuildCandidateShape(const ShapeRecord& rec, const std::vector<double>& newParams,
+                         const std::map<std::string, ShapeRecord>* records,
+                         TopoDS_Shape* out, std::string* error) {
+  auto get = [&](const std::string& id, ShapeRecord* result) {
+    if (!records) return ShapeStore::instance().get(id, result);
+    const auto found = records->find(id);
+    if (found == records->end()) return false;
+    *result = found->second;
+    return true;
+  };
+  TopoDS_Shape candidate;
+  bool built = false;
+  if (rec.type == "Box" && newParams.size() == 3) {
+    built = BuildBoxShape(newParams[0], newParams[1], newParams[2],
+                          &candidate, error);
+  } else if (rec.type == "Cylinder" && newParams.size() == 2) {
+    built = BuildCylinderShape(newParams[0], newParams[1], &candidate, error);
+  } else if (rec.type == "Sphere" && newParams.size() == 1) {
+    built = BuildSphereShape(newParams[0], &candidate, error);
+  } else if (rec.type == "Extrude" && newParams.size() == 1 &&
+             rec.dependsOn.size() == 1) {
+    built = BuildExtrudeShape(rec.dependsOn[0], newParams[0], &candidate,
+                              error);
+  } else if (rec.type == "Revolve" && newParams.size() == 1 &&
+             rec.dependsOn.size() == 1) {
+    built = BuildRevolveShape(rec.dependsOn[0], newParams[0], &candidate,
+                              error);
+  } else if (rec.type == "Hole" && newParams.size() == 2 &&
+             rec.dependsOn.size() == 1) {
+    ShapeRecord target;
+    if (!get(rec.dependsOn[0], &target)) {
+      if (error) *error = "hole target vanished";
+      return false;
+    }
+    std::string faceRole, mode;
+    double hx = 0, hy = 0;
+    if (!DecodeHoleRef(rec.refExtra, &faceRole, &hx, &hy, &mode)) {
+      if (error) *error = "hole record corrupted";
+      return false;
+    }
+    built = BuildHoleShape(target.shape, target.featureId, target.type,
+                           faceRole, hx, hy, newParams[0], mode, newParams[1],
+                           &candidate, error);
+  } else if (rec.type == "HolePattern" && rec.dependsOn.size() == 1) {
+    ShapeRecord target;
+    if (!get(rec.dependsOn[0], &target)) {
+      if (error) *error = "hole pattern target vanished";
+      return false;
+    }
+    built = BuildHolePatternShape(target.shape, target.featureId, target.type,
+                                  rec.refExtra, newParams, &candidate, error);
+  } else if ((rec.type == "Fillet" || rec.type == "Chamfer") &&
+             newParams.size() == 1 && rec.dependsOn.size() == 1) {
+    ShapeRecord target;
+    if (!get(rec.dependsOn[0], &target)) {
+      if (error) *error = "dress-up target vanished";
+      return false;
+    }
+    std::vector<std::string> edgeIds = SplitEdgeIds(rec.refExtra);
+    if (rec.type == "Fillet") {
+      built = BuildFilletShape(target.shape, target.featureId, target.type,
+                               edgeIds, newParams[0], &candidate, error);
+    } else {
+      built = BuildChamferShape(target.shape, target.featureId, target.type,
+                                edgeIds, newParams[0], &candidate, error);
+    }
+  } else if (rec.type == "Instance" && newParams.size() == 6 &&
+             rec.dependsOn.size() == 1) {
+    // M1: preview must match commit (BuildInstanceShape + tessellate).
+    ShapeRecord target;
+    if (!get(rec.dependsOn[0], &target)) {
+      if (error) *error = "instance target vanished";
+      return false;
+    }
+    if (target.type == "Instance") {
+      if (error) *error = "nested instances are not supported (slice 1)";
+      return false;
+    }
+    built = BuildInstanceShape(target.shape, newParams, &candidate, error);
+  } else if ((rec.type == "Union" || rec.type == "Subtract" || rec.type == "Intersect") && rec.dependsOn.size() == 2) {
+    ShapeRecord target, tool;
+    if (!get(rec.dependsOn[0], &target) || !get(rec.dependsOn[1], &tool)) {
+      if (error) *error = "boolean dependency vanished";
+      return false;
+    }
+    const auto opPosition = rec.refExtra.find("op=");
+    if (opPosition == std::string::npos) {
+      if (error) *error = "boolean record missing op";
+      return false;
+    }
+    const auto op = rec.refExtra.substr(opPosition + 3);
+    built = BuildBooleanShape(op, target.shape, tool.shape, &candidate, error);
+  } else {
+    if (error) *error = "cannot preview " + rec.type;
+    return false;
+  }
+  if (!built) return false;
+  *out = candidate;
+  return true;
+}
+}  // namespace
+#endif
+
 bool BuildPreviewMesh(const std::string& featureId,
                       const std::string& paramName, double valueMm,
                       CoreMesh* out, std::string* error) {
@@ -228,75 +338,7 @@ bool BuildPreviewMesh(const std::string& featureId,
   }
 #if KREODA_WITH_OCCT
   TopoDS_Shape candidate;
-  bool built = false;
-  if (rec.type == "Box") {
-    built = BuildBoxShape(newParams[0], newParams[1], newParams[2],
-                          &candidate, error);
-  } else if (rec.type == "Cylinder") {
-    built = BuildCylinderShape(newParams[0], newParams[1], &candidate, error);
-  } else if (rec.type == "Sphere") {
-    built = BuildSphereShape(newParams[0], &candidate, error);
-  } else if (rec.type == "Extrude" && newParams.size() == 1 &&
-             !rec.dependsOn.empty()) {
-    built = BuildExtrudeShape(rec.dependsOn[0], newParams[0], &candidate,
-                              error);
-  } else if (rec.type == "Revolve" && newParams.size() == 1 &&
-             !rec.dependsOn.empty()) {
-    built = BuildRevolveShape(rec.dependsOn[0], newParams[0], &candidate,
-                              error);
-  } else if (rec.type == "Hole" && newParams.size() == 2 &&
-             !rec.dependsOn.empty()) {
-    ShapeRecord target;
-    if (!ShapeStore::instance().get(rec.dependsOn[0], &target)) {
-      if (error) *error = "hole target vanished";
-      return false;
-    }
-    std::string faceRole, mode;
-    double hx = 0, hy = 0;
-    if (!DecodeHoleRef(rec.refExtra, &faceRole, &hx, &hy, &mode)) {
-      if (error) *error = "hole record corrupted";
-      return false;
-    }
-    built = BuildHoleShape(target.shape, target.featureId, target.type,
-                           faceRole, hx, hy, newParams[0], mode, newParams[1],
-                           &candidate, error);
-  } else if (rec.type == "HolePattern" && !rec.dependsOn.empty()) {
-    ShapeRecord target;
-    if (!ShapeStore::instance().get(rec.dependsOn[0], &target)) {
-      if (error) *error = "hole pattern target vanished";
-      return false;
-    }
-    built = BuildHolePatternShape(target.shape, target.featureId, target.type,
-                                  rec.refExtra, newParams, &candidate, error);
-  } else if ((rec.type == "Fillet" || rec.type == "Chamfer") &&
-             newParams.size() == 1 && !rec.dependsOn.empty()) {
-    ShapeRecord target;
-    if (!ShapeStore::instance().get(rec.dependsOn[0], &target)) {
-      if (error) *error = "dress-up target vanished";
-      return false;
-    }
-    std::vector<std::string> edgeIds = SplitEdgeIds(rec.refExtra);
-    if (rec.type == "Fillet") {
-      built = BuildFilletShape(target.shape, target.featureId, target.type,
-                               edgeIds, newParams[0], &candidate, error);
-    } else {
-      built = BuildChamferShape(target.shape, target.featureId, target.type,
-                                edgeIds, newParams[0], &candidate, error);
-    }
-  } else if (rec.type == "Instance" && newParams.size() == 6 &&
-             !rec.dependsOn.empty()) {
-    // M1: preview must match commit (BuildInstanceShape + tessellate).
-    ShapeRecord target;
-    if (!ShapeStore::instance().get(rec.dependsOn[0], &target)) {
-      if (error) *error = "instance target vanished";
-      return false;
-    }
-    built = BuildInstanceShape(target.shape, newParams, &candidate, error);
-  } else {
-    if (error) *error = "cannot preview " + rec.type;
-    return false;
-  }
-  if (!built) return false;
+  if (!BuildCandidateShape(rec, newParams, nullptr, &candidate, error)) return false;
   ShapeRecord tmp = rec;
   tmp.paramsMm = std::move(newParams);
   tmp.shape = candidate;
@@ -312,6 +354,98 @@ bool BuildPreviewMesh(const std::string& featureId,
   tmp.paramsMm = newParams;
   *out = TessellateRecord(tmp, 0, error);
   return !out->indices.empty();
+#endif
+}
+
+bool BuildPreviewBodyMesh(const std::string& featureId, const std::string& paramName,
+                         double valueMm, const std::string& tipId, CoreMesh* out,
+                         std::string* error, const std::string& expression,
+                         const std::map<std::string, double>& otherValues) {
+  if (!out || !ShapeStore::ValidFeatureId(tipId)) {
+    if (error) *error = "preview tip or output is invalid";
+    return false;
+  }
+#if KREODA_WITH_OCCT
+  std::map<std::string, ShapeRecord> records;
+  for (const auto& rec : ShapeStore::instance().listInOrder()) records[rec.featureId] = rec;
+  auto owner = records.find(featureId);
+  if (owner == records.end() || records.find(tipId) == records.end()) {
+    if (error) *error = "preview owner or tip is missing";
+    return false;
+  }
+  if ((owner->second.type == "Hole" || owner->second.type == "HolePattern") &&
+      (paramName == "depthMm" || otherValues.count("depthMm")) &&
+      owner->second.refExtra.find("mode=blind") == std::string::npos) {
+    if (error) *error = "throughAll hole has no depthMm";
+    return false;
+  }
+  std::vector<double> params;
+  if (!ResolveParamsForEdit(owner->second, paramName, valueMm, &params, error)) return false;
+  owner->second.paramsMm = std::move(params);
+  for (const auto& [name, value] : otherValues) {
+    if (name == paramName || !ResolveParamsForEdit(owner->second, name, value, &params, error)) {
+      if (name == paramName && error) *error = "duplicate primary preview parameter";
+      return false;
+    }
+    owner->second.paramsMm = std::move(params);
+  }
+  auto expressions = ExpressionStore::instance().listInOrder();
+  expressions.erase(std::remove_if(expressions.begin(), expressions.end(), [&](const ExpressionEntry& entry) {
+    return entry.featureId == featureId && (entry.paramName == paramName || otherValues.count(entry.paramName));
+  }), expressions.end());
+  if (!expression.empty()) expressions.push_back({featureId, paramName, expression});
+  std::vector<std::string> changed;
+  if (!EvaluateExpressionSnapshot(&records, expressions, &changed, error)) return false;
+
+  // Walk only the requested tip's geometry ancestors, without changing the live DAG.
+  std::map<std::string, int> visiting;
+  std::set<std::string> affected(changed.begin(), changed.end());
+  affected.insert(featureId);
+  std::function<bool(const std::string&)> build = [&](const std::string& id) {
+    if (visiting[id] == 2) return true;
+    if (visiting[id] == 1) { if (error) *error = "cyclic preview dependencies"; return false; }
+    auto current = records.find(id);
+    if (current == records.end()) {
+      if (SketchStore::instance().contains(id)) return true;
+      if (error) *error = "missing preview dependency " + id;
+      return false;
+    }
+    visiting[id] = 1;
+    bool rebuild = affected.count(id) != 0;
+    for (const auto& dependency : current->second.dependsOn) {
+      if (!build(dependency)) return false;
+      if (affected.count(dependency)) rebuild = true;
+    }
+    if (rebuild) {
+      TopoDS_Shape candidate;
+      if (!BuildCandidateShape(current->second, current->second.paramsMm, &records, &candidate, error)) return false;
+      current->second.shape = candidate;
+      affected.insert(id);
+    } else {
+      // Kernel builders may update operand topology. Detach unchanged inputs too.
+      BRepBuilderAPI_Copy copy(current->second.shape, true, false);
+      if (!copy.IsDone()) { if (error) *error = "cannot detach preview dependency"; return false; }
+      current->second.shape = copy.Shape();
+    }
+    visiting[id] = 2;
+    return true;
+  };
+  try {
+    if (!build(tipId)) return false;
+    if (visiting[featureId] != 2) {
+      if (error) *error = "requested preview tip is unrelated to the edited feature";
+      return false;
+    }
+    *out = TessellateRecord(records.at(tipId), 0, error);
+    return !out->indices.empty();
+  } catch (const Standard_Failure& failure) {
+    if (error) *error = std::string("preview kernel exception: ") + failure.what();
+    return false;
+  }
+#else
+  if (!otherValues.empty()) { if (error) *error = "compound preview requires OCCT"; return false; }
+  if (tipId != featureId) { if (error) *error = "body preview requires OCCT"; return false; }
+  return BuildPreviewMesh(featureId, paramName, valueMm, out, error);
 #endif
 }
 

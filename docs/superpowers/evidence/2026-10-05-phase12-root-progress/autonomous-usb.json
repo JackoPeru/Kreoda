@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-10-10T19:05:50.605Z",
+  "apkSha256": "6cdc5886c50b7c62eccc0d3cecbc2d52b37db887d21c4834a52e7b3dc798a9cb",
+  "firstPair": {
+    "deviceCount": 1,
+    "clientCount": 1,
+    "markers": [
+      "KREODA_CONNECTED",
+      "KREODA_MODEL objects=1 triangles=12"
+    ],
+    "pid": 7759
+  },
+  "reconnect": {
+    "withoutIntentExtras": true,
+    "deviceCount": 1,
+    "clientCount": 1,
+    "pid": 8959,
+    "markers": [
+      "10-10 21:05:32.438  8959  9003 I Unity   : KREODA_CONNECTED",
+      "10-10 21:05:38.663  8959  9003 I Unity   : KREODA_MODEL objects=1 triangles=12"
+    ]
+  },
+  "endpoint": "ws://127.0.0.1:9842/",
+  "noHeadsetInput": true,
+  "pcSource": "f23473cc9166951e8fac41b3b8cddc24793d6630",
+  "temporaryGuardianPauseRestored": true,
+  "physicalComfortNotTested": true
+}

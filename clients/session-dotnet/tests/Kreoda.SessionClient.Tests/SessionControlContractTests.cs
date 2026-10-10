@@ -51,6 +51,8 @@ public sealed class SessionControlContractTests
             methods.Select(m => m.GetProperty("method").GetString()),
             SessionMethods.All);
         Assert.Equal(1, contract.RootElement.GetProperty("protocolVersion").GetInt32());
+        Assert.Equal(contract.RootElement.GetProperty("serverCapabilities").EnumerateArray().Select(value => value.GetString()),
+            SessionMethods.ServerCapabilities);
         foreach (var m in methods)
         {
             var name = m.GetProperty("method").GetString()!;
@@ -115,6 +117,10 @@ public sealed class SessionControlContractTests
         Assert.Equal("client-550e8400-e29b-41d4-a716-446655440000",
             seenHello.GetProperty("params").GetProperty("clientId").GetString());
         Assert.Contains("operation-replay", seenHello.GetProperty("params").GetProperty("capabilities")
+            .EnumerateArray().Select(capability => capability.GetString()));
+        Assert.Contains(SessionMethods.IncrementalDeltasCapability, seenHello.GetProperty("params").GetProperty("capabilities")
+            .EnumerateArray().Select(capability => capability.GetString()));
+        Assert.Contains(SessionMethods.BinaryMeshV1Capability, seenHello.GetProperty("params").GetProperty("capabilities")
             .EnumerateArray().Select(capability => capability.GetString()));
         Assert.Equal("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             client.GetType().GetProperty("SessionId")?.GetValue(client));

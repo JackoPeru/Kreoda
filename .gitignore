@@ -50,3 +50,12 @@ apps/desktop/e2e/*.png
 .DS_Store
 Thumbs.db
 apps/desktop/out/
+
+# Unity imports, generated managed plugins and local player builds
+clients/quest-unity/Library/
+clients/quest-unity/Temp/
+clients/quest-unity/.utmp/
+clients/quest-unity/UserSettings/
+clients/quest-unity/Logs/
+clients/quest-unity/Builds/
+clients/quest-unity/Assets/Plugins/Kreoda.Managed/

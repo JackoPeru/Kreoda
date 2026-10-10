@@ -1,0 +1,9 @@
+  Kreoda.QuestFoundation -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.QuestFoundation\bin\Release\netstandard2.1\Kreoda.QuestFoundation.dll
+  Kreoda.Protocol -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol\csharp\bin\Release\netstandard2.1\Kreoda.Protocol.dll
+  Kreoda.SessionClient -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\bin\Release\netstandard2.1\Kreoda.SessionClient.dll
+  Kreoda.Protocol -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol\csharp\bin\Release\net8.0\Kreoda.Protocol.dll
+  Kreoda.SessionClient.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll
+Esecuzione dei test per C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll (.NETCoreApp,Version=v8.0)
+Un totale di 1 file di test corrisponde al criterio specificato.
+
+Superato!     - Non superati:     0. Superati:    50. Ignorati:     0. Totale:    50. Durata: 1 s - Kreoda.SessionClient.Tests.dll (net8.0)

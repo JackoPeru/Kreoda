@@ -1,0 +1,36 @@
+{
+  "startedAt": "2026-10-10T12:38:17.098Z",
+  "unity": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\Editors\\6000.3.25f1\\Editor\\Unity.exe",
+  "sdk": "C:\\Users\\matte\\AppData\\Local\\Android\\Sdk",
+  "directExitCode": 0,
+  "elapsedSeconds": 357.115,
+  "sourceChangedDuringBuild": [],
+  "sourceManifestSha256": "a47471394d901e1957455a647fe4f65795d5f43c85b75769fdb283d86048c134",
+  "logSha256": "26bcdd9ae3e67d274af1c64d524c5a3378a1e147fbacf9d2cfca80b1a0cc5ed2",
+  "apkSha256": "6da0986c78b133cadcbc2d096429a0eb8b32a4e4d1e5b178081c833f4c5f4363",
+  "packageLockSha256": "ed2ce3a308998dada1e55e96b9e66a173322c531c55a9aed3d055f1559a413b0",
+  "managedManifestSha256": "863397a6fc9e7f4e3d91bdce58473c800ed0254736accc9121480cdc27a433e8",
+  "status": "BUILD_SUCCEEDED_HARDWARE_UNTESTED",
+  "finishedAt": "2026-10-10T12:44:22.112Z",
+  "report": {
+    "result": "Succeeded",
+    "output": "C:/Users/matte/Documents/Codex-tools/Unity/QA/phase12-root-mr-arm64-normal-20261010/KreodaQuest.apk",
+    "totalBytes": 776754691,
+    "seconds": 337.3030597,
+    "errors": 0,
+    "warnings": 7
+  },
+  "apkBytes": 36098906,
+  "mergedManifestSha256": "99318147688a19b60491843cd9ce57d79306e635639639150c0b2dcbf159bc4c",
+  "permissions": [
+    "android.permission.INTERNET",
+    "com.oculus.permission.HAND_TRACKING"
+  ],
+  "nativeAbi": [
+    "arm64-v8a"
+  ],
+  "mediaProjectionOrMetaXROperatorIncluded": false,
+  "rawCameraPermissionIncluded": false,
+  "hardwareInstalled": false,
+  "boundary": "Actual populated MR CAD ARM64 IL2CPP APK inspected with aapt2/ZIP; no physical Quest run or capture."
+}

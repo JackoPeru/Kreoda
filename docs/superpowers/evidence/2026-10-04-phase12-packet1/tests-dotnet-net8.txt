@@ -1,0 +1,18 @@
+
+> kreoda@0.1.0 test:dotnet C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci
+> node scripts/run-dotnet-tests.mjs
+
+  Individuazione dei progetti da ripristinare...
+  Tutti i progetti sono aggiornati per il ripristino.
+  Kreoda.QuestFoundation -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.QuestFoundation\bin\Release\net8.0\Kreoda.QuestFoundation.dll
+  Kreoda.QuestFoundation -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.QuestFoundation\bin\Release\netstandard2.1\Kreoda.QuestFoundation.dll
+  Kreoda.Protocol -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol\csharp\bin\Debug\netstandard2.1\Kreoda.Protocol.dll
+  Kreoda.Protocol -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol\csharp\bin\Debug\net8.0\Kreoda.Protocol.dll
+  Kreoda.SessionClient -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\bin\Release\net8.0\Kreoda.SessionClient.dll
+  Kreoda.SessionClient -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\bin\Release\netstandard2.1\Kreoda.SessionClient.dll
+  Kreoda.SessionClient.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll
+Esecuzione dei test per C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll (.NETCoreApp,Version=v8.0)
+Un totale di 1 file di test corrisponde al criterio specificato.
+File di risultati: C:\Users\matte\AppData\Local\Temp\kreoda-dotnet-X7ee03\kreoda-session.trx
+
+Superato!     - Non superati:     0. Superati:    40. Ignorati:     0. Totale:    40. Durata: 1 s - Kreoda.SessionClient.Tests.dll (net8.0)

@@ -1,4 +1,4 @@
-import { QUERY_METHODS_CONTRACT } from "@kreoda/protocol";
+import { QUERY_METHODS_CONTRACT, SESSION_SERVER_CAPABILITIES } from "@kreoda/protocol";
 // Session semantic query API (§11.7–§11.9, §11.11, §11.15): read-only
 // projections over authoritative snapshots and native OCCT geometry.
 // Transport-agnostic: the relay injects core access; unit tests inject
@@ -420,6 +420,13 @@ export async function runSessionQuery(
       return { result: { clientId: target, ids: selections.get(target, clientId) } };
     }
     case "setSelection": {
+      if (Object.hasOwn(params, "baseRevision")) {
+        const revision = params["baseRevision"];
+        if (typeof revision !== "number" || !Number.isSafeInteger(revision) || revision < 0)
+          throw coded("BAD_PARAMS", "baseRevision must be a nonnegative safe integer");
+        if ((await snap()).revision !== revision)
+          throw coded("NEED_FULL_SNAPSHOT", "selection was picked on an older model revision");
+      }
       if (!Array.isArray(params["ids"])) {
         throw coded("BAD_PARAMS", "ids must be an array of persistent ids");
       }
@@ -531,14 +538,13 @@ export async function runSessionQuery(
       return {
         result: {
           protocolVersion: 1,
+          serverCapabilities: [...SESSION_SERVER_CAPABILITIES],
           mutations: true,
           queries: [...QUERY_METHODS],
           previews: true,
           transactions: true,
           multiClient: true,
-          notes: [
-            "binary mesh streaming stays sidecar-direct until Phase 12",
-          ],
+          notes: ["requestMeshLOD returns a JSON identity header followed by unchanged cad_protocol.fbs MeshUpdate bytes"],
         },
       };
     }

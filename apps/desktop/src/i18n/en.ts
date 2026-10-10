@@ -2,6 +2,7 @@
 // provide every key (enforced by `Record<keyof typeof en, string>`).
 // Placeholders use {name} and are filled by t(key, vars).
 export const en = {
+  "chrome.sharedTarget": "Shared target",
   "session.title": "Shared session",
   "session.description": "Connect another device to this CAD document. Choose a network interface to allow devices on your local network.",
   "session.enabled": "Connections enabled",
@@ -13,9 +14,10 @@ export const en = {
   "session.enable": "Enable connections",
   "session.disable": "Disable connections",
   "session.pair": "Pair a device",
-  "session.pairHint": "Enter this single-use token on your device within 5 minutes. Closing this panel cancels pairing.",
-  "session.pairToken": "Pairing token",
-  "session.copy": "Copy token",
+  "session.pairHint": "Enter this single-use code on your device within 5 minutes. Closing this panel cancels pairing.",
+  "session.pairCode": "Pairing code",
+  "session.pairToken": "Legacy pairing token",
+  "session.copy": "Copy code",
   "session.devices": "Trusted devices",
   "session.noDevices": "No paired devices",
   "session.connected": "connected",

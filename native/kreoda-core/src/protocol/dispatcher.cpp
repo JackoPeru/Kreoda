@@ -1048,27 +1048,45 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       if (isPreview) {
         // Transient preview (§13): resolved + built + tessellated WITHOUT
         // touching stores, revision, or OCAF. Never committed.
-        // A formula previews at its evaluated value (read-only evaluation).
         double previewValue = value;
-        if (!expression.empty()) {
-          std::string evalErr;
-          if (!EvaluateOneExpression(featureId, paramName, expression,
-                                     &previewValue, &evalErr)) {
-            return make_response(requestId, "error",
-                                 error_body("PREVIEW_FAILED", evalErr));
-          }
-        }
         std::string error;
         CoreMesh mesh;
-        if (!BuildPreviewMesh(featureId, paramName, previewValue, &mesh,
-                              &error) ||
-            mesh.indices.empty()) {
+        const std::string previewTipId = json_string_field(requestJson, "previewTipId", "");
+        if (requestJson.contains("previewTipId") &&
+            (!requestJson["previewTipId"].is_string() || previewTipId.empty())) {
+          return make_response(requestId, "error", error_body("BAD_PARAMS", "previewTipId must be a non-empty feature id"));
+        }
+        std::map<std::string, double> otherValues;
+        if (requestJson.contains("previewValues")) {
+          const auto& values = requestJson["previewValues"];
+          if (!values.is_object() || values.size() > 5 || values.contains(paramName)) {
+            return make_response(requestId, "error", error_body("BAD_PARAMS", "previewValues must contain at most five distinct additional parameters"));
+          }
+          for (const auto& [name, value] : values.items()) {
+            if (!value.is_number() || !std::isfinite(value.get<double>())) {
+              return make_response(requestId, "error", error_body("BAD_PARAMS", "previewValues must be finite numbers"));
+            }
+            otherValues[name] = value.get<double>();
+          }
+        }
+        const bool useBodyPreview = !previewTipId.empty() || requestJson.contains("previewValues");
+        // Body/compound formulas evaluate only after all candidate values have
+        // reached scratch. Legacy single-feature callers keep their evaluator.
+        if (!useBodyPreview && !expression.empty() &&
+            !EvaluateOneExpression(featureId, paramName, expression, &previewValue, &error)) {
+          return make_response(requestId, "error", error_body("PREVIEW_FAILED", error));
+        }
+        const bool previewOk = useBodyPreview
+            ? BuildPreviewBodyMesh(featureId, paramName, previewValue, previewTipId.empty() ? featureId : previewTipId,
+                                   &mesh, &error, expression, otherValues)
+            : BuildPreviewMesh(featureId, paramName, previewValue, &mesh, &error);
+        if (!previewOk || mesh.indices.empty()) {
           return make_response(requestId, "error",
                                error_body("PREVIEW_FAILED",
                                           error.empty() ? paramName : error));
         }
         std::vector<uint8_t> preview =
-            mesh_success(requestId, featureId, 1, mesh, &error);
+            mesh_success(requestId, previewTipId.empty() ? featureId : previewTipId, 0, mesh, &error);
         if (preview.empty()) {
           return make_response(requestId, "error",
                                error_body("PREVIEW_FAILED", error.empty()

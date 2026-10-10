@@ -1,0 +1,46 @@
+[
+  {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase12-final-net8-20261010",
+    "counters": {
+      "total": "85",
+      "executed": "85",
+      "passed": "85",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "trxSha256": "af71e2a6a6f8bb1264004539e4ac252ac02db07b44f6a5822c713474f9b49499"
+  },
+  {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase12-final-netstandard-20261010",
+    "counters": {
+      "total": "85",
+      "executed": "85",
+      "passed": "85",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "trxSha256": "cc2bb5f68cfd83a009a8c93bcc32445cfaf978a059f4ea9e502bb3da1e164fab"
+  }
+]
