@@ -32,12 +32,14 @@ public sealed class SessionClient : IAsyncDisposable
     private sealed class PendingMeshCall
     {
         public PendingMeshCall(string requestId, string sessionId, string documentId, string bodyId,
-            int quality, long expectedRevision, int lineageGeneration, TaskCompletionSource<SessionMeshResult> completion)
+            string? instanceId, int quality, long expectedRevision, int lineageGeneration,
+            TaskCompletionSource<SessionMeshResult> completion)
         {
             RequestId = requestId;
             SessionId = sessionId;
             DocumentId = documentId;
             BodyId = bodyId;
+            InstanceId = instanceId;
             Quality = quality;
             ExpectedRevision = expectedRevision;
             LineageGeneration = lineageGeneration;
@@ -48,6 +50,7 @@ public sealed class SessionClient : IAsyncDisposable
         public string SessionId { get; }
         public string DocumentId { get; }
         public string BodyId { get; }
+        public string? InstanceId { get; }
         public int Quality { get; }
         public long ExpectedRevision { get; }
         public int LineageGeneration { get; }
@@ -341,11 +344,14 @@ public sealed class SessionClient : IAsyncDisposable
         int quality,
         string documentId,
         long expectedRevision,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? instanceId = null)
     {
         if (!ServerCapabilities.Contains(SessionMethods.BinaryMeshV1Capability))
             throw new SessionException("NOT_IMPLEMENTED", "server does not support binary-mesh-v1");
         if (string.IsNullOrWhiteSpace(bodyId) || string.IsNullOrWhiteSpace(documentId) ||
+            (instanceId is not null && (instanceId.Length > 128 || instanceId.Length == 0 || instanceId.Any(ch =>
+                !(ch is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or '_' or '-')))) ||
             quality is < 0 or > 2 || expectedRevision < 0 || expectedRevision > SessionContract.MaximumRevision)
             throw new SessionException("BAD_PARAMS", "mesh identity, quality, or expected revision is invalid");
         var sessionId = SessionId;
@@ -359,7 +365,8 @@ public sealed class SessionClient : IAsyncDisposable
         var requestId = $"cs-{Interlocked.Increment(ref _seq)}";
         var completion = new TaskCompletionSource<SessionMeshResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var generation = _lineageGeneration;
-        var mesh = new PendingMeshCall(requestId, sessionId, documentId, bodyId, quality, expectedRevision, generation, completion);
+        var mesh = new PendingMeshCall(requestId, sessionId, documentId, bodyId, instanceId,
+            quality, expectedRevision, generation, completion);
         if (!_pending.TryAdd(requestId, new PendingCall(SessionMethods.RequestMeshLOD, null, mesh, sessionId, documentId, generation)))
             throw new SessionException("SEND_FAILED", "mesh request identity collision");
 
@@ -375,6 +382,7 @@ public sealed class SessionClient : IAsyncDisposable
                     BodyId = bodyId,
                     DocumentId = documentId,
                     ExpectedRevision = expectedRevision,
+                    InstanceId = instanceId,
                     Quality = quality,
                 }),
                 ["sessionId"] = sessionId,
@@ -604,6 +612,8 @@ public sealed class SessionClient : IAsyncDisposable
                 string.IsNullOrWhiteSpace(header.TipId) || header.SessionId != mesh.SessionId ||
                 header.DocumentId != mesh.DocumentId || header.BodyId != mesh.BodyId ||
                 header.FeatureId != header.TipId || header.TipId.Length > 4096 ||
+                header.InstanceId != mesh.InstanceId ||
+                (mesh.InstanceId is not null && header.FeatureId != mesh.InstanceId) ||
                 header.Quality != mesh.Quality || header.Revision != mesh.ExpectedRevision ||
                 header.Revision < 0 || header.Revision > SessionContract.MaximumRevision ||
                 header.ByteLength <= 0 || header.ByteLength > MaxMeshPayloadBytes)
@@ -731,28 +741,26 @@ public sealed class SessionClient : IAsyncDisposable
         ValidateIndices(indicesBytes, vertexCount);
 
         var faces = new List<SessionMeshFaceRange>(update.FacesLength);
-        var faceIds = new HashSet<string>(StringComparer.Ordinal);
         ulong previousFaceEnd = 0;
         for (var i = 0; i < update.FacesLength; i++)
         {
             var face = update.Faces(i) ?? throw new SessionException("INVALID_MESH", "native face range is missing");
             var id = ReadFlatString(face.GetPersistentFaceIdBytes(), "persistent face id");
             var end = (ulong)face.TriangleStart + face.TriangleCount;
-            if (!faceIds.Add(id) || face.TriangleCount == 0 || face.TriangleStart < previousFaceEnd || end > triangleCount)
+            if (face.TriangleCount == 0 || face.TriangleStart < previousFaceEnd || end > triangleCount)
                 throw new SessionException("INVALID_MESH", "native face ranges overlap or exceed triangle data");
             faces.Add(new(id, face.TriangleStart, face.TriangleCount));
             previousFaceEnd = end;
         }
 
         var edges = new List<SessionMeshEdgeRange>(update.EdgesLength);
-        var edgeIds = new HashSet<string>(StringComparer.Ordinal);
         ulong previousEdgeEnd = 0;
         for (var i = 0; i < update.EdgesLength; i++)
         {
             var edge = update.Edges(i) ?? throw new SessionException("INVALID_MESH", "native edge range is missing");
             var id = ReadFlatString(edge.GetPersistentEdgeIdBytes(), "persistent edge id");
             var end = (ulong)edge.VertexStart + edge.VertexCount;
-            if (!edgeIds.Add(id) || edge.VertexCount == 0 || edge.VertexStart < previousEdgeEnd || end > edgeVertexCount)
+            if (edge.VertexCount == 0 || edge.VertexStart < previousEdgeEnd || end > edgeVertexCount)
                 throw new SessionException("INVALID_MESH", "native edge ranges overlap or exceed edge vertex data");
             edges.Add(new(id, edge.VertexStart, edge.VertexCount));
             previousEdgeEnd = end;
@@ -763,7 +771,8 @@ public sealed class SessionClient : IAsyncDisposable
         var edgeVertices = DecodeFloatVector(edgeVerticesBytes);
         var indices = DecodeIndices(indicesBytes);
         return new SessionMeshResult(new SessionMeshHeader(header.NativeRequestId, header.SessionId, header.DocumentId,
-            header.Revision, header.BodyId, header.FeatureId, header.TipId, checked((int)header.Quality), checked((int)header.ByteLength)),
+            header.Revision, header.BodyId, header.FeatureId, header.TipId, checked((int)header.Quality),
+            checked((int)header.ByteLength), header.InstanceId),
             positions, normals, indices, edgeVertices, faces.AsReadOnly(), edges.AsReadOnly(), volume, bbox, raw.Length,
             Sha256Hex(raw));
     }

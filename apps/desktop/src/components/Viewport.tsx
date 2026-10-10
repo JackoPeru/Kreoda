@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSharedTargetStore, visibleSharedTargets } from "../model/shared-targets";
 import { CadViewport } from "../viewport/CadViewport";
 import { useDocumentUiStore, useSelectionStore, useToolStore } from "../stores";
 import { clampDimension, resolvePullTarget } from "../interaction/pull";
@@ -37,6 +38,12 @@ export function Viewport() {
   const activeTool = useToolStore((s) => s.activeTool);
   const meshes = useDocumentUiStore((s) => s.meshes);
   const meshRevision = useDocumentUiStore((s) => s.meshRevision);
+  const targetEvents = useSharedTargetStore(s => s.events);
+  const targetContext = useSharedTargetStore(s => s.context);
+  const documentId = useDocumentUiStore(s => s.documentId);
+  const revision = useDocumentUiStore(s => s.revision);
+  const sharedIds = useMemo(() => visibleSharedTargets(meshes, { documentId, revision }).flatMap(target => target.ids),
+    [meshes, meshRevision, targetEvents, targetContext, documentId, revision]);
   const refPlanes = useReferenceStore((s) => s.planes);
   const [pullHint, setPullHint] = useState<string | null>(null);
 
@@ -69,6 +76,7 @@ export function Viewport() {
       cancelReferenceMeasure: () => vpRef.current?.cancelReferenceMeasure(),
       renderStats: () => vpRef.current?.renderStats() ?? null,
       meshIdentity: (featureId) => vpRef.current?.meshIdentity(featureId) ?? null,
+      sharedTargetSummary: () => vpRef.current?.sharedTargetSummary() ?? null,
     });
     return () => {
       try {
@@ -97,6 +105,8 @@ export function Viewport() {
   useEffect(() => {
     vpRef.current?.setSelected(selectedIds);
   }, [selectedIds]);
+
+  useEffect(() => { vpRef.current?.setSharedTargets(sharedIds); }, [sharedIds]);
 
   useEffect(() => {
     // auto = contextual face picking (§16); body/edge/face force the filter.

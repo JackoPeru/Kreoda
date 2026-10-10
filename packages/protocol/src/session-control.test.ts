@@ -7,6 +7,8 @@ import {
   InvokeParamsSchema,
   MeshHeaderSchema,
   MeshReplySchema,
+  PairParamsSchema,
+  AuthenticateParamsSchema,
   RequestMeshLODParamsSchema,
   REQUIRED_PARAMS,
   SESSION_SERVER_CAPABILITIES,
@@ -62,6 +64,13 @@ describe("session control contract", () => {
     ).toThrow();
   });
 
+  it("accepts exact eight digit pairing codes without widening credential auth", () => {
+    expect(PairParamsSchema.parse({ pairingToken: "00000007", deviceName: "Quest" })).toMatchObject({ pairingToken: "00000007" });
+    expect(PairParamsSchema.parse({ pairingToken: "p".repeat(43), deviceName: "Quest" })).toBeTruthy();
+    expect(() => PairParamsSchema.parse({ pairingToken: "1234567", deviceName: "Quest" })).toThrow();
+    expect(() => AuthenticateParamsSchema.parse({ deviceId: "device-00000000-0000-0000-0000-000000000000", credential: "00000007" })).toThrow();
+  });
+
   it("contracts operation metadata, stable client identity, capabilities, and replay errors", () => {
     const request = contract.envelope.request as {
       optional?: string[];
@@ -101,12 +110,13 @@ describe("session control contract", () => {
   });
 
   it("validates typed requestMeshLOD identity and quality", () => {
-    expect(RequestMeshLODParamsSchema.parse({
+    const params = {
       bodyId: "body-root",
       quality: 2,
       documentId: "doc-phase1",
       expectedRevision: 7,
-    })).toBeTruthy();
+    };
+    expect(RequestMeshLODParamsSchema.parse(params)).toBeTruthy();
     for (const quality of [-1, 3, 1.5, "2"]) {
       expect(() => RequestMeshLODParamsSchema.parse({
         bodyId: "body-root",
@@ -135,5 +145,8 @@ describe("session control contract", () => {
     expect(MeshHeaderSchema.parse(header)).toEqual(header);
     expect(MeshReplySchema.parse({ result: header })).toEqual({ result: header });
     expect(() => MeshHeaderSchema.parse({ ...header, byteLength: 67108865 })).toThrow();
+    const instanceHeader = { ...header, instanceId: "instance-1", featureId: "instance-1", tipId: "instance-1" };
+    expect(MeshHeaderSchema.parse(instanceHeader)).toEqual(instanceHeader);
+    expect(RequestMeshLODParamsSchema.parse({ ...params, instanceId: "instance-1" })).toMatchObject({ instanceId: "instance-1" });
   });
 });

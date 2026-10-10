@@ -420,6 +420,13 @@ export async function runSessionQuery(
       return { result: { clientId: target, ids: selections.get(target, clientId) } };
     }
     case "setSelection": {
+      if (Object.hasOwn(params, "baseRevision")) {
+        const revision = params["baseRevision"];
+        if (typeof revision !== "number" || !Number.isSafeInteger(revision) || revision < 0)
+          throw coded("BAD_PARAMS", "baseRevision must be a nonnegative safe integer");
+        if ((await snap()).revision !== revision)
+          throw coded("NEED_FULL_SNAPSHOT", "selection was picked on an older model revision");
+      }
       if (!Array.isArray(params["ids"])) {
         throw coded("BAD_PARAMS", "ids must be an array of persistent ids");
       }

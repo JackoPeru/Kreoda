@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { describe, it, expect } from "vitest";
 import { mkdtemp, mkdir, readFile, readdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -51,12 +52,71 @@ describe("private session device credentials", () => {
     });
   });
 
+  it("replacing a pairing window retires both the previous code and token", async () => {
+    await isolated(async devices => {
+      const old = devices.beginPairing();
+      const current = devices.beginPairing();
+      await expect(devices.pair(old.code, "old code")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      await expect(devices.pair(old.token, "old token")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      await expect(devices.pair(current.code, "Quest")).resolves.toMatchObject({ deviceId: expect.any(String) });
+    });
+  });
+
+  it("counts concurrent wrong code guesses against the same five-attempt window", async () => {
+    await isolated(async devices => {
+      const pairing = devices.beginPairing();
+      const wrongCode = `${(Number(pairing.code[0]) + 1) % 10}${pairing.code.slice(1)}`;
+      const attempts = await Promise.allSettled(Array.from({ length: 5 }, (_, index) => devices.pair(wrongCode, `Quest ${index}`)));
+      expect(attempts.every(result => result.status === "rejected")).toBe(true);
+      await expect(devices.pair(pairing.code, "Quest")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      await expect(devices.pair(pairing.token, "Quest")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    });
+  });
+
+  it("pairs with an eight digit code including leading zeroes and consumes both credentials", async () => {
+    await isolated(async devices => {
+      const originalRandomInt = crypto.randomInt;
+      Object.defineProperty(crypto, "randomInt", { configurable: true, value: () => 7 });
+      let pairing: ReturnType<SessionDevices["beginPairing"]>;
+      try { pairing = devices.beginPairing(); }
+      finally { Object.defineProperty(crypto, "randomInt", { configurable: true, value: originalRandomInt }); }
+      expect(pairing.code === "00000007").toBe(true);
+      expect(pairing.code).toMatch(/^\d{8}$/);
+      const paired = await devices.pair(pairing.code, "Quest 3");
+      expect(paired.deviceId).toMatch(/^device-/);
+      await expect(devices.pair(pairing.token, "legacy fallback" )).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      await expect(devices.pair(pairing.code, "replay")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    });
+  });
+
+  it("locks both pairing values after five valid-shaped guesses", async () => {
+    await isolated(async devices => {
+      const pairing = devices.beginPairing();
+      const wrongCode = `${(Number(pairing.code[0]) + 1) % 10}${pairing.code.slice(1)}`;
+      for (let attempt = 0; attempt < 5; attempt++)
+        await expect(devices.pair(wrongCode, "Quest")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      await expect(devices.pair(pairing.code, "Quest")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      await expect(devices.pair(pairing.token, "Quest")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    });
+  });
+
+  it("does not count malformed shapes as pairing guesses", async () => {
+    await isolated(async devices => {
+      const pairing = devices.beginPairing();
+      for (let attempt = 0; attempt < 7; attempt++)
+        await expect(devices.pair("not-a-code", "Quest")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      await expect(devices.pair(pairing.code, "Quest")).resolves.toMatchObject({ deviceId: expect.any(String) });
+    });
+  });
+
   it("expires/cancels pairing and revokes credentials durably", async () => {
     await isolated(async (devices, root, advance) => {
       const expired = devices.beginPairing(); advance(300000);
       await expect(devices.pair(expired.token, "expired")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      await expect(devices.pair(expired.code, "expired code")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
       const cancelled = devices.beginPairing(); devices.cancelPairing();
       await expect(devices.pair(cancelled.token, "cancelled")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      await expect(devices.pair(cancelled.code, "cancelled code")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
       const paired = await devices.pair(devices.beginPairing().token, "laptop");
       expect(() => devices.authenticate(paired.deviceId, "incorrect")).toThrow();
       await devices.revoke(paired.deviceId);

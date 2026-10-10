@@ -81,9 +81,20 @@ test("unified session: saved document, paired client, existing edit, Desktop und
       return { box: hooks.meshIdentity("box"), other: hooks.meshIdentity("untouched"), camera: hooks.viewDir() };
     });
     await window.evaluate(() => (window as unknown as { __kreoda_test: { selectFace(id: string, role: string): void } }).__kreoda_test.selectFace("untouched", "box.+Z"));
+    await client.call("setSelection", { ids: ["box:box.+Z"], publish: true });
+    await expect(window.getByTestId("shared-target-chip")).toContainText("box:box.+Z");
+    const shared = () => window.evaluate(() => (window as unknown as {
+      __kreoda_test: { snapshot(): { sharedTarget: { ids: string[]; faceGroups: number; edgeSegments: number } } }
+    }).__kreoda_test.snapshot().sharedTarget);
+    await expect.poll(async () => (await shared()).faceGroups).toBeGreaterThan(0);
+    expect((await shared()).ids).toEqual(["box:box.+Z"]);
+    expect((await snapOf(window)).selectedIds).toEqual(["untouched:box.+Z"]);
+    checks.push("explicit-shared-target-real-desktop-face-highlight-and-chip-local-selection-unchanged");
     const before = await identities();
     const edited = await client.call("command", { commandId: "SetDimension", parameters: { featureId: "box", paramName: "widthMm", valueMm: 25 }, baseRevision: snapshot["revision"] },
       { sessionId: paired.hello["sessionId"], operationId: crypto.randomUUID() });
+    await expect(window.getByTestId("shared-target-chip")).toHaveCount(0);
+    await expect.poll(async () => (await shared()).ids.length).toBe(0);
     const delta = await client.waitDelta(edited["revision"] as number) as unknown as Record<string, unknown>;
     expect(delta["originClientId"]).toBe(paired.hello["clientId"]);
     expect(delta["changedMeshIds"]).toEqual(["box"]);
@@ -185,6 +196,21 @@ test("unified session: saved document, paired client, existing edit, Desktop und
     expect(meshProbe.meshHashes).toHaveLength(6);
     await expect.poll(async () => (await snapOf(window)).bodies.find(b => b.id === "box")?.volumeMm3).toBeCloseTo(6000, 4);
     checks.push("compiled-csharp-real-flatbuffers-all-lods-edit-undo-reconnect-and-stale-revision");
+    const instancePair = await window.evaluate(() => globalThis.window.kreoda.sessionPair());
+    const instanceProbe = await new Promise<{ passed: string[] }>((resolve, reject) => {
+      const child = spawn("dotnet", [meshDll], { windowsHide: true, env: { ...process.env,
+        KREODA_SESSION_PROBE_URL: url, KREODA_SESSION_PROBE_PAIR: instancePair.token,
+        KREODA_SESSION_PROBE_FEATURE: "box", KREODA_SESSION_PROBE_INSTANCE_MESH: "1" } });
+      let output = "", errors = "";
+      child.stdout.on("data", b => output += String(b)); child.stderr.on("data", b => errors += String(b));
+      child.once("error", reject);
+      const timer = setTimeout(() => { child.kill(); reject(new Error("compiled instance client timed out")); }, 30000);
+      child.once("exit", code => { clearTimeout(timer); if (code !== 0) reject(new Error(`compiled instance client failed: ${errors}`));
+        else resolve(JSON.parse(output.trim()) as { passed: string[] }); });
+    });
+    expect(instanceProbe.passed).toHaveLength(5);
+    await expect.poll(async () => (await snapOf(window)).bodies.find(b => b.id === "box")?.volumeMm3).toBeCloseTo(6000, 4);
+    checks.push("compiled-csharp-older-source-instance-placement-edit-undo-and-reconnect");
     await window.evaluate(id => globalThis.window.kreoda.sessionRevoke(id), paired.deviceId);
     await expect.poll(() => returning.call("getSessionInfo").then(() => false, () => true)).toBe(true);
     const revoked = new SessionClient(); clients.push(revoked);
@@ -194,7 +220,7 @@ test("unified session: saved document, paired client, existing edit, Desktop und
     const visible = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(w => w.isVisible()));
     if (process.env["KREODA_LOCAL_CORE_PROBE"]) expect(visible).toBe(false);
     const runtime = test.info().outputPath("session-acceptance-runtime.json");
-    writeFileSync(runtime, JSON.stringify({ checks, dotnetChecks: cs.passed, meshProbe, kernel: kernel["occtVersion"],
+    writeFileSync(runtime, JSON.stringify({ checks, dotnetChecks: cs.passed, meshProbe, instanceProbe, kernel: kernel["occtVersion"],
       mainPid: app.process().pid, corePid: native.pid, dotnetPid, meshDotnetPid, visibleWindows: visible,
       finalRevision: (await snapOf(window)).revision, inputActions: 0, host,
       boundary: "Actual Electron renderer/main, OCCT and paired WebSocket plus compiled C# clients on the same host; no Unity or remote hardware." }));

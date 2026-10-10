@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import validators from './generated/session-validators.js';
 import type * as DTO from './generated/session-dtos.js';
+export type { SelectionEvent } from './generated/session-dtos.js';
 import { CONTROL_METHODS, QUERY_METHODS_CONTRACT, SESSION_DTO_NAMES } from './generated/session-metadata.js';
 export * from './generated/session-metadata.js';
 export type { PairParams, AuthenticateParams, PairReply, AuthenticateReply, HelloParams, SnapshotParams, RequestMeshLODParams, MeshHeader, MeshReply, InvokeParams, NamedCommandParams, TxnParams, ErrorReply, RequestMetadata } from './generated/session-dtos.js';
@@ -30,3 +31,4 @@ export const ErrorReplySchema = schema<DTO.ErrorReply>('ErrorReply');
 export const SessionRequestEnvelopeSchema = schema<DTO.SessionRequestEnvelope>('SessionRequestEnvelope');
 export const SessionSnapshotPayloadSchema = schema<DTO.SessionSnapshotPayload>('SessionSnapshotPayload');
 export const SessionIncrementalEventSchema = schema<DTO.SessionIncrementalEvent>('SessionIncrementalEvent');
+export const SelectionEventSchema = schema<DTO.SelectionEvent>('SelectionEvent');

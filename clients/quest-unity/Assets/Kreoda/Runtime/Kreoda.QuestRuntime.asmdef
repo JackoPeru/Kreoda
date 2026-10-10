@@ -1,0 +1,6 @@
+{
+  "name": "Kreoda.QuestRuntime",
+  "rootNamespace": "Kreoda.QuestRuntime",
+  "references": ["Oculus.VR"],
+  "autoReferenced": true
+}

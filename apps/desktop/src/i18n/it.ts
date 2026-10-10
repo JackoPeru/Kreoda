@@ -3,6 +3,7 @@
 import type { EnKey } from "./en";
 
 export const it: Record<EnKey, string> = {
+  "chrome.sharedTarget": "Target condiviso",
   "session.title": "Sessione condivisa",
   "session.description": "Collega un altro dispositivo a questo documento CAD. Scegli un'interfaccia di rete per consentire i dispositivi della tua rete locale.",
   "session.enabled": "Connessioni attive",
@@ -14,9 +15,10 @@ export const it: Record<EnKey, string> = {
   "session.enable": "Attiva connessioni",
   "session.disable": "Disattiva connessioni",
   "session.pair": "Associa un dispositivo",
-  "session.pairHint": "Inserisci questo token monouso sul dispositivo entro 5 minuti. Chiudendo questo pannello annulli l'associazione.",
-  "session.pairToken": "Token di associazione",
-  "session.copy": "Copia token",
+  "session.pairHint": "Inserisci questo codice monouso sul dispositivo entro 5 minuti. Chiudendo questo pannello annulli l'associazione.",
+  "session.pairCode": "Codice di associazione",
+  "session.pairToken": "Token di associazione precedente",
+  "session.copy": "Copia codice",
   "session.devices": "Dispositivi autorizzati",
   "session.noDevices": "Nessun dispositivo associato",
   "session.connected": "connesso",

@@ -89,6 +89,26 @@ TEST(SessionGeometry, DuplicateTopologyIsReportedAndNeverSilentlyResolved) {
   ASSERT_EQ(refs["status"],"ok");EXPECT_EQ(refs["result"]["valid"],false);
 }
 
+TEST(SessionGeometry, BlindHoleRoleCollisionsFailSemanticReferenceValidation) {
+  kreoda::DocumentStore::instance().create("geometry-doc");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("root-box", 100, 50, 10, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("blind-hole", "root-box", "box.+Z", 20, 20, 8,
+                                        "blind", 5, &error)) << error;
+
+  const auto refs = query("validateReferences", {{"ids", {
+      "blind-hole:box.+Z", "blind-hole:edge.cir.box.+Z~wall.0"}}});
+
+  ASSERT_EQ(refs["status"], "ok") << refs;
+  EXPECT_EQ(refs["result"]["valid"], false) << refs;
+  ASSERT_EQ(refs["result"]["checks"].size(), 2u);
+  for (const auto& check : refs["result"]["checks"]) {
+    EXPECT_EQ(check["ok"], false) << check;
+    EXPECT_EQ(check["errorCode"], "AMBIGUOUS_REFERENCE") << check;
+    EXPECT_NE(check["detail"].get<std::string>().find("multiple entities"), std::string::npos);
+  }
+}
+
 TEST(SessionGeometry, DifferentAnalyticRadiiRequireAnExplicitReference) {
   kreoda::DocumentStore::instance().create("geometry-doc");std::string error;
   ASSERT_TRUE(kreoda::CreateCylinderFeature("cylinder",10,20,&error)) << error;

@@ -9,17 +9,19 @@ namespace Kreoda.SessionClient.Tests;
 public sealed class ManagedCompatibilityTests
 {
     [Fact]
-    public void TestLoadsTheRequestedSessionClientTarget()
+    public void TestLoadsTheRequestedManagedTargets()
     {
 #if KREODA_NETSTANDARD_COMPAT
         const string expectedFramework = ".NETStandard,Version=v2.1";
 #else
         const string expectedFramework = ".NETCoreApp,Version=v8.0";
 #endif
-        var framework = typeof(global::Kreoda.Session.SessionClient).Assembly
-            .GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName;
-
-        Assert.Equal(expectedFramework, framework);
+        foreach (var assembly in new[] {
+            typeof(global::Kreoda.Session.SessionClient).Assembly,
+            typeof(global::Kreoda.QuestFoundation.BodyMesh).Assembly,
+            typeof(global::Kreoda.Protocol.MeshUpdate).Assembly,
+        })
+            Assert.Equal(expectedFramework, assembly.GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName);
     }
     [Fact]
     public async Task AdvertisedCapabilitiesCannotBeMutatedThroughCollectionInterfaces()

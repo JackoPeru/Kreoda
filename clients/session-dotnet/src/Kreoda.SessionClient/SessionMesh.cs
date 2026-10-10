@@ -10,7 +10,8 @@ public sealed record SessionMeshHeader(
     string FeatureId,
     string TipId,
     int Quality,
-    int ByteLength);
+    int ByteLength,
+    string? InstanceId = null);
 
 public sealed record SessionMeshFaceRange(string PersistentFaceId, uint TriangleStart, uint TriangleCount);
 public sealed record SessionMeshEdgeRange(string PersistentEdgeId, uint VertexStart, uint VertexCount);

@@ -29,16 +29,17 @@ public sealed class SessionMeshTests
 
     private static string MeshHeader(JsonElement request, string nativeId, int quality, int byteLength,
         string sessionId = Session, string documentId = "doc-phase1", long revision = 7,
-        string bodyId = "body-root", string tipId = "tip-1") => JsonSerializer.Serialize(new
+        string bodyId = "body-root", string tipId = "tip-1", string? instanceId = null)
     {
-        requestId = request.GetProperty("requestId").GetString(),
-        ok = true,
-        result = new
+        var result = new Dictionary<string, object?>
         {
-            nativeRequestId = nativeId, sessionId, documentId, revision,
-            bodyId, featureId = tipId, tipId, quality, byteLength,
-        },
-    });
+            ["nativeRequestId"] = nativeId, ["sessionId"] = sessionId, ["documentId"] = documentId,
+            ["revision"] = revision, ["bodyId"] = bodyId, ["featureId"] = tipId, ["tipId"] = tipId,
+            ["quality"] = quality, ["byteLength"] = byteLength,
+        };
+        if (instanceId is not null) result["instanceId"] = instanceId;
+        return JsonSerializer.Serialize(new { requestId = request.GetProperty("requestId").GetString(), ok = true, result });
+    }
 
     private static byte[] FloatBytes(float[] values) => MemoryMarshal.AsBytes(values.AsSpan()).ToArray();
     private static byte[] UintBytes(uint[] values) => MemoryMarshal.AsBytes(values.AsSpan()).ToArray();
@@ -144,6 +145,31 @@ public sealed class SessionMeshTests
     }
 
     [Fact]
+    public async Task RequestMeshLodCarriesOptionalInstanceIdentityWithoutChangingRootBodyIdentity()
+    {
+        const string instanceId = "instance-1";
+        await using var server = new LoopbackWsServer(_ => null);
+        server.ExtendedHandler = request =>
+        {
+            var method = request.GetProperty("method").GetString();
+            if (method == SessionMethods.Hello) return Task.FromResult<LoopbackWsResponse?>(new(HelloReply(request)));
+            Assert.Equal(instanceId, request.GetProperty("params").GetProperty("instanceId").GetString());
+            var mesh = MeshFrame("native-instance", 2, tipId: instanceId);
+            return Task.FromResult<LoopbackWsResponse?>(new(
+                MeshHeader(request, "native-instance", 2, mesh.Length, bodyId: "body-root", tipId: instanceId, instanceId: instanceId), mesh));
+        };
+        server.Start();
+        var uri = new Uri($"ws://127.0.0.1:{server.Port}/");
+        await using var client = await Kreoda.Session.SessionClient.ConnectAsync(uri, "t", "xunit");
+        var mesh = await client.RequestMeshLodAsync("body-root", 2, "doc-phase1", 7, instanceId: instanceId);
+        Assert.Equal("body-root", mesh.Header.BodyId);
+        Assert.Equal(instanceId, mesh.Header.FeatureId);
+        Assert.Equal(instanceId, mesh.Header.TipId);
+        Assert.Equal(instanceId, mesh.Header.InstanceId);
+        Assert.Equal("native-instance", mesh.Header.NativeRequestId);
+    }
+
+    [Fact]
     public async Task MissingOptionalEdgeVerticesAreAcceptedWhenNoEdgesArePresent()
     {
         await using var server = new LoopbackWsServer(_ => null);
@@ -164,6 +190,39 @@ public sealed class SessionMeshTests
         Assert.Empty(mesh.EdgeVertices);
         Assert.Empty(mesh.Edges);
         Assert.Equal(9, mesh.Positions.Length);
+    }
+
+    [Fact]
+    public async Task NativeBlindHoleMeshPreservesRepeatedAmbiguousFaceAndEdgeRanges()
+    {
+        var raw = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "native-blind-hole.meshfb"));
+        await using var server = new LoopbackWsServer(_ => null);
+        server.ExtendedHandler = request =>
+        {
+            var method = request.GetProperty("method").GetString();
+            if (method == SessionMethods.Hello)
+                return Task.FromResult<LoopbackWsResponse?>(new(HelloReply(request, revision: 2)));
+            return Task.FromResult<LoopbackWsResponse?>(new(
+                MeshHeader(request, "mesh-blind-hole", 1, raw.Length, revision: 2,
+                    bodyId: "hole-blind", tipId: "hole-blind"), raw));
+        };
+        server.Start();
+        var uri = new Uri($"ws://127.0.0.1:{server.Port}/");
+        await using var client = await Kreoda.Session.SessionClient.ConnectAsync(uri, "t", "native-fixture");
+
+        var mesh = await client.RequestMeshLodAsync("hole-blind", 1, "doc-phase1", 2);
+
+        Assert.Equal(264, mesh.Indices.Length / 3);
+        Assert.Equal(new[]
+        {
+            new SessionMeshFaceRange("hole-blind:box.+Z", 4, 67),
+            new SessionMeshFaceRange("hole-blind:box.+Z", 203, 61),
+        }, mesh.Faces.Where(range => range.PersistentFaceId == "hole-blind:box.+Z"));
+        Assert.Equal(new[]
+        {
+            new SessionMeshEdgeRange("hole-blind:edge.cir.box.+Z~wall.0", 18, 21),
+            new SessionMeshEdgeRange("hole-blind:edge.cir.box.+Z~wall.0", 47, 21),
+        }, mesh.Edges.Where(range => range.PersistentEdgeId == "hole-blind:edge.cir.box.+Z~wall.0"));
     }
 
     [Fact]

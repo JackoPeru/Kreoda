@@ -3,7 +3,7 @@
 // fencing, delta broadcast. The sidecar is stubbed at the framed-bytes
 // boundary with canned core JSON responses.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createServer } from "node:net";
 import { WebSocket } from "ws";
 import { SessionRelay } from "../electron/session";
@@ -575,18 +575,54 @@ describe("SessionRelay", () => {
   });
 
   it("keeps selection private unless explicitly published", async () => {
-    const fake = fakeSidecar();const port = await freePort();const relay = new SessionRelay(() => fake.manager);
+    const published: unknown[] = [];
+    const fake = fakeSidecar();const port = await freePort();const relay = new SessionRelay(() => fake.manager,
+      undefined, undefined, event => published.push(event));
     const client = new SessionClient();const other = new SessionClient();relay.start({ port, host: "127.0.0.1", token: TOKEN });
     try {
       const hello = await client.connect(TOKEN, port);await other.connect(TOKEN, port);
       await local(relay, 3, { featureId: "selected", widthMm: 10, heightMm: 10, depthMm: 10 });
       await client.call("setSelection", { ids: ["selected"] });
+      expect(published).toHaveLength(0);
       expect(client.events.filter(event => event["event"] === "selection")).toHaveLength(0);
       expect((await other.call("getSelection", { clientId: hello["clientId"] }))["result"]).toMatchObject({ ids: [] });
       await client.call("setSelection", { ids: ["selected"], publish: true });
       expect(client.events.filter(event => event["event"] === "selection")).toHaveLength(1);
+      expect(published).toEqual([expect.objectContaining({ event: "selection", clientId: hello["clientId"],
+        ids: ["selected"], documentId: "doc-phase1", revision: 1, sessionId: expect.any(String) })]);
       expect((await other.call("getSelection", { clientId: hello["clientId"] }))["result"]).toMatchObject({ ids: ["selected"] });
+      await local(relay, 6, { featureId: "selected", paramName: "widthMm", valueMm: 11 });
+      expect(published.at(-1)).toMatchObject({ clientId: hello["clientId"], ids: [], revision: 2 });
+      expect((await other.call("getSelection", { clientId: hello["clientId"] }))["result"]).toMatchObject({ ids: [] });
+      expect((await client.call("getSelection", {}))["result"]).toMatchObject({ ids: ["selected"] });
+      await expect(client.call("setSelection", { ids: ["selected"], publish: true, baseRevision: 1 }))
+        .rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      expect(published.at(-1)).toMatchObject({ ids: [] });
+      await expect(client.call("setSelection", { ids: ["selected"], publish: true, baseRevision: -1 }))
+        .rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await client.call("setSelection", { ids: ["selected"], publish: true });
+      client.closeRaw();
+      await vi.waitFor(() => expect(published.at(-1)).toMatchObject({ clientId: hello["clientId"], ids: [] }));
     } finally { client.closeRaw();other.closeRaw();relay.stop(); }
+  });
+
+  it("rejects an overlapping logical connection without clearing the current shared target", async () => {
+    const published: unknown[] = [];
+    const fake = fakeSidecar(); const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager, undefined, undefined, event => published.push(event));
+    const first = new SessionClient(); const replacement = new SessionClient(); const observer = new SessionClient();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      const hello = await first.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      await observer.connect(TOKEN, port);
+      await local(relay, 3, { featureId: "shared", widthMm: 10, heightMm: 10, depthMm: 10 });
+      await first.call("setSelection", { ids: ["shared"], publish: true });
+      await expect(replacement.connect(TOKEN, port, LOGICAL_CLIENT_ID)).rejects.toMatchObject({ code: "CONFLICT" });
+      expect((await observer.call("getSelection", { clientId: hello["clientId"] }))["result"]).toMatchObject({ ids: ["shared"] });
+      expect(published.at(-1)).toMatchObject({ ids: ["shared"] });
+      await first.closed();
+      await vi.waitFor(() => expect(published.at(-1)).toMatchObject({ ids: [] }));
+    } finally { first.closeRaw(); replacement.closeRaw(); observer.closeRaw(); relay.stop(); }
   });
 
   it("releases failed previews and rejects malformed Desktop framing before native dispatch", async () => {
@@ -1875,6 +1911,59 @@ describe("binary mesh session requests", () => {
     } finally {
       first?.close(); second?.close(); relay.stop();
     }
+  });
+
+  it("requests one valid instance by its native owner while keeping the source body root", async () => {
+    const fake = fakeSidecar();
+    fake.seedFeatures([
+      { featureId: "instance-source", type: "Box", paramsMm: [12, 8, 4], volumeMm3: 384, dependsOn: [], refExtra: "", expressions: {} },
+      { featureId: "source-tip", type: "Fillet", paramsMm: [12, 8, 4], volumeMm3: 380, dependsOn: ["instance-source"], refExtra: "", expressions: {} },
+      { featureId: "placed-instance", type: "Instance", paramsMm: [50, 10, 0, 0, 0, 0], volumeMm3: 384,
+        dependsOn: ["instance-source"], refExtra: "", expressions: {} },
+      { featureId: "other-root", type: "Box", paramsMm: [5, 5, 5], volumeMm3: 125, dependsOn: [], refExtra: "", expressions: {} },
+      { featureId: "nested-instance", type: "Instance", paramsMm: [0, 0, 0, 0, 0, 0], volumeMm3: 384,
+        dependsOn: ["placed-instance"], refExtra: "", expressions: {} },
+      { featureId: "self-instance", type: "Instance", paramsMm: [0, 0, 0, 0, 0, 0], volumeMm3: 384,
+        dependsOn: ["self-instance"], refExtra: "", expressions: {} },
+      { featureId: "hidden-instance", type: "Instance", paramsMm: [0, 0, 0, 0, 0, 0], volumeMm3: 384,
+        dependsOn: ["instance-source"], refExtra: "", expressions: {}, suppressed: true },
+    ], 7);
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let ws: WebSocket | undefined;
+    try {
+      const client = await connectRawRelayClient(port);
+      ws = client.ws;
+      const receiveHeader = async (requestId: string, bodyId: string, instanceId: string): Promise<Record<string, unknown>> => {
+        const response = receiveRelayFrame(ws!);
+        ws!.send(JSON.stringify({ requestId, method: "requestMeshLOD", sessionId: client.hello["sessionId"],
+          params: { bodyId, instanceId, quality: 2, documentId: "doc-phase1", expectedRevision: 7 } }));
+        return JSON.parse((await response).data.toString("utf8")) as Record<string, unknown>;
+      };
+      const success = await receiveHeader("mesh-instance", "body-instance-source", "placed-instance");
+      expect(success).toMatchObject({ ok: true, result: {
+        bodyId: "body-instance-source", featureId: "placed-instance", tipId: "placed-instance", instanceId: "placed-instance",
+      } });
+      const raw = await receiveRelayFrame(ws);
+      expect(raw.isBinary).toBe(true);
+      expect(raw.data.equals(Buffer.from(fake.meshFrames[0]!))).toBe(true);
+      const update = decodeMeshUpdateFb(Uint8Array.from(raw.data));
+      expect(update.featureId).toBe("placed-instance");
+      expect(update.bodyId).toBe("placed-instance");
+
+      for (const [requestId, bodyId, instanceId] of [
+        ["instance-missing", "body-instance-source", "missing-instance"],
+        ["instance-arbitrary-feature", "body-instance-source", "source-tip"],
+        ["instance-foreign-root", "body-other-root", "placed-instance"],
+        ["instance-nested", "body-instance-source", "nested-instance"],
+        ["instance-self", "body-instance-source", "self-instance"],
+        ["instance-hidden", "body-instance-source", "hidden-instance"],
+      ]) {
+        expect(await receiveHeader(requestId!, bodyId!, instanceId!)).toMatchObject({ ok: false, errorCode: "NOT_FOUND" });
+      }
+      const nativeMeshes = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>).filter(call => call["type"] === 12);
+      expect(nativeMeshes.map(call => call["featureId"])).toEqual(["placed-instance"]);
+    } finally { ws?.close();relay.stop(); }
   });
 
   it("rejects missing capability, stale revision, missing or suppressed bodies before native dispatch", async () => {

@@ -3,6 +3,7 @@
 // Mesh successes cross the wire as MeshUpdate tables (§8).
 
 import * as flatbuffers from "flatbuffers";
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import {
   CommandType as Handwritten,
@@ -174,6 +175,23 @@ describe("flatc codegen parity (§61)", () => {
     expect(mesh.revision).toBe(7);
   });
 
+  it("preserves native blind-hole spans that share ambiguous semantic IDs", () => {
+    const bytes = readFileSync(new URL("../fixtures/native-blind-hole.meshfb", import.meta.url));
+    const mesh = decodeMeshUpdateFb(bytes);
+    expect(mesh.featureId).toBe("hole-blind");
+    expect(mesh.bodyId).toBe("hole-blind");
+    expect(mesh.requestId).toBe("mesh-blind-hole");
+    expect(mesh.triangleCount).toBe(264);
+    expect(mesh.faces.filter((range) => range.persistentFaceId === "hole-blind:box.+Z")).toEqual([
+      { persistentFaceId: "hole-blind:box.+Z", triangleStart: 4, triangleCount: 67 },
+      { persistentFaceId: "hole-blind:box.+Z", triangleStart: 203, triangleCount: 61 },
+    ]);
+    expect(mesh.edges.filter((range) => range.persistentEdgeId === "hole-blind:edge.cir.box.+Z~wall.0")).toEqual([
+      { persistentEdgeId: "hole-blind:edge.cir.box.+Z~wall.0", vertexStart: 18, vertexCount: 21 },
+      { persistentEdgeId: "hole-blind:edge.cir.box.+Z~wall.0", vertexStart: 47, vertexCount: 21 },
+    ]);
+  });
+
   it("accepts an omitted optional edge-vertex vector when there are no edges", () => {
     const mesh = decodeMeshUpdateFb(meshFixture({ omitEdgeVertices: true, edges: [] }));
     expect(mesh.edgeVertices).toEqual(new Float32Array());
@@ -206,12 +224,10 @@ describe("flatc codegen parity (§61)", () => {
     ["non-finite normals", { normals: [0, 0, 1, 0, Number.POSITIVE_INFINITY, 1, 0, 0, 1] }],
     ["non-finite edge vertices", { edgeVertices: [0, 0, 0, Number.NaN, 0, 0], edges: [{ id: "edge-1", start: 0, count: 2 }] }],
     ["invalid face span", { faces: [{ id: "face-1", start: 1, count: 1 }] }],
-    ["overlapping face spans", { faces: [{ id: "face-1", start: 0, count: 1 }, { id: "face-2", start: 0, count: 1 }] }],
-    ["duplicate face ids", { indices: [0, 1, 2, 0, 2, 1], faces: [{ id: "same", start: 0, count: 1 }, { id: "same", start: 1, count: 1 }] }],
+    ["overlapping repeated face spans", { faces: [{ id: "same", start: 0, count: 1 }, { id: "same", start: 0, count: 1 }] }],
     ["empty face spans", { faces: [{ id: "face-1", start: 0, count: 0 }] }],
     ["invalid edge span", { edgeVertices: [0, 0, 0, 1, 0, 0], edges: [{ id: "edge-1", start: 1, count: 2 }] }],
-    ["overlapping edge spans", { edgeVertices: [0, 0, 0, 1, 0, 0, 2, 0, 0], edges: [{ id: "edge-1", start: 0, count: 2 }, { id: "edge-2", start: 1, count: 2 }] }],
-    ["duplicate edge ids", { edgeVertices: [0, 0, 0, 1, 0, 0, 2, 0, 0], edges: [{ id: "same", start: 0, count: 1 }, { id: "same", start: 1, count: 1 }] }],
+    ["overlapping repeated edge spans", { edgeVertices: [0, 0, 0, 1, 0, 0, 2, 0, 0], edges: [{ id: "same", start: 0, count: 2 }, { id: "same", start: 1, count: 2 }] }],
     ["empty edge spans", { edgeVertices: [0, 0, 0], edges: [{ id: "edge-1", start: 0, count: 0 }] }],
     ["empty semantic ids", { requestId: "", featureId: "" }],
     ["reversed bounding box", { bboxMm: [1, 0, 0, 0, 1, 1] }],

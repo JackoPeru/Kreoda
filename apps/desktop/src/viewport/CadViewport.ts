@@ -41,6 +41,8 @@ export class CadViewport {
   private bodies = new Map<string, BodyEntry>();
   private hoveredId: string | null = null;
   private selectedIds = new Set<string>();
+  private sharedTargetIds = new Set<string>();
+  private sharedEdgeLines: THREE.LineSegments | null = null;
   private pickMode: PickMode = "auto";
   private onResize = (): void => this.resize();
   private edgeSelectedLines: THREE.LineSegments | null = null;
@@ -120,6 +122,7 @@ export class CadViewport {
       if (!(id in meshes)) this.removeBodyMesh(id);
     }
     this.applyHighlights();
+    this.rebuildSharedEdgeOverlay();
   }
 
   setPickMode(mode: PickMode): void {
@@ -647,6 +650,7 @@ export class CadViewport {
     THREE.MeshStandardMaterial,
     THREE.MeshStandardMaterial,
     THREE.MeshStandardMaterial,
+    THREE.MeshStandardMaterial,
   ] {
     // UX-5 presentation: neutral grey solids, soft hover, blue selection
     // (matches --kreoda-accent). Preview ghosts stay amber — uncommitted
@@ -655,6 +659,7 @@ export class CadViewport {
       { color: 0x939db0, emissive: 0x000000 },
       { color: 0xa8bedd, emissive: 0x111c2c },
       { color: 0x4f8cff, emissive: 0x1e3a6e },
+      { color: 0x4bcab0, emissive: 0x11352e },
     ] as const;
     return defs.map(
       (d) =>
@@ -665,6 +670,7 @@ export class CadViewport {
           roughness: 0.55,
         }),
     ) as [
+      THREE.MeshStandardMaterial,
       THREE.MeshStandardMaterial,
       THREE.MeshStandardMaterial,
       THREE.MeshStandardMaterial,
@@ -757,6 +763,12 @@ export class CadViewport {
     this.applyHighlights();
   }
 
+  setSharedTargets(ids: string[]): void {
+    this.sharedTargetIds = new Set(ids);
+    this.applyHighlights();
+    this.rebuildSharedEdgeOverlay();
+  }
+
   private applyHighlights(): void {
     for (const [bodyId, entry] of this.bodies) {
       const bodySel = this.selectedIds.has(bodyId);
@@ -767,6 +779,7 @@ export class CadViewport {
         let idx = 0;
         if (fid && (bodySel || this.selectedIds.has(fid))) idx = 2;
         else if (fid && (bodyHov || this.hoveredId === fid)) idx = 1;
+        else if (fid && (this.sharedTargetIds.has(bodyId) || this.sharedTargetIds.has(fid))) idx = 3;
         groups[i]!.materialIndex = idx;
       }
     }
@@ -806,6 +819,31 @@ export class CadViewport {
     this.scene.add(this.edgeSelectedLines);
   }
 
+  private rebuildSharedEdgeOverlay(): void {
+    if (this.sharedEdgeLines) {
+      this.scene.remove(this.sharedEdgeLines);
+      this.sharedEdgeLines.geometry.dispose();
+      (this.sharedEdgeLines.material as THREE.Material).dispose();
+      this.sharedEdgeLines = null;
+    }
+    const points: number[] = [];
+    for (const entry of this.bodies.values()) {
+      const positions = entry.edgeLines?.geometry.getAttribute("position") as THREE.BufferAttribute | undefined;
+      if (!positions) continue;
+      for (let segment = 0; segment < entry.segToEdge.length; segment++) {
+        if (!this.sharedTargetIds.has(entry.segToEdge[segment]!)) continue;
+        for (const vertex of [segment * 2, segment * 2 + 1])
+          points.push(positions.getX(vertex), positions.getY(vertex), positions.getZ(vertex));
+      }
+    }
+    if (points.length === 0) return;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(points), 3));
+    this.sharedEdgeLines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0x4bcab0 }));
+    this.sharedEdgeLines.renderOrder = 3;
+    this.scene.add(this.sharedEdgeLines);
+  }
+
   requestRender(): void {
     this.needsRender = true;
   }
@@ -827,6 +865,13 @@ export class CadViewport {
     };
   }
 
+  sharedTargetSummary(): { ids: string[]; faceGroups: number; edgeSegments: number } {
+    return { ids: [...this.sharedTargetIds].sort(),
+      faceGroups: [...this.bodies.values()].reduce((total, entry) => total +
+        entry.mesh.geometry.groups.filter(group => group.materialIndex === 3).length, 0),
+      edgeSegments: (this.sharedEdgeLines?.geometry.getAttribute("position").count ?? 0) / 2 };
+  }
+
   dispose(): void {
     this.disposed = true;
     cancelAnimationFrame(this.raf);
@@ -845,6 +890,8 @@ export class CadViewport {
     for (const id of [...this.bodies.keys()]) this.removeBodyMesh(id);
     this.showPreviewMesh(null);
     this.syncReferencePlanes([]);
+    this.sharedTargetIds.clear();
+    this.rebuildSharedEdgeOverlay();
     if (this.edgeSelectedLines) {
       this.scene.remove(this.edgeSelectedLines);
       this.edgeSelectedLines.geometry.dispose();

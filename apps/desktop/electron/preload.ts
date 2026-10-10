@@ -1,7 +1,7 @@
 // Preload — strict narrow typed API only (§48). No fs/child_process/shell.
 import { contextBridge, ipcRenderer } from "electron";
 import type { SessionModelSnapshot, SessionIncrementalDelta } from "@kreoda/protocol";
-import type { SessionSnapshotRequired } from "./session";
+import type { SessionSnapshotRequired, SessionSelection } from "./session";
 import type { SessionConnectionStatus } from "./session-control-ui";
 
 export interface KreodaApi {
@@ -30,21 +30,27 @@ export interface KreodaApi {
   onCoreRestarted: (cb: () => void) => () => void;
   // Authoritative incremental events and explicit snapshot recovery.
   onSessionDelta: (cb: (delta: SessionIncrementalDelta | SessionSnapshotRequired) => void) => () => void;
+  onSessionSelection: (cb: (selection: SessionSelection) => void) => () => void;
   sessionSnapshot: () => Promise<SessionModelSnapshot>;
   sessionConnectionStatus: () => Promise<SessionConnectionStatus>;
   sessionEnable: (host: string, port: number) => Promise<SessionConnectionStatus>;
   sessionDisable: () => Promise<SessionConnectionStatus>;
-  sessionPair: () => Promise<{ token: string; expiresAt: string }>;
+  sessionPair: () => Promise<{ token: string; code: string; expiresAt: string }>;
   sessionCancelPair: () => Promise<void>;
   sessionRevoke: (deviceId: string) => Promise<SessionConnectionStatus>;
   sessionCancelEdit: (featureId: string) => Promise<void>;
 }
 
 const api: KreodaApi = {
+  onSessionSelection: (cb) => {
+    const listener = (_event: unknown, selection: SessionSelection): void => cb(selection);
+    ipcRenderer.on("kreoda:session-selection", listener);
+    return () => ipcRenderer.removeListener("kreoda:session-selection", listener);
+  },
   sessionConnectionStatus: () => ipcRenderer.invoke("kreoda:session-status") as Promise<SessionConnectionStatus>,
   sessionEnable: (host, port) => ipcRenderer.invoke("kreoda:session-enable", host, port) as Promise<SessionConnectionStatus>,
   sessionDisable: () => ipcRenderer.invoke("kreoda:session-disable") as Promise<SessionConnectionStatus>,
-  sessionPair: () => ipcRenderer.invoke("kreoda:session-pair") as Promise<{ token: string; expiresAt: string }>,
+  sessionPair: () => ipcRenderer.invoke("kreoda:session-pair") as Promise<{ token: string; code: string; expiresAt: string }>,
   sessionCancelPair: () => ipcRenderer.invoke("kreoda:session-cancel-pair") as Promise<void>,
   sessionRevoke: (deviceId) => ipcRenderer.invoke("kreoda:session-revoke", deviceId) as Promise<SessionConnectionStatus>,
   sessionSnapshot: () => ipcRenderer.invoke("kreoda:session-snapshot") as Promise<SessionModelSnapshot>,

@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: d5804785c2840e6cec157bd09648cda36f56ced3cbd1128f352a99352e18d16e
+// Source SHA256: a03adde0580bff1da306e5b0adea3e5ad6ca8d5eacb4d9fbc88cef4fd6487904
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __commonJS = (cb, mod) => function __require() {
   try {
@@ -386,7 +386,7 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.RequestMeshLODParams = validate15;
-    var schema16 = { "type": "object", "properties": { "bodyId": { "$ref": "#/definitions/StableFeatureId" }, "quality": { "type": "integer", "enum": [0, 1, 2] }, "documentId": { "type": "string", "minLength": 1 }, "expectedRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 } }, "required": ["bodyId", "quality", "documentId", "expectedRevision"], "additionalProperties": false };
+    var schema16 = { "type": "object", "properties": { "bodyId": { "$ref": "#/definitions/StableFeatureId" }, "quality": { "type": "integer", "enum": [0, 1, 2] }, "documentId": { "type": "string", "minLength": 1 }, "expectedRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "instanceId": { "$ref": "#/definitions/StableFeatureId" } }, "required": ["bodyId", "quality", "documentId", "expectedRevision"], "additionalProperties": false };
     function validate15(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -428,7 +428,7 @@ var require_session_validators = __commonJS({
           errors++;
         }
         for (const key0 in data) {
-          if (!(key0 === "bodyId" || key0 === "quality" || key0 === "documentId" || key0 === "expectedRevision")) {
+          if (!(key0 === "bodyId" || key0 === "quality" || key0 === "documentId" || key0 === "expectedRevision" || key0 === "instanceId")) {
             const err4 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
             if (vErrors === null) {
               vErrors = [err4];
@@ -553,12 +553,52 @@ var require_session_validators = __commonJS({
             }
           }
         }
+        if (data.instanceId !== void 0) {
+          let data4 = data.instanceId;
+          if (typeof data4 === "string") {
+            if (func2(data4) > 128) {
+              const err16 = { instancePath: instancePath + "/instanceId", schemaPath: "#/definitions/StableFeatureId/maxLength", keyword: "maxLength", params: { limit: 128 }, message: "must NOT have more than 128 characters" };
+              if (vErrors === null) {
+                vErrors = [err16];
+              } else {
+                vErrors.push(err16);
+              }
+              errors++;
+            }
+            if (func2(data4) < 1) {
+              const err17 = { instancePath: instancePath + "/instanceId", schemaPath: "#/definitions/StableFeatureId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              if (vErrors === null) {
+                vErrors = [err17];
+              } else {
+                vErrors.push(err17);
+              }
+              errors++;
+            }
+            if (!pattern0.test(data4)) {
+              const err18 = { instancePath: instancePath + "/instanceId", schemaPath: "#/definitions/StableFeatureId/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]+$" }, message: 'must match pattern "^[A-Za-z0-9_-]+$"' };
+              if (vErrors === null) {
+                vErrors = [err18];
+              } else {
+                vErrors.push(err18);
+              }
+              errors++;
+            }
+          } else {
+            const err19 = { instancePath: instancePath + "/instanceId", schemaPath: "#/definitions/StableFeatureId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err19];
+            } else {
+              vErrors.push(err19);
+            }
+            errors++;
+          }
+        }
       } else {
-        const err16 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        const err20 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
         if (vErrors === null) {
-          vErrors = [err16];
+          vErrors = [err20];
         } else {
-          vErrors.push(err16);
+          vErrors.push(err20);
         }
         errors++;
       }
@@ -566,8 +606,8 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.MeshHeader = validate16;
-    var schema18 = { "type": "object", "properties": { "nativeRequestId": { "type": "string", "minLength": 1 }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "bodyId": { "$ref": "#/definitions/StableFeatureId" }, "featureId": { "$ref": "#/definitions/StableFeatureId" }, "tipId": { "$ref": "#/definitions/StableFeatureId" }, "quality": { "type": "integer", "enum": [0, 1, 2] }, "byteLength": { "type": "integer", "minimum": 1, "maximum": 67108864 } }, "required": ["nativeRequestId", "sessionId", "documentId", "revision", "bodyId", "featureId", "tipId", "quality", "byteLength"], "additionalProperties": false };
-    var func10 = Object.prototype.hasOwnProperty;
+    var schema19 = { "type": "object", "properties": { "nativeRequestId": { "type": "string", "minLength": 1 }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "bodyId": { "$ref": "#/definitions/StableFeatureId" }, "featureId": { "$ref": "#/definitions/StableFeatureId" }, "tipId": { "$ref": "#/definitions/StableFeatureId" }, "instanceId": { "$ref": "#/definitions/StableFeatureId" }, "quality": { "type": "integer", "enum": [0, 1, 2] }, "byteLength": { "type": "integer", "minimum": 1, "maximum": 67108864 } }, "required": ["nativeRequestId", "sessionId", "documentId", "revision", "bodyId", "featureId", "tipId", "quality", "byteLength"], "additionalProperties": false };
+    var func12 = Object.prototype.hasOwnProperty;
     function validate16(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -654,7 +694,7 @@ var require_session_validators = __commonJS({
           errors++;
         }
         for (const key0 in data) {
-          if (!func10.call(schema18.properties, key0)) {
+          if (!func12.call(schema19.properties, key0)) {
             const err9 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
             if (vErrors === null) {
               vErrors = [err9];
@@ -882,65 +922,105 @@ var require_session_validators = __commonJS({
             errors++;
           }
         }
-        if (data.quality !== void 0) {
-          let data7 = data.quality;
-          if (!(typeof data7 == "number" && (!(data7 % 1) && !isNaN(data7)) && isFinite(data7))) {
-            const err31 = { instancePath: instancePath + "/quality", schemaPath: "#/properties/quality/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
+        if (data.instanceId !== void 0) {
+          let data7 = data.instanceId;
+          if (typeof data7 === "string") {
+            if (func2(data7) > 128) {
+              const err31 = { instancePath: instancePath + "/instanceId", schemaPath: "#/definitions/StableFeatureId/maxLength", keyword: "maxLength", params: { limit: 128 }, message: "must NOT have more than 128 characters" };
+              if (vErrors === null) {
+                vErrors = [err31];
+              } else {
+                vErrors.push(err31);
+              }
+              errors++;
+            }
+            if (func2(data7) < 1) {
+              const err32 = { instancePath: instancePath + "/instanceId", schemaPath: "#/definitions/StableFeatureId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              if (vErrors === null) {
+                vErrors = [err32];
+              } else {
+                vErrors.push(err32);
+              }
+              errors++;
+            }
+            if (!pattern0.test(data7)) {
+              const err33 = { instancePath: instancePath + "/instanceId", schemaPath: "#/definitions/StableFeatureId/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]+$" }, message: 'must match pattern "^[A-Za-z0-9_-]+$"' };
+              if (vErrors === null) {
+                vErrors = [err33];
+              } else {
+                vErrors.push(err33);
+              }
+              errors++;
+            }
+          } else {
+            const err34 = { instancePath: instancePath + "/instanceId", schemaPath: "#/definitions/StableFeatureId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
             if (vErrors === null) {
-              vErrors = [err31];
+              vErrors = [err34];
             } else {
-              vErrors.push(err31);
+              vErrors.push(err34);
             }
             errors++;
           }
-          if (!(data7 === 0 || data7 === 1 || data7 === 2)) {
-            const err32 = { instancePath: instancePath + "/quality", schemaPath: "#/properties/quality/enum", keyword: "enum", params: { allowedValues: schema18.properties.quality.enum }, message: "must be equal to one of the allowed values" };
+        }
+        if (data.quality !== void 0) {
+          let data8 = data.quality;
+          if (!(typeof data8 == "number" && (!(data8 % 1) && !isNaN(data8)) && isFinite(data8))) {
+            const err35 = { instancePath: instancePath + "/quality", schemaPath: "#/properties/quality/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
             if (vErrors === null) {
-              vErrors = [err32];
+              vErrors = [err35];
             } else {
-              vErrors.push(err32);
+              vErrors.push(err35);
+            }
+            errors++;
+          }
+          if (!(data8 === 0 || data8 === 1 || data8 === 2)) {
+            const err36 = { instancePath: instancePath + "/quality", schemaPath: "#/properties/quality/enum", keyword: "enum", params: { allowedValues: schema19.properties.quality.enum }, message: "must be equal to one of the allowed values" };
+            if (vErrors === null) {
+              vErrors = [err36];
+            } else {
+              vErrors.push(err36);
             }
             errors++;
           }
         }
         if (data.byteLength !== void 0) {
-          let data8 = data.byteLength;
-          if (!(typeof data8 == "number" && (!(data8 % 1) && !isNaN(data8)) && isFinite(data8))) {
-            const err33 = { instancePath: instancePath + "/byteLength", schemaPath: "#/properties/byteLength/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
+          let data9 = data.byteLength;
+          if (!(typeof data9 == "number" && (!(data9 % 1) && !isNaN(data9)) && isFinite(data9))) {
+            const err37 = { instancePath: instancePath + "/byteLength", schemaPath: "#/properties/byteLength/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
             if (vErrors === null) {
-              vErrors = [err33];
+              vErrors = [err37];
             } else {
-              vErrors.push(err33);
+              vErrors.push(err37);
             }
             errors++;
           }
-          if (typeof data8 == "number" && isFinite(data8)) {
-            if (data8 > 67108864 || isNaN(data8)) {
-              const err34 = { instancePath: instancePath + "/byteLength", schemaPath: "#/properties/byteLength/maximum", keyword: "maximum", params: { comparison: "<=", limit: 67108864 }, message: "must be <= 67108864" };
+          if (typeof data9 == "number" && isFinite(data9)) {
+            if (data9 > 67108864 || isNaN(data9)) {
+              const err38 = { instancePath: instancePath + "/byteLength", schemaPath: "#/properties/byteLength/maximum", keyword: "maximum", params: { comparison: "<=", limit: 67108864 }, message: "must be <= 67108864" };
               if (vErrors === null) {
-                vErrors = [err34];
+                vErrors = [err38];
               } else {
-                vErrors.push(err34);
+                vErrors.push(err38);
               }
               errors++;
             }
-            if (data8 < 1 || isNaN(data8)) {
-              const err35 = { instancePath: instancePath + "/byteLength", schemaPath: "#/properties/byteLength/minimum", keyword: "minimum", params: { comparison: ">=", limit: 1 }, message: "must be >= 1" };
+            if (data9 < 1 || isNaN(data9)) {
+              const err39 = { instancePath: instancePath + "/byteLength", schemaPath: "#/properties/byteLength/minimum", keyword: "minimum", params: { comparison: ">=", limit: 1 }, message: "must be >= 1" };
               if (vErrors === null) {
-                vErrors = [err35];
+                vErrors = [err39];
               } else {
-                vErrors.push(err35);
+                vErrors.push(err39);
               }
               errors++;
             }
           }
         }
       } else {
-        const err36 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        const err40 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
         if (vErrors === null) {
-          vErrors = [err36];
+          vErrors = [err40];
         } else {
-          vErrors.push(err36);
+          vErrors.push(err40);
         }
         errors++;
       }
@@ -1439,7 +1519,7 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.ErrorReply = validate22;
-    var schema27 = { "type": "object", "properties": { "requestId": { "type": "string", "minLength": 1 }, "ok": { "type": "boolean", "enum": [false] }, "errorCode": { "type": "string", "minLength": 1 }, "error": { "type": "string", "minLength": 1 } }, "required": ["requestId", "ok", "errorCode", "error"], "additionalProperties": true };
+    var schema29 = { "type": "object", "properties": { "requestId": { "type": "string", "minLength": 1 }, "ok": { "type": "boolean", "enum": [false] }, "errorCode": { "type": "string", "minLength": 1 }, "error": { "type": "string", "minLength": 1 } }, "required": ["requestId", "ok", "errorCode", "error"], "additionalProperties": true };
     function validate22(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -1514,7 +1594,7 @@ var require_session_validators = __commonJS({
             errors++;
           }
           if (!(data1 === false)) {
-            const err7 = { instancePath: instancePath + "/ok", schemaPath: "#/properties/ok/enum", keyword: "enum", params: { allowedValues: schema27.properties.ok.enum }, message: "must be equal to one of the allowed values" };
+            const err7 = { instancePath: instancePath + "/ok", schemaPath: "#/properties/ok/enum", keyword: "enum", params: { allowedValues: schema29.properties.ok.enum }, message: "must be equal to one of the allowed values" };
             if (vErrors === null) {
               vErrors = [err7];
             } else {
@@ -1732,7 +1812,7 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.HelloReply = validate24;
-    var schema29 = { "type": "object", "properties": { "requestId": { "type": "string", "minLength": 1 }, "ok": { "type": "boolean", "enum": [true] }, "clientId": { "type": "string", "minLength": 1 }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "deviceId": { "type": "string", "pattern": "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" } }, "required": ["requestId", "ok", "clientId", "sessionId", "documentId", "revision", "capabilities"], "additionalProperties": true };
+    var schema31 = { "type": "object", "properties": { "requestId": { "type": "string", "minLength": 1 }, "ok": { "type": "boolean", "enum": [true] }, "clientId": { "type": "string", "minLength": 1 }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "deviceId": { "type": "string", "pattern": "^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" } }, "required": ["requestId", "ok", "clientId", "sessionId", "documentId", "revision", "capabilities"], "additionalProperties": true };
     function validate24(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -1834,7 +1914,7 @@ var require_session_validators = __commonJS({
             errors++;
           }
           if (!(data1 === true)) {
-            const err10 = { instancePath: instancePath + "/ok", schemaPath: "#/properties/ok/enum", keyword: "enum", params: { allowedValues: schema29.properties.ok.enum }, message: "must be equal to one of the allowed values" };
+            const err10 = { instancePath: instancePath + "/ok", schemaPath: "#/properties/ok/enum", keyword: "enum", params: { allowedValues: schema31.properties.ok.enum }, message: "must be equal to one of the allowed values" };
             if (vErrors === null) {
               vErrors = [err10];
             } else {
@@ -2768,7 +2848,7 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.SessionEntityPatch = validate32;
-    var schema38 = { "type": "object", "properties": { "kind": { "type": "string", "enum": ["feature", "sketch", "body"] }, "id": { "type": "string", "minLength": 1 }, "index": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "value": { "type": "object", "additionalProperties": true } }, "required": ["kind", "id", "index", "value"], "additionalProperties": false };
+    var schema40 = { "type": "object", "properties": { "kind": { "type": "string", "enum": ["feature", "sketch", "body"] }, "id": { "type": "string", "minLength": 1 }, "index": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "value": { "type": "object", "additionalProperties": true } }, "required": ["kind", "id", "index", "value"], "additionalProperties": false };
     function validate32(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -2832,7 +2912,7 @@ var require_session_validators = __commonJS({
             errors++;
           }
           if (!(data0 === "feature" || data0 === "sketch" || data0 === "body")) {
-            const err6 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema38.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+            const err6 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema40.properties.kind.enum }, message: "must be equal to one of the allowed values" };
             if (vErrors === null) {
               vErrors = [err6];
             } else {
@@ -2921,7 +3001,7 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.SessionIncrementalEvent = validate33;
-    var schema39 = { "type": "object", "properties": { "event": { "type": "string", "enum": ["delta"] }, "baseRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "newRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "originClientId": { "type": "string", "minLength": 1 }, "added": { "type": "array", "items": { "$ref": "#/definitions/SessionEntityPatch" } }, "updated": { "type": "array", "items": { "$ref": "#/definitions/SessionEntityPatch" } }, "removedIds": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "changedMeshIds": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "referenceRemaps": { "type": "array", "items": {} }, "warnings": { "type": "array", "items": {} } }, "required": ["event", "baseRevision", "newRevision", "revision", "sessionId", "documentId", "originClientId", "added", "updated", "removedIds", "changedMeshIds", "referenceRemaps", "warnings"], "additionalProperties": false };
+    var schema41 = { "type": "object", "properties": { "event": { "type": "string", "enum": ["delta"] }, "baseRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "newRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "originClientId": { "type": "string", "minLength": 1 }, "added": { "type": "array", "items": { "$ref": "#/definitions/SessionEntityPatch" } }, "updated": { "type": "array", "items": { "$ref": "#/definitions/SessionEntityPatch" } }, "removedIds": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "changedMeshIds": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "referenceRemaps": { "type": "array", "items": {} }, "warnings": { "type": "array", "items": {} } }, "required": ["event", "baseRevision", "newRevision", "revision", "sessionId", "documentId", "originClientId", "added", "updated", "removedIds", "changedMeshIds", "referenceRemaps", "warnings"], "additionalProperties": false };
     function validate33(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -3044,7 +3124,7 @@ var require_session_validators = __commonJS({
           errors++;
         }
         for (const key0 in data) {
-          if (!func10.call(schema39.properties, key0)) {
+          if (!func12.call(schema41.properties, key0)) {
             const err13 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
             if (vErrors === null) {
               vErrors = [err13];
@@ -3066,7 +3146,7 @@ var require_session_validators = __commonJS({
             errors++;
           }
           if (!(data0 === "delta")) {
-            const err15 = { instancePath: instancePath + "/event", schemaPath: "#/properties/event/enum", keyword: "enum", params: { allowedValues: schema39.properties.event.enum }, message: "must be equal to one of the allowed values" };
+            const err15 = { instancePath: instancePath + "/event", schemaPath: "#/properties/event/enum", keyword: "enum", params: { allowedValues: schema41.properties.event.enum }, message: "must be equal to one of the allowed values" };
             if (vErrors === null) {
               vErrors = [err15];
             } else {
@@ -3303,7 +3383,7 @@ var require_session_validators = __commonJS({
                     errors++;
                   }
                   if (!(data9 === "feature" || data9 === "sketch" || data9 === "body")) {
-                    const err37 = { instancePath: instancePath + "/added/" + i0 + "/kind", schemaPath: "#/definitions/SessionEntityPatch/properties/kind/enum", keyword: "enum", params: { allowedValues: schema38.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+                    const err37 = { instancePath: instancePath + "/added/" + i0 + "/kind", schemaPath: "#/definitions/SessionEntityPatch/properties/kind/enum", keyword: "enum", params: { allowedValues: schema40.properties.kind.enum }, message: "must be equal to one of the allowed values" };
                     if (vErrors === null) {
                       vErrors = [err37];
                     } else {
@@ -3465,7 +3545,7 @@ var require_session_validators = __commonJS({
                     errors++;
                   }
                   if (!(data15 === "feature" || data15 === "sketch" || data15 === "body")) {
-                    const err52 = { instancePath: instancePath + "/updated/" + i1 + "/kind", schemaPath: "#/definitions/SessionEntityPatch/properties/kind/enum", keyword: "enum", params: { allowedValues: schema38.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+                    const err52 = { instancePath: instancePath + "/updated/" + i1 + "/kind", schemaPath: "#/definitions/SessionEntityPatch/properties/kind/enum", keyword: "enum", params: { allowedValues: schema40.properties.kind.enum }, message: "must be equal to one of the allowed values" };
                     if (vErrors === null) {
                       vErrors = [err52];
                     } else {
@@ -3668,7 +3748,7 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.SessionSnapshotRequiredEvent = validate34;
-    var schema42 = { "type": "object", "properties": { "event": { "type": "string", "enum": ["snapshot-required"] }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "originClientId": { "type": "string", "minLength": 1 } }, "required": ["event", "sessionId", "documentId", "revision", "originClientId"], "additionalProperties": true };
+    var schema44 = { "type": "object", "properties": { "event": { "type": "string", "enum": ["snapshot-required"] }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "originClientId": { "type": "string", "minLength": 1 } }, "required": ["event", "sessionId", "documentId", "revision", "originClientId"], "additionalProperties": true };
     function validate34(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -3730,7 +3810,7 @@ var require_session_validators = __commonJS({
             errors++;
           }
           if (!(data0 === "snapshot-required")) {
-            const err6 = { instancePath: instancePath + "/event", schemaPath: "#/properties/event/enum", keyword: "enum", params: { allowedValues: schema42.properties.event.enum }, message: "must be equal to one of the allowed values" };
+            const err6 = { instancePath: instancePath + "/event", schemaPath: "#/properties/event/enum", keyword: "enum", params: { allowedValues: schema44.properties.event.enum }, message: "must be equal to one of the allowed values" };
             if (vErrors === null) {
               vErrors = [err6];
             } else {
@@ -3850,7 +3930,7 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.SelectionEvent = validate35;
-    var schema43 = { "type": "object", "properties": { "event": { "type": "string", "enum": ["selection"] }, "clientId": { "type": "string", "minLength": 1 }, "ids": { "type": "array", "items": { "type": "string", "minLength": 1 } } }, "required": ["event", "clientId", "ids"], "additionalProperties": true };
+    var schema45 = { "type": "object", "properties": { "event": { "type": "string", "enum": ["selection"] }, "clientId": { "type": "string", "minLength": 1 }, "sessionId": { "type": "string", "minLength": 1 }, "documentId": { "type": "string", "minLength": 1 }, "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "ids": { "type": "array", "items": { "type": "string", "minLength": 1 } } }, "required": ["event", "clientId", "ids"], "additionalProperties": true };
     function validate35(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -3894,7 +3974,7 @@ var require_session_validators = __commonJS({
             errors++;
           }
           if (!(data0 === "selection")) {
-            const err4 = { instancePath: instancePath + "/event", schemaPath: "#/properties/event/enum", keyword: "enum", params: { allowedValues: schema43.properties.event.enum }, message: "must be equal to one of the allowed values" };
+            const err4 = { instancePath: instancePath + "/event", schemaPath: "#/properties/event/enum", keyword: "enum", params: { allowedValues: schema45.properties.event.enum }, message: "must be equal to one of the allowed values" };
             if (vErrors === null) {
               vErrors = [err4];
             } else {
@@ -3925,48 +4005,124 @@ var require_session_validators = __commonJS({
             errors++;
           }
         }
+        if (data.sessionId !== void 0) {
+          let data2 = data.sessionId;
+          if (typeof data2 === "string") {
+            if (func2(data2) < 1) {
+              const err7 = { instancePath: instancePath + "/sessionId", schemaPath: "#/properties/sessionId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              if (vErrors === null) {
+                vErrors = [err7];
+              } else {
+                vErrors.push(err7);
+              }
+              errors++;
+            }
+          } else {
+            const err8 = { instancePath: instancePath + "/sessionId", schemaPath: "#/properties/sessionId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err8];
+            } else {
+              vErrors.push(err8);
+            }
+            errors++;
+          }
+        }
+        if (data.documentId !== void 0) {
+          let data3 = data.documentId;
+          if (typeof data3 === "string") {
+            if (func2(data3) < 1) {
+              const err9 = { instancePath: instancePath + "/documentId", schemaPath: "#/properties/documentId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              if (vErrors === null) {
+                vErrors = [err9];
+              } else {
+                vErrors.push(err9);
+              }
+              errors++;
+            }
+          } else {
+            const err10 = { instancePath: instancePath + "/documentId", schemaPath: "#/properties/documentId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err10];
+            } else {
+              vErrors.push(err10);
+            }
+            errors++;
+          }
+        }
+        if (data.revision !== void 0) {
+          let data4 = data.revision;
+          if (!(typeof data4 == "number" && (!(data4 % 1) && !isNaN(data4)) && isFinite(data4))) {
+            const err11 = { instancePath: instancePath + "/revision", schemaPath: "#/properties/revision/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
+            if (vErrors === null) {
+              vErrors = [err11];
+            } else {
+              vErrors.push(err11);
+            }
+            errors++;
+          }
+          if (typeof data4 == "number" && isFinite(data4)) {
+            if (data4 > 9007199254740991 || isNaN(data4)) {
+              const err12 = { instancePath: instancePath + "/revision", schemaPath: "#/properties/revision/maximum", keyword: "maximum", params: { comparison: "<=", limit: 9007199254740991 }, message: "must be <= 9007199254740991" };
+              if (vErrors === null) {
+                vErrors = [err12];
+              } else {
+                vErrors.push(err12);
+              }
+              errors++;
+            }
+            if (data4 < 0 || isNaN(data4)) {
+              const err13 = { instancePath: instancePath + "/revision", schemaPath: "#/properties/revision/minimum", keyword: "minimum", params: { comparison: ">=", limit: 0 }, message: "must be >= 0" };
+              if (vErrors === null) {
+                vErrors = [err13];
+              } else {
+                vErrors.push(err13);
+              }
+              errors++;
+            }
+          }
+        }
         if (data.ids !== void 0) {
-          let data2 = data.ids;
-          if (Array.isArray(data2)) {
-            const len0 = data2.length;
+          let data5 = data.ids;
+          if (Array.isArray(data5)) {
+            const len0 = data5.length;
             for (let i0 = 0; i0 < len0; i0++) {
-              let data3 = data2[i0];
-              if (typeof data3 === "string") {
-                if (func2(data3) < 1) {
-                  const err7 = { instancePath: instancePath + "/ids/" + i0, schemaPath: "#/properties/ids/items/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              let data6 = data5[i0];
+              if (typeof data6 === "string") {
+                if (func2(data6) < 1) {
+                  const err14 = { instancePath: instancePath + "/ids/" + i0, schemaPath: "#/properties/ids/items/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
                   if (vErrors === null) {
-                    vErrors = [err7];
+                    vErrors = [err14];
                   } else {
-                    vErrors.push(err7);
+                    vErrors.push(err14);
                   }
                   errors++;
                 }
               } else {
-                const err8 = { instancePath: instancePath + "/ids/" + i0, schemaPath: "#/properties/ids/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                const err15 = { instancePath: instancePath + "/ids/" + i0, schemaPath: "#/properties/ids/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 if (vErrors === null) {
-                  vErrors = [err8];
+                  vErrors = [err15];
                 } else {
-                  vErrors.push(err8);
+                  vErrors.push(err15);
                 }
                 errors++;
               }
             }
           } else {
-            const err9 = { instancePath: instancePath + "/ids", schemaPath: "#/properties/ids/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            const err16 = { instancePath: instancePath + "/ids", schemaPath: "#/properties/ids/type", keyword: "type", params: { type: "array" }, message: "must be array" };
             if (vErrors === null) {
-              vErrors = [err9];
+              vErrors = [err16];
             } else {
-              vErrors.push(err9);
+              vErrors.push(err16);
             }
             errors++;
           }
         }
       } else {
-        const err10 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        const err17 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
         if (vErrors === null) {
-          vErrors = [err10];
+          vErrors = [err17];
         } else {
-          vErrors.push(err10);
+          vErrors.push(err17);
         }
         errors++;
       }
@@ -3974,7 +4130,7 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.CoreRestartedEvent = validate36;
-    var schema44 = { "type": "object", "properties": { "event": { "type": "string", "enum": ["core-restarted"] }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } }, "required": ["event", "sessionId"], "additionalProperties": true };
+    var schema46 = { "type": "object", "properties": { "event": { "type": "string", "enum": ["core-restarted"] }, "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } }, "required": ["event", "sessionId"], "additionalProperties": true };
     function validate36(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -4009,7 +4165,7 @@ var require_session_validators = __commonJS({
             errors++;
           }
           if (!(data0 === "core-restarted")) {
-            const err3 = { instancePath: instancePath + "/event", schemaPath: "#/properties/event/enum", keyword: "enum", params: { allowedValues: schema44.properties.event.enum }, message: "must be equal to one of the allowed values" };
+            const err3 = { instancePath: instancePath + "/event", schemaPath: "#/properties/event/enum", keyword: "enum", params: { allowedValues: schema46.properties.event.enum }, message: "must be equal to one of the allowed values" };
             if (vErrors === null) {
               vErrors = [err3];
             } else {
@@ -4053,8 +4209,8 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.PairParams = validate37;
-    var pattern23 = new RegExp("^[A-Za-z0-9_-]{43}$", "u");
-    var pattern24 = new RegExp("^[^\\u0000-\\u001f\\u007f]+$", "u");
+    var pattern25 = new RegExp("^(?:[A-Za-z0-9_-]{43}|[0-9]{8})$", "u");
+    var pattern26 = new RegExp("^[^\\u0000-\\u001f\\u007f]+$", "u");
     function validate37(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -4080,8 +4236,8 @@ var require_session_validators = __commonJS({
         if (data.pairingToken !== void 0) {
           let data0 = data.pairingToken;
           if (typeof data0 === "string") {
-            if (!pattern23.test(data0)) {
-              const err2 = { instancePath: instancePath + "/pairingToken", schemaPath: "#/properties/pairingToken/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]{43}$" }, message: 'must match pattern "^[A-Za-z0-9_-]{43}$"' };
+            if (!pattern25.test(data0)) {
+              const err2 = { instancePath: instancePath + "/pairingToken", schemaPath: "#/properties/pairingToken/pattern", keyword: "pattern", params: { pattern: "^(?:[A-Za-z0-9_-]{43}|[0-9]{8})$" }, message: 'must match pattern "^(?:[A-Za-z0-9_-]{43}|[0-9]{8})$"' };
               if (vErrors === null) {
                 vErrors = [err2];
               } else {
@@ -4120,7 +4276,7 @@ var require_session_validators = __commonJS({
               }
               errors++;
             }
-            if (!pattern24.test(data1)) {
+            if (!pattern26.test(data1)) {
               const err6 = { instancePath: instancePath + "/deviceName", schemaPath: "#/properties/deviceName/pattern", keyword: "pattern", params: { pattern: "^[^\\u0000-\\u001f\\u007f]+$" }, message: 'must match pattern "^[^\\u0000-\\u001f\\u007f]+$"' };
               if (vErrors === null) {
                 vErrors = [err6];
@@ -4152,6 +4308,7 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.AuthenticateParams = validate38;
+    var pattern28 = new RegExp("^[A-Za-z0-9_-]{43}$", "u");
     function validate38(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -4199,7 +4356,7 @@ var require_session_validators = __commonJS({
         if (data.credential !== void 0) {
           let data1 = data.credential;
           if (typeof data1 === "string") {
-            if (!pattern23.test(data1)) {
+            if (!pattern28.test(data1)) {
               const err4 = { instancePath: instancePath + "/credential", schemaPath: "#/properties/credential/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]{43}$" }, message: 'must match pattern "^[A-Za-z0-9_-]{43}$"' };
               if (vErrors === null) {
                 vErrors = [err4];
@@ -4287,7 +4444,7 @@ var require_session_validators = __commonJS({
         if (data.credential !== void 0) {
           let data1 = data.credential;
           if (typeof data1 === "string") {
-            if (!pattern23.test(data1)) {
+            if (!pattern28.test(data1)) {
               const err5 = { instancePath: instancePath + "/credential", schemaPath: "#/properties/credential/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]{43}$" }, message: 'must match pattern "^[A-Za-z0-9_-]{43}$"' };
               if (vErrors === null) {
                 vErrors = [err5];
@@ -4309,7 +4466,7 @@ var require_session_validators = __commonJS({
         if (data.sessionToken !== void 0) {
           let data2 = data.sessionToken;
           if (typeof data2 === "string") {
-            if (!pattern23.test(data2)) {
+            if (!pattern28.test(data2)) {
               const err7 = { instancePath: instancePath + "/sessionToken", schemaPath: "#/properties/sessionToken/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]{43}$" }, message: 'must match pattern "^[A-Za-z0-9_-]{43}$"' };
               if (vErrors === null) {
                 vErrors = [err7];
@@ -4388,7 +4545,7 @@ var require_session_validators = __commonJS({
         if (data.sessionToken !== void 0) {
           let data1 = data.sessionToken;
           if (typeof data1 === "string") {
-            if (!pattern23.test(data1)) {
+            if (!pattern28.test(data1)) {
               const err4 = { instancePath: instancePath + "/sessionToken", schemaPath: "#/properties/sessionToken/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z0-9_-]{43}$" }, message: 'must match pattern "^[A-Za-z0-9_-]{43}$"' };
               if (vErrors === null) {
                 vErrors = [err4];
@@ -4420,7 +4577,7 @@ var require_session_validators = __commonJS({
       return errors === 0;
     }
     exports.SessionInfoPayload = validate41;
-    var schema49 = { "type": "object", "properties": { "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "documentRevision": { "type": ["integer", "null"], "minimum": 0, "maximum": 9007199254740991 }, "connectedClients": { "type": "array", "items": { "type": "object", "properties": { "clientId": { "type": "string", "minLength": 1 }, "clientType": { "type": "string" }, "name": { "type": "string" }, "deviceId": { "type": "string", "minLength": 1 }, "capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "connectionState": { "type": "string", "enum": ["connected", "closing", "reconnecting"] } }, "required": ["clientId", "clientType", "capabilities", "connectionState"], "additionalProperties": true } }, "transactionState": { "type": ["object", "null"], "properties": { "ownerClientId": { "type": "string", "minLength": 1 }, "transactionId": { "type": "string", "minLength": 1 }, "ownerConnected": { "type": "boolean" }, "state": { "type": "string", "enum": ["pending", "open"] } }, "required": ["ownerClientId", "transactionId", "ownerConnected", "state"], "additionalProperties": true } }, "required": ["sessionId", "documentId", "documentRevision", "connectedClients", "transactionState"], "additionalProperties": true };
+    var schema51 = { "type": "object", "properties": { "sessionId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, "documentId": { "type": "string", "minLength": 1 }, "documentRevision": { "type": ["integer", "null"], "minimum": 0, "maximum": 9007199254740991 }, "connectedClients": { "type": "array", "items": { "type": "object", "properties": { "clientId": { "type": "string", "minLength": 1 }, "clientType": { "type": "string" }, "name": { "type": "string" }, "deviceId": { "type": "string", "minLength": 1 }, "capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "connectionState": { "type": "string", "enum": ["connected", "closing", "reconnecting"] } }, "required": ["clientId", "clientType", "capabilities", "connectionState"], "additionalProperties": true } }, "transactionState": { "type": ["object", "null"], "properties": { "ownerClientId": { "type": "string", "minLength": 1 }, "transactionId": { "type": "string", "minLength": 1 }, "ownerConnected": { "type": "boolean" }, "state": { "type": "string", "enum": ["pending", "open"] } }, "required": ["ownerClientId", "transactionId", "ownerConnected", "state"], "additionalProperties": true } }, "required": ["sessionId", "documentId", "documentRevision", "connectedClients", "transactionState"], "additionalProperties": true };
     function validate41(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
       let vErrors = null;
       let errors = 0;
@@ -4517,7 +4674,7 @@ var require_session_validators = __commonJS({
         if (data.documentRevision !== void 0) {
           let data2 = data.documentRevision;
           if (!(typeof data2 == "number" && (!(data2 % 1) && !isNaN(data2)) && isFinite(data2)) && data2 !== null) {
-            const err9 = { instancePath: instancePath + "/documentRevision", schemaPath: "#/properties/documentRevision/type", keyword: "type", params: { type: schema49.properties.documentRevision.type }, message: "must be integer,null" };
+            const err9 = { instancePath: instancePath + "/documentRevision", schemaPath: "#/properties/documentRevision/type", keyword: "type", params: { type: schema51.properties.documentRevision.type }, message: "must be integer,null" };
             if (vErrors === null) {
               vErrors = [err9];
             } else {
@@ -4703,7 +4860,7 @@ var require_session_validators = __commonJS({
                     errors++;
                   }
                   if (!(data11 === "connected" || data11 === "closing" || data11 === "reconnecting")) {
-                    const err26 = { instancePath: instancePath + "/connectedClients/" + i0 + "/connectionState", schemaPath: "#/properties/connectedClients/items/properties/connectionState/enum", keyword: "enum", params: { allowedValues: schema49.properties.connectedClients.items.properties.connectionState.enum }, message: "must be equal to one of the allowed values" };
+                    const err26 = { instancePath: instancePath + "/connectedClients/" + i0 + "/connectionState", schemaPath: "#/properties/connectedClients/items/properties/connectionState/enum", keyword: "enum", params: { allowedValues: schema51.properties.connectedClients.items.properties.connectionState.enum }, message: "must be equal to one of the allowed values" };
                     if (vErrors === null) {
                       vErrors = [err26];
                     } else {
@@ -4735,7 +4892,7 @@ var require_session_validators = __commonJS({
         if (data.transactionState !== void 0) {
           let data12 = data.transactionState;
           if (!(data12 && typeof data12 == "object" && !Array.isArray(data12)) && data12 !== null) {
-            const err29 = { instancePath: instancePath + "/transactionState", schemaPath: "#/properties/transactionState/type", keyword: "type", params: { type: schema49.properties.transactionState.type }, message: "must be object,null" };
+            const err29 = { instancePath: instancePath + "/transactionState", schemaPath: "#/properties/transactionState/type", keyword: "type", params: { type: schema51.properties.transactionState.type }, message: "must be object,null" };
             if (vErrors === null) {
               vErrors = [err29];
             } else {
@@ -4847,7 +5004,7 @@ var require_session_validators = __commonJS({
                 errors++;
               }
               if (!(data16 === "pending" || data16 === "open")) {
-                const err40 = { instancePath: instancePath + "/transactionState/state", schemaPath: "#/properties/transactionState/properties/state/enum", keyword: "enum", params: { allowedValues: schema49.properties.transactionState.properties.state.enum }, message: "must be equal to one of the allowed values" };
+                const err40 = { instancePath: instancePath + "/transactionState/state", schemaPath: "#/properties/transactionState/properties/state/enum", keyword: "enum", params: { allowedValues: schema51.properties.transactionState.properties.state.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err40];
                 } else {

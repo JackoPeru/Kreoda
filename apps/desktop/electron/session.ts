@@ -18,7 +18,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { decodeMeshFrame, decodeMeshUpdateFb, frameMessage, FrameDecoder, InvokeParamsSchema, NamedCommandParamsSchema, PairParamsSchema, AuthenticateParamsSchema,
   MeshHeaderSchema, RequestMeshLODParamsSchema, OPERATION_METHODS as OPERATION_METHOD_NAMES,
   SESSION_CONTROL_VERSION, SESSION_SERVER_CAPABILITIES } from "@kreoda/protocol";
-import type { RequestMeshLODParams } from "@kreoda/protocol";
+import type { RequestMeshLODParams, SelectionEvent } from "@kreoda/protocol";
 import { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "@kreoda/command-schema";
 import type {
   SessionEntityChange,
@@ -77,6 +77,7 @@ export interface SessionSnapshotRequired {
 
 /** Incremental events delivered to the renderer and opted-in clients. */
 export type SessionDelta = SessionIncrementalDelta | SessionSnapshotRequired;
+export type SessionSelection = SelectionEvent & { sessionId: string; documentId: string; revision: number };
 
 interface CommittedSnapshot {
   sessionId: string;
@@ -264,7 +265,28 @@ export class SessionRelay {
     private readonly sidecar: () => SidecarManager | null,
     private readonly onDelta?: (delta: SessionDelta) => void,
     private readonly devices?: SessionDevices,
+    private readonly onSelection?: (event: SessionSelection) => void,
   ) {}
+
+  private selectionStamp(clientId: string, ids: string[]): SessionSelection {
+    return { event: "selection", clientId, ids: [...ids],
+      sessionId: this.sessionId, documentId: this.documentId,
+      revision: this.committedBaseline?.revision ?? this.revisionCache ?? 0 };
+  }
+
+  private emitSelection(clientId: string, ids: string[], captured?: SessionSelection): void {
+    const event = captured ?? this.selectionStamp(clientId, ids);
+    const serialized = JSON.stringify(event);
+    for (const client of this.clients.values())
+      if (client.ws.readyState === WebSocket.OPEN) client.ws.send(serialized);
+    try { this.onSelection?.(event); }
+    catch { console.error("[session] selection forward failed"); }
+  }
+
+  private clearSharedTargets(): void {
+    for (const clientId of this.publishedSelections.keys()) this.emitSelection(clientId, []);
+    this.publishedSelections.clear();
+  }
 
   get clientCount(): number {
     return this.clients.size;
@@ -451,6 +473,7 @@ export class SessionRelay {
 
   /** Disable transport while preserving the authoritative CAD lineage. */
   async disableListener(): Promise<void> {
+    this.clearSharedTargets();
     const server = this.server;
     this.server = null;
     this.devices?.rotateSessionTokens();
@@ -474,6 +497,7 @@ export class SessionRelay {
   }
 
   stop(): void {
+    this.clearSharedTargets();
     this.devices?.rotateSessionTokens();
     for (const c of this.clients.values()) {
       try {
@@ -503,6 +527,7 @@ export class SessionRelay {
   }
   /** Sidecar died/restarted: drop in-flight state; clients resync by revision. */
   onSidecarCrashed(): void {
+    this.clearSharedTargets();
     this.sessionId = randomUUID();
     this.committedBaseline = null;
     this.clearTransactionTracking();
@@ -576,8 +601,7 @@ export class SessionRelay {
         if (clientId) {
           this.selections.delete(clientId);
           if (this.publishedSelections.delete(clientId)) {
-            const clear = JSON.stringify({ event: "selection", clientId, ids: [] });
-            for (const other of this.clients.values()) if (other.ws.readyState === WebSocket.OPEN) other.ws.send(clear);
+            this.emitSelection(clientId, []);
           }
         }
         for (const [id, p] of this.previews) {
@@ -658,7 +682,10 @@ export class SessionRelay {
       try {
         if (msg.method === "pair") {
           const parsed = PairParamsSchema.safeParse(params);
-          if (!parsed.success) throw coded("BAD_PARAMS", "invalid pair parameters");
+          if (!parsed.success) {
+            this.devices.noteFailedPairingGuess(params["pairingToken"]);
+            throw coded("BAD_PARAMS", "invalid pair parameters");
+          }
           reply(true, await this.devices.pair(parsed.data.pairingToken, parsed.data.deviceName));
         } else {
           const parsed = AuthenticateParamsSchema.safeParse(params);
@@ -1049,16 +1076,15 @@ export class SessionRelay {
             return;
           }
           const method = msg.method;
-          const query = () => runSessionQuery(this.queryEnv(), this.selectionRegistry(), clientId, method, params, documentId);
+          const query = async () => {
+            const response = await runSessionQuery(this.queryEnv(), this.selectionRegistry(), clientId, method, params, documentId);
+            return { ...response, selection: response.notify
+              ? this.selectionStamp(clientId, response.notify["ids"] as string[]) : undefined };
+          };
           const direct = ["previewBegin", "previewUpdate", "previewCommit", "previewCancel", "getSelection", "clearSelection", "listCommands", "getCommandSchema", "getCapabilities"].includes(method);
-          const { result, notify } = await (direct ? query() : this.orderedRead(clientId, documentId, query));
+          const { result, selection } = await (direct ? query() : this.orderedRead(clientId, documentId, query));
           reply(true, { result });
-          if (notify) {
-            for (const [, c] of this.clients) {
-              if (c.ws.readyState !== WebSocket.OPEN) continue;
-              c.ws.send(JSON.stringify({ ...notify }));
-            }
-          }
+          if (selection) this.emitSelection(clientId, selection.ids, selection);
         }
       }
     } catch (e) {
@@ -1184,6 +1210,12 @@ export class SessionRelay {
           body.tip !== body.history.at(-1) || !snapshot.tips.includes(body.tip)) {
         throw coded("NOT_FOUND", "body is missing or has no visible tip");
       }
+      const allFeatures = snapshot.features
+        .map(asRecord)
+        .filter((feature): feature is Record<string, unknown> => feature !== null && typeof feature["featureId"] === "string");
+      const isVisible = (feature: Record<string, unknown> | undefined): feature is Record<string, unknown> =>
+        !!feature && feature["suppressed"] !== true && feature["state"] !== "suppressed" &&
+        feature["status"] !== "suppressed" && feature["visible"] !== false;
       const historyFeatures = snapshot.features
         .map(asRecord)
         .filter((feature): feature is Record<string, unknown> => feature !== null && typeof feature["featureId"] === "string" && body.history.includes(feature["featureId"] as string));
@@ -1193,8 +1225,24 @@ export class SessionRelay {
         throw coded("NOT_FOUND", "body is suppressed or its visible tip is missing");
       }
 
+      let nativeFeatureId = body.tip;
+      if (params.instanceId !== undefined) {
+        const instance = allFeatures.find(feature => feature["featureId"] === params.instanceId);
+        const dependencies = instance?.["dependsOn"];
+        if (!isVisible(instance) || instance["type"] !== "Instance" || !Array.isArray(dependencies) ||
+            dependencies.length !== 1 || typeof dependencies[0] !== "string" || dependencies[0] === params.instanceId) {
+          throw coded("NOT_FOUND", "instance is missing, hidden, nested, self-referential, or unsupported");
+        }
+        const sourceId = dependencies[0];
+        const source = allFeatures.find(feature => feature["featureId"] === sourceId);
+        if (!body.history.includes(sourceId) || !isVisible(source) || source["type"] === "Instance") {
+          throw coded("NOT_FOUND", "instance source does not belong to the requested visible body");
+        }
+        nativeFeatureId = params.instanceId;
+      }
+
       const expectedNativeRequestId = `relay-${++this.seq}`;
-      const raw = await this.coreInvokeRaw(params.documentId, 12, { featureId: body.tip, lod: params.quality }, expectedNativeRequestId);
+      const raw = await this.coreInvokeRaw(params.documentId, 12, { featureId: nativeFeatureId, lod: params.quality }, expectedNativeRequestId);
       if (raw.byteLength > MAX_BINARY_MESH_BYTES) throw coded("MESH_TOO_LARGE", "native mesh exceeds 64 MiB");
       let mesh;
       try {
@@ -1215,8 +1263,8 @@ export class SessionRelay {
           mesh.revision !== snapshot.revision) {
         throw coded("NEED_FULL_SNAPSHOT", "mesh result belongs to a stale model lineage");
       }
-      if (mesh.requestId !== expectedNativeRequestId || mesh.featureId !== body.tip ||
-          mesh.bodyId !== body.tip || mesh.lod !== params.quality) {
+      if (mesh.requestId !== expectedNativeRequestId || mesh.featureId !== nativeFeatureId ||
+          mesh.bodyId !== nativeFeatureId || mesh.lod !== params.quality) {
         throw coded("INVALID_MESH", "native mesh identity does not match the request");
       }
       const header = MeshHeaderSchema.parse({
@@ -1226,7 +1274,8 @@ export class SessionRelay {
         revision: mesh.revision,
         bodyId: body.bodyId,
         featureId: mesh.featureId,
-        tipId: body.tip,
+        tipId: nativeFeatureId,
+        ...(params.instanceId !== undefined ? { instanceId: params.instanceId } : {}),
         quality: mesh.lod,
         byteLength: raw.byteLength,
       });
@@ -1670,6 +1719,7 @@ export class SessionRelay {
           revision: this.revisionCache ?? parsed["revision"],
         };
         if (type === 2 || type === 11) {
+          this.clearSharedTargets();
           this.sessionId = randomUUID();
           this.operationReplay.clear();this.requestReplay.clear();this.selections.clear();this.publishedSelections.clear();
           for (const preview of this.previews.values()) preview.release();this.previews.clear();
@@ -2131,6 +2181,10 @@ export class SessionRelay {
     referenceRemaps: unknown[],
     warnings: unknown[],
   ): void {
+    // A published reference is stamped at its validated revision. Require
+    // explicit republication after an authoritative edit instead of silently
+    // promoting potentially changed topology to the new revision.
+    this.clearSharedTargets();
     if (
       before &&
       before.sessionId === after.sessionId &&

@@ -1,0 +1,43 @@
+{
+  "boundary": "Primary-session local regressions; exact new hosted source remains pending.",
+  "ordinary": {
+    "cohort": "ordinary",
+    "exitCode": 0,
+    "corePath": "C:\\Users\\matte\\Documents\\Codex-tools\\kreoda-phase11-geometry-complete-afcf09131b204c79a2f1488eca44b895\\kreoda-core.exe",
+    "coreSha256": "80d7120494a298ab4ce74a5f6790bf94a8d4dab920b5bb79bafc259eb06ee99c",
+    "compiledMainRestoredSha256": "b20f80443036f0c5612cecf2a2206b17eda53373ab6a57ea3fca3e512dd36a9d",
+    "runnerSha256": "82c4135de41adfa854317ca9ec191253197b5c7c8a5af581f6e03735e14d2da1",
+    "prefixSha256": "83f8c2d17270b6e38e0ea5518bf248ad03aabec386365b82836c84afdeab0846",
+    "log": "C:\\Users\\matte\\Documents\\Codex-tools\\kreoda-phase11-ordinary-d3d928e4ce3b4460bee0cc6ccf7b2bd3\\playwright.txt",
+    "resultSha256": "0fe9f4a83638542fe4e5fbaf299e1d2bbf74139d6b4207f96c7e82d895c585a1",
+    "logSha256": "70360e3e4311c2f7060716ad61db027e2fbdaf4e6c6a44d0c087208ccccf60aa"
+  },
+  "crash": {
+    "cohort": "crash",
+    "exitCode": 0,
+    "corePath": "C:\\Users\\matte\\Documents\\Codex-tools\\kreoda-phase11-crash-stage-9f8d83f3515349fa9cdc571af60f30f1\\kreoda-core.exe",
+    "coreSha256": "45c287f00ea6b0ed81f22c15ffb83b0f80522e9b0eddcb03838eee57ca4ed236",
+    "compiledMainRestoredSha256": "b20f80443036f0c5612cecf2a2206b17eda53373ab6a57ea3fca3e512dd36a9d",
+    "runnerSha256": "82c4135de41adfa854317ca9ec191253197b5c7c8a5af581f6e03735e14d2da1",
+    "prefixSha256": "f74cffbbc841264a41ccd255cc7812ea031e1065b1f77ace183530147b7c3c17",
+    "log": "C:\\Users\\matte\\Documents\\Codex-tools\\kreoda-phase11-crash-80188a5c27ea42b5b9335b59e29af7f6\\playwright.txt",
+    "resultSha256": "93d2e8354e06fd95d41d1f101318b0548fc8309bb12b6958808278a2866e9660",
+    "logSha256": "ae42055014b9be52629f81953d4a703fb46f7d43d30ef3d74bd6029b47d1c9f9"
+  },
+  "native": {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase12-native-tests-20261009.log",
+    "logSha256": "43461941145ef7e9f74b0fd603b6f393a93da6589efa2fc03c44d973b2a3c265"
+  },
+  "js": {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase12-js-20261009-green.log",
+    "logSha256": "04b539301296c020c1d08ee303a5df875972c067d47bb1ba0d338fba13cd1b74"
+  },
+  "lint": {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase12-lint-20261009-final.log",
+    "logSha256": "820d880d1a54bfc85d50edd9acf3c8a0802ad9f3b44bdeda87cde01785a9aa80"
+  },
+  "rendererCrashHarness": {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase12-renderer-harness-20261010.log",
+    "logSha256": "b8ae87f59aa1c38528a76fa589f069f59a10c5b338ebbdc9cc66796515d5e4c1"
+  }
+}

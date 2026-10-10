@@ -19,8 +19,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\..\packages\protocol\csharp\Kreoda.Protocol.csproj" SetTargetFramework="TargetFramework=$(KreodaManagedTargetFramework)" />
     <ProjectReference Include="..\..\src\Kreoda.SessionClient\Kreoda.SessionClient.csproj" SetTargetFramework="TargetFramework=$(KreodaManagedTargetFramework)" />
     <ProjectReference Include="..\..\src\Kreoda.QuestFoundation\Kreoda.QuestFoundation.csproj" SetTargetFramework="TargetFramework=$(KreodaManagedTargetFramework)" />
+    <None Include="..\..\..\..\packages\protocol\fixtures\native-blind-hole.meshfb" Link="Fixtures\native-blind-hole.meshfb" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

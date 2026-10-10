@@ -37,7 +37,7 @@
         "deviceName"
       ],
       "optional": [],
-      "reply": "flat {deviceId,credential,sessionToken}; pre-auth only, consumes one-use five-minute token; does not create a connected client",
+      "reply": "flat {deviceId,credential,sessionToken}; pairingToken accepts the eight digit code or legacy opaque token; both share one one-use five-minute window and do not create a connected client",
       "plane": "control",
       "operationReplay": false
     },
@@ -200,8 +200,10 @@
         "documentId",
         "expectedRevision"
       ],
-      "optional": [],
-      "reply": "JSON {result:{nativeRequestId,sessionId,documentId,revision,bodyId,featureId,tipId,quality,byteLength}} immediately followed by the exact native MeshUpdate binary frame",
+      "optional": [
+        "instanceId"
+      ],
+      "reply": "JSON {result:{nativeRequestId,sessionId,documentId,revision,bodyId,featureId,tipId,quality,byteLength,instanceId?}} immediately followed by the exact native MeshUpdate binary frame",
       "plane": "query",
       "operationReplay": false
     },
@@ -277,9 +279,10 @@
         "ids"
       ],
       "optional": [
-        "publish"
+        "publish",
+        "baseRevision"
       ],
-      "reply": "{result:{clientId, ids}} + selection broadcast; selection broadcast only when publish is explicitly true",
+      "reply": "{result:{clientId, ids}} + selection broadcast; publish must be explicitly true; optional baseRevision fences the model used for picking",
       "plane": "query",
       "operationReplay": true
     },
@@ -742,6 +745,9 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
+        },
+        "instanceId": {
+          "$ref": "#/definitions/StableFeatureId"
         }
       },
       "required": [
@@ -762,6 +768,7 @@
         "bodyId": { "$ref": "#/definitions/StableFeatureId" },
         "featureId": { "$ref": "#/definitions/StableFeatureId" },
         "tipId": { "$ref": "#/definitions/StableFeatureId" },
+        "instanceId": { "$ref": "#/definitions/StableFeatureId" },
         "quality": { "type": "integer", "enum": [0, 1, 2] },
         "byteLength": { "type": "integer", "minimum": 1, "maximum": 67108864 }
       },
@@ -1304,6 +1311,19 @@
           "type": "string",
           "minLength": 1
         },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
         "ids": {
           "type": "array",
           "items": {
@@ -1344,7 +1364,7 @@
       "properties": {
         "pairingToken": {
           "type": "string",
-          "pattern": "^[A-Za-z0-9_-]{43}$"
+          "pattern": "^(?:[A-Za-z0-9_-]{43}|[0-9]{8})$"
         },
         "deviceName": {
           "type": "string",

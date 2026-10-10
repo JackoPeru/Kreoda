@@ -171,7 +171,83 @@ async Task RunMeshAsync()
     }
 }
 
-if (Environment.GetEnvironmentVariable("KREODA_SESSION_PROBE_MESH") == "1")
+async Task RunInstanceAsync()
+{
+    var url = new Uri(Required("KREODA_SESSION_PROBE_URL"));
+    var pair = await SessionClient.PairAsync(url, Required("KREODA_SESSION_PROBE_PAIR"), "native-instance-probe", "instance-probe");
+    var client = pair.Client;
+    var sourceId = Required("KREODA_SESSION_PROBE_FEATURE");
+    var holeId = "probe-hole-" + Guid.NewGuid().ToString("N");
+    var instanceId = "probe-instance-" + Guid.NewGuid().ToString("N");
+    var hashes = new List<string>();
+    int cleanupUndos = 0;
+    try
+    {
+        var original = client.Model!;
+        var bodyId = original.Bodies.Single(b => b.GetProperty("history").EnumerateArray().Any(id => id.GetString() == sourceId))
+            .GetProperty("bodyId").GetString()!;
+        var source = original.Features.Single(f => f.GetProperty("featureId").GetString() == sourceId);
+        var width = source.GetProperty("paramsMm")[0].GetDouble();
+        async Task Wait(long revision)
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            while (client.Model!.Revision != revision) await Task.Delay(10, timeout.Token);
+        }
+        async Task Invoke(ushort type, Dictionary<string, object?> fields)
+        {
+            var reply = await client.InvokeAsync(type, fields);
+            Check(reply.GetProperty("status").GetString() == "ok", "native instance probe mutation failed");
+            await Wait(reply.GetProperty("revision").GetInt64());
+        }
+        await Invoke(20, new() { ["featureId"] = holeId, ["targetId"] = sourceId, ["faceRole"] = "box.+Z",
+            ["xMm"] = width / 2, ["yMm"] = 15, ["diameterMm"] = 4, ["depthMode"] = "blind", ["depthMm"] = 3 });
+        cleanupUndos++;
+        await Invoke(24, new() { ["featureId"] = instanceId, ["targetId"] = sourceId,
+            ["txMm"] = 60, ["tyMm"] = 0, ["tzMm"] = 0, ["rzDeg"] = 90 });
+        cleanupUndos++;
+        async Task<SessionMeshResult> Mesh(bool instance)
+        {
+            var model = client.Model!;
+            var mesh = await client.RequestMeshLodAsync(bodyId, 1, model.DocumentId, model.Revision,
+                instanceId: instance ? instanceId : null);
+            Check(mesh.Header.FeatureId == (instance ? instanceId : holeId) && mesh.Header.BodyId == bodyId &&
+                mesh.Header.InstanceId == (instance ? instanceId : null), "body-tip/instance identity was conflated");
+            hashes.Add(mesh.RawPayloadSha256);
+            return mesh;
+        }
+        var tip = await Mesh(false);
+        var placed = await Mesh(true);
+        Check(tip.VolumeMm3 < placed.VolumeMm3 && Math.Abs(placed.VolumeMm3 - source.GetProperty("volumeMm3").GetDouble()) < 1e-5,
+            "instance of older Box source incorrectly uses later Hole tip");
+        Check(Math.Abs(placed.BboxMm[0] - 30) < .001 && Math.Abs(placed.BboxMm[3] - 60) < .001 &&
+            Math.Abs(placed.BboxMm[4] - width) < .001, "native instance placement is missing or applied twice");
+        await Invoke(6, new() { ["featureId"] = sourceId, ["paramName"] = "widthMm", ["valueMm"] = width + 5 });
+        cleanupUndos++;
+        var changed = await Mesh(true);
+        Check(Math.Abs(changed.BboxMm[4] - width - 5) < .001 && changed.RawPayloadSha256 != placed.RawPayloadSha256,
+            "source edit did not refresh placed instance");
+        await Invoke(8, new()); cleanupUndos--;
+        var restored = await Mesh(true);
+        Check(restored.BboxMm.SequenceEqual(placed.BboxMm) && Math.Abs(restored.VolumeMm3 - placed.VolumeMm3) < 1e-5,
+            "Undo failed to restore instance geometry");
+        await client.DisposeAsync();
+        client = await SessionClient.ConnectDeviceAsync(url, pair.DeviceId, pair.Credential, "instance-reconnect");
+        var reconnected = await Mesh(true);
+        Check(reconnected.BboxMm.SequenceEqual(placed.BboxMm), "credential reconnect lost instance placement/source");
+        Console.WriteLine(JsonSerializer.Serialize(new { passed = new[] { "older-source-instance-not-body-tip", "native-placement-once",
+            "source-edit-instance-refresh", "undo-instance-restore", "credential-reconnect-instance" }, hashes,
+            boundary = "Actual OCCT/Desktop relay and compiled managed client; no Unity or physical Quest." }));
+    }
+    finally
+    {
+        for (int i = 0; i < cleanupUndos; i++) await client.InvokeAsync(8, new Dictionary<string, object?>());
+        await client.DisposeAsync();
+    }
+}
+
+if (Environment.GetEnvironmentVariable("KREODA_SESSION_PROBE_INSTANCE_MESH") == "1")
+    await RunInstanceAsync();
+else if (Environment.GetEnvironmentVariable("KREODA_SESSION_PROBE_MESH") == "1")
     await RunMeshAsync();
 else
     await RunLegacyAsync();

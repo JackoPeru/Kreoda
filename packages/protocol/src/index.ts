@@ -603,7 +603,6 @@ function decodeUpdate(update: MeshUpdate): CoreMeshUpdate {
   const nf = update.facesLength();
   const ne = update.edgesLength();
   if (nf > MAX_MESH_TABLE_COUNT || ne > MAX_MESH_TABLE_COUNT) throw new Error("mesh semantic table count exceeds limit");
-  const faceIds = new Set<string>();
   let nextTriangle = 0;
   for (let i = 0; i < nf; i++) {
     const f = update.faces(i);
@@ -611,16 +610,14 @@ function decodeUpdate(update: MeshUpdate): CoreMeshUpdate {
     const persistentFaceId = f.persistentFaceId() ?? "";
     const triangleStart = f.triangleStart();
     const triangleCount = f.triangleCount();
-    if (!persistentFaceId || persistentFaceId.length > 4096 || faceIds.has(persistentFaceId) || triangleCount === 0 ||
+    if (!persistentFaceId || persistentFaceId.length > 4096 || triangleCount === 0 ||
         triangleStart < nextTriangle || triangleStart + triangleCount > idxBytes.byteLength / 12) {
       throw new Error("mesh face range invalid");
     }
-    faceIds.add(persistentFaceId);
     nextTriangle = triangleStart + triangleCount;
     faces.push({ persistentFaceId, triangleStart, triangleCount });
   }
   const edges: EdgeRange[] = [];
-  const edgeIds = new Set<string>();
   let nextEdgeVertex = 0;
   for (let i = 0; i < ne; i++) {
     const e = update.edges(i);
@@ -628,11 +625,10 @@ function decodeUpdate(update: MeshUpdate): CoreMeshUpdate {
     const persistentEdgeId = e.persistentEdgeId() ?? "";
     const vertexStart = e.vertexStart();
     const edgeCount = e.vertexCount();
-    if (!persistentEdgeId || persistentEdgeId.length > 4096 || edgeIds.has(persistentEdgeId) || edgeCount === 0 ||
+    if (!persistentEdgeId || persistentEdgeId.length > 4096 || edgeCount === 0 ||
         vertexStart < nextEdgeVertex || vertexStart + edgeCount > edgeVertexCount) {
       throw new Error("mesh edge range invalid");
     }
-    edgeIds.add(persistentEdgeId);
     nextEdgeVertex = vertexStart + edgeCount;
     edges.push({ persistentEdgeId, vertexStart, vertexCount: edgeCount });
   }

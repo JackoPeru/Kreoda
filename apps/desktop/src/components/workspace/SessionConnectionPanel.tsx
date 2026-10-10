@@ -8,7 +8,7 @@ export function SessionConnectionPanel({ onClose }: { onClose: () => void }) {
   const [status, setStatus] = useState<SessionConnectionStatus | null>(null);
   const [host, setHost] = useState("127.0.0.1");
   const [port, setPort] = useState("9860");
-  const [pairing, setPairing] = useState<{ token: string; expiresAt: string } | null>(null);
+  const [pairing, setPairing] = useState<{ token: string; code: string; expiresAt: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
@@ -92,13 +92,19 @@ export function SessionConnectionPanel({ onClose }: { onClose: () => void }) {
           })}>{t("session.pair")}</button>
           {pairing && <>
             <p>{t("session.pairHint")}</p>
-            <input aria-label={t("session.pairToken")} readOnly value={pairing.token} className="w-full rounded bg-black/20 p-2 font-mono text-[11px]" />
+            <input aria-label={t("session.pairCode")} readOnly value={`${pairing.code.slice(0, 4)} ${pairing.code.slice(4)}`}
+              className="w-full rounded bg-black/20 p-3 text-center font-mono text-2xl tracking-[0.3em]" />
             <div className="flex gap-2">
-              <button className={button} disabled={busy} onClick={() => void run(() => navigator.clipboard.writeText(pairing.token))}>{t("session.copy")}</button>
+              <button className={button} disabled={busy} onClick={() => void run(() => navigator.clipboard.writeText(pairing.code))}>{t("session.copy")}</button>
               <button className={button} disabled={busy} onClick={() => void run(async () => {
                 await window.kreoda.sessionCancelPair();if (mounted.current) setPairing(null);
               })}>{t("common.cancel")}</button>
             </div>
+            <details className="pt-1">
+              <summary className="cursor-pointer text-white/60">{t("session.pairToken")}</summary>
+              <input aria-label={t("session.pairToken")} readOnly value={pairing.token}
+                className="mt-2 w-full rounded bg-black/20 p-2 font-mono text-[11px]" />
+            </details>
           </>}
         </div>}
         <div className="border-t border-white/10 pt-3">

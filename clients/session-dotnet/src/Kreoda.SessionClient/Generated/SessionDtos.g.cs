@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: d5804785c2840e6cec157bd09648cda36f56ced3cbd1128f352a99352e18d16e
+// Source SHA256: a03adde0580bff1da306e5b0adea3e5ad6ca8d5eacb4d9fbc88cef4fd6487904
 #nullable enable annotations
 #nullable disable warnings
 namespace Kreoda.Session.Generated
@@ -74,6 +74,11 @@ namespace Kreoda.Session.Generated
         [JsonPropertyName("expectedRevision")]
         public long ExpectedRevision { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("instanceId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? InstanceId { get; set; }
+
         [JsonPropertyName("quality")]
         public long Quality { get; set; }
     }
@@ -100,6 +105,11 @@ namespace Kreoda.Session.Generated
         [JsonPropertyName("featureId")]
         [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
         public string FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("instanceId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? InstanceId { get; set; }
 
         [JsonPropertyName("nativeRequestId")]
         [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
@@ -447,12 +457,26 @@ namespace Kreoda.Session.Generated
         [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
         public string ClientId { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string? DocumentId { get; set; }
+
         [JsonPropertyName("event")]
         public SelectionEventEvent Event { get; set; }
 
         [JsonPropertyName("ids")]
         [JsonConverter(typeof(DecodeArrayConverter))]
         public string[] Ids { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("revision")]
+        public long? Revision { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("sessionId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string? SessionId { get; set; }
     }
 
     public partial class CoreRestartedEvent
