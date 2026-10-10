@@ -81,7 +81,7 @@
 
 ## Packet 5 — Actual Quest 3 acceptance and final gates
 
-- [ ] User connects Quest 3 with developer mode; adb device authorized. Install only the actual CAD client APK and launch it.
+- [x] User connects Quest 3 with developer mode; adb device authorized. Install only the actual CAD client APK and launch it.
 - [ ] With saved CAD open on PC: pair, render same model, walk around in MR, place on table, switch display scale, select persistent body/face, optionally publish target, change existing parameter on Desktop, observe incremental update, disconnect/reconnect to current model.
 - [ ] Record app logs/performance and user observations. Screenshots only if authorized/needed; do not infer comfort, passthrough or physical placement from headless tests.
 - [ ] Verify existing Desktop ordinary/crash cohorts, native/.NET/JS gates, Unity tests, production APK dependencies, no leaked owned processes and exact hosted source result.
