@@ -33,6 +33,8 @@ const char* OpType(const std::string& op) {
   return nullptr;
 }
 
+}  // namespace
+
 bool BuildBooleanShape(const std::string& op, const TopoDS_Shape& target,
                        const TopoDS_Shape& tool, TopoDS_Shape* out,
                        std::string* error) {
@@ -106,8 +108,6 @@ bool BuildBooleanShape(const std::string& op, const TopoDS_Shape& target,
     return false;
   }
 }
-
-}  // namespace
 
 bool CreateBooleanFeature(const std::string& featureId, const std::string& op,
                           const std::string& targetId,

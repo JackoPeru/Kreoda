@@ -458,21 +458,44 @@ bool EvaluateOneExpression(const std::string& ownerId,
   return true;
 }
 
-bool EvaluateAllExpressions(std::vector<std::string>* changed,
-                            std::string* error) {
-  if (!changed) {
+bool EvaluateExpressionSnapshot(std::map<std::string, ShapeRecord>* records,
+                                const std::vector<ExpressionEntry>& entries,
+                                std::vector<std::string>* changed,
+                                std::string* error) {
+  if (!records || !changed) {
     if (error) *error = "internal error: null out-param";
     return false;
   }
   changed->clear();
-  const std::vector<ExpressionEntry> entries =
-      ExpressionStore::instance().listInOrder();
   if (entries.empty()) return true;
-  // C1 two-phase: resolve everything against a scratch copy first, apply to
-  // ShapeStore only after ALL entries validate. A mid-fixpoint failure
-  // (div0/cycle/range) must leave the store untouched.
-  std::map<std::string, ShapeRecord> scratch;
-  for (const auto& r : ShapeStore::instance().listInOrder()) scratch[r.featureId] = r;
+  auto& scratch = *records;
+  // A fixed point alone misses cycles whose current values happen to agree.
+  // Check formula dependencies without recursion before evaluating scratch values.
+  using Key = std::pair<std::string, std::string>;
+  std::map<Key, size_t> remaining;
+  std::map<Key, std::vector<Key>> dependents;
+  for (const auto& entry : entries)
+    if (scratch.find(entry.featureId) != scratch.end()) remaining[{entry.featureId, entry.paramName}] = 0;
+  for (const auto& entry : entries) {
+    const Key key{entry.featureId, entry.paramName};
+    if (remaining.find(key) == remaining.end()) continue;
+    std::vector<Key> references;
+    if (!ParseExpression(entry.expression, &references, error)) return false;
+    for (const auto& [feature, parameter] : references) {
+      const Key dependency{feature.empty() ? entry.featureId : feature, parameter};
+      if (remaining.find(dependency) == remaining.end()) continue;
+      ++remaining[key];
+      dependents[dependency].push_back(key);
+    }
+  }
+  std::vector<Key> ready;
+  for (const auto& [key, count] : remaining) if (count == 0) ready.push_back(key);
+  for (size_t i = 0; i < ready.size(); ++i)
+    for (const auto& key : dependents[ready[i]]) if (--remaining[key] == 0) ready.push_back(key);
+  if (ready.size() != remaining.size()) {
+    if (error) *error = "cyclic expressions (including stable self references)";
+    return false;
+  }
   struct ScratchCtx {
     std::map<std::string, ShapeRecord>* scratch;
     std::string* error;
@@ -534,17 +557,23 @@ bool EvaluateAllExpressions(std::vector<std::string>* changed,
       }
     }
     if (!moved) {
-      // All validated: commit scratch → store in one pass.
-      for (const auto& fid : changedSet) {
-        auto it = scratch.find(fid);
-        if (it != scratch.end()) ShapeStore::instance().put(it->second);
-      }
       *changed = std::vector<std::string>(changedSet.begin(), changedSet.end());
       return true;
     }
   }
   if (error) *error = "cyclic expressions (A depends on B depends on A)";
   return false;
+}
+
+bool EvaluateAllExpressions(std::vector<std::string>* changed,
+                            std::string* error) {
+  std::map<std::string, ShapeRecord> scratch;
+  for (const auto& rec : ShapeStore::instance().listInOrder()) scratch[rec.featureId] = rec;
+  if (!EvaluateExpressionSnapshot(&scratch, ExpressionStore::instance().listInOrder(), changed, error))
+    return false;
+  // Preserve the two-phase live path: publish only after every formula validates.
+  for (const auto& id : *changed) ShapeStore::instance().put(scratch.at(id));
+  return true;
 }
 
 std::string SerializeExpressionMap(

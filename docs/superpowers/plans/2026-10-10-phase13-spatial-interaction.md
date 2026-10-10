@@ -45,16 +45,16 @@
 
 ### Task 2: Pure preview through the selected body tip
 
-**Files:** native/kreoda-core/src/features/primitives/primitives.{h,cpp}; native/kreoda-core/src/features/rebuild.cpp; native/kreoda-core/src/protocol/dispatcher.cpp; native/kreoda-core/tests/test_topology.cpp and test_torture_phase10.cpp.
+**Files:** native/kreoda-core/src/features/primitives/primitives.{h,cpp}; native/kreoda-core/src/expressions/expressions.{h,cpp}; native/kreoda-core/src/features/booleans/boolean.{h,cpp}; native/kreoda-core/src/protocol/dispatcher.cpp; native/kreoda-core/tests/test_topology.cpp and test_sketch.cpp.
 
 **Interfaces:** Add `BuildPreviewBodyMesh(featureId, paramName, valueMm, tipId, CoreMesh*, error)`; consume actual ShapeRecord recipes and existing Build*Shape helpers. Optional native `previewTipId` preserves existing single-feature preview callers.
 
-- [ ] RED: Box→Hole and Sketch→Extrude→Hole previews of an upstream dimension match a subsequent confirmed edit's tip bounds/volume while stores, expressions, revision, Undo and OCAF remain unchanged.
-- [ ] RED: invalid dependent operation, unrelated requested tip, cyclic/missing dependency and transformed Instance fail without changing committed state.
-- [ ] Build only the affected dependency closure in a temporary ShapeRecord map. Resolve dependencies from that map or immutable committed inputs. Use detached candidate geometry where a builder/tessellator could mutate shared topology. Never temporarily overwrite the global store or use commit+Undo as preview.
-- [ ] Resolve the requested tip's semantic mesh using its actual feature identity and level0. Validate requested tip membership/ownership before native invocation in Task3.
-- [ ] Extend the pure candidate input to a checked list of distinct parameter/value changes for compound planar/position/rotation handles. Apply them to temporary parameters before rebuilding; never synthesize a compound preview by overwriting live parameters.
-- [ ] GREEN: run actual native tests, compare preview vs actual committed geometry and persistence/revision invariants. Keep single-feature preview compatibility.
+- [x] RED: Box→Hole and Sketch→Extrude→Hole previews of an upstream dimension match a subsequent confirmed edit's tip bounds/volume while stores, expressions, revision, Undo and OCAF remain unchanged.
+- [x] RED: invalid dependent operation, unrelated requested tip, cyclic/missing dependency and transformed Instance fail without changing committed state.
+- [x] Build only the affected dependency closure in a temporary ShapeRecord map. Resolve dependencies from that map or immutable committed inputs. Use detached candidate geometry where a builder/tessellator could mutate shared topology. Never temporarily overwrite the global store or use commit+Undo as preview.
+- [x] Resolve the requested tip's semantic mesh using its actual feature identity and level0. Validate requested tip membership/ownership before native invocation in Task3.
+- [x] Extend the pure candidate input to a checked list of distinct parameter/value changes for compound planar/position/rotation handles. Apply them to temporary parameters before rebuilding; never synthesize a compound preview by overwriting live parameters.
+- [x] GREEN: run actual native tests, compare preview vs actual committed geometry and persistence/revision invariants. Keep single-feature preview compatibility.
 
 ### Task 3: Separate bounded preview binary transport
 

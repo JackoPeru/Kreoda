@@ -1,0 +1,13 @@
+{
+  "tests": 169,
+  "failures": 0,
+  "seconds": 80.407,
+  "coreSha256": "ca537fe49ac1a32b863fe78ffe560bc50c9f42a5885ade660057c99ef27075a8",
+  "sourceManifestSha256": "885305a94f18f6cd93828302d0dda320bf5f6e63b4ca14155d93ea4b7b03e1cc",
+  "sourceFiles": 767,
+  "reviewerThreadId": "01a1273e-a178-7ac3-81ae-a9368d8a9d7c",
+  "model": "gpt-6-sol",
+  "effort": "high",
+  "verdict": "ship",
+  "notDeployed": true
+}
