@@ -16,7 +16,7 @@ public static class QuestConnectionInput
             !IPAddress.TryParse(candidate.Host, out var address) || address.AddressFamily != AddressFamily.InterNetwork)
             return false;
         var bytes = address.GetAddressBytes();
-        if (!(bytes[0] == 10 || (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+        if (!(IPAddress.IsLoopback(address) || bytes[0] == 10 || (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
             (bytes[0] == 192 && bytes[1] == 168))) return false;
         endpoint = candidate;
         return true;

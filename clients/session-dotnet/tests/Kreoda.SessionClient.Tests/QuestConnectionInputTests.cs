@@ -12,14 +12,14 @@ public sealed class QuestConnectionInputTests
     [InlineData("ws://172.31.255.254:9000/", true)]
     [InlineData("ws://172.32.0.1:9000/", false)]
     [InlineData("ws://8.8.8.8:9000/", false)]
-    [InlineData("ws://127.0.0.1:9000/", false)]
+    [InlineData("ws://127.0.0.1:9000/", true)]
     [InlineData("ws://169.254.0.1:9000/", false)]
     [InlineData("ws://pc.local:9000/", false)]
     [InlineData("ws://[::1]:9000/", false)]
     [InlineData("ws://secret@192.168.1.7:9000/", false)]
     [InlineData("ws://192.168.1.7:9000/?token=secret", false)]
     [InlineData("https://192.168.1.7:9000/", false)]
-    public void EndpointRequiresExplicitPrivateLanIpv4WithoutSecrets(string text, bool allowed)
+    public void EndpointAcceptsExplicitPrivateLanOrUsbLoopbackIpv4WithoutSecrets(string text, bool allowed)
     {
         Assert.Equal(allowed, QuestConnectionInput.TryEndpoint(text, out var endpoint));
         if (allowed) Assert.Equal("ws", endpoint!.Scheme);

@@ -19,7 +19,12 @@ namespace Kreoda.QuestRuntime.Tests
     public class QuestConnectionTests
     {
         [UnityTest]
-        public IEnumerator PairAndReconnectUploadAuthenticNativeMeshThroughActualUnityClient()
+        public IEnumerator PairAndReconnectUploadAuthenticNativeMeshThroughActualUnityClient() => ExerciseWireClient(false);
+
+        [UnityTest]
+        public IEnumerator UsbBootstrapPairsAndReconnectsOverLoopbackWithActualMesh() => ExerciseWireClient(true);
+
+        IEnumerator ExerciseWireClient(bool usbBootstrap)
         {
             var repository = Path.GetFullPath(Path.Combine(Application.dataPath, "../../.."));
             var file = Path.Combine(repository, "packages/protocol/fixtures/native-blind-hole.meshfb");
@@ -51,7 +56,13 @@ namespace Kreoda.QuestRuntime.Tests
                 connection.DisplayRoot = display.transform;
                 typeof(QuestConnection).GetField("_credentialFile", BindingFlags.Instance | BindingFlags.NonPublic)
                     .SetValue(connection, credentials);
-                connection.Pair("ws://" + ip + ":" + port, "0123 4567");
+                if (usbBootstrap)
+                {
+                    var bootstrap = typeof(QuestConnection).GetMethod("ApplyStartupConfiguration", BindingFlags.Instance | BindingFlags.NonPublic);
+                    Assert.That(bootstrap, Is.Not.Null, "ADB startup provisioning must configure the actual connection without UI input");
+                    Assert.That(bootstrap.Invoke(connection, new object[] { "ws://127.0.0.1:" + port + "/", "0123 4567" }), Is.EqualTo(true));
+                }
+                else connection.Pair("ws://" + ip + ":" + port, "0123 4567");
                 var update = typeof(QuestConnection).GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic);
                 wait.Restart();
                 while (connection.Views.Count == 0 && wait.Elapsed.TotalSeconds < 15)

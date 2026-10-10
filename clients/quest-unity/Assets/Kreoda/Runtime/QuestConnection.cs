@@ -66,7 +66,28 @@ namespace Kreoda.QuestRuntime
 #endif
             _credentialFile = Path.Combine(directory, "kreoda-device.dat");
             _saved = ReadDevice();
+#if UNITY_ANDROID && !UNITY_EDITOR
+            using (var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            using (var activity = player.GetStatic<AndroidJavaObject>("currentActivity"))
+            using (var intent = activity.Call<AndroidJavaObject>("getIntent"))
+            {
+                var endpoint = intent.Call<string>("getStringExtra", "kreoda.endpoint");
+                var code = intent.Call<string>("getStringExtra", "kreoda.pairing-code");
+                // Consume one-use setup input; the existing private credential file
+                // handles later reconnects without codes or headset interaction.
+                intent.Call("removeExtra", "kreoda.endpoint");
+                intent.Call("removeExtra", "kreoda.pairing-code");
+                if (ApplyStartupConfiguration(endpoint, code)) return;
+            }
+#endif
             if (_saved != null) StartConnection(null, null);
+        }
+
+        bool ApplyStartupConfiguration(string endpoint, string code)
+        {
+            if (string.IsNullOrEmpty(endpoint)) return false;
+            Pair(endpoint, code);
+            return true;
         }
 
         public void Pair(string endpointText, string codeText)
@@ -182,7 +203,7 @@ namespace Kreoda.QuestRuntime
                         }
                         if (client.Model == null) throw new SessionException("BAD_MODEL", "snapshot missing");
                         Capture(run, client, generation, client.Model, null);
-                        Post(run, () => { Connected = true; Status = "Connesso al PC"; });
+                        Post(run, () => { Connected = true; Status = "Connesso al PC"; UnityEngine.Debug.Log("KREODA_CONNECTED"); });
                         attempt = 0;
                         while (!ct.IsCancellationRequested)
                         {
@@ -212,6 +233,8 @@ namespace Kreoda.QuestRuntime
                         CancelMeshes();
                         Status = unauthorized ? "Associazione scaduta o revocata: riassocia" :
                             code != null ? "Associazione fallita: verifica codice e rete" : "Offline: modello conservato. Riconnessione…";
+                        UnityEngine.Debug.LogWarning("KREODA_CONNECTION_ERROR " + error.GetType().Name +
+                            (error is SessionException failure ? " " + failure.Code : ""));
                     });
                     // Never keep guessing a one-use pairing code or revoked credential.
                     if (code != null || unauthorized) break;
@@ -285,6 +308,7 @@ namespace Kreoda.QuestRuntime
         void NotifySceneChanged()
         {
             TriangleCount = _views.Values.Sum(view => (long)view.TriangleCount);
+            UnityEngine.Debug.Log("KREODA_MODEL objects=" + _views.Count + " triangles=" + TriangleCount);
             SceneChanged?.Invoke();
         }
 
