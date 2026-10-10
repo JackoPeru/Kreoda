@@ -142,5 +142,39 @@ namespace Kreoda.QuestRuntime.Tests
             Call("UpdatePanelDrag", far, false, true);
             Assert.That(Vector3.Distance(_controls.transform.position, head.position + head.forward), Is.LessThan(.001f));
         }
+
+        [Test]
+        public void CodeDraftSurvivesKeyboardLosingFocus()
+        {
+            typeof(QuestControls).GetField("_editingCode", Private).SetValue(_controls, true);
+            Call("ApplyKeyboardInput", "8765 4321", TouchScreenKeyboard.Status.Visible);
+            Call("ApplyKeyboardInput", "", TouchScreenKeyboard.Status.LostFocus);
+            Assert.That(typeof(QuestControls).GetField("_code", Private).GetValue(_controls), Is.EqualTo("8765 4321"));
+        }
+
+        [Test]
+        public void LatestEndpointIsKeptWhenKeyboardClosesWithoutDone()
+        {
+            Call("ApplyKeyboardInput", " ws://192.168.1.7:9842 ", TouchScreenKeyboard.Status.LostFocus);
+            Assert.That(typeof(QuestControls).GetField("_endpoint", Private).GetValue(_controls), Is.EqualTo("ws://192.168.1.7:9842"));
+        }
+
+        [Test]
+        public void DismissingKeyboardKeepsTheEnteredDraft()
+        {
+            typeof(QuestControls).GetField("_editingCode", Private).SetValue(_controls, true);
+            Call("ApplyKeyboardInput", "87654321", TouchScreenKeyboard.Status.Visible);
+            Call("ApplyKeyboardInput", "", TouchScreenKeyboard.Status.Canceled);
+            Assert.That(typeof(QuestControls).GetField("_code", Private).GetValue(_controls), Is.EqualTo("87654321"));
+        }
+
+        [Test]
+        public void DoneCanDeliberatelyClearTheEnteredDraft()
+        {
+            typeof(QuestControls).GetField("_editingCode", Private).SetValue(_controls, true);
+            Call("ApplyKeyboardInput", "87654321", TouchScreenKeyboard.Status.Visible);
+            Call("ApplyKeyboardInput", "", TouchScreenKeyboard.Status.Done);
+            Assert.That(typeof(QuestControls).GetField("_code", Private).GetValue(_controls), Is.EqualTo(""));
+        }
     }
 }

@@ -196,15 +196,7 @@ namespace Kreoda.QuestRuntime
         void Update()
         {
             if (_keyboard != null)
-            {
-                if (_keyboard.status == TouchScreenKeyboard.Status.Done)
-                {
-                    if (_editingCode) _code = _keyboard.text; else _endpoint = _keyboard.text.Trim();
-                    _keyboard = null;
-                }
-                else if (_keyboard.status == TouchScreenKeyboard.Status.Canceled ||
-                    _keyboard.status == TouchScreenKeyboard.Status.LostFocus) _keyboard = null;
-            }
+                ApplyKeyboardInput(_keyboard.text, _keyboard.status);
             if (_status == null) return;
             var status = Connection.Status.Length > 46 ? Connection.Status.Substring(0, 43) + "…" : Connection.Status;
             if (_status.text != status) _status.text = status;
@@ -266,6 +258,18 @@ namespace Kreoda.QuestRuntime
             _target.text = (_selectionMode == 0 ? "Corpo" : _selectionMode == 1 ? "Faccia" : "Bordo") +
                 (view.InstanceId != null ? " · istanza" : "") + " selezionato\nIngombro CAD " + dimensions +
                 (_hit?.ReferenceAmbiguous == true ? "\nFaccia/bordo non univoco: invio disattivo" : "");
+        }
+
+        void ApplyKeyboardInput(string text, TouchScreenKeyboard.Status status)
+        {
+            // Quest's keyboard may close with LostFocus instead of Done.
+            // Capture live text and retain it if the closing keyboard clears its buffer.
+            if (status == TouchScreenKeyboard.Status.Visible || status == TouchScreenKeyboard.Status.Done ||
+                !string.IsNullOrEmpty(text))
+            {
+                if (_editingCode) _code = text ?? ""; else _endpoint = (text ?? "").Trim();
+            }
+            if (status != TouchScreenKeyboard.Status.Visible) _keyboard = null;
         }
 
         void RefreshSelection()
