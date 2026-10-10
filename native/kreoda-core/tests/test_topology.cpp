@@ -196,6 +196,7 @@ TEST(Topology, PreviewDoesNotCommit) {
   // Preview arrives as a FlatBuffers mesh (§8): would-be width 999.
   const auto* update = kreoda_test::meshRoot(pv);
   ASSERT_NE(update, nullptr);
+  EXPECT_EQ(update->lod(), 0) << "Preview must identify its actual level-0 tessellation";
   EXPECT_DOUBLE_EQ(update->volume_mm3(), 999.0 * 50.0 * 20.0);
 #else
   GTEST_SKIP() << "preview binary needs flatbuffers";

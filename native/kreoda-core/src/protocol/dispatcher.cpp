@@ -1068,7 +1068,7 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
                                           error.empty() ? paramName : error));
         }
         std::vector<uint8_t> preview =
-            mesh_success(requestId, featureId, 1, mesh, &error);
+            mesh_success(requestId, featureId, 0, mesh, &error);
         if (preview.empty()) {
           return make_response(requestId, "error",
                                error_body("PREVIEW_FAILED", error.empty()
