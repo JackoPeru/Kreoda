@@ -1,0 +1,17 @@
+{
+  "verdict": "ship",
+  "threadId": "01a125ed-2b8d-7d11-8460-f38f6e6f245f",
+  "agentPath": "/root/review_phase12_packet34_corrected_fresh",
+  "model": "gpt-6-sol",
+  "effort": "high",
+  "sandboxPolicy": "danger-full-access",
+  "permissionProfile": "disabled",
+  "readOnlyEnforced": false,
+  "sourceFiles": 758,
+  "sourceBeforeAfterUnchanged": true,
+  "sourceManifestSha256": "833f43e497b0889b8fa0ca9a12e575dc290715f9a15b7e08a79e25eddafe243f",
+  "runtimeCommit": "09b65d1836f29492f53967704506e10e5fb03e68",
+  "apkSha256": "cf676a7f08e943d10df9fb5c84c0487fb0f466b25eb8f36bdfab44dadabe125a",
+  "reason": "Accumulated Packet3/4 source internally accepted; distinct placement preview preserves mesh/semantics and restores style. No required correction.",
+  "boundary": "Internal Packet3/4 implementation only. Physical11-item Quest acceptance, headset performance/networking, exact new hosted CI and Phases13-16 remain."
+}

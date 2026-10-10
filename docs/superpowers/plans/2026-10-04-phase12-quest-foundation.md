@@ -58,26 +58,26 @@
 
 **Files:** clients/quest-unity project (Packages, ProjectSettings, Assets/Kreoda/Runtime, Editor build script, tests); shared QuestFoundation scene state as needed.
 
-- [ ] Create reproducible Unity project/build CLI with pinned stable packages, ARM64 IL2CPP and required network manifest permissions.
-- [ ] Compact spatial connection panel accepts PC endpoint + single-use pairing code, then stores device credential locally; auto reconnects paired PC and reports actual connection state.
-- [ ] Subscribe to model snapshots/deltas on background tasks; enqueue Unity changes on the main thread. Coalesce mesh requests per current body tip/revision and discard stale completions.
-- [ ] Build shaded Unity Mesh objects, edge overlay, face/edge highlight and transparent preview style. Keep persistent mapping independent of GameObject/array indexes. Destroy replaced meshes and materials on removal/replacement/shutdown.
-- [ ] Set display root to convert right-handed CAD Z-up mm to Unity world meters with correct winding/normals and unchanged semantic triangle spans.
-- [ ] Implement local ray/controller selection, optional publish target, body/face/edge lookup and readable model status. Phase 13 owns modeling gestures.
-- [ ] Editor tests use real shared decoder fixtures and scene diffs; actual Editor/IL2CPP builds verify plugin loading and no duplicate runtime assemblies.
-- [ ] Commit verified client packet.
+- [x] Create reproducible Unity project/build CLI with pinned stable packages, ARM64 IL2CPP and required network manifest permissions.
+- [x] Compact spatial connection panel accepts PC endpoint + single-use pairing code, then stores device credential locally; auto reconnects paired PC and reports actual connection state.
+- [x] Subscribe to model snapshots/deltas on background tasks; enqueue Unity changes on the main thread. Coalesce mesh requests per current body tip/revision and discard stale completions.
+- [x] Build shaded Unity Mesh objects, edge overlay, face/edge highlight and transparent preview style. Keep persistent mapping independent of GameObject/array indexes. Destroy replaced meshes and materials on removal/replacement/shutdown.
+- [x] Set display root to convert right-handed CAD Z-up mm to Unity world meters with correct winding/normals and unchanged semantic triangle spans.
+- [x] Implement local ray/controller selection, optional publish target, body/face/edge lookup and readable model status. Phase 13 owns modeling gestures.
+- [x] Editor tests use real shared decoder fixtures and scene diffs; actual Editor/IL2CPP builds verify plugin loading and no duplicate runtime assemblies.
+- [x] Commit verified client packet.
 
 ## Packet 4 — MR placement, display controls and performance
 
 **Files:** Quest runtime placement/environment/preferences/metrics; minimal Meta SDK configuration; XR build validation.
 
-- [ ] Configure real OpenXR loader and OVRCameraRig/OVRManager passthrough. Transparent camera + underlay; neutral VR workspace fallback. Verify required native library/manifest assets in built APK.
-- [ ] Place, reposition, rotate and recenter display root; table placement can use controller/ray placement first. Persist local session anchor and display preference separately from CAD state.
-- [ ] Add 1:10, 1:5, 1:1, 2:1, 10:1 and Fit display scales. Assert native CAD dimensions/revision unchanged across these controls.
-- [ ] Retain local dominant-hand, UI-handedness, panel and passthrough settings. No network waits in Update/hand/head response.
-- [ ] Track frame time/FPS, RTT, mesh latency, preview latency, memory and triangles; expose a small optional diagnostics view. LOD budget downgrade and inspection request use the server API.
-- [ ] Hidden batch validation and ARM64 APK build. Record exact source, package lock, native plugins, APK hash and untested hardware boundaries.
-- [ ] Commit verified MR packet and request headset connection only when this actual client APK is ready.
+- [x] Configure real OpenXR loader and OVRCameraRig/OVRManager passthrough. Transparent camera + underlay; neutral VR workspace fallback. Verify required native library/manifest assets in built APK.
+- [x] Place, reposition, rotate and recenter display root; table placement can use controller/ray placement first. Persist local session anchor and display preference separately from CAD state.
+- [x] Add 1:10, 1:5, 1:1, 2:1, 10:1 and Fit display scales. Assert native CAD dimensions/revision unchanged across these controls.
+- [x] Retain local dominant-hand, UI-handedness, panel and passthrough settings. No network waits in Update/hand/head response.
+- [x] Track frame time/FPS, RTT, mesh latency, preview latency, memory and triangles; expose a small optional diagnostics view. LOD budget downgrade and inspection request use the server API.
+- [x] Hidden batch validation and ARM64 APK build. Record exact source, package lock, native plugins, APK hash and untested hardware boundaries.
+- [x] Commit verified MR packet and request headset connection only when this actual client APK is ready.
 
 ## Packet 5 — Actual Quest 3 acceptance and final gates
 
