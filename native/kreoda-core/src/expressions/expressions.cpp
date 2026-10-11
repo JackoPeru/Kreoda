@@ -152,6 +152,8 @@ bool Parser::parseTerm(double* out, EvalCtx* ctx) {
       const char op = *p++;
       double rhs = 0;
       if (!parseFactor(&rhs, ctx)) return false;
+      // Dependency collection validates grammar without evaluating placeholder values.
+      if (ctx->collectOnly) continue;
       if (op == '*') {
         v *= rhs;
       } else {
