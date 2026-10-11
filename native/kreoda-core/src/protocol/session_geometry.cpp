@@ -287,8 +287,11 @@ Json manipulators(const Json& p) {
   else if(rec.type=="Chamfer")add("distance","linear","distanceMm","mm");
   else if(rec.type=="Instance"&&values.size()==6) {
     const Json position=Json::array({values[0],values[1],values[2]});
-    out.push_back({{"id","position"},{"type","position"},{"parameters",{"txMm","tyMm","tzMm"}},{"origin",position},{"unit","mm"}});
-    out.push_back({{"id","rotation"},{"type","angular"},{"parameters",{"rxDeg","ryDeg","rzDeg"}},{"origin",position},{"unit","deg"},{"rotationConvention","extrinsic-ZYX"}});
+    const Json basis=Json::array({{1,0,0},{0,1,0},{0,0,1}});
+    out.push_back({{"id","position"},{"type","position"},{"parameters",{"txMm","tyMm","tzMm"}},{"origin",position},{"unit","mm"},{"basis",basis}});
+    out.push_back({{"id","position-xy"},{"type","planar"},{"parameters",{"txMm","tyMm"}},{"origin",position},{"unit","mm"},
+      {"xAxis",{1,0,0}},{"yAxis",{0,1,0}},{"normal",{0,0,1}}});
+    out.push_back({{"id","rotation"},{"type","angular"},{"parameters",{"rxDeg","ryDeg","rzDeg"}},{"origin",position},{"unit","deg"},{"basis",basis},{"rotationConvention","extrinsic-ZYX"}});
   }
   return {{"featureId",rec.featureId},{"manipulators",out}};
 }

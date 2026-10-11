@@ -282,7 +282,8 @@ public sealed class SessionClient : IAsyncDisposable
         IDictionary<string, object?> @params,
         CancellationToken ct = default,
         string? operationId = null,
-        string? expectedSessionId = null)
+        string? expectedSessionId = null,
+        Action? beforeSend = null)
     {
         bool open;
         try
@@ -323,6 +324,9 @@ public sealed class SessionClient : IAsyncDisposable
             await _sendGate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
+                // Runs after the send queue, immediately before handing bytes to
+                // the socket. A semantic cancellation can veto without sending.
+                beforeSend?.Invoke();
                 await _ws.SendAsync(Encoding.UTF8.GetBytes(text), WebSocketMessageType.Text, endOfMessage: true, ct).ConfigureAwait(false);
             }
             finally { _sendGate.Release(); }
@@ -330,6 +334,7 @@ public sealed class SessionClient : IAsyncDisposable
         catch (Exception ex)
         {
             _pending.TryRemove(requestId, out _);
+            if (ex is SessionException) throw;
             throw new SessionException("SEND_FAILED", ex.Message);
         }
         using (ct.Register(() =>

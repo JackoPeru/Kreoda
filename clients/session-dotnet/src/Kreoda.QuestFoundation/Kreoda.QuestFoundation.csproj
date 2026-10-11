@@ -13,4 +13,8 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Kreoda.SessionClient\Kreoda.SessionClient.csproj" />
+  </ItemGroup>
+
 </Project>

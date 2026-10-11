@@ -44,7 +44,7 @@ public sealed class SessionMeshTests
     private static byte[] FloatBytes(float[] values) => MemoryMarshal.AsBytes(values.AsSpan()).ToArray();
     private static byte[] UintBytes(uint[] values) => MemoryMarshal.AsBytes(values.AsSpan()).ToArray();
 
-    private static byte[] MeshFrame(string requestId, int quality, long revision = 7, uint[]? indices = null, string tipId = "tip-1", bool includeEdges = true)
+    internal static byte[] MeshFrame(string requestId, int quality, long revision = 7, uint[]? indices = null, string tipId = "tip-1", bool includeEdges = true)
     {
         var positions = new[] { 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f };
         var normals = new[] { 0f, 0f, 1f, 0f, 0f, 1f, 0f, 0f, 1f };
@@ -166,10 +166,11 @@ public sealed class SessionMeshTests
         var preview = client.RequestPreviewMeshAsync("preview-1", 0, "doc-phase1", 7);
         var ordinary = client.RequestMeshLodAsync("body-root", 1, "doc-phase1", 7);
         await Task.WhenAll(preview, ordinary);
-        Assert.Equal("root", preview.Result.Header.FeatureId);
-        Assert.Equal("tip-1", ordinary.Result.Header.FeatureId);
-        Assert.Equal(0, preview.Result.Mesh.Header.Quality);
-        Assert.Equal(1, ordinary.Result.Header.Quality);
+        var candidate = await preview;var committed = await ordinary;
+        Assert.Equal("root", candidate.Header.FeatureId);
+        Assert.Equal("tip-1", committed.Header.FeatureId);
+        Assert.Equal(0, candidate.Mesh.Header.Quality);
+        Assert.Equal(1, committed.Header.Quality);
         Assert.Null(client.Model);
     }
 

@@ -184,3 +184,29 @@ TEST(SessionGeometry, ManipulatorUsesStoredSketchFrameRatherThanPlaneKind) {
   EXPECT_NEAR(manip["origin"][1].get<double>(),65,1e-7);
   EXPECT_NEAR(manip["origin"][2].get<double>(),70,1e-7);
 }
+
+TEST(SessionGeometry, InstanceDeclaresPositionAndPlanarBasisInCadCoordinates) {
+  kreoda::DocumentStore::instance().create("geometry-doc");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("basis-box", 100, 50, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateInstanceFeature("basis-inst", "basis-box", {10, 20, 30, 0, 0, 90}, &error)) << error;
+  const auto result = query("getManipulators", {{"featureId", "basis-inst"}});
+  ASSERT_EQ(result["status"], "ok") << result;
+  bool planar = false, position = false;
+  for (const auto& manip : result["result"]["manipulators"]) {
+    if (manip["type"] == "planar") {
+      planar = true;
+      EXPECT_EQ(manip["parameters"], kreoda::Json::array({"txMm", "tyMm"}));
+      EXPECT_EQ(manip["xAxis"], kreoda::Json::array({1, 0, 0}));
+      EXPECT_EQ(manip["yAxis"], kreoda::Json::array({0, 1, 0}));
+      EXPECT_EQ(manip["normal"], kreoda::Json::array({0, 0, 1}));
+      EXPECT_EQ(manip["origin"], kreoda::Json::array({10, 20, 30}));
+    }
+    if (manip["type"] == "position") {
+      position = true;
+      ASSERT_TRUE(manip.contains("basis"));
+      EXPECT_EQ(manip["basis"], kreoda::Json::array({{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}));
+    }
+  }
+  EXPECT_TRUE(planar);EXPECT_TRUE(position);
+}

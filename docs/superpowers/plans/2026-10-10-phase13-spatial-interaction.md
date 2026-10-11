@@ -75,16 +75,16 @@
 
 ### Task 4: Semantic edit intent and preview worker
 
-**Files:** clients/session-dotnet/src/Kreoda.QuestFoundation/SpatialEditIntent.cs and SpatialEditWorker.cs; its existing test project; canonical manipulator DTOs if needed.
+**Files:** clients/session-dotnet/src/Kreoda.QuestFoundation/{SpatialEditIntent.cs,SpatialEditWorker.cs,Kreoda.QuestFoundation.csproj}; clients/session-dotnet/src/Kreoda.SessionClient/SessionClient.cs for the synchronized send veto; its existing test project; native/kreoda-core/src/protocol/session_geometry.cpp and tests/test_session_geometry.cpp for declared planar/position/rotation bases. Foundation references the existing engine-neutral SessionClient directly; no alternate command registry.
 
 **Interfaces:** An immutable intent contains session/document/base revision, owner feature, canonical parameter/unit, validated origin/axis/type and target body/tip. One serialized worker owns Begin/Update/final value/Commit/Cancel and the latest preview generation.
 
-- [ ] RED: inverse display transforms at1:10,1:1,10:1 produce the same CAD scalar for equal CAD displacement; angular inputs use degrees and projected signed axes.
-- [ ] Validate finite geometry, nonzero axes, supported linear/radial/angular/planar/position manipulator metadata. Lock intent on initial pinch/grab; changing hover cannot change the locked owner/axis.
-- [ ] Position/planar and multi-axis rotation intents retain the actual parameter list and semantic basis. Add a native declared plane/basis for a constrained Instance planar handle; do not invent unsupported ownership or axes in Unity. Tests cover signed planar components and the existing extrinsic-ZYX Instance rotation convention.
-- [ ] Coalesce newest draft value, one outstanding update, cadence100ms. Local prediction runs every frame. Release flushes final value before one canonical commit. Snap suggestions use the parameter's unit; exact numeric input shares the same validation/worker.
-- [ ] RED/GREEN: release vs cancel, tracking/focus/hand/session/revision changes, delayed preview and lost commit acknowledgement. Cancel restores committed display; uncertain commit obtains current snapshot/operation status before any retry.
-- [ ] Test locks against concurrent Desktop edit of the same feature and preserve unrelated renderer response. Commit verified state/worker.
+- [x] RED: inverse display transforms at1:10,1:1,10:1 produce the same CAD scalar for equal CAD displacement; angular inputs use degrees and projected signed axes.
+- [x] Validate finite geometry, nonzero axes, supported linear/radial/angular/planar/position manipulator metadata. Lock intent on initial pinch/grab; changing hover cannot change the locked owner/axis.
+- [x] Position/planar and multi-axis rotation intents retain the actual parameter list and semantic basis. Add a native declared plane/basis for a constrained Instance planar handle; do not invent unsupported ownership or axes in Unity. Tests cover signed planar components and the existing extrinsic-ZYX Instance rotation convention.
+- [x] Coalesce newest draft value, one outstanding update, cadence100ms. Local prediction runs every frame. Release flushes final value before one canonical commit. Snap suggestions use the parameter's unit; exact numeric input shares the same validation/worker.
+- [x] RED/GREEN: release vs cancel, tracking/focus/hand/session/revision changes, delayed preview and lost commit acknowledgement. Cancel restores committed display; uncertain commit obtains current snapshot/operation status before any retry.
+- [x] Test locks against concurrent Desktop edit of the same feature and preserve unrelated renderer response. Commit verified state/worker.
 
 ### Task 5: Quest model/edit interaction and readable dimensions
 
