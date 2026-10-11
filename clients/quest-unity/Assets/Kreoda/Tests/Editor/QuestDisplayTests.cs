@@ -80,6 +80,21 @@ namespace Kreoda.QuestRuntime.Tests
             Assert.That(_display.PlacementActive, Is.False);
         }
 
+        [Test]
+        public void TwoHandGestureChangesOnlyDisplayAndTrackingLossRestoresItsStart()
+        {
+            _display.Place(new Vector3(0, 1, 1), 0);
+            var before = _view.GetComponent<MeshFilter>().sharedMesh.vertices;
+            var original = Root.position;var originalScale = Root.localScale;
+            Assert.That(_display.BeginTwoHand(new Vector3(-.1f, 1, 1), new Vector3(.1f, 1, 1)), Is.True);
+            _display.UpdateTwoHand(new Vector3(0, 1, 1), new Vector3(.4f, 1, 1), true);
+            Assert.That(Root.localScale.x, Is.EqualTo(2).Within(.0001));
+            Assert.That(_view.GetComponent<MeshFilter>().sharedMesh.vertices, Is.EqualTo(before));
+            _display.EndTwoHand(false);
+            Assert.That(Root.position, Is.EqualTo(original));Assert.That(Root.localScale, Is.EqualTo(originalScale));
+            Assert.That(_display.TwoHandActive, Is.False);
+        }
+
         QuestMeshView AddAlreadyPlacedInstance()
         {
             var source = QuestMeshViewTests.NativeFixture();

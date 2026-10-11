@@ -38,6 +38,10 @@ server.on("connection", socket => socket.on("message", data => {
         quality: fixture.quality, byteLength: bytes.length } });
       socket.send(bytes);
       break;
+    case "getManipulators":
+      reply({ result: { featureId: fixture.featureId, manipulators: [{ id: "width", type: "linear",
+        parameter: "widthMm", unit: "mm", origin: [100, 25, 10], axis: [1, 0, 0], currentValues: { widthMm: 100 } }] } });
+      break;
     default:
       reply({ result: {} });
   }

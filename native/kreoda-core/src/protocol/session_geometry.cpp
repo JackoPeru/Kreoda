@@ -293,6 +293,18 @@ Json manipulators(const Json& p) {
       {"xAxis",{1,0,0}},{"yAxis",{0,1,0}},{"normal",{0,0,1}}});
     out.push_back({{"id","rotation"},{"type","angular"},{"parameters",{"rxDeg","ryDeg","rzDeg"}},{"origin",position},{"unit","deg"},{"basis",basis},{"rotationConvention","extrinsic-ZYX"}});
   }
+  const auto names=DescribeParams(rec.type);
+  for(auto& manip:out) {
+    Json current=Json::object();
+    const Json parameters=manip.contains("parameters")?manip["parameters"]:Json::array({manip["parameter"]});
+    for(const auto& name:parameters) {
+      const auto found=std::find(names.begin(),names.end(),name.get<std::string>());
+      if(found==names.end()||static_cast<std::size_t>(found-names.begin())>=values.size())
+        fail("QUERY_FAILED","manipulator parameter has no canonical value");
+      current[name.get<std::string>()]=values[found-names.begin()];
+    }
+    manip["currentValues"]=std::move(current);
+  }
   return {{"featureId",rec.featureId},{"manipulators",out}};
 }
 Json validate(const std::string& method,const Json& p) {

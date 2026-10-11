@@ -90,6 +90,38 @@ namespace Kreoda.QuestRuntime.Tests
         }
 
         [Test]
+        public void NumericEditFocusLossDiscardsPendingConfirmation()
+        {
+            typeof(QuestControls).GetField("_editingValue", Private).SetValue(_controls, true);
+            typeof(QuestControls).GetField("_pendingExact", Private).SetValue(_controls,
+                new System.Collections.Generic.Dictionary<string, double> { ["widthMm"] = 120 });
+            Call("OnApplicationFocus", false);
+            Assert.That(typeof(QuestControls).GetField("_editingValue", Private).GetValue(_controls), Is.False);
+            Assert.That(typeof(QuestControls).GetField("_pendingExact", Private).GetValue(_controls), Is.Null);
+        }
+
+        [Test]
+        public void TrackedHandHasPriorityOverConnectedController()
+        {
+            var choose = typeof(QuestControls).GetMethod("ChooseInputSource", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(choose, Is.Not.Null);
+            Assert.That(choose.Invoke(null, new object[] { true, true, true }), Is.EqualTo(1));
+            Assert.That(choose.Invoke(null, new object[] { false, true, true }), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void SourceHandoffCancelsHeldEditAndRequiresFreshPress()
+        {
+            _controls.Spatial = _root.AddComponent<QuestSpatialEdit>();
+            Call("SetPointerSource", 3);
+            typeof(QuestSpatialEdit).GetField("_held", Private).SetValue(_controls.Spatial, true);
+            typeof(QuestControls).GetField("_requireRelease", Private).SetValue(_controls, false);
+            Call("SetPointerSource", 2);
+            Assert.That(_controls.Spatial.Holding, Is.False);
+            Assert.That(typeof(QuestControls).GetField("_requireRelease", Private).GetValue(_controls), Is.True);
+        }
+
+        [Test]
         public void HeaderGrabMovesWithoutJumpAndReleaseStopsFollowing()
         {
             var before = _controls.transform.position;

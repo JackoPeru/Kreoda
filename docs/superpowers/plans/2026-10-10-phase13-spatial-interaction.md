@@ -88,16 +88,16 @@
 
 ### Task 5: Quest model/edit interaction and readable dimensions
 
-**Files:** clients/quest-unity/Assets/Kreoda/Runtime/{QuestControls.cs,QuestConnection.cs,QuestSpatialEdit.cs,QuestDimensions.cs,QuestPreviewView.cs}; Editor build validation and Unity tests.
+**Files:** clients/quest-unity/Assets/Kreoda/Runtime/{QuestControls.cs,QuestConnection.cs,QuestDisplay.cs,QuestSpatialEdit.cs,QuestDimensions.cs,QuestPreviewView.cs}; Editor build validation/scene and Unity tests; shared SpatialEditIntent.ProjectedPoint and its tests; native session_geometry named currentValues and canonical query interface.
 
-**Interfaces:** Consume Task4 intents/worker and actual getManipulators/getParameters. QuestPreviewView owns separate translucent meshes without selection colliders or publishable targets. Committed QuestMeshView/scene freshness remains unchanged.
+**Interfaces:** Consume Task4 intents/worker and actual getManipulators with native named currentValues. QuestPreviewView owns separate translucent meshes without selection colliders or publishable targets. Committed QuestMeshView/scene freshness remains unchanged.
 
-- [ ] RED: actual Unity ghost updates preserve committed mesh/semantic identity; late ghost cannot survive commit/cancel/new lineage; all owned meshes are destroyed and shared materials survive.
-- [ ] Add explicit Model/Edit modes, controller fallback and primary tracked hand pinch. Axis constraints come from semantic metadata; dimensions face the user with selected dimension priority, visible units, measured text bounds and collision/overlap handling.
-- [ ] Two-hand grab in Model mode moves/rotates/scales only the independent display root. Lost tracking cancels manipulation without a CAD command. Test CAD revision and vertices unchanged, preserving world surface contact/magnification semantics.
-- [ ] Add linear/radial/angular/planar/position handles and local frame-rate predicted ghosts. Request bounded authoritative Task3 previews in the worker; never await in Update/LateUpdate.
-- [ ] Add snap/exact numeric controls, minimal palm menu and on-demand advanced panel. Reuse the corrected physical font sizing, eye pose placement, held panel drag and reachable safe reset.
-- [ ] GREEN: real Unity tests for transforms/intent/ghost disposal/readability bounds/lifecycle; normal populated ARM64 build with exact input/APK/dependency evidence. No hardware usability claim from Editor.
+- [x] RED: actual Unity ghost updates preserve committed mesh/semantic identity; late ghost cannot survive commit/cancel/new lineage; all owned meshes are destroyed and shared materials survive.
+- [x] Add explicit Model/Edit modes, controller fallback and primary tracked hand pinch. Axis constraints come from semantic metadata; dimensions face the user with selected dimension priority, visible units, measured text bounds and collision/overlap handling.
+- [x] Two-hand grab in Model mode moves/rotates/scales only the independent display root. Lost tracking cancels manipulation without a CAD command. Test CAD revision and vertices unchanged, preserving world surface contact/magnification semantics.
+- [x] Add linear/radial/angular/planar/position handles and local frame-rate constraint-projected cues over a separate accepted ghost solid; previous solids have explicit stale opacity until authoritative replacement. Request bounded authoritative Task3 previews in the worker; never await in Update/LateUpdate.
+- [x] Add snap/exact numeric controls, minimal palm menu and on-demand advanced panel. Reuse the corrected physical font sizing, eye pose placement, held panel drag and reachable safe reset.
+- [x] GREEN: real Unity tests for transforms/intent/ghost disposal/readability bounds/lifecycle; normal populated ARM64 build with exact input/APK/dependency evidence. No hardware usability claim from Editor.
 
 ### Task 6: Context actions and shared document history
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Globalization;
 using Kreoda.QuestFoundation;
 using UnityEngine;
 
@@ -16,13 +17,23 @@ namespace Kreoda.QuestRuntime
     {
         public QuestConnection Connection;
         public QuestDisplay Display;
+        public QuestSpatialEdit Spatial;
         public QuestEnvironment Environment;
         public OVRCameraRig Rig;
         public OVRHand LeftHand, RightHand;
         public Font Font;
         public Material PanelMaterial, ButtonMaterial, RayMaterial;
         public bool PreferLeftHand;
-        Transform _panel, _content, _connectionPage, _viewPage, _metricsPage;
+        Transform _panel, _content, _connectionPage, _viewPage, _metricsPage, _editPage;
+        TextMesh _editStatus, _modeLabel;
+        int _exactParameter;
+        bool _editingValue;
+        string _valueInput = "";
+        SpatialEditIntent _exactIntent;
+        string _exactName;
+        Dictionary<string, double> _pendingExact;
+        TextMesh _valueLabel;
+        readonly List<Transform> _compactMenu = new List<Transform>();
         TextMesh _status, _target, _endpointLabel, _codeLabel, _viewStatus, _handLabel, _diagnostics;
         QuestMeshView _selected;
         MeshSemanticHit _hit;
@@ -118,12 +129,32 @@ namespace Kreoda.QuestRuntime
             _diagnostics = Label(_content, "Metriche: attendi un campione", new Vector3(-.19f, .085f, -.003f), .012f);
             _textLimits[_diagnostics] = new Vector2(.38f, .25f);
             Button("Torna a Vista", new Vector3(0, -.205f, 0), .2f, () => Page(_viewPage), .03f);
+            _editPage = PageRoot("Exact CAD editing");_content = _editPage;
+            _editStatus = Label(_content, "Seleziona una quota", new Vector3(-.19f, .085f, -.003f), .012f);
+            _textLimits[_editStatus] = new Vector2(.38f, .10f);
+            Button("Valore esatto", new Vector3(-.1f, -.04f, 0), .18f, EditValue, .032f);
+            Button("Parametro →", new Vector3(.105f, -.04f, 0), .17f, () => _exactParameter++, .032f);
+            Button("Feature →", new Vector3(-.1f, -.10f, 0), .18f, () => Spatial?.NextOwner(), .032f);
+            Button("Snap 0.1mm / 5deg", new Vector3(.105f, -.10f, 0), .17f, () => { if (Spatial != null) Spatial.SnapEnabled = !Spatial.SnapEnabled; }, .032f, .011f);
+            Button("Annulla modifica", new Vector3(0, -.17f, 0), .30f, () => Spatial?.Cancel(), .032f);
             Page(_connectionPage);
             _content = _panel;
             // A small independent menu tab stays reachable when the panel hides.
             var menu = Button("Menu", new Vector3(.30f, .335f, 0), .095f,
                 TogglePanel, .03f);
             menu.transform.parent.SetParent(transform, false);
+            _compactMenu.Add(menu.transform.parent);
+            if (Spatial != null)
+            {
+                _modeLabel = Button("Modello", new Vector3(.04f, .335f, 0), .14f,
+                    () => { Display.EndTwoHand(false);Spatial.SetMode(!Spatial.EditMode); }, .03f);
+                _modeLabel.transform.parent.SetParent(transform, false);
+                _compactMenu.Add(_modeLabel.transform.parent);
+                var exact = Button("Valore", new Vector3(.18f, .335f, 0), .1f, EditValue, .03f);
+                exact.transform.parent.SetParent(transform, false);
+                _valueLabel = exact;_compactMenu.Add(exact.transform.parent);
+                _panel.gameObject.SetActive(false);
+            }
             _ray = new GameObject("Pointer ray").AddComponent<LineRenderer>();
             _ray.transform.SetParent(transform, false);
             _ray.sharedMaterial = RayMaterial;
@@ -160,12 +191,13 @@ namespace Kreoda.QuestRuntime
             if (_connectionPage != null) _connectionPage.gameObject.SetActive(selected == _connectionPage);
             if (_viewPage != null) _viewPage.gameObject.SetActive(selected == _viewPage);
             if (_metricsPage != null) _metricsPage.gameObject.SetActive(selected == _metricsPage);
+            if (_editPage != null) _editPage.gameObject.SetActive(selected == _editPage);
         }
         void TogglePanel()
         {
             UpdatePanelDrag(default, false, false);
             _panel.gameObject.SetActive(!_panel.gameObject.activeSelf);
-            if (_panel.gameObject.activeSelf) ResetPanel();
+            if (_panel.gameObject.activeSelf) { if (Spatial != null) Page(Spatial.EditMode ? _editPage : _viewPage);ResetPanel(); }
         }
         void Quality(MeshLod quality)
         { if (_selected == null) { _status.text = "Seleziona prima un corpo"; return; } Connection.RequestQuality(_selected, quality); }
@@ -181,16 +213,39 @@ namespace Kreoda.QuestRuntime
             offset.z >= .45f && offset.z <= 1.5f && Mathf.Abs(offset.x) <= 1 && Mathf.Abs(offset.y) <= .65f;
         void ResetIntent()
         {
+            if (_editingValue)
+            {
+                _editingValue = false;
+                if (_keyboard != null) _keyboard.active = false;
+                _keyboard = null;
+            }
+            _pendingExact = null;_exactIntent = null;
             _pinching = false; _requireRelease = true;
             UpdatePanelDrag(default, false, false);
             if (Display != null) Display.CancelPlacement();
+            if (Display != null) Display.EndTwoHand(false);
+            if (Spatial != null) Spatial.Cancel();
         }
 
         void Edit(bool code)
         {
+            _editingValue = false;
             _editingCode = code;
             _keyboard = TouchScreenKeyboard.Open(code ? _code : _endpoint, TouchScreenKeyboardType.Default,
                 false, false, false, false, code ? "Codice dal PC" : "ws://IP del PC:porta", code ? 32 : 128);
+        }
+        void EditValue()
+        {
+            var intent = Spatial?.SelectedIntent;
+            if (intent == null || Spatial.Busy) return;
+            if (_pendingExact != null && ReferenceEquals(intent, _exactIntent))
+            { Spatial.Exact(_pendingExact);_pendingExact = null;return; }
+            _pendingExact = null;_exactIntent = intent;
+            _exactParameter %= intent.Parameters.Count;_editingValue = true;
+            _exactName = intent.Parameters[_exactParameter];
+            _valueInput = (Spatial.DraftValues ?? intent.InitialValues)[intent.Parameters[_exactParameter]].ToString("R", CultureInfo.InvariantCulture);
+            _keyboard = TouchScreenKeyboard.Open(_valueInput, TouchScreenKeyboardType.NumbersAndPunctuation,
+                false, false, false, false, intent.Parameters[_exactParameter] + " · " + intent.Unit, 64);
         }
 
         void Update()
@@ -205,13 +260,26 @@ namespace Kreoda.QuestRuntime
             var handText = _handMode == 0 ? "Mano Auto" : _handMode == 1 ? "Mano sinistra" : "Mano destra";
             if (_handLabel.text != handText) _handLabel.text = handText;
             if (_diagnostics.text != Environment.Diagnostics) _diagnostics.text = Environment.Diagnostics;
+            if (Spatial != null)
+            {
+                if (_modeLabel != null) _modeLabel.text = Spatial.EditMode ? "Modifica" : "Modello";
+                if (_valueLabel != null) _valueLabel.text = _pendingExact != null && ReferenceEquals(Spatial.SelectedIntent, _exactIntent) ? "Applica" : "Valore";
+                var intent = Spatial.SelectedIntent;
+                _editStatus.text = Spatial.Status + (intent == null ? "" : "\n" + intent.FeatureId + " · " +
+                    intent.Parameters[_exactParameter % intent.Parameters.Count] + " · " + intent.Unit) +
+                    "\nSnap " + (Spatial.SnapEnabled ? "attivo" : "spento");
+                if (!Spatial.EditMode && TwoHandInput()) { _ray.enabled = false;_requireRelease = true;return; }
+                if (Spatial.Busy && !Spatial.Holding) { _ray.enabled = false;return; }
+            }
             if (_wasConnected && !Connection.Connected) ResetIntent();
             _wasConnected = Connection.Connected;
             var endpoint = _endpoint.Length == 0 ? "IP del PC" : _endpoint;
             if (_endpointLabel.text != endpoint) _endpointLabel.text = endpoint;
             var code = _code.Length == 0 ? "Codice 8 cifre" : "Codice inserito";
             if (_codeLabel.text != code) _codeLabel.text = code;
-            _tracked = Pointer(out var ray, out var clicked, out var pressed);
+            _tracked = Pointer(out var ray, out var clicked, out var pressed, out var orientation);
+            if (Spatial != null && Spatial.Holding)
+            { Spatial.Drag(ray, orientation, pressed, _tracked);_ray.enabled = false;return; }
             if (!_tracked)
             { UpdatePanelDrag(ray, pressed, false); _ray.enabled = false; _requireRelease = true; Display.UpdatePlacement(default, _yaw, false); return; }
             if (_requireRelease) { clicked = false; if (!pressed) _requireRelease = false; }
@@ -236,10 +304,13 @@ namespace Kreoda.QuestRuntime
             { if (button.DragPanel) BeginPanelDrag(ray, hit.point); else button.Click?.Invoke(); return; }
             if (Display.PlacementActive) { Display.FreezePlacement(); return; }
             if (!hasHit) return;
+            var edit = hit.collider.GetComponent<QuestEditHandle>();
+            if (Spatial != null && edit != null && Spatial.Begin(edit, ray, hit.point, orientation)) return;
             var view = hit.collider.GetComponent<QuestMeshView>();
             if (view == null) return;
             if (_selected != null) _selected.ClearSelection();
             _selected = view;
+            if (Spatial != null) Spatial.Select(view);
             _selectedUploadVersion = view.UploadVersion;
             _hit = _selectionMode == 2 ? view.ResolveNearestEdge(hit.point, .008f) :
                 _selectionMode == 1 ? view.ResolveFace(hit.triangleIndex) : null;
@@ -262,6 +333,24 @@ namespace Kreoda.QuestRuntime
 
         void ApplyKeyboardInput(string text, TouchScreenKeyboard.Status status)
         {
+            if (_editingValue)
+            {
+                if (!string.IsNullOrEmpty(text)) _valueInput = text;
+                if (status == TouchScreenKeyboard.Status.Visible) return;
+                _keyboard = null;_editingValue = false;
+                if (status == TouchScreenKeyboard.Status.Canceled || Spatial?.SelectedIntent == null ||
+                    !ReferenceEquals(Spatial.SelectedIntent, _exactIntent)) return;
+                if (double.TryParse(_valueInput.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) &&
+                    !double.IsNaN(value) && !double.IsInfinity(value))
+                {
+                    var intent = Spatial.SelectedIntent;
+                    var values = (Spatial.DraftValues ?? intent.InitialValues).ToDictionary(p => p.Key, p => p.Value);
+                    values[_exactName] = value;
+                    if (status == TouchScreenKeyboard.Status.Done) Spatial.Exact(values);
+                    else _pendingExact = values;
+                }
+                return;
+            }
             // Quest's keyboard may close with LostFocus instead of Done.
             // Capture live text and retain it if the closing keyboard clears its buffer.
             if (status == TouchScreenKeyboard.Status.Visible || status == TouchScreenKeyboard.Status.Done ||
@@ -283,37 +372,72 @@ namespace Kreoda.QuestRuntime
             }
         }
 
-        bool Pointer(out Ray ray, out bool clicked, out bool pressed)
+        int _pointerSource, _modelLeftSource, _modelRightSource;
+        bool _modelRequireRelease;
+        static int ChooseInputSource(bool hand, bool controller, bool left) => hand ? (left ? 1 : 2) : controller ? (left ? 3 : 4) : 0;
+        void SetPointerSource(int source)
         {
-            ray = default;
-            clicked = false;
-            pressed = false;
+            if (_pointerSource == source) return;
+            ResetIntent();_pointerSource = source;
+        }
+        bool Pose(bool left, out Ray ray, out Quaternion rotation, out int source)
+        {
+            ray = default;rotation = Quaternion.identity;
+            var hand = left ? LeftHand : RightHand;
+            bool trackedHand = hand != null && hand.IsTracked && hand.IsPointerPoseValid && hand.HandConfidence == OVRHand.TrackingConfidence.High;
+            var controller = left ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch;
+            bool trackedController = !trackedHand && Rig != null && OVRInput.IsControllerConnected(controller) &&
+                OVRInput.GetControllerPositionTracked(controller) && OVRInput.GetControllerOrientationTracked(controller);
+            source = ChooseInputSource(trackedHand, trackedController, left);
+            if (source == 0) return false;
+            if (source <= 2) { ray = new Ray(hand.PointerPose.position, hand.PointerPose.forward);rotation = hand.PointerPose.rotation; }
+            else {
+                rotation = Rig.trackingSpace.rotation * OVRInput.GetLocalControllerRotation(controller);
+                ray = new Ray(Rig.trackingSpace.TransformPoint(OVRInput.GetLocalControllerPosition(controller)), rotation * Vector3.forward);
+            }
+            return true;
+        }
+        bool Pointer(out Ray ray, out bool clicked, out bool pressed, out Quaternion orientation)
+        {
+            clicked = pressed = false;
             bool left = _handMode == 1 || (_handMode == 0 && OVRInput.GetDominantHand() == OVRInput.Handedness.LeftHanded);
-            if (left != PreferLeftHand) { PreferLeftHand = left; _requireRelease = true; _pinching = false; }
-            var controller = PreferLeftHand ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch;
-            if (Rig != null && OVRInput.IsControllerConnected(controller) &&
-                OVRInput.GetControllerPositionTracked(controller) && OVRInput.GetControllerOrientationTracked(controller))
-            {
-                var tracking = Rig.trackingSpace;
-                ray = new Ray(tracking.TransformPoint(OVRInput.GetLocalControllerPosition(controller)),
-                    tracking.rotation * OVRInput.GetLocalControllerRotation(controller) * Vector3.forward);
-                clicked = OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, controller);
-                pressed = OVRInput.Get(OVRInput.Button.PrimaryIndexTrigger, controller);
-                if (OVRInput.GetDown(OVRInput.Button.Two, controller))
-                    TogglePanel();
+            PreferLeftHand = left;
+            bool tracked = Pose(left, out ray, out orientation, out var source);
+            SetPointerSource(source);
+            if (!tracked) return false;
+            if (source <= 2) {
+                var hand = left ? LeftHand : RightHand;
+                pressed = hand.GetFingerIsPinching(OVRHand.HandFinger.Index);clicked = pressed && !_pinching;_pinching = pressed;
+            } else {
+                var controller = left ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch;
+                clicked = OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, controller);pressed = OVRInput.Get(OVRInput.Button.PrimaryIndexTrigger, controller);
+                if (OVRInput.GetDown(OVRInput.Button.Two, controller)) TogglePanel();
                 _pinching = false;
+            }
+            return true;
+        }
+        bool TwoHandInput()
+        {
+            bool Sample(bool left, out Vector3 point, out bool held, out int source)
+            {
+                bool tracked = Pose(left, out var ray, out _, out source);point = ray.origin;held = false;
+                if (!tracked) return false;
+                held = source <= 2 ? (left ? LeftHand : RightHand).GetFingerIsPinching(OVRHand.HandFinger.Index) :
+                    OVRInput.Get(OVRInput.Button.PrimaryHandTrigger, left ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch);
                 return true;
             }
-            var hand = PreferLeftHand ? LeftHand : RightHand;
-            if (hand == null || !hand.IsTracked || !hand.IsPointerPoseValid ||
-                hand.HandConfidence != OVRHand.TrackingConfidence.High)
-            { _pinching = false; return false; }
-            bool pinching = hand.GetFingerIsPinching(OVRHand.HandFinger.Index);
-            pressed = pinching;
-            clicked = pinching && !_pinching;
-            _pinching = pinching;
-            ray = new Ray(hand.PointerPose.position, hand.PointerPose.forward);
-            return true;
+            bool leftTracked = Sample(true, out var left, out var leftHeld, out var leftSource);
+            bool rightTracked = Sample(false, out var right, out var rightHeld, out var rightSource);
+            if (Display.TwoHandActive) {
+                if (!leftTracked || !rightTracked || leftSource != _modelLeftSource || rightSource != _modelRightSource)
+                { Display.EndTwoHand(false);_modelRequireRelease = true; }
+                else if (!leftHeld || !rightHeld) { Display.EndTwoHand(true);_modelRequireRelease = true; }
+                else Display.UpdateTwoHand(left, right, true);
+                return true;
+            }
+            if (_modelRequireRelease) { if (!leftHeld && !rightHeld) _modelRequireRelease = false;return false; }
+            if (!leftTracked || !rightTracked || !leftHeld || !rightHeld || _draggingPanel || _keyboard != null || !Display.BeginTwoHand(left, right)) return false;
+            _modelLeftSource = leftSource;_modelRightSource = rightSource;return true;
         }
 
         TextMesh Button(string text, Vector3 position, float width, Action action, float height = .039f, float textSize = .013f)
@@ -354,6 +478,19 @@ namespace Kreoda.QuestRuntime
 
         void LateUpdate()
         {
+            if (Spatial != null)
+            {
+                var head = Rig != null ? Rig.centerEyeAnchor : Camera.main?.transform;
+                bool palm = LeftHand != null && LeftHand.IsTracked && LeftHand.IsPointerPoseValid &&
+                    LeftHand.HandConfidence == OVRHand.TrackingConfidence.High && head != null;
+                if (palm)
+                {
+                    var point = LeftHand.PointerPose.position + head.right * .04f + head.up * .08f;
+                    var rotation = Quaternion.LookRotation(point - head.position, head.up);
+                    foreach (var group in _compactMenu) group.SetPositionAndRotation(point - rotation * new Vector3(.18f, .335f, 0), rotation);
+                }
+                else foreach (var group in _compactMenu) { group.localPosition = Vector3.zero;group.localRotation = Quaternion.identity; }
+            }
             // Wait for the actual XR pose, rather than anchoring at the rig's startup origin.
             if (!_initialPanelPlaced && OVRManager.hasVrFocus && OVRPlugin.GetNodePositionTracked(OVRPlugin.Node.EyeCenter))
             {

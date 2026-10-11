@@ -105,6 +105,14 @@ namespace Kreoda.QuestEditor
             reference.GetComponent<MeshRenderer>().sharedMaterial = Material("VrFloor", "Unlit/Color", new Color(.07f, .09f, .12f));
             environment.VrReference = reference;
             controls.Display = placement; controls.Environment = environment;
+            var dimensions = new GameObject("Semantic CAD dimensions").AddComponent<QuestDimensions>();
+            dimensions.transform.SetParent(display, false);dimensions.Font = controls.Font;
+            dimensions.HandleMaterial = controls.RayMaterial;dimensions.Viewer = rig.centerEyeAnchor.GetComponent<Camera>();
+            var preview = new GameObject("Transient modeling preview").AddComponent<QuestPreviewView>();
+            preview.transform.SetParent(display, false);preview.Material = connection.PreviewMaterial;
+            var spatial = new GameObject("Semantic spatial edit worker").AddComponent<QuestSpatialEdit>();
+            spatial.Connection = connection;spatial.Dimensions = dimensions;spatial.Preview = preview;
+            controls.Spatial = spatial;
             var light = new GameObject("CAD light").AddComponent<Light>();
             light.type = LightType.Directional;
             light.intensity = 1.2f;
@@ -204,6 +212,9 @@ namespace Kreoda.QuestEditor
                 connection.SelectionMaterial == null || connection.PreviewMaterial == null ||
                 connection.PreviewMaterial == connection.SelectionMaterial || controls.Font == null || controls.LeftHand == null || controls.RightHand == null ||
                 connection.TriangleBudget <= 0 || controls.Display == null || controls.Environment == null ||
+                controls.Spatial == null || controls.Spatial.Connection != connection || controls.Spatial.Preview == null ||
+                controls.Spatial.Dimensions == null || controls.Spatial.Preview.transform.parent != connection.DisplayRoot ||
+                controls.Spatial.Dimensions.transform.parent != connection.DisplayRoot ||
                 controls.Environment.Layer == null || controls.Environment.VrReference == null ||
                 xr == null || !xr.InitManagerOnStart || !xr.Manager.activeLoaders.Any(loader => loader is OpenXRLoader) ||
                 PlayerSettings.GetScriptingBackend(NamedBuildTarget.Android) != ScriptingImplementation.IL2CPP ||

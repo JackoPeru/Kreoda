@@ -210,3 +210,25 @@ TEST(SessionGeometry, InstanceDeclaresPositionAndPlanarBasisInCadCoordinates) {
   }
   EXPECT_TRUE(planar);EXPECT_TRUE(position);
 }
+
+TEST(SessionGeometry, ManipulatorValuesUseCanonicalParameterNamesWithoutClientSlots) {
+  box();
+  const auto result=query("getManipulators",{{"featureId","box"}});
+  ASSERT_EQ(result["status"],"ok") << result;
+  for(const auto& manip:result["result"]["manipulators"]) {
+    ASSERT_TRUE(manip.contains("currentValues")) << manip;
+    const auto name=manip["parameter"].get<std::string>();
+    const auto expected=name=="widthMm"?20:name=="heightMm"?30:10;
+    EXPECT_EQ(manip["currentValues"][name],expected);
+  }
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateInstanceFeature("values-inst","box",{-10,20,30,15,25,35},&error)) << error;
+  const auto instance=query("getManipulators",{{"featureId","values-inst"}});
+  ASSERT_EQ(instance["status"],"ok") << instance;
+  for(const auto& manip:instance["result"]["manipulators"]) {
+    ASSERT_TRUE(manip.contains("currentValues")) << manip;
+    for(const auto& name:manip["parameters"]) EXPECT_TRUE(manip["currentValues"].contains(name.get<std::string>()));
+    if(manip["id"]=="position") EXPECT_EQ(manip["currentValues"]["txMm"],-10);
+    if(manip["id"]=="rotation") EXPECT_EQ(manip["currentValues"]["ryDeg"],25);
+  }
+}

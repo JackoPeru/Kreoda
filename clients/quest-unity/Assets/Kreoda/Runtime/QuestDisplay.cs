@@ -14,6 +14,9 @@ namespace Kreoda.QuestRuntime
         public float HeightCalibration { get; private set; }
         public bool PlacementActive { get; private set; }
         public bool FollowPointer { get; private set; }
+        public bool TwoHandActive { get; private set; }
+        Vector3 _handMidpoint, _handAxis, _handPosition, _handScale;
+        Quaternion _handRotation;
         Transform Root => Connection.DisplayRoot;
         Vector3 _anchor, _localContact, _oldPosition, _oldScale, _oldAnchor, _oldContact;
         Quaternion _oldRotation;
@@ -25,7 +28,7 @@ namespace Kreoda.QuestRuntime
         void Start()
         {
             ScaleName = PlayerPrefs.GetString("kreoda-display-scale", "Fit");
-            if (ScaleName != "Fit")
+            if (ScaleName != "Fit" && ScaleName != "Manuale")
                 try { DisplayTransform.Preset(ScaleName); } catch (ArgumentException) { ScaleName = "Fit"; }
             HeightCalibration = Mathf.Clamp(PlayerPrefs.GetFloat("kreoda-table-calibration", 0), -.1f, .1f);
             if (!Finite(HeightCalibration)) HeightCalibration = 0;
@@ -96,6 +99,7 @@ namespace Kreoda.QuestRuntime
 
         public bool BeginPlacement()
         {
+            EndTwoHand(false);
             if (PlacementActive || !Bounds(out _, out _)) return false;
             _oldPosition = Root.position; _oldRotation = Root.rotation; _oldScale = Root.localScale;
             _oldAnchor = _anchor; _oldContact = _localContact; _oldHasAnchor = _hasAnchor;
@@ -165,6 +169,7 @@ namespace Kreoda.QuestRuntime
 
         public void Recenter()
         {
+            EndTwoHand(false);
             CancelPlacement();
             var head = Rig != null ? Rig.centerEyeAnchor : Camera.main?.transform;
             if (head == null) return;
@@ -181,7 +186,7 @@ namespace Kreoda.QuestRuntime
             if (_firstModel || PlacementActive || Connection.PendingMeshCount > 0 || !Bounds(out _, out _)) return;
             if (_hasAnchor) { _firstModel = true; return; }
             _firstModel = true;
-            Recenter(); SetScale(ScaleName);
+            Recenter(); if (ScaleName != "Manuale") SetScale(ScaleName);
             // CAD changes after initial hydration never recenter or recompute Fit.
         }
 
@@ -207,8 +212,32 @@ namespace Kreoda.QuestRuntime
         }
         static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
         static bool Finite(Vector3 value) => Finite(value.x) && Finite(value.y) && Finite(value.z);
-        void OnApplicationFocus(bool focused) { if (!focused) CancelPlacement(); }
-        void OnApplicationPause(bool paused) { if (paused) CancelPlacement(); }
+        public bool BeginTwoHand(Vector3 left, Vector3 right)
+        {
+            if (TwoHandActive || !Finite(left) || !Finite(right) || (right - left).magnitude < .03f || !Bounds(out _, out _)) return false;
+            CancelPlacement();_handMidpoint = (left + right) / 2;_handAxis = right - left;
+            _handPosition = Root.position;_handRotation = Root.rotation;_handScale = Root.localScale;
+            TwoHandActive = true;return true;
+        }
+        public void UpdateTwoHand(Vector3 left, Vector3 right, bool tracked)
+        {
+            if (!TwoHandActive) return;
+            if (!tracked || !Finite(left) || !Finite(right) || (right - left).magnitude < .03f) { EndTwoHand(false);return; }
+            var ratio = Mathf.Clamp((right - left).magnitude / _handAxis.magnitude, .01f / _handScale.x, 100 / _handScale.x);
+            var rotation = Quaternion.FromToRotation(_handAxis, right - left);
+            Root.SetPositionAndRotation((left + right) / 2 + rotation * (_handPosition - _handMidpoint) * ratio, rotation * _handRotation);
+            Root.localScale = _handScale * ratio;
+        }
+        public void EndTwoHand(bool confirm)
+        {
+            if (!TwoHandActive) return;
+            TwoHandActive = false;
+            if (!confirm) { Root.SetPositionAndRotation(_handPosition, _handRotation);Root.localScale = _handScale;return; }
+            _anchor = Root.TransformPoint(_localContact);_hasAnchor = true;ScaleName = "Manuale";
+            Status = "Vista libera · quote CAD in mm";SavePreferences();
+        }
+        void OnApplicationFocus(bool focused) { if (!focused) { CancelPlacement();EndTwoHand(false); } }
+        void OnApplicationPause(bool paused) { if (paused) { CancelPlacement();EndTwoHand(false); } }
         void OnDestroy()
         {
             if (Connection != null) { Connection.SceneChanged -= FirstModel; SetPreviewStyle(false); }

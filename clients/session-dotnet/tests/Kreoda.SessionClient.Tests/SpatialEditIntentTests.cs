@@ -103,4 +103,18 @@ public sealed class SpatialEditIntentTests
         var draft = intent.Exact(new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase) { ["WIDTHMM"] = 120 });
         Assert.Equal(new[] { "widthMm" }, draft.Keys);Assert.Equal(120, draft["widthMm"]);
     }
+
+    [Fact]
+    public void PredictedCueUsesConstrainedAndSnappedDraftInsteadOfRawHandPoint()
+    {
+        var linear = Intent("""{"id":"width","type":"linear","parameter":"widthMm","unit":"mm","origin":[0,0,0],"axis":[1,0,0]}""", new() { ["widthMm"] = 100 });
+        Assert.Equal(new CadVector(120, 25, 10), linear.ProjectedPoint(new(100, 25, 10), new(118.6, 999, -42), new Dictionary<string, double> { ["widthMm"] = 120 }));
+        var plane = Intent("""{"id":"xy","type":"planar","parameters":["txMm","tyMm"],"unit":"mm","origin":[0,0,0],"xAxis":[1,0,0],"yAxis":[0,1,0],"normal":[0,0,1]}""", new() { ["txMm"] = 0, ["tyMm"] = 0 });
+        Assert.Equal(new CadVector(10, 20, 0), plane.ProjectedPoint(new(0, 0, 0), new(10, 20, 999), new Dictionary<string, double> { ["txMm"] = 10, ["tyMm"] = 20 }));
+        var radial = Intent("""{"id":"diameter","type":"radial","parameter":"diameterMm","unit":"mm","origin":[0,0,0],"axis":[0,0,1]}""", new() { ["diameterMm"] = 6 });
+        Assert.Equal(new CadVector(5, 0, 0), radial.ProjectedPoint(new(3, 0, 0), new(4.8, 0, 100), new Dictionary<string, double> { ["diameterMm"] = 10 }));
+        var angular = Intent("""{"id":"angle","type":"angular","parameter":"angleDeg","unit":"deg","origin":[0,0,0],"axis":[0,1,0]}""", new() { ["angleDeg"] = 20 });
+        var rotated = angular.ProjectedPoint(new(10, 0, 0), new(0, 500, -10), new Dictionary<string, double> { ["angleDeg"] = 110 });
+        Assert.Equal(0, rotated.X, 8);Assert.Equal(0, rotated.Y);Assert.Equal(-10, rotated.Z, 8);
+    }
 }

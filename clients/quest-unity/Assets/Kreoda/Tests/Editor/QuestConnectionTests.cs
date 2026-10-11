@@ -74,6 +74,13 @@ namespace Kreoda.QuestRuntime.Tests
                 var firstMesh = view.GetComponent<MeshFilter>().sharedMesh;
                 Assert.That(firstMesh.triangles.Length / 3, Is.EqualTo(264));
                 Assert.That(view.ResolveFace(203).ReferenceAmbiguous, Is.True);
+                var editIntents = connection.EditIntentsAsync(view);
+                wait.Restart();
+                while (!editIntents.IsCompleted && wait.Elapsed.TotalSeconds < 10) yield return null;
+                Assert.That(editIntents.IsCompletedSuccessfully, Is.True, "actual adapter manipulator query failed");
+                var queried = editIntents.GetAwaiter().GetResult();
+                Assert.That(queried.Length, Is.EqualTo(1));Assert.That(queried[0].InitialValues["widthMm"], Is.EqualTo(100));
+                Assert.That(queried[0].BodyId, Is.EqualTo(view.BodyId));Assert.That(queried[0].TargetTipId, Is.EqualTo(view.FeatureId));
                 connection.Reconnect();
                 wait.Restart();
                 while (view.UploadVersion < 2 && wait.Elapsed.TotalSeconds < 15)

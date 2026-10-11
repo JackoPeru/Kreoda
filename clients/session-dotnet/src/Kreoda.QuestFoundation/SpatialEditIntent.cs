@@ -145,6 +145,28 @@ public sealed class SpatialEditIntent
     }
     CadVector InPlane(CadVector value) => Axis.HasValue ? value - Axis.Value * value.Dot(Axis.Value) : value;
 
+    /// <summary>Constraint-projected visual cue for the actual canonical draft,
+    /// including snap. This point never changes geometry or invents parameters.</summary>
+    public CadVector ProjectedPoint(CadVector startMm, CadVector currentMm, IReadOnlyDictionary<string, double> values)
+    {
+        if (!startMm.IsFinite || !currentMm.IsFinite) throw new ArgumentException("gesture points must be finite");
+        values = Exact(values);var point = startMm;
+        if (Type == "linear") point += Axis!.Value * (values[Parameters[0]] - InitialValues[Parameters[0]]);
+        else if (Type is "position" or "planar")
+            for (var i = 0; i < Parameters.Count; i++) point += _basis[i] * (values[Parameters[i]] - InitialValues[Parameters[i]]);
+        else if (Type == "radial") {
+            var start = InPlane(startMm - Origin);var current = InPlane(currentMm - Origin);
+            var direction = (current.Length > 1e-12 ? current : start).Normalized();
+            point = Origin + direction * (start.Length + (values[Parameters[0]] - InitialValues[Parameters[0]]) /
+                (Parameters[0] == "diameterMm" ? 2 : 1));
+        } else if (Parameters.Count == 1) {
+            var start = InPlane(startMm - Origin);var axis = Axis!.Value;
+            var angle = (values[Parameters[0]] - InitialValues[Parameters[0]]) % 360 * Math.PI / 180;
+            point = Origin + start * Math.Cos(angle) + axis.Cross(start) * Math.Sin(angle);
+        }
+        return point.IsFinite ? point : throw new ArgumentException("projected cue is outside numeric range");
+    }
+
     public IReadOnlyDictionary<string, double> PredictRotation(CadVector deltaDegrees) => PredictRotationMatrix(EulerMatrix(deltaDegrees));
     public IReadOnlyDictionary<string, double> PredictRotationMatrix(IReadOnlyList<double> deltaCad)
     {

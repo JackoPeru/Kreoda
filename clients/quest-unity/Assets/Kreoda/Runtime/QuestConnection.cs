@@ -30,6 +30,43 @@ namespace Kreoda.QuestRuntime
         int _discardedMeshes;
         public event Action SceneChanged;
         public IReadOnlyCollection<QuestMeshView> Views => _views.Values;
+        public SessionClient Client { get { lock (_gate) return _client; } }
+
+        public bool IsCurrentView(QuestMeshView view)
+        {
+            if (view == null) return false;
+            if (!_views.TryGetValue(new SceneObjectKey(view.BodyId, view.InstanceId), out var applied) || !ReferenceEquals(applied, view)) return false;
+            var client = Client;var model = client?.Model;
+            var target = _scene.GetAppliedTarget(new SceneObjectKey(view.BodyId, view.InstanceId));
+            return model != null && target != null && target.SessionId == model.SessionId &&
+                target.DocumentId == model.DocumentId && target.Revision == model.Revision && target.FeatureId == view.FeatureId;
+        }
+        // Capture Unity identity on the caller's frame, then query off the frame loop.
+        public Task<SpatialEditIntent[]> EditIntentsAsync(QuestMeshView view, string owner = null)
+        {
+            if (!IsCurrentView(view)) throw new SessionException("NEED_FULL_SNAPSHOT", "visible CAD target is stale");
+            var client = Client;var model = client.Model;
+            var feature = owner ?? view.FeatureId;var body = view.BodyId;var tip = view.FeatureId;
+            var descriptor = model.Bodies.FirstOrDefault(b => b.GetProperty("bodyId").GetString() == body);
+            if (descriptor.ValueKind != JsonValueKind.Object || (view.InstanceId != null ? feature != view.InstanceId :
+                !descriptor.GetProperty("history").EnumerateArray().Any(id => id.GetString() == feature)))
+                throw new SessionException("BAD_PARAMS", "edit owner is unrelated to the selected body");
+            return Task.Run(async () => {
+                using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                var reply = await client.CallAsync(SessionMethods.GetManipulators,
+                    new Dictionary<string, object> { ["featureId"] = feature }, deadline.Token,
+                    expectedSessionId: model.SessionId).ConfigureAwait(false);
+                if (Client != client || client.Model?.SessionId != model.SessionId ||
+                    client.Model.DocumentId != model.DocumentId || client.Model.Revision != model.Revision)
+                    throw new SessionException("NEED_FULL_SNAPSHOT", "manipulator query is stale");
+                return reply.GetProperty("result").GetProperty("manipulators").EnumerateArray().Select(metadata => {
+                    var values = metadata.GetProperty("currentValues").EnumerateObject()
+                        .ToDictionary(p => p.Name, p => p.Value.GetDouble(), StringComparer.Ordinal);
+                    return new SpatialEditIntent(model.SessionId, model.DocumentId, model.Revision, feature,
+                        body, tip, metadata, values);
+                }).ToArray();
+            });
+        }
         readonly QuestSceneState _scene = new QuestSceneState();
         readonly Dictionary<SceneObjectKey, QuestMeshView> _views = new Dictionary<SceneObjectKey, QuestMeshView>();
         readonly Dictionary<SceneObjectKey, CancellationTokenSource> _jobs = new Dictionary<SceneObjectKey, CancellationTokenSource>();

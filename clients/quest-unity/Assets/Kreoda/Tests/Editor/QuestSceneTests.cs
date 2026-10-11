@@ -37,6 +37,12 @@ namespace Kreoda.QuestRuntime.Tests
                 Assert.That(environment.Manager.isInsightPassthroughEnabled, Is.True);
                 Assert.That(environment.VrReference, Is.Not.Null);
                 Assert.That(display.Connection, Is.SameAs(connection));
+                var spatial = Object.FindFirstObjectByType<QuestSpatialEdit>();
+                Assert.That(spatial, Is.Not.Null);
+                Assert.That(controls.Spatial, Is.SameAs(spatial));
+                Assert.That(spatial.Connection, Is.SameAs(connection));
+                Assert.That(spatial.Preview.transform.parent, Is.SameAs(connection.DisplayRoot));
+                Assert.That(spatial.Dimensions.transform.parent, Is.SameAs(connection.DisplayRoot));
                 typeof(QuestControls).GetMethod("Start", System.Reflection.BindingFlags.Instance |
                     System.Reflection.BindingFlags.NonPublic).Invoke(controls, null);
                 var panel = controls.transform.Find("Compact panel (0.42 m)");

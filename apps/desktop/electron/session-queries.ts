@@ -138,7 +138,13 @@ export interface Manipulator {
   type: "linear" | "radial" | "angular" | "planar" | "position";
   parameter?: string;
   parameters?: string[];
+  currentValues: Record<string, number>;
   axis?: [number, number, number];
+  basis?: [number, number, number][];
+  xAxis?: [number, number, number];
+  yAxis?: [number, number, number];
+  normal?: [number, number, number];
+  rotationConvention?: "extrinsic-ZYX";
   origin?: [number, number, number];
   unit: "mm" | "deg";
 }
