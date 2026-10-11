@@ -68,6 +68,7 @@ interface StoredFeature {
 function fakeSidecar(options: {
   beforeInvoke?: (type: number) => void | Promise<void>;
   geometryReply?: Record<string, unknown>;
+  previewPaddingBytes?: number;
 } = {}) {
   const features = new Map<string, StoredFeature>();
   let revision = 0;
@@ -159,6 +160,10 @@ function fakeSidecar(options: {
       heightMm?: number;
       depthMm?: number;
       isPreview?: boolean;
+      paramName?: string;
+      valueMm?: number;
+      previewValues?: Record<string, number>;
+      parameterValues?: Record<string, number>;
       transactionId?: string;
       method?: string;
       params?: Record<string, unknown>;
@@ -291,7 +296,20 @@ function fakeSidecar(options: {
         });
       }
       const [w, h, d] = [rec.paramsMm[0] ?? 10, rec.paramsMm[1] ?? 10, rec.paramsMm[2] ?? 10];
-      return meshBytes(envelope.requestId, rec.featureId, w, h, d);
+      const draft = [w, h, d];
+      const slot = ["widthMm", "heightMm", "depthMm"].indexOf(envelope.paramName ?? "");
+      if (slot >= 0 && typeof envelope.valueMm === "number") draft[slot] = envelope.valueMm;
+      for (const [name, value] of Object.entries(envelope.previewValues ?? {})) {
+        const index = ["widthMm", "heightMm", "depthMm"].indexOf(name);
+        if (index < 0) return respond({ status: "error", errorCode: "PREVIEW_FAILED", errorMessage: "unknown parameter" });
+        draft[index] = value;
+      }
+      let raw = meshUpdateBytes(envelope.requestId, rec.featureId, draft[0]!, draft[1]!, draft[2]!, 0);
+      if (options.previewPaddingBytes) {
+        const padded = new Uint8Array(options.previewPaddingBytes);padded.set(raw);raw = padded;
+      }
+      meshFrames.push(raw);
+      return raw;
     }
     if (envelope.type === 3) {
       const fence = fenced();
@@ -312,6 +330,15 @@ function fakeSidecar(options: {
     if (envelope.type === 6) {
       const fence = fenced();
       if (fence) return respond(fence);
+      const record = envelope.featureId ? features.get(envelope.featureId) : undefined;
+      if (record) {
+        const params = [...record.paramsMm];
+        for (const [name, value] of Object.entries({ [envelope.paramName ?? ""]: envelope.valueMm, ...(envelope.parameterValues ?? {}) })) {
+          const index = ["widthMm", "heightMm", "depthMm"].indexOf(name);
+          if (index >= 0 && typeof value === "number") params[index] = value;
+        }
+        record.paramsMm = params;
+      }
       revision += 1;
       return respond({
         status: "ok",
@@ -424,8 +451,11 @@ function fakeSidecar(options: {
 describe("SessionRelay", () => {
   const localFrame = (type: number, fields: Record<string, unknown> = {}, documentId = "doc-phase1") =>
     frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1, requestId: "desktop-request", documentId, type, ...fields })));
-  const local = async (relay: SessionRelay, type: number, fields: Record<string, unknown> = {}, documentId = "doc-phase1") =>
-    JSON.parse(new TextDecoder().decode(await relay.invokeLocal(localFrame(type, fields, documentId)))) as Record<string, unknown>;
+  const local = async (relay: SessionRelay, type: number, fields: Record<string, unknown> = {}, documentId = "doc-phase1") => {
+    const raw = await relay.invokeLocal(localFrame(type, fields, documentId));
+    return raw[0] === 0x7b ? JSON.parse(new TextDecoder().decode(raw)) as Record<string, unknown>
+      : { status: "ok", ...decodeMeshUpdateFb(raw) };
+  };
 
   it("routes Desktop commits through the authoritative delta queue without a listener", async () => {
     const fake = fakeSidecar();const events: unknown[] = [];
@@ -876,6 +906,7 @@ describe("SessionRelay", () => {
         "operation-replay",
         "incremental-deltas",
         "binary-mesh-v1",
+        "binary-preview-v1",
       ]);
     } finally {
       client.closeRaw();
@@ -1760,6 +1791,187 @@ async function connectRawRelayClient(
 }
 
 describe("binary mesh session requests", () => {
+  it("does not attach a preview to a new lineage when its initial snapshot crosses a restart", async () => {
+    let block = false;let entered!: () => void;let release!: () => void;
+    const arrived = new Promise<void>(ready => entered = ready), held = new Promise<void>(ready => release = ready);
+    const fake = fakeSidecar({ beforeInvoke: async type => {
+      if (block && type === 26) { block = false;entered();await held; }
+    } });
+    const relay = new SessionRelay(() => fake.manager);const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });const client = new SessionClient();
+    try {
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1,
+        requestId: "restart-box", documentId: "doc-phase1", type: 3, featureId: "restart-box",
+        widthMm: 10, heightMm: 20, depthMm: 30 }))));
+      await client.connect(TOKEN, port);block = true;
+      const pending = client.call("previewBegin", { featureId: "restart-box", paramName: "widthMm", valueMm: 40 });
+      await arrived;relay.onSidecarCrashed();release();
+      await expect(pending).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      expect((relay as unknown as { previews: Map<string, unknown> }).previews.size).toBe(0);
+      expect(fake.calls.filter(type => type === 6)).toHaveLength(0);
+    } finally { release();client.closeRaw();relay.stop(); }
+  });
+
+  it("does not emit a cleared cached preview when revision lookup crosses a restart", async () => {
+    let block = false;let entered!: () => void;let release!: () => void;
+    const arrived = new Promise<void>(ready => entered = ready), held = new Promise<void>(ready => release = ready);
+    const fake = fakeSidecar({ beforeInvoke: async type => {
+      if (block && type === 26) { block = false;entered();await held; }
+    } });
+    const relay = new SessionRelay(() => fake.manager);const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });let ws: WebSocket | undefined;
+    try {
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1,
+        requestId: "cache-restart-box", documentId: "doc-phase1", type: 3, featureId: "cache-restart-box",
+        widthMm: 10, heightMm: 20, depthMm: 30 }))));
+      const connected = await connectRawRelayClient(port, LOGICAL_CLIENT_ID, ["binary-preview-v1"]);ws = connected.ws;
+      ws.send(JSON.stringify({ requestId: "cache-begin", method: "previewBegin",
+        params: { featureId: "cache-restart-box", paramName: "widthMm", valueMm: 40 } }));
+      const begin = JSON.parse((await receiveRelayFrame(ws)).data.toString()) as { result: { previewId: string } };
+      (relay as unknown as { revisionCache: number | null }).revisionCache = null;block = true;
+      ws.send(JSON.stringify({ requestId: "cache-read", method: "requestPreviewMesh", sessionId: connected.hello["sessionId"],
+        params: { previewId: begin.result.previewId, generation: 0, documentId: "doc-phase1", expectedRevision: 1 } }));
+      await arrived;relay.onSidecarCrashed();release();
+      for (;;) {
+        const frame = await receiveRelayFrame(ws);expect(frame.isBinary).toBe(false);
+        const reply = JSON.parse(frame.data.toString()) as Record<string, unknown>;
+        if (reply["requestId"] === "cache-read") {
+          expect(reply).toMatchObject({ ok: false, errorCode: "NEED_FULL_SNAPSHOT" });break;
+        }
+      }
+      expect((relay as unknown as { previews: Map<string, unknown> }).previews.size).toBe(0);
+    } finally { release();ws?.close();relay.stop(); }
+  });
+  it("rejects stale intent and unrelated tip before requesting candidate geometry", async () => {
+    const fake = fakeSidecar();const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1,
+        requestId: "intent-box", documentId: "doc-phase1", type: 3, featureId: "intent-box",
+        widthMm: 10, heightMm: 20, depthMm: 30 }))));
+      await client.connect(TOKEN, port);
+      const params = { featureId: "intent-box", paramName: "widthMm", valueMm: 40 };
+      await expect(client.call("previewBegin", { ...params, expectedRevision: 0 })).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      await expect(client.call("previewBegin", { ...params, targetTipId: "unrelated" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect(fake.calls.filter(type => type === 6)).toHaveLength(0);
+      expect(await client.call("previewBegin", { ...params, expectedRevision: 1 })).toMatchObject({ ok: true });
+    } finally { client.closeRaw();relay.stop(); }
+  });
+
+  it("rejects a candidate over 64 MiB without retaining it", async () => {
+    const fake = fakeSidecar({ previewPaddingBytes: 64 * 1024 * 1024 + 1 });
+    const relay = new SessionRelay(() => fake.manager);const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });const client = new SessionClient();
+    try {
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1,
+        requestId: "large-box", documentId: "doc-phase1", type: 3, featureId: "large-box",
+        widthMm: 10, heightMm: 20, depthMm: 30 }))));
+      await client.connect(TOKEN, port);
+      await expect(client.call("previewBegin", { featureId: "large-box", paramName: "widthMm", valueMm: 40 }))
+        .rejects.toMatchObject({ code: "MESH_TOO_LARGE" });
+      expect((relay as unknown as { previews: Map<string, unknown> }).previews.size).toBe(0);
+    } finally { client.closeRaw();relay.stop(); }
+  });
+  it("fences preview owner, generations, stale model and consumed state", async () => {
+    const fake = fakeSidecar();const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let a: WebSocket | undefined, b: WebSocket | undefined;
+    try {
+      for (const id of ["preview-life", "unrelated-life"]) await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({
+        protocolVersion: 1, requestId: id, documentId: "doc-phase1", type: 3,
+        featureId: id, widthMm: 10, heightMm: 20, depthMm: 30,
+      }))));
+      const owner = await connectRawRelayClient(port, LOGICAL_CLIENT_ID, ["binary-preview-v1"]);a = owner.ws;
+      const other = await connectRawRelayClient(port, "client-660e8400-e29b-41d4-a716-446655440000", ["binary-preview-v1"]);b = other.ws;
+      let serial = 0;
+      const call = async (ws: WebSocket, method: string, params: Record<string, unknown>) => {
+        const id = `life-${++serial}`;
+        ws.send(JSON.stringify({ requestId: id, method, params, sessionId: owner.hello["sessionId"] }));
+        for (;;) {
+          const frame = await receiveRelayFrame(ws);
+          if (frame.isBinary) continue;
+          const value = JSON.parse(frame.data.toString()) as Record<string, unknown>;
+          if (value["requestId"] === id) return value;
+        }
+      };
+      const begin = await call(a, "previewBegin", { featureId: "preview-life", paramName: "widthMm", valueMm: 40 });
+      const id = (begin["result"] as Record<string, unknown>)["previewId"];
+      const read = { previewId: id, generation: 0, documentId: "doc-phase1", expectedRevision: 2 };
+      expect(await call(b, "requestPreviewMesh", read)).toMatchObject({ ok: false, errorCode: "NOT_FOUND" });
+      const nativeCalls = fake.calls.length;
+      for (let i = 0; i < 2; ++i) {
+        expect(await call(a, "requestPreviewMesh", read)).toMatchObject({ ok: true });
+        expect((await receiveRelayFrame(a)).isBinary).toBe(true);
+      }
+      expect(fake.calls.length).toBe(nativeCalls);
+      expect(await call(a, "previewUpdate", { previewId: id, valueMm: 50 })).toMatchObject({ result: { generation: 1 } });
+      expect(await call(a, "requestPreviewMesh", read)).toMatchObject({ ok: false, errorCode: "STALE_PREVIEW" });
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({
+        protocolVersion: 1, requestId: "unrelated-edit", documentId: "doc-phase1", type: 6,
+        featureId: "unrelated-life", paramName: "widthMm", valueMm: 15,
+      }))));
+      expect(await call(a, "requestPreviewMesh", { ...read, generation: 1 })).toMatchObject({ ok: false, errorCode: "NEED_FULL_SNAPSHOT" });
+      expect(await call(a, "previewCancel", { previewId: id })).toMatchObject({ ok: true });
+      expect(await call(a, "requestPreviewMesh", { ...read, generation: 1 })).toMatchObject({ ok: false, errorCode: "NOT_FOUND" });
+    } finally { a?.close(); b?.close(); relay.stop(); }
+  });
+
+  it("retains at most four previews per client and 256 MiB across clients", async () => {
+    const fake = fakeSidecar({ previewPaddingBytes: 64 * 1024 * 1024 });
+    const relay = new SessionRelay(() => fake.manager);const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const a = new SessionClient(), b = new SessionClient();
+    try {
+      for (const id of ["budget-a", "budget-b"]) await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({
+        protocolVersion: 1, requestId: id, documentId: "doc-phase1", type: 3,
+        featureId: id, widthMm: 10, heightMm: 20, depthMm: 30,
+      }))));
+      await a.connect(TOKEN, port);await b.connect(TOKEN, port);
+      const params = { featureId: "budget-a", paramName: "widthMm", valueMm: 40 };
+      const ids: unknown[] = [];
+      for (let i = 0; i < 4; ++i) ids.push(((await a.call("previewBegin", params))["result"] as Record<string, unknown>)["previewId"]);
+      await expect(a.call("previewBegin", params)).rejects.toMatchObject({ code: "PREVIEW_LIMIT" });
+      await expect(b.call("previewBegin", { ...params, featureId: "budget-b" })).rejects.toMatchObject({ code: "PREVIEW_LIMIT" });
+      await a.call("previewCancel", { previewId: ids[0] });
+      expect(await b.call("previewBegin", { ...params, featureId: "budget-b" })).toMatchObject({ ok: true });
+      relay.onSidecarCrashed();
+      const previews = (relay as unknown as { previews: Map<string, unknown> }).previews;
+      expect(previews.size).toBe(0);
+    } finally { a.closeRaw(); b.closeRaw(); relay.stop(); }
+  });
+  it("delivers a separate cached preview mesh without changing the committed model", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let ws: WebSocket | undefined;
+    try {
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({
+        protocolVersion: 1, requestId: "preview-base", documentId: "doc-phase1", type: 3,
+        featureId: "preview-mesh-box", widthMm: 10, heightMm: 20, depthMm: 30,
+      }))));
+      const raw = await connectRawRelayClient(port, LOGICAL_CLIENT_ID,
+        ["incremental-deltas", "binary-mesh-v1", "binary-preview-v1"]);
+      ws = raw.ws;
+      ws.send(JSON.stringify({ requestId: "preview-begin", method: "previewBegin", params: {
+        featureId: "preview-mesh-box", paramName: "widthMm", valueMm: 40,
+        bodyId: "body-preview-mesh-box", targetTipId: "preview-mesh-box",
+      } }));
+      const begun = JSON.parse((await receiveRelayFrame(ws)).data.toString()) as { result: Record<string, unknown> };
+      expect(begun.result).toMatchObject({ generation: 0, revision: 1, volumeMm3: 24000 });
+      ws.send(JSON.stringify({ requestId: "preview-read", method: "requestPreviewMesh", sessionId: raw.hello["sessionId"],
+        params: { previewId: begun.result["previewId"], generation: 0, documentId: "doc-phase1", expectedRevision: 1 } }));
+      const header = JSON.parse((await receiveRelayFrame(ws)).data.toString()) as { ok: boolean; result: Record<string, unknown> };
+      expect(header).toMatchObject({ ok: true, result: { generation: 0, quality: 0,
+        bodyId: "body-preview-mesh-box", featureId: "preview-mesh-box", targetTipId: "preview-mesh-box" } });
+      const binary = await receiveRelayFrame(ws);
+      expect(binary.isBinary).toBe(true);
+      expect(binary.data.equals(Buffer.from(fake.meshFrames.at(-1)!))).toBe(true);
+      expect(decodeMeshUpdateFb(new Uint8Array(binary.data)).volumeMm3).toBe(24000);
+      expect(fake.features().find(f => f.featureId === "preview-mesh-box")!.paramsMm).toEqual([10, 20, 30]);
+    } finally { ws?.close(); relay.stop(); }
+  });
   it("advertises binary-mesh-v1 on hello", async () => {
     const relay = new SessionRelay(() => fakeSidecar().manager);
     const port = await freePort();

@@ -302,6 +302,65 @@ TEST(Topology, BodyPreviewCompoundPlacementUsesAllValuesWithoutCommit) {
   EXPECT_EQ(Get("p13-pos-inst").paramsMm, (std::vector<double>{0, 0, 0, 0, 0, 0}));
 }
 
+TEST(Topology, CompoundParameterCommitUsesOneUndoAndRejectsInvalidLastValue) {
+  NewDoc("p13-compound-commit");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-commit-box", 100, 50, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateInstanceFeature("p13-commit-inst", "p13-commit-box", {0, 0, 0, 0, 0, 0}, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto committed = kreoda_test::rpcText(
+      R"({"protocolVersion":1,"requestId":"p13-position-commit","documentId":"p13-compound-commit","type":6,"featureId":"p13-commit-inst","paramName":"txMm","valueMm":10,"parameterValues":{"tyMm":20,"tzMm":30}})");
+  ASSERT_NE(committed.find("\"status\":\"ok\""), std::string::npos) << committed;
+  EXPECT_EQ(Get("p13-commit-inst").paramsMm, (std::vector<double>{10, 20, 30, 0, 0, 0}));
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision + 1);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos + 1);
+  const auto failed = kreoda_test::rpcText(
+      R"({"protocolVersion":1,"requestId":"p13-position-failed","documentId":"p13-compound-commit","type":6,"featureId":"p13-commit-inst","paramName":"txMm","valueMm":40,"parameterValues":{"tyMm":50,"zzInvalid":60}})");
+  EXPECT_NE(failed.find("REBUILD_FAILED"), std::string::npos);
+  EXPECT_EQ(Get("p13-commit-inst").paramsMm, (std::vector<double>{10, 20, 30, 0, 0, 0}));
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision + 1);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos + 1);
+  ASSERT_TRUE(kreoda_test::rpcOk(
+      R"({"protocolVersion":1,"requestId":"p13-position-undo","documentId":"p13-compound-commit","type":8})"));
+  EXPECT_EQ(Get("p13-commit-inst").paramsMm, (std::vector<double>{0, 0, 0, 0, 0, 0}));
+}
+
+TEST(Topology, CompoundParameterKernelFailureRestoresEveryStagedValue) {
+  NewDoc("p13-compound-kernel-failure");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-fail-box", 100, 50, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("p13-fail-hole", "p13-fail-box", "box.+Z", 25, 25,
+      6, "throughAll", 0, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto volume = Get("p13-fail-hole").volumeMm3;
+  const auto failed = kreoda_test::rpcText(
+      R"({"protocolVersion":1,"requestId":"p13-kernel-fail","documentId":"p13-compound-kernel-failure","type":6,"featureId":"p13-fail-box","paramName":"widthMm","valueMm":140,"parameterValues":{"heightMm":5}})");
+  EXPECT_NE(failed.find("REBUILD_FAILED"), std::string::npos) << failed;
+  EXPECT_EQ(Get("p13-fail-box").paramsMm, (std::vector<double>{100, 50, 20}));
+  EXPECT_DOUBLE_EQ(Get("p13-fail-hole").volumeMm3, volume);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+}
+
+TEST(Topology, CompoundFormulaCommitUsesFinalCandidateAndOneUndo) {
+  NewDoc("p13-compound-formula-commit");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-formula-commit", 100, 20, 10, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  ASSERT_TRUE(kreoda_test::rpcOk(
+      R"({"protocolVersion":1,"requestId":"p13-formula-commit","documentId":"p13-compound-formula-commit","type":6,"featureId":"p13-formula-commit","paramName":"widthMm","expression":"heightMm * 10000","parameterValues":{"heightMm":5}})"));
+  EXPECT_EQ(Get("p13-formula-commit").paramsMm, (std::vector<double>{50000, 5, 10}));
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision + 1);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos + 1);
+  ASSERT_TRUE(kreoda_test::rpcOk(
+      R"({"protocolVersion":1,"requestId":"p13-formula-undo","documentId":"p13-compound-formula-commit","type":8})"));
+  EXPECT_EQ(Get("p13-formula-commit").paramsMm, (std::vector<double>{100, 20, 10}));
+  EXPECT_TRUE(kreoda::ExpressionStore::instance().forFeature("p13-formula-commit").empty());
+}
+
 TEST(Topology, BodyPreviewRejectsUnknownCompoundParameterWithoutCommit) {
   NewDoc("p13-invalid-compound-preview");
   std::string error;

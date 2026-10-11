@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: a03adde0580bff1da306e5b0adea3e5ad6ca8d5eacb4d9fbc88cef4fd6487904
+// Source SHA256: 432a5b77d7d6c7ab1431a36439a164631b1dcc771d95d933124aa28e4385d4bb
 type StableFeatureID = string;
 
 export interface RequestMetadata {
@@ -255,4 +255,26 @@ export interface TransactionState {
 }
 
 export type State = "pending" | "open";
+
+export interface RequestPreviewMeshParams {
+    documentId:       string;
+    expectedRevision: number;
+    generation:       number;
+    previewId:        string;
+}
+
+export interface PreviewMeshHeader {
+    baseRevision:    number;
+    bodyId:          string;
+    byteLength:      number;
+    documentId:      string;
+    featureId:       string;
+    generation:      number;
+    nativeRequestId: string;
+    paramName:       string;
+    previewId:       string;
+    quality:         number;
+    sessionId:       string;
+    targetTipId:     string;
+}
 

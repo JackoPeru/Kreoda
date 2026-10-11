@@ -29,3 +29,11 @@ public sealed record SessionMeshResult(
     double[] BboxMm,
     int RawByteLength,
     string RawPayloadSha256);
+
+/// <summary>Identity of a transient candidate, distinct from committed CAD mesh headers.</summary>
+public sealed record SessionPreviewMeshHeader(string NativeRequestId, string SessionId, string DocumentId,
+    long BaseRevision, string PreviewId, long Generation, string FeatureId, string ParamName,
+    string BodyId, string TargetTipId, int Quality, int ByteLength);
+
+/// <summary>Candidate geometry. Receiving this result never changes the committed model.</summary>
+public sealed record SessionPreviewMeshResult(SessionPreviewMeshHeader Header, SessionMeshResult Mesh);

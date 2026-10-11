@@ -56,6 +56,9 @@ public sealed class SessionClient : IAsyncDisposable
         public int LineageGeneration { get; }
         public TaskCompletionSource<SessionMeshResult> Completion { get; }
         public Generated.MeshHeader? Header { get; set; }
+        public string? PreviewId { get; set; }
+        public long PreviewGeneration { get; set; }
+        public SessionPreviewMeshHeader? PreviewHeader { get; set; }
     }
 
     private sealed record PendingCall(
@@ -174,6 +177,7 @@ public sealed class SessionClient : IAsyncDisposable
                 SessionMethods.OperationReplayCapability,
                 SessionMethods.IncrementalDeltasCapability,
                 SessionMethods.BinaryMeshV1Capability,
+                SessionMethods.BinaryPreviewV1Capability,
             },
         }), ct).ConfigureAwait(false);
         ClientId = hello.TryGetProperty("clientId", out var id) ? id.GetString() : null;
@@ -407,6 +411,47 @@ public sealed class SessionClient : IAsyncDisposable
         return await completion.Task.ConfigureAwait(false);
     }
 
+    /// <summary>Fetch a retained candidate generation without altering committed model state.</summary>
+    public async Task<SessionPreviewMeshResult> RequestPreviewMeshAsync(string previewId, long generation,
+        string documentId, long expectedRevision, CancellationToken ct = default)
+    {
+        if (!ServerCapabilities.Contains(SessionMethods.BinaryPreviewV1Capability))
+            throw new SessionException("NOT_IMPLEMENTED", "server does not support binary-preview-v1");
+        if (string.IsNullOrWhiteSpace(previewId) || previewId.Length > 128 ||
+            string.IsNullOrWhiteSpace(documentId) || generation < 0 || generation > SessionContract.MaximumRevision ||
+            expectedRevision < 0 || expectedRevision > SessionContract.MaximumRevision)
+            throw new SessionException("BAD_PARAMS", "preview identity or generation is invalid");
+        var sessionId = SessionId;
+        if (string.IsNullOrEmpty(sessionId) || _disposed != 0 || _ws.State != WebSocketState.Open)
+            throw new SessionException("NOT_CONNECTED", "preview request requires an active session");
+        if (_knownSessionId != sessionId || _knownDocumentId != documentId || _knownRevision != expectedRevision)
+            throw new SessionException("NEED_FULL_SNAPSHOT", "preview does not match the known model revision");
+        var requestId = $"cs-{Interlocked.Increment(ref _seq)}";
+        var completion = new TaskCompletionSource<SessionMeshResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var mesh = new PendingMeshCall(requestId, sessionId, documentId, "", null, 0,
+            expectedRevision, _lineageGeneration, completion) { PreviewId = previewId, PreviewGeneration = generation };
+        if (!_pending.TryAdd(requestId, new PendingCall(SessionMethods.RequestPreviewMesh, null, mesh, sessionId, documentId, _lineageGeneration)))
+            throw new SessionException("SEND_FAILED", "preview request identity collision");
+        using var cancellation = ct.Register(() => CancelPending(requestId));
+        try
+        {
+            var text = JsonSerializer.Serialize(new Dictionary<string, object?> {
+                ["requestId"] = requestId, ["method"] = SessionMethods.RequestPreviewMesh, ["sessionId"] = sessionId,
+                ["params"] = GeneratedControl.Parameters(new Generated.RequestPreviewMeshParams {
+                    PreviewId = previewId, Generation = generation, DocumentId = documentId, ExpectedRevision = expectedRevision }) });
+            await _sendGate.WaitAsync(ct).ConfigureAwait(false);
+            try { await _ws.SendAsync(Encoding.UTF8.GetBytes(text), WebSocketMessageType.Text, true, ct).ConfigureAwait(false); }
+            finally { _sendGate.Release(); }
+        }
+        catch (OperationCanceledException) { CancelPending(requestId); }
+        catch (Exception error)
+        {
+            if (_pending.TryRemove(requestId, out var pending)) FailPending(pending, new SessionException("SEND_FAILED", error.Message));
+        }
+        var result = await completion.Task.ConfigureAwait(false);
+        return new SessionPreviewMeshResult(mesh.PreviewHeader ?? throw new SessionException("INVALID_HEADER", "missing preview header"), result);
+    }
+
     private void CancelPending(string requestId)
     {
         if (_pending.TryRemove(requestId, out var pending))
@@ -602,7 +647,26 @@ public sealed class SessionClient : IAsyncDisposable
         {
             if (mesh.Header is not null) throw new SessionException("INVALID_HEADER", "duplicate mesh identity header");
             if (!root.TryGetProperty("result", out var raw)) throw new JsonException("missing mesh header result");
-            var header = GeneratedControl.Read<Generated.MeshHeader>(raw, "MeshHeader");
+            Generated.MeshHeader header;
+            if (mesh.PreviewId is not null)
+            {
+                var preview = GeneratedControl.Read<Generated.PreviewMeshHeader>(raw, "PreviewMeshHeader");
+                bool StableId(string text) => !string.IsNullOrEmpty(text) && text.Length <= 128 &&
+                    text.All(ch => ch is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or '_' or '-');
+                if (preview.PreviewId != mesh.PreviewId || preview.Generation != mesh.PreviewGeneration ||
+                    preview.Quality != 0 || !StableId(preview.FeatureId) || !StableId(preview.BodyId) ||
+                    !StableId(preview.TargetTipId) || string.IsNullOrWhiteSpace(preview.ParamName) || preview.ParamName.Length > 128)
+                    throw new SessionException("INVALID_HEADER", "preview header identity or generation mismatch");
+                mesh.PreviewHeader = new SessionPreviewMeshHeader(preview.NativeRequestId, preview.SessionId,
+                    preview.DocumentId, preview.BaseRevision, preview.PreviewId, preview.Generation, preview.FeatureId,
+                    preview.ParamName, preview.BodyId, preview.TargetTipId, 0, checked((int)preview.ByteLength));
+                // Reuse the same strict binary verifier and geometry decoder. The
+                // candidate header/result remains a distinct public contract.
+                header = new Generated.MeshHeader { NativeRequestId = preview.NativeRequestId, SessionId = preview.SessionId,
+                    DocumentId = preview.DocumentId, Revision = preview.BaseRevision, BodyId = preview.BodyId,
+                    FeatureId = preview.TargetTipId, TipId = preview.TargetTipId, Quality = 0, ByteLength = preview.ByteLength };
+            }
+            else header = GeneratedControl.Read<Generated.MeshHeader>(raw, "MeshHeader");
             if (mesh.LineageGeneration != _lineageGeneration || _knownSessionId != mesh.SessionId ||
                 _knownDocumentId != mesh.DocumentId || _knownRevision != mesh.ExpectedRevision)
                 throw new SessionException("NEED_FULL_SNAPSHOT", "model lineage changed before the mesh header arrived");
@@ -610,7 +674,7 @@ public sealed class SessionClient : IAsyncDisposable
                 string.IsNullOrWhiteSpace(header.SessionId) || string.IsNullOrWhiteSpace(header.DocumentId) ||
                 string.IsNullOrWhiteSpace(header.BodyId) || string.IsNullOrWhiteSpace(header.FeatureId) ||
                 string.IsNullOrWhiteSpace(header.TipId) || header.SessionId != mesh.SessionId ||
-                header.DocumentId != mesh.DocumentId || header.BodyId != mesh.BodyId ||
+                header.DocumentId != mesh.DocumentId || (mesh.PreviewId is null && header.BodyId != mesh.BodyId) ||
                 header.FeatureId != header.TipId || header.TipId.Length > 4096 ||
                 header.InstanceId != mesh.InstanceId ||
                 (mesh.InstanceId is not null && header.FeatureId != mesh.InstanceId) ||

@@ -451,7 +451,7 @@ bool BuildPreviewBodyMesh(const std::string& featureId, const std::string& param
 
 bool RebuildFeature(const std::string& featureId, const std::string& paramName,
                       double valueMm, const std::string& expression,
-                      std::string* error) {
+                      std::string* error, const std::map<std::string, double>& otherValues) {
   ShapeRecord rec;
   if (!ShapeStore::instance().get(featureId, &rec)) {
     if (error) *error = "unknown feature " + featureId;
@@ -464,21 +464,40 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     if (error) *error = "throughAll hole has no depthMm (use a blind hole to set depth)";
     return false;
   }
-  // Phase 9a: a formula replaces the bare value. Validate it NOW (parse +
-  // resolution against live values) so typos fail before anything stages.
-  if (!expression.empty()) {
+  // Validate the complete candidate before staging any live parameter/formula.
+  ShapeRecord staged = rec;
+  for (const auto& [name, value] : otherValues) {
+    if (name == paramName || !std::isfinite(value) ||
+        ((rec.type == "Hole" || rec.type == "HolePattern") && name == "depthMm" &&
+         rec.refExtra.find("mode=blind") == std::string::npos)) {
+      if (error) *error = "invalid additional parameter " + name;
+      return false;
+    }
+    std::vector<double> checked;
+    if (!ResolveParamsForEdit(staged, name, value, &checked, error)) return false;
+    staged.paramsMm = std::move(checked);
+  }
+  if (expression.empty()) {
+    std::vector<double> checked;
+    if (!ResolveParamsForEdit(staged, paramName, valueMm, &checked, error)) return false;
+    staged.paramsMm = std::move(checked);
+  } else if (otherValues.empty()) {
     double probe = 0;
-    if (!EvaluateOneExpression(featureId, paramName, expression, &probe,
-                               error)) {
-      return false;
-    }
-    std::vector<double> check;
-    if (!ResolveParamsForEdit(rec, paramName, probe, &check, error)) return false;
+    if (!EvaluateOneExpression(featureId, paramName, expression, &probe, error)) return false;
+    std::vector<double> checked;
+    if (!ResolveParamsForEdit(staged, paramName, probe, &checked, error)) return false;
   } else {
-    std::vector<double> check;
-    if (!ResolveParamsForEdit(rec, paramName, valueMm, &check, error)) {
-      return false;
-    }
+    std::map<std::string, ShapeRecord> scratch;
+    for (const auto& item : ShapeStore::instance().listInOrder()) scratch[item.featureId] = item;
+    scratch[featureId] = staged;
+    auto formulas = ExpressionStore::instance().listInOrder();
+    formulas.erase(std::remove_if(formulas.begin(), formulas.end(), [&](const ExpressionEntry& entry) {
+      return entry.featureId == featureId && (entry.paramName == paramName || otherValues.count(entry.paramName));
+    }), formulas.end());
+    formulas.push_back({featureId, paramName, expression});
+    std::vector<std::string> changed;
+    if (!EvaluateExpressionSnapshot(&scratch, formulas, &changed, error)) return false;
+    staged = scratch.at(featureId);
   }
 #if KREODA_WITH_OCCT
   // DAG recompute (§53): stage new params, mark the closure dirty, rebuild
@@ -506,12 +525,9 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
   // A bare edit replaces this parameter's formula; unrelated formulas stay.
   // Formula values land via the fixpoint below. Both paths share rollback.
   ExpressionStore::instance().set(featureId, paramName, expression);
-  if (expression.empty()) {
-    std::vector<double> newParams;
-    if (!ResolveParamsForEdit(rec, paramName, valueMm, &newParams, error)) {
-      return false;
-    }
-    rec.paramsMm = newParams;
+  for (const auto& [name, value] : otherValues) ExpressionStore::instance().set(featureId, name, "");
+  if (expression.empty() || !otherValues.empty()) {
+    rec.paramsMm = staged.paramsMm;
     ShapeStore::instance().put(rec);
   }
   if (!OcafLive::instance().BeginCommand(error)) {

@@ -16,9 +16,9 @@
 import { createHash, randomUUID } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { decodeMeshFrame, decodeMeshUpdateFb, frameMessage, FrameDecoder, InvokeParamsSchema, NamedCommandParamsSchema, PairParamsSchema, AuthenticateParamsSchema,
-  MeshHeaderSchema, RequestMeshLODParamsSchema, OPERATION_METHODS as OPERATION_METHOD_NAMES,
+  MeshHeaderSchema, RequestMeshLODParamsSchema, PreviewMeshHeaderSchema, RequestPreviewMeshParamsSchema, OPERATION_METHODS as OPERATION_METHOD_NAMES,
   SESSION_CONTROL_VERSION, SESSION_SERVER_CAPABILITIES } from "@kreoda/protocol";
-import type { RequestMeshLODParams, SelectionEvent } from "@kreoda/protocol";
+import type { RequestMeshLODParams, RequestPreviewMeshParams, PreviewMeshHeader, SelectionEvent } from "@kreoda/protocol";
 import { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "@kreoda/command-schema";
 import type {
   SessionEntityChange,
@@ -46,6 +46,15 @@ export const SESSION_PROTOCOL_VERSION = SESSION_CONTROL_VERSION;
 const MAX_CONTROL_PAYLOAD_BYTES = 4 * 1024 * 1024;
 const MAX_BINARY_MESH_BYTES = 64 * 1024 * 1024;
 const MAX_OUTBOUND_PEER_BYTES = 64 * 1024 * 1024;
+const MAX_RETAINED_PREVIEW_BYTES = 256 * 1024 * 1024;
+const MAX_CLIENT_PREVIEWS = 4;
+interface PreviewState {
+  clientId: string; sessionId: string; documentId: string; featureId: string;
+  paramName: string; valueMm: number; expression: string; baseRevision: number;
+  bodyId: string; targetTipId: string; previewId: string; generation: number;
+  values: Record<string, number>; raw: Uint8Array; header?: PreviewMeshHeader;
+  release: () => void; pending: Promise<void>;
+}
 
 /** Former full-list delta retained for legacy v1 network clients. */
 interface LegacySessionDelta {
@@ -228,20 +237,7 @@ export class SessionRelay {
   private selections = new Map<string, string[]>();
   private publishedSelections = new Map<string, string[]>();
   // Spatial preview sessions (§11.11): visual-only until commit.
-  private previews = new Map<
-    string,
-    {
-      clientId: string;
-      documentId: string;
-      featureId: string;
-      paramName: string;
-      valueMm: number;
-      expression: string;
-      baseRevision: number;
-      release: () => void;
-      pending: Promise<void>;
-    }
-  >();
+  private previews = new Map<string, PreviewState>();
 
   private selectionRegistry(): SelectionRegistry {
     return {
@@ -899,6 +895,24 @@ export class SessionRelay {
     try {
       switch (msg.method) {
         case "getSessionInfo": { reply(true, { result: this.sessionInfo() });return; }
+        case "requestPreviewMesh": {
+          if (!clientInfo.capabilities.includes("binary-preview-v1")) throw coded("NOT_IMPLEMENTED", "client did not negotiate binary-preview-v1");
+          if (typeof msg.sessionId !== "string") throw coded("BAD_PARAMS", "requestPreviewMesh requires sessionId");
+          const checked = RequestPreviewMeshParamsSchema.safeParse(params);
+          if (!checked.success) throw coded("BAD_PARAMS", checked.error.message);
+          await this.requestPreviewFrame(clientId, msg.sessionId, checked.data, (header, raw) => {
+            if (ws.readyState !== WebSocket.OPEN) return;
+            const text = JSON.stringify({ requestId, ok: true, result: header });
+            if (ws.bufferedAmount + Buffer.byteLength(text) + raw.byteLength > MAX_OUTBOUND_PEER_BYTES) {
+              reply(false, { errorCode: "SLOW_CONSUMER", error: "preview output queue exceeds 64 MiB" });
+              ws.close(4429, "slow consumer");return;
+            }
+            ws.send(text);ws.send(raw, { binary: true }, (error?: Error) => {
+              if (error && ws.readyState === WebSocket.OPEN) ws.close(1011, "PREVIEW_SEND_FAILED");
+            });
+          });
+          return;
+        }
         case "requestMeshLOD": {
           if (!clientInfo.capabilities.includes("binary-mesh-v1")) {
             reply(false, { errorCode: "NOT_IMPLEMENTED", error: "client did not negotiate binary-mesh-v1" });
@@ -1127,14 +1141,18 @@ export class SessionRelay {
 
   private async currentRevision(): Promise<number> {
     if (this.revisionCache !== null) return this.revisionCache;
+    const lineage = this.sessionId, documentId = this.documentId;
     if (!this.revisionPending) {
-      this.revisionPending = this.coreSnapshot(this.documentId)
+      const pending = this.coreSnapshot(documentId)
         .then((s) => s.revision)
         .finally(() => {
-          this.revisionPending = null;
+          if (this.revisionPending === pending) this.revisionPending = null;
         });
+      this.revisionPending = pending;
     }
     const rev = await this.revisionPending;
+    if (lineage !== this.sessionId || documentId !== this.documentId)
+      throw coded("NEED_FULL_SNAPSHOT", "revision lookup crossed a model lineage change");
     this.revisionCache = rev;
     return rev;
   }
@@ -1390,18 +1408,37 @@ export class SessionRelay {
         const paramName = fields["paramName"] as string;
         const valueMm = (fields["valueMm"] as number | undefined) ?? 0;
         const expression = (fields["expression"] as string | undefined) ?? "";
+        const values = this.checkedPreviewValues(params["previewValues"], featureId, paramName);
         const id = `preview-${randomUUID()}`;
         this.assertReadOwner(clientId);
         let release = this.reserve(clientId, this.committedBaseline ? [featureId] : "*");
         try {
           return await this.orderedRead(clientId, docId, async () => {
+            if ([...this.previews.values()].filter(p => p.clientId === clientId).length >= MAX_CLIENT_PREVIEWS)
+              throw coded("PREVIEW_LIMIT", "at most four active previews per client");
+            const lineage = this.sessionId;
             const snapshot = await this.coreSnapshot(docId);
+            if (lineage !== this.sessionId || docId !== this.documentId || snapshot.documentId !== docId)
+              throw coded("NEED_FULL_SNAPSHOT", "preview snapshot crossed a model lineage change");
+            if (params["expectedRevision"] !== undefined &&
+                (!Number.isSafeInteger(params["expectedRevision"]) || (params["expectedRevision"] as number) < 0))
+              throw coded("BAD_PARAMS", "expectedRevision must be a nonnegative safe integer");
+            if (params["expectedRevision"] !== undefined && params["expectedRevision"] !== snapshot.revision)
+              throw coded("NEED_FULL_SNAPSHOT", "preview intent belongs to an older model revision");
             if (!this.txn) this.committedBaseline = this.committedSnapshot(snapshot);
+            const context = this.previewContext(snapshot, featureId, params);
             const expanded = this.reserve(clientId, [featureId]);release();release = expanded;
-            const result = await this.runPreview(docId, featureId, paramName, valueMm, expression);
+            const state: PreviewState = { clientId, sessionId: lineage, documentId: docId,
+              featureId, paramName, valueMm, expression, values, baseRevision: snapshot.revision,
+              ...context, previewId: id, generation: 0, release, raw: new Uint8Array(), pending: Promise.resolve() };
+            const result = await this.runPreview(state);
+            if (lineage !== this.sessionId || docId !== this.documentId)
+              throw coded("NEED_FULL_SNAPSHOT", "preview result crossed a model lineage change");
             if (!this.isLogicalClientConnected(clientId)) throw coded("CLIENT_DISCONNECTED", "preview client disconnected");
-            this.previews.set(id, { clientId, documentId: docId, featureId, paramName, valueMm, expression, baseRevision: snapshot.revision, release, pending: Promise.resolve() });
-            return { previewId: id, ...result };
+            this.checkPreviewBudget(id, result.raw.byteLength);
+            state.raw = result.raw;state.header = result.header;
+            this.previews.set(id, state);
+            return { previewId: id, generation: 0, ...result.summary };
           });
         } catch (error) { release();throw error; }
       },
@@ -1413,13 +1450,22 @@ export class SessionRelay {
           ...(Object.hasOwn(params, "valueMm") ? { valueMm: params["valueMm"], expression: "" } : {}),
           ...(Object.hasOwn(params, "expression") ? { expression: params["expression"] } : {}),
         }).fields;
-        const valueMm = (fields["valueMm"] as number | undefined) ?? 0;
-        const expression = (fields["expression"] as string | undefined) ?? "";
+        const values = Object.hasOwn(params, "previewValues")
+          ? this.checkedPreviewValues(params["previewValues"], state.featureId, state.paramName) : state.values;
         return this.orderedRead(clientId, state.documentId, async () => {
           this.previewState(clientId, previewId);
-          const result = await this.runPreview(state.documentId, state.featureId, state.paramName, valueMm, expression);
-          state.valueMm = valueMm;state.expression = expression;
-          return { previewId, ...result };
+          await this.assertPreviewRevision(state);
+          if (this.previewState(clientId, previewId) !== state)
+            throw coded("NOT_FOUND", "preview was replaced during revision lookup");
+          if (state.generation >= Number.MAX_SAFE_INTEGER) throw coded("PREVIEW_LIMIT", "preview generation exhausted");
+          const candidate = { ...state, values, generation: state.generation + 1,
+            valueMm: (fields["valueMm"] as number | undefined) ?? 0,
+            expression: (fields["expression"] as string | undefined) ?? "" };
+          const result = await this.runPreview(candidate);
+          this.previewState(clientId, previewId);
+          this.checkPreviewBudget(previewId, result.raw.byteLength);
+          Object.assign(state, candidate, { raw: result.raw, header: result.header });
+          return { previewId, generation: state.generation, ...result.summary };
         });
       }),
       previewCommit: (clientId, previewId) => this.serializePreview(clientId, previewId, async () => {
@@ -1432,6 +1478,7 @@ export class SessionRelay {
             featureId: state.featureId,
             paramName: state.paramName,
             valueMm: state.valueMm,
+            ...(Object.keys(state.values).length ? { parameterValues: state.values } : {}),
             ...(state.expression ? { expression: state.expression } : {}),
           },
           state.baseRevision,
@@ -1447,29 +1494,86 @@ export class SessionRelay {
     };
   }
 
-  private previewState(
-    clientId: string,
-    previewId: string,
-  ): {
-    clientId: string;
-    documentId: string;
-    featureId: string;
-    paramName: string;
-    valueMm: number;
-    expression: string;
-    baseRevision: number;
-    release: () => void;
-    pending: Promise<void>;
-  } {
+  private previewState(clientId: string, previewId: string): PreviewState {
     const state = this.previews.get(previewId);
-    if (!state || state.clientId !== clientId) {
-      const err = new Error(`unknown preview ${previewId}`) as Error & {
-        code?: string;
-      };
-      err.code = "NOT_FOUND";
-      throw err;
-    }
+    if (!state || state.clientId !== clientId) throw coded("NOT_FOUND", "unknown owned preview");
     return state;
+  }
+
+  private checkedPreviewValues(raw: unknown, featureId: string, primary: string): Record<string, number> {
+    if (raw === undefined) return {};
+    const values = asRecord(raw);
+    if (!values || Object.keys(values).length > 5 || Object.hasOwn(values, primary))
+      throw coded("BAD_PARAMS", "previewValues requires at most five distinct additional parameters");
+    const result: Record<string, number> = Object.create(null) as Record<string, number>;
+    for (const [paramName, valueMm] of Object.entries(values)) {
+      const checked = commandNativeRequest("SetDimension", { featureId, paramName, valueMm });
+      result[paramName] = checked.fields["valueMm"] as number;
+    }
+    return result;
+  }
+
+  private previewContext(snapshot: Awaited<ReturnType<SessionRelay["coreSnapshot"]>>, featureId: string, params: Record<string, unknown>): { bodyId: string; targetTipId: string } {
+    const features = snapshot.features.map(asRecord).filter((f): f is Record<string, unknown> => f !== null);
+    const owner = features.find(f => f["featureId"] === featureId);
+    if (!owner || owner["suppressed"] === true) throw coded("NOT_FOUND", "preview owner is missing or suppressed");
+    const source = owner["type"] === "Instance" && Array.isArray(owner["dependsOn"]) ? owner["dependsOn"][0] : featureId;
+    const body = params["bodyId"] === undefined
+      ? snapshot.bodies.find(b => b.history.includes(source as string))
+      : snapshot.bodies.find(b => b.bodyId === params["bodyId"]);
+    if (!body || !body.history.length || body.bodyId !== `body-${body.history[0]}` ||
+        body.tip !== body.history.at(-1) || !snapshot.tips.includes(body.tip))
+      throw coded("NOT_FOUND", "preview body has no current visible tip");
+    const tip = owner["type"] === "Instance" ? featureId : body.tip;
+    if (params["targetTipId"] !== undefined && params["targetTipId"] !== tip)
+      throw coded("NOT_FOUND", "preview tip does not match the current body or instance");
+    const visited = new Set<string>(), active = new Set<string>();
+    const visit = (id: string): void => {
+      if (active.has(id)) throw coded("BAD_MODEL", "cyclic preview dependencies");
+      if (visited.has(id)) return;
+      const f = features.find(f => f["featureId"] === id);
+      if (!f || f["suppressed"] === true || f["visible"] === false) throw coded("NOT_FOUND", "preview dependency missing or hidden");
+      active.add(id);
+      if (Array.isArray(f["dependsOn"])) for (const dep of f["dependsOn"]) {
+        if (typeof dep !== "string") throw coded("BAD_MODEL", "invalid preview dependency");
+        if (features.some(f => f["featureId"] === dep)) visit(dep);
+        else if (!snapshot.sketches.some(s => asRecord(s)?.["featureId"] === dep)) throw coded("NOT_FOUND", "preview dependency missing");
+      }
+      active.delete(id);visited.add(id);
+    };
+    visit(tip);
+    if (!visited.has(featureId) || (owner["type"] === "Instance" && !body.history.includes(source as string)))
+      throw coded("NOT_FOUND", "preview owner is unrelated to requested body tip");
+    return { bodyId: body.bodyId, targetTipId: tip };
+  }
+
+  private checkPreviewBudget(replacedId: string, size: number): void {
+    if (size > MAX_BINARY_MESH_BYTES) throw coded("MESH_TOO_LARGE", "preview exceeds 64 MiB");
+    let retained = size;
+    for (const [id, state] of this.previews) if (id !== replacedId) retained += state.raw.byteLength;
+    if (retained > MAX_RETAINED_PREVIEW_BYTES) throw coded("PREVIEW_LIMIT", "retained previews exceed 256 MiB");
+  }
+
+  private async assertPreviewRevision(state: PreviewState): Promise<void> {
+    const revision = await this.currentRevision();
+    if (state.sessionId !== this.sessionId || state.documentId !== this.documentId ||
+        state.baseRevision !== revision)
+      throw coded("NEED_FULL_SNAPSHOT", "preview model lineage or base revision changed");
+  }
+
+  private requestPreviewFrame(clientId: string, sessionId: string, params: RequestPreviewMeshParams,
+    emit: (header: PreviewMeshHeader, raw: Uint8Array) => void): Promise<void> {
+    return this.serializePreview(clientId, params.previewId, () => this.orderedRead(clientId, params.documentId, async () => {
+      const state = this.previewState(clientId, params.previewId);
+      if (sessionId !== state.sessionId || params.documentId !== state.documentId || params.expectedRevision !== state.baseRevision)
+        throw coded("NEED_FULL_SNAPSHOT", "preview request belongs to a different model lineage");
+      await this.assertPreviewRevision(state);
+      if (this.previewState(clientId, params.previewId) !== state)
+        throw coded("NOT_FOUND", "preview was replaced during revision lookup");
+      if (params.generation !== state.generation) throw coded("STALE_PREVIEW", "preview generation changed");
+      if (!state.header || state.raw.byteLength === 0) throw coded("NOT_FOUND", "preview mesh is no longer retained");
+      emit(state.header, state.raw);
+    }));
   }
 
   private serializePreview<T>(clientId: string, previewId: string, action: () => T | Promise<T>): Promise<T> {
@@ -1483,46 +1587,35 @@ export class SessionRelay {
     return run;
   }
 
-  /** Transient core preview (§13): tessellated, never committed. */
-  private async runPreview(
-    documentId: string,
-    featureId: string,
-    paramName: string,
-    valueMm: number,
-    expression: string,
-  ): Promise<Record<string, unknown>> {
-    const raw = await this.coreInvokeRaw(documentId, 6, {
-      featureId,
-      paramName,
-      valueMm,
-      isPreview: true,
-      ...(expression ? { expression } : {}),
-    });
+  /** Candidate bytes remain separate from committed model snapshots/deltas. */
+  private async runPreview(state: PreviewState): Promise<{ raw: Uint8Array; header: PreviewMeshHeader; summary: Record<string, unknown> }> {
+    const expectedNativeRequestId = `relay-${++this.seq}`;
+    const raw = await this.coreInvokeRaw(state.documentId, 6, {
+      featureId: state.featureId, paramName: state.paramName, valueMm: state.valueMm,
+      isPreview: true, previewTipId: state.targetTipId, previewValues: state.values,
+      ...(state.expression ? { expression: state.expression } : {}),
+    }, expectedNativeRequestId);
+    if (raw.byteLength > MAX_BINARY_MESH_BYTES) throw coded("MESH_TOO_LARGE", "preview exceeds 64 MiB");
     let mesh;
-    try {
-      mesh = decodeMeshFrame(raw);
-    } catch {
-      // A JSON error frame decodes here when the preview itself is invalid
-      // (unknown ref, bad value): surface the core's honest message.
-      if (raw.length > 0 && raw[0] === 0x7b) {
-        const parsed = JSON.parse(new TextDecoder().decode(raw)) as Record<
-          string,
-          unknown
-        >;
-        const err = new Error(
-          (parsed["errorMessage"] as string | undefined) ?? "preview failed",
-        ) as Error & { code?: string };
-        err.code = (parsed["errorCode"] as string | undefined) ?? "PREVIEW_FAILED";
-        throw err;
+    try { mesh = decodeMeshUpdateFb(raw); }
+    catch (error) {
+      if (raw[0] === 0x7b) {
+        const parsed = asRecord(JSON.parse(new TextDecoder().decode(raw)));
+        throw coded(typeof parsed?.["errorCode"] === "string" ? parsed["errorCode"] : "PREVIEW_FAILED",
+          typeof parsed?.["errorMessage"] === "string" ? parsed["errorMessage"] : "preview failed");
       }
-      throw new Error("preview frame corrupt");
+      throw coded("INVALID_MESH", this.errorMessage(error));
     }
-    return {
-      triangles: mesh.indices.length / 3,
-      volumeMm3: mesh.volumeMm3,
-      bboxMm: [...mesh.bboxMm],
-      revision: mesh.revision,
-    };
+    if (state.sessionId !== this.sessionId || state.documentId !== this.documentId || mesh.revision !== state.baseRevision)
+      throw coded("NEED_FULL_SNAPSHOT", "preview result belongs to a stale model");
+    if (mesh.requestId !== expectedNativeRequestId || mesh.featureId !== state.targetTipId ||
+        mesh.bodyId !== state.targetTipId || mesh.lod !== 0) throw coded("INVALID_MESH", "preview identity mismatch");
+    const header = PreviewMeshHeaderSchema.parse({ nativeRequestId: mesh.requestId, sessionId: state.sessionId,
+      documentId: state.documentId, baseRevision: state.baseRevision, previewId: state.previewId, generation: state.generation,
+      featureId: state.featureId, paramName: state.paramName, bodyId: state.bodyId, targetTipId: state.targetTipId,
+      quality: 0, byteLength: raw.byteLength });
+    return { raw, header, summary: { triangles: mesh.indices.length / 3, volumeMm3: mesh.volumeMm3,
+      bboxMm: [...mesh.bboxMm], revision: mesh.revision } };
   }
 
   /**

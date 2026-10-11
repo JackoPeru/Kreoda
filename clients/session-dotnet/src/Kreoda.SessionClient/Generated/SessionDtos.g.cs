@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: a03adde0580bff1da306e5b0adea3e5ad6ca8d5eacb4d9fbc88cef4fd6487904
+// Source SHA256: 432a5b77d7d6c7ab1431a36439a164631b1dcc771d95d933124aa28e4385d4bb
 #nullable enable annotations
 #nullable disable warnings
 namespace Kreoda.Session.Generated
@@ -590,6 +590,69 @@ namespace Kreoda.Session.Generated
         public string TransactionId { get; set; }
     }
 
+    public partial class RequestPreviewMeshParams
+    {
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("generation")]
+        public long Generation { get; set; }
+
+        [JsonPropertyName("previewId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string PreviewId { get; set; }
+    }
+
+    public partial class PreviewMeshHeader
+    {
+        [JsonPropertyName("baseRevision")]
+        public long BaseRevision { get; set; }
+
+        [JsonPropertyName("bodyId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string BodyId { get; set; }
+
+        [JsonPropertyName("byteLength")]
+        public long ByteLength { get; set; }
+
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string FeatureId { get; set; }
+
+        [JsonPropertyName("generation")]
+        public long Generation { get; set; }
+
+        [JsonPropertyName("nativeRequestId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string NativeRequestId { get; set; }
+
+        [JsonPropertyName("paramName")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string ParamName { get; set; }
+
+        [JsonPropertyName("previewId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string PreviewId { get; set; }
+
+        [JsonPropertyName("quality")]
+        public long Quality { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+
+        [JsonPropertyName("targetTipId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string TargetTipId { get; set; }
+    }
+
     public enum Kind { Body, Feature, Sketch };
 
     public enum SessionIncrementalEventEvent { Delta };
@@ -954,6 +1017,33 @@ namespace Kreoda.Session.Generated
         }
 
         public static readonly StateConverter Singleton = new StateConverter();
+    }
+
+    internal class StickyMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length >= 1 && value.Length <= 128)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length >= 1 && value.Length <= 128)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly StickyMinMaxLengthCheckConverter Singleton = new StickyMinMaxLengthCheckConverter();
     }
 
     internal class IsoDateTimeOffsetConverter : JsonConverter<DateTimeOffset>

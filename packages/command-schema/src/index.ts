@@ -97,7 +97,7 @@ export const COMMANDS: CadCommandDefinition[] = [
     nativeType: CommandType.SetFeatureParameter,
     label: "Set dimension",
     beginnerLabel: "Set size",
-    description: "Change one canonical mm parameter (one Undo step).",
+    description: "Change canonical parameters atomically (one Undo step).",
     icon: "ruler",
     parameterSchema: z.object({
       featureId: StableFeatureIdSchema,
@@ -111,6 +111,10 @@ export const COMMANDS: CadCommandDefinition[] = [
       valueMm: z.number().finite().max(1000000).min(-1000000).optional(),
       // Phase 9a: formula replacing the bare value (validated core-side).
       expression: z.string().max(256).optional(),
+      parameterValues: z.record(z.string().min(1).max(128).refine(name => name !== "__proto__", "unknown parameter"), z.number().finite().min(-1000000).max(1000000))
+        .refine(values => Object.keys(values).length <= 5, "at most five additional parameters").optional(),
+    }).refine(value => !value.parameterValues || !Object.hasOwn(value.parameterValues, value.paramName), {
+      message: "additional parameters cannot repeat the primary parameter",
     }).refine((value) => value.valueMm !== undefined || !!value.expression?.trim(), {
       message: "provide valueMm or a non-empty expression",
     }),

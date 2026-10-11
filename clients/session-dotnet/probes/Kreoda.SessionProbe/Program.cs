@@ -245,7 +245,82 @@ async Task RunInstanceAsync()
     }
 }
 
-if (Environment.GetEnvironmentVariable("KREODA_SESSION_PROBE_INSTANCE_MESH") == "1")
+async Task RunPreviewAsync()
+{
+    var pair = await SessionClient.PairAsync(new Uri(Required("KREODA_SESSION_PROBE_URL")),
+        Required("KREODA_SESSION_PROBE_PAIR"), "native-preview-probe", "preview-probe");
+    await using var client = pair.Client;
+    var suffix = Guid.NewGuid().ToString("N");
+    var box = "preview-box-" + suffix;var hole = "preview-hole-" + suffix;var instance = "preview-inst-" + suffix;
+    var hashes = new List<string>();var passed = new List<string>();int undos = 0;
+    async Task Wait(long revision) {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (client.Model!.Revision != revision) await Task.Delay(10, timeout.Token);
+    }
+    async Task Mutate(string command, Dictionary<string, object?> parameters, string? id = null) {
+        var reply = await client.CommandAsync(command, parameters, featureId: id);
+        Check(reply.GetProperty("status").GetString() == "ok", "preview probe mutation failed");
+        await Wait(reply.GetProperty("revision").GetInt64());undos++;
+    }
+    async Task<JsonElement> Preview(string method, Dictionary<string, object?> parameters) =>
+        (await client.CallAsync(method, parameters)).GetProperty("result");
+    try {
+        var info = await client.InvokeAsync(1, new Dictionary<string, object?>());
+        Check(info.GetProperty("occtVersion").GetString() == "8.0.1-native", "preview probe requires actual OCCT");
+        await Mutate("CreateBox", new() { ["widthMm"] = 100, ["heightMm"] = 50, ["depthMm"] = 20 }, box);
+        await Mutate("CreateHole", new() { ["targetId"] = box, ["faceRole"] = "box.+Z", ["xMm"] = 25,
+            ["yMm"] = 25, ["diameterMm"] = 6, ["depthMode"] = "throughAll" }, hole);
+        var before = client.Model!;var body = "body-" + box;
+        var begin = await Preview(SessionMethods.PreviewBegin, new() { ["featureId"] = box, ["paramName"] = "widthMm",
+            ["valueMm"] = 140, ["bodyId"] = body, ["targetTipId"] = hole });
+        var id = begin.GetProperty("previewId").GetString()!;
+        var mesh = await client.RequestPreviewMeshAsync(id, 0, before.DocumentId, before.Revision);hashes.Add(mesh.Mesh.RawPayloadSha256);
+        Check(mesh.Header.FeatureId == box && mesh.Header.TargetTipId == hole && mesh.Header.BodyId == body,
+            "preview confused edited owner and visible tip");
+        Check(Math.Abs(mesh.Mesh.VolumeMm3 - (140000 - Math.PI * 9 * 20)) < .001, "dependent hole absent from preview");
+        Check(ReferenceEquals(client.Model, before), "candidate changed committed model state");
+        var committed = await client.RequestMeshLodAsync(body, 0, before.DocumentId, before.Revision);
+        Check(Math.Abs(committed.VolumeMm3 - (100000 - Math.PI * 9 * 20)) < .001, "candidate modified authoritative geometry");
+        passed.Add("actual-dependent-tip-preview-with-unchanged-committed-model");
+        await Preview(SessionMethods.PreviewUpdate, new() { ["previewId"] = id, ["valueMm"] = 150 });
+        try { await client.RequestPreviewMeshAsync(id, 0, before.DocumentId, before.Revision);throw new InvalidOperationException("stale candidate accepted"); }
+        catch (SessionException error) when (error.Code == "STALE_PREVIEW") { }
+        var fresh = await client.RequestPreviewMeshAsync(id, 1, before.DocumentId, before.Revision);hashes.Add(fresh.Mesh.RawPayloadSha256);
+        Check(Math.Abs(fresh.Mesh.VolumeMm3 - (150000 - Math.PI * 9 * 20)) < .001, "new generation used old candidate");
+        await Preview(SessionMethods.PreviewCancel, new() { ["previewId"] = id });
+        passed.Add("generation-replacement-and-cancel");
+        await Mutate("CreateInstance", new() { ["targetId"] = box }, instance);
+        before = client.Model!;
+        begin = await Preview(SessionMethods.PreviewBegin, new() { ["featureId"] = instance, ["paramName"] = "txMm", ["valueMm"] = 10,
+            ["previewValues"] = new Dictionary<string, double> { ["tyMm"] = 20, ["tzMm"] = 30 }, ["bodyId"] = body, ["targetTipId"] = instance });
+        id = begin.GetProperty("previewId").GetString()!;
+        mesh = await client.RequestPreviewMeshAsync(id, 0, before.DocumentId, before.Revision);hashes.Add(mesh.Mesh.RawPayloadSha256);
+        Check(mesh.Mesh.BboxMm.Take(3).Select((v, i) => Math.Abs(v - new double[] { 10, 20, 30 }[i]) < .001).All(v => v), "compound candidate axes disagree");
+        var operation = Guid.NewGuid().ToString("D");
+        using (var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(600))) {
+            try { await client.CallAsync(SessionMethods.PreviewCommit, new Dictionary<string, object?> { ["previewId"] = id },
+                deadline.Token, operation, client.SessionId);throw new InvalidOperationException("test did not drop commit acknowledgement"); }
+            catch (SessionException error) when (error.Code == "CANCELLED") { }
+        }
+        var replay = await client.CallAsync(SessionMethods.PreviewCommit, new Dictionary<string, object?> { ["previewId"] = id },
+            operationId: operation, expectedSessionId: client.SessionId);
+        await Wait(replay.GetProperty("result").GetProperty("revision").GetInt64());undos++;
+        Check(client.Model!.Revision == before.Revision + 1, "compound commit or replay advanced more than once");
+        var parameters = client.Model.Features.Single(f => f.GetProperty("featureId").GetString() == instance).GetProperty("paramsMm");
+        Check(parameters.EnumerateArray().Take(3).Select(v => v.GetDouble()).SequenceEqual(new double[] { 10, 20, 30 }), "compound commit lost an axis");
+        var undo = await client.InvokeAsync(8, new Dictionary<string, object?>());await Wait(undo.GetProperty("revision").GetInt64());undos--;
+        parameters = client.Model!.Features.Single(f => f.GetProperty("featureId").GetString() == instance).GetProperty("paramsMm");
+        Check(parameters.EnumerateArray().Take(3).All(v => v.GetDouble() == 0), "shared Undo did not restore all axes");
+        passed.Add("three-axis-atomic-commit-lost-ack-replay-and-shared-undo");
+        Console.WriteLine(JsonSerializer.Serialize(new { passed, hashes,
+            boundary = "Actual OCCT/Electron relay and compiled managed client; no Unity/headset interaction claim." }));
+    }
+    finally { for (int i = 0; i < undos; ++i) await client.InvokeAsync(8, new Dictionary<string, object?>()); }
+}
+
+if (Environment.GetEnvironmentVariable("KREODA_SESSION_PROBE_PREVIEW") == "1")
+    await RunPreviewAsync();
+else if (Environment.GetEnvironmentVariable("KREODA_SESSION_PROBE_INSTANCE_MESH") == "1")
     await RunInstanceAsync();
 else if (Environment.GetEnvironmentVariable("KREODA_SESSION_PROBE_MESH") == "1")
     await RunMeshAsync();

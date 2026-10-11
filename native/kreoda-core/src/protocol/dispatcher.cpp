@@ -1095,8 +1095,19 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         }
         return preview;
       }
+      std::map<std::string, double> parameterValues;
+      if (requestJson.contains("parameterValues")) {
+        const auto& values = requestJson["parameterValues"];
+        if (!values.is_object() || values.size() > 5 || values.contains(paramName))
+          return make_response(requestId, "error", error_body("BAD_PARAMS", "invalid additional parameterValues"));
+        for (const auto& [name, value] : values.items()) {
+          if (!value.is_number() || !std::isfinite(value.get<double>()))
+            return make_response(requestId, "error", error_body("BAD_PARAMS", "parameterValues must be finite numbers"));
+          parameterValues[name] = value.get<double>();
+        }
+      }
       std::string error;
-      if (!RebuildFeature(featureId, paramName, value, expression, &error)) {
+      if (!RebuildFeature(featureId, paramName, value, expression, &error, parameterValues)) {
         return make_response(requestId, "error",
                              error_body("REBUILD_FAILED", error));
       }

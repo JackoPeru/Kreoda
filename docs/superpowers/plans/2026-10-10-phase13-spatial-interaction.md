@@ -58,18 +58,20 @@
 
 ### Task 3: Separate bounded preview binary transport
 
-**Files:** schemas/session-control-v1.json and generated outputs; packages/protocol/src/session-control.ts; apps/desktop/electron/session.ts and session-queries.ts; apps/desktop/tests/session-relay.test.ts; clients/session-dotnet/src/Kreoda.SessionClient/{SessionClient.cs,SessionMeshResult.cs}; actual .NET session tests and probe.
+**Files:** schemas/session-control-v1.json and generated outputs; packages/protocol/src/session-control.ts; apps/desktop/electron/session.ts and session-queries.ts; apps/desktop/tests/session-relay.test.ts; clients/session-dotnet/src/Kreoda.SessionClient/{SessionClient.cs,SessionMesh.cs}; actual .NET session tests and probe.
+
+**Additional files for atomic compound confirmation:** packages/command-schema/src/index.ts; native/kreoda-core/src/features/primitives/primitives.{h,cpp}, protocol/dispatcher.cpp and tests/test_topology.cpp. Canonical SetDimension accepts checked additional `parameterValues`; its existing OCAF command stages all values, rebuilds once, restores every component on failure and records one Undo/revision. This avoids intermediate geometry/formula failures from sequential scalar staging.
 
 **Interfaces:** Negotiate `binary-preview-v1`. Add `requestPreviewMesh` with `previewId`, `generation`, `documentId`, `expectedRevision` plus envelope sessionId. Add canonical PreviewMeshHeader with nativeRequestId, session/document/base revision, previewId/generation, edited feature/parameter, bodyId, targetTipId, quality0 and bounded byteLength. `previewBegin` may receive bodyId/targetTipId; old JSON callers retain their summary shape.
 
-- [ ] RED: actual relay/managed transport returns only summaries today; require exact raw native bytes for the requested preview generation and unchanged committed snapshot.
-- [ ] Retain only the latest raw buffer and generation in each owned preview state. Limit4 live previews per logical client,64MiB per buffer and256MiB retained globally; reject excess before retaining. Clear on update replacement, cancel, commit, disconnect/revoke, core/document reset.
-- [ ] `runPreview` returns an internal summary/raw pair. Never expose raw bytes/base64/typed arrays in JSON. Validate body/tip lineage and dependencies before passing previewTipId to Task2.
-- [ ] Preserve scalar preview callers and add checked compound values for actual multi-parameter manipulators. Commit compound edits through the existing transaction machinery as one shared Undo step/delta; rollback every component on failure and preserve operation replay. Test two-axis and three-axis edits, last-component failure and lost acknowledgement.
-- [ ] `requestPreviewMesh` serializes with that preview and the existing ordered read. Reject wrong owner, generation, document/session/revision, consumed preview or active conflicting transaction. Enqueue checked JSON header then unchanged binary frame before releasing the read; preserve64MiB peer queue/slow-consumer protections.
-- [ ] Reuse the native binary verifier, range/finite/index checks and synchronous receive-loop correlation. Add `RequestPreviewMeshAsync(previewId,generation,documentId,expectedRevision,ct)` returning a distinct SessionPreviewMeshResult; do not route it into committed model state.
-- [ ] Test interleaved ordinary/preview meshes, duplicate reads of the same cached native request, fragmented frames, cancellation, errors without binary, stale generations, replayed preview control replies, disconnect/reconnect and memory limits.
-- [ ] GREEN: schema drift/lint/JS, both actual managed targets, actual OCCT Desktop with compiled C# preview probe; raw hash equality and no document mutation. Commit and fresh review.
+- [x] RED: actual relay/managed transport returns only summaries today; require exact raw native bytes for the requested preview generation and unchanged committed snapshot.
+- [x] Retain only the latest raw buffer and generation in each owned preview state. Limit4 live previews per logical client,64MiB per buffer and256MiB retained globally; reject excess before retaining. Clear on update replacement, cancel, commit, disconnect/revoke, core/document reset.
+- [x] `runPreview` returns an internal summary/raw pair. Never expose raw bytes/base64/typed arrays in JSON. Validate body/tip lineage and dependencies before passing previewTipId to Task2.
+- [x] Preserve scalar preview callers and add checked compound values for actual multi-parameter manipulators. Commit compound edits through the existing transaction machinery as one shared Undo step/delta; rollback every component on failure and preserve operation replay. Test two-axis and three-axis edits, last-component failure and lost acknowledgement.
+- [x] `requestPreviewMesh` serializes with that preview and the existing ordered read. Reject wrong owner, generation, document/session/revision, consumed preview or active conflicting transaction. Enqueue checked JSON header then unchanged binary frame before releasing the read; preserve64MiB peer queue/slow-consumer protections.
+- [x] Reuse the native binary verifier, range/finite/index checks and synchronous receive-loop correlation. Add `RequestPreviewMeshAsync(previewId,generation,documentId,expectedRevision,ct)` returning a distinct SessionPreviewMeshResult; do not route it into committed model state.
+- [x] Test interleaved ordinary/preview meshes, duplicate reads of the same cached native request, fragmented frames, cancellation, errors without binary, stale generations, replayed preview control replies, disconnect/reconnect and memory limits.
+- [x] GREEN: schema drift/lint/JS, both actual managed targets, actual OCCT Desktop with compiled C# preview probe; raw hash equality and no document mutation. Commit and fresh review.
 
 ### Task 4: Semantic edit intent and preview worker
 

@@ -75,6 +75,149 @@ public sealed class SessionMeshTests
     }
 
     [Fact]
+    public async Task PreviewMeshUsesSeparateTypedHeaderAndFragmentedBinary()
+    {
+        await using var server = new LoopbackWsServer(_ => null);
+        var raw = MeshFrame("native-preview", 0);
+        server.ExtendedHandler = request => Task.FromResult<LoopbackWsResponse?>(
+            request.GetProperty("method").GetString() == SessionMethods.Hello
+            ? new LoopbackWsResponse(HelloReply(request, [SessionMethods.BinaryMeshV1Capability, SessionMethods.BinaryPreviewV1Capability]))
+            : new LoopbackWsResponse(JsonReply(request, new Dictionary<string, object?> {
+                ["result"] = new { nativeRequestId = "native-preview", sessionId = Session, documentId = "doc-phase1",
+                    baseRevision = 7, previewId = "preview-1", generation = 3, featureId = "root", paramName = "widthMm",
+                    bodyId = "body-root", targetTipId = "tip-1", quality = 0, byteLength = raw.Length }
+            }), raw, FragmentSize: 5));
+        server.Start();
+        await using var client = await Kreoda.Session.SessionClient.ConnectAsync(
+            new Uri($"ws://127.0.0.1:{server.Port}/"), "unit-token", "xunit");
+        var result = await client.RequestPreviewMeshAsync("preview-1", 3, "doc-phase1", 7);
+        Assert.Equal("root", result.Header.FeatureId);
+        Assert.Equal("tip-1", result.Header.TargetTipId);
+        Assert.Equal(3, result.Header.Generation);
+        Assert.Equal(3, result.Mesh.Indices.Length);
+        Assert.Equal(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(raw)).ToLowerInvariant(), result.Mesh.RawPayloadSha256);
+        Assert.Null(client.Model);
+    }
+
+    [Theory]
+    [InlineData("generation", 4)]
+    [InlineData("baseRevision", 8)]
+    [InlineData("quality", 1)]
+    public async Task PreviewMeshRejectsMismatchedIdentityBeforeBinary(string field, int wrong)
+    {
+        await using var server = new LoopbackWsServer(_ => null);
+        server.ExtendedHandler = request => {
+            if (request.GetProperty("method").GetString() == SessionMethods.Hello)
+                return Task.FromResult<LoopbackWsResponse?>(new(HelloReply(request, [SessionMethods.BinaryPreviewV1Capability])));
+            var header = new Dictionary<string, object?> {
+                ["nativeRequestId"] = "native-preview", ["sessionId"] = Session, ["documentId"] = "doc-phase1",
+                ["baseRevision"] = 7, ["previewId"] = "preview-1", ["generation"] = 3,
+                ["featureId"] = "root", ["paramName"] = "widthMm", ["bodyId"] = "body-root",
+                ["targetTipId"] = "tip-1", ["quality"] = 0, ["byteLength"] = 500,
+            };
+            header[field] = wrong;
+            return Task.FromResult<LoopbackWsResponse?>(new(JsonReply(request,
+                new Dictionary<string, object?> { ["result"] = header })));
+        };
+        server.Start();
+        await using var client = await Kreoda.Session.SessionClient.ConnectAsync(new Uri($"ws://127.0.0.1:{server.Port}/"), "t", "xunit");
+        var error = await Assert.ThrowsAsync<SessionException>(() => client.RequestPreviewMeshAsync("preview-1", 3, "doc-phase1", 7));
+        Assert.Equal("INVALID_HEADER", error.Code);
+        Assert.Null(client.Model);
+    }
+
+    [Fact]
+    public async Task RepeatedPreviewReadsReuseNativeIdentityWithoutEnteringCommittedState()
+    {
+        await using var server = new LoopbackWsServer(_ => null);
+        var bytes = MeshFrame("cached-preview", 0);
+        server.ExtendedHandler = request => Task.FromResult<LoopbackWsResponse?>(request.GetProperty("method").GetString() == SessionMethods.Hello
+            ? new(HelloReply(request, [SessionMethods.BinaryPreviewV1Capability]))
+            : new(JsonReply(request, new Dictionary<string, object?> { ["result"] = new {
+                nativeRequestId = "cached-preview", sessionId = Session, documentId = "doc-phase1", baseRevision = 7,
+                previewId = "preview-1", generation = 0, featureId = "root", paramName = "widthMm", bodyId = "body-root",
+                targetTipId = "tip-1", quality = 0, byteLength = bytes.Length } }), bytes, FragmentSize: 3));
+        server.Start();
+        await using var client = await Kreoda.Session.SessionClient.ConnectAsync(new Uri($"ws://127.0.0.1:{server.Port}/"), "t", "xunit");
+        var reads = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => client.RequestPreviewMeshAsync("preview-1", 0, "doc-phase1", 7)));
+        Assert.Single(reads.Select(r => r.Mesh.RawPayloadSha256).Distinct());
+        Assert.Null(client.Model);
+    }
+
+    [Fact]
+    public async Task OrdinaryAndPreviewRequestsShareReceiveLoopWithoutConflatingHeaders()
+    {
+        await using var server = new LoopbackWsServer(_ => null);
+        server.ExtendedHandler = request => {
+            var method = request.GetProperty("method").GetString();
+            if (method == SessionMethods.Hello) return Task.FromResult<LoopbackWsResponse?>(new(HelloReply(request,
+                [SessionMethods.BinaryPreviewV1Capability, SessionMethods.BinaryMeshV1Capability])));
+            var preview = method == SessionMethods.RequestPreviewMesh;
+            var nativeId = preview ? "separate-preview" : "ordinary-mesh";
+            var bytes = MeshFrame(nativeId, preview ? 0 : 1);
+            var text = preview ? JsonReply(request, new Dictionary<string, object?> { ["result"] = new {
+                nativeRequestId = nativeId, sessionId = Session, documentId = "doc-phase1", baseRevision = 7,
+                previewId = "preview-1", generation = 0, featureId = "root", paramName = "widthMm", bodyId = "body-root",
+                targetTipId = "tip-1", quality = 0, byteLength = bytes.Length } }) : MeshHeader(request, nativeId, 1, bytes.Length);
+            return Task.FromResult<LoopbackWsResponse?>(new(text, bytes, FragmentSize: 4));
+        };
+        server.Start();
+        await using var client = await Kreoda.Session.SessionClient.ConnectAsync(new Uri($"ws://127.0.0.1:{server.Port}/"), "t", "xunit");
+        var preview = client.RequestPreviewMeshAsync("preview-1", 0, "doc-phase1", 7);
+        var ordinary = client.RequestMeshLodAsync("body-root", 1, "doc-phase1", 7);
+        await Task.WhenAll(preview, ordinary);
+        Assert.Equal("root", preview.Result.Header.FeatureId);
+        Assert.Equal("tip-1", ordinary.Result.Header.FeatureId);
+        Assert.Equal(0, preview.Result.Mesh.Header.Quality);
+        Assert.Equal(1, ordinary.Result.Header.Quality);
+        Assert.Null(client.Model);
+    }
+
+    [Fact]
+    public async Task CancelledPreviewIgnoresLateBinaryAndAllowsNextRead()
+    {
+        await using var server = new LoopbackWsServer(_ => null);
+        var arrived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int reads = 0;
+        server.ExtendedHandler = request => {
+            if (request.GetProperty("method").GetString() == SessionMethods.Hello)
+                return Task.FromResult<LoopbackWsResponse?>(new(HelloReply(request, [SessionMethods.BinaryPreviewV1Capability])));
+            var first = ++reads == 1;var bytes = MeshFrame("late-preview", 0);
+            var text = JsonReply(request, new Dictionary<string, object?> { ["result"] = new {
+                nativeRequestId = "late-preview", sessionId = Session, documentId = "doc-phase1", baseRevision = 7,
+                previewId = "preview-1", generation = 0, featureId = "root", paramName = "widthMm", bodyId = "body-root",
+                targetTipId = "tip-1", quality = 0, byteLength = bytes.Length } });
+            return Task.FromResult<LoopbackWsResponse?>(new(text, bytes, BeforeBinary: first ? release.Task : null,
+                AfterTextSent: first ? () => { arrived.TrySetResult();return Task.CompletedTask; } : null));
+        };
+        server.Start();
+        await using var client = await Kreoda.Session.SessionClient.ConnectAsync(new Uri($"ws://127.0.0.1:{server.Port}/"), "t", "xunit");
+        using var cancel = new CancellationTokenSource();
+        var pending = client.RequestPreviewMeshAsync("preview-1", 0, "doc-phase1", 7, cancel.Token);
+        await arrived.Task;cancel.Cancel();
+        var error = await Assert.ThrowsAsync<SessionException>(() => pending);
+        Assert.Equal("CANCELLED", error.Code);
+        release.TrySetResult();
+        var recovered = await client.RequestPreviewMeshAsync("preview-1", 0, "doc-phase1", 7);
+        Assert.Equal("late-preview", recovered.Header.NativeRequestId);
+        Assert.Null(client.Model);
+    }
+
+    [Fact]
+    public async Task PreviewFailureWithoutBinaryFailsPendingResult()
+    {
+        await using var server = new LoopbackWsServer(_ => null);
+        server.ExtendedHandler = request => Task.FromResult<LoopbackWsResponse?>(request.GetProperty("method").GetString() == SessionMethods.Hello
+            ? new(HelloReply(request, [SessionMethods.BinaryPreviewV1Capability])) : new(JsonSerializer.Serialize(new {
+                requestId = request.GetProperty("requestId").GetString(), ok = false, errorCode = "PREVIEW_FAILED", error = "invalid candidate" })));
+        server.Start();
+        await using var client = await Kreoda.Session.SessionClient.ConnectAsync(new Uri($"ws://127.0.0.1:{server.Port}/"), "t", "xunit");
+        var error = await Assert.ThrowsAsync<SessionException>(() => client.RequestPreviewMeshAsync("preview-1", 0, "doc-phase1", 7));
+        Assert.Equal("PREVIEW_FAILED", error.Code);
+    }
+
+    [Fact]
     public async Task RequestMeshLodValidatesHeaderAndFragmentedMeshForEveryQuality()
     {
         await using var server = new LoopbackWsServer(_ => null);

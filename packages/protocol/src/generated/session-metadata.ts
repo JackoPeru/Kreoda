@@ -1,6 +1,6 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: a03adde0580bff1da306e5b0adea3e5ad6ca8d5eacb4d9fbc88cef4fd6487904
-export const CONTRACT_SCHEMA_SHA256 = "a03adde0580bff1da306e5b0adea3e5ad6ca8d5eacb4d9fbc88cef4fd6487904" as const;
+// Source SHA256: 432a5b77d7d6c7ab1431a36439a164631b1dcc771d95d933124aa28e4385d4bb
+export const CONTRACT_SCHEMA_SHA256 = "432a5b77d7d6c7ab1431a36439a164631b1dcc771d95d933124aa28e4385d4bb" as const;
 export const SESSION_DTO_NAMES = [
   "StableFeatureId",
   "RequestMetadata",
@@ -28,7 +28,9 @@ export const SESSION_DTO_NAMES = [
   "AuthenticateParams",
   "PairReply",
   "AuthenticateReply",
-  "SessionInfoPayload"
+  "SessionInfoPayload",
+  "RequestPreviewMeshParams",
+  "PreviewMeshHeader"
 ] as const;
 export const SESSION_CONTROL_VERSION = 1 as const;
 export const CONTROL_METHODS = [
@@ -79,7 +81,8 @@ export const QUERY_METHODS_CONTRACT = [
   "previewBegin",
   "previewUpdate",
   "previewCommit",
-  "previewCancel"
+  "previewCancel",
+  "requestPreviewMesh"
 ] as const;
 export const SESSION_CONTROL_METHODS = [
   "pair",
@@ -127,7 +130,8 @@ export const SESSION_CONTROL_METHODS = [
   "previewBegin",
   "previewUpdate",
   "previewCommit",
-  "previewCancel"
+  "previewCancel",
+  "requestPreviewMesh"
 ] as const;
 export const OPERATION_METHODS = [
   "invoke",
@@ -146,7 +150,8 @@ export const OPERATION_METHODS = [
 export const SESSION_SERVER_CAPABILITIES = [
   "operation-replay",
   "incremental-deltas",
-  "binary-mesh-v1"
+  "binary-mesh-v1",
+  "binary-preview-v1"
 ] as const;
 export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
   "pair": [
@@ -251,6 +256,12 @@ export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
   ],
   "previewCancel": [
     "previewId"
+  ],
+  "requestPreviewMesh": [
+    "previewId",
+    "generation",
+    "documentId",
+    "expectedRevision"
   ]
 };
 export const SERVER_EVENTS = [

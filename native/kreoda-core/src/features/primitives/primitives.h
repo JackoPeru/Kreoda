@@ -40,7 +40,8 @@ bool BuildSphereShape(double radiusMm, TopoDS_Shape* out, std::string* error);
 // core-side (OCAF-mirrored) and evaluated before the DAG recompute (Phase 9a).
 bool RebuildFeature(const std::string& featureId, const std::string& paramName,
                     double valueMm,
-                    const std::string& expression, std::string* error);
+                    const std::string& expression, std::string* error,
+                    const std::map<std::string, double>& otherValues = {});
 inline bool RebuildFeature(const std::string& featureId,
                            const std::string& paramName, double valueMm,
                            std::string* error) {
