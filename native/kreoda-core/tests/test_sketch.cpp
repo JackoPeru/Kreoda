@@ -18,6 +18,7 @@
 #include "rpc_text.h"
 #include "../src/document/document_store.h"
 #include "../src/model/shapes.h"
+#include "../src/protocol/json_fields.h"
 
 TEST(SketchJson, StrictModelFieldsIgnoreNestedKeysAndRejectWrongTypes) {
   kreoda::SketchModel model;
@@ -445,4 +446,21 @@ TEST(Sketch, SaveOpenKeepsSketchAndSolid) {
   EXPECT_NEAR(rec.volumeMm3, 100000.0, 1e-3);
   std::error_code ec;
   fs::remove(icad, ec);
+}
+
+TEST(Sketch, RadiusPreviewReturnsSolvedGeometryWithoutChangingStoredSketch) {
+  NewDoc("radius-preview");
+  kreoda::SketchModel model;
+  model.points={{"centre",0,0,true}};model.circles={{"circle", "centre",5}};
+  model.constraints={{"radius",kreoda::SketchConstraintKind::Radius,{"circle"},5}};
+  std::string error;ASSERT_TRUE(kreoda::CreateSketchFeature("radial-sketch","XY",model,&error)) << error;
+  const auto revision=kreoda::DocumentStore::instance().revision();
+  model.constraints[0].value=10;
+  const auto request=kreoda::Json{{"protocolVersion",1},{"requestId","radius-preview"},{"documentId","radius-preview"},
+    {"type",14},{"featureId","radial-sketch"},{"isPreview",true},{"model",kreoda::Json::parse(kreoda::SerializeSketchModel(model))}};
+  const auto reply=kreoda::Json::parse(rpc(request.dump()));
+  ASSERT_EQ(reply["status"],"ok") << reply;
+  EXPECT_NEAR(reply["sketch"]["model"]["circles"][0]["r"].get<double>(),10,1e-5);
+  kreoda::SketchFeature stored;ASSERT_TRUE(kreoda::SketchStore::instance().get("radial-sketch",&stored));
+  EXPECT_NEAR(stored.model.circles[0].r,5,1e-5);EXPECT_EQ(kreoda::DocumentStore::instance().revision(),revision);
 }

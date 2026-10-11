@@ -43,6 +43,11 @@ namespace Kreoda.QuestRuntime.Tests
                 Assert.That(spatial.Connection, Is.SameAs(connection));
                 Assert.That(spatial.Preview.transform.parent, Is.SameAs(connection.DisplayRoot));
                 Assert.That(spatial.Dimensions.transform.parent, Is.SameAs(connection.DisplayRoot));
+                var commands = Object.FindFirstObjectByType<QuestCommands>();
+                Assert.That(commands, Is.Not.Null, "context actions must be wired into the product scene");
+                Assert.That(commands.Connection, Is.SameAs(connection));
+                Assert.That(controls.SketchDimensions, Is.Not.Null);
+                Assert.That(controls.SketchDimensions.transform.parent, Is.SameAs(connection.DisplayRoot));
                 typeof(QuestControls).GetMethod("Start", System.Reflection.BindingFlags.Instance |
                     System.Reflection.BindingFlags.NonPublic).Invoke(controls, null);
                 var panel = controls.transform.Find("Compact panel (0.42 m)");

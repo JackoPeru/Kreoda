@@ -113,6 +113,11 @@ namespace Kreoda.QuestEditor
             var spatial = new GameObject("Semantic spatial edit worker").AddComponent<QuestSpatialEdit>();
             spatial.Connection = connection;spatial.Dimensions = dimensions;spatial.Preview = preview;
             controls.Spatial = spatial;
+            var commands = new GameObject("Canonical Quest context commands").AddComponent<QuestCommands>();
+            commands.Connection = connection;commands.Spatial = spatial;controls.Commands = commands;
+            var sketchDimensions = new GameObject("Canonical sketch dimension preview").AddComponent<QuestSketchDimensions>();
+            sketchDimensions.transform.SetParent(display, false);sketchDimensions.Connection = connection;sketchDimensions.Spatial = spatial;
+            sketchDimensions.LineMaterial = controls.RayMaterial;controls.SketchDimensions = sketchDimensions;
             var light = new GameObject("CAD light").AddComponent<Light>();
             light.type = LightType.Directional;
             light.intensity = 1.2f;
@@ -215,6 +220,9 @@ namespace Kreoda.QuestEditor
                 controls.Spatial == null || controls.Spatial.Connection != connection || controls.Spatial.Preview == null ||
                 controls.Spatial.Dimensions == null || controls.Spatial.Preview.transform.parent != connection.DisplayRoot ||
                 controls.Spatial.Dimensions.transform.parent != connection.DisplayRoot ||
+                controls.Commands == null || controls.Commands.Connection != connection || controls.Commands.Spatial != controls.Spatial ||
+                controls.SketchDimensions == null || controls.SketchDimensions.Connection != connection ||
+                controls.SketchDimensions.transform.parent != connection.DisplayRoot ||
                 controls.Environment.Layer == null || controls.Environment.VrReference == null ||
                 xr == null || !xr.InitManagerOnStart || !xr.Manager.activeLoaders.Any(loader => loader is OpenXRLoader) ||
                 PlayerSettings.GetScriptingBackend(NamedBuildTarget.Android) != ScriptingImplementation.IL2CPP ||

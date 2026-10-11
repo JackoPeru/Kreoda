@@ -907,6 +907,8 @@ describe("SessionRelay", () => {
         "incremental-deltas",
         "binary-mesh-v1",
         "binary-preview-v1",
+        "context-commands-v1",
+        "sketch-preview-v1",
       ]);
     } finally {
       client.closeRaw();

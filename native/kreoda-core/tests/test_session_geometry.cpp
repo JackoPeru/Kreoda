@@ -232,3 +232,12 @@ TEST(SessionGeometry, ManipulatorValuesUseCanonicalParameterNamesWithoutClientSl
     if(manip["id"]=="rotation") EXPECT_EQ(manip["currentValues"]["ryDeg"],25);
   }
 }
+
+TEST(SessionGeometry, ValidReferenceCarriesActualOwnerAndRoleForContextBinding) {
+  box();
+  const auto result=query("validateReferences",{{"ids",{"box:box.+Z"}}});
+  ASSERT_EQ(result["status"],"ok") << result;
+  const auto& check=result["result"]["checks"][0];
+  EXPECT_EQ(check["kind"],"face");EXPECT_EQ(check["owner"],"box");EXPECT_EQ(check["role"],"box.+Z");
+  ASSERT_TRUE(check.contains("ownerBody"));EXPECT_FALSE(check["ownerBody"].get<std::string>().empty());
+}

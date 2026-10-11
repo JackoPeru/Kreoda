@@ -234,6 +234,29 @@ public sealed class SessionClient : IAsyncDisposable
         }), ct);
     }
 
+    /// <summary>Registry availability and bindings checked against actual native
+    /// references at the caller's captured model revision.</summary>
+    public async Task<Generated.ContextCommandsPayload> ContextCommandsAsync(IReadOnlyCollection<string> selectionIds,
+        string documentId, long expectedRevision, CancellationToken ct = default)
+    {
+        if (!ServerCapabilities.Contains(SessionMethods.ContextCommandsV1Capability))
+            throw new SessionException("NOT_IMPLEMENTED", "PC does not support context commands");
+        if (selectionIds is null || selectionIds.Count > 64 || selectionIds.Any(id => string.IsNullOrWhiteSpace(id) || id.Length > 512) ||
+            selectionIds.Distinct(StringComparer.Ordinal).Count() != selectionIds.Count)
+            throw new SessionException("BAD_PARAMS", "invalid selection references");
+        var model = Model;
+        if (model is null || model.DocumentId != documentId || model.Revision != expectedRevision || model.SessionId != SessionId)
+            throw new SessionException("NEED_FULL_SNAPSHOT", "context requires the current model");
+        var reply = await CallAsync(SessionMethods.ListCommands, GeneratedControl.Parameters(new Generated.ContextCommandsParams {
+            DocumentId = documentId, SelectionIds = selectionIds.ToArray(), ExpectedRevision = expectedRevision,
+        }), ct, expectedSessionId: model.SessionId).ConfigureAwait(false);
+        var context = GeneratedControl.Read<Generated.ContextCommandsPayload>(reply.GetProperty("result"), "ContextCommandsPayload");
+        if (context.SessionId != model.SessionId || context.DocumentId != documentId || context.Revision != expectedRevision ||
+            Model?.SessionId != model.SessionId || Model.DocumentId != documentId || Model.Revision != expectedRevision)
+            throw new SessionException("NEED_FULL_SNAPSHOT", "context changed during its query");
+        return context;
+    }
+
     public Task<JsonElement> InvokeAsync(
         int type,
         IDictionary<string, object?> fields,

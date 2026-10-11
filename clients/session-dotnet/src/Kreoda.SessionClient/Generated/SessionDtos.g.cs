@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 432a5b77d7d6c7ab1431a36439a164631b1dcc771d95d933124aa28e4385d4bb
+// Source SHA256: 2019ae0e61e5ee7feb539b6401fdc1289a98d5f45d39d33bbc3203f58549829a
 #nullable enable annotations
 #nullable disable warnings
 namespace Kreoda.Session.Generated
@@ -26,7 +26,7 @@ namespace Kreoda.Session.Generated
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("capabilities")]
-        [JsonConverter(typeof(DecodeArrayConverter))]
+        [JsonConverter(typeof(PurpleDecodeArrayConverter))]
         public string[]? Capabilities { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -237,7 +237,7 @@ namespace Kreoda.Session.Generated
     public partial class HelloReply
     {
         [JsonPropertyName("capabilities")]
-        [JsonConverter(typeof(DecodeArrayConverter))]
+        [JsonConverter(typeof(PurpleDecodeArrayConverter))]
         public string[] Capabilities { get; set; }
 
         [JsonPropertyName("clientId")]
@@ -289,7 +289,7 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("tips")]
-        [JsonConverter(typeof(DecodeArrayConverter))]
+        [JsonConverter(typeof(PurpleDecodeArrayConverter))]
         public string[]? Tips { get; set; }
     }
 
@@ -300,7 +300,7 @@ namespace Kreoda.Session.Generated
         public string BodyId { get; set; }
 
         [JsonPropertyName("history")]
-        [JsonConverter(typeof(DecodeArrayConverter))]
+        [JsonConverter(typeof(PurpleDecodeArrayConverter))]
         public string[] History { get; set; }
 
         [JsonPropertyName("tip")]
@@ -312,7 +312,7 @@ namespace Kreoda.Session.Generated
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("dependsOn")]
-        [JsonConverter(typeof(DecodeArrayConverter))]
+        [JsonConverter(typeof(PurpleDecodeArrayConverter))]
         public string[]? DependsOn { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -378,7 +378,7 @@ namespace Kreoda.Session.Generated
         public long BaseRevision { get; set; }
 
         [JsonPropertyName("changedMeshIds")]
-        [JsonConverter(typeof(DecodeArrayConverter))]
+        [JsonConverter(typeof(PurpleDecodeArrayConverter))]
         public string[] ChangedMeshIds { get; set; }
 
         [JsonPropertyName("documentId")]
@@ -399,7 +399,7 @@ namespace Kreoda.Session.Generated
         public object[] ReferenceRemaps { get; set; }
 
         [JsonPropertyName("removedIds")]
-        [JsonConverter(typeof(DecodeArrayConverter))]
+        [JsonConverter(typeof(PurpleDecodeArrayConverter))]
         public string[] RemovedIds { get; set; }
 
         [JsonPropertyName("revision")]
@@ -466,7 +466,7 @@ namespace Kreoda.Session.Generated
         public SelectionEventEvent Event { get; set; }
 
         [JsonPropertyName("ids")]
-        [JsonConverter(typeof(DecodeArrayConverter))]
+        [JsonConverter(typeof(PurpleDecodeArrayConverter))]
         public string[] Ids { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -550,7 +550,7 @@ namespace Kreoda.Session.Generated
     public partial class ConnectedClient
     {
         [JsonPropertyName("capabilities")]
-        [JsonConverter(typeof(DecodeArrayConverter))]
+        [JsonConverter(typeof(PurpleDecodeArrayConverter))]
         public string[] Capabilities { get; set; }
 
         [JsonPropertyName("clientId")]
@@ -653,6 +653,69 @@ namespace Kreoda.Session.Generated
         public string TargetTipId { get; set; }
     }
 
+    public partial class ContextCommandsPayload
+    {
+        [JsonPropertyName("commands")]
+        public ContextCommandInfo[] Commands { get; set; }
+
+        [JsonPropertyName("contextValid")]
+        public bool ContextValid { get; set; }
+
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+    }
+
+    public partial class ContextCommandInfo
+    {
+        [JsonPropertyName("available")]
+        public bool Available { get; set; }
+
+        [JsonPropertyName("boundParameters")]
+        public Dictionary<string, object> BoundParameters { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("id")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string Id { get; set; }
+
+        [JsonPropertyName("label")]
+        public string Label { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("reason")]
+        public string? Reason { get; set; }
+
+        [JsonPropertyName("supportsPreview")]
+        public bool SupportsPreview { get; set; }
+    }
+
+    public partial class ContextCommandsParams
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("beginnerMode")]
+        public bool? BeginnerMode { get; set; }
+
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("selectionIds")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public string[] SelectionIds { get; set; }
+    }
+
     public enum Kind { Body, Feature, Sketch };
 
     public enum SessionIncrementalEventEvent { Delta };
@@ -712,7 +775,7 @@ namespace Kreoda.Session.Generated
         public static readonly PurpleMinMaxLengthCheckConverter Singleton = new PurpleMinMaxLengthCheckConverter();
     }
 
-    internal class DecodeArrayConverter : JsonConverter<string[]>
+    internal class PurpleDecodeArrayConverter : JsonConverter<string[]>
     {
         public override bool CanConvert(Type t) => t == typeof(string[]);
 
@@ -742,7 +805,7 @@ namespace Kreoda.Session.Generated
             return;
         }
 
-        public static readonly DecodeArrayConverter Singleton = new DecodeArrayConverter();
+        public static readonly PurpleDecodeArrayConverter Singleton = new PurpleDecodeArrayConverter();
     }
 
     internal class FluffyMinMaxLengthCheckConverter : JsonConverter<string>
@@ -1044,6 +1107,66 @@ namespace Kreoda.Session.Generated
         }
 
         public static readonly StickyMinMaxLengthCheckConverter Singleton = new StickyMinMaxLengthCheckConverter();
+    }
+
+    internal class FluffyDecodeArrayConverter : JsonConverter<string[]>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string[]);
+
+        public override string[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            reader.Read();
+            var value = new List<string>();
+            while (reader.TokenType != JsonTokenType.EndArray)
+            {
+                var converter = IndigoMinMaxLengthCheckConverter.Singleton;
+                var arrayItem = (string)converter.Read(ref reader, typeof(string), options);
+                value.Add(arrayItem);
+                reader.Read();
+            }
+            return value.ToArray();
+        }
+
+        public override void Write(Utf8JsonWriter writer, string[] value, JsonSerializerOptions options)
+        {
+            writer.WriteStartArray();
+            foreach (var arrayItem in value)
+            {
+                var converter = IndigoMinMaxLengthCheckConverter.Singleton;
+                converter.Write(writer, arrayItem, options);
+            }
+            writer.WriteEndArray();
+            return;
+        }
+
+        public static readonly FluffyDecodeArrayConverter Singleton = new FluffyDecodeArrayConverter();
+    }
+
+    internal class IndigoMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length >= 1 && value.Length <= 512)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length >= 1 && value.Length <= 512)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly IndigoMinMaxLengthCheckConverter Singleton = new IndigoMinMaxLengthCheckConverter();
     }
 
     internal class IsoDateTimeOffsetConverter : JsonConverter<DateTimeOffset>

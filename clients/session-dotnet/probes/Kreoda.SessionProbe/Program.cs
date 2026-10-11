@@ -318,7 +318,9 @@ async Task RunPreviewAsync()
     finally { for (int i = 0; i < undos; ++i) await client.InvokeAsync(8, new Dictionary<string, object?>()); }
 }
 
-if (Environment.GetEnvironmentVariable("KREODA_SESSION_PROBE_PREVIEW") == "1")
+if (Environment.GetEnvironmentVariable("KREODA_SESSION_PROBE_CONTEXT") == "1")
+    await Phase13ContextProbe.RunAsync();
+else if (Environment.GetEnvironmentVariable("KREODA_SESSION_PROBE_PREVIEW") == "1")
     await RunPreviewAsync();
 else if (Environment.GetEnvironmentVariable("KREODA_SESSION_PROBE_INSTANCE_MESH") == "1")
     await RunInstanceAsync();

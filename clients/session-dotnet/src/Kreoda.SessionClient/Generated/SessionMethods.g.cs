@@ -1,15 +1,17 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 432a5b77d7d6c7ab1431a36439a164631b1dcc771d95d933124aa28e4385d4bb
+// Source SHA256: 2019ae0e61e5ee7feb539b6401fdc1289a98d5f45d39d33bbc3203f58549829a
 namespace Kreoda.Session;
 
 public static class SessionMethods
 {
     public const int ProtocolVersion = 1;
-    public const string ContractSchemaSha256 = "432a5b77d7d6c7ab1431a36439a164631b1dcc771d95d933124aa28e4385d4bb";
+    public const string ContractSchemaSha256 = "2019ae0e61e5ee7feb539b6401fdc1289a98d5f45d39d33bbc3203f58549829a";
     public const string OperationReplayCapability = "operation-replay";
     public const string IncrementalDeltasCapability = "incremental-deltas";
     public const string BinaryMeshV1Capability = "binary-mesh-v1";
     public const string BinaryPreviewV1Capability = "binary-preview-v1";
+    public const string ContextCommandsV1Capability = "context-commands-v1";
+    public const string SketchPreviewV1Capability = "sketch-preview-v1";
     public const string Pair = "pair";
     public const string Authenticate = "authenticate";
     public const string Hello = "hello";
@@ -57,8 +59,9 @@ public static class SessionMethods
     public const string PreviewCommit = "previewCommit";
     public const string PreviewCancel = "previewCancel";
     public const string RequestPreviewMesh = "requestPreviewMesh";
-    public static readonly string[] All = ["pair", "authenticate", "hello", "getSessionInfo", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "requestMeshLOD", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "validateReferences", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel", "requestPreviewMesh"];
-    public static readonly string[] ServerCapabilities = ["operation-replay", "incremental-deltas", "binary-mesh-v1", "binary-preview-v1"];
+    public const string PreviewSketch = "previewSketch";
+    public static readonly string[] All = ["pair", "authenticate", "hello", "getSessionInfo", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "requestMeshLOD", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "validateReferences", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel", "requestPreviewMesh", "previewSketch"];
+    public static readonly string[] ServerCapabilities = ["operation-replay", "incremental-deltas", "binary-mesh-v1", "binary-preview-v1", "context-commands-v1", "sketch-preview-v1"];
     public static readonly string[] OperationReplayMethods = ["invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "setSelection", "clearSelection", "previewBegin", "previewUpdate", "previewCommit", "previewCancel"];
     public static bool SupportsOperationReplay(string method) => Array.IndexOf(OperationReplayMethods, method) >= 0;
     public static readonly IReadOnlyDictionary<string, string[]> RequiredParams = new Dictionary<string, string[]>
@@ -110,6 +113,7 @@ public static class SessionMethods
         ["previewCommit"] = ["previewId"],
         ["previewCancel"] = ["previewId"],
         ["requestPreviewMesh"] = ["previewId", "generation", "documentId", "expectedRevision"],
+        ["previewSketch"] = ["featureId", "model", "expectedRevision"],
     };
 }
 
@@ -147,5 +151,8 @@ public static class SessionContract
         ["SessionInfoPayload"] = ["sessionId", "documentId", "documentRevision", "connectedClients", "transactionState"],
         ["RequestPreviewMeshParams"] = ["previewId", "generation", "documentId", "expectedRevision"],
         ["PreviewMeshHeader"] = ["nativeRequestId", "sessionId", "documentId", "bodyId", "featureId", "quality", "byteLength", "baseRevision", "previewId", "generation", "paramName", "targetTipId"],
+        ["ContextCommandInfo"] = ["id", "label", "description", "supportsPreview", "available", "boundParameters"],
+        ["ContextCommandsPayload"] = ["sessionId", "documentId", "revision", "contextValid", "commands"],
+        ["ContextCommandsParams"] = ["documentId", "selectionIds", "expectedRevision"],
     };
 }

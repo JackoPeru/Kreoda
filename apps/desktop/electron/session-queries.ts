@@ -5,7 +5,8 @@ import { QUERY_METHODS_CONTRACT, SESSION_SERVER_CAPABILITIES } from "@kreoda/pro
 // fakes. Nothing here invents geometry — parameters come from the core
 // summaries; accurate measures and reference validation come from OCCT.
 
-import { COMMANDS, commandJsonSchema } from "@kreoda/command-schema";
+import { COMMANDS, commandJsonSchema, type CommandContext } from "@kreoda/command-schema";
+import { SketchModelSchema } from "@kreoda/protocol";
 
 export interface SnapFeature {
   featureId: string;
@@ -150,6 +151,8 @@ export interface Manipulator {
 }
 
 export interface QueryEnv {
+  sessionId?: () => string;
+  previewSketch?: (documentId: string, featureId: string, model: unknown) => Promise<Record<string, unknown>>;
   geometry: (documentId: string, method: string, params: Record<string, unknown>) => Promise<unknown>;
   snapshot: (documentId: string) => Promise<SnapshotData>;
   mesh: (documentId: string, featureId: string) => Promise<MeshData>;
@@ -300,6 +303,23 @@ export async function runSessionQuery(
   };
 
   switch (method) {
+    case "previewSketch": {
+      const featureId = needId(params["featureId"], "featureId");
+      if (!Number.isSafeInteger(params["expectedRevision"]) || (params["expectedRevision"] as number) < 0)
+        throw coded("BAD_PARAMS", "sketch preview requires a current revision");
+      const proposed = SketchModelSchema.safeParse(params["model"]);
+      if (!proposed.success) throw coded("BAD_PARAMS", "invalid canonical sketch model");
+      const lineage = env.sessionId?.(), before = await snap();
+      if (before.documentId !== documentId || before.revision !== params["expectedRevision"] || env.sessionId?.() !== lineage)
+        throw coded("NEED_FULL_SNAPSHOT", "sketch preview is stale");
+      if (!before.sketches.some(sketch => sketch.featureId === featureId)) throw coded("NOT_FOUND", "sketch preview owner is missing");
+      if (!env.previewSketch) throw coded("NOT_IMPLEMENTED", "sketch preview is unavailable");
+      const result = await env.previewSketch(documentId, featureId, proposed.data);
+      const after = await snap();
+      if (after.documentId !== documentId || after.revision !== before.revision || env.sessionId?.() !== lineage)
+        throw coded("NEED_FULL_SNAPSHOT", "sketch preview changed during solve");
+      return { result };
+    }
     case "getDocumentInfo": {
       const s = await snap();
       return {
@@ -513,23 +533,67 @@ export async function runSessionQuery(
       };
     }
     case "listCommands": {
+      let selection: CommandContext["selection"] = [];
+      let referenceReason: string | undefined;
+      let revision: number | undefined;
+      let references: { id: string; kind?: string; owner?: string; role?: string }[] = [];
+      const lineage = env.sessionId?.();
+      if (params["beginnerMode"] !== undefined && typeof params["beginnerMode"] !== "boolean")
+        throw coded("BAD_PARAMS", "beginnerMode must be a boolean");
+      if (params["selectionIds"] !== undefined) {
+        const ids = params["selectionIds"];
+        if (!Array.isArray(ids) || ids.length > 64 || ids.some(id => typeof id !== "string" || !id.length || id.length > 512) ||
+            new Set(ids).size !== ids.length || !Number.isSafeInteger(params["expectedRevision"]) || (params["expectedRevision"] as number) < 0)
+          throw coded("BAD_PARAMS", "context requires bounded distinct references and a current revision");
+        const before = await snap();revision = before.revision;
+        if (before.documentId !== documentId || revision !== params["expectedRevision"] || env.sessionId?.() !== lineage)
+          throw coded("NEED_FULL_SNAPSHOT", "selection context is stale");
+        if (ids.length) {
+          const raw = await env.geometry(documentId, "validateReferences", { ids });
+          const result = raw as { valid?: boolean; checks?: { id: string; ok: boolean; kind?: string; confidence?: number; errorCode?: string; owner?: string; role?: string }[] };
+          if (!result || !Array.isArray(result.checks) || result.checks.length !== ids.length ||
+              result.checks.some((check, index) => !check || check.id !== ids[index]))
+            throw coded("CORE_FAILED", "native reference validation is incomplete");
+          const invalid = result.checks.find(check => check.ok !== true || (check.confidence !== undefined &&
+            (!Number.isFinite(check.confidence) || check.confidence < .5)) || !["body", "face", "edge", "vertex", "sketch"].includes(check.kind ?? ""));
+          if (invalid || result.valid !== true) referenceReason = invalid?.errorCode ?? "AMBIGUOUS_REFERENCE";
+          else {
+            references = result.checks;
+            selection = result.checks.map(check => ({ persistentId: check.id, kind: check.kind as CommandContext["selection"][number]["kind"] }));
+          }
+        }
+        const after = await snap();
+        if (after.documentId !== documentId || after.revision !== revision || env.sessionId?.() !== lineage)
+          throw coded("NEED_FULL_SNAPSHOT", "selection context changed during validation");
+      }
+      const context: CommandContext = { selection, beginnerMode: params["beginnerMode"] === true };
       // Command registry: the same definitions driving toolbar, palette and
       // AI tools — one surface for every client (§2.5).
       return {
         result: {
-          commands: (
-            COMMANDS as {
-              id: string;
-              label: string;
-              description: string;
-              supportsPreview: boolean;
-            }[]
-          ).map((c) => ({
+          sessionId: lineage, documentId, revision, contextValid: referenceReason === undefined,
+          commands: COMMANDS.map((c) => {
+            const availability = { ...c.availability(context) };
+            const boundParameters: Record<string, unknown> = {};
+            if (availability.available) for (const [name, binding] of Object.entries(c.selectionBindings ?? {})) {
+              if (binding === "owner") {
+                const owners = [...new Set(references.map(r => r.owner).filter((owner): owner is string => typeof owner === "string" && owner.length > 0))];
+                if (owners.length !== 1) { availability.available = false;availability.reason = "Selection must belong to one owner";break; }
+                boundParameters[name] = owners[0];
+              } else if (binding === "edges") boundParameters[name] = references.filter(r => r.kind === "edge").map(r => r.id);
+              else if (binding === "faceRole") boundParameters[name] = references.find(r => r.kind === "face")?.role;
+              else if (binding === "sketch") boundParameters[name] = references.find(r => r.kind === "sketch")?.id;
+              if (boundParameters[name] === undefined) { availability.available = false;availability.reason = "Selected reference has no command binding";break; }
+            }
+            return {
             id: c.id,
             label: c.label,
             description: c.description,
             supportsPreview: c.supportsPreview,
-          })),
+            boundParameters,
+            available: availability.available,
+            reason: availability.available ? undefined : referenceReason ?? availability.reason,
+          }; }),
         },
       };
     }

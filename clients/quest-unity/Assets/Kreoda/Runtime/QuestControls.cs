@@ -18,6 +18,17 @@ namespace Kreoda.QuestRuntime
         public QuestConnection Connection;
         public QuestDisplay Display;
         public QuestSpatialEdit Spatial;
+        public QuestCommands Commands;
+        public QuestSketchDimensions SketchDimensions;
+        Transform _sketchPage;
+        TextMesh _sketchStatus;
+        bool _editingSketch;
+        long _sketchSelection;
+        Transform _commandPage;
+        TextMesh _commandStatus;
+        bool _editingCommand;
+        string _commandField;
+        long _commandForm;
         public QuestEnvironment Environment;
         public OVRCameraRig Rig;
         public OVRHand LeftHand, RightHand;
@@ -137,6 +148,26 @@ namespace Kreoda.QuestRuntime
             Button("Feature →", new Vector3(-.1f, -.10f, 0), .18f, () => Spatial?.NextOwner(), .032f);
             Button("Snap 0.1mm / 5deg", new Vector3(.105f, -.10f, 0), .17f, () => { if (Spatial != null) Spatial.SnapEnabled = !Spatial.SnapEnabled; }, .032f, .011f);
             Button("Annulla modifica", new Vector3(0, -.17f, 0), .30f, () => Spatial?.Cancel(), .032f);
+            Button("Azioni CAD", new Vector3(0, -.215f, 0), .30f, () => Page(_commandPage), .032f);
+            _commandPage = PageRoot("Canonical context actions");_content = _commandPage;
+            _commandStatus = Label(_content, "Seleziona geometria", new Vector3(-.19f, .085f, -.003f), .012f);
+            _textLimits[_commandStatus] = new Vector2(.38f, .13f);
+            Button("Azione →", new Vector3(-.1f, -.06f, 0), .18f, () => Commands?.NextCommand(), .032f);
+            Button("Campo →", new Vector3(.105f, -.06f, 0), .17f, () => Commands?.NextField(), .032f);
+            Button("Valore", new Vector3(-.1f, -.12f, 0), .18f, EditCommandField, .032f);
+            Button("Conferma", new Vector3(.105f, -.12f, 0), .17f, () => Commands?.Confirm(), .032f);
+            Button("Undo", new Vector3(-.1f, -.19f, 0), .18f, () => Commands?.History(false), .032f);
+            Button("Redo", new Vector3(.105f, -.19f, 0), .17f, () => Commands?.History(true), .032f);
+            Button("Quote sketch", new Vector3(0, -.235f, 0), .30f, () => { SketchDimensions?.Select();Page(_sketchPage); }, .028f);
+            _sketchPage = PageRoot("Canonical sketch dimensions");_content = _sketchPage;
+            _sketchStatus = Label(_content, "Seleziona uno sketch", new Vector3(-.19f, .085f, -.003f), .012f);
+            _textLimits[_sketchStatus] = new Vector2(.38f, .11f);
+            Button("Sketch →", new Vector3(-.1f, -.05f, 0), .18f, () => SketchDimensions?.NextSketch(), .032f);
+            Button("Quota →", new Vector3(.105f, -.05f, 0), .17f, () => SketchDimensions?.NextDimension(), .032f);
+            Button("Valore esatto", new Vector3(-.1f, -.11f, 0), .18f, EditSketchValue, .032f);
+            Button("Conferma", new Vector3(.105f, -.11f, 0), .17f, () => SketchDimensions?.Confirm(), .032f);
+            Button("Annulla", new Vector3(-.1f, -.17f, 0), .18f, () => SketchDimensions?.Cancel(), .032f);
+            Button("Undo", new Vector3(.105f, -.17f, 0), .17f, () => Commands?.History(false), .032f);
             Page(_connectionPage);
             _content = _panel;
             // A small independent menu tab stays reachable when the panel hides.
@@ -153,6 +184,13 @@ namespace Kreoda.QuestRuntime
                 var exact = Button("Valore", new Vector3(.18f, .335f, 0), .1f, EditValue, .03f);
                 exact.transform.parent.SetParent(transform, false);
                 _valueLabel = exact;_compactMenu.Add(exact.transform.parent);
+                if (Commands != null)
+                {
+                    var undo = Button("Undo", new Vector3(.13f, .29f, 0), .11f, () => Commands.History(false), .03f);
+                    undo.transform.parent.SetParent(transform, false);_compactMenu.Add(undo.transform.parent);
+                    var redo = Button("Redo", new Vector3(.255f, .29f, 0), .11f, () => Commands.History(true), .03f);
+                    redo.transform.parent.SetParent(transform, false);_compactMenu.Add(redo.transform.parent);
+                }
                 _panel.gameObject.SetActive(false);
             }
             _ray = new GameObject("Pointer ray").AddComponent<LineRenderer>();
@@ -192,6 +230,8 @@ namespace Kreoda.QuestRuntime
             if (_viewPage != null) _viewPage.gameObject.SetActive(selected == _viewPage);
             if (_metricsPage != null) _metricsPage.gameObject.SetActive(selected == _metricsPage);
             if (_editPage != null) _editPage.gameObject.SetActive(selected == _editPage);
+            if (_commandPage != null) _commandPage.gameObject.SetActive(selected == _commandPage);
+            if (_sketchPage != null) _sketchPage.gameObject.SetActive(selected == _sketchPage);
         }
         void TogglePanel()
         {
@@ -213,9 +253,11 @@ namespace Kreoda.QuestRuntime
             offset.z >= .45f && offset.z <= 1.5f && Mathf.Abs(offset.x) <= 1 && Mathf.Abs(offset.y) <= .65f;
         void ResetIntent()
         {
-            if (_editingValue)
+            if (_editingValue || _editingCommand || _editingSketch)
             {
                 _editingValue = false;
+                _editingCommand = false;
+                _editingSketch = false;
                 if (_keyboard != null) _keyboard.active = false;
                 _keyboard = null;
             }
@@ -230,12 +272,14 @@ namespace Kreoda.QuestRuntime
         void Edit(bool code)
         {
             _editingValue = false;
+            _editingCommand = false;
             _editingCode = code;
             _keyboard = TouchScreenKeyboard.Open(code ? _code : _endpoint, TouchScreenKeyboardType.Default,
                 false, false, false, false, code ? "Codice dal PC" : "ws://IP del PC:porta", code ? 32 : 128);
         }
         void EditValue()
         {
+            _editingCommand = false;
             var intent = Spatial?.SelectedIntent;
             if (intent == null || Spatial.Busy) return;
             if (_pendingExact != null && ReferenceEquals(intent, _exactIntent))
@@ -246,6 +290,22 @@ namespace Kreoda.QuestRuntime
             _valueInput = (Spatial.DraftValues ?? intent.InitialValues)[intent.Parameters[_exactParameter]].ToString("R", CultureInfo.InvariantCulture);
             _keyboard = TouchScreenKeyboard.Open(_valueInput, TouchScreenKeyboardType.NumbersAndPunctuation,
                 false, false, false, false, intent.Parameters[_exactParameter] + " · " + intent.Unit, 64);
+        }
+        void EditCommandField()
+        {
+            _editingSketch = false;
+            if (Commands == null || Commands.Busy || Commands.SelectedField == null) return;
+            _editingValue = false;_editingCommand = true;_commandField = Commands.SelectedField;_commandForm = Commands.FormTicket;
+            _valueInput = Commands.FieldValue.Trim('"');
+            _keyboard = TouchScreenKeyboard.Open(_valueInput, TouchScreenKeyboardType.Default, false, false, false, false, _commandField, 4096);
+        }
+        void EditSketchValue()
+        {
+            if (SketchDimensions?.Selected == null || SketchDimensions.Busy) return;
+            _editingValue = _editingCommand = false;_editingSketch = true;_sketchSelection = SketchDimensions.SelectionTicket;
+            _valueInput = SketchDimensions.Value.ToString("R", CultureInfo.InvariantCulture);
+            _keyboard = TouchScreenKeyboard.Open(_valueInput, TouchScreenKeyboardType.NumbersAndPunctuation,
+                false, false, false, false, SketchDimensions.Selected.Kind + " · " + SketchDimensions.Selected.Unit, 64);
         }
 
         void Update()
@@ -260,6 +320,9 @@ namespace Kreoda.QuestRuntime
             var handText = _handMode == 0 ? "Mano Auto" : _handMode == 1 ? "Mano sinistra" : "Mano destra";
             if (_handLabel.text != handText) _handLabel.text = handText;
             if (_diagnostics.text != Environment.Diagnostics) _diagnostics.text = Environment.Diagnostics;
+            if (Commands != null) _commandStatus.text = Commands.CommandLabel + "\n" + Commands.FieldLabel + " · " + Commands.FieldValue + "\n" + Commands.Status;
+            if (SketchDimensions != null) _sketchStatus.text = SketchDimensions.Status + (SketchDimensions.Selected == null ? "" :
+                "\n" + SketchDimensions.Value.ToString("0.###", CultureInfo.InvariantCulture) + " " + SketchDimensions.Selected.Unit);
             if (Spatial != null)
             {
                 if (_modeLabel != null) _modeLabel.text = Spatial.EditMode ? "Modifica" : "Modello";
@@ -317,6 +380,7 @@ namespace Kreoda.QuestRuntime
             if (_selectionMode == 1) view.SelectFace(_hit);
             else if (_selectionMode == 2) view.SelectEdge(_hit);
             else view.SelectBody();
+            if (Commands != null) Commands.Select(view, _hit);
             if (_selectionMode != 0 && _hit == null)
             {
                 _selected = null;
@@ -333,6 +397,25 @@ namespace Kreoda.QuestRuntime
 
         void ApplyKeyboardInput(string text, TouchScreenKeyboard.Status status)
         {
+            if (_editingSketch)
+            {
+                if (!string.IsNullOrEmpty(text)) _valueInput = text;
+                if (status == TouchScreenKeyboard.Status.Visible) return;
+                _keyboard = null;_editingSketch = false;
+                if (status != TouchScreenKeyboard.Status.Canceled && SketchDimensions != null && SketchDimensions.SelectionTicket == _sketchSelection &&
+                    double.TryParse(_valueInput.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var number) &&
+                    !double.IsNaN(number) && !double.IsInfinity(number)) SketchDimensions.Preview(number);
+                return;
+            }
+            if (_editingCommand)
+            {
+                if (!string.IsNullOrEmpty(text)) _valueInput = text;
+                if (status == TouchScreenKeyboard.Status.Visible) return;
+                _keyboard = null;_editingCommand = false;
+                if (status != TouchScreenKeyboard.Status.Canceled && Commands != null && Commands.FormTicket == _commandForm)
+                    Commands.SetField(_commandField, _valueInput);
+                return;
+            }
             if (_editingValue)
             {
                 if (!string.IsNullOrEmpty(text)) _valueInput = text;

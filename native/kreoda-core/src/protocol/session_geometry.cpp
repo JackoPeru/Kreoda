@@ -237,9 +237,10 @@ gp_Vec direction(const Entity& e) {
 }
 Json referenceCheck(const std::string& id) {
   try {
-    if(SketchStore::instance().contains(id))return {{"id",id},{"ok",true},{"kind","sketch"}};
+    if(SketchStore::instance().contains(id))return {{"id",id},{"ok",true},{"kind","sketch"},{"owner",id}};
     const auto e=resolve(id);
-    return {{"id",id},{"ok",true},{"kind",e.kind},{"confidence",e.summary.value("confidence",1.0)}};
+    return {{"id",id},{"ok",true},{"kind",e.kind},{"confidence",e.summary.value("confidence",1.0)},
+            {"owner",e.owner.featureId},{"ownerBody",bodyId(e.owner)},{"role",e.role}};
   } catch(const SessionQueryError& e) {return {{"id",id},{"ok",false},{"errorCode",e.code},{"detail",e.what()}};}
 }
 Json manipulators(const Json& p) {

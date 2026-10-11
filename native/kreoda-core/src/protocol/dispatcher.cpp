@@ -1223,6 +1223,14 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
             p.y = it->second.second;
           }
         }
+        for (auto& circle : tmp.model.circles) {
+          const auto it = r.radii.find(circle.id);
+          if (it != r.radii.end()) circle.r = it->second;
+        }
+        for (auto& arc : tmp.model.arcs) {
+          const auto it = r.radii.find(arc.id);
+          if (it != r.radii.end()) arc.r = it->second;
+        }
         std::ostringstream b;
         b << "\"preview\":true," << sketch_body(tmp, &r);
         return make_response(requestId, "ok", b.str());

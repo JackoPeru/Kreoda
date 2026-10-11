@@ -1359,6 +1359,12 @@ export class SessionRelay {
       return [x, y, z];
     };
     return {
+      sessionId: () => this.sessionId,
+      previewSketch: async (documentId, featureId, model) => {
+        const result = await this.coreInvoke(documentId, 14, { featureId, model, isPreview: true });
+        if (result["preview"] !== true || !asRecord(result["sketch"])) throw coded("CORE_FAILED", "native sketch preview is incomplete");
+        return result;
+      },
       geometry: async (documentId, method, params) => {
         const response = await this.coreInvoke(documentId, 30, { method, params });
         if (response["result"] === undefined) throw coded("CORE_FAILED", "native query result is missing");

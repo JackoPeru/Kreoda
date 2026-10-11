@@ -37,6 +37,7 @@ export interface CadCommandDefinition<P = unknown> {
   beginnerVisible: boolean;
   advancedVisible: boolean;
   availability: (ctx: CommandContext) => AvailabilityResult;
+  selectionBindings?: Record<string, "owner" | "edges" | "faceRole" | "sketch">;
 }
 
 export const CreateBoxParams = z.object({
@@ -141,6 +142,7 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateExtrude",
+    selectionBindings: { sketchId: "sketch" },
     nativeType: CommandType.CreateExtrude,
     label: "Extrude",
     beginnerLabel: "Pull sketch",
@@ -182,6 +184,7 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateHole",
+    selectionBindings: { targetId: "owner", faceRole: "faceRole" },
     nativeType: CommandType.CreateHole,
     label: "Hole",
     beginnerLabel: "Make hole",
@@ -238,6 +241,7 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateFillet",
+    selectionBindings: { targetId: "owner", edgeIds: "edges" },
     nativeType: CommandType.CreateFillet,
     label: "Fillet",
     beginnerLabel: "Round edge",
@@ -248,7 +252,7 @@ export const COMMANDS: CadCommandDefinition[] = [
       edgeIds: z.array(z.string().min(1)).min(1),
       radiusMm: z.number().finite().positive().max(50000),
     }),
-    supportsPreview: true,
+    supportsPreview: false,
     beginnerVisible: true,
     advancedVisible: true,
     availability: (ctx) =>
@@ -258,6 +262,7 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateChamfer",
+    selectionBindings: { targetId: "owner", edgeIds: "edges" },
     nativeType: CommandType.CreateChamfer,
     label: "Chamfer",
     beginnerLabel: "Cut corner",
@@ -345,6 +350,7 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateRevolve", nativeType: CommandType.CreateRevolve,
+    selectionBindings: { sketchId: "sketch" },
     label: "Revolve", beginnerLabel: "Revolve sketch",
     description: "Revolve a sketch around its canonical axis by an angle in degrees.",
     icon: "rotate-cw", supportsPreview: false, beginnerVisible: false, advancedVisible: true,
@@ -367,6 +373,8 @@ export function commandJsonSchema(id: string) {
   if (!definition) return null;
   return { id: definition.id, nativeType: definition.nativeType,
     description: definition.description,
+    supportsPreview: definition.supportsPreview,
+    selectionBindings: definition.selectionBindings ?? {},
     parameters: zodToJsonSchema(definition.parameterSchema, { $refStrategy: "none", target: "jsonSchema7" }),
   };
 }

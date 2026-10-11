@@ -6,7 +6,9 @@
     "operation-replay",
     "incremental-deltas",
     "binary-mesh-v1",
-    "binary-preview-v1"
+    "binary-preview-v1",
+    "context-commands-v1",
+    "sketch-preview-v1"
   ],
   "envelope": {
     "request": {
@@ -487,8 +489,13 @@
     {
       "method": "listCommands",
       "required": [],
-      "optional": [],
-      "reply": "{result:{commands[{id, label, description, supportsPreview}]}}",
+      "optional": [
+        "documentId",
+        "selectionIds",
+        "expectedRevision",
+        "beginnerMode"
+      ],
+      "reply": "{result:{documentId,revision?,contextValid,commands[{id,label,description,supportsPreview,available,reason?}]}}",
       "plane": "query",
       "operationReplay": false
     },
@@ -572,6 +579,20 @@
       ],
       "optional": [],
       "reply": "Separate PreviewMeshHeader followed immediately by unchanged candidate MeshUpdate binary; never a committed model update",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "previewSketch",
+      "required": [
+        "featureId",
+        "model",
+        "expectedRevision"
+      ],
+      "optional": [
+        "documentId"
+      ],
+      "reply": "{result:{preview:true,sketch,revision,solved,residual,dofs}}",
       "plane": "query",
       "operationReplay": false
     }
@@ -1713,6 +1734,112 @@
         "targetTipId"
       ],
       "additionalProperties": false
+    },
+    "ContextCommandInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "supportsPreview": {
+          "type": "boolean"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "boundParameters": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "description",
+        "supportsPreview",
+        "available",
+        "boundParameters"
+      ],
+      "additionalProperties": true
+    },
+    "ContextCommandsPayload": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "contextValid": {
+          "type": "boolean"
+        },
+        "commands": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/definitions/ContextCommandInfo"
+          }
+        }
+      },
+      "required": [
+        "sessionId",
+        "documentId",
+        "revision",
+        "contextValid",
+        "commands"
+      ],
+      "additionalProperties": true
+    },
+    "ContextCommandsParams": {
+      "type": "object",
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "selectionIds": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "beginnerMode": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "documentId",
+        "selectionIds",
+        "expectedRevision"
+      ],
+      "additionalProperties": true
     }
   }
 }

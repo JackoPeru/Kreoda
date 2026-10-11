@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 432a5b77d7d6c7ab1431a36439a164631b1dcc771d95d933124aa28e4385d4bb
+// Source SHA256: 2019ae0e61e5ee7feb539b6401fdc1289a98d5f45d39d33bbc3203f58549829a
 type StableFeatureID = string;
 
 export interface RequestMetadata {
@@ -276,5 +276,33 @@ export interface PreviewMeshHeader {
     quality:         number;
     sessionId:       string;
     targetTipId:     string;
+}
+
+export interface ContextCommandsPayload {
+    commands:     ContextCommandInfo[];
+    contextValid: boolean;
+    documentId:   string;
+    revision:     number;
+    sessionId:    string;
+    [property: string]: unknown;
+}
+
+export interface ContextCommandInfo {
+    available:       boolean;
+    boundParameters: { [key: string]: unknown };
+    description:     string;
+    id:              string;
+    label:           string;
+    reason?:         string;
+    supportsPreview: boolean;
+    [property: string]: unknown;
+}
+
+export interface ContextCommandsParams {
+    beginnerMode?:    boolean;
+    documentId:       string;
+    expectedRevision: number;
+    selectionIds:     string[];
+    [property: string]: unknown;
 }
 

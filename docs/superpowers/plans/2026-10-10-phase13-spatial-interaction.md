@@ -105,11 +105,11 @@
 
 **Interfaces:** Command availability and reasons come from the existing canonical registry using validated semantic selection context. Canonical CommandAsync creates fillet/chamfer/other supported actions; shared Undo/Redo acts on the same PC document.
 
-- [ ] RED: a selected valid edge exposes CreateFillet, invalid/ambiguous selection gives an actual reason, and Quest does not maintain a duplicate command registry.
-- [ ] Execute confirmed canonical commands with current document/base revision and actual reference validation. CreateFillet native type21 does not have a pure creation-preview path: never pretend `isPreview:true` makes creation transient.
-- [ ] Add shared Undo/Redo and current state reconciliation. Optional speech input, if implemented on a real available platform, feeds the same command parser; exact numeric/snap remains complete without it.
-- [ ] Expose selected sketch dimensions through the actual sketch/constraint metadata and canonical sketch solve/preview/update path. Preserve plane, entity and constraint IDs; do not pretend a ShapeStore scalar SetDimension previews sketch constraints. Verify an exact sketch dimension edit and shared Undo without recreating the sketch.
-- [ ] GREEN: actual Desktop+C# command/Undo proof and Unity interaction tests; strict references, locks, stale/error paths. Commit and fresh review.
+- [x] RED: a selected valid edge exposes CreateFillet, invalid/ambiguous selection gives an actual reason, and Quest does not maintain a duplicate command registry.
+- [x] Execute confirmed canonical commands with current document/base revision and actual reference validation. CreateFillet native type21 does not have a pure creation-preview path: never pretend `isPreview:true` makes creation transient.
+- [x] Add shared Undo/Redo and current state reconciliation. Optional speech input, if implemented on a real available platform, feeds the same command parser; exact numeric/snap remains complete without it.
+- [x] Expose selected sketch dimensions through the actual sketch/constraint metadata and canonical sketch solve/preview/update path. Preserve plane, entity and constraint IDs; do not pretend a ShapeStore scalar SetDimension previews sketch constraints. Verify an exact sketch dimension edit and shared Undo without recreating the sketch.
+- [x] GREEN: actual Desktop+C# command/Undo proof and Unity interaction tests; strict references, locks, stale/error paths. Commit and fresh review.
 
 ### Task 7: Full physical acceptance and final gates
 
