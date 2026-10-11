@@ -31,7 +31,8 @@ const queries = methods.filter(method => method.plane === "query").map(method =>
 const replay = methods.filter(method => method.operationReplay).map(method => method.method);
 const required = Object.fromEntries(methods.map(method => [method.method, method.required]));
 const tsConst = (name, value) => `export const ${name} = ${JSON.stringify(value, null, 2)} as const;\n`;
-const metadata = header + tsConst("CONTRACT_SCHEMA_SHA256", hash) + tsConst("SESSION_DTO_NAMES", names) + tsConst("SESSION_CONTROL_VERSION", contract.protocolVersion)
+const metadata = header + tsConst("CONTRACT_SCHEMA_SHA256", hash) + tsConst("SESSION_STABLE_FEATURE_ID_SCHEMA", definitions.StableFeatureId)
+  + tsConst("SESSION_DTO_NAMES", names) + tsConst("SESSION_CONTROL_VERSION", contract.protocolVersion)
   + tsConst("CONTROL_METHODS", control) + tsConst("QUERY_METHODS_CONTRACT", queries)
   + tsConst("SESSION_CONTROL_METHODS", methods.map(method => method.method)) + tsConst("OPERATION_METHODS", replay)
   + tsConst("SESSION_SERVER_CAPABILITIES", contract.serverCapabilities)

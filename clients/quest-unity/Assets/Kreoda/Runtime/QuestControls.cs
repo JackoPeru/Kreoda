@@ -20,6 +20,12 @@ namespace Kreoda.QuestRuntime
         public QuestSpatialEdit Spatial;
         public QuestCommands Commands;
         public QuestSketchDimensions SketchDimensions;
+        public QuestVoice Voice;
+        Transform _voicePage;
+        TextMesh _voiceStatus, _voiceTranscript, _voiceReply, _voiceButton;
+        public string[] SelectionForVoice() => _selected != null && Connection.IsCurrentView(_selected) && _selected.UploadVersion == _selectedUploadVersion
+            ? _hit != null && !_hit.ReferenceAmbiguous ? new[] { _hit.PersistentId } : _hit == null ? new[] { _selected.InstanceId ?? _selected.BodyId } : Array.Empty<string>()
+            : Array.Empty<string>();
         Transform _sketchPage;
         TextMesh _sketchStatus;
         bool _editingSketch;
@@ -168,6 +174,19 @@ namespace Kreoda.QuestRuntime
             Button("Conferma", new Vector3(.105f, -.11f, 0), .17f, () => SketchDimensions?.Confirm(), .032f);
             Button("Annulla", new Vector3(-.1f, -.17f, 0), .18f, () => SketchDimensions?.Cancel(), .032f);
             Button("Undo", new Vector3(.105f, -.17f, 0), .17f, () => Commands?.History(false), .032f);
+            if (Voice != null)
+            {
+                _voicePage = PageRoot("Hermes voice");_content = _voicePage;
+                _voiceStatus = Label(_content, "Hermes", new Vector3(-.19f, .09f, -.003f), .012f);
+                _textLimits[_voiceStatus] = new Vector2(.38f, .05f);
+                _voiceTranscript = Label(_content, "Premi Parla e poi Invia", new Vector3(-.19f, .025f, -.003f), .012f);
+                _textLimits[_voiceTranscript] = new Vector2(.38f, .085f);
+                _voiceReply = Label(_content, "", new Vector3(-.19f, -.075f, -.003f), .012f);
+                _textLimits[_voiceReply] = new Vector2(.38f, .09f);
+                _voiceStatus.richText = _voiceTranscript.richText = _voiceReply.richText = false;
+                Button("Parla / Invia", new Vector3(-.1f, -.205f, 0), .18f, Voice.Toggle, .032f);
+                Button("Stop", new Vector3(.105f, -.205f, 0), .17f, Voice.Cancel, .032f);
+            }
             Page(_connectionPage);
             _content = _panel;
             // A small independent menu tab stays reachable when the panel hides.
@@ -175,6 +194,15 @@ namespace Kreoda.QuestRuntime
                 TogglePanel, .03f);
             menu.transform.parent.SetParent(transform, false);
             _compactMenu.Add(menu.transform.parent);
+            if (Voice != null)
+            {
+                _voiceButton = Button("Parla", new Vector3(.005f, .29f, 0), .11f, () => { Voice.Toggle(); }, .03f);
+                _voiceButton.transform.parent.SetParent(transform, false);_compactMenu.Add(_voiceButton.transform.parent);
+                var voicePage = Button("Hermes", new Vector3(.13f, .245f, 0), .15f, () => {
+                    _panel.gameObject.SetActive(true);Page(_voicePage);ResetPanel();
+                }, .03f);
+                voicePage.transform.parent.SetParent(transform, false);_compactMenu.Add(voicePage.transform.parent);
+            }
             if (Spatial != null)
             {
                 _modeLabel = Button("Modello", new Vector3(.04f, .335f, 0), .14f,
@@ -232,6 +260,7 @@ namespace Kreoda.QuestRuntime
             if (_editPage != null) _editPage.gameObject.SetActive(selected == _editPage);
             if (_commandPage != null) _commandPage.gameObject.SetActive(selected == _commandPage);
             if (_sketchPage != null) _sketchPage.gameObject.SetActive(selected == _sketchPage);
+            if (_voicePage != null) _voicePage.gameObject.SetActive(selected == _voicePage);
         }
         void TogglePanel()
         {
@@ -313,6 +342,13 @@ namespace Kreoda.QuestRuntime
             if (_keyboard != null)
                 ApplyKeyboardInput(_keyboard.text, _keyboard.status);
             if (_status == null) return;
+            if (Voice != null)
+            {
+                _voiceStatus.text = ShortVoiceText(Voice.Status, 120);
+                _voiceTranscript.text = ShortVoiceText(Voice.Transcript, 160);
+                _voiceReply.text = ShortVoiceText(Voice.Reply, 260);
+                _voiceButton.text = Voice.Recording ? "Invia" : Voice.Busy ? "Stop" : "Parla";
+            }
             var status = Connection.Status.Length > 46 ? Connection.Status.Substring(0, 43) + "…" : Connection.Status;
             if (_status.text != status) _status.text = status;
             var viewStatus = Display.PlacementActive ? Display.Status : Environment.Status + "\nScala " + Display.ScaleName + " · quote CAD mm";
@@ -444,6 +480,7 @@ namespace Kreoda.QuestRuntime
             if (status != TouchScreenKeyboard.Status.Visible) _keyboard = null;
         }
 
+        static string ShortVoiceText(string text, int limit) => text.Length <= limit ? text : text.Substring(0, limit - 1) + "…";
         void RefreshSelection()
         {
             if (_selected == null || !Connection.Views.Contains(_selected) || _selected.UploadVersion != _selectedUploadVersion)

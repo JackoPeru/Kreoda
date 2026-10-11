@@ -108,21 +108,22 @@ namespace Kreoda.QuestRuntime
             using (var activity = player.GetStatic<AndroidJavaObject>("currentActivity"))
             using (var intent = activity.Call<AndroidJavaObject>("getIntent"))
             {
+                using var component = intent.Call<AndroidJavaObject>("getComponent");
                 var endpoint = intent.Call<string>("getStringExtra", "kreoda.endpoint");
                 var code = intent.Call<string>("getStringExtra", "kreoda.pairing-code");
                 // Consume one-use setup input; the existing private credential file
                 // handles later reconnects without codes or headset interaction.
                 intent.Call("removeExtra", "kreoda.endpoint");
                 intent.Call("removeExtra", "kreoda.pairing-code");
-                if (ApplyStartupConfiguration(endpoint, code)) return;
+                if (ApplyStartupConfiguration(component?.Call<string>("getClassName"), endpoint, code)) return;
             }
 #endif
             if (_saved != null) StartConnection(null, null);
         }
 
-        bool ApplyStartupConfiguration(string endpoint, string code)
+        bool ApplyStartupConfiguration(string component, string endpoint, string code)
         {
-            if (string.IsNullOrEmpty(endpoint)) return false;
+            if (!QuestProvisioning.Trusted(component) || string.IsNullOrEmpty(endpoint)) return false;
             Pair(endpoint, code);
             return true;
         }

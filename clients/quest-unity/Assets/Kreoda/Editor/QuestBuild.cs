@@ -118,6 +118,11 @@ namespace Kreoda.QuestEditor
             var sketchDimensions = new GameObject("Canonical sketch dimension preview").AddComponent<QuestSketchDimensions>();
             sketchDimensions.transform.SetParent(display, false);sketchDimensions.Connection = connection;sketchDimensions.Spatial = spatial;
             sketchDimensions.LineMaterial = controls.RayMaterial;controls.SketchDimensions = sketchDimensions;
+            var voice = new GameObject("Hermes voice interaction").AddComponent<QuestVoice>();
+            voice.Connection = connection;voice.Controls = controls;controls.Voice = voice;
+            var voiceAudio = new GameObject("Hermes spoken replies").AddComponent<AudioSource>();
+            voiceAudio.transform.SetParent(rig.centerEyeAnchor, false);
+            voiceAudio.playOnAwake = false;voiceAudio.spatialBlend = 0;voice.Audio = voiceAudio;
             var light = new GameObject("CAD light").AddComponent<Light>();
             light.type = LightType.Directional;
             light.intensity = 1.2f;
@@ -223,6 +228,8 @@ namespace Kreoda.QuestEditor
                 controls.Commands == null || controls.Commands.Connection != connection || controls.Commands.Spatial != controls.Spatial ||
                 controls.SketchDimensions == null || controls.SketchDimensions.Connection != connection ||
                 controls.SketchDimensions.transform.parent != connection.DisplayRoot ||
+                controls.Voice == null || controls.Voice.Connection != connection || controls.Voice.Controls != controls ||
+                controls.Voice.Audio == null || controls.Voice.Audio.playOnAwake ||
                 controls.Environment.Layer == null || controls.Environment.VrReference == null ||
                 xr == null || !xr.InitManagerOnStart || !xr.Manager.activeLoaders.Any(loader => loader is OpenXRLoader) ||
                 PlayerSettings.GetScriptingBackend(NamedBuildTarget.Android) != ScriptingImplementation.IL2CPP ||

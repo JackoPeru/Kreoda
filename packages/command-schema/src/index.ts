@@ -2,8 +2,9 @@
 // One definition drives toolbar, context menu, palette, shortcuts, AI tools.
 
 import { z } from "zod";
-import { CommandType, SketchModelSchema, StableFeatureIdSchema } from "@kreoda/protocol";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { CommandType, SketchModelSchema, StableFeatureIdSchema, SESSION_STABLE_FEATURE_ID_SCHEMA } from "@kreoda/protocol";
+import { zodToJsonSchema, ignoreOverride } from "zod-to-json-schema";
+import { commandCreationRule } from "./native-command.js";
 export { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "./native-command.js";
 
 export const SelectionKindSchema = z.enum([
@@ -372,9 +373,12 @@ export function commandJsonSchema(id: string) {
   const definition = COMMANDS.find((command) => command.id === id);
   if (!definition) return null;
   return { id: definition.id, nativeType: definition.nativeType,
+    creation: commandCreationRule(id),
     description: definition.description,
     supportsPreview: definition.supportsPreview,
     selectionBindings: definition.selectionBindings ?? {},
-    parameters: zodToJsonSchema(definition.parameterSchema, { $refStrategy: "none", target: "jsonSchema7" }),
+    parameters: zodToJsonSchema(definition.parameterSchema, { $refStrategy: "none", target: "jsonSchema7",
+      override: def => def === StableFeatureIdSchema._def ? { ...SESSION_STABLE_FEATURE_ID_SCHEMA } : ignoreOverride,
+    }),
   };
 }

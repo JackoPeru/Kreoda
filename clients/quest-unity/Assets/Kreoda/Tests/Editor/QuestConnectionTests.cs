@@ -60,7 +60,9 @@ namespace Kreoda.QuestRuntime.Tests
                 {
                     var bootstrap = typeof(QuestConnection).GetMethod("ApplyStartupConfiguration", BindingFlags.Instance | BindingFlags.NonPublic);
                     Assert.That(bootstrap, Is.Not.Null, "ADB startup provisioning must configure the actual connection without UI input");
-                    Assert.That(bootstrap.Invoke(connection, new object[] { "ws://127.0.0.1:" + port + "/", "0123 4567" }), Is.EqualTo(true));
+                    Assert.That(bootstrap.Invoke(connection, new object[] { "com.unity3d.player.UnityPlayerActivity", "ws://127.0.0.1:" + port + "/", "0123 4567" }), Is.EqualTo(false));
+                    Assert.That(connection.Status, Is.EqualTo("Non connesso"));
+                    Assert.That(bootstrap.Invoke(connection, new object[] { "com.kreoda.quest.AdbProvisioning", "ws://127.0.0.1:" + port + "/", "0123 4567" }), Is.EqualTo(true));
                 }
                 else connection.Pair("ws://" + ip + ":" + port, "0123 4567");
                 var update = typeof(QuestConnection).GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic);

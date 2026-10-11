@@ -1,6 +1,12 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
 // Source SHA256: 2019ae0e61e5ee7feb539b6401fdc1289a98d5f45d39d33bbc3203f58549829a
 export const CONTRACT_SCHEMA_SHA256 = "2019ae0e61e5ee7feb539b6401fdc1289a98d5f45d39d33bbc3203f58549829a" as const;
+export const SESSION_STABLE_FEATURE_ID_SCHEMA = {
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 128,
+  "pattern": "^[A-Za-z0-9_-]+$"
+} as const;
 export const SESSION_DTO_NAMES = [
   "StableFeatureId",
   "RequestMetadata",

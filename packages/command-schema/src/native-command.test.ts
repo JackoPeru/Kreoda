@@ -2,6 +2,19 @@ import { expect, it } from "vitest";
 import { commandNativeRequest, validateLegacyNativeCommand } from "./native-command.js";
 import { commandJsonSchema } from "./index.js";
 
+it("runtime schemas expose the actual creation budget including multi-hole commands", () => {
+  expect(commandJsonSchema("CreateBox")).toHaveProperty("creation", { fixedCount: 1 });
+  expect(commandJsonSchema("CreateHolePattern")).toHaveProperty("creation", { idArrayParameter: "featureIds" });
+  expect(commandJsonSchema("UpdateSketch")).toHaveProperty("creation", { fixedCount: 0 });
+});
+
+it("exports canonical stable ID constraints even though their runtime validator is opaque Zod custom", () => {
+  expect(commandJsonSchema("CreateHolePattern")!.parameters).toMatchObject({ properties: {
+    featureIds: { type: "array", items: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9_-]+$" } },
+  } });
+  expect(commandJsonSchema("CreateExtrude")!.parameters).toMatchObject({ properties: { sketchId: { type: "string", maxLength: 128 } } });
+});
+
 it("validates named commands and legacy invokes with the same parameter registry", () => {
   const named = commandNativeRequest("CreateBox", { widthMm: 20, heightMm: 30, depthMm: 10 }, "box-stable");
   expect(named).toEqual({ type: 3, fields: { featureId: "box-stable", widthMm: 20, heightMm: 30, depthMm: 10 } });

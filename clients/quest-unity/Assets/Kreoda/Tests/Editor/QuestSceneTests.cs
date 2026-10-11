@@ -8,6 +8,23 @@ namespace Kreoda.QuestRuntime.Tests
     public class QuestSceneTests
     {
         [Test]
+        public void ProductVoiceIsWiredAndStartsQuietWithoutRecording()
+        {
+            try {
+                QuestBuild.Prepare();
+                var controls = Object.FindFirstObjectByType<QuestControls>();
+                var field = typeof(QuestControls).GetField("Voice");
+                Assert.That(field, Is.Not.Null, "voice control must be part of the product scene");
+                var voice = field.GetValue(controls) as MonoBehaviour;
+                Assert.That(voice, Is.Not.Null);
+                Assert.That(voice.GetType().GetField("Connection").GetValue(voice), Is.SameAs(controls.Connection));
+                var audio = voice.GetType().GetField("Audio").GetValue(voice) as AudioSource;
+                Assert.That(audio, Is.Not.Null);Assert.That(audio.playOnAwake, Is.False);
+                Assert.That((bool)voice.GetType().GetProperty("Recording").GetValue(voice), Is.False);
+            } finally { EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single); }
+        }
+
+        [Test]
         public void ProductSceneHasConnectedCadControlsAndCompactReachableMenu()
         {
             try
