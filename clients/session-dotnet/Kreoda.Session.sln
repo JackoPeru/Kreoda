@@ -8,6 +8,16 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kreoda.SessionClient.Tests"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kreoda.QuestFoundation", "src\Kreoda.QuestFoundation\Kreoda.QuestFoundation.csproj", "{A1B2C3D4-E5F6-47A8-B9C0-D1E2F3A4B503}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kreoda.ModelingAgent", "src\Kreoda.ModelingAgent\Kreoda.ModelingAgent.csproj", "{5E856D97-3BA8-491A-9C19-A0FC67D82637}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kreoda.ModelingAgent.Tests", "tests\Kreoda.ModelingAgent.Tests\Kreoda.ModelingAgent.Tests.csproj", "{D348BF00-9D02-411A-B475-E22FE4993375}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kreoda.HermesBridge", "tools\Kreoda.HermesBridge\Kreoda.HermesBridge.csproj", "{277B2217-0B56-4688-80AE-C164FDB33DA6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kreoda.HermesBridge.Tests", "tests\Kreoda.HermesBridge.Tests\Kreoda.HermesBridge.Tests.csproj", "{04D03D33-5DB6-4358-BE7F-42FF298731FB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kreoda.McpProbe", "probes\Kreoda.McpProbe\Kreoda.McpProbe.csproj", "{11598B33-4214-45F2-831E-685724829CD8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,5 +39,25 @@ Global
 		{A1B2C3D4-E5F6-47A8-B9C0-D1E2F3A4B503}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A1B2C3D4-E5F6-47A8-B9C0-D1E2F3A4B503}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A1B2C3D4-E5F6-47A8-B9C0-D1E2F3A4B503}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E856D97-3BA8-491A-9C19-A0FC67D82637}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E856D97-3BA8-491A-9C19-A0FC67D82637}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E856D97-3BA8-491A-9C19-A0FC67D82637}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E856D97-3BA8-491A-9C19-A0FC67D82637}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D348BF00-9D02-411A-B475-E22FE4993375}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D348BF00-9D02-411A-B475-E22FE4993375}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D348BF00-9D02-411A-B475-E22FE4993375}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D348BF00-9D02-411A-B475-E22FE4993375}.Release|Any CPU.Build.0 = Release|Any CPU
+		{277B2217-0B56-4688-80AE-C164FDB33DA6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{277B2217-0B56-4688-80AE-C164FDB33DA6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{277B2217-0B56-4688-80AE-C164FDB33DA6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{277B2217-0B56-4688-80AE-C164FDB33DA6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{04D03D33-5DB6-4358-BE7F-42FF298731FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04D03D33-5DB6-4358-BE7F-42FF298731FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04D03D33-5DB6-4358-BE7F-42FF298731FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04D03D33-5DB6-4358-BE7F-42FF298731FB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11598B33-4214-45F2-831E-685724829CD8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11598B33-4214-45F2-831E-685724829CD8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11598B33-4214-45F2-831E-685724829CD8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11598B33-4214-45F2-831E-685724829CD8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

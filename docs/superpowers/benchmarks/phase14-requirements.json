@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 1,
+  "status": "requirements frozen before live runs; harness pending",
+  "units": "mm",
+  "volumeToleranceMm3": 0.01,
+  "dimensionToleranceMm": 0.001,
+  "minimumPassCount": 6,
+  "fixtures": [
+    {
+      "id": "centered-hole-plate",
+      "prompt": "Crea una piastra100×80×5 lungo XYZ con foro passanteØ10 al centroXY(50,40). Un solido editabile.",
+      "bboxSizeMm": [
+        100,
+        80,
+        5
+      ],
+      "volumeMm3": 39607.30091830128,
+      "holes": [
+        {
+          "centerXY": [
+            50,
+            40
+          ],
+          "radiusMm": 5
+        }
+      ]
+    },
+    {
+      "id": "u-bracket",
+      "prompt": "Crea staffa U: larghezzaX100, profonditàY40, altezzaZ60, pareti laterali5 e fondo5, aperta superiormente; un solido editabile.",
+      "bboxSizeMm": [
+        100,
+        40,
+        60
+      ],
+      "volumeMm3": 42000,
+      "expectedPlaneCoordinates": {
+        "x": [
+          0,
+          5,
+          95,
+          100
+        ],
+        "z": [
+          0,
+          5,
+          60
+        ]
+      },
+      "holes": []
+    },
+    {
+      "id": "six-hole-flange",
+      "prompt": "Crea flangia cilindricaØ100, altezzaZ10, sei fori passantiØ8 su circonferenza centriØ70 a0,60,120,180,240,300gradi; un solido editabile.",
+      "bboxSizeMm": [
+        100,
+        100,
+        10
+      ],
+      "volumeMm3": 75523.88739229862,
+      "holes": [
+        {
+          "centerXY": [
+            35,
+            0
+          ],
+          "radiusMm": 4
+        },
+        {
+          "centerXY": [
+            17.500000000000004,
+            30.31088913245535
+          ],
+          "radiusMm": 4
+        },
+        {
+          "centerXY": [
+            -17.499999999999993,
+            30.310889132455355
+          ],
+          "radiusMm": 4
+        },
+        {
+          "centerXY": [
+            -35,
+            4.2862637970157365e-15
+          ],
+          "radiusMm": 4
+        },
+        {
+          "centerXY": [
+            -17.500000000000014,
+            -30.310889132455348
+          ],
+          "radiusMm": 4
+        },
+        {
+          "centerXY": [
+            17.500000000000004,
+            -30.31088913245535
+          ],
+          "radiusMm": 4
+        }
+      ]
+    },
+    {
+      "id": "hollow-box",
+      "prompt": "Crea scatola aperta sopra100×80×50 XYZ, pareti3 e fondo3. Origine inferiore(0,0,0), un solido editabile.",
+      "bboxSizeMm": [
+        100,
+        80,
+        50
+      ],
+      "volumeMm3": 73068,
+      "expectedPlaneCoordinates": {
+        "x": [
+          0,
+          3,
+          97,
+          100
+        ],
+        "y": [
+          0,
+          3,
+          77,
+          80
+        ],
+        "z": [
+          0,
+          3,
+          50
+        ]
+      },
+      "topAreaMm2": 1044,
+      "holes": []
+    },
+    {
+      "id": "chamfered-shaft",
+      "prompt": "Crea albero cilindricoØ20 lungoZ100 con smusso45gradi da1mm su entrambe le circonferenze terminali, un solido editabile.",
+      "bboxSizeMm": [
+        20,
+        20,
+        100
+      ],
+      "volumeMm3": 31355.189077928528,
+      "chamferDistanceMm": 1,
+      "holes": []
+    },
+    {
+      "id": "simple-enclosure",
+      "prompt": "Crea contenitore aperto sopra120×80×30 XYZ, pareti2 e fondo2, origine(0,0,0), due fori passantiØ4 nel fondo con centriXY(10,10) e(110,70). Un solido editabile.",
+      "bboxSizeMm": [
+        120,
+        80,
+        30
+      ],
+      "volumeMm3": 41101.734517542565,
+      "expectedPlaneCoordinates": {
+        "x": [
+          0,
+          2,
+          118,
+          120
+        ],
+        "y": [
+          0,
+          2,
+          78,
+          80
+        ],
+        "z": [
+          0,
+          2,
+          30
+        ]
+      },
+      "holes": [
+        {
+          "centerXY": [
+            10,
+            10
+          ],
+          "radiusMm": 2
+        },
+        {
+          "centerXY": [
+            110,
+            70
+          ],
+          "radiusMm": 2
+        }
+      ]
+    },
+    {
+      "id": "mounting-plate",
+      "prompt": "Crea piastra fissaggio140×90×6 XYZ, quattro fori passantiØ6 aXY(10,10),(130,10),(10,80),(130,80), apertura rettangolare centrale30×20 passante centrataXY(70,45). Un solido editabile.",
+      "bboxSizeMm": [
+        140,
+        90,
+        6
+      ],
+      "volumeMm3": 71321.4159868246,
+      "windowPlanes": {
+        "x": [
+          55,
+          85
+        ],
+        "y": [
+          35,
+          55
+        ]
+      },
+      "holes": [
+        {
+          "centerXY": [
+            10,
+            10
+          ],
+          "radiusMm": 3
+        },
+        {
+          "centerXY": [
+            130,
+            10
+          ],
+          "radiusMm": 3
+        },
+        {
+          "centerXY": [
+            10,
+            80
+          ],
+          "radiusMm": 3
+        },
+        {
+          "centerXY": [
+            130,
+            80
+          ],
+          "radiusMm": 3
+        }
+      ]
+    }
+  ],
+  "invariants": [
+    "actual native Hermes responses; no scripted CAD plans",
+    "validate B-Rep and references; no invented existing IDs",
+    "independent measurements of complete visible model, not agent success text",
+    "match unique cylindrical axes/radii against all required hole positions",
+    "match interior planar coordinates/open cavity as applicable",
+    "one high-level request/Undo group",
+    "edit actual existing parameter then undo; preserve feature identity",
+    "record every attempt, correction, failure, commands and duration",
+    "Desktop/Quest receive native model deltas; no physical usability inferred"
+  ]
+}

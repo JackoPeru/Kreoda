@@ -23,10 +23,36 @@ test("official MCP checked native request reaches Desktop and one shared Undo", 
     await page.evaluate(() => globalThis.window.kreoda.sessionEnable("127.0.0.1", 44742));
     const pairing = await page.evaluate(() => globalThis.window.kreoda.sessionPair());
     const bridgeDll = path.resolve(HERE, "../../../clients/session-dotnet/tools/Kreoda.HermesBridge/bin/Release/net8.0/Kreoda.HermesBridge.dll");
-    bridge = spawn("dotnet", [bridgeDll], { windowsHide: true, env: { ...process.env,
+    const bridgeEnv = { ...process.env,
       KREODA_HERMES_BRIDGE_URL: "http://127.0.0.1:44743", KREODA_CAD_SESSION_URL: "ws://127.0.0.1:44742/",
-      KREODA_CAD_PAIR: pairing.token, KREODA_CAD_DEVICE_FILE: path.join(profile, "mcp-device.json"), KREODA_HERMES_CONFIG: "", KREODA_VOICE_TOKEN: "" } });
-    await expect.poll(async () => { try { return (await fetch("http://127.0.0.1:44743/health")).ok; } catch { return false; } }).toBe(true);
+      KREODA_CAD_PAIR: pairing.token, KREODA_CAD_DEVICE_FILE: path.join(profile, "mcp-device.json"), KREODA_HERMES_CONFIG: "", KREODA_VOICE_TOKEN: "" };
+    let bridgeExit: string | undefined;
+    let bridgeStderr = "";
+    bridge = spawn("dotnet", [bridgeDll], { windowsHide: true, env: bridgeEnv });
+    bridge.stderr?.on("data", chunk => { bridgeStderr = (bridgeStderr + String(chunk)).slice(-4000); });
+    bridge.once("error", error => { bridgeExit = `spawn error=${error.message}`; });
+    bridge.once("exit", (code, signal) => { bridgeExit = `exit code=${code ?? "null"} signal=${signal ?? "none"}`; });
+    let health = "unreachable";
+    try {
+      await expect.poll(async () => {
+        if (bridgeExit) return false;
+        try {
+          const response = await fetch("http://127.0.0.1:44743/health");
+          health = `HTTP ${response.status}`;
+          return response.ok;
+        } catch {
+          health = "unreachable";
+          return false;
+        }
+      }).toBe(true);
+    } catch {
+      const secrets = Object.entries(bridgeEnv)
+        .filter(([name, value]) => value && /token|key|secret|password|pair|auth/i.test(name) && value.length >= 4)
+        .map(([, value]) => value as string)
+        .sort((a, b) => b.length - a.length);
+      const stderr = secrets.reduce((text, secret) => text.replaceAll(secret, "[redacted]"), bridgeStderr).trim();
+      throw new Error(["Hermes bridge health startup failed", `state=${bridgeExit ?? "process running"}`, `health=${health}`, stderr && `stderr=${stderr}`].filter(Boolean).join("; "));
+    }
     const probeDll = path.resolve(HERE, "../../../clients/session-dotnet/probes/Kreoda.McpProbe/bin/Release/net8.0/Kreoda.McpProbe.dll");
     const proof = await new Promise<{ featureId: string; finalRevision: number; passed: string[] }>((resolve, reject) => {
       const child = spawn("dotnet", [probeDll], { windowsHide: true, env: { ...process.env, KREODA_MCP_PROBE_URL: "http://127.0.0.1:44743/mcp" } });
