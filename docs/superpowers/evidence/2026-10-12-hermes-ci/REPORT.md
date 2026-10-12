@@ -7,3 +7,5 @@ Parent independently inspected the three-file patch and reran runner185/185 in e
 TRX invalid/absent/discoveryzero/notExecuted/failure are errors; each assembly has separate file and minimum count. Error healthdiagnostics redact known environment secrets. Seven benchmark requirements are frozen separately before live runs; no benchmarksuccessclaimed. NewheadhostedCI and freshreview pending. Physical hands/voice and fullPhases12–16 goal notcomplete.
 
 Fresh actualGPT6Sol/high reviewer01a12d19-77b2-7422-a955-2d7879f636d3 returnedship forCIpacket. Behavioralread-only; broaderdanger-full-access/disabled observed. Newhostedresult stillpending.
+
+Hosted 92d9081 run38180987483 failed: VS developer environment Platform=x64 changed project test output paths to bin/x64/Release although solution mapped to AnyCPU. Parent reproduced zero tests; passing project Platform=AnyCPU explicitly produced125+33+27=185 under the identical x64 environment. Fresh read-only reviewer review_ci_platform_final returned ship for the single-line correction; exact hosted correction remains pending.

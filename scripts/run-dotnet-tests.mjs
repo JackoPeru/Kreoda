@@ -55,7 +55,7 @@ try {
       const trx = join(results, `${suite.name}.trx`);
       const status = runDotnet([
         "test", join(repo, "clients/session-dotnet", suite.project),
-        "-c", "Release", "--no-build",
+        "-c", "Release", "-p:Platform=AnyCPU", "--no-build",
         "--logger", `trx;LogFileName=${suite.name}.trx`,
         "--results-directory", results,
       ]);
