@@ -1,6 +1,6 @@
 # Native Hermes benchmark
 
-The seven requirements in `docs/superpowers/benchmarks/phase14-requirements.json` are frozen before live attempts. The runner rejects a changed SHA256. Each submitted voice turn records a new attempt; an occupied-document preflight refusal writes no report. The runner refuses to overwrite a report and refuses any occupied or uncommitted CAD document. Prepare a separate empty Desktop/session profile. Never use the user's working document.
+The seven requirements in `docs/superpowers/benchmarks/phase14-requirements.json` are frozen before live attempts. The runner verifies SHA256 after normalizing only Git checkout CRLF to LF; every content change remains rejected. Each submitted voice turn records a new attempt; an occupied-document preflight refusal writes no report. The runner refuses to overwrite a report and refuses any occupied or uncommitted CAD document. Prepare a separate empty Desktop/session profile. Never use the user's working document.
 
 ```powershell
 dotnet build clients/session-dotnet/Kreoda.Session.sln -c Release '-p:Platform=Any CPU'

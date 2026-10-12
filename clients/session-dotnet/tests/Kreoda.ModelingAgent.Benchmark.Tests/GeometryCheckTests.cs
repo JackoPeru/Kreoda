@@ -31,7 +31,7 @@ public class GeometryCheckTests
     public void EveryFrozenFixtureHasPositiveAndWrongGeometryPredicates(int index) {
         // Analytic test doubles exercise predicates; they are never live passes.
         var bytes=File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,"phase14-requirements.json"));
-        Assert.Equal("78F72A3026A93C7CCF2102F29AB943B71C8C19B12E89007681CAFD31A93AF24A",Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)));
+        Assert.Equal(FrozenRequirements.Sha256,FrozenRequirements.Verify(bytes));
         var fixture=J(System.Text.Encoding.UTF8.GetString(bytes)).GetProperty("fixtures")[index];
         var size=fixture.GetProperty("bboxSizeMm").EnumerateArray().Select(n=>n.GetDouble()).ToArray();
         var bbox=new[]{0d,0,0,size[0],size[1],size[2]};var faces=new List<object>();

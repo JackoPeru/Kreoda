@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Kreoda.ModelingAgent.Benchmark;
@@ -16,8 +15,7 @@ if(args.Length!=3) {
 var output=Path.GetFullPath(args[2]);
 if(File.Exists(output))throw new IOException("Refusing to overwrite a previous attempt");
 var requirementBytes=File.ReadAllBytes(args[0]);
-var sha=Convert.ToHexString(SHA256.HashData(requirementBytes)).ToLowerInvariant();
-if(sha!="78f72a3026a93c7ccf2102f29ab943b71c8c19b12e89007681cafd31a93af24a")throw new InvalidOperationException("Frozen requirements changed");
+var sha=FrozenRequirements.Verify(requirementBytes);
 using var requirements=JsonDocument.Parse(requirementBytes);
 var fixture=requirements.RootElement.GetProperty("fixtures").EnumerateArray().Single(f=>f.GetProperty("id").GetString()==args[1]).Clone();
 using var configuration=JsonDocument.Parse(File.ReadAllBytes(Environment.GetEnvironmentVariable("KREODA_BENCHMARK_VOICE_CONFIG")??throw new InvalidOperationException("Private voice config required")));

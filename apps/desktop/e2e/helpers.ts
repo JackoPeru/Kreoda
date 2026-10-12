@@ -8,6 +8,18 @@ import { createRequire } from "node:module";
 export const HERE = import.meta.dirname;
 export const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
 
+/** Keep Playwright's frame-based stability checks running after hiding Electron. */
+export async function hideForBackgroundE2E(
+  app: Awaited<ReturnType<typeof electron.launch>>,
+): Promise<void> {
+  await app.evaluate(({ BrowserWindow }) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.setBackgroundThrottling(false);
+      window.hide();
+    }
+  });
+}
+
 export interface BodySnapshot {
   id: string;
   type: string;

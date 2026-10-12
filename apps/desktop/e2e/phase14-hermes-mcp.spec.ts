@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { MAIN, HERE, runBar, snapOf } from "./helpers";
+import { MAIN, HERE, hideForBackgroundE2E, runBar, snapOf } from "./helpers";
 import { frameMessage } from "@kreoda/protocol";
 
 test("official MCP checked native request reaches Desktop and one shared Undo", async () => {
@@ -15,7 +15,7 @@ test("official MCP checked native request reaches Desktop and one shared Undo", 
   let bridge: ReturnType<typeof spawn> | undefined;
   try {
     const page = await app.firstWindow();
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(w => w.hide()));
+    await hideForBackgroundE2E(app);
     await expect.poll(() => page.evaluate(() => globalThis.window.kreoda.coreInfo().then(i => i.running))).toBe(true);
     const infoRequest = Buffer.from(frameMessage(Buffer.from(JSON.stringify({ protocolVersion: 1, requestId: "mcp-native-info", documentId: "doc-phase1", type: 1, payload: {} })))).toString("base64");
     const core = JSON.parse(Buffer.from(await page.evaluate(frame => window.kreoda.invoke(frame), infoRequest), "base64").toString("utf8")) as { occtVersion: string };

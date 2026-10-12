@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { MAIN, HERE, runBar, snapOf } from "./helpers";
+import { MAIN, HERE, hideForBackgroundE2E, runBar, snapOf } from "./helpers";
 
 test("actual spatial worker workflow returns to Desktop expressions", async () => {
   const profile = mkdtempSync(path.join(os.tmpdir(), "kreoda-context-acceptance-"));
@@ -13,7 +13,7 @@ test("actual spatial worker workflow returns to Desktop expressions", async () =
     env: { ...process.env, KREODA_SESSION_PORT: "", KREODA_SESSION_TOKEN: "", KREODA_RECOVERY_DIR: profile } });
   try {
     const page = await app.firstWindow();
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(w => w.hide()));
+    await hideForBackgroundE2E(app);
     await expect.poll(() => page.evaluate(() => !!globalThis.window.kreoda)).toBe(true);
     await expect.poll(() => page.evaluate(() => globalThis.window.kreoda.coreInfo().then(i => i.running))).toBe(true);
     await page.evaluate(() => globalThis.window.kreoda.sessionEnable("127.0.0.1", 44741));
