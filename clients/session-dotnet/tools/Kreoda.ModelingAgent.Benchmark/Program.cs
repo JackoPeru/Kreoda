@@ -38,9 +38,9 @@ var context=JsonSerializer.SerializeToElement(new {
     documentId=before.GetProperty("documentId").GetString(),revision=before.GetProperty("revision").GetInt64(),selectedIds=System.Array.Empty<string>(),
     benchmarkRequirements=fixture,
 });
-var clock=Stopwatch.StartNew();VoiceReply? reply=null;string? error=null;
+var clock=Stopwatch.StartNew();VoiceReply? reply=null;string? error=null;string? failedRunId=null;
 try { reply=await voice.TalkAsync(fixture.GetProperty("prompt").GetString()!,context,ct); }
-catch(Exception e) { error=e is VoiceServiceException service?"voice-http-"+service.StatusCode:e.GetType().Name; }
+catch(Exception e) { error=e is VoiceServiceException service?"voice-http-"+service.StatusCode:e.GetType().Name;failedRunId=(e as VoiceServiceException)?.RunId; }
 var duration=clock.Elapsed.TotalSeconds;
 JsonElement? after=null,validation=null,bounds=null,faces=null;string[] failures=["no-native-evidence"];
 try {
@@ -50,14 +50,15 @@ try {
     failures=GeometryCheck.Evaluate(fixture,after.Value,validation.Value,bounds.Value,faces.Value);
 } catch(Exception e) { failures=["measurement-"+e.GetType().Name]; }
 object? metadata=null;string? metadataError=null;
-if(reply is not null) {
-    try { metadata=await RunMetadata.Read(reply.RunId,ct); }
+var runId=reply?.RunId??failedRunId;
+if(runId is not null) {
+    try { metadata=await RunMetadata.Read(runId,ct); }
     catch(Exception e) { metadataError=e.GetType().Name; }
 }
 var report=new {
     schemaVersion=1,fixtureId=args[1],requirementsSha256=sha,startedAt=DateTimeOffset.UtcNow.AddSeconds(-clock.Elapsed.TotalSeconds),
     prompt=fixture.GetProperty("prompt").GetString(),origin=context,before,after,validation,bounds,faces,
-    durationSeconds=duration,error,runId=reply?.RunId,sessionId=reply?.SessionId,finalReply=reply?.Text,metadata,metadataError,
+    durationSeconds=duration,error,runId,sessionId=reply?.SessionId,finalReply=reply?.Text,metadata,metadataError,
     failedPredicates=failures,geometryPassed=error is null&&reply is not null&&failures.Length==0,
     accepted=false,editabilityVerified=false,oneUndoVerified=false,desktopObserved=false,questObserved=false,
     boundary="Live native Hermes through the Quest voice proxy and official MCP. Geometry only; acceptance also requires editability, one Undo group, command metadata and client observation. Synthetic unit fixtures never count as live passes.",

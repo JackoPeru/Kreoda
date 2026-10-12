@@ -41,12 +41,15 @@ public sealed class HermesGatewayTests
     {
         using var cancel = new CancellationTokenSource();var submits = 0;var stops = 0;
         using var http = new HttpClient(new Handler((request, ct) => {
-            if (request.RequestUri!.AbsolutePath.EndsWith("/stop")) { stops++;return Task.FromResult(Json("{}")); }
+            if (request.RequestUri!.AbsolutePath.EndsWith("/stop")) { stops++;Assert.Equal("/v1/runs/run-1/stop", request.RequestUri.AbsolutePath);return Task.FromResult(Json("{}")); }
             if (request.Method == HttpMethod.Post) { submits++;return Task.FromResult(Json("{\"run_id\":\"run-1\",\"status\":\"queued\"}")); }
             cancel.Cancel();ct.ThrowIfCancellationRequested();return Task.FromResult(Json("{}"));
         }));
         var gateway = new HermesGatewayClient(http, Options, pollInterval: TimeSpan.FromMilliseconds(1));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => gateway.TalkAsync("Ciao", JsonDocument.Parse("{}").RootElement, cancel.Token));
+        var error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => gateway.TalkAsync("Ciao", JsonDocument.Parse("{}").RootElement, cancel.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(error);
+        Assert.True(error.CancellationToken.IsCancellationRequested);
+        Assert.Equal("run-1", error.Data["kreoda.hermes.runId"]);
         Assert.Equal(1, submits);Assert.Equal(1, stops);
     }
 
@@ -57,11 +60,44 @@ public sealed class HermesGatewayTests
     [InlineData("unknown")]
     public async Task NonSuccessHermesStatusCannotBecomeAReply(string status)
     {
-        using var http = new HttpClient(new Handler((request, _) => Task.FromResult(request.Method == HttpMethod.Post
-            ? Json("{\"run_id\":\"run-1\",\"status\":\"queued\"}")
-            : Json($"{{\"run_id\":\"run-1\",\"status\":\"{status}\"}}"))));
+        var submits = 0;var stops = 0;
+        using var http = new HttpClient(new Handler((request, _) => Task.FromResult(Reply(request))));
+        HttpResponseMessage Submit() { submits++;return Json("{\"run_id\":\"run-1\",\"status\":\"queued\"}"); }
+        HttpResponseMessage Reply(HttpRequestMessage request)
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/stop")) { stops++;return Json("{}"); }
+            if (request.Method == HttpMethod.Post) return Submit();
+            return Json($"{{\"run_id\":\"run-1\",\"status\":\"{status}\"}}");
+        }
         var gateway = new HermesGatewayClient(http, Options, pollInterval: TimeSpan.FromMilliseconds(1));
-        await Assert.ThrowsAsync<HermesVoiceException>(() => gateway.TalkAsync("Ciao", JsonDocument.Parse("{}").RootElement));
+        var error = await Assert.ThrowsAsync<HermesVoiceException>(() => gateway.TalkAsync("Ciao", JsonDocument.Parse("{}").RootElement));
+        Assert.Equal("run-1", error.Data["kreoda.hermes.runId"]);
+        Assert.Equal(1, submits);Assert.Equal(1, stops);
+    }
+
+    [Fact]
+    public async Task CancellationBeforeSubmissionAcknowledgementHasNoRunIdOrStop()
+    {
+        using var cancel = new CancellationTokenSource();var submits = 0;var stops = 0;
+        using var http = new HttpClient(new Handler((request, ct) => {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/stop")) { stops++;return Task.FromResult(Json("{}")); }
+            submits++;cancel.Cancel();ct.ThrowIfCancellationRequested();return Task.FromResult(Json("{}"));
+        }));
+        var gateway = new HermesGatewayClient(http, Options, pollInterval: TimeSpan.FromMilliseconds(1));
+        var error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => gateway.TalkAsync("Ciao", JsonDocument.Parse("{}").RootElement, cancel.Token));
+        Assert.False(error.Data.Contains("kreoda.hermes.runId"));
+        Assert.Equal(1, submits);Assert.Equal(0, stops);
+    }
+
+    [Theory]
+    [InlineData("{\"run_id\":\"bad id\",\"status\":\"queued\"}")]
+    [InlineData("{\"status\":\"queued\"}")]
+    public async Task InvalidAcceptedIdentityIsNotRetained(string accepted)
+    {
+        using var http = new HttpClient(new Handler((request, _) => Task.FromResult(request.Method == HttpMethod.Post ? Json(accepted) : Json("{}"))));
+        var gateway = new HermesGatewayClient(http, Options, pollInterval: TimeSpan.FromMilliseconds(1));
+        var error = await Assert.ThrowsAsync<HermesVoiceException>(() => gateway.TalkAsync("Ciao", JsonDocument.Parse("{}").RootElement));
+        Assert.False(error.Data.Contains("kreoda.hermes.runId"));
     }
 
     [Fact]

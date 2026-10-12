@@ -14,6 +14,7 @@ public sealed class HermesVoiceException(string stage, string message) : Excepti
 /// <summary>Talk to the actual Hermes Agent and its resident voice services, not its underlying LLM.</summary>
 public sealed class HermesGatewayClient
 {
+    internal const string RunIdDataKey = "kreoda.hermes.runId";
     readonly HttpClient _http;
     readonly HermesOptions _options;
     readonly Func<string, Task>? _saveSession;
@@ -84,7 +85,12 @@ public sealed class HermesGatewayClient
                     throw new HermesVoiceException(state == "awaiting_approval" ? "approval" : "hermes", "Hermes: " + state);
                 await Task.Delay(_pollInterval, token);
             }
-        } finally {
+        }
+        catch (Exception error) {
+            if (run is not null) error.Data[RunIdDataKey] = run;
+            throw;
+        }
+        finally {
             if (run is not null && !complete) {
                 using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(5));
                 using var stop = Request(HttpMethod.Post, "runs/" + Uri.EscapeDataString(run) + "/stop");
@@ -132,9 +138,13 @@ public sealed class HermesGatewayClient
     }
     static void ValidateId(string id)
     {
-        if (id.Length is < 1 or > 128 || id.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not ('_' or '-' or '.')))
+        if (!IsValidId(id))
             throw new HermesVoiceException("hermes", "Identità Hermes non valida");
     }
+    static bool IsValidId(string id) => id.Length is >= 1 and <= 128 &&
+        id.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.');
+    internal static string? ValidatedRunId(Exception error) =>
+        error.Data[RunIdDataKey] is string id && IsValidId(id) ? id : null;
     internal static void RequireWave(byte[] wav, int max)
     {
         if (wav.Length is < 44 || wav.Length > max || Encoding.ASCII.GetString(wav, 0, 4) != "RIFF" || Encoding.ASCII.GetString(wav, 8, 4) != "WAVE")

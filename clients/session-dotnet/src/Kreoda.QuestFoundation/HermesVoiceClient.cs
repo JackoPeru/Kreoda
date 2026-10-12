@@ -6,9 +6,15 @@ using System.Text.Json;
 namespace Kreoda.QuestFoundation;
 
 public sealed record VoiceReply(string Text, string? SessionId, string RunId);
-public sealed class VoiceServiceException(int statusCode, string message) : Exception(message)
+public sealed class VoiceServiceException : Exception
 {
-    public int StatusCode { get; } = statusCode;
+    public VoiceServiceException(int statusCode, string message) : this(statusCode, message, null) { }
+    internal VoiceServiceException(int statusCode, string message, string? runId) : base(message)
+    {
+        StatusCode = statusCode;RunId = runId;
+    }
+    public int StatusCode { get; }
+    public string? RunId { get; }
 }
 
 /// <summary>Quest talks to its configured private PC voice proxy; Hermes credentials remain on the PC.</summary>
@@ -67,14 +73,27 @@ public sealed class HermesVoiceClient : IDisposable
         var bytes = await Read(response.Content, response.IsSuccessStatusCode ? maximum : 65536, deadline.Token).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode) {
             var message = "Servizio vocale: HTTP " + (int)response.StatusCode;
+            string? runId = null;
             try {
                 using var error = JsonDocument.Parse(bytes);
-                if (error.RootElement.TryGetProperty("error", out var text) && text.ValueKind == JsonValueKind.String && text.GetString()!.Length <= 512)
-                    message = text.GetString()!;
+                if (error.RootElement.ValueKind == JsonValueKind.Object) {
+                    if (error.RootElement.TryGetProperty("error", out var text) && text.ValueKind == JsonValueKind.String && text.GetString()!.Length <= 512)
+                        message = text.GetString()!;
+                    runId = ValidRunId(error.RootElement);
+                }
             } catch (JsonException) { }
-            throw new VoiceServiceException((int)response.StatusCode, message);
+            throw new VoiceServiceException((int)response.StatusCode, message, runId);
         }
         return bytes;
+    }
+    static string? ValidRunId(JsonElement error)
+    {
+        if (error.ValueKind != JsonValueKind.Object || !error.TryGetProperty("runId", out var value) || value.ValueKind != JsonValueKind.String) return null;
+        var id = value.GetString();
+        if (id is null || id.Length is < 1 or > 128) return null;
+        foreach (var c in id)
+            if (!(c is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9') && c is not ('_' or '-' or '.')) return null;
+        return id;
     }
     static async Task<byte[]> Read(HttpContent content, int maximum, CancellationToken ct)
     {

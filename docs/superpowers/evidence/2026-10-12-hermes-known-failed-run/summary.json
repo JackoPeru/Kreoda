@@ -1,0 +1,61 @@
+{
+  "baseCommit": "65e809091293b9af94e39f83b2ee178d6359c536",
+  "worker": {
+    "thread": "01a12fa4-db9a-7eb3-ad2e-c1def77b2bbd",
+    "model": "gpt-6-luna",
+    "effort": "max",
+    "terminalQuota": false
+  },
+  "managed": {
+    "SessionClient": 131,
+    "ModelingAgent": 33,
+    "HermesBridge": 32,
+    "Benchmark": 33,
+    "total": 229,
+    "failed": 0,
+    "skipped": 0,
+    "environmentPlatform": "x64",
+    "actualNetstandardSdkPassed": 131
+  },
+  "e2e": {
+    "initialParentPassed": 4,
+    "initialSeconds": 23.2,
+    "correctedBenchmarkPassed": 2,
+    "correctedSeconds": 10.9,
+    "localFakeHermes": true,
+    "error": "voice-http-502",
+    "runId": "fixture_failed",
+    "failedToolErrorRetained": true,
+    "submissions": 1,
+    "sameRunStop": true,
+    "eventReads": 1,
+    "beforeAfterNativeEmpty": true,
+    "reasoningSaved": false,
+    "accepted": false,
+    "compiledBundleRestored": true
+  },
+  "desktopLint": true,
+  "baseHosted": {
+    "run": 38235861908,
+    "conclusion": "success"
+  },
+  "reviewPending": false,
+  "newHeadHostedPending": true,
+  "liveHermesFixturesRun": 0,
+  "fullFailedTrailProven": false,
+  "physicalAcceptanceProven": false,
+  "phase15SectionImplemented": false,
+  "goalComplete": false,
+  "review": {
+    "thread": "01a13082-85a4-7a23-96c7-392f3463ce3f",
+    "verdict": "ship-bounded-known-failure-packet",
+    "model": "gpt-6-sol",
+    "effort": "high",
+    "sandbox": "danger-full-access",
+    "permission": "disabled",
+    "enforcedReadOnly": false,
+    "sourceInputs": 876,
+    "sourceFreeze": "982af558cd8d97bee8ea279eacc836a18a7f6700fa279a84d070009c75c289a9",
+    "sourceChanged": []
+  }
+}

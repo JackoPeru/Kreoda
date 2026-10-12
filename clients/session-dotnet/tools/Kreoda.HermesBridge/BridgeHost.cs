@@ -25,6 +25,13 @@ public static class BridgeHost
         return app;
     }
     sealed record VoiceTurn(string Text, JsonElement Context);
+    static IResult VoiceError(string error, string stage, int statusCode, Exception cause)
+    {
+        var runId = HermesGatewayClient.ValidatedRunId(cause);
+        return runId is null
+            ? Results.Json(new { error, stage }, statusCode: statusCode)
+            : Results.Json(new { error, stage, runId }, statusCode: statusCode);
+    }
     static void MapVoice(WebApplication app, CadBridge cad, HermesGatewayClient hermes, string token)
     {
         var expected = SHA256.HashData(Encoding.UTF8.GetBytes(token));
@@ -40,11 +47,11 @@ public static class BridgeHost
                     stage = "cad", status = "uncertain", errorCode = "ROLLBACK_UNCONFIRMED", recovery = error.Recovery,
                     recoveryPersisted = error.RecoveryPersisted }, statusCode: 502);
             }
-            catch (HermesVoiceException error) { return Results.Json(new { error = error.Message, stage = error.Stage }, statusCode: 502); }
+            catch (HermesVoiceException error) { return VoiceError(error.Message, error.Stage, 502, error); }
             catch (Exception error) when (error is ArgumentException or JsonException) { return Results.BadRequest(new { error = "Richiesta vocale non valida" }); }
-            catch (HttpRequestException) { return Results.Json(new { error = "Servizio Hermes non raggiungibile", stage = "network" }, statusCode: 502); }
-            catch (OperationCanceledException) when (!invocation.HttpContext.RequestAborted.IsCancellationRequested) {
-                return Results.Json(new { error = "Tempo scaduto. Controlla il modello prima di ripetere.", stage = "timeout" }, statusCode: 504);
+            catch (HttpRequestException error) { return VoiceError("Servizio Hermes non raggiungibile", "network", 502, error); }
+            catch (OperationCanceledException error) when (!invocation.HttpContext.RequestAborted.IsCancellationRequested) {
+                return VoiceError("Tempo scaduto. Controlla il modello prima di ripetere.", "timeout", 504, error);
             }
             catch (Kreoda.Session.SessionException error) { return Results.Conflict(new { error = "Modello cambiato o altra richiesta attiva; ripeti la domanda", errorCode = error.Code, stage = "cad" }); }
         });
@@ -63,7 +70,7 @@ public static class BridgeHost
                 origin = await cad.BeginVoiceAsync(request.Context, context.RequestAborted);
                 var reply = await hermes.TalkAsync(request.Text, request.Context, context.RequestAborted);
                 var unfinished = await cad.EndVoiceAsync(origin);origin = null;
-                return unfinished ? Results.Json(new { error = "Hermes non ha confermato le modifiche; richiesta CAD annullata", stage = "cad" }, statusCode: 502) : Results.Ok(reply);
+                return unfinished ? Results.Json(new { error = "Hermes non ha confermato le modifiche; richiesta CAD annullata", stage = "cad", runId = reply.RunId }, statusCode: 502) : Results.Ok(reply);
             } finally { if (origin is not null) await cad.EndVoiceAsync(origin);turnGate.Release(); }
         });
         group.MapPost("/speech", async (HttpContext context) => {

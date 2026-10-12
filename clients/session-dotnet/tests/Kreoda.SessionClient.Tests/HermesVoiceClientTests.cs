@@ -12,6 +12,7 @@ public sealed class HermesVoiceClientTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => action(request, ct);
     }
+    static string? RunId(VoiceServiceException error) => error.RunId;
     [Fact]
     public async Task QuestTokenIsSentOnlyToConfiguredBridgeAndReplyUsesActualWireFields()
     {
@@ -43,5 +44,64 @@ public sealed class HermesVoiceClientTests
         using var voice = new HermesVoiceClient(new Uri("http://127.0.0.1:9843/"), "quest-fixture-private-token", http);
         var error = await Assert.ThrowsAsync<VoiceServiceException>(() => voice.TranscribeAsync(VoiceWave.EncodeMono(new float[160], 16000)));
         Assert.Equal(503, error.StatusCode);
+    }
+
+    [Fact]
+    public async Task VoiceHttpErrorCarriesValidatedRunIdAndPreservesStatusAndMessage()
+    {
+        using var http = new HttpClient(new Handler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadGateway) {
+            Content = new StringContent("{\"error\":\"Hermes: failed\",\"runId\":\"run-1\",\"stage\":\"hermes\"}"),
+        })));
+        using var voice = new HermesVoiceClient(new Uri("http://127.0.0.1:9843/"), "quest-fixture-private-token", http);
+        using var context = JsonDocument.Parse("{}");
+        var error = await Assert.ThrowsAsync<VoiceServiceException>(() => voice.TalkAsync("Ciao", context.RootElement));
+        Assert.Equal(502, error.StatusCode);Assert.Equal("Hermes: failed", error.Message);Assert.Equal("run-1", RunId(error));
+    }
+
+    public static IEnumerable<object[]> MalformedRunIds => new[] {
+        new object[] { "bad id" }, new object[] { "é" }, new object[] { new string('x', 129) },
+    };
+
+    [Theory]
+    [MemberData(nameof(MalformedRunIds))]
+    public async Task MalformedVoiceErrorRunIdIsIgnored(string runId)
+    {
+        var body = JsonSerializer.Serialize(new { error = "Hermes: failed", runId });
+        using var http = new HttpClient(new Handler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadGateway) {
+            Content = new StringContent(body, Encoding.UTF8, "application/json"),
+        })));
+        using var voice = new HermesVoiceClient(new Uri("http://127.0.0.1:9843/"), "quest-fixture-private-token", http);
+        using var context = JsonDocument.Parse("{}");
+        var error = await Assert.ThrowsAsync<VoiceServiceException>(() => voice.TalkAsync("Ciao", context.RootElement));
+        Assert.Equal(502, error.StatusCode);Assert.Equal("Hermes: failed", error.Message);Assert.Null(RunId(error));
+    }
+
+    [Fact]
+    public async Task MissingVoiceErrorRunIdIsIgnoredAndLegacyConstructorRemainsAvailable()
+    {
+        var runIdProperty = typeof(VoiceServiceException).GetProperty(nameof(VoiceServiceException.RunId));
+        Assert.NotNull(runIdProperty);Assert.False(runIdProperty!.CanWrite);
+        Assert.NotNull(typeof(VoiceServiceException).GetConstructor(new[] { typeof(int), typeof(string) }));
+        var legacy = new VoiceServiceException(409, "legacy");
+        Assert.Equal(409, legacy.StatusCode);Assert.Equal("legacy", legacy.Message);Assert.Null(RunId(legacy));
+        using var http = new HttpClient(new Handler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadGateway) {
+            Content = new StringContent("{\"error\":\"Hermes: failed\",\"stage\":\"hermes\"}", Encoding.UTF8, "application/json"),
+        })));
+        using var voice = new HermesVoiceClient(new Uri("http://127.0.0.1:9843/"), "quest-fixture-private-token", http);
+        using var context = JsonDocument.Parse("{}");
+        var error = await Assert.ThrowsAsync<VoiceServiceException>(() => voice.TalkAsync("Ciao", context.RootElement));
+        Assert.Equal(502, error.StatusCode);Assert.Equal("Hermes: failed", error.Message);Assert.Null(RunId(error));
+    }
+
+    [Fact]
+    public async Task NonObjectVoiceErrorBodyKeepsStatusFallbackAndHasNoRunId()
+    {
+        using var http = new HttpClient(new Handler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadGateway) {
+            Content = new StringContent("[]", Encoding.UTF8, "application/json"),
+        })));
+        using var voice = new HermesVoiceClient(new Uri("http://127.0.0.1:9843/"), "quest-fixture-private-token", http);
+        using var context = JsonDocument.Parse("{}");
+        var error = await Assert.ThrowsAsync<VoiceServiceException>(() => voice.TalkAsync("Ciao", context.RootElement));
+        Assert.Equal(502, error.StatusCode);Assert.Equal("Servizio vocale: HTTP 502", error.Message);Assert.Null(RunId(error));
     }
 }

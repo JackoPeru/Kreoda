@@ -1,6 +1,6 @@
 # Known failed Hermes run evidence Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Let the benchmark inspect events for unsuccessful voice turns whose native Hermes run identity is actually known.
 
@@ -42,14 +42,14 @@
 
 **Interfaces:** Use one internal exception.Data key `kreoda.hermes.runId`, populated only after `RequiredId` has validated a real native run. Existing error JSON gains optional `runId`. `VoiceServiceException` gains nullable read-only `RunId` without removing its current constructor; SDK parsing validates the ID. Benchmark report/metadata reader use either completed reply ID or delivered error ID, retaining the failed outcome.
 
-- [ ] Add gateway tests for native failed/cancelled status after acceptance, known cancellation preserving OperationCanceledException, and unknown submission cancellation retaining no ID; preserve existing stop/submission assertions.
-- [ ] Add local proxy/SDK tests for known error ID, missing/malformed ID, unchanged status/message, and unfinished CAD reply identity if supported by the existing session fixture.
-- [ ] Observe new assertions fail before implementation; test both actual SDK targets where the existing harness supports them.
-- [ ] Attach only the validated known ID to the original exception; rethrow rather than replace it. Expose only that sanitized field in appropriate existing proxy error responses. Keep rollback failure priority, no changes to CadBridge.
-- [ ] Parse the optional field into SDK errors, retaining binary/source constructor compatibility. Share the ID validation within each applicable file; use netstandard2.1-compatible APIs.
-- [ ] Benchmark uses a known delivered failure ID for `RunMetadata.Read`, preserving error/failed predicates and `accepted=false`. It must not fabricate identity for transport abort or unknown receipt.
-- [ ] Run relevant gateway/proxy/SDK tests, full managed runner under Platform=x64, actual SDK target coverage and existing hidden native E2E. No external Hermes service required.
-- [ ] Parent inspects diff, verifies independently, freezes sources, obtains fresh Sol6/high review, then records/commits/pushes accepted packet. Exact new-head CI remains a separate gate.
+- [x] Add gateway tests for native failed/cancelled status after acceptance, known cancellation preserving OperationCanceledException, and unknown submission cancellation retaining no ID; preserve existing stop/submission assertions.
+- [x] Add local proxy/SDK tests for known error ID, missing/malformed ID, unchanged status/message, and unfinished CAD reply identity if supported by the existing session fixture.
+- [x] Observe new assertions fail before implementation; test both actual SDK targets where the existing harness supports them.
+- [x] Attach only the validated known ID to the original exception; rethrow rather than replace it. Expose only that sanitized field in appropriate existing proxy error responses. Keep rollback failure priority, no changes to CadBridge.
+- [x] Parse the optional field into SDK errors, retaining binary/source constructor compatibility. Share the ID validation within each applicable file; use netstandard2.1-compatible APIs.
+- [x] Benchmark uses a known delivered failure ID for `RunMetadata.Read`, preserving error/failed predicates and `accepted=false`. It must not fabricate identity for transport abort or unknown receipt.
+- [x] Run relevant gateway/proxy/SDK tests, full managed runner under Platform=x64, actual SDK target coverage and existing hidden native E2E. No external Hermes service required.
+- [x] Parent inspects diff, verifies independently, freezes sources, obtains fresh Sol6/high review, then records/commits/pushes accepted packet. Exact new-head CI remains a separate gate.
 
 ## Remaining work
 
