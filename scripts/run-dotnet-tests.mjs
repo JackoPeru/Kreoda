@@ -12,6 +12,7 @@ const suites = [
   { name: "SessionClient", project: "tests/Kreoda.SessionClient.Tests/Kreoda.SessionClient.Tests.csproj", minimum: 125 },
   { name: "ModelingAgent", project: "tests/Kreoda.ModelingAgent.Tests/Kreoda.ModelingAgent.Tests.csproj", minimum: 33 },
   { name: "HermesBridge", project: "tests/Kreoda.HermesBridge.Tests/Kreoda.HermesBridge.Tests.csproj", minimum: 27 },
+  { name: "ModelingBenchmark", project: "tests/Kreoda.ModelingAgent.Benchmark.Tests/Kreoda.ModelingAgent.Benchmark.Tests.csproj", minimum: 26 },
 ];
 let total = 0;
 let failed = 0;
@@ -48,6 +49,7 @@ try {
     for (const output of [
       "tools/Kreoda.HermesBridge/bin/Release/net8.0/Kreoda.HermesBridge.dll",
       "probes/Kreoda.McpProbe/bin/Release/net8.0/Kreoda.McpProbe.dll",
+      "tools/Kreoda.ModelingAgent.Benchmark/bin/Release/net8.0/Kreoda.ModelingAgent.Benchmark.dll",
     ]) {
       if (!existsSync(join(repo, "clients/session-dotnet", output))) failures.push(`missing build output: ${output}`);
     }
@@ -77,8 +79,8 @@ try {
 } finally {
   rmSync(results, { recursive: true, force: true });
 }
-if (failures.length || total < 185 || failed !== 0) {
+if (failures.length || total < 211 || failed !== 0) {
   console.error(`.NET tests failed or missing: total=${total}, failed=${failed}; ${failures.join("; ")}`);
   process.exit(1);
 }
-console.log(`.NET tests passed: SessionClient=125+, ModelingAgent=33+, HermesBridge=27+, total=${total}, failed=${failed}`);
+console.log(`.NET tests passed: SessionClient=125+, ModelingAgent=33+, HermesBridge=27+, ModelingBenchmark=26+, total=${total}, failed=${failed}`);
