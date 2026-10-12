@@ -1,0 +1,58 @@
+{
+  "baseCommit": "f9f979e019ddba991c47ed89e7f4d0516570d552",
+  "worker": {
+    "thread": "01a12f8a-80a4-78f1-aac2-0e23ec2a23d3",
+    "model": "gpt-6-luna",
+    "effort": "max",
+    "terminalQuota": false
+  },
+  "nativeTests": {
+    "passed": 178,
+    "failed": 0,
+    "seconds": 66.598,
+    "parentReleaseBuild": true
+  },
+  "managedTests": {
+    "SessionClient": 125,
+    "ModelingAgent": 33,
+    "HermesBridge": 27,
+    "Benchmark": 33,
+    "total": 218,
+    "failed": 0,
+    "skipped": 0,
+    "environmentPlatform": "x64"
+  },
+  "nativeE2e": {
+    "passed": 3,
+    "seconds": 18.4,
+    "officialMcpSolidCount": 1,
+    "kernel": "8.0.1-native",
+    "volumeMm3": 99999.99999999997,
+    "desktopObserved": true,
+    "oneUndoEmpty": true,
+    "probePassedArrayLength": 3,
+    "hiddenAtConstruction": true,
+    "compiledMainRestored": true
+  },
+  "requirementsSha256": "78f72a3026a93c7ccf2102f29ab943b71c8c19b12e89007681cafd31a93af24a",
+  "singleSolidPredicateImplemented": true,
+  "allLiveFixturesVerified": false,
+  "acceptedLiveFixtures": 0,
+  "reviewPending": false,
+  "newHeadHostedPending": true,
+  "hermesUserWorkPreserved": true,
+  "physicalHandsVoiceVerified": false,
+  "goalComplete": false,
+  "review": {
+    "thread": "01a12f99-9de9-7a22-a096-701e88076edb",
+    "verdict": "ship-bounded-single-solid-packet",
+    "model": "gpt-6-sol",
+    "effort": "high",
+    "sandbox": "danger-full-access",
+    "permission": "disabled",
+    "enforcedReadOnly": false,
+    "sourceInputs": 871,
+    "sourceFreeze": "a4a3cd65a2c0bc20debb42f9abe205aec4c6091ed18d000874bb46ebfb427722",
+    "sourceChanged": []
+  }
+}

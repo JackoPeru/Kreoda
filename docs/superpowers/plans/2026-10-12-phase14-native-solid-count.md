@@ -1,6 +1,6 @@
 # Native single-solid benchmark proof Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Close the benchmark gap where one native body can contain several B-Rep solids.
 
@@ -41,14 +41,14 @@
 
 **Interfaces:** `getBoundingBox` result gains `solidCount: nonnegative integer`; evaluator adds failed predicate `one-brep-solid`. Native primitives, query scope, transactions and existing assertions remain authoritative.
 
-- [ ] Write native assertions: one primitive=1; box→hole old history excluded; displayed instance whole-model=2/selected-instance=1; one body with its tip replaced by a two-solid compound=2.
-- [ ] Build `cmake --build native/kreoda-core/build --config Release --target kreoda-core kreoda-core-tests`, then run `native/kreoda-core/build/tests/Release/kreoda-core-tests.exe --gtest_filter=SessionGeometry.*`. Observe new-field assertions fail before implementation; do not rely on an old binary.
-- [ ] Write managed rejection cases for missing/fractional/zero/2 solidCount with otherwise valid measured geometry. Update analytic positive test doubles to count1; they remain labelled synthetic.
-- [ ] Run benchmark xUnit project and observe the new rejection tests fail before evaluator enforcement.
-- [ ] Count actual OCCT solid occurrences in the existing getBoundingBox branch; require integer1 in GeometryCheck. Do not infer count from body collection or triangle count.
-- [ ] Extend the actual MCP native probe to query complete-model bbox and assert count1 for its created solid.
-- [ ] Rebuild native targets; run full native tests and the full managed runner (with environment Platform=x64), plus targeted actual MCP/benchmark boundary E2E after the current hidden-renderer correction. No forced clicks, timeout increases or skipped gates.
-- [ ] Parent independently inspects diff, reruns relevant checks, freezes source inputs, obtains fresh Sol6/high review, then records/commits/pushes accepted packet. Exact hosted head remains a separate required gate.
+- [x] Write native assertions: one primitive=1; box→hole old history excluded; displayed instance whole-model=2/selected-instance=1; one body with its tip replaced by a two-solid compound=2.
+- [x] Build `cmake --build native/kreoda-core/build --config Release --target kreoda-core kreoda-core-tests`, then run `native/kreoda-core/build/tests/Release/kreoda-core-tests.exe --gtest_filter=SessionGeometry.*`. Observe new-field assertions fail before implementation; do not rely on an old binary.
+- [x] Write managed rejection cases for missing/fractional/zero/2 solidCount with otherwise valid measured geometry. Update analytic positive test doubles to count1; they remain labelled synthetic.
+- [x] Run benchmark xUnit project and observe the new rejection tests fail before evaluator enforcement.
+- [x] Count actual OCCT solid occurrences in the existing getBoundingBox branch; require integer1 in GeometryCheck. Do not infer count from body collection or triangle count.
+- [x] Extend the actual MCP native probe to query complete-model bbox and assert count1 for its created solid.
+- [x] Rebuild native targets; run full native tests and the full managed runner (with environment Platform=x64), plus targeted actual MCP/benchmark boundary E2E after the current hidden-renderer correction. No forced clicks, timeout increases or skipped gates.
+- [x] Parent independently inspects diff, reruns relevant checks, freezes source inputs, obtains fresh Sol6/high review, then records/commits/pushes accepted packet. Exact hosted head remains a separate required gate.
 
 ## Remaining work after this packet
 

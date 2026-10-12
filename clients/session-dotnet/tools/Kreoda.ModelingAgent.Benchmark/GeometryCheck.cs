@@ -11,6 +11,7 @@ public static class GeometryCheck
         Check(model.TryGetProperty("requestActive",out var active) && active.ValueKind==JsonValueKind.False,"committed");
         var bodies=Array(model,"bodies");var features=Array(model,"features");
         Check(bodies.Length==1 && features.Length>0 && !features.Any(f=>Text(f,"type")=="Instance"),"one-visible-body");
+        Check(bounds.ValueKind==JsonValueKind.Object && bounds.TryGetProperty("solidCount",out var solids) && solids.ValueKind==JsonValueKind.Number && solids.TryGetInt32(out var solidCount) && solidCount==1,"one-brep-solid");
         var bbox=Numbers(bounds,"bboxMm",6);var sizes=Numbers(fixture,"bboxSizeMm",3);
         Check(bbox.Length==6 && sizes.Length==3 && Enumerable.Range(0,3).All(i=>Near(bbox[i+3]-bbox[i],sizes[i])),"bbox");
         Check(Near(Number(bounds,"volumeMm3"),Number(fixture,"volumeMm3"),VolumeTolerance),"volume");

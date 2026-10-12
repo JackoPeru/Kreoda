@@ -9,7 +9,7 @@ public class GeometryCheckTests
     static readonly JsonElement Fixture = J("""{"id":"centered-hole-plate","bboxSizeMm":[100,80,5],"volumeMm3":39607.30091830128,"holes":[{"centerXY":[50,40],"radiusMm":5}]}""");
     static readonly JsonElement Model = J("""{"features":[{"featureId":"hole","type":"Hole"}],"sketches":[],"bodies":[{"bodyId":"body","tipFeatureId":"hole"}],"requestActive":false}""");
     static readonly JsonElement Valid = J("""{"valid":true,"checks":[{"ok":true}]}""");
-    static readonly JsonElement Bounds = J("""{"bboxMm":[0,0,0,100,80,5],"volumeMm3":39607.30091830128}""");
+    static readonly JsonElement Bounds = J("""{"bboxMm":[0,0,0,100,80,5],"volumeMm3":39607.30091830128,"solidCount":1}""");
     static readonly JsonElement Faces = J("""{"faces":[{"surfaceType":"cylinder","orientation":"reversed","axis":[0,0,1],"originMm":[50,40,0],"radiusMm":5,"bboxMm":[45,35,0,55,45,5],"areaMm2":157.07963267948966}]}""");
     static JsonElement Change(JsonElement source, Action<JsonNode> edit) { var n=JsonNode.Parse(source.GetRawText())!;edit(n);return J(n.ToJsonString()); }
     [Fact] public void CorrectMeasuredPlatePasses() => Assert.Empty(GeometryCheck.Evaluate(Fixture,Model,Valid,Bounds,Faces));
@@ -19,6 +19,9 @@ public class GeometryCheckTests
     [Fact] public void BlindHoleFails() => Assert.Contains("hole-through-depth",GeometryCheck.Evaluate(Fixture,Model,Valid,Bounds,Change(Faces,n=>n["faces"]![0]!["bboxMm"]![2]=1)));
     [Fact] public void MissingValidationIsFailure() => Assert.Contains("native-validation",GeometryCheck.Evaluate(Fixture,Model,J("{}"),Bounds,Faces));
     [Fact] public void MissingVolumeIsFailure() => Assert.Contains("volume",GeometryCheck.Evaluate(Fixture,Model,Valid,Change(Bounds,n=>n.AsObject().Remove("volumeMm3")),Faces));
+    [Fact] public void MissingSolidCountIsFailure() => Assert.Contains("one-brep-solid",GeometryCheck.Evaluate(Fixture,Model,Valid,Change(Bounds,n=>n.AsObject().Remove("solidCount")),Faces));
+    [Theory] [InlineData("1.5")] [InlineData("0")] [InlineData("2")]
+    public void NonSingleIntegerSolidCountIsFailure(string count) => Assert.Contains("one-brep-solid",GeometryCheck.Evaluate(Fixture,Model,Valid,Change(Bounds,n=>n["solidCount"]=JsonNode.Parse(count)),Faces));
     [Fact] public void ActiveTransactionFails() => Assert.Contains("committed",GeometryCheck.Evaluate(Fixture,Change(Model,n=>n["requestActive"]=true),Valid,Bounds,Faces));
     [Fact] public void OuterCylinderCannotBeHole() => Assert.Contains("holes",GeometryCheck.Evaluate(Fixture,Model,Valid,Bounds,Change(Faces,n=>n["faces"]![0]!["orientation"]="forward")));
     [Fact] public void InvalidReferenceFails() => Assert.Contains("native-validation",GeometryCheck.Evaluate(Fixture,Model,Change(Valid,n=>n["checks"]![0]!["ok"]=false),Bounds,Faces));
@@ -45,7 +48,7 @@ public class GeometryCheckTests
             var d=chamfer.GetDouble();
             foreach(var z in new[]{0d,size[2]-d})faces.Add(new { surfaceType="cone",axis=new[]{0d,0,1},semiAngleDeg=45,areaMm2=1,bboxMm=new[]{0d,0,z,size[0],size[1],z+d} });
         }
-        var actualBounds=JsonSerializer.SerializeToElement(new { bboxMm=bbox,volumeMm3=fixture.GetProperty("volumeMm3").GetDouble() });
+        var actualBounds=JsonSerializer.SerializeToElement(new { bboxMm=bbox,volumeMm3=fixture.GetProperty("volumeMm3").GetDouble(),solidCount=1 });
         var actualFaces=JsonSerializer.SerializeToElement(new { faces });
         Assert.Empty(GeometryCheck.Evaluate(fixture,Model,Valid,actualBounds,actualFaces));
         Assert.Contains("bbox",GeometryCheck.Evaluate(fixture,Model,Valid,Change(actualBounds,n=>n["bboxMm"]![3]=size[0]+1),actualFaces));

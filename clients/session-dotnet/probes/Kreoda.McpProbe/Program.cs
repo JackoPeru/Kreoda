@@ -26,6 +26,8 @@ Check(committed.GetProperty("status").GetString() == "committed", "MCP group not
 var id = created.GetProperty("featureId").GetString();
 var measured = await Tool("kreoda_query", new() { ["method"] = "measureVolume", ["parameters"] = new Dictionary<string, object?> { ["featureId"] = id } });
 Check(Math.Abs(measured.GetProperty("volumeMm3").GetDouble() - 100000) < .01, "actual native measure differs");
+var bounds = await Tool("kreoda_query", new() { ["method"] = "getBoundingBox", ["parameters"] = new Dictionary<string, object?>() });
+Check(bounds.GetProperty("solidCount").GetInt32() == 1, "native B-Rep solid count differs");
 Console.WriteLine(JsonSerializer.Serialize(new { passed = new[] { "official-mcp-http-discovery-and-project-context", "runtime-command-schema-and-creation-budget", "native-canonical-checked-transaction" }, featureId = id,
-    finalRevision = committed.GetProperty("result").GetProperty("revision").GetInt64(), measuredVolumeMm3 = measured.GetProperty("volumeMm3").GetDouble(),
+    finalRevision = committed.GetProperty("result").GetProperty("revision").GetInt64(), measuredVolumeMm3 = measured.GetProperty("volumeMm3").GetDouble(), solidCount = bounds.GetProperty("solidCount").GetInt32(),
     boundary = "Official MCP SDK to actual OCCT via SessionClient; not yet a live Hermes Agent or headset voice test." }));

@@ -63,13 +63,33 @@ TEST(SessionGeometry, ModelVolumeCountsOnlyTipsAndDisplayedInstances) {
   const auto volume=query("measureVolume");
   ASSERT_EQ(volume["status"],"ok") << volume;
   EXPECT_NEAR(volume["result"]["volumeMm3"].get<double>(),2*(6000-40*std::acos(-1.0)),1e-6);
+  const auto complete=query("getBoundingBox");
+  ASSERT_EQ(complete["status"],"ok") << complete;
+  EXPECT_EQ(complete["result"]["solidCount"],2);
+  EXPECT_EQ(query("getBoundingBox",{{"featureId","box"}})["result"]["solidCount"],1);
   const auto bound=query("getBoundingBox",{{"featureId","instance"}});
   ASSERT_EQ(bound["status"],"ok") << bound;
+  EXPECT_EQ(bound["result"]["solidCount"],1);
   EXPECT_NEAR(bound["result"]["bboxMm"][0].get<double>(),20,1e-6);
   EXPECT_NEAR(bound["result"]["bboxMm"][3].get<double>(),50,1e-6);
   const auto validation=query("validateDocument");
   ASSERT_EQ(validation["status"],"ok") << validation;
   EXPECT_EQ(validation["result"]["valid"],true) << validation;
+}
+
+TEST(SessionGeometry, OneBodyTipCountsDisconnectedBrepSolids) {
+  box();
+  TopoDS_Compound compound; BRep_Builder builder; builder.MakeCompound(compound);
+  builder.Add(compound,BRepPrimAPI_MakeBox(gp_Pnt(0,0,0),10,10,10).Shape());
+  builder.Add(compound,BRepPrimAPI_MakeBox(gp_Pnt(20,0,0),10,10,10).Shape());
+  kreoda::ShapeRecord tip;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("box",&tip));
+  tip.shape=compound;
+  kreoda::ShapeStore::instance().put(tip);
+
+  const auto bound=query("getBoundingBox",{{"bodyId","body-box"}});
+  ASSERT_EQ(bound["status"],"ok") << bound;
+  EXPECT_EQ(bound["result"]["solidCount"],2);
 }
 
 TEST(SessionGeometry, DuplicateTopologyIsReportedAndNeverSilentlyResolved) {
@@ -154,6 +174,9 @@ TEST(SessionGeometry, ExplicitInvalidScopesNeverFallBackToWholeModel) {
   ASSERT_EQ(found["status"],"ok") << found;
   ASSERT_EQ(found["result"]["faces"].size(),1u);
   EXPECT_EQ(found["result"]["faces"][0]["persistentId"],"box:box.+Z");
+  const auto face=query("getBoundingBox",{{"referenceId","box:box.+Z"}});
+  ASSERT_EQ(face["status"],"ok") << face;
+  EXPECT_EQ(face["result"]["solidCount"],0);
 }
 
 TEST(SessionGeometry, AValidFaceIsNotReportedAsAValidSolidFeature) {

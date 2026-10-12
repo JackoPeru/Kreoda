@@ -408,7 +408,12 @@ Json RunSessionGeometryQuery(const std::string& method,const Json& p) {
         else BRepGProp::SurfaceProperties(shape,props,false,false);
       }
       Json result={{method=="measureArea"?"areaMm2":"volumeMm3",empty?0:props.Mass()},{"basis","brep"}};
-      if(method=="getBoundingBox")result["bboxMm"]=bounds(shape);
+      if(method=="getBoundingBox") {
+        result["bboxMm"]=bounds(shape);
+        int solidCount=0;
+        for(TopExp_Explorer ex(shape,TopAbs_SOLID);ex.More();ex.Next())++solidCount;
+        result["solidCount"]=solidCount;
+      }
       bool selected=false;
       for(const auto key:{"featureId","bodyId","referenceId","ownerBody"})if(p.contains(key)){result[key]=p[key];selected=true;}
       result["modelScope"]=selected?"selected-entity":"current-body-tips-and-displayed-instances";
