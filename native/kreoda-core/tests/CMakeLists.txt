@@ -4,6 +4,7 @@ if(NOT GTest_FOUND)
 endif()
 
 add_executable(kreoda-core-tests
+  test_datum.cpp
   test_box.cpp
   test_codegen.cpp
   test_expressions.cpp
@@ -45,6 +46,7 @@ add_executable(kreoda-core-tests
   ../src/model/commit.cpp
   ../src/features/primitives/primitives.cpp
   ../src/features/rebuild.cpp
+  ../src/features/datum/datum_store.cpp
   ../src/features/sketch/sketch_store.cpp
   ../src/features/sketch/sketch_face.cpp
   ../src/features/sketch/sketch_json.cpp
