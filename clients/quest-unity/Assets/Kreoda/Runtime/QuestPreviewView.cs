@@ -12,11 +12,17 @@ namespace Kreoda.QuestRuntime
     {
         public Material Material;
         SpatialEditIntent _intent;
-        Mesh _mesh;
-        MeshFilter _filter;
-        MeshRenderer _renderer;
+        Mesh _mesh, _sectionCap, _sectionContour;
+        MeshFilter _filter, _sectionCapFilter, _sectionContourFilter;
+        MeshRenderer _renderer, _sectionCapRenderer, _sectionContourRenderer;
         LineRenderer _prediction;
-        MaterialPropertyBlock _staleStyle;
+        MaterialPropertyBlock _style, _capStyle, _contourStyle;
+        float[] _positions, _normals;
+        uint[] _indices;
+        SectionPlane? _sectionPlane;
+        Transform _sectionRoot;
+        Material _sectionCapMaterial, _sectionContourMaterial;
+        bool _stale;
         long _ticket, _generation = -1;
         string _previewId;
         public long Begin(SpatialEditIntent intent, Mesh committed = null)
@@ -25,7 +31,9 @@ namespace Kreoda.QuestRuntime
             if (committed != null)
             {
                 _mesh = Instantiate(committed);_mesh.name = "Transient committed reference";
+                ReadMesh(committed, out _positions, out _normals, out _indices);
                 Surface(_mesh);StaleStyle();
+                ApplySection(_sectionPlane, _sectionRoot, _sectionCapMaterial, _sectionContourMaterial);
             }
             return _ticket;
         }
@@ -34,14 +42,12 @@ namespace Kreoda.QuestRuntime
             if (_filter == null) _filter = gameObject.AddComponent<MeshFilter>();
             if (_renderer == null) _renderer = gameObject.AddComponent<MeshRenderer>();
             _filter.sharedMesh = mesh;_renderer.sharedMaterial = Material;_renderer.enabled = true;
-            _renderer.SetPropertyBlock(null);
+            ApplyStyle();
         }
         void StaleStyle()
         {
-            if (_renderer == null || _mesh == null) return;
-            var color = Material != null ? Material.color : Color.cyan;color.a = Mathf.Min(color.a, .1f);
-            if (_staleStyle == null) _staleStyle = new MaterialPropertyBlock();
-            _staleStyle.SetColor("_Color", color);_renderer.SetPropertyBlock(_staleStyle);
+            _stale = true;
+            ApplyStyle();
         }
         public bool TryUpload(long ticket, SessionPreviewMeshResult source, Func<bool> isCurrent)
         {
@@ -55,12 +61,86 @@ namespace Kreoda.QuestRuntime
                 candidate.vertices = Vectors(data.Positions);candidate.normals = Vectors(data.Normals);
                 candidate.triangles = data.Indices.Select(i => checked((int)i)).ToArray();candidate.RecalculateBounds();
                 if (!Matches(ticket, source) || !isCurrent()) return false;
+                _positions = data.Positions;_normals = data.Normals;_indices = data.Indices;_stale = false;
                 Surface(candidate);
                 DisposeMesh(_mesh);_mesh = candidate;candidate = null;
+                ApplySection(_sectionPlane, _sectionRoot, _sectionCapMaterial, _sectionContourMaterial);
                 _generation = source.Header.Generation;_previewId = source.Header.PreviewId;
                 return true;
             }
             finally { DisposeMesh(candidate); }
+        }
+
+        public void ApplySection(SectionPlane? plane, Transform sectionRoot, Material capMaterial, Material contourMaterial)
+        {
+            _sectionPlane = plane;_sectionRoot = sectionRoot;
+            _sectionCapMaterial = capMaterial;_sectionContourMaterial = contourMaterial;
+            ApplyStyle();
+            if (!plane.HasValue || _positions == null || _indices == null)
+            { ClearCut();return; }
+            var cut = SectionCutBuilder.Build(_positions, _indices, _normals, plane.Value, sectionRoot, transform);
+            if (cut.CapIndices.Length > 0)
+            {
+                if (_sectionCapFilter == null)
+                {
+                    var cap = new GameObject("Section cap");cap.transform.SetParent(transform, false);
+                    _sectionCapFilter = cap.AddComponent<MeshFilter>();_sectionCapRenderer = cap.AddComponent<MeshRenderer>();
+                }
+                var generated = new Mesh { name = "Render-only preview section cap", indexFormat = cut.CapVertices.Length > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
+                generated.vertices = cut.CapVertices;generated.triangles = cut.CapIndices;generated.RecalculateBounds();
+                DisposeMesh(_sectionCap);_sectionCap = generated;
+                _sectionCapFilter.sharedMesh = generated;_sectionCapRenderer.sharedMaterial = capMaterial;_sectionCapRenderer.enabled = true;
+                if (_capStyle == null) _capStyle = new MaterialPropertyBlock();
+                SectionMaterialState.Apply(_sectionCapRenderer, plane, sectionRoot, _capStyle);
+            }
+            else ClearCap();
+            if (cut.ContourIndices.Length > 0)
+            {
+                if (_sectionContourFilter == null)
+                {
+                    var contour = new GameObject("Section contour");contour.transform.SetParent(transform, false);
+                    _sectionContourFilter = contour.AddComponent<MeshFilter>();_sectionContourRenderer = contour.AddComponent<MeshRenderer>();
+                }
+                var generated = new Mesh { name = "Render-only preview section contour", indexFormat = cut.ContourVertices.Length > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
+                generated.vertices = cut.ContourVertices;generated.SetIndices(cut.ContourIndices, MeshTopology.Lines, 0);generated.RecalculateBounds();
+                DisposeMesh(_sectionContour);_sectionContour = generated;
+                _sectionContourFilter.sharedMesh = generated;_sectionContourRenderer.sharedMaterial = contourMaterial;_sectionContourRenderer.enabled = true;
+                if (_contourStyle == null) _contourStyle = new MaterialPropertyBlock();
+                SectionMaterialState.Apply(_sectionContourRenderer, plane, sectionRoot, _contourStyle);
+            }
+            else ClearContour();
+        }
+
+        void ApplyStyle()
+        {
+            if (_renderer == null) return;
+            var block = StyleBlock();
+            _renderer.GetPropertyBlock(block);
+            if (Material != null)
+            {
+                var color = Material.color;
+                if (_stale) color.a = Mathf.Min(color.a, .1f);
+                block.SetColor("_Color", color);
+            }
+            SectionMaterialState.Set(block, _sectionPlane, _sectionRoot, _renderer.transform);
+            _renderer.SetPropertyBlock(block);
+        }
+
+        MaterialPropertyBlock StyleBlock()
+        {
+            if (_style == null) _style = new MaterialPropertyBlock();
+            return _style;
+        }
+
+        static void ReadMesh(Mesh mesh, out float[] positions, out float[] normals, out uint[] indices)
+        {
+            var vertices = mesh.vertices;var meshNormals = mesh.normals;var triangles = mesh.triangles;
+            positions = new float[vertices.Length * 3];normals = new float[meshNormals.Length * 3];indices = new uint[triangles.Length];
+            for (var i = 0; i < vertices.Length; i++)
+            { positions[i * 3] = vertices[i].x;positions[i * 3 + 1] = vertices[i].y;positions[i * 3 + 2] = vertices[i].z; }
+            for (var i = 0; i < meshNormals.Length; i++)
+            { normals[i * 3] = meshNormals[i].x;normals[i * 3 + 1] = meshNormals[i].y;normals[i * 3 + 2] = meshNormals[i].z; }
+            for (var i = 0; i < triangles.Length; i++) indices[i] = checked((uint)triangles[i]);
         }
         bool Matches(long ticket, SessionPreviewMeshResult source)
         {
@@ -91,7 +171,8 @@ namespace Kreoda.QuestRuntime
             if (_filter != null) _filter.sharedMesh = null;
             if (_renderer != null) _renderer.enabled = false;
             if (_prediction != null) _prediction.enabled = false;
-            DisposeMesh(_mesh);_mesh = null;
+            ClearCut();DisposeMesh(_mesh);_mesh = null;
+            _positions = _normals = null;_indices = null;_stale = false;
         }
         static Vector3[] Vectors(float[] values)
         {
@@ -103,6 +184,19 @@ namespace Kreoda.QuestRuntime
         {
             if (mesh == null) return;
             if (Application.isPlaying) Destroy(mesh);else DestroyImmediate(mesh);
+        }
+        void ClearCut() { ClearCap();ClearContour(); }
+        void ClearCap()
+        {
+            if (_sectionCapFilter != null) _sectionCapFilter.sharedMesh = null;
+            if (_sectionCapRenderer != null) _sectionCapRenderer.enabled = false;
+            DisposeMesh(_sectionCap);_sectionCap = null;
+        }
+        void ClearContour()
+        {
+            if (_sectionContourFilter != null) _sectionContourFilter.sharedMesh = null;
+            if (_sectionContourRenderer != null) _sectionContourRenderer.enabled = false;
+            DisposeMesh(_sectionContour);_sectionContour = null;
         }
         void OnDestroy() => Clear();
     }

@@ -20,10 +20,23 @@ namespace Kreoda.QuestRuntime
         public Material EdgeMaterial;
         public Material SelectionMaterial;
         public Material PreviewMaterial;
+        public Material SectionCapMaterial, SectionContourMaterial;
         public double[] BboxMetres { get; private set; }
         BodyMesh _semantic;
         Mesh _surface, _edges, _selection;
-        MeshFilter _edgeFilter, _selectionFilter;
+        Mesh _sectionCap, _sectionContour;
+        MeshFilter _edgeFilter, _selectionFilter, _sectionCapFilter, _sectionContourFilter;
+        MeshRenderer _surfaceRenderer, _edgeRenderer, _selectionRenderer, _sectionCapRenderer, _sectionContourRenderer;
+        MeshCollider _sectionCapCollider;
+        MaterialPropertyBlock _sectionProperties;
+        SectionPlane? _sectionPlane;
+        Transform _sectionRoot;
+        SectionPlane? _appliedPlane;
+        Transform _appliedRoot;
+        Material _appliedCapMaterial, _appliedContourMaterial;
+        int _sectionUploadVersion = -1;
+        Matrix4x4 _sectionToRoot;
+        bool _hasSectionTransform;
         bool _preview;
 
         // Called by the connection adapter on Unity's main thread, inside the
@@ -56,21 +69,23 @@ namespace Kreoda.QuestRuntime
 
                 var filter = GetComponent<MeshFilter>();
                 if (filter == null) filter = gameObject.AddComponent<MeshFilter>();
-                var renderer = GetComponent<MeshRenderer>();
-                if (renderer == null) renderer = gameObject.AddComponent<MeshRenderer>();
+                _surfaceRenderer = GetComponent<MeshRenderer>();
+                if (_surfaceRenderer == null) _surfaceRenderer = gameObject.AddComponent<MeshRenderer>();
                 var collider = GetComponent<MeshCollider>();
                 if (collider == null) collider = gameObject.AddComponent<MeshCollider>();
                 if (_edgeFilter == null) _edgeFilter = Child("Edges", EdgeMaterial);
                 if (_selectionFilter == null) _selectionFilter = Child("Selection", SelectionMaterial);
+                _edgeRenderer = _edgeFilter.GetComponent<MeshRenderer>();
+                _selectionRenderer = _selectionFilter.GetComponent<MeshRenderer>();
                 // Avoid welding/cleaning that could renumber semantic triangles.
                 collider.cookingOptions = MeshColliderCookingOptions.None;
                 try { collider.sharedMesh = surface; }
                 catch { collider.sharedMesh = _surface; throw; }
                 filter.sharedMesh = surface;
-                renderer.sharedMaterial = _preview && PreviewMaterial != null ? PreviewMaterial : SurfaceMaterial;
+                _surfaceRenderer.sharedMaterial = _preview && PreviewMaterial != null ? PreviewMaterial : SurfaceMaterial;
                 _edgeFilter.sharedMesh = lines;
-                _edgeFilter.GetComponent<MeshRenderer>().sharedMaterial = EdgeMaterial;
-                _selectionFilter.GetComponent<MeshRenderer>().sharedMaterial = SelectionMaterial;
+                _edgeRenderer.sharedMaterial = EdgeMaterial;
+                _selectionRenderer.sharedMaterial = SelectionMaterial;
                 DisposeMesh(_surface);
                 DisposeMesh(_edges);
                 ClearSelection();
@@ -84,6 +99,7 @@ namespace Kreoda.QuestRuntime
                 BboxMetres = data.BboxMetres;
                 UploadVersion++;
                 Quality = source.Header.Quality;
+                ApplySection(_sectionPlane, _sectionRoot, SectionCapMaterial, SectionContourMaterial);
             }
             finally { DisposeMesh(surface); DisposeMesh(lines); }
         }
@@ -95,8 +111,118 @@ namespace Kreoda.QuestRuntime
         public void SetPreview(bool active)
         {
             _preview = active;
-            var renderer = GetComponent<MeshRenderer>();
-            if (renderer != null) renderer.sharedMaterial = active && PreviewMaterial != null ? PreviewMaterial : SurfaceMaterial;
+            if (_surfaceRenderer == null) _surfaceRenderer = GetComponent<MeshRenderer>();
+            if (_surfaceRenderer != null) _surfaceRenderer.sharedMaterial = active && PreviewMaterial != null ? PreviewMaterial : SurfaceMaterial;
+        }
+
+        public void ApplySection(SectionPlane? plane, Transform sectionRoot, Material capMaterial, Material contourMaterial)
+        {
+            _sectionPlane = plane;
+            _sectionRoot = sectionRoot;
+            SectionCapMaterial = capMaterial;
+            SectionContourMaterial = contourMaterial;
+            if (_surface == null || _semantic == null) return;
+            var toRoot = sectionRoot != null ? sectionRoot.worldToLocalMatrix * transform.localToWorldMatrix : Matrix4x4.identity;
+            if (_sectionUploadVersion == UploadVersion && Nullable.Equals(_appliedPlane, plane) &&
+                _appliedRoot == sectionRoot && _appliedCapMaterial == capMaterial &&
+                _appliedContourMaterial == contourMaterial && _hasSectionTransform && MatrixEqual(_sectionToRoot, toRoot)) return;
+            if (_sectionProperties == null) _sectionProperties = new MaterialPropertyBlock();
+            SectionMaterialState.Apply(_surfaceRenderer, plane, sectionRoot, _sectionProperties);
+            SectionMaterialState.Apply(_edgeRenderer, plane, sectionRoot, _sectionProperties);
+            SectionMaterialState.Apply(_selectionRenderer, plane, sectionRoot, _sectionProperties);
+            _sectionCapRenderer = _sectionCapFilter != null ? _sectionCapFilter.GetComponent<MeshRenderer>() : null;
+            _sectionContourRenderer = _sectionContourFilter != null ? _sectionContourFilter.GetComponent<MeshRenderer>() : null;
+            SectionMaterialState.Apply(_sectionCapRenderer, plane, sectionRoot, _sectionProperties);
+            SectionMaterialState.Apply(_sectionContourRenderer, plane, sectionRoot, _sectionProperties);
+            if (plane.HasValue)
+            {
+                var cut = SectionCutBuilder.Build(_semantic.Positions, _semantic.Indices, _semantic.Normals,
+                    plane.Value, sectionRoot, transform);
+                ApplyCut(cut);
+            }
+            else ClearCut();
+            _appliedPlane = plane;
+            _appliedRoot = sectionRoot;
+            _appliedCapMaterial = capMaterial;
+            _appliedContourMaterial = contourMaterial;
+            _sectionUploadVersion = UploadVersion;
+            _sectionToRoot = toRoot;
+            _hasSectionTransform = true;
+        }
+
+        public bool IsSectionCapCollider(Collider collider) => collider != null && collider == _sectionCapCollider;
+
+        void LateUpdate()
+        {
+            if (!_sectionPlane.HasValue || _sectionRoot == null || _semantic == null) return;
+            var toRoot = _sectionRoot.worldToLocalMatrix * transform.localToWorldMatrix;
+            if (!_hasSectionTransform || !MatrixEqual(_sectionToRoot, toRoot))
+                ApplySection(_sectionPlane, _sectionRoot, SectionCapMaterial, SectionContourMaterial);
+        }
+
+        static bool MatrixEqual(Matrix4x4 left, Matrix4x4 right)
+        {
+            for (var i = 0; i < 16; i++) if (Mathf.Abs(left[i] - right[i]) > 1e-6f) return false;
+            return true;
+        }
+
+        void ApplyCut(SectionCutPresentation cut)
+        {
+            if (cut.CapIndices.Length > 0)
+            {
+                if (_sectionCapFilter == null)
+                {
+                    _sectionCapFilter = Child("Section cap", SectionCapMaterial);
+                    _sectionCapRenderer = _sectionCapFilter.GetComponent<MeshRenderer>();
+                    _sectionCapCollider = _sectionCapFilter.gameObject.AddComponent<MeshCollider>();
+                }
+                var mesh = new Mesh { name = "Render-only section cap", indexFormat = cut.CapVertices.Length > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
+                mesh.vertices = cut.CapVertices;
+                mesh.triangles = cut.CapIndices;
+                mesh.RecalculateBounds();
+                _sectionCapCollider.sharedMesh = null;
+                DisposeMesh(_sectionCap);
+                _sectionCap = mesh;
+                _sectionCapFilter.sharedMesh = mesh;
+                _sectionCapCollider.sharedMesh = mesh;
+                _sectionCapRenderer.sharedMaterial = SectionCapMaterial;
+                _sectionCapRenderer.enabled = true;
+            }
+            else ClearCap();
+
+            if (cut.ContourIndices.Length > 0)
+            {
+                if (_sectionContourFilter == null)
+                {
+                    _sectionContourFilter = Child("Section contour", SectionContourMaterial);
+                    _sectionContourRenderer = _sectionContourFilter.GetComponent<MeshRenderer>();
+                }
+                var mesh = new Mesh { name = "Render-only section contour", indexFormat = cut.ContourVertices.Length > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
+                mesh.vertices = cut.ContourVertices;
+                mesh.SetIndices(cut.ContourIndices, MeshTopology.Lines, 0);
+                mesh.RecalculateBounds();
+                DisposeMesh(_sectionContour);
+                _sectionContour = mesh;
+                _sectionContourFilter.sharedMesh = mesh;
+                _sectionContourRenderer.sharedMaterial = SectionContourMaterial;
+                _sectionContourRenderer.enabled = true;
+            }
+            else ClearContour();
+        }
+
+        void ClearCut() { ClearCap(); ClearContour(); }
+        void ClearCap()
+        {
+            if (_sectionCapCollider != null) _sectionCapCollider.sharedMesh = null;
+            if (_sectionCapFilter != null) _sectionCapFilter.sharedMesh = null;
+            if (_sectionCapRenderer != null) _sectionCapRenderer.enabled = false;
+            DisposeMesh(_sectionCap); _sectionCap = null;
+        }
+        void ClearContour()
+        {
+            if (_sectionContourFilter != null) _sectionContourFilter.sharedMesh = null;
+            if (_sectionContourRenderer != null) _sectionContourRenderer.enabled = false;
+            DisposeMesh(_sectionContour); _sectionContour = null;
         }
 
         public void SelectBody()
@@ -105,17 +231,36 @@ namespace Kreoda.QuestRuntime
         }
 
         // Only the clicked body's polylines are examined, once per selection.
-        public MeshSemanticHit ResolveNearestEdge(Vector3 worldPoint, float toleranceMetres)
+        public MeshSemanticHit ResolveNearestEdge(Vector3 worldPoint, float toleranceMetres) =>
+            ResolveNearestEdge(worldPoint, toleranceMetres, null, null);
+
+        public MeshSemanticHit ResolveNearestEdge(Vector3 worldPoint, float toleranceMetres,
+            SectionPlane? plane, Transform sectionRoot)
         {
             if (_semantic == null || toleranceMetres <= 0) return null;
             float nearest = toleranceMetres * toleranceMetres;
             int vertex = -1;
-            var positions = _edges.vertices;
+            var positions = _semantic.EdgeVertices;
+            var toRoot = sectionRoot != null ? sectionRoot.worldToLocalMatrix * transform.localToWorldMatrix : Matrix4x4.identity;
             foreach (var edge in _semantic.Edges)
                 for (var v = edge.VertexStart; v + 1 < edge.VertexStart + edge.VertexCount; v++)
                 {
-                    var a = transform.TransformPoint(positions[v]);
-                    var b = transform.TransformPoint(positions[v + 1]);
+                    var aLocal = Read(positions, v);
+                    var bLocal = Read(positions, v + 1);
+                    if (plane.HasValue)
+                    {
+                        var planeA = toRoot.MultiplyPoint3x4(aLocal);
+                        var planeB = toRoot.MultiplyPoint3x4(bLocal);
+                        var da = plane.Value.SignedDistanceUnityLocalMetres(planeA.x, planeA.y, planeA.z);
+                        var db = plane.Value.SignedDistanceUnityLocalMetres(planeB.x, planeB.y, planeB.z);
+                        if (da < -SectionPlane.PickToleranceMm && db < -SectionPlane.PickToleranceMm) continue;
+                        if (da < -SectionPlane.PickToleranceMm)
+                            aLocal = Vector3.LerpUnclamped(aLocal, bLocal, (float)(da / (da - db)));
+                        else if (db < -SectionPlane.PickToleranceMm)
+                            bLocal = Vector3.LerpUnclamped(aLocal, bLocal, (float)(da / (da - db)));
+                    }
+                    var a = transform.TransformPoint(aLocal);
+                    var b = transform.TransformPoint(bLocal);
                     var ab = b - a;
                     var t = ab.sqrMagnitude == 0 ? 0 : Mathf.Clamp01(Vector3.Dot(worldPoint - a, ab) / ab.sqrMagnitude);
                     var distance = (worldPoint - a - t * ab).sqrMagnitude;
@@ -124,15 +269,78 @@ namespace Kreoda.QuestRuntime
             return _semantic.ResolveEdgeByNativeVertexIndex(vertex);
         }
 
+        public bool TryRaycast(Ray worldRay, SectionPlane? plane, Transform sectionRoot, float maxDistance,
+            out int triangleIndex, out Vector3 worldPoint, out float worldDistance)
+        {
+            triangleIndex = -1;
+            worldPoint = default;
+            worldDistance = maxDistance;
+            if (_semantic == null || maxDistance <= 0) return false;
+            var direction = worldRay.direction.normalized;
+            var localOrigin = transform.InverseTransformPoint(worldRay.origin);
+            var localDirection = transform.InverseTransformVector(direction);
+            if (localDirection.sqrMagnitude < 1e-20f) return false;
+            var toRoot = sectionRoot != null ? sectionRoot.worldToLocalMatrix * transform.localToWorldMatrix : Matrix4x4.identity;
+            var positions = _semantic.Positions;
+            var indices = _semantic.Indices;
+            var nearest = maxDistance;
+            var found = false;
+            for (var triangle = 0; triangle < indices.Length / 3; triangle++)
+            {
+                var offset = triangle * 3;
+                var a = Read(positions, checked((int)indices[offset]));
+                var b = Read(positions, checked((int)indices[offset + 1]));
+                var c = Read(positions, checked((int)indices[offset + 2]));
+                if (!IntersectTriangle(localOrigin, localDirection, a, b, c, out var distance) ||
+                    distance < 0 || distance >= nearest) continue;
+                var point = localOrigin + localDirection * distance;
+                if (plane.HasValue)
+                {
+                    var modelPoint = toRoot.MultiplyPoint3x4(point);
+                    if (!plane.Value.IsVisibleUnityLocalMetres(modelPoint.x, modelPoint.y, modelPoint.z)) continue;
+                }
+                var world = transform.TransformPoint(point);
+                var alongRay = Vector3.Dot(world - worldRay.origin, direction);
+                if (alongRay < 0 || alongRay > nearest) continue;
+                nearest = alongRay;
+                triangleIndex = triangle;
+                worldPoint = world;
+                worldDistance = alongRay;
+                found = true;
+            }
+            return found;
+        }
+
+        static bool IntersectTriangle(Vector3 origin, Vector3 direction, Vector3 a, Vector3 b, Vector3 c, out float distance)
+        {
+            const float epsilon = 1e-8f;
+            var edge1 = b - a;
+            var edge2 = c - a;
+            var p = Vector3.Cross(direction, edge2);
+            var determinant = Vector3.Dot(edge1, p);
+            if (Mathf.Abs(determinant) <= epsilon) { distance = 0; return false; }
+            var inverse = 1f / determinant;
+            var t = origin - a;
+            var u = Vector3.Dot(t, p) * inverse;
+            if (u < -epsilon || u > 1 + epsilon) { distance = 0; return false; }
+            var q = Vector3.Cross(t, edge1);
+            var v = Vector3.Dot(direction, q) * inverse;
+            if (v < -epsilon || u + v > 1 + epsilon) { distance = 0; return false; }
+            distance = Vector3.Dot(edge2, q) * inverse;
+            return distance >= -epsilon;
+        }
+
+        static Vector3 Read(float[] values, int vertex) => new Vector3(values[vertex * 3], values[vertex * 3 + 1], values[vertex * 3 + 2]);
+
         public void SelectFace(MeshSemanticHit hit)
         {
             ClearSelection();
             if (hit == null || _surface == null) return;
-            var selected = _surface.triangles.Skip(checked(hit.RangeStart * 3))
-                .Take(checked(hit.RangeCount * 3)).ToArray();
+            var selected = new int[checked(hit.RangeCount * 3)];
+            for (var i = 0; i < selected.Length; i++) selected[i] = checked((int)_semantic.Indices[hit.RangeStart * 3 + i]);
             _selection = new Mesh { name = "Selected CAD face", indexFormat = _surface.indexFormat };
-            _selection.vertices = _surface.vertices;
-            _selection.normals = _surface.normals;
+            _selection.vertices = Vectors(_semantic.Positions);
+            _selection.normals = Vectors(_semantic.Normals);
             _selection.triangles = selected;
             _selection.RecalculateBounds();
             _selectionFilter.sharedMesh = _selection;
@@ -143,7 +351,7 @@ namespace Kreoda.QuestRuntime
             ClearSelection();
             if (hit == null || _edges == null) return;
             _selection = new Mesh { name = "Selected CAD edge", indexFormat = _edges.indexFormat };
-            _selection.vertices = _edges.vertices;
+            _selection.vertices = Vectors(_semantic.EdgeVertices);
             var segments = new List<int>();
             for (var v = hit.RangeStart; v + 1 < hit.RangeStart + hit.RangeCount; v++)
             { segments.Add(v); segments.Add(v + 1); }
@@ -193,6 +401,7 @@ namespace Kreoda.QuestRuntime
         void OnDestroy()
         {
             ClearSelection();
+            ClearCut();
             DisposeMesh(_surface);
             DisposeMesh(_edges);
         }

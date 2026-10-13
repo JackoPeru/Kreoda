@@ -1,5 +1,8 @@
+using System.Linq;
+using System.Xml.Linq;
 using Kreoda.QuestEditor;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
@@ -7,6 +10,46 @@ namespace Kreoda.QuestRuntime.Tests
 {
     public class QuestSceneTests
     {
+        [Test]
+        public void ProductAndroidConfigurationSatisfiesRequiredMetaMrPredicates()
+        {
+            var splashWasEnabled = PlayerSettings.SplashScreen.show;
+            var targetSdkBefore = PlayerSettings.Android.targetSdkVersion;
+            try
+            {
+                QuestBuild.Prepare();
+
+                Assert.That((int)PlayerSettings.Android.minSdkVersion, Is.GreaterThanOrEqualTo(32));
+                Assert.That(PlayerSettings.Android.targetSdkVersion, Is.EqualTo(targetSdkBefore),
+                    "Quest preparation must preserve the existing target SDK policy");
+                Assert.That(PlayerSettings.Android.applicationEntry.ToString(), Is.EqualTo("GameActivity"));
+                Assert.That(PlayerSettings.SplashScreen.show, Is.EqualTo(splashWasEnabled),
+                    "preserve the current Unity splash enable preference");
+
+                var projectConfig = AssetDatabase.LoadMainAssetAtPath("Assets/Oculus/OculusProjectConfig.asset");
+                Assert.That(projectConfig, Is.Not.Null);
+                var loadingBackground = projectConfig.GetType().GetProperty("systemLoadingScreenBackground");
+                Assert.That(loadingBackground, Is.Not.Null);
+                Assert.That(loadingBackground.GetValue(projectConfig).ToString(), Is.EqualTo("ContextualPassthrough"));
+
+                var rig = Object.FindFirstObjectByType<OVRCameraRig>();
+                Assert.That(rig, Is.Not.Null);
+                var cameras = rig.GetComponentsInChildren<Camera>(true);
+                Assert.That(cameras, Is.Not.Empty);
+                foreach (var camera in cameras)
+                {
+                    Assert.That(camera.clearFlags, Is.EqualTo(CameraClearFlags.SolidColor));
+                    Assert.That(camera.backgroundColor.a, Is.LessThan(1f));
+                }
+
+                var manifest = XDocument.Load("Assets/Plugins/Android/AndroidManifest.xml");
+                var activity = manifest.Descendants().First(element => element.Name.LocalName == "activity");
+                var name = activity.Attributes().First(attribute => attribute.Name.LocalName == "name").Value;
+                Assert.That(name, Is.EqualTo("com.unity3d.player.UnityPlayerGameActivity"));
+            }
+            finally { EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single); }
+        }
+
         [Test]
         public void ProductVoiceIsWiredAndStartsQuietWithoutRecording()
         {

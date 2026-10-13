@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 using Kreoda.QuestRuntime;
 using Meta.XR;
 using UnityEditor;
@@ -35,11 +36,11 @@ namespace Kreoda.QuestEditor
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.kreoda.quest");
             PlayerSettings.bundleVersion = "0.1.0";
             PlayerSettings.Android.bundleVersionCode = 1;
-            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel29;
+            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel32;
             PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
-            PlayerSettings.Android.applicationEntry = AndroidApplicationEntry.Activity;
+            PlayerSettings.Android.applicationEntry = AndroidApplicationEntry.GameActivity;
             PlayerSettings.SetApiCompatibilityLevel(NamedBuildTarget.Android, ApiCompatibilityLevel.NET_Standard);
             PlayerSettings.SetManagedStrippingLevel(NamedBuildTarget.Android, ManagedStrippingLevel.Low);
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
@@ -53,6 +54,7 @@ namespace Kreoda.QuestEditor
             config.focusAware = true;
             config.insightPassthroughSupport = OVRProjectConfig.FeatureSupport.Supported;
             config.isPassthroughCameraAccessEnabled = false;
+            config.systemLoadingScreenBackground = OVRProjectConfig.SystemLoadingScreenBackground.ContextualPassthrough;
             OVRProjectConfig.CommitProjectConfig(config);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -67,6 +69,11 @@ namespace Kreoda.QuestEditor
             manager.trackingOriginType = OVRManager.TrackingOrigin.FloorLevel;
             manager.isInsightPassthroughEnabled = true;
             rig.centerEyeAnchor.GetComponent<Camera>().tag = "MainCamera";
+            foreach (var eyeCamera in rig.GetComponentsInChildren<Camera>(true))
+            {
+                eyeCamera.clearFlags = CameraClearFlags.SolidColor;
+                eyeCamera.backgroundColor = Color.clear;
+            }
             var left = rig.leftHandAnchor.GetComponent<OVRHand>();
             if (left == null) left = rig.leftHandAnchor.gameObject.AddComponent<OVRHand>();
             SetHand(left, OVRHand.Hand.HandLeft, rig.trackingSpace);
@@ -77,10 +84,14 @@ namespace Kreoda.QuestEditor
             display.position = new Vector3(0, 1.0f, 1.0f);
             var connection = new GameObject("CAD session").AddComponent<QuestConnection>();
             connection.DisplayRoot = display;
-            connection.SurfaceMaterial = Material("Surface", "Standard", new Color(.63f, .71f, .78f));
-            connection.EdgeMaterial = Material("Edges", "Unlit/Color", new Color(.06f, .1f, .15f));
+            connection.SurfaceMaterial = Material("Surface", "Kreoda/SectionSurface", new Color(.63f, .71f, .78f));
+            connection.EdgeMaterial = Material("Edges", "Kreoda/SectionEdge", new Color(.06f, .1f, .15f));
             connection.SelectionMaterial = Material("Selection", "Kreoda/Selection", new Color(0, .8f, 1f, .45f));
             connection.PreviewMaterial = Material("Preview", "Kreoda/Selection", new Color(0, .7f, 1f, .22f));
+            connection.SectionCapMaterial = Material("SectionCap", "Kreoda/SectionSurface", new Color(.34f, .38f, .42f, 1), cull: 0);
+            connection.SectionContourMaterial = Material("SectionContour", "Kreoda/SectionEdge", new Color(.025f, .035f, .045f, 1));
+            connection.Section = connection.gameObject.AddComponent<QuestSection>();
+            connection.Section.Connection = connection;
             var controls = new GameObject("Compact Quest controls").AddComponent<QuestControls>();
             controls.Connection = connection;
             controls.Rig = rig;
@@ -133,20 +144,42 @@ namespace Kreoda.QuestEditor
             AssetDatabase.SaveAssets();
             // Meta's processor preserves custom network/application attributes.
             OVRManifestPreprocessor.GenerateOrUpdateAndroidManifest(true);
+            AlignProvisioningAlias();
         }
 
-        static Material Material(string name, string shaderName, Color color)
+        static void AlignProvisioningAlias()
+        {
+            XNamespace android = "http://schemas.android.com/apk/res/android";
+            var path = Path.Combine(Application.dataPath, "Plugins/Android/AndroidManifest.xml");
+            var manifest = XDocument.Load(path, LoadOptions.PreserveWhitespace);
+            var application = manifest.Root?.Elements().SingleOrDefault(element => element.Name.LocalName == "application");
+            var launcher = application?.Elements().SingleOrDefault(activity =>
+                activity.Name.LocalName == "activity" && activity.Elements().Any(filter =>
+                    filter.Name.LocalName == "intent-filter" &&
+                    filter.Elements().Any(item => item.Name.LocalName == "action" && (string)item.Attribute(android + "name") == "android.intent.action.MAIN") &&
+                    filter.Elements().Any(item => item.Name.LocalName == "category" && (string)item.Attribute(android + "name") == "android.intent.category.LAUNCHER")));
+            var alias = application?.Elements().SingleOrDefault(element =>
+                element.Name.LocalName == "activity-alias" && (string)element.Attribute(android + "name") == "com.kreoda.quest.AdbProvisioning");
+            var launcherName = (string)launcher?.Attribute(android + "name");
+            if (alias == null || string.IsNullOrEmpty(launcherName) || (string)alias.Attribute(android + "targetActivity") == launcherName) return;
+            alias.SetAttributeValue(android + "targetActivity", launcherName);
+            manifest.Save(path, SaveOptions.DisableFormatting);
+        }
+
+        static Material Material(string name, string shaderName, Color color, int cull = 2)
         {
             var path = "Assets/Kreoda/Materials/" + name + ".mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            var shader = Shader.Find(shaderName);
+            if (shader == null) throw new InvalidOperationException("Referenced shader missing: " + shaderName);
             if (material == null)
             {
-                var shader = Shader.Find(shaderName);
-                if (shader == null) throw new InvalidOperationException("Referenced shader missing: " + shaderName);
                 material = new Material(shader);
                 AssetDatabase.CreateAsset(material, path);
             }
+            else if (material.shader != shader) material.shader = shader;
             material.color = color;
+            if (material.HasProperty("_Cull")) material.SetInt("_Cull", cull);
             EditorUtility.SetDirty(material);
             return material;
         }
@@ -217,9 +250,18 @@ namespace Kreoda.QuestEditor
             var connection = UnityEngine.Object.FindFirstObjectByType<QuestConnection>();
             var controls = UnityEngine.Object.FindFirstObjectByType<QuestControls>();
             var xr = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(BuildTargetGroup.Android);
+            var projectConfig = OVRProjectConfig.CachedProjectConfig;
+            var centralCamera = controls != null && controls.Rig != null && controls.Rig.centerEyeAnchor != null
+                ? controls.Rig.centerEyeAnchor.GetComponent<Camera>() : null;
             if (connection == null || controls == null || controls.Connection != connection || controls.Rig == null ||
-                connection.DisplayRoot == null || connection.SurfaceMaterial == null || connection.EdgeMaterial == null ||
+                connection.DisplayRoot == null || connection.Section == null || connection.Section.Connection != connection ||
+                connection.SurfaceMaterial == null || connection.EdgeMaterial == null ||
                 connection.SelectionMaterial == null || connection.PreviewMaterial == null ||
+                connection.SectionCapMaterial == null || connection.SectionContourMaterial == null ||
+                connection.SurfaceMaterial.shader.name != "Kreoda/SectionSurface" ||
+                connection.EdgeMaterial.shader.name != "Kreoda/SectionEdge" ||
+                connection.SectionCapMaterial.shader.name != "Kreoda/SectionSurface" ||
+                connection.SectionContourMaterial.shader.name != "Kreoda/SectionEdge" ||
                 connection.PreviewMaterial == connection.SelectionMaterial || controls.Font == null || controls.LeftHand == null || controls.RightHand == null ||
                 connection.TriangleBudget <= 0 || controls.Display == null || controls.Environment == null ||
                 controls.Spatial == null || controls.Spatial.Connection != connection || controls.Spatial.Preview == null ||
@@ -233,7 +275,12 @@ namespace Kreoda.QuestEditor
                 controls.Environment.Layer == null || controls.Environment.VrReference == null ||
                 xr == null || !xr.InitManagerOnStart || !xr.Manager.activeLoaders.Any(loader => loader is OpenXRLoader) ||
                 PlayerSettings.GetScriptingBackend(NamedBuildTarget.Android) != ScriptingImplementation.IL2CPP ||
-                PlayerSettings.Android.targetArchitectures != AndroidArchitecture.ARM64)
+                PlayerSettings.Android.targetArchitectures != AndroidArchitecture.ARM64 ||
+                PlayerSettings.Android.minSdkVersion < AndroidSdkVersions.AndroidApiLevel32 ||
+                PlayerSettings.Android.applicationEntry != AndroidApplicationEntry.GameActivity ||
+                centralCamera == null || centralCamera.clearFlags != CameraClearFlags.SolidColor || centralCamera.backgroundColor.a >= 1f ||
+                projectConfig == null || projectConfig.systemLoadingScreenBackground !=
+                    OVRProjectConfig.SystemLoadingScreenBackground.ContextualPassthrough)
                 throw new InvalidOperationException("Populated ARM64 Quest scene/settings are incomplete; run QuestBuild.Prepare");
         }
 

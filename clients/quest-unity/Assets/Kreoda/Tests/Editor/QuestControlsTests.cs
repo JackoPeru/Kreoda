@@ -25,6 +25,8 @@ namespace Kreoda.QuestRuntime.Tests
             var connection = _root.AddComponent<QuestConnection>();
             connection.DisplayRoot = new GameObject("Owned CAD root").transform;
             connection.DisplayRoot.SetParent(_root.transform);
+            connection.Section = _root.AddComponent<QuestSection>();
+            connection.Section.Connection = connection;
             var display = _root.AddComponent<QuestDisplay>();
             display.Connection = connection;
             _controls = _root.AddComponent<QuestControls>();
@@ -107,6 +109,29 @@ namespace Kreoda.QuestRuntime.Tests
             Assert.That(choose, Is.Not.Null);
             Assert.That(choose.Invoke(null, new object[] { true, true, true }), Is.EqualTo(1));
             Assert.That(choose.Invoke(null, new object[] { false, true, true }), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void IndexPinchUsesSameCompactSectionButtonActionWithoutController()
+        {
+            var page = (Transform)typeof(QuestControls).GetField("_sectionPage", Private).GetValue(_controls);
+            var button = page.Find("Attiva sezione control").GetComponentInChildren<QuestButton>(true);
+            Assert.That(button, Is.Not.Null);
+            Assert.That(button.Click, Is.Not.Null);
+            var pinch = typeof(QuestControls).GetMethod("IndexPinchStarted", Private | BindingFlags.Static);
+            Assert.That(pinch, Is.Not.Null, "index-hand pinch path must produce the same rising-edge button action");
+            var wasPinching = false;
+            var first = new object[] { true, wasPinching };
+            Assert.That(pinch.Invoke(null, first), Is.True);
+            button.Click.Invoke();
+            Assert.That(_controls.Connection.Section.Enabled, Is.False, "empty-scene guard must stay active on hand input");
+            Assert.That(_controls.Connection.Section.Status, Does.Contain("Carica un corpo CAD"));
+            var held = new object[] { true, first[1] };
+            Assert.That(pinch.Invoke(null, held), Is.False, "held pinch must not repeatedly activate panel controls");
+            var released = new object[] { false, held[1] };
+            Assert.That(pinch.Invoke(null, released), Is.False);
+            var nextPinch = new object[] { true, released[1] };
+            Assert.That(pinch.Invoke(null, nextPinch), Is.True);
         }
 
         [Test]

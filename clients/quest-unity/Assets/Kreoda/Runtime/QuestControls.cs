@@ -41,8 +41,8 @@ namespace Kreoda.QuestRuntime
         public Font Font;
         public Material PanelMaterial, ButtonMaterial, RayMaterial;
         public bool PreferLeftHand;
-        Transform _panel, _content, _connectionPage, _viewPage, _metricsPage, _editPage;
-        TextMesh _editStatus, _modeLabel;
+        Transform _panel, _content, _connectionPage, _viewPage, _metricsPage, _sectionPage, _editPage;
+        TextMesh _editStatus, _modeLabel, _sectionStatus, _sectionToggle, _sectionQuota;
         int _exactParameter;
         bool _editingValue;
         string _valueInput = "";
@@ -64,6 +64,7 @@ namespace Kreoda.QuestRuntime
         int _selectionMode = 1;
         int _selectedUploadVersion;
         readonly Dictionary<TextMesh, Vector2> _textLimits = new Dictionary<TextMesh, Vector2>();
+        readonly RaycastHit[] _sectionHits = new RaycastHit[128];
         Vector3 _grabOffset, _grabStartPosition;
         Quaternion _grabStartRotation;
         float _grabDistance, _initialTrackingTime = -1;
@@ -140,12 +141,28 @@ namespace Kreoda.QuestRuntime
                 PlayerPrefs.SetInt("kreoda-ui-left", _uiLeft ? 1 : 0); SavePanelOffset(); RecenterPanel();
             }, .023f);
             Button("Centra UI", new Vector3(0, -.205f, 0), .11f, ResetPanel, .03f);
-            Button("Metriche", new Vector3(.13f, -.205f, 0), .11f, () => Page(_metricsPage), .03f);
+            Button("Sezione", new Vector3(.13f, -.205f, 0), .11f, () => Page(_sectionPage), .03f);
             _metricsPage = PageRoot("Optional diagnostics");
             _content = _metricsPage;
             _diagnostics = Label(_content, "Metriche: attendi un campione", new Vector3(-.19f, .085f, -.003f), .012f);
             _textLimits[_diagnostics] = new Vector2(.38f, .25f);
             Button("Torna a Vista", new Vector3(0, -.205f, 0), .2f, () => Page(_viewPage), .03f);
+            _sectionPage = PageRoot("Section view");
+            _content = _sectionPage;
+            _sectionStatus = Label(_content, "Sezione spenta", new Vector3(-.19f, .105f, -.003f), .012f);
+            _textLimits[_sectionStatus] = new Vector2(.38f, .04f);
+            _sectionToggle = Button("Attiva sezione", new Vector3(0, .055f, 0), .31f, ToggleSection, .036f, .012f);
+            Button("X", new Vector3(-.13f, .008f, 0), .075f, () => SetSectionAxis(SectionAxis.X), .034f);
+            Button("Y", new Vector3(0, .008f, 0), .075f, () => SetSectionAxis(SectionAxis.Y), .034f);
+            Button("Z", new Vector3(.13f, .008f, 0), .075f, () => SetSectionAxis(SectionAxis.Z), .034f);
+            Button("−5 mm", new Vector3(-.11f, -.042f, 0), .12f, () => AdjustSectionQuota(-5), .034f, .011f);
+            _sectionQuota = Label(_content, "Quota —", new Vector3(-.045f, -.036f, -.003f), .011f);
+            _textLimits[_sectionQuota] = new Vector2(.09f, .034f);
+            Button("+5 mm", new Vector3(.11f, -.042f, 0), .12f, () => AdjustSectionQuota(5), .034f, .011f);
+            Button("Inverti", new Vector3(-.09f, -.092f, 0), .15f, InvertSection, .034f, .011f);
+            Button("Azzera", new Vector3(.09f, -.092f, 0), .15f, ResetSection, .034f, .011f);
+            Button("Indietro", new Vector3(-.095f, -.175f, 0), .15f, () => Page(_viewPage), .034f, .011f);
+            Button("Metriche", new Vector3(.095f, -.175f, 0), .15f, () => Page(_metricsPage), .034f, .011f);
             _editPage = PageRoot("Exact CAD editing");_content = _editPage;
             _editStatus = Label(_content, "Seleziona una quota", new Vector3(-.19f, .085f, -.003f), .012f);
             _textLimits[_editStatus] = new Vector2(.38f, .10f);
@@ -257,6 +274,7 @@ namespace Kreoda.QuestRuntime
             if (_connectionPage != null) _connectionPage.gameObject.SetActive(selected == _connectionPage);
             if (_viewPage != null) _viewPage.gameObject.SetActive(selected == _viewPage);
             if (_metricsPage != null) _metricsPage.gameObject.SetActive(selected == _metricsPage);
+            if (_sectionPage != null) _sectionPage.gameObject.SetActive(selected == _sectionPage);
             if (_editPage != null) _editPage.gameObject.SetActive(selected == _editPage);
             if (_commandPage != null) _commandPage.gameObject.SetActive(selected == _commandPage);
             if (_sketchPage != null) _sketchPage.gameObject.SetActive(selected == _sketchPage);
@@ -270,6 +288,19 @@ namespace Kreoda.QuestRuntime
         }
         void Quality(MeshLod quality)
         { if (_selected == null) { _status.text = "Seleziona prima un corpo"; return; } Connection.RequestQuality(_selected, quality); }
+        void ToggleSection() { if (Connection != null && Connection.Section != null) Connection.Section.Toggle(); }
+        void SetSectionAxis(SectionAxis axis) { if (Connection != null && Connection.Section != null) Connection.Section.TrySetAxis(axis); }
+        void AdjustSectionQuota(double step)
+        {
+            var section = Connection != null ? Connection.Section : null;
+            if (section != null && section.Plane.HasValue) section.TrySetOffsetMm(section.Plane.Value.OffsetMm + step);
+        }
+        void InvertSection()
+        {
+            var section = Connection != null ? Connection.Section : null;
+            if (section != null && section.Plane.HasValue) section.SetInverted(!section.Plane.Value.Inverted);
+        }
+        void ResetSection() { if (Connection != null && Connection.Section != null) Connection.Section.ResetView(); }
         void SavePanelOffset()
         {
             PlayerPrefs.SetInt("kreoda-panel-layout", 2);
@@ -353,6 +384,14 @@ namespace Kreoda.QuestRuntime
             if (_status.text != status) _status.text = status;
             var viewStatus = Display.PlacementActive ? Display.Status : Environment.Status + "\nScala " + Display.ScaleName + " · quote CAD mm";
             if (_viewStatus.text != viewStatus) _viewStatus.text = viewStatus;
+            if (_sectionStatus != null && Connection.Section != null)
+            {
+                _sectionStatus.text = Connection.Section.Status;
+                _sectionToggle.text = Connection.Section.Enabled ? "Disattiva sezione" : "Attiva sezione";
+                _sectionQuota.text = Connection.Section.Plane.HasValue
+                    ? Connection.Section.Plane.Value.OffsetMm.ToString("0.###", CultureInfo.InvariantCulture) + " mm"
+                    : "Quota —";
+            }
             var handText = _handMode == 0 ? "Mano Auto" : _handMode == 1 ? "Mano sinistra" : "Mano destra";
             if (_handLabel.text != handText) _handLabel.text = handText;
             if (_diagnostics.text != Environment.Diagnostics) _diagnostics.text = Environment.Diagnostics;
@@ -394,25 +433,62 @@ namespace Kreoda.QuestRuntime
                 return;
             }
             _ray.enabled = true;
-            var hasHit = Physics.Raycast(ray, out var hit, 5f, ~0, QueryTriggerInteraction.Ignore);
+            var hasHit = false;
+            var hitPoint = default(Vector3);
+            var hitTriangle = -1;
+            Collider hitCollider = null;
+            QuestMeshView hitView = null;
+            if (Connection.Section != null && Connection.Section.Enabled && Connection.Section.Plane.HasValue)
+            {
+                var count = Physics.RaycastNonAlloc(ray, _sectionHits, 5f, ~0, QueryTriggerInteraction.Ignore);
+                var nonCadDistance = 5f;
+                RaycastHit nonCadHit = default;
+                for (var i = 0; i < count; i++)
+                {
+                    var candidate = _sectionHits[i];
+                    if (candidate.collider == null || candidate.collider.GetComponent<QuestMeshView>() != null ||
+                        candidate.distance >= nonCadDistance) continue;
+                    nonCadDistance = candidate.distance;
+                    nonCadHit = candidate;
+                }
+                var hasNative = Connection.Section.TryRaycastVisible(ray, nonCadDistance,
+                    out var nativeView, out var nativeTriangle, out var nativePoint, out var nativeDistance);
+                if (hasNative && (!nonCadHit.collider || nativeDistance < nonCadDistance))
+                {
+                    hasHit = true;hitView = nativeView;hitTriangle = nativeTriangle;hitPoint = nativePoint;
+                }
+                else if (nonCadHit.collider)
+                {
+                    hasHit = true;hitCollider = nonCadHit.collider;hitPoint = nonCadHit.point;
+                    hitTriangle = nonCadHit.triangleIndex;
+                }
+            }
+            else if (Physics.Raycast(ray, out var hit, 5f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                hasHit = true;hitCollider = hit.collider;hitPoint = hit.point;hitTriangle = hit.triangleIndex;
+                hitView = hit.collider.GetComponent<QuestMeshView>();
+            }
             _ray.SetPosition(0, ray.origin);
-            _ray.SetPosition(1, hasHit ? hit.point : ray.GetPoint(2));
+            _ray.SetPosition(1, hasHit ? hitPoint : ray.GetPoint(2));
             if (!clicked || _keyboard != null) return;
-            var button = hasHit ? hit.collider.GetComponent<QuestButton>() : null;
+            var button = hitCollider != null ? hitCollider.GetComponent<QuestButton>() : null;
             if (button != null)
-            { if (button.DragPanel) BeginPanelDrag(ray, hit.point); else button.Click?.Invoke(); return; }
+            { if (button.DragPanel) BeginPanelDrag(ray, hitPoint); else button.Click?.Invoke(); return; }
             if (Display.PlacementActive) { Display.FreezePlacement(); return; }
             if (!hasHit) return;
-            var edit = hit.collider.GetComponent<QuestEditHandle>();
-            if (Spatial != null && edit != null && Spatial.Begin(edit, ray, hit.point, orientation)) return;
-            var view = hit.collider.GetComponent<QuestMeshView>();
+            if (hitCollider != null && Connection.Section != null && Connection.Section.IsSectionCapCollider(hitCollider))
+            { _target.text = "Piano di sezione solo visivo · nessun target CAD";return; }
+            var edit = hitCollider != null ? hitCollider.GetComponent<QuestEditHandle>() : null;
+            if (Spatial != null && edit != null && Spatial.Begin(edit, ray, hitPoint, orientation)) return;
+            var view = hitView ?? (hitCollider != null ? hitCollider.GetComponent<QuestMeshView>() : null);
             if (view == null) return;
             if (_selected != null) _selected.ClearSelection();
             _selected = view;
             if (Spatial != null) Spatial.Select(view);
             _selectedUploadVersion = view.UploadVersion;
-            _hit = _selectionMode == 2 ? view.ResolveNearestEdge(hit.point, .008f) :
-                _selectionMode == 1 ? view.ResolveFace(hit.triangleIndex) : null;
+            var activeSection = Connection.Section != null && Connection.Section.Enabled ? Connection.Section.Plane : null;
+            _hit = _selectionMode == 2 ? view.ResolveNearestEdge(hitPoint, .008f, activeSection, Connection.DisplayRoot) :
+                _selectionMode == 1 ? view.ResolveFace(hitTriangle) : null;
             if (_selectionMode == 1) view.SelectFace(_hit);
             else if (_selectionMode == 2) view.SelectEdge(_hit);
             else view.SelectBody();
@@ -527,7 +603,7 @@ namespace Kreoda.QuestRuntime
             if (!tracked) return false;
             if (source <= 2) {
                 var hand = left ? LeftHand : RightHand;
-                pressed = hand.GetFingerIsPinching(OVRHand.HandFinger.Index);clicked = pressed && !_pinching;_pinching = pressed;
+                pressed = hand.GetFingerIsPinching(OVRHand.HandFinger.Index);clicked = IndexPinchStarted(pressed, ref _pinching);
             } else {
                 var controller = left ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch;
                 clicked = OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, controller);pressed = OVRInput.Get(OVRInput.Button.PrimaryIndexTrigger, controller);
@@ -536,6 +612,8 @@ namespace Kreoda.QuestRuntime
             }
             return true;
         }
+        static bool IndexPinchStarted(bool pressed, ref bool pinching)
+        { var clicked = pressed && !pinching;pinching = pressed;return clicked; }
         bool TwoHandInput()
         {
             bool Sample(bool left, out Vector3 point, out bool held, out int source)

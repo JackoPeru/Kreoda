@@ -2,7 +2,7 @@
 // recompute → exactly ONE Undo step; Undo restores the previous size.
 
 import { test, expect, _electron as electron } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { HERE, MAIN, addBox, hideForBackgroundE2E, openMore, openProject, type Snapshot } from "./helpers";
@@ -108,7 +108,44 @@ test("pull face resizes solid in one undo step", async () => {
     const snap2 = (await readSnap()) as Snapshot;
     expect(snap2.bodies[0]!.paramsMm).toEqual([100, 50, 20]);
 
-    await window.screenshot({ path: path.join(HERE, "phase3-pull.png") });
+    const viewportFrames = () => window.evaluate(() => (
+      window as unknown as {
+        __kreoda_test: { viewportRenderStats: () => { renderedFrames: number } | null };
+      }
+    ).__kreoda_test.viewportRenderStats()?.renderedFrames ?? 0);
+    const framesBeforeCapture = await viewportFrames();
+    await window.evaluate(() => globalThis.window.dispatchEvent(new Event("resize")));
+    await expect.poll(viewportFrames).toBeGreaterThan(framesBeforeCapture);
+
+    const capture = await app.evaluate(async ({ BrowserWindow }) => {
+      const browserWindow = BrowserWindow.getAllWindows()[0];
+      if (!browserWindow) throw new Error("Electron screenshot window missing");
+      const visibleBefore = browserWindow.isVisible();
+      const image = await browserWindow.webContents.capturePage(undefined, { stayHidden: true });
+      const { width, height } = image.getSize();
+      return {
+        png: image.toPNG().toString("base64"),
+        empty: image.isEmpty(),
+        width,
+        height,
+        visibleBefore,
+        visibleAfter: browserWindow.isVisible(),
+      };
+    });
+    expect(capture.empty).toBe(false);
+    expect(capture.width).toBeGreaterThan(0);
+    expect(capture.height).toBeGreaterThan(0);
+    expect(capture.visibleBefore).toBe(false);
+    expect(capture.visibleAfter).toBe(false);
+
+    const png = Buffer.from(capture.png, "base64");
+    expect(png.byteLength).toBeGreaterThan(24);
+    expect(png.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    expect(png.readUInt32BE(16)).toBe(capture.width);
+    expect(png.readUInt32BE(20)).toBe(capture.height);
+    const screenshotPath = path.join(HERE, "phase3-pull.png");
+    writeFileSync(screenshotPath, png);
+    await test.info().attach("phase3-pull.png", { path: screenshotPath, contentType: "image/png" });
   } finally {
     await app.close();
   }

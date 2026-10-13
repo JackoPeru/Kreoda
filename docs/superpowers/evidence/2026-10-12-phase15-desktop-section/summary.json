@@ -101,5 +101,17 @@
     "sandbox": "danger-full-access",
     "readOnlyBehavioral": true
   },
-  "newHeadHostedPending": true
+  "newHeadHostedPending": true,
+  "hosted": {
+    "head": "8f22b59b04a86c50a054026934b8e4bf59562cf1",
+    "run": 38410118843,
+    "status": "completed",
+    "conclusion": "failure",
+    "nativeAndManagedAndPackagingPassed": true,
+    "e2ePassed": 63,
+    "e2eFailed": 1,
+    "failingTest": "phase3-pull",
+    "failure": "Page screenshot timed out after native drag and Undo assertions",
+    "fixTask": "01a135af-efda-7d82-9c14-498a0f810bd2"
+  }
 }

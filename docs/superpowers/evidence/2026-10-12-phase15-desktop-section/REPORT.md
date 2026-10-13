@@ -71,3 +71,7 @@ FullDesktop238/238 with2workers and fresh build/types pass. Fresh hidden native 
 ## Accepted Desktop software packet
 
 Fresh actualGPT-6-Sol/high01a13590-2b1b-77f0-952a-96ac88f494bb returned ship for bounded Desktop Task1. Parent independently compared all890source files and33compiled artifacts to frozen SHA b0c1273ab94568a23bbb6c272a8a546b96542ff5c0a567c9e0a1de179b4d013e: unchanged. Observed danger-full-access/disabled host; read-only conduct behavioral, not sandbox enforced. Only evidence/plan acceptance annotations follow this verdict; product/test sources stay reviewed. Hosted CI for the forthcoming commit remains pending; QuestTask2, compound/cavity OCCT measurement, physical acceptance and complete Phases12–16 remain open.
+
+## Exact-head hosted failure
+
+Run38410118843 at accepted Desktop head8f22b59 completed failure in full regression. Native/.NET/packaging stages passed; managed regression229 passed. Ordinary E2E63passed/1failed: phase3-pull reached native drag/revision/persistentID/oneUndo/restored[100,50,20] assertions, then Playwright page.screenshot timed out30s on the hidden window after fonts loaded. All three new native section E2E passed hosted. This does not establish a hosted green head. Separate actual Luna/Max screenshot task01a135af owns only that E2E acquisition, preserving all CAD assertions and using native Electron hidden capture; parent verification and new-head CI remain required.

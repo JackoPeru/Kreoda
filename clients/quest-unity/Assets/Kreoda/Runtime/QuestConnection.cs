@@ -18,6 +18,8 @@ namespace Kreoda.QuestRuntime
     {
         public Transform DisplayRoot;
         public Material SurfaceMaterial, EdgeMaterial, SelectionMaterial, PreviewMaterial;
+        public Material SectionCapMaterial, SectionContourMaterial;
+        public QuestSection Section;
         public string Status { get; private set; } = "Non connesso";
         public string SavedEndpoint { get { lock (_gate) return _saved?.Endpoint ?? ""; } }
         public bool Connected { get; private set; }
@@ -347,6 +349,7 @@ namespace Kreoda.QuestRuntime
         {
             TriangleCount = _views.Values.Sum(view => (long)view.TriangleCount);
             UnityEngine.Debug.Log("KREODA_MODEL objects=" + _views.Count + " triangles=" + TriangleCount);
+            if (Section != null) Section.Refresh();
             SceneChanged?.Invoke();
         }
 
@@ -414,6 +417,8 @@ namespace Kreoda.QuestRuntime
                                                     view.EdgeMaterial = EdgeMaterial;
                                                     view.SelectionMaterial = SelectionMaterial;
                                                     view.PreviewMaterial = PreviewMaterial;
+                                                    view.SectionCapMaterial = SectionCapMaterial;
+                                                    view.SectionContourMaterial = SectionContourMaterial;
                                                     try { view.Upload(mesh); _views.Add(ticket.Key, view); }
                                                     catch { Destroy(body); throw; }
                                                 }
