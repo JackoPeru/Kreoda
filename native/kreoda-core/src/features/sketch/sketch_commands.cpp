@@ -9,6 +9,8 @@
 #include "model/body.h"
 #include "model/feature_graph.h"
 #include "model/shapes.h"
+#include "model/commit.h"
+#include "features/datum/datum_store.h"
 
 #if KREODA_WITH_OCCT
 #include "persistence/ocaf_live.h"
@@ -131,10 +133,10 @@ bool CreateSketchFeature(const std::string& sketchId,
                              PrincipalPlane(planeKind), error);
 }
 
-bool CreateSketchFeature(const std::string& sketchId,
+static bool CreateSketchFeatureImpl(const std::string& sketchId,
                          const std::string& planeKind,
                          const SketchModel& model, const SketchPlane& plane,
-                         std::string* error) {
+                         const std::string& supportRef,std::string* error) {
   if (sketchId.empty()) {
     if (error) *error = "sketch id (stable UUID) required";
     return false;
@@ -143,16 +145,13 @@ bool CreateSketchFeature(const std::string& sketchId,
     if (error) *error = "sketch id must match [A-Za-z0-9_-]";
     return false;
   }
-  if (planeKind != "XY" && planeKind != "XZ" && planeKind != "YZ") {
+  if (planeKind != "XY" && planeKind != "XZ" && planeKind != "YZ" &&
+      !(planeKind == "Datum" && !supportRef.empty())) {
     if (error) *error = "planeKind must be XY|XZ|YZ";
     return false;
   }
   if (!ValidateSketchPlane(plane, error)) return false;
-  if (SketchStore::instance().contains(sketchId) ||
-      ShapeStore::instance().contains(sketchId)) {
-    if (error) *error = "id already exists: " + sketchId;
-    return false;
-  }
+  if (!CheckNewId(sketchId,error)) return false;
   if (!ValidateSketchRefs(model, error)) return false;
   // Solve-before-commit: the stored model always holds solved coordinates.
   auto solver = CreateSketchSolver();
@@ -168,6 +167,7 @@ bool CreateSketchFeature(const std::string& sketchId,
   sketch.id = sketchId;
   sketch.planeKind = planeKind;
   sketch.plane = plane;
+  sketch.supportRef = supportRef;
   sketch.model = model;
   // Write back solved coordinates.
   for (auto& p : sketch.model.points) {
@@ -194,7 +194,7 @@ bool CreateSketchFeature(const std::string& sketchId,
     OcafLive::instance().AbortCommand();
     return false;
   }
-  TheFeatureGraph().addFeature(sketchId);
+  TheFeatureGraph().addFeature(sketchId, sketch.supportRef.empty() ? std::vector<std::string>{} : std::vector<std::string>{sketch.supportRef});
   TheFeatureGraph().clearDirty(sketchId);
   bool hadDelta = false;
   OcafLive::instance().CommitCommand(&hadDelta, nullptr);
@@ -202,11 +202,22 @@ bool CreateSketchFeature(const std::string& sketchId,
   return true;
 #else
   SketchStore::instance().put(std::move(sketch));
-  TheFeatureGraph().addFeature(sketchId);
+  TheFeatureGraph().addFeature(sketchId, sketch.supportRef.empty() ? std::vector<std::string>{} : std::vector<std::string>{sketch.supportRef});
   TheFeatureGraph().clearDirty(sketchId);
   DocumentStore::instance().registerFeature(sketchId, "Sketch");
   return true;
 #endif
+}
+
+bool CreateSketchFeature(const std::string& sketchId,const std::string& planeKind,
+                         const SketchModel& model,const SketchPlane& plane,std::string* error) {
+  return CreateSketchFeatureImpl(sketchId,planeKind,model,plane,"",error);
+}
+bool CreateSketchOnDatumFeature(const std::string& sketchId,const std::string& datumId,
+                                const SketchModel& model,std::string* error) {
+  DatumRecord support;
+  if(!DatumStore::instance().get(datumId,&support)||support.kind!=DatumKind::Plane||support.status!="ok") {if(error)*error="sketch requires a valid DatumPlane";return false;}
+  return CreateSketchFeatureImpl(sketchId,"Datum",model,support.plane,datumId,error);
 }
 
 bool UpdateSketchFeature(const std::string& sketchId,
@@ -244,7 +255,7 @@ bool UpdateSketchFeature(const std::string& sketchId,
 #if KREODA_WITH_OCCT
   // Snapshot the dirty closure (sketch + dependent solids) for rollback.
   if (!TheFeatureGraph().hasFeature(sketchId)) {
-    TheFeatureGraph().addFeature(sketchId);
+    TheFeatureGraph().addFeature(sketchId, prev.supportRef.empty() ? std::vector<std::string>{} : std::vector<std::string>{prev.supportRef});
     TheFeatureGraph().clearDirty(sketchId);
   }
   TheFeatureGraph().markDirty(sketchId);

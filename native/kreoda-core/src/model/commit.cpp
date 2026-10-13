@@ -3,6 +3,7 @@
 #include "body.h"
 #include "document/document_store.h"
 #include "features/sketch/sketch_store.h"
+#include "features/datum/datum_store.h"
 #include "model/feature_graph.h"
 
 #if KREODA_WITH_OCCT
@@ -27,7 +28,8 @@ bool CheckNewId(const std::string& featureId, std::string* error) {
     return false;
   }
   if (ShapeStore::instance().contains(featureId) ||
-      SketchStore::instance().contains(featureId)) {
+      SketchStore::instance().contains(featureId) ||
+      DatumStore::instance().contains(featureId)) {
     if (error) *error = "id already exists: " + featureId;
     return false;
   }

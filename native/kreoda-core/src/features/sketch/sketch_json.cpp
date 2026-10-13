@@ -1,3 +1,4 @@
+#include "model/shapes.h"
 #include "sketch_json.h"
 #include "protocol/json_fields.h"
 
@@ -213,11 +214,12 @@ bool ParseSketchFeature(const std::string& text, SketchFeature* out, std::string
     sketch.id = json_string_field(value, "id", json_string_field(value, "featureId", ""));
     if (sketch.id.empty()) throw JsonFieldError("sketch id/featureId required");
     sketch.planeKind = json_string_field(value, "planeKind", "XY");
-    if (sketch.planeKind != "XY" && sketch.planeKind != "XZ" && sketch.planeKind != "YZ") throw JsonFieldError("planeKind must be XY|XZ|YZ");
+    if (sketch.planeKind != "XY" && sketch.planeKind != "XZ" && sketch.planeKind != "YZ" && sketch.planeKind != "Datum") throw JsonFieldError("planeKind must be XY|XZ|YZ|Datum");
     sketch.plane = value.contains("plane")
         ? ParseSketchPlane(value.at("plane"))
         : PrincipalPlane(sketch.planeKind);
     sketch.supportRef = json_string_field(value, "supportRef", "");
+    if(sketch.planeKind=="Datum"&&(!value.contains("plane")||!ShapeStore::ValidFeatureId(sketch.supportRef))) throw JsonFieldError("Datum sketch requires a frame and valid supportRef");
     const auto model = value.contains("model") ? value.at("model").dump() : value.dump();
     if (!ParseSketchModel(model, &sketch.model, error)) return false;
     *out = std::move(sketch); return true;

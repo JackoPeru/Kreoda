@@ -46,6 +46,7 @@ add_executable(kreoda-core-tests
   ../src/model/commit.cpp
   ../src/features/primitives/primitives.cpp
   ../src/features/rebuild.cpp
+  ../src/features/datum/datum_commands.cpp
   ../src/features/datum/datum_json.cpp
   ../src/features/datum/datum_store.cpp
   ../src/features/sketch/sketch_store.cpp
