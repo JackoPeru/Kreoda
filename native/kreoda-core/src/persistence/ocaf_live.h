@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "../features/sketch/sketch_store.h"
+#include "../features/datum/datum_store.h"
 #include "../model/shapes.h"
 
 namespace kreoda {
@@ -74,6 +75,8 @@ class OcafLive {
   // Sketch labels (§21): sketches live under a Sketches folder as
   // name=sketch UUID + comment=serialized SketchFeature JSON. Mutations run
   // inside the caller's OCAF command so Undo/Redo restores them.
+  bool UpsertDatum(const std::string& datumId, const std::string& datumJson,
+                   std::string* error);
   bool UpsertSketch(const std::string& sketchId, const std::string& sketchJson,
                     std::string* error);
   bool SketchLabelEntries(std::vector<std::pair<std::string, std::string>>* out);
@@ -101,7 +104,8 @@ class OcafLive {
   // Read and validate persisted sketch labels without touching the live doc.
   bool ValidateSketchesInFile(const std::string& xbfPath,
                               std::vector<SketchFeature>* sketches,
-                              std::string* error) const;
+                              std::string* error,
+                              std::vector<DatumRecord>* datums = nullptr) const;
   // Opens into the live doc and rebuilds label/selection maps.
   // Fills records (solids) and sketchJsons (serialized SketchFeatures).
   bool Load(const std::string& xbfPath, std::vector<ShapeRecord>* records,

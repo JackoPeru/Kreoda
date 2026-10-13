@@ -1,3 +1,4 @@
+#include "features/datum/datum_store.h"
 #include "dispatcher.h"
 #include "protocol/json_fields.h"
 #include "protocol/session_geometry.h"
@@ -239,8 +240,12 @@ std::string manifest_json(const std::string& documentId, const std::string& refe
 // solids carry their sketch/feature deps.
 void SyncGraphFromStore() {
   TheFeatureGraph().clear();
+  for (const auto& datum : DatumStore::instance().listInOrder()) {
+    TheFeatureGraph().addFeature(datum.featureId, datum.dependsOn);
+    TheFeatureGraph().clearDirty(datum.featureId);
+  }
   for (const auto& sk : SketchStore::instance().listInOrder()) {
-    TheFeatureGraph().addFeature(sk.id);
+    TheFeatureGraph().addFeature(sk.id, sk.supportRef.empty() ? std::vector<std::string>{} : std::vector<std::string>{sk.supportRef});
     TheFeatureGraph().clearDirty(sk.id);
   }
   for (const auto& rec : ShapeStore::instance().listInOrder()) {
@@ -267,6 +272,7 @@ std::string undo_counts_body() {
 struct DocSnapshot {
   std::vector<ShapeRecord> shapes;
   std::vector<SketchFeature> sketches;
+  std::vector<DatumRecord> datums;
   std::vector<ExpressionEntry> exprs;
   std::vector<BodyRecord> bodies;  // Slice 2: failed Open restores tips too
   std::map<std::string, std::string> registry;
@@ -282,6 +288,7 @@ DocSnapshot takeDocSnapshot(const std::string& docId) {
   DocSnapshot s;
   s.shapes = ShapeStore::instance().listInOrder();
   s.sketches = SketchStore::instance().listInOrder();
+  s.datums = DatumStore::instance().listInOrder();
   s.exprs = ExpressionStore::instance().listInOrder();
   s.bodies = BodyStore::instance().bodies();
   s.registry = DocumentStore::instance().snapshotRegistry();
@@ -290,7 +297,7 @@ DocSnapshot takeDocSnapshot(const std::string& docId) {
   s.references = DocumentStore::instance().referencePlanesJson();
   (void)docId;
 #if KREODA_WITH_OCCT
-  if (!s.shapes.empty() || !s.sketches.empty()) {
+  if (!s.shapes.empty() || !s.sketches.empty() || !s.datums.empty()) {
     std::error_code ec;
     std::string tmp = uniqueTempDir("kreoda-backup", ec);
     if (!tmp.empty()) {
@@ -313,6 +320,8 @@ void restoreDocSnapshot(const DocSnapshot& s) {
   ShapeStore::instance().clear();
   for (const auto& r : s.shapes) ShapeStore::instance().put(r);
   BodyStore::instance().replaceAll(s.bodies);  // Slice 2: tips survive abort
+  DatumStore::instance().clear();
+  for (const auto& datum : s.datums) DatumStore::instance().put(datum);
   SketchStore::instance().clear();
   for (const auto& sk : s.sketches) SketchStore::instance().put(sk);
   ExpressionStore::instance().clear();
@@ -939,7 +948,8 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
                              error_body("OPEN_FAILED", "reference metadata too large"));
       }
       std::vector<SketchFeature> sketches;
-      if (!OcafLive::instance().ValidateSketchesInFile(xbf, &sketches, &error)) {
+      std::vector<DatumRecord> datums;
+      if (!OcafLive::instance().ValidateSketchesInFile(xbf, &sketches, &error, &datums)) {
         fs::remove_all(tmp, ec);
         discardDocSnapshot(backup);
         return make_response(requestId, "error",
@@ -998,6 +1008,10 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         } else {
           BodyStore::instance().rebuildFromRecords(ordered);
         }
+      }
+      for (const auto& datum : datums) {
+        DatumStore::instance().put(datum);
+        DocumentStore::instance().noteFeature(datum.featureId, DatumTypeName(datum.kind));
       }
       for (const auto& sf : sketches) {
         SketchStore::instance().put(sf);

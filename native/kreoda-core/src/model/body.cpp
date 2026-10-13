@@ -11,7 +11,8 @@ BodySemantics FeatureBodySemantics(const std::string& type) {
       type == "Intersect") {
     return BodySemantics::AdvancesBody;
   }
-  if (type == "Sketch" || type == "Instance") {
+  if (type == "Sketch" || type == "Instance" || type == "DatumPlane" ||
+      type == "DatumAxis" || type == "DatumPoint") {
     return BodySemantics::NonBody;
   }
   return BodySemantics::NewBody;

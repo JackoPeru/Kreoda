@@ -116,3 +116,122 @@ TEST(Datum, WrongKindBrokenSourcesAndInvalidJsonKeepAcceptedOutput) {
   EXPECT_FALSE(ResolveDatumDefinition(DatumKind::Point,R"({"type":"coordinates","positionMm":[0,0,1e309]})",&accepted,&error));
   EXPECT_EQ(accepted.featureId,"keep"); EXPECT_DOUBLE_EQ(accepted.positionMm[0],9);
 }
+
+TEST(Datum, ProspectiveRecordsNeverResolveAgainstTheCurrentDocument) {
+  DatumStore::instance().clear(); auto live=resolve(DatumKind::Point,point(999,0,0)); live.featureId="shared"; DatumStore::instance().put(live);
+  auto prospective=resolve(DatumKind::Point,point(10,0,0)); prospective.featureId="shared";
+  const std::vector<DatumRecord> datums{prospective}; const std::vector<ShapeRecord> shapes;
+  const Json definition={{"type","midpoint"},{"first",{{"type","datum"},{"featureId","shared"}}},{"second",point(20,0,0)}};
+  DatumRecord result; std::string error;
+  ASSERT_TRUE(ResolveDatumDefinition(DatumKind::Point,definition.dump(),DatumSourceRecords{datums,shapes},&result,&error)) << error;
+  EXPECT_DOUBLE_EQ(result.positionMm[0],15);
+  DatumRecord stillLive; ASSERT_TRUE(DatumStore::instance().get("shared",&stillLive)); EXPECT_DOUBLE_EQ(stillLive.positionMm[0],999);
+  const std::vector<DatumRecord> empty;
+  EXPECT_FALSE(ResolveDatumDefinition(DatumKind::Point,definition.dump(),DatumSourceRecords{empty,shapes},&result,&error));
+}
+#if KREODA_WITH_OCCT
+TEST(Datum, ProspectiveOcctFacesUseTheIncomingGeometryOnly) {
+  DocumentStore::instance().create("prospective-faces"); std::string error;
+  ASSERT_TRUE(CreateBoxFeature("shared-box",100,50,20,&error)) << error;
+  ShapeRecord incoming; incoming.featureId="shared-box"; incoming.type="Box";
+  ASSERT_TRUE(BuildBoxShape(100,50,50,&incoming.shape,&error)) << error;
+  const std::vector<ShapeRecord> shapes{incoming}; const std::vector<DatumRecord> datums;
+  DatumRecord result;
+  ASSERT_TRUE(ResolveDatumDefinition(DatumKind::Plane,Json{{"type","offset"},{"base",{{"type","face"},{"featureId","shared-box"},{"persistentFaceId","shared-box:box.+Z"}}},{"offsetMm",2}}.dump(),DatumSourceRecords{datums,shapes},&result,&error)) << error;
+  EXPECT_NEAR(result.plane.origin[2],52,1e-12);
+  ShapeRecord stillLive; ASSERT_TRUE(ShapeStore::instance().get("shared-box",&stillLive)); EXPECT_NEAR(stillLive.bboxMm[5],20,1e-6);
+}
+#endif
+
+#include "features/datum/datum_json.h"
+TEST(DatumPersistence, DefinitionsResolveInDependencyOrderWithoutCachedGeometry) {
+  auto parent=resolve(DatumKind::Point,point(10,20,30)); parent.featureId="parent";
+  DatumStore::instance().put(parent);
+  auto child=resolve(DatumKind::Point,Json{{"type","midpoint"},{"first",{{"type","datum"},{"featureId","parent"}}},{"second",point(30,40,50)}}); child.featureId="child";
+  parent.positionMm[0]=999; // Persistence must derive from definition, not stale geometry.
+  std::vector<DatumRecord> out; std::string error;
+  ASSERT_TRUE(ParseDatumDefinitions({SerializeDatumDefinition(child),SerializeDatumDefinition(parent)},{},{},&out,&error)) << error;
+  ASSERT_EQ(out.size(),2u); EXPECT_EQ(out[0].featureId,"parent"); EXPECT_EQ(out[1].featureId,"child");
+  EXPECT_DOUBLE_EQ(out[0].positionMm[0],10); EXPECT_DOUBLE_EQ(out[1].positionMm[0],20);
+  EXPECT_EQ(out[1].dependsOn,(std::vector<std::string>{"parent"}));
+}
+TEST(DatumPersistence, MissingDuplicateCyclicAndMalformedDefinitionsAreAtomic) {
+  std::vector<DatumRecord> accepted(1); accepted[0].featureId="keep"; std::string error;
+  const auto record=[](const std::string& id,const std::string& source) {
+    return Json{{"version",1},{"featureId",id},{"kind","DatumPoint"},{"definition",{{"type","midpoint"},{"first",{{"type","datum"},{"featureId",source}}},{"second",point(0,0,0)}}}}.dump();
+  };
+  for(const auto& records:std::vector<std::vector<std::string>>{{record("a","missing")},{record("a","b"),record("b","a")},{record("a","b"),record("a","b")},{"{bad"}}) {
+    EXPECT_FALSE(ParseDatumDefinitions(records,{},{},&accepted,&error)); EXPECT_FALSE(error.empty());
+    ASSERT_EQ(accepted.size(),1u); EXPECT_EQ(accepted[0].featureId,"keep");
+  }
+}
+
+#if KREODA_WITH_OCCT
+#include "persistence/ocaf_live.h"
+#include <filesystem>
+#include <chrono>
+namespace {
+std::filesystem::path datumFile(const char* label) {
+  return std::filesystem::temp_directory_path()/(std::string("kreoda-datum-")+label+"-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".xbf");
+}
+}
+TEST(DatumPersistence, ActualOcafRoundTripAndUndoRetainDefinitionsAndSources) {
+  DocumentStore::instance().create("datum-roundtrip"); DatumStore::instance().clear();
+  auto parent=resolve(DatumKind::Point,point(10,20,30)); parent.featureId="parent"; DatumStore::instance().put(parent);
+  auto child=resolve(DatumKind::Point,Json{{"type","midpoint"},{"first",{{"type","datum"},{"featureId","parent"}}},{"second",point(30,40,50)}}); child.featureId="child";
+  auto& ocaf=OcafLive::instance(); std::string error; ASSERT_TRUE(ocaf.BeginCommand(&error)) << error;
+  ASSERT_TRUE(ocaf.UpsertDatum(parent.featureId,SerializeDatumDefinition(parent),&error)) << error;
+  ASSERT_TRUE(ocaf.UpsertDatum(child.featureId,SerializeDatumDefinition(child),&error)) << error;
+  bool delta=false; ASSERT_TRUE(ocaf.CommitCommand(&delta,&error)) << error; ASSERT_TRUE(delta);
+  ASSERT_TRUE(ocaf.ResyncStore(&error)) << error;
+  DatumRecord loaded; ASSERT_TRUE(DatumStore::instance().get("child",&loaded)); EXPECT_DOUBLE_EQ(loaded.positionMm[0],20);
+  EXPECT_EQ(loaded.dependsOn,(std::vector<std::string>{"parent"})); EXPECT_TRUE(ShapeStore::instance().listInOrder().empty());
+  ASSERT_TRUE(ocaf.Undo(&error)); ASSERT_TRUE(ocaf.ResyncStore(&error)) << error; EXPECT_TRUE(DatumStore::instance().listInOrder().empty());
+  ASSERT_TRUE(ocaf.Redo(&error)); ASSERT_TRUE(ocaf.ResyncStore(&error)) << error; ASSERT_TRUE(DatumStore::instance().get("child",&loaded));
+  const auto file=datumFile("roundtrip"); ASSERT_TRUE(ocaf.Save(file.string(),&error)) << error;
+  DocumentStore::instance().create("datum-cleared"); EXPECT_TRUE(DatumStore::instance().listInOrder().empty());
+  std::vector<ShapeRecord> shapes; ASSERT_TRUE(ocaf.Load(file.string(),&shapes,&error)) << error; ASSERT_TRUE(ocaf.ResyncStore(&error)) << error;
+  ASSERT_TRUE(DatumStore::instance().get("child",&loaded)); EXPECT_DOUBLE_EQ(loaded.positionMm[0],20); EXPECT_DOUBLE_EQ(loaded.positionMm[1],30);
+  EXPECT_EQ(DocumentStore::instance().snapshotRegistry().at("child"),"DatumPoint");
+  ASSERT_TRUE(ocaf.BeginCommand(&error)); ASSERT_TRUE(ocaf.RemoveFeature("child",&error)) << error; ASSERT_TRUE(ocaf.CommitCommand(nullptr,&error)); ASSERT_TRUE(ocaf.ResyncStore(&error));
+  EXPECT_FALSE(DatumStore::instance().contains("child")); EXPECT_TRUE(DatumStore::instance().contains("parent"));
+  ASSERT_TRUE(ocaf.Undo(&error)); ASSERT_TRUE(ocaf.ResyncStore(&error)); EXPECT_TRUE(DatumStore::instance().contains("child"));
+  std::error_code ec; std::filesystem::remove(file,ec);
+}
+TEST(DatumPersistence, BadIncomingSourcesRejectBeforeReplacingTheLiveDocument) {
+  auto& ocaf=OcafLive::instance(); std::string error; DocumentStore::instance().create("bad-datum-file");
+  const auto file=datumFile("bad"); ASSERT_TRUE(ocaf.BeginCommand(&error));
+  const auto invalid=Json{{"version",1},{"featureId","broken"},{"kind","DatumPlane"},{"definition",{{"type","offset"},{"base",{{"type","datum"},{"featureId","missing"}}},{"offsetMm",1}}}}.dump();
+  ASSERT_TRUE(ocaf.UpsertDatum("broken",invalid,&error)) << error; ASSERT_TRUE(ocaf.CommitCommand(nullptr,&error)); ASSERT_TRUE(ocaf.Save(file.string(),&error));
+  DocumentStore::instance().create("healthy-datum"); auto pointRecord=resolve(DatumKind::Point,point(4,5,6)); pointRecord.featureId="healthy";
+  ASSERT_TRUE(ocaf.BeginCommand(&error)); ASSERT_TRUE(ocaf.UpsertDatum("healthy",SerializeDatumDefinition(pointRecord),&error)); ASSERT_TRUE(ocaf.CommitCommand(nullptr,&error)); ASSERT_TRUE(ocaf.ResyncStore(&error));
+  const auto undos=ocaf.AvailableUndos(); const auto registry=DocumentStore::instance().snapshotRegistry(); const auto revision=DocumentStore::instance().snapshotRevision();
+  std::vector<ShapeRecord> shapes; EXPECT_FALSE(ocaf.Load(file.string(),&shapes,&error)); EXPECT_NE(error.find("missing"),std::string::npos) << error;
+  DatumRecord stillHealthy; ASSERT_TRUE(DatumStore::instance().get("healthy",&stillHealthy)); EXPECT_DOUBLE_EQ(stillHealthy.positionMm[0],4);
+  EXPECT_EQ(ocaf.AvailableUndos(),undos); EXPECT_EQ(DocumentStore::instance().snapshotRegistry(),registry); EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);
+  std::error_code ec; std::filesystem::remove(file,ec);
+}
+#endif
+
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+#include "protocol/dispatcher.h"
+#include "rpc_text.h"
+#include "model/feature_graph.h"
+TEST(DatumPersistence, ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable) {
+  DocumentStore::instance().create("datum-icad"); auto& ocaf=OcafLive::instance(); std::string error;
+  auto record=resolve(DatumKind::Point,point(10,20,30)); record.featureId="saved-point";
+  ASSERT_TRUE(ocaf.BeginCommand(&error)); ASSERT_TRUE(ocaf.UpsertDatum(record.featureId,SerializeDatumDefinition(record),&error)); ASSERT_TRUE(ocaf.CommitCommand(nullptr,&error)); ASSERT_TRUE(ocaf.ResyncStore(&error));
+  auto file=datumFile("rpc"); file.replace_extension(".icad");
+  auto request=[&](int type){return Json{{"protocolVersion",1},{"requestId","datum-rpc"},{"documentId","datum-icad"},{"type",type},{"path",file.generic_string()}}.dump();};
+  ASSERT_NE(kreoda_test::rpcText(request(10)).find("\"status\":\"ok\""),std::string::npos);
+  DocumentStore::instance().create("datum-icad");
+  ASSERT_NE(kreoda_test::rpcText(request(11)).find("\"status\":\"ok\""),std::string::npos);
+  DatumRecord loaded; ASSERT_TRUE(DatumStore::instance().get("saved-point",&loaded)); EXPECT_DOUBLE_EQ(loaded.positionMm[0],10);
+  EXPECT_TRUE(TheFeatureGraph().hasFeature("saved-point"));
+  record=resolve(DatumKind::Point,point(99,20,30)); record.featureId="saved-point";
+  ASSERT_TRUE(ocaf.BeginCommand(&error)); ASSERT_TRUE(ocaf.UpsertDatum(record.featureId,SerializeDatumDefinition(record),&error)); ASSERT_TRUE(ocaf.CommitCommand(nullptr,&error)); ASSERT_TRUE(ocaf.ResyncStore(&error)) << error;
+  ASSERT_TRUE(DatumStore::instance().get("saved-point",&loaded)); EXPECT_DOUBLE_EQ(loaded.positionMm[0],99);
+  ASSERT_TRUE(ocaf.Undo(&error)); ASSERT_TRUE(ocaf.ResyncStore(&error)); ASSERT_TRUE(DatumStore::instance().get("saved-point",&loaded)); EXPECT_DOUBLE_EQ(loaded.positionMm[0],10);
+  std::error_code ec; std::filesystem::remove(file,ec);
+}
+#endif

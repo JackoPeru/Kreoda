@@ -48,31 +48,41 @@ void dependency(const std::string& id, DatumRecord& out) {
   if(id==out.featureId&&!id.empty()) fail("datum cannot reference itself");
   if(std::find(out.dependsOn.begin(),out.dependsOn.end(),id)==out.dependsOn.end()) out.dependsOn.push_back(id);
 }
-DatumRecord datum(const Json& ref, DatumKind kind, DatumRecord& out) {
+bool storedShape(const std::string& id, const DatumSourceRecords* sources, ShapeRecord* out) {
+  if(!sources) return ShapeStore::instance().get(id,out);
+  int count=0; for(const auto& record:sources->shapes) if(record.featureId==id) { *out=record; ++count; }
+  if(count>1) fail("incoming native source is ambiguous: "+id); return count==1;
+}
+bool storedDatum(const std::string& id, const DatumSourceRecords* sources, DatumRecord* out) {
+  if(!sources) return DatumStore::instance().get(id,out);
+  int count=0; for(const auto& record:sources->datums) if(record.featureId==id) { *out=record; ++count; }
+  if(count>1) fail("incoming datum source is ambiguous: "+id); return count==1;
+}
+DatumRecord datum(const Json& ref, DatumKind kind, DatumRecord& out, const DatumSourceRecords* sources) {
   const auto id=text(ref,"featureId"); dependency(id,out); DatumRecord source;
-  if(!DatumStore::instance().get(id,&source)) fail("missing datum source "+id);
+  if(!storedDatum(id,sources,&source)) fail("missing datum source "+id);
   if(source.kind!=kind) fail("datum source has the wrong kind: "+id);
   if(source.status!="ok") fail("broken datum source "+id+": "+source.error);
   return source;
 }
-V pointRef(const Json& ref, DatumRecord& out) {
+V pointRef(const Json& ref, DatumRecord& out, const DatumSourceRecords* sources) {
   const auto type=text(ref,"type");
   if(type=="coordinates") return coordinates(ref);
-  if(type=="datum") return finite(vec(datum(ref,DatumKind::Point,out).positionMm));
+  if(type=="datum") return finite(vec(datum(ref,DatumKind::Point,out,sources).positionMm));
   fail("unsupported point reference type "+type);
 }
 SketchPlane principal(const Json& ref) {
   const auto kind=text(ref,"planeKind"); if(kind!="XY"&&kind!="XZ"&&kind!="YZ") fail("planeKind must be XY|XZ|YZ"); return PrincipalPlane(kind);
 }
-SketchPlane planeRef(const Json& ref, DatumRecord& out) {
+SketchPlane planeRef(const Json& ref, DatumRecord& out, const DatumSourceRecords* sources) {
   const auto type=text(ref,"type");
   SketchPlane p;
   if(type=="principal") p=principal(ref);
-  else if(type=="datum") p=datum(ref,DatumKind::Plane,out).plane;
+  else if(type=="datum") p=datum(ref,DatumKind::Plane,out,sources).plane;
   else if(type=="face") {
 #if KREODA_WITH_OCCT
     const auto id=text(ref,"featureId"), role=text(ref,"persistentFaceId"); dependency(id,out); ShapeRecord shape;
-    if(!ShapeStore::instance().get(id,&shape)||shape.shape.IsNull()) fail("missing native face owner "+id);
+    if(!storedShape(id,sources,&shape)||shape.shape.IsNull()) fail("missing native face owner "+id);
     if(HasIndexedTopologyRole(role)) fail("indexed face source is not persistent");
     const auto full=role.find(':')==std::string::npos?id+":"+role:role;
     const auto roles=ClassifyFaceRoles(shape.shape,shape.type,id);
@@ -87,17 +97,17 @@ SketchPlane planeRef(const Json& ref, DatumRecord& out) {
   std::string error; if(!ValidateSketchPlane(p,&error)) fail(error); return p;
 }
 struct Axis { V origin, direction; };
-Axis axisRef(const Json& ref, DatumRecord& out) {
+Axis axisRef(const Json& ref, DatumRecord& out, const DatumSourceRecords* sources) {
   const auto type=text(ref,"type");
   Axis axis{{0,0,0},{0,0,0}};
   if(type=="principal") {
     const auto a=text(ref,"axis"); if(a=="X") axis.direction[0]=1; else if(a=="Y") axis.direction[1]=1; else if(a=="Z") axis.direction[2]=1; else fail("axis must be X|Y|Z");
   } else if(type=="datum") {
-    const auto d=datum(ref,DatumKind::Axis,out); axis={vec(d.originMm),vec(d.direction)};
+    const auto d=datum(ref,DatumKind::Axis,out,sources); axis={vec(d.originMm),vec(d.direction)};
   } else if(type=="edge") {
 #if KREODA_WITH_OCCT
     const auto id=text(ref,"featureId"), role=text(ref,"persistentEdgeId"); dependency(id,out); ShapeRecord shape;
-    if(!ShapeStore::instance().get(id,&shape)||shape.shape.IsNull()) fail("missing native edge owner "+id);
+    if(!storedShape(id,sources,&shape)||shape.shape.IsNull()) fail("missing native edge owner "+id);
     if(HasIndexedTopologyRole(role)) fail("indexed edge source is not persistent");
     const auto full=role.find(':')==std::string::npos?id+":"+role:role;
     TopoDS_Edge edge; int matches=0;
@@ -115,8 +125,8 @@ V rotate(V v, V axis, double radians) {
   const auto c=std::cos(radians), s=std::sin(radians); return add(add(mul(v,c),mul(cross(axis,v),s)),mul(axis,dot(axis,v)*(1-c)));
 }
 }
-bool ResolveDatumDefinition(DatumKind kind, const std::string& definitionJson,
-                            DatumRecord* out, std::string* error) {
+static bool ResolveDatumDefinitionImpl(DatumKind kind, const std::string& definitionJson,
+                            DatumRecord* out, std::string* error, const DatumSourceRecords* sources) {
   if(!out) { if(error) *error="datum output is required"; return false; }
   try {
     if(definitionJson.size()>65536) fail("datum definition too large");
@@ -126,32 +136,32 @@ bool ResolveDatumDefinition(DatumKind kind, const std::string& definitionJson,
     if(kind==DatumKind::Point) {
       V p;
       if(type=="coordinates") p=coordinates(def);
-      else if(type=="midpoint") { const auto a=pointRef(def.at("first"),result),b=pointRef(def.at("second"),result); p=mul(add(a,b),.5); }
+      else if(type=="midpoint") { const auto a=pointRef(def.at("first"),result,sources),b=pointRef(def.at("second"),result,sources); p=mul(add(a,b),.5); }
       else fail("unsupported point definition type "+type);
       put(finite(p),result.positionMm);
     } else if(kind==DatumKind::Plane) {
       SketchPlane p;
       if(type=="principal") p=principal(def);
-      else if(type=="offset") { p=planeRef(def.at("base"),result); put(add(vec(p.origin),mul(vec(p.normal),number(def,"offsetMm"))),p.origin); }
+      else if(type=="offset") { p=planeRef(def.at("base"),result,sources); put(add(vec(p.origin),mul(vec(p.normal),number(def,"offsetMm"))),p.origin); }
       else if(type=="mid") {
-        p=planeRef(def.at("first"),result); const auto second=planeRef(def.at("second"),result);
+        p=planeRef(def.at("first"),result,sources); const auto second=planeRef(def.at("second"),result,sources);
         if(length(cross(vec(p.normal),vec(second.normal)))>kParallelTolerance) fail("midplane sources must be parallel");
         put(add(vec(p.origin),mul(vec(p.normal),dot(vec(p.normal),sub(vec(second.origin),vec(p.origin)))*.5)),p.origin);
       } else if(type=="angle") {
-        p=planeRef(def.at("base"),result); const auto axis=axisRef(def.at("axis"),result); const auto radians=number(def,"angleDeg",360)*std::acos(-1.0)/180;
+        p=planeRef(def.at("base"),result,sources); const auto axis=axisRef(def.at("axis"),result,sources); const auto radians=number(def,"angleDeg",360)*std::acos(-1.0)/180;
         put(add(axis.origin,rotate(sub(vec(p.origin),axis.origin),axis.direction,radians)),p.origin);
         put(rotate(vec(p.xAxis),axis.direction,radians),p.xAxis); put(rotate(vec(p.yAxis),axis.direction,radians),p.yAxis); put(rotate(vec(p.normal),axis.direction,radians),p.normal);
       } else if(type=="threePoint") {
-        const auto a=pointRef(def.at("first"),result),b=pointRef(def.at("second"),result),c=pointRef(def.at("third"),result);
+        const auto a=pointRef(def.at("first"),result,sources),b=pointRef(def.at("second"),result,sources),c=pointRef(def.at("third"),result,sources);
         const auto x=unit(sub(b,a),kPointTolerance),n=unit(cross(x,sub(c,a)),kPointTolerance); put(a,p.origin); put(x,p.xAxis); put(n,p.normal); put(cross(n,x),p.yAxis);
       } else fail("unsupported plane definition type "+type);
       std::string planeError; if(!ValidateSketchPlane(p,&planeError)) fail(planeError); result.plane=p;
     } else if(kind==DatumKind::Axis) {
       Axis axis;
-      if(type=="twoPoint") { axis.origin=pointRef(def.at("first"),result); axis.direction=unit(sub(pointRef(def.at("second"),result),axis.origin),kPointTolerance); }
-      else if(type=="planeNormal") { const auto p=planeRef(def.at("plane"),result); axis.direction=vec(p.normal); axis.origin=def.contains("through")?pointRef(def.at("through"),result):vec(p.origin); }
+      if(type=="twoPoint") { axis.origin=pointRef(def.at("first"),result,sources); axis.direction=unit(sub(pointRef(def.at("second"),result,sources),axis.origin),kPointTolerance); }
+      else if(type=="planeNormal") { const auto p=planeRef(def.at("plane"),result,sources); axis.direction=vec(p.normal); axis.origin=def.contains("through")?pointRef(def.at("through"),result,sources):vec(p.origin); }
       else if(type=="planeIntersection") {
-        const auto a=planeRef(def.at("first"),result),b=planeRef(def.at("second"),result); const auto n1=vec(a.normal),n2=vec(b.normal),n=cross(n1,n2);
+        const auto a=planeRef(def.at("first"),result,sources),b=planeRef(def.at("second"),result,sources); const auto n1=vec(a.normal),n2=vec(b.normal),n=cross(n1,n2);
         const auto size=length(n); if(size<=kParallelTolerance) fail("intersection planes are parallel");
         const auto d1=dot(n1,vec(a.origin)),d2=dot(n2,vec(b.origin)); axis.origin=mul(cross(sub(mul(n2,d1),mul(n1,d2)),n),1/(size*size)); axis.direction=mul(n,1/size);
       } else fail("unsupported axis definition type "+type);
@@ -164,4 +174,9 @@ bool ResolveDatumDefinition(DatumKind kind, const std::string& definitionJson,
   } catch(const std::exception& failure) { if(error) *error=std::string("datum definition: ")+failure.what(); return false; }
 }
 
+}
+
+namespace kreoda {
+bool ResolveDatumDefinition(DatumKind kind, const std::string& definitionJson, DatumRecord* out, std::string* error) { return ResolveDatumDefinitionImpl(kind,definitionJson,out,error,nullptr); }
+bool ResolveDatumDefinition(DatumKind kind, const std::string& definitionJson, const DatumSourceRecords& sources, DatumRecord* out, std::string* error) { return ResolveDatumDefinitionImpl(kind,definitionJson,out,error,&sources); }
 }

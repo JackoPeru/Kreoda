@@ -4,8 +4,12 @@
 #include <string>
 #include <vector>
 #include "../sketch/sketch_store.h"
+#include "../../model/shapes.h"
 namespace kreoda {
 enum class DatumKind { Plane, Axis, Point };
+inline const char* DatumTypeName(DatumKind kind) {
+  return kind == DatumKind::Plane ? "DatumPlane" : kind == DatumKind::Axis ? "DatumAxis" : "DatumPoint";
+}
 struct DatumRecord {
   std::string featureId;
   DatumKind kind = DatumKind::Plane;
@@ -32,7 +36,14 @@ class DatumStore {
   std::map<std::string, DatumRecord> records_;
   std::vector<std::string> order_;
 };
+struct DatumSourceRecords {
+  const std::vector<DatumRecord>& datums;
+  const std::vector<ShapeRecord>& shapes;
+};
 // Definitions and source refs use the discriminant "type". No state mutation.
 bool ResolveDatumDefinition(DatumKind kind, const std::string& definitionJson,
+                            DatumRecord* out, std::string* error);
+bool ResolveDatumDefinition(DatumKind kind, const std::string& definitionJson,
+                            const DatumSourceRecords& sources,
                             DatumRecord* out, std::string* error);
 }
