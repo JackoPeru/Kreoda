@@ -1,0 +1,32 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.FailedSourceSketch*
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames
+C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_datum.cpp(379): error: The difference between after.plane.origin[0] and 10 is 10, which exceeds 1e-6, where
+after.plane.origin[0] evaluates to 20,
+10 evaluates to 10, and
+1e-6 evaluates to 9.9999999999999995e-07.
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_datum.cpp(381): error: Expected equality of these values:
+  SerializeSketchFeature(supported)
+    Which is: "{\"id\":\"b-supported\",\"planeKind\":\"Datum\",\"plane\":{\"origin\":[20,0,0],\"xAxis\":[0,1,0],\"yAxis\":[0,-0,1],\"normal\":[1,-0,-0]},\"supportRef\":\"a-support\",\"model\":{\"points\":[{\"id\":\"p0\",\"x\":0,\"y\":0,\"fixed\":false},{\"id\":\"p1\",\"x\":10,\"y\":0,\"fixed\":false},{\"id\":\"p2\",\"x\":10,\"y\":5,\"fixed\":false},{\"id\":\"p3\",\"x\":0,\"y\":5,\"fixed\":false}],\"lines\":[{\"id\":\"l0\",\"p1\":\"p0\",\"p2\":\"p1\"},{\"id\":\"l1\",\"p1\":\"p1\",\"p2\":\"p2\"},{\"id\":\"l2\",\"p1\":\"p2\",\"p2\":\"p3\"},{\"id\":\"l3\",\"p1\":\"p3\",\"p2\":\"p0\"}],\"circles\":[],\"arcs\":[],\"constraints\":[{\"id\":\"h0\",\"kind\":\"horizontal\",\"refs\":[\"l0\"],\"value\":0},{\"id\":\"h2\",\"kind\":\"horizontal\",\"refs\":[\"l2\"],\"value\":0},{\"id\":\"v1\",\"kind\":\"vertical\",\"refs\":[\"l1\"],\"value\":0},{\"id\":\"v3\",\"kind\":\"vertical\",\"refs\":[\"l3\"],\"value\":0},{\"id\":\"w\",\"kind\":\"distance\",\"refs\":[\"p0\",\"p1\"],\"value\":10},{\"id\":\"h\",\"kind\":\"distance\",\"refs\":[\"p1\",\"p2\"],\"value\":5}]}}"
+  SerializeSketchFeature(originalSupported)
+    Which is: "{\"id\":\"b-supported\",\"planeKind\":\"Datum\",\"plane\":{\"origin\":[10,0,0],\"xAxis\":[0,1,0],\"yAxis\":[0,-0,1],\"normal\":[1,-0,-0]},\"supportRef\":\"a-support\",\"model\":{\"points\":[{\"id\":\"p0\",\"x\":0,\"y\":0,\"fixed\":false},{\"id\":\"p1\",\"x\":10,\"y\":0,\"fixed\":false},{\"id\":\"p2\",\"x\":10,\"y\":5,\"fixed\":false},{\"id\":\"p3\",\"x\":0,\"y\":5,\"fixed\":false}],\"lines\":[{\"id\":\"l0\",\"p1\":\"p0\",\"p2\":\"p1\"},{\"id\":\"l1\",\"p1\":\"p1\",\"p2\":\"p2\"},{\"id\":\"l2\",\"p1\":\"p2\",\"p2\":\"p3\"},{\"id\":\"l3\",\"p1\":\"p3\",\"p2\":\"p0\"}],\"circles\":[],\"arcs\":[],\"constraints\":[{\"id\":\"h0\",\"kind\":\"horizontal\",\"refs\":[\"l0\"],\"value\":0},{\"id\":\"h2\",\"kind\":\"horizontal\",\"refs\":[\"l2\"],\"value\":0},{\"id\":\"v1\",\"kind\":\"vertical\",\"refs\":[\"l1\"],\"value\":0},{\"id\":\"v3\",\"kind\":\"vertical\",\"refs\":[\"l3\"],\"value\":0},{\"id\":\"w\",\"kind\":\"distance\",\"refs\":[\"p0\",\"p1\"],\"value\":10},{\"id\":\"h\",\"kind\":\"distance\",\"refs\":[\"p1\",\"p2\"],\"value\":5}]}}"
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_datum.cpp(384): error: Value of: TheFeatureGraph().isGeometryDirty(id)
+  Actual: true
+Expected: false
+z-overlap
+
+[  FAILED  ] DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames (32 ms)
+[----------] 1 test from DatumCommands (32 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (32 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames
+
+ 1 FAILED TEST

@@ -6,6 +6,7 @@
 #include "../../model/body.h"
 #include "../../model/commit.h"
 #include "../../model/feature_graph.h"
+#include "../../model/model_snapshot.h"
 #include "../../features/evaluate.h"
 #include "../../persistence/ocaf_live.h"
 #include <exception>
@@ -41,23 +42,6 @@ bool SetDatumParameter(const std::string& id,const std::string& name,double valu
   } catch(const std::exception& exception) {if(error)*error=exception.what();return false;}
 }
 namespace {
-struct ModelSnapshot {
-  std::vector<ShapeRecord> shapes=ShapeStore::instance().listInOrder();
-  std::vector<SketchFeature> sketches=SketchStore::instance().listInOrder();
-  std::vector<DatumRecord> datums=DatumStore::instance().listInOrder();
-  std::vector<BodyRecord> bodies=BodyStore::instance().bodies();
-  FeatureGraph graph=TheFeatureGraph();
-  std::map<std::string,std::string> registry=DocumentStore::instance().snapshotRegistry();
-  std::string documentId=DocumentStore::instance().snapshotDocumentId();
-  int64_t revision=DocumentStore::instance().snapshotRevision();
-  void restore() const {
-    ShapeStore::instance().clear();for(const auto& record:shapes)ShapeStore::instance().put(record);
-    SketchStore::instance().clear();for(const auto& record:sketches)SketchStore::instance().put(record);
-    DatumStore::instance().clear();for(const auto& record:datums)DatumStore::instance().put(record);
-    BodyStore::instance().replaceAll(bodies);TheFeatureGraph()=graph;
-    DocumentStore::instance().restoreSnapshot(documentId,revision,registry);
-  }
-};
 bool stage(const DatumRecord& next,DatumRecord* resolved,std::string* error) {
   auto datums=DatumStore::instance().listInOrder(); bool replaced=false;
   for(auto& record:datums)if(record.featureId==next.featureId){record=next;replaced=true;}

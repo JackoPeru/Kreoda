@@ -11,6 +11,7 @@
 #include "model/body.h"
 #include "model/commit.h"
 #include "model/feature_graph.h"
+#include "model/model_snapshot.h"
 #include "model/shapes.h"
 #include "features/extrusion/extrude.h"
 #include "features/booleans/boolean.h"
@@ -504,13 +505,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
   // DAG recompute (§53): stage new params, mark the closure dirty, rebuild
   // in topological order inside ONE OCAF command (one Undo step, §12).
   // Snapshot first (pre-images for rollback); params staged after.
-  const auto graphSnap=TheFeatureGraph();
-  const auto datumSnap=DatumStore::instance().listInOrder();
-  const auto sketchSnap=SketchStore::instance().listInOrder();
-  const auto expressionSnap=ExpressionStore::instance().listInOrder();
-  const auto registrySnap=DocumentStore::instance().snapshotRegistry();
-  const auto revisionSnap=DocumentStore::instance().snapshotRevision();
-  const auto documentIdSnap=DocumentStore::instance().snapshotDocumentId();
+  const ModelSnapshot before;
   // Defensive: features adopted via open/undo always have graph nodes, but a
   // missing node must never silently skip the rebuild.
   if (!TheFeatureGraph().hasFeature(featureId)) {
@@ -518,23 +513,6 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     TheFeatureGraph().clearDirty(featureId);
   }
   TheFeatureGraph().markDirty(featureId);
-  // C1: snapshot the WHOLE store before any mutation (expression dependents
-  // are not geometry-dirty yet, and EvaluateAll is now two-phase but the
-  // staged bare-value put below still needs a full pre-image).
-  const auto shapeSnap=ShapeStore::instance().listInOrder();
-  // Slice 3: tip stays at last good on failure — restore alongside shapes.
-  const std::vector<BodyRecord> bodySnap = BodyStore::instance().bodies();
-  // Resync rebuilds OCAF maps, but may omit consumed solids from its list.
-  // Restore exact model pre-images after it so failed edits lose no nodes.
-  const auto restoreModel=[&]() {
-    ShapeStore::instance().clear();for(const auto& record:shapeSnap)ShapeStore::instance().put(record);
-    DatumStore::instance().clear();for(const auto& record:datumSnap)DatumStore::instance().put(record);
-    SketchStore::instance().clear();for(const auto& record:sketchSnap)SketchStore::instance().put(record);
-    BodyStore::instance().replaceAll(bodySnap);
-    ExpressionStore::instance().clear();for(const auto& entry:expressionSnap)ExpressionStore::instance().set(entry.featureId,entry.paramName,entry.expression);
-    TheFeatureGraph()=graphSnap;
-    DocumentStore::instance().restoreSnapshot(documentIdSnap,revisionSnap,registrySnap);
-  };
   // A bare edit replaces this parameter's formula; unrelated formulas stay.
   // Formula values land via the fixpoint below. Both paths share rollback.
   ExpressionStore::instance().set(featureId, paramName, expression);
@@ -544,7 +522,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     ShapeStore::instance().put(rec);
   }
   if (!OcafLive::instance().BeginCommand(error)) {
-    restoreModel();
+    before.restore();
     return false;
   }
   // Mirror the formula (or its continuity) inside the command, then run the
@@ -556,7 +534,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
       // C7: aborted NewChild/AddShape labels are undone by OCAF but the
       // label maps still point at them — rebuild maps from the live doc.
       { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
-      restoreModel();
+      before.restore();
       if (error) *error = exprErr;
       return false;
     }
@@ -567,7 +545,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     if (!EvaluateAllExpressions(&exprChanged, &evalErr)) {
       OcafLive::instance().AbortCommand();
       { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
-      restoreModel();
+      before.restore();
       if (error) *error = evalErr;
       return false;
     }
@@ -583,7 +561,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
   if (!report.ok) {
     OcafLive::instance().AbortCommand();
     { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
-    restoreModel();
+    before.restore();
     if (error) *error = report.firstError;
     return false;
   }

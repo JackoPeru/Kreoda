@@ -41,6 +41,10 @@ void DocumentStore::registerFeature(const std::string& featureId,
                                     const std::string& type) {
   std::lock_guard<std::mutex> lock(mutex_);
   features_[featureId] = type;
+#if KREODA_WITH_OCCT
+  // Joined operations are provisional; CommitTransaction owns one revision.
+  if (OcafLive::instance().InTransaction()) return;
+#endif
   ++revision_;
 }
 

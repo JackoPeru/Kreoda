@@ -1545,7 +1545,7 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
                                  body.str());
       }
       SyncGraphFromStore();
-      DocumentStore::instance().commit();
+      if(hadDelta)DocumentStore::instance().commit();
       std::ostringstream body;
       body << "\"transactionId\":\"" << escape(tid) << "\","
            << feature_list_body();

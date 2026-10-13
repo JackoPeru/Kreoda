@@ -8,6 +8,7 @@
 #include "features/sketch/sketch_json.h"
 #include "model/body.h"
 #include "model/feature_graph.h"
+#include "model/model_snapshot.h"
 #include "model/shapes.h"
 #include "model/commit.h"
 #include "features/datum/datum_store.h"
@@ -253,28 +254,21 @@ bool UpdateSketchFeature(const std::string& sketchId,
     if (it != r.radii.end()) a.r = it->second;
   }
 #if KREODA_WITH_OCCT
-  // Snapshot the dirty closure (sketch + dependent solids) for rollback.
+  const ModelSnapshot before;
   if (!TheFeatureGraph().hasFeature(sketchId)) {
     TheFeatureGraph().addFeature(sketchId, prev.supportRef.empty() ? std::vector<std::string>{} : std::vector<std::string>{prev.supportRef});
     TheFeatureGraph().clearDirty(sketchId);
   }
   TheFeatureGraph().markDirty(sketchId);
-  std::map<std::string, ShapeRecord> shapeSnap;
-  for (const auto& s : ShapeStore::instance().listInOrder()) {
-    if (TheFeatureGraph().isGeometryDirty(s.featureId)) shapeSnap[s.featureId] = s;
-  }
-  // Slice 3: tip stays at last good on downstream failure.
-  const std::vector<BodyRecord> bodySnap = BodyStore::instance().bodies();
-  std::map<std::string, SketchFeature> sketchSnap{{sketchId, prev}};
   SketchStore::instance().put(next);
   if (!OcafLive::instance().BeginCommand(error)) {
-    SketchStore::instance().put(prev);
+    before.restore();
     return false;
   }
   const std::string js = SerializeSketchFeature(next);
   if (!OcafLive::instance().UpsertSketch(sketchId, js, error)) {
-    SketchStore::instance().put(prev);
     OcafLive::instance().AbortCommand();
+    before.restore();
     return false;
   }
   const auto report = TheFeatureGraph().recompute(
@@ -282,10 +276,8 @@ bool UpdateSketchFeature(const std::string& sketchId,
         return RebuildNodeFromStore(id, e);
       });
   if (!report.ok) {
-    SketchStore::instance().put(prev);
-    for (const auto& [id, s] : shapeSnap) ShapeStore::instance().put(s);
-    BodyStore::instance().replaceAll(bodySnap);
     OcafLive::instance().AbortCommand();
+    before.restore();
     if (error) *error = report.firstError;
     return false;
   }

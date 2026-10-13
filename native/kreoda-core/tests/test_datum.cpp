@@ -241,6 +241,7 @@ TEST(DatumPersistence, ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable)
 #include "features/sketch/sketch_commands.h"
 #include "features/sketch/sketch_json.h"
 #include "features/extrusion/extrude.h"
+#include "features/revolve/revolve.h"
 #include "features/booleans/boolean.h"
 #include "model/body.h"
 namespace {
@@ -360,6 +361,59 @@ TEST(DatumCommands, IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterRes
   EXPECT_EQ(std::count_if(records.begin(),records.end(),[](const auto& record){return record.featureId=="overlap";}),1);
   std::error_code ec;std::filesystem::remove(file,ec);
 }
+TEST(DatumCommands, FailedSourceSketchEditRestoresDependentDatumAndSketchFrames) {
+  DocumentStore::instance().create("datum-sketch-failure");std::string error;
+  auto sourceModel=datumRectangle();sourceModel.points[0].fixed=true;
+  ASSERT_TRUE(CreateSketchFeature("source-sketch","XY",sourceModel,&error));
+  ASSERT_TRUE(CreateExtrudeFeature("source-solid","source-sketch",7,&error));
+  ASSERT_TRUE(CreateDatumFeature("a-support",DatumKind::Plane,Json{{"type","offset"},{"base",{{"type","face"},{"featureId","source-solid"},{"persistentFaceId","source-solid:extrude.+X"}}},{"offsetMm",0}}.dump(),&error)) << error;
+  ASSERT_TRUE(CreateSketchOnDatumFeature("b-supported","a-support",datumRectangle(),&error));
+  ASSERT_TRUE(CreateExtrudeFeature("c-solid","b-supported",7,&error));
+  ASSERT_TRUE(CreateBoxFeature("clip",15,100,100,&error));
+  ASSERT_TRUE(CreateBooleanFeature("z-overlap","common","c-solid","clip",&error)) << error;
+  DatumRecord original;ASSERT_TRUE(DatumStore::instance().get("a-support",&original));EXPECT_NEAR(original.plane.origin[0],10,1e-6);
+  SketchFeature originalSupported;ASSERT_TRUE(SketchStore::instance().get("b-supported",&originalSupported));
+  const auto revision=DocumentStore::instance().snapshotRevision();const auto undos=OcafLive::instance().AvailableUndos();
+  const auto registry=DocumentStore::instance().snapshotRegistry();
+  sourceModel.points[1].x=20;sourceModel.points[2].x=20;sourceModel.constraints[4].value=20;
+  EXPECT_FALSE(UpdateSketchFeature("source-sketch",sourceModel,&error)) << error;
+  DatumRecord after;ASSERT_TRUE(DatumStore::instance().get("a-support",&after));EXPECT_NEAR(after.plane.origin[0],10,1e-6);
+  SketchFeature supported;ASSERT_TRUE(SketchStore::instance().get("b-supported",&supported));
+  EXPECT_EQ(SerializeSketchFeature(supported),SerializeSketchFeature(originalSupported));
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos);
+  EXPECT_EQ(DocumentStore::instance().snapshotRegistry(),registry);
+  for(const auto* id:{"source-sketch","source-solid","a-support","b-supported","c-solid","clip","z-overlap"})EXPECT_FALSE(TheFeatureGraph().isGeometryDirty(id)) << id;
+  sourceModel.points[1].x=11;sourceModel.points[2].x=11;sourceModel.constraints[4].value=11;
+  ASSERT_TRUE(UpdateSketchFeature("source-sketch",sourceModel,&error)) << error;
+  ASSERT_TRUE(DatumStore::instance().get("a-support",&after));EXPECT_NEAR(after.plane.origin[0],11,1e-6);
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision+1);EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos+1);
+}
+TEST(DatumCommands, OrientedDatumSupportsMeasuredRevolveUndoAndRealIcadReopen) {
+  DocumentStore::instance().create("datum-revolve");std::string error;
+  ASSERT_TRUE(CreateDatumFeature("plane",DatumKind::Plane,Json{{"type","offset"},{"base",{{"type","principal"},{"planeKind","YZ"}}},{"offsetMm",10}}.dump(),&error));
+  ASSERT_TRUE(CreateSketchOnDatumFeature("sketch","plane",datumRectangle(),&error));
+  ASSERT_TRUE(CreateRevolveFeature("revolve","sketch",360,&error)) << error;
+  const auto bounds=[&](double offset) {
+    ShapeRecord solid;ASSERT_TRUE(ShapeStore::instance().get("revolve",&solid));
+    const double expected[6]={offset-5,0,-5,offset+5,10,5};
+    for(int i=0;i<6;++i)EXPECT_NEAR(solid.bboxMm[i],expected[i],1e-6);
+    EXPECT_NEAR(solid.volumeMm3,250*std::acos(-1.0),1e-6);
+  };
+  bounds(10);const auto revision=DocumentStore::instance().snapshotRevision();const auto undos=OcafLive::instance().AvailableUndos();
+  ASSERT_TRUE(SetDatumParameter("plane","offsetMm",20,&error));bounds(20);
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision+1);EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos+1);
+  ASSERT_TRUE(OcafLive::instance().Undo(&error));ASSERT_TRUE(OcafLive::instance().ResyncStore(&error));bounds(10);
+#if KREODA_WITH_MINIZIP
+  auto file=datumFile("revolve");file.replace_extension(".icad");
+  const auto request=[&](int type){return Json{{"protocolVersion",1},{"requestId","revolve-save"},{"documentId","datum-revolve"},{"type",type},{"path",file.generic_string()}}.dump();};
+  ASSERT_EQ(Json::parse(kreoda_test::rpcText(request(10)))["status"],"ok");
+  DocumentStore::instance().create("datum-revolve");
+  ASSERT_EQ(Json::parse(kreoda_test::rpcText(request(11)))["status"],"ok");bounds(10);
+  SketchFeature sketch;ASSERT_TRUE(SketchStore::instance().get("sketch",&sketch));EXPECT_EQ(sketch.supportRef,"plane");EXPECT_EQ(sketch.planeKind,"Datum");
+  ASSERT_TRUE(SetDatumParameter("plane","offsetMm",30,&error)) << error;bounds(30);
+  std::error_code ec;std::filesystem::remove(file,ec);
+#endif
+}
 #endif
 
 #if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
@@ -441,6 +495,41 @@ TEST(DatumProtocol, JoinedEditsCommitOnceAndRollbackRestoresDefinitions) {
   EXPECT_EQ(datumRpc(35,{{"featureId","joined"}})["datum"]["resolved"]["positionMm"][0],9);
   EXPECT_EQ(DocumentStore::instance().snapshotRevision(),1);EXPECT_EQ(OcafLive::instance().AvailableUndos(),1);
   ASSERT_EQ(datumRpc(8)["status"],"ok");EXPECT_TRUE(DatumStore::instance().listInOrder().empty());
+}
+TEST(DatumProtocol, CompleteJoinedDatumSketchSolidChainHasOneRevisionAndUndo) {
+  DocumentStore::instance().create("datum-chain-transaction");
+  ASSERT_EQ(datumRpc(27,{{"transactionId","chain"}})["status"],"ok");
+  ASSERT_EQ(datumRpc(31,{{"featureId","plane"},{"definition",{{"type","offset"},{"base",xy()},{"offsetMm",10}}},{"transactionId","chain"}})["status"],"ok");
+  ASSERT_EQ(datumRpc(13,{{"featureId","sketch"},{"supportRef","plane"},{"model",Json::parse(SerializeSketchModel(datumRectangle()))},{"transactionId","chain"}})["status"],"ok");
+  ASSERT_EQ(datumRpc(15,{{"featureId","solid"},{"sketchId","sketch"},{"distanceMm",7},{"transactionId","chain"}})["status"],"ok");
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),0);EXPECT_EQ(OcafLive::instance().AvailableUndos(),0);
+  ASSERT_EQ(datumRpc(28,{{"transactionId","chain"}})["status"],"ok");
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),1);EXPECT_EQ(OcafLive::instance().AvailableUndos(),1);
+  ShapeRecord solid;ASSERT_TRUE(ShapeStore::instance().get("solid",&solid));EXPECT_NEAR(solid.bboxMm[2],10,1e-6);EXPECT_NEAR(solid.bboxMm[5],17,1e-6);EXPECT_NEAR(solid.volumeMm3,350,1e-6);
+  ASSERT_EQ(datumRpc(8)["status"],"ok");EXPECT_TRUE(DatumStore::instance().listInOrder().empty());EXPECT_TRUE(SketchStore::instance().listInOrder().empty());EXPECT_TRUE(ShapeStore::instance().listInOrder().empty());
+  ASSERT_EQ(datumRpc(9)["status"],"ok");ASSERT_TRUE(ShapeStore::instance().get("solid",&solid));EXPECT_NEAR(solid.volumeMm3,350,1e-6);
+  ASSERT_EQ(datumRpc(6,{{"featureId","plane"},{"paramName","offsetMm"},{"valueMm",20}})["status"],"ok");
+  ASSERT_TRUE(ShapeStore::instance().get("solid",&solid));EXPECT_NEAR(solid.bboxMm[2],20,1e-6);
+  const auto revision=DocumentStore::instance().snapshotRevision();const auto undos=OcafLive::instance().AvailableUndos();
+  ASSERT_EQ(datumRpc(27,{{"transactionId","empty"}})["status"],"ok");ASSERT_EQ(datumRpc(28,{{"transactionId","empty"}})["status"],"ok");
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos);
+}
+TEST(DatumProtocol, TaintedDependentFailureRollsBackEarlierJoinedCreationAndKeepsRevision) {
+  DocumentStore::instance().create("datum-tainted");std::string error;
+  ASSERT_TRUE(CreateBoxFeature("clip",100,50,30,&error));
+  ASSERT_TRUE(CreateDatumFeature("plane",DatumKind::Plane,Json{{"type","offset"},{"base",xy()},{"offsetMm",22}}.dump(),&error));
+  ASSERT_TRUE(CreateSketchOnDatumFeature("sketch","plane",datumRectangle(),&error));ASSERT_TRUE(CreateExtrudeFeature("solid","sketch",7,&error));
+  ASSERT_TRUE(CreateBooleanFeature("overlap","common","solid","clip",&error));
+  const auto revision=DocumentStore::instance().snapshotRevision();const auto undos=OcafLive::instance().AvailableUndos();const auto registry=DocumentStore::instance().snapshotRegistry();
+  ASSERT_EQ(datumRpc(27,{{"transactionId","tainted"}})["status"],"ok");
+  ASSERT_EQ(datumRpc(33,{{"featureId","temporary"},{"definition",point(1,2,3)},{"transactionId","tainted"}})["status"],"ok");
+  EXPECT_EQ(datumRpc(6,{{"featureId","plane"},{"paramName","offsetMm"},{"valueMm",100},{"transactionId","tainted"}})["status"],"error");
+  auto committed=datumRpc(28,{{"transactionId","tainted"}});EXPECT_EQ(committed["errorCode"],"TRANSACTION_TAINTED");
+  EXPECT_FALSE(DatumStore::instance().contains("temporary"));EXPECT_FALSE(TheFeatureGraph().hasFeature("temporary"));
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos);EXPECT_EQ(DocumentStore::instance().snapshotRegistry(),registry);
+  DatumRecord plane;ASSERT_TRUE(DatumStore::instance().get("plane",&plane));EXPECT_EQ(plane.plane.origin[2],22);
+  ShapeRecord solid;ASSERT_TRUE(ShapeStore::instance().get("solid",&solid));EXPECT_NEAR(solid.bboxMm[2],22,1e-6);EXPECT_NEAR(solid.volumeMm3,350,1e-6);
+  EXPECT_FALSE(OcafLive::instance().InTransaction());
 }
 TEST(DatumProtocol, NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically) {
   DocumentStore::instance().create("datum-numerics");
