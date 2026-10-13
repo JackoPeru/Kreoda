@@ -1,0 +1,92 @@
+{
+  "kernel": "8.0.1-native",
+  "viewportFramesBeforeSection": 13,
+  "viewportFramesWithSection": 2,
+  "before": {
+    "revision": 4,
+    "featureIds": [
+      "box-5e15546b-f5cf-45a4-bd70-f5a73d4b141c",
+      "ho-eb9f9994-9a97-4e8d-935a-8c005ac2433b"
+    ],
+    "volumeMm3": 119246.01776313846,
+    "solidCount": 1
+  },
+  "afterSection": {
+    "revision": 4,
+    "featureIds": [
+      "box-5e15546b-f5cf-45a4-bd70-f5a73d4b141c",
+      "ho-eb9f9994-9a97-4e8d-935a-8c005ac2433b"
+    ],
+    "volumeMm3": 119246.01776313846,
+    "solidCount": 1
+  },
+  "section": {
+    "enabled": false,
+    "plane": null,
+    "cappedBodies": 0,
+    "contourSegments": 0
+  },
+  "nativeInteriorFacePicked": "ho-eb9f9994-9a97-4e8d-935a-8c005ac2433b:wall.0",
+  "uncutSameRayHit": "ho-eb9f9994-9a97-4e8d-935a-8c005ac2433b:box.+Z",
+  "elementAtAnchorWithMoreOpen": {
+    "tag": "button",
+    "testId": "workspace-chrome",
+    "isCanvas": false
+  },
+  "elementAtAnchorWithMoreClosed": {
+    "tag": "canvas",
+    "testId": "viewport",
+    "isCanvas": true
+  },
+  "sameRayScreenClientPx": [
+    528.7449643557935,
+    503.56364201555516
+  ],
+  "anchorWorldPointMm": [
+    47.54201719495979,
+    26.846810658772824,
+    8.333333333334451
+  ],
+  "anchorNativeOutwardNormal": [
+    0.653344288849854,
+    0.7570609224014132,
+    0
+  ],
+  "sectionGeometry": {
+    "capTriangleCount": 134,
+    "capAreaMm2": 5949.817818843745,
+    "capCoversSample": false,
+    "rayCandidates": 189,
+    "frontSideWallHits": 123,
+    "frontSideUnoccludedWallHits": 26,
+    "doubleSideWallHits": 189,
+    "capOccludesDoubleSideWallHits": 97,
+    "productionWallHits": 92,
+    "nativeMaterialSides": [
+      "double",
+      "double",
+      "double",
+      "double"
+    ],
+    "nativeFace": {
+      "persistentFaceId": "ho-eb9f9994-9a97-4e8d-935a-8c005ac2433b:wall.0",
+      "triangleCount": 126,
+      "zBoundsMm": [
+        5,
+        20
+      ],
+      "windingOpposedTriangles": 126
+    }
+  },
+  "nativeSidesRestoredAfterDisable": [
+    "front",
+    "front",
+    "front",
+    "front"
+  ],
+  "capAndContourRendered": true,
+  "remeshRetainedSection": true,
+  "undoReversedNativeEdit": true,
+  "successfulOpenResetSection": true,
+  "documentOpenedWhileHome": true
+}

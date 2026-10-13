@@ -102,6 +102,15 @@ export const it: Record<EnKey, string> = {
   "topdock.advanced": "Avanzato",
   "topdock.errTwoSolids": "Seleziona prima due solidi",
   "topdock.errBooleanFailed": "operazione booleana non riuscita",
+  "section.title": "Sezione",
+  "section.enable": "Attiva sezione",
+  "section.disable": "Disattiva sezione",
+  "section.axis": "Normale",
+  "section.offset": "Quota (mm)",
+  "section.invert": "Inverti lato mantenuto",
+  "section.inverted": "Ripristina lato mantenuto",
+  "section.reset": "Ripristina vista sezione",
+  "section.noModel": "Aggiungi un solido per attivare la sezione.",
 
   // ── workspace actions ───────────────────────────────────
   "actions.undo": "Annulla",

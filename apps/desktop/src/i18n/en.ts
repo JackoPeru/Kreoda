@@ -100,6 +100,15 @@ export const en = {
   "topdock.advanced": "Advanced",
   "topdock.errTwoSolids": "Select two solids first",
   "topdock.errBooleanFailed": "boolean failed",
+  "section.title": "Section",
+  "section.enable": "Enable section",
+  "section.disable": "Disable section",
+  "section.axis": "Normal",
+  "section.offset": "Offset (mm)",
+  "section.invert": "Invert kept side",
+  "section.inverted": "Restore kept side",
+  "section.reset": "Reset section view",
+  "section.noModel": "Add a solid to enable section view.",
 
   // ── workspace actions ───────────────────────────────────
   "actions.undo": "Undo",

@@ -1,11 +1,36 @@
 // Test/E2E bridge to the imperative viewport (no React state involved).
 // Registered on mount; null when unmounted.
 
+import type { SectionPlane } from "../section/plane";
+
 export interface FaceAnchor {
   x: number;
   y: number;
   nx: number;
   ny: number;
+  /** Native outward world-space normal at the selected point. */
+  normal: [number, number, number];
+  /** World-space point used to derive the screen anchor. */
+  point: [number, number, number];
+}
+
+export interface SectionGeometryDiagnostics {
+  capTriangleCount: number;
+  capAreaMm2: number;
+  capCoversSample: boolean;
+  rayCandidates: number;
+  frontSideWallHits: number;
+  frontSideUnoccludedWallHits: number;
+  doubleSideWallHits: number;
+  capOccludesDoubleSideWallHits: number;
+  productionWallHits: number;
+  nativeMaterialSides: string[];
+  nativeFace: {
+    persistentFaceId: string;
+    triangleCount: number;
+    zBoundsMm: [number, number];
+    windingOpposedTriangles: number;
+  } | null;
 }
 
 export type ViewName = "top" | "front" | "right" | "iso" | "bottom" | "back" | "left";
@@ -17,10 +42,21 @@ export interface ViewportRenderStats {
   triangles: number;
   geometries: number;
   textures: number;
+  section: {
+    enabled: boolean;
+    plane: SectionPlane | null;
+    cappedBodies: number;
+    contourSegments: number;
+  };
 }
 
 interface ViewportHandle {
   faceScreenPoint: (featureId: string, role: string) => FaceAnchor | null;
+  sectionGeometryDiagnostics: (
+    featureId: string,
+    samplePointMm: [number, number, number],
+    faceRole: string,
+  ) => SectionGeometryDiagnostics | null;
   setView: (name: ViewName) => void;
   /** World mm → viewport-element px (DOM overlay space); null if behind. */
   projectPoint: (p: [number, number, number]) => { x: number; y: number } | null;
@@ -45,6 +81,14 @@ export function faceScreenPoint(
   role: string,
 ): FaceAnchor | null {
   return handle?.faceScreenPoint(featureId, role) ?? null;
+}
+
+export function viewportSectionGeometryDiagnostics(
+  featureId: string,
+  samplePointMm: [number, number, number],
+  faceRole: string,
+): SectionGeometryDiagnostics | null {
+  return handle?.sectionGeometryDiagnostics(featureId, samplePointMm, faceRole) ?? null;
 }
 
 export function viewportSetView(name: ViewName): boolean {

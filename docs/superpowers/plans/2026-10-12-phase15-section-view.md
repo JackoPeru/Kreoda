@@ -32,29 +32,42 @@
 
 **Files:** new `apps/desktop/src/section/plane.ts`, `store.ts`; new `apps/desktop/src/components/workspace/SectionPanel.tsx`; modify `TopToolDock.tsx`, `Viewport.tsx`, `viewport/CadViewport.ts`, `viewport/viewportHandle.ts`; relevant successful-open/reset hook located in current document actions; locale `i18n/en.ts`,`it.ts`; new tests `apps/desktop/tests/section-plane.test.ts` and `apps/desktop/e2e/phase15-section.spec.ts`.
 
-**Interfaces:** pure `SectionPlane { normal: [number,number,number]; offsetMm: number; inverted: boolean }`, bounded constructor/validation and signed-distance/visible-point helpers. View store owns `enabled/plane` only. Viewport `setSection(plane: SectionPlane|null)` and an E2E diagnostic summary expose presentation state without CAD commands.
+**Interfaces:** pure `SectionPlane { normal: [number,number,number]; offsetMm: number; inverted: boolean }`, bounded constructor/validation and signed-distance/visible-point helpers. View store owns `enabled/plane` and a local initialization flag; an explicitly configured zero quota must survive toggles and panel remounts. Document reset clears initialization. Viewport `setSection(plane: SectionPlane|null)` and an E2E diagnostic summary expose presentation state without CAD commands.
 
-- [ ] Read current material creation/replacement, all overlays and body/edge raycast paths. Add failing math tests for axes/inversion/boundary/invalid numbers and negative quota.
-- [ ] Implement bounded pure plane math/store and compact dock panel. Default axisZ, quota from actual mesh bounds. Reject invalid edits while retaining previous state.
-- [ ] Use Three local material clipping and request demand render; apply consistently to replacement surfaces/lines/highlights/preview. Preserve original material ownership and styles.
-- [ ] Filter body/edge ray hits to nearest visible candidate, including crossing-segment behavior; no fabricated IDs for display intersections.
-- [ ] Add actual native Desktop E2E: create measured model, change section, inspect changed visual/pick state; canonical revision/IDs/volume/solidCount unchanged; disable restores and one existing CAD Undo still works. Verify empty/open/remesh/reset behavior.
-- [ ] Review cut presentation against spec; finish required cap/contour behavior instead of counting a merely enabled shader as acceptance.
-- [ ] Run relevant JS tests/lint and hidden native E2E, capture before/after source/artifact evidence, obtain fresh Sol6/high review and record accepted Desktop software slice. Full section remains incomplete until Quest path is proven.
+- [x] Read current material creation/replacement, all overlays and body/edge raycast paths. Add failing math tests for axes/inversion/boundary/invalid numbers and negative quota.
+- [x] Implement bounded pure plane math/store and compact dock panel. Default axisZ, quota from actual mesh bounds. Reject invalid edits while retaining previous state.
+- [x] Use Three local material clipping and request demand render; apply consistently to replacement surfaces/lines/highlights/preview. Preserve original material ownership and styles.
+- [x] Filter body/edge ray hits to nearest visible candidate, including crossing-segment behavior; no fabricated IDs for display intersections.
+- [x] Add actual native Desktop E2E: create measured model, change section, inspect changed visual/pick state; canonical revision/IDs/volume/solidCount unchanged; disable restores and one existing CAD Undo still works. Verify empty/open/remesh/reset behavior.
+- [x] Include a genuine OCCT hollow/blind-hole body: the cut presentation leaves the opening empty and a real interior face remains pickable through it. Synthetic cap-hole unit fixtures alone do not prove this native path. Undo to empty must disable section; ordinary same-document remesh retains quota.
+- [x] For that interior proof, retain the lower half with an inverted Z cut and use a controlled ray to a native wall below the cut that the uncut exterior occluded. Record the actual core information in evidence; do not hardcode a kernel label or count an already-visible hole opening as proof of removal.
+- [x] Review cut presentation against spec; finish required cap/contour behavior instead of counting a merely enabled shader as acceptance.
+- [x] Run relevant JS tests/lint and hidden native E2E, capture before/after source/artifact evidence, obtain fresh Sol6/high review and record accepted Desktop software slice. Full section remains incomplete until Quest path is proven.
 
 ### Task 2: Quest section, hands and presentation invariants
 
-**Files:** new SDK `clients/session-dotnet/src/Kreoda.QuestFoundation/SectionPlane.cs` and corresponding test file; new runtime `clients/quest-unity/Assets/Kreoda/Runtime/QuestSection.cs` and Unity `.meta`; modify `QuestMeshView.cs`,`QuestControls.cs`,`QuestConnection.cs` only at presentation/scene-reset integration; shaders under `Assets/Kreoda/Materials/` (including Selection.shader), scene builder `Assets/Kreoda/Editor/QuestBuild.cs`; new Unity editor tests for section behavior. Root owns evidence/docs.
+**Files:** new SDK `clients/session-dotnet/src/Kreoda.QuestFoundation/SectionPlane.cs` and corresponding test file; new runtime `clients/quest-unity/Assets/Kreoda/Runtime/QuestSection.cs` and Unity `.meta`; modify `QuestMeshView.cs`,`QuestControls.cs`,`QuestConnection.cs` only at presentation/scene-reset integration; `QuestPreviewView.cs` for clipping state preservation; shaders under `Assets/Kreoda/Materials/` (including Selection.shader), scene builder `Assets/Kreoda/Editor/QuestBuild.cs`; new Unity editor tests for section behavior. Root owns evidence/docs.
 
 **Interfaces:** immutable bounded SDK plane with CAD and Unity-local signed-distance helpers, identical semantics to Desktop. Runtime owns view state and applies it to existing body/edge/selection/preview renderers; uses native view bounds for quota and inverse local transform for pick checks. No SessionClient CAD mutation API calls.
 
 - [ ] Add failing SDK tests for exact CAD↔Unity `(x,z,y)*0.001`, axes/inversion/boundary and invalid input; test actual SDK targets.
 - [ ] Implement local shader clip equation with stereo/instancing and current material style/transparency. Use per-renderer properties or explicitly owned material instances, never mutate shared asset state accidentally.
 - [ ] Add compact pinch-compatible controls and visible-only closest-ray selection while preserving non-CAD UI/edit handles and all current gesture/voice behavior.
+- [ ] Handle multiple intersections within the same CAD collider: `Physics.RaycastAll` alone does not expose the next interior triangle after a clipped first hit. Use an exact visible native-triangle query or an equivalent correctly bounded ray strategy; return the original semantic triangle index. Test a single hollow native body with a hidden outer hit and visible interior hit, including inversion. Non-CAD hits still compete at their actual ray distance.
 - [ ] Apply to remesh/preview/highlight and reset on document/session identity change; root movement/rotation/scale preserves CAD quota. Never change source positions, indices, persistent maps, revision or Undo.
 - [ ] Unity tests prove transformed-root equivalence, buffer/ID preservation, clipping of overlays, toggles/remesh resource cleanup and controller-free routing. Verify rendered section/cap/contour presentation in controlled editor QA.
 - [ ] Compile normal ARM64 MR player with shaders included, using hidden batch tooling. No headset camera/person audio. Do not claim physical usability/performance from editor/build success.
 - [ ] Parent verifies relevant managed/JS/schema/Unity/native gates, source-frozen Sol6/high review and exact hosted head. Record actual software boundaries and remaining device evidence; full Phase15 is still not complete.
+
+### Task 2 preflight findings (parent, 12 October)
+
+- `CadMeshTransform` resides in `UnityMeshTransform.cs`; exact conversion remains `(x,z,y)*0.001`, and conversion normalizes winding without changing semantic triangle spans.
+- `QuestControls.Pointer` routes a tracked hand's index pinch to the same button action used by the controller. Section controls must reuse that path; UI tests must exercise actions plus the hand-first routing contract.
+- `QuestPreviewView.Surface` clears its property block and `StaleStyle` replaces it with an alpha block. Ruling: include that file in Task2 ownership and compose section properties with stale styling, rather than losing clipping on preview replacement. Cost if missed: preview hides/displays a different half-space than committed geometry.
+- `QuestControls.Update` currently uses one `Physics.Raycast`, and one collider may contain all faces of a hollow native body. Ruling: filtering one result per collider is insufficient; retain native triangle identities while finding the nearest visible intersection. Cost if missed: the clipped outer wall prevents interior selection.
+- `BodyMesh` already retains converted positions/indices/edge buffers and original semantic spans (`SceneModel.cs`). Reuse these buffers for section picking instead of reading allocating `Mesh.vertices`/`Mesh.triangles` copies on every pointer frame. Preserve the original triangle index and compare world ray distances under transformed display roots; section-off uses the existing input path.
+- `QuestConnection` already emits `SceneChanged`; reset state on observed session/document identity changes, retain it on ordinary revision/remesh, and clear/disable it when the last CAD view disappears. Do not reset from every mesh-upload notification.
+- Successful native new/open (relay command types2/11) already rotates `SessionRelay.sessionId` in `apps/desktop/electron/session.ts` before broadcasting the replacement snapshot, even when `documentId` remains `doc-phase1`. Use the existing `(sessionId, documentId)` lineage instead of introducing a protocol field or guessing from revision numbers. The existing `native-blind-hole.meshfb` fixture is available through `QuestMeshViewTests.NativeFixture()` for original-triangle/persistent-reference regression checks.
 
 ## Remaining roadmap
 

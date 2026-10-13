@@ -1,0 +1,39 @@
+{
+  "kernel": "8.0.1-native",
+  "tips": [
+    "ho-e79fbec4-32dc-43d2-81b4-382c21c89623"
+  ],
+  "section": {
+    "enabled": true,
+    "plane": {
+      "normal": [
+        0,
+        0,
+        1
+      ],
+      "offsetMm": 7,
+      "inverted": false
+    },
+    "cappedBodies": 1,
+    "contourSegments": 134
+  },
+  "brep": {
+    "revision": 2,
+    "result": {
+      "basis": "brep",
+      "bboxMm": [
+        0,
+        0,
+        0,
+        100,
+        60,
+        20
+      ],
+      "featureId": "ho-e79fbec4-32dc-43d2-81b4-382c21c89623",
+      "modelScope": "selected-entity",
+      "solidCount": 1,
+      "volumeMm3": 119246.01776313846
+    }
+  },
+  "sameDocumentTipSwapRetainedSection": true
+}

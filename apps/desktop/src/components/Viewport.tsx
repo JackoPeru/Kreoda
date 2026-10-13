@@ -9,6 +9,7 @@ import { setViewportHandle } from "../viewport/viewportHandle";
 import { markPullLearned } from "./Onboarding";
 import { useReferenceStore } from "../reference/store";
 import { t } from "../i18n";
+import { useSectionStore } from "../section/store";
 
 interface PullSession {
   pointerId: number;
@@ -37,11 +38,15 @@ export function Viewport() {
   const mode = useSelectionStore((s) => s.mode);
   const activeTool = useToolStore((s) => s.activeTool);
   const meshes = useDocumentUiStore((s) => s.meshes);
+  const bodies = useDocumentUiStore((s) => s.bodies);
+  const features = useDocumentUiStore((s) => s.features);
   const meshRevision = useDocumentUiStore((s) => s.meshRevision);
   const targetEvents = useSharedTargetStore(s => s.events);
   const targetContext = useSharedTargetStore(s => s.context);
   const documentId = useDocumentUiStore(s => s.documentId);
   const revision = useDocumentUiStore(s => s.revision);
+  const sectionEnabled = useSectionStore((s) => s.enabled);
+  const sectionPlane = useSectionStore((s) => s.plane);
   const sharedIds = useMemo(() => visibleSharedTargets(meshes, { documentId, revision }).flatMap(target => target.ids),
     [meshes, meshRevision, targetEvents, targetContext, documentId, revision]);
   const refPlanes = useReferenceStore((s) => s.planes);
@@ -68,6 +73,8 @@ export function Viewport() {
     setViewportHandle({
       faceScreenPoint: (featureId, role) =>
         vpRef.current?.faceScreenPoint(featureId, role) ?? null,
+      sectionGeometryDiagnostics: (featureId, samplePointMm, faceRole) =>
+        vpRef.current?.sectionGeometryDiagnostics(featureId, samplePointMm, faceRole) ?? null,
       setView: (name) => vpRef.current?.setView(name),
       projectPoint: (p) => vpRef.current?.projectPoint(p) ?? null,
       viewDir: () => vpRef.current?.viewDir() ?? null,
@@ -89,6 +96,16 @@ export function Viewport() {
       vpRef.current = null;
     };
   }, [hover, select]);
+
+  useEffect(() => {
+    if (sectionEnabled && Object.keys(meshes).length === 0 && bodies.length === 0 &&
+        !features.some((feature) => feature.type === "Instance")) {
+      useSectionStore.getState().reset();
+      vpRef.current?.setSection(null);
+      return;
+    }
+    vpRef.current?.setSection(sectionEnabled ? sectionPlane : null);
+  }, [sectionEnabled, sectionPlane, meshes, meshRevision, bodies, features]);
 
   // Canonical → scene sync (§66): only on committed mesh updates, never on
   // pointer frequency. Slice 4: the meshes map holds VISIBLE tips only

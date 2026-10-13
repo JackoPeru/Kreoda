@@ -40,7 +40,7 @@
     "conclusion": "success"
   },
   "reviewPending": false,
-  "newHeadHostedPending": true,
+  "newHeadHostedPending": false,
   "liveHermesFixturesRun": 0,
   "fullFailedTrailProven": false,
   "physicalAcceptanceProven": false,
@@ -57,5 +57,10 @@
     "sourceInputs": 876,
     "sourceFreeze": "982af558cd8d97bee8ea279eacc836a18a7f6700fa279a84d070009c75c289a9",
     "sourceChanged": []
+  },
+  "newHeadHosted": {
+    "commit": "4b2a8c838bc51099adf1d32f32dfe00c9b9faba9",
+    "run": 38263326507,
+    "conclusion": "success"
   }
 }

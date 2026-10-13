@@ -7,6 +7,8 @@ import { MeshBVH, acceleratedRaycast } from "three-mesh-bvh";
 import type { CoreMeshData } from "@kreoda/protocol";
 import { CameraController } from "./CameraController";
 import type { ReferencePlane } from "../reference/store";
+import { buildSectionCut } from "../section/mesh-cut";
+import { isSectionPlane, isVisibleAtSection, SECTION_PICK_TOLERANCE_MM, type SectionPlane } from "../section/plane";
 
 (THREE.Mesh.prototype as unknown as { raycast: unknown }).raycast =
   acceleratedRaycast;
@@ -21,9 +23,12 @@ export type ViewportEvents = {
 interface BodyEntry {
   coreMesh: CoreMeshData;
   mesh: THREE.Mesh;
+  originalMaterialSides: THREE.Side[];
   faces: { persistentFaceId: string; triangleStart: number; triangleCount: number }[];
   edgeLines: THREE.LineSegments | null;
   segToEdge: string[];
+  sectionCap: THREE.Mesh | null;
+  sectionContour: THREE.LineSegments | null;
 }
 
 export class CadViewport {
@@ -44,6 +49,7 @@ export class CadViewport {
   private sharedTargetIds = new Set<string>();
   private sharedEdgeLines: THREE.LineSegments | null = null;
   private pickMode: PickMode = "auto";
+  private sectionPlane: SectionPlane | null = null;
   private onResize = (): void => this.resize();
   private edgeSelectedLines: THREE.LineSegments | null = null;
   private previewMesh: THREE.Mesh | null = null;
@@ -73,6 +79,7 @@ export class CadViewport {
     private events: ViewportEvents,
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer.localClippingEnabled = true;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(this.renderer.domElement);
@@ -127,6 +134,92 @@ export class CadViewport {
 
   setPickMode(mode: PickMode): void {
     this.pickMode = mode;
+  }
+
+  /** Reversible display-only cut; native buffers and topology stay untouched. */
+  setSection(plane: SectionPlane | null): void {
+    if (plane !== null && !isSectionPlane(plane)) return;
+    this.sectionPlane = plane ? { ...plane, normal: [...plane.normal] } : null;
+    this.renderer.localClippingEnabled = this.sectionPlane !== null;
+    for (const entry of this.bodies.values()) {
+      const materials = entry.mesh.material as THREE.MeshStandardMaterial[];
+      materials.forEach((material, index) => {
+        material.side = this.sectionPlane ? THREE.DoubleSide : entry.originalMaterialSides[index]!;
+        this.applySectionClip(material);
+      });
+      if (entry.edgeLines) this.applySectionClip(entry.edgeLines.material as THREE.Material);
+      this.updateSectionPresentation(entry);
+    }
+    if (this.previewMesh) this.applySectionClip(this.previewMesh.material as THREE.Material);
+    if (this.edgeSelectedLines) this.applySectionClip(this.edgeSelectedLines.material as THREE.Material);
+    if (this.sharedEdgeLines) this.applySectionClip(this.sharedEdgeLines.material as THREE.Material);
+    this.requestRender();
+  }
+
+  private applySectionClip(material: THREE.Material): void {
+    if (!this.sectionPlane) {
+      material.clippingPlanes = null;
+    } else {
+      const sign = this.sectionPlane.inverted ? -1 : 1;
+      material.clippingPlanes = [new THREE.Plane(
+        new THREE.Vector3(...this.sectionPlane.normal).multiplyScalar(sign),
+        -this.sectionPlane.offsetMm * sign,
+      )];
+    }
+    material.needsUpdate = true;
+  }
+
+  private clearSectionPresentation(entry: BodyEntry): void {
+    if (entry.sectionCap) {
+      this.scene.remove(entry.sectionCap);
+      entry.sectionCap.geometry.dispose();
+      (entry.sectionCap.material as THREE.Material).dispose();
+      entry.sectionCap = null;
+    }
+    if (entry.sectionContour) {
+      this.scene.remove(entry.sectionContour);
+      entry.sectionContour.geometry.dispose();
+      (entry.sectionContour.material as THREE.Material).dispose();
+      entry.sectionContour = null;
+    }
+  }
+
+  private updateSectionPresentation(entry: BodyEntry): void {
+    this.clearSectionPresentation(entry);
+    if (!this.sectionPlane) return;
+    const cut = buildSectionCut(entry.coreMesh.positions, entry.coreMesh.indices, this.sectionPlane, entry.coreMesh.normals);
+    if (cut.capIndices.length >= 3) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(cut.capPositions, 3));
+      geometry.setIndex(new THREE.BufferAttribute(cut.capIndices, 1));
+      geometry.computeVertexNormals();
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x4d5869,
+        metalness: 0.05,
+        roughness: 0.82,
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
+      });
+      const cap = new THREE.Mesh(geometry, material);
+      cap.userData.sectionCut = true;
+      cap.renderOrder = 2;
+      entry.sectionCap = cap;
+      this.scene.add(cap);
+    }
+    if (cut.contourPositions.length >= 6) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(cut.contourPositions, 3));
+      const contour = new THREE.LineSegments(
+        geometry,
+        new THREE.LineBasicMaterial({ color: 0xf2b35d, transparent: true, opacity: 1 }),
+      );
+      contour.raycast = () => {};
+      contour.renderOrder = 4;
+      entry.sectionContour = contour;
+      this.scene.add(contour);
+    }
   }
 
   /** Fit all actual mesh bounds; empty document keeps the useful origin view. */
@@ -533,25 +626,71 @@ export class CadViewport {
       -((clientY - rect.top) / rect.height) * 2 + 1,
     );
     this.raycaster.setFromCamera(ndc, this.camera);
-    const hits = this.raycaster.intersectObjects(
-      [...this.bodies.values()].map((en) => en.mesh),
-      false,
-    );
-    if (!hits.length) return null;
-    const hit = hits[0]!;
+    const objects = [...this.bodies.values()].flatMap((entry) => [
+      ...(entry.sectionCap ? [entry.sectionCap] : []),
+      entry.mesh,
+    ]);
+    const hits = this.raycaster.intersectObjects(objects, false);
+    let hit: THREE.Intersection<THREE.Object3D> | undefined;
+    let capDistance = Number.POSITIVE_INFINITY;
+    for (const candidate of hits) {
+      if (candidate.object.userData.sectionCut) {
+        capDistance = Math.min(capDistance, candidate.distance);
+        continue;
+      }
+      if (candidate.distance > capDistance + SECTION_PICK_TOLERANCE_MM) return null;
+      if (!this.isHitVisible(candidate)) continue;
+      const owner = candidate.object.userData.persistentId as string;
+      const entry = this.bodies.get(owner);
+      const tri = candidate.faceIndex ?? -1;
+      if (candidate.face && entry?.faces.some(
+        (face) => tri >= face.triangleStart && tri < face.triangleStart + face.triangleCount,
+      )) {
+        hit = candidate;
+        break;
+      }
+    }
+    if (!hit?.face) return null;
     const featureId = hit.object.userData.persistentId as string;
     const entry = this.bodies.get(featureId);
     const tri = hit.faceIndex ?? -1;
     const face = entry?.faces.find(
       (f) => tri >= f.triangleStart && tri < f.triangleStart + f.triangleCount,
     );
-    if (!face || !hit.face) return null;
+    if (!entry || !face || !hit.face) return null;
     return {
       featureId,
       faceId: face.persistentFaceId,
-      normal: hit.face.normal.clone(),
+      normal: this.nativeOutwardNormal(hit, entry),
       point: hit.point.clone(),
     };
+  }
+
+  private nativeOutwardNormal(
+    hit: THREE.Intersection<THREE.Object3D>,
+    entry: BodyEntry,
+  ): THREE.Vector3 {
+    const face = hit.face;
+    if (!face) return new THREE.Vector3(0, 0, 1);
+    const normals = entry.mesh.geometry.getAttribute("normal") as THREE.BufferAttribute | undefined;
+    const bary = hit.barycoord;
+    const normal = normals && bary
+      ? new THREE.Vector3()
+          .fromBufferAttribute(normals, face.a).multiplyScalar(bary.x)
+          .add(new THREE.Vector3().fromBufferAttribute(normals, face.b).multiplyScalar(bary.y))
+          .add(new THREE.Vector3().fromBufferAttribute(normals, face.c).multiplyScalar(bary.z))
+      : face.normal.clone();
+    if (normal.lengthSq() <= 1e-12) normal.copy(face.normal);
+    return normal
+      .applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld))
+      .normalize();
+  }
+
+  private isHitVisible(hit: { point: THREE.Vector3 }): boolean {
+    return !this.sectionPlane || isVisibleAtSection(
+      [hit.point.x, hit.point.y, hit.point.z],
+      this.sectionPlane,
+    );
   }
 
   /** World → client pixels (for drag math and E2E anchors). */
@@ -578,7 +717,7 @@ export class CadViewport {
   faceScreenPoint(
     featureId: string,
     role: string,
-  ): { x: number; y: number; nx: number; ny: number } | null {
+  ): { x: number; y: number; nx: number; ny: number; normal: [number, number, number]; point: [number, number, number] } | null {
     const entry = this.bodies.get(featureId);
     if (!entry) return null;
     const full = `${featureId}:${role}`;
@@ -588,10 +727,8 @@ export class CadViewport {
     if (!range || range.triangleCount === 0) return null;
     const pos = entry.mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
     const idx = entry.mesh.geometry.getIndex();
-    const centroid = new THREE.Vector3();
-    const n = new THREE.Vector3();
-    const count = Math.min(range.triangleCount, 8);
-    for (let t = 0; t < count; t++) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    for (let t = 0; t < range.triangleCount; t++) {
       const tri = range.triangleStart + t;
       const a = idx ? idx.getX(tri * 3) : tri * 3;
       const b = idx ? idx.getX(tri * 3 + 1) : tri * 3 + 1;
@@ -599,22 +736,65 @@ export class CadViewport {
       const pa = new THREE.Vector3().fromBufferAttribute(pos, a);
       const pb = new THREE.Vector3().fromBufferAttribute(pos, b);
       const pc = new THREE.Vector3().fromBufferAttribute(pos, c);
-      centroid.add(pa).add(pb).add(pc);
-      if (t === 0) {
-        n.crossVectors(
-          pb.clone().sub(pa),
-          pc.clone().sub(pa),
-        ).normalize();
+      const polygon = [pa, pb, pc];
+      if (this.sectionPlane) {
+        const plane = this.sectionPlane;
+        const side = (point: THREE.Vector3): number => {
+          const value = point.x * plane.normal[0] + point.y * plane.normal[1] +
+            point.z * plane.normal[2] - plane.offsetMm;
+          return plane.inverted ? -value : value;
+        };
+        const clipped: THREE.Vector3[] = [];
+        let previous = polygon[polygon.length - 1]!;
+        let previousSide = side(previous);
+        for (const current of polygon) {
+          const currentSide = side(current);
+          const previousInside = previousSide >= 0;
+          const currentInside = currentSide >= 0;
+          if (previousInside !== currentInside) {
+            clipped.push(previous.clone().lerp(current, previousSide / (previousSide - currentSide)));
+          }
+          if (currentInside) clipped.push(current);
+          previous = current;
+          previousSide = currentSide;
+        }
+        polygon.splice(0, polygon.length, ...clipped);
+      }
+      if (polygon.length < 3) continue;
+
+      // Each clipped polygon stays within this original native triangle. Its
+      // fan-triangle centroids therefore remain on real mesh surface, unlike
+      // an average over multiple tessellation triangles (which can fall in a
+      // cylindrical hole). Validate each projected candidate against the
+      // production pick path so the returned anchor is also unobstructed by
+      // the section cap and resolves to this persistent native face.
+      for (let vertex = 1; vertex < polygon.length - 1; vertex++) {
+        const candidate = polygon[0]!.clone()
+          .add(polygon[vertex]!)
+          .add(polygon[vertex + 1]!)
+          .multiplyScalar(1 / 3);
+        const screen = this.worldToClient(candidate);
+        if (screen.x < rect.left || screen.x >= rect.right || screen.y < rect.top || screen.y >= rect.bottom) continue;
+        const hit = this.pickFaceAt(screen.x, screen.y);
+        if (!hit || hit.featureId !== featureId || hit.faceId !== range.persistentFaceId) continue;
+
+        const point = hit.point;
+        const base = this.worldToClient(point);
+        const tip = this.worldToClient(point.clone().add(hit.normal));
+        const dx = tip.x - base.x;
+        const dy = tip.y - base.y;
+        const len = Math.hypot(dx, dy) || 1;
+        return {
+          x: base.x,
+          y: base.y,
+          nx: dx / len,
+          ny: dy / len,
+          normal: [hit.normal.x, hit.normal.y, hit.normal.z],
+          point: [point.x, point.y, point.z],
+        };
       }
     }
-    centroid.multiplyScalar(1 / (count * 3));
-    const tip = centroid.clone().add(n);
-    const s0 = this.worldToClient(centroid);
-    const s1 = this.worldToClient(tip);
-    const dx = s1.x - s0.x;
-    const dy = s1.y - s0.y;
-    const len = Math.hypot(dx, dy) || 1;
-    return { x: s0.x, y: s0.y, nx: dx / len, ny: dy / len };
+    return null;
   }
 
   /** Transient preview mesh (§13): ghost overlay, never pickable/committed. */
@@ -639,6 +819,7 @@ export class CadViewport {
         depthWrite: false,
       }),
     );
+    this.applySectionClip(ghost.material as THREE.Material);
     ghost.raycast = () => {};
     ghost.renderOrder = 3;
     this.scene.add(ghost);
@@ -661,7 +842,7 @@ export class CadViewport {
       { color: 0x4f8cff, emissive: 0x1e3a6e },
       { color: 0x4bcab0, emissive: 0x11352e },
     ] as const;
-    return defs.map(
+    const materials = defs.map(
       (d) =>
         new THREE.MeshStandardMaterial({
           color: d.color,
@@ -675,6 +856,8 @@ export class CadViewport {
       THREE.MeshStandardMaterial,
       THREE.MeshStandardMaterial,
     ];
+    for (const material of materials) this.applySectionClip(material);
+    return materials;
   }
 
   upsertBodyMesh(persistentId: string, data: CoreMeshData): void {
@@ -688,25 +871,33 @@ export class CadViewport {
     }
     geometry.boundsTree = new MeshBVH(geometry);
     if (existing) {
+      this.clearSectionPresentation(existing);
       existing.mesh.geometry.dispose();
       existing.mesh.geometry = geometry;
       existing.faces = data.faces;
       existing.coreMesh = data;
       this.refreshEdgeOverlay(persistentId, existing, data);
+      this.updateSectionPresentation(existing);
     } else {
       const materials = this.makeBodyMaterials();
       const mesh = new THREE.Mesh(geometry, materials);
+      const originalMaterialSides = materials.map((material) => material.side);
+      if (this.sectionPlane) materials.forEach((material) => { material.side = THREE.DoubleSide; });
       mesh.userData.persistentId = persistentId;
       const entry: BodyEntry = {
         coreMesh: data,
         mesh,
+        originalMaterialSides,
         faces: data.faces,
         edgeLines: null,
         segToEdge: [],
+        sectionCap: null,
+        sectionContour: null,
       };
       this.refreshEdgeOverlay(persistentId, entry, data);
       this.scene.add(mesh);
       this.bodies.set(persistentId, entry);
+      this.updateSectionPresentation(entry);
     }
     this.requestRender();
   }
@@ -747,6 +938,7 @@ export class CadViewport {
       g,
       new THREE.LineBasicMaterial({ color: 0x8fa8d0, transparent: true, opacity: 0.85 }),
     );
+    this.applySectionClip(lines.material as THREE.Material);
     lines.userData.persistentId = persistentId;
     lines.renderOrder = 1;
     this.scene.add(lines);
@@ -815,6 +1007,7 @@ export class CadViewport {
       g,
       new THREE.LineBasicMaterial({ color: 0x7fb2ff }),
     );
+    this.applySectionClip(this.edgeSelectedLines.material as THREE.Material);
     this.edgeSelectedLines.renderOrder = 2;
     this.scene.add(this.edgeSelectedLines);
   }
@@ -840,6 +1033,7 @@ export class CadViewport {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(points), 3));
     this.sharedEdgeLines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0x4bcab0 }));
+    this.applySectionClip(this.sharedEdgeLines.material as THREE.Material);
     this.sharedEdgeLines.renderOrder = 3;
     this.scene.add(this.sharedEdgeLines);
   }
@@ -854,6 +1048,189 @@ export class CadViewport {
     return body ? { geometryId: body.mesh.geometry.uuid, revision: body.coreMesh.revision } : null;
   }
 
+  /** Native mesh and render-only cap geometry diagnostics for E2E evidence. */
+  sectionGeometryDiagnostics(
+    featureId: string,
+    samplePointMm: [number, number, number],
+    faceRole: string,
+  ) {
+    const entry = this.bodies.get(featureId);
+    if (!entry) return null;
+    const capGeometry = entry.sectionCap?.geometry;
+    const capPositions = capGeometry?.getAttribute("position") as THREE.BufferAttribute | undefined;
+    const capIndices = capGeometry?.getIndex();
+    let capAreaMm2 = 0;
+    let capCoversSample = false;
+    const capTriangleCount = capIndices ? capIndices.count / 3 : 0;
+    const sample = new THREE.Vector3(...samplePointMm);
+    if (capPositions && capIndices) {
+      for (let triangle = 0; triangle < capIndices.count; triangle += 3) {
+        const a = new THREE.Vector3().fromBufferAttribute(capPositions, capIndices.getX(triangle));
+        const b = new THREE.Vector3().fromBufferAttribute(capPositions, capIndices.getX(triangle + 1));
+        const c = new THREE.Vector3().fromBufferAttribute(capPositions, capIndices.getX(triangle + 2));
+        const ab = b.clone().sub(a);
+        const ac = c.clone().sub(a);
+        const cross = ab.clone().cross(ac);
+        capAreaMm2 += cross.length() / 2;
+        const ap = sample.clone().sub(a);
+        const normalLength = cross.length();
+        if (normalLength <= 1e-12 || Math.abs(ap.dot(cross) / normalLength) > 1e-5) continue;
+        const d00 = ab.dot(ab), d01 = ab.dot(ac), d11 = ac.dot(ac);
+        const d20 = ap.dot(ab), d21 = ap.dot(ac);
+        const denominator = d00 * d11 - d01 * d01;
+        if (Math.abs(denominator) <= 1e-12) continue;
+        const v = (d11 * d20 - d01 * d21) / denominator;
+        const w = (d00 * d21 - d01 * d20) / denominator;
+        const u = 1 - v - w;
+        if (u >= -1e-8 && v >= -1e-8 && w >= -1e-8) capCoversSample = true;
+      }
+    }
+
+    const fullFaceId = `${featureId}:${faceRole}`;
+    const face = entry.faces.find((item) =>
+      item.persistentFaceId === fullFaceId || item.persistentFaceId === faceRole,
+    );
+    let minZ = Number.POSITIVE_INFINITY;
+    let maxZ = Number.NEGATIVE_INFINITY;
+    let windingOpposedTriangles = 0;
+    let rayCandidates = 0;
+    let frontSideWallHits = 0;
+    let frontSideUnoccludedWallHits = 0;
+    let doubleSideWallHits = 0;
+    let capOccludesDoubleSideWallHits = 0;
+    let productionWallHits = 0;
+    const positions = entry.mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const normals = entry.mesh.geometry.getAttribute("normal") as THREE.BufferAttribute | undefined;
+    const indices = entry.mesh.geometry.getIndex();
+    const isTargetFaceHit = (hit: THREE.Intersection<THREE.Object3D>): boolean => {
+      const triangle = hit.faceIndex ?? -1;
+      return entry.faces.some((item) =>
+        (item.persistentFaceId === face?.persistentFaceId) &&
+        triangle >= item.triangleStart && triangle < item.triangleStart + item.triangleCount,
+      );
+    };
+    if (face) {
+      for (let triangle = 0; triangle < face.triangleCount; triangle++) {
+        const first = (face.triangleStart + triangle) * 3;
+        const vertices = [0, 1, 2].map((corner) => indices ? indices.getX(first + corner) : first + corner);
+        for (const vertex of vertices) {
+          const z = positions.getZ(vertex);
+          minZ = Math.min(minZ, z);
+          maxZ = Math.max(maxZ, z);
+        }
+        if (normals) {
+          const a = new THREE.Vector3().fromBufferAttribute(positions, vertices[0]!);
+          const b = new THREE.Vector3().fromBufferAttribute(positions, vertices[1]!);
+          const c = new THREE.Vector3().fromBufferAttribute(positions, vertices[2]!);
+          const winding = b.sub(a).cross(c.sub(a));
+          const supplied = new THREE.Vector3()
+            .fromBufferAttribute(normals, vertices[0]!)
+            .add(new THREE.Vector3().fromBufferAttribute(normals, vertices[1]!))
+            .add(new THREE.Vector3().fromBufferAttribute(normals, vertices[2]!));
+          if (winding.dot(supplied) < 0) windingOpposedTriangles++;
+        }
+      }
+
+      if (this.sectionPlane) {
+        const plane = this.sectionPlane;
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        const materials = Array.isArray(entry.mesh.material) ? entry.mesh.material : [entry.mesh.material];
+        const activeSides = materials.map((material) => material.side);
+        for (let triangle = 0; triangle < face.triangleCount; triangle++) {
+          const first = (face.triangleStart + triangle) * 3;
+          const polygon = [0, 1, 2].map((corner) => {
+            const vertex = indices ? indices.getX(first + corner) : first + corner;
+            return new THREE.Vector3().fromBufferAttribute(positions, vertex);
+          });
+          const side = (point: THREE.Vector3): number => {
+            const value = point.x * plane.normal[0] + point.y * plane.normal[1] +
+              point.z * plane.normal[2] - plane.offsetMm;
+            return plane.inverted ? -value : value;
+          };
+          const clipped: THREE.Vector3[] = [];
+          let previous = polygon[polygon.length - 1]!;
+          let previousSide = side(previous);
+          for (const current of polygon) {
+            const currentSide = side(current);
+            if ((previousSide >= 0) !== (currentSide >= 0)) {
+              clipped.push(previous.clone().lerp(current, previousSide / (previousSide - currentSide)));
+            }
+            if (currentSide >= 0) clipped.push(current);
+            previous = current;
+            previousSide = currentSide;
+          }
+          polygon.splice(0, polygon.length, ...clipped);
+          for (let vertex = 1; vertex < polygon.length - 1; vertex++) {
+            const candidate = polygon[0]!.clone()
+              .add(polygon[vertex]!)
+              .add(polygon[vertex + 1]!)
+              .multiplyScalar(1 / 3);
+            const screen = this.worldToClient(candidate);
+            if (screen.x < rect.left || screen.x >= rect.right || screen.y < rect.top || screen.y >= rect.bottom) continue;
+            const ndc = new THREE.Vector2(
+              ((screen.x - rect.left) / rect.width) * 2 - 1,
+              -((screen.y - rect.top) / rect.height) * 2 + 1,
+            );
+            this.raycaster.setFromCamera(ndc, this.camera);
+            rayCandidates++;
+            let frontHit: THREE.Intersection<THREE.Object3D> | undefined;
+            try {
+              materials.forEach((material) => { material.side = THREE.FrontSide; });
+              frontHit = this.raycaster.intersectObject(entry.mesh, false).find(isTargetFaceHit);
+            } finally {
+              materials.forEach((material, index) => { material.side = activeSides[index]!; });
+            }
+            const capHit = entry.sectionCap
+              ? this.raycaster.intersectObject(entry.sectionCap, false)[0]
+              : undefined;
+            if (frontHit) {
+              frontSideWallHits++;
+              if (!capHit || capHit.distance >= frontHit.distance) frontSideUnoccludedWallHits++;
+            }
+            const productionHit = this.pickFaceAt(screen.x, screen.y);
+            if (productionHit?.featureId === featureId && productionHit.faceId === face.persistentFaceId) {
+              productionWallHits++;
+            }
+
+            let doubleHit: THREE.Intersection<THREE.Object3D> | undefined;
+            try {
+              materials.forEach((material) => { material.side = THREE.DoubleSide; });
+              doubleHit = this.raycaster.intersectObject(entry.mesh, false).find(isTargetFaceHit);
+            } finally {
+              materials.forEach((material, index) => { material.side = activeSides[index]!; });
+            }
+            if (doubleHit) {
+              doubleSideWallHits++;
+              const doubleCapHit = entry.sectionCap
+                ? this.raycaster.intersectObject(entry.sectionCap, false)[0]
+                : undefined;
+              if (doubleCapHit && doubleCapHit.distance < doubleHit.distance) capOccludesDoubleSideWallHits++;
+            }
+          }
+        }
+      }
+    }
+    return {
+      capTriangleCount,
+      capAreaMm2,
+      capCoversSample,
+      rayCandidates,
+      frontSideWallHits,
+      frontSideUnoccludedWallHits,
+      doubleSideWallHits,
+      capOccludesDoubleSideWallHits,
+      productionWallHits,
+      nativeMaterialSides: (Array.isArray(entry.mesh.material) ? entry.mesh.material : [entry.mesh.material])
+        .map((material) => material.side === THREE.DoubleSide ? "double" : material.side === THREE.BackSide ? "back" : "front"),
+      nativeFace: face ? {
+        persistentFaceId: face.persistentFaceId,
+        triangleCount: face.triangleCount,
+        zBoundsMm: [minZ, maxZ] as [number, number],
+        windingOpposedTriangles,
+      } : null,
+    };
+  }
+
   renderStats() {
     return {
       renderedFrames: this.renderedFrames,
@@ -862,6 +1239,15 @@ export class CadViewport {
       triangles: this.renderer.info.render.triangles,
       geometries: this.renderer.info.memory.geometries,
       textures: this.renderer.info.memory.textures,
+      section: {
+        enabled: this.sectionPlane !== null,
+        plane: this.sectionPlane ? { ...this.sectionPlane, normal: [...this.sectionPlane.normal] as [number, number, number] } : null,
+        cappedBodies: [...this.bodies.values()].filter((entry) => entry.sectionCap !== null).length,
+        contourSegments: [...this.bodies.values()].reduce((total, entry) => {
+          const position = entry.sectionContour?.geometry.getAttribute("position");
+          return total + (position ? position.count / 2 : 0);
+        }, 0),
+      },
     };
   }
 
@@ -905,6 +1291,7 @@ export class CadViewport {
   private removeBodyMesh(persistentId: string): void {
     const entry = this.bodies.get(persistentId);
     if (!entry) return;
+    this.clearSectionPresentation(entry);
     this.scene.remove(entry.mesh);
     entry.mesh.geometry.dispose();
     for (const m of entry.mesh.material as THREE.MeshStandardMaterial[]) {
@@ -948,19 +1335,52 @@ export class CadViewport {
         lines.push(entry.edgeLines);
       }
       const hits = this.raycaster.intersectObjects(lines, false);
-      if (hits.length) {
-        const hit = hits[0]!;
-        const entry = owners.get(hit.object);
+      const surfaces = [...this.bodies.values()].flatMap((entry) => [
+        ...(entry.sectionCap ? [entry.sectionCap] : []), entry.mesh,
+      ]);
+      const surfaceSet = new Set(surfaces);
+      const hit = hits.find((candidate) => {
+        if (!this.isHitVisible(candidate)) return false;
+        const entry = owners.get(candidate.object);
         // Non-indexed LineSegments: three reports the segment's start VERTEX
         // index (0, 2, 4…), so the segment number is index / 2.
+        const seg = Math.floor((candidate.index ?? 0) / 2);
+        if (!entry?.segToEdge[seg]) return false;
+        if (!this.sectionPlane) return true;
+        // Test visibility at the actual segment point, retaining line tolerance:
+        // the mouse ray may fall on the adjacent face rather than on the edge.
+        const savedRay = this.raycaster.ray.clone();
+        const edgeDistance = savedRay.origin.distanceTo(candidate.point);
+        try {
+          this.raycaster.ray.direction.copy(candidate.point).sub(savedRay.origin).normalize();
+          const obstruction = this.raycaster.intersectObjects(surfaces, false).find((surface) =>
+            surfaceSet.has(surface.object as THREE.Mesh) &&
+            (surface.object.userData.sectionCut || this.isHitVisible(surface)),
+          );
+          return !obstruction || obstruction.distance >= edgeDistance - SECTION_PICK_TOLERANCE_MM;
+        } finally {
+          this.raycaster.ray.copy(savedRay);
+        }
+      });
+      if (hit) {
+        const entry = owners.get(hit.object);
         const seg = Math.floor((hit.index ?? 0) / 2);
         id = entry?.segToEdge[seg] ?? null;
       }
     } else {
-      const meshes = [...this.bodies.values()].map((en) => en.mesh);
-      const hits = this.raycaster.intersectObjects(meshes, false);
-      if (hits.length) {
-        const hit = hits[0]!;
+      const objects = [...this.bodies.values()].flatMap((entry) => [
+        ...(entry.sectionCap ? [entry.sectionCap] : []),
+        entry.mesh,
+      ]);
+      const hits = this.raycaster.intersectObjects(objects, false);
+      let capDistance = Number.POSITIVE_INFINITY;
+      for (const hit of hits) {
+        if (hit.object.userData.sectionCut) {
+          capDistance = Math.min(capDistance, hit.distance);
+          continue;
+        }
+        if (hit.distance > capDistance + SECTION_PICK_TOLERANCE_MM) break;
+        if (!this.isHitVisible(hit)) continue;
         const bodyId = hit.object.userData.persistentId as string;
         const entry = this.bodies.get(bodyId);
         const tri = hit.faceIndex ?? -1;
@@ -971,8 +1391,11 @@ export class CadViewport {
         // body mode selects the whole solid; face mode selects a face or
         // nothing (real filter, not an auto alias).
         if (this.pickMode === "body") id = bodyId;
-        else if (this.pickMode === "face") id = face ? face.persistentFaceId : null;
+        else if (this.pickMode === "face") {
+          if (face) id = face.persistentFaceId;
+        }
         else id = this.pickMode === "auto" && !face ? bodyId : (face ? face.persistentFaceId : null);
+        if (id) break;
       }
     }
     if (commit && id) this.events.onSelect(id, e.ctrlKey || e.metaKey);

@@ -5,6 +5,7 @@ import { create } from "zustand";
 import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 import { t, featureTypeName } from "../i18n";
+import { useSectionStore } from "../section/store";
 
 export interface SketchEntry extends SketchSummary {
   model?: SketchModel & { planeKind?: string };
@@ -300,7 +301,10 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
         revision,
       };
     }),
-  resetDocument: (documentId) =>
+  resetDocument: (documentId) => {
+    // Document replacement must clear local presentation even while Home
+    // has unmounted the viewport. Ordinary in-document updates never use this.
+    useSectionStore.getState().reset();
     set((s) => ({
       documentId,
       revision: 0,
@@ -310,7 +314,8 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       sketches: [],
       meshes: {},
       meshRevision: 0,
-    })),
+    }));
+  },
 }));
 
 export function buildTreeItems(

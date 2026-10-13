@@ -2,8 +2,10 @@
 // recompute → exactly ONE Undo step; Undo restores the previous size.
 
 import { test, expect, _electron as electron } from "@playwright/test";
+import { mkdtempSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { HERE, MAIN, addBox, openMore, openProject, type Snapshot } from "./helpers";
+import { HERE, MAIN, addBox, hideForBackgroundE2E, openMore, openProject, type Snapshot } from "./helpers";
 
 interface Anchor {
   x: number;
@@ -13,11 +15,19 @@ interface Anchor {
 }
 
 test("pull face resizes solid in one undo step", async () => {
+  const profile = mkdtempSync(path.join(os.tmpdir(), "kreoda-phase3-pull-"));
   const app = await electron.launch({
-    args: [MAIN, "--no-sandbox", "--lang=en-US"],
+    args: [MAIN, "--no-sandbox", "--lang=en-US", `--user-data-dir=${profile}`],
+    env: {
+      ...process.env,
+      KREODA_SESSION_PORT: "",
+      KREODA_SESSION_TOKEN: "",
+      KREODA_RECOVERY_DIR: profile,
+    },
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });
+    await hideForBackgroundE2E(app);
     await window.waitForLoadState("domcontentloaded");
     await window.getByTestId("home-new-project").click();
     await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({

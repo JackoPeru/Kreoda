@@ -1,0 +1,8 @@
+{
+  "kernel": "8.0.1-native",
+  "tangentNativeFacePicked": "box-b4f4d512-9781-4ad3-a5bc-be01c3c2b2dd:box.+Z",
+  "hiddenEdgeRejected": true,
+  "visibleEdgePicked": "box-b4f4d512-9781-4ad3-a5bc-be01c3c2b2dd:edge.lin.box.+X~box.-Y",
+  "sectionOffLegacyEdgePicked": "box-b4f4d512-9781-4ad3-a5bc-be01c3c2b2dd:edge.lin.box.+Y~box.-X",
+  "nativeBrepUnchanged": true
+}

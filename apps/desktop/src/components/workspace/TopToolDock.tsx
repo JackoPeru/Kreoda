@@ -29,6 +29,7 @@ import { WorkspaceActions, openDocument } from "./WorkspaceActions";
 import { useT } from "../../i18n";
 import { commandText, localizeReason } from "../../i18n/commands";
 import { SessionConnectionPanel } from "./SessionConnectionPanel";
+import { SectionPanel } from "./SectionPanel";
 
 const PRIMITIVE_ICONS: Record<string, React.ReactNode> = {
   box: <Box size={16} />,
@@ -275,6 +276,7 @@ export function TopToolDock({
             >
               {t("topdock.reference")}
             </button>
+            <SectionPanel />
             <div className="flex items-center gap-0.5 px-1 py-1" title={t("topdock.pickTitle")}>
               {(["auto", "body", "face", "edge"] as const).map((m) => (
                 <button

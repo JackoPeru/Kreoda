@@ -15,6 +15,8 @@ vi.mock("../src/viewport/CadViewport", () => ({
     setHover = vi.fn();
     setSelected = vi.fn();
     setSharedTargets = vi.fn();
+    setSection = vi.fn();
+    sectionGeometryDiagnostics = vi.fn(() => null);
     sharedTargetSummary = () => ({ ids: [], faceGroups: 0, edgeSegments: 0 });
     setPickMode = vi.fn();
     syncMeshes = vi.fn();
@@ -61,6 +63,10 @@ import { addReferencePlane, loadReferences, serializeReferences, useReferenceSto
 import { useDocumentUiStore } from "../src/stores";
 import { act } from "@testing-library/react";
 import { coreClient } from "../src/ipc/coreClient";
+import type { CoreMeshData } from "@kreoda/protocol";
+import { useSectionStore } from "../src/section/store";
+import { createSectionPlane } from "../src/section/plane";
+import type { FeatureSummary } from "../src/ipc/coreClient";
 
 function installSessionRecovery() {
   let callback!: (event: unknown) => void;
@@ -77,6 +83,71 @@ function installSessionRecovery() {
 }
 
 describe("beginner shell (§24)", () => {
+  it("retains section during an empty mesh interval for a same-document Box to Hole tip swap", async () => {
+    const mesh: CoreMeshData = {
+      revision: 1, volumeMm3: 1, bboxMm: [0, 0, 0, 1, 1, 1], triangleCount: 1,
+      positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+      normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+      indices: new Uint32Array([0, 1, 2]), faces: [], edges: [], edgeVertices: new Float32Array(),
+    };
+    const box: FeatureSummary = { featureId: "section-box", type: "Box", paramsMm: [1, 1, 1], volumeMm3: 1, dependsOn: [], refExtra: "", expressions: {} };
+    const hole: FeatureSummary = { ...box, featureId: "section-hole", type: "Hole", dependsOn: [box.featureId] };
+    try {
+      useDocumentUiStore.getState().resetDocument("section-tip-swap");
+      useDocumentUiStore.getState().setFeatures([box], 1);
+      useDocumentUiStore.getState().upsertMesh(box.featureId, mesh, 1);
+      render(<App />);
+      fireEvent.click(screen.getByTestId("home-new-project"));
+      await screen.findByTestId("workspace-chrome");
+      await act(async () => {
+        useSectionStore.getState().setPlane(createSectionPlane([0, 0, 1], 0.5)!);
+        useSectionStore.getState().setEnabled(true);
+      });
+      await act(async () => useDocumentUiStore.getState().setFeatures([box, hole], 2));
+      expect(Object.keys(useDocumentUiStore.getState().meshes)).toHaveLength(0);
+      expect(useSectionStore.getState().enabled).toBe(true);
+      expect(useSectionStore.getState().plane.offsetMm).toBe(0.5);
+      await act(async () => useDocumentUiStore.getState().upsertMesh(hole.featureId, mesh, 2));
+      expect(useSectionStore.getState().enabled).toBe(true);
+      await act(async () => useDocumentUiStore.getState().setFeatures([], 3));
+      expect(useSectionStore.getState().enabled).toBe(false);
+    } finally { useSectionStore.getState().reset(); }
+  });
+
+  it("clears the section when a nonempty document switches while Home unmounts the viewport", async () => {
+    const mesh: CoreMeshData = {
+      revision: 1, volumeMm3: 1, bboxMm: [0, 0, 0, 1, 1, 1], triangleCount: 1,
+      positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+      normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+      indices: new Uint32Array([0, 1, 2]), faces: [], edges: [], edgeVertices: new Float32Array(),
+    };
+    try {
+      useDocumentUiStore.getState().resetDocument("section-before-home");
+      useDocumentUiStore.getState().upsertMesh("old-body", mesh, 1);
+      render(<App />);
+      fireEvent.click(screen.getByTestId("home-new-project"));
+      await screen.findByTestId("workspace-chrome");
+      await act(async () => {
+        useSectionStore.getState().setPlane(createSectionPlane([1, 0, 0], 0.5)!);
+        useSectionStore.getState().setEnabled(true);
+      });
+      fireEvent.click(screen.getByTestId("back-home"));
+      expect(screen.queryByTestId("viewport")).toBeNull();
+      await act(async () => {
+        // The session queue and open/recovery paths use this same document boundary.
+        useDocumentUiStore.getState().resetDocument("section-after-home");
+        useDocumentUiStore.getState().upsertMesh("new-body", mesh, 1);
+      });
+      expect(Object.keys(useDocumentUiStore.getState().meshes)).toEqual(["new-body"]);
+      expect(useSectionStore.getState().enabled).toBe(false);
+      fireEvent.click(screen.getByTestId("home-new-project"));
+      await screen.findByTestId("workspace-chrome");
+      expect(useSectionStore.getState().plane).toEqual({ normal: [0, 0, 1], offsetMm: 0, inverted: false });
+    } finally {
+      useSectionStore.getState().reset();
+    }
+  });
+
   it("closes a transient sketch editor when the core crashes", async () => {
     let crash!: (info: { code: number }) => void;
     Object.defineProperty(window, "kreoda", { configurable: true, value: {

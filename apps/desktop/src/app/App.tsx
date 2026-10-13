@@ -45,6 +45,8 @@ import {
   viewportViewDir,
   viewportRenderStats,
   viewportMeshIdentity,
+  viewportSectionGeometryDiagnostics,
+  viewportProjectPoint,
   viewportSharedTargetSummary,
 } from "../viewport/viewportHandle";
 
@@ -429,6 +431,9 @@ export function App() {
       },
       faceScreenPoint: (featureId: string, role: string) =>
         faceScreenPoint(featureId, role),
+      sectionGeometryDiagnostics: (featureId: string, samplePointMm: [number, number, number], faceRole: string) =>
+        viewportSectionGeometryDiagnostics(featureId, samplePointMm, faceRole),
+      projectPoint: viewportProjectPoint,
       viewDir: () => viewportViewDir(),
       // Phase 4 acceptance: sketch → extrude through the real core path.
       // Single commit: create with the rect content directly (one Undo step,
