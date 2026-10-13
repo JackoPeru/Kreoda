@@ -938,8 +938,14 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         return make_response(requestId, "error",
                              error_body("OPEN_FAILED", "reference metadata too large"));
       }
+      std::vector<SketchFeature> sketches;
+      if (!OcafLive::instance().ValidateSketchesInFile(xbf, &sketches, &error)) {
+        fs::remove_all(tmp, ec);
+        discardDocSnapshot(backup);
+        return make_response(requestId, "error",
+                             error_body("OPEN_FAILED", error));
+      }
       std::vector<ShapeRecord> records;
-      std::vector<std::string> sketchJsons;
       std::vector<BodyRecord> declaredBodies;
       const bool allowEmpty =
           ParseBodiesJson(manifest, &declaredBodies) && declaredBodies.empty() &&
@@ -947,10 +953,11 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       // Fresh baseline BEFORE load (clears stores + OCAF); Load then opens
       // the file into the live doc with all labels (solids, sketches,
       // selections, evolution) intact — no re-mirroring needed.
-      // C5: backup already taken above; restore it if Load fails.
+      // Sketches were fully staged above so malformed labels cannot reach this
+      // destructive boundary. C5 backup remains for later open failures.
       // C8: validate adopted Instances (nested/self/missing never open).
       DocumentStore::instance().create(documentId);
-      if (!OcafLive::instance().Load(xbf, &records, &sketchJsons, &error,
+      if (!OcafLive::instance().Load(xbf, &records, nullptr, &error,
                                      allowEmpty)) {
         fs::remove_all(tmp, ec);
         restoreDocSnapshot(backup);
@@ -992,13 +999,9 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
           BodyStore::instance().rebuildFromRecords(ordered);
         }
       }
-      for (const auto& js : sketchJsons) {
-        SketchFeature sf;
-        std::string perr;
-        if (ParseSketchFeature(js, &sf, &perr) && !sf.id.empty()) {
-          SketchStore::instance().put(sf);
-          DocumentStore::instance().noteFeature(sf.id, "Sketch");
-        }
+      for (const auto& sf : sketches) {
+        SketchStore::instance().put(sf);
+        DocumentStore::instance().noteFeature(sf.id, "Sketch");
       }
       SyncGraphFromStore();
       DocumentStore::instance().commit();

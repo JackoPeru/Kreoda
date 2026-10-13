@@ -54,6 +54,11 @@ OcafLive& OcafLive::instance() {
 }
 
 #if KREODA_WITH_OCCT
+namespace {
+bool FindSketchesRoot(const TDF_Label& main, TDF_Label* out,
+                      std::string* error);
+}
+
 struct OcafLive::Ocaf {
   Handle(TDocStd_Application) app;
   Handle(TDocStd_Document) doc;
@@ -65,17 +70,17 @@ struct OcafLive::Ocaf {
   std::map<std::string, TDF_Label> sketchLabels;
   std::map<std::string, TDF_Label> expressionLabels;
 
-  void AdoptMetadataRoots() {
+  bool AdoptMetadataRoots(std::string* error) {
     selectionsRoot.Nullify();
     sketchesRoot.Nullify();
     expressionsRoot.Nullify();
+    if (!FindSketchesRoot(doc->Main(), &sketchesRoot, error)) return false;
     for (TDF_ChildIterator it(doc->Main(), Standard_False); it.More(); it.Next()) {
       Handle(TDataStd_Name) name;
       if (!it.Value().FindAttribute(TDataStd_Name::GetID(), name)) continue;
       TCollection_AsciiString text(name->Get(), '?');
       const std::string value = text.ToCString();
       if (value == "Selections") selectionsRoot = it.Value();
-      else if (value == "Sketches") sketchesRoot = it.Value();
       else if (value == "Expressions") expressionsRoot = it.Value();
     }
     // Older documents put selections on XCAF's Shapes label. Preserve their
@@ -104,6 +109,7 @@ struct OcafLive::Ocaf {
     folder(selectionsRoot, 1001, "Selections");
     folder(sketchesRoot, 1002, "Sketches");
     folder(expressionsRoot, 1003, "Expressions");
+    return true;
   }
 
   ~Ocaf() {
@@ -216,6 +222,84 @@ std::string ExtToAscii(const TCollection_ExtendedString& xs) {
     out.push_back(c < 128 ? static_cast<char>(c) : '?');
   }
   return out;
+}
+
+struct StagedSketch {
+  std::string id;
+  std::string json;
+  SketchFeature feature;
+  TDF_Label label;
+};
+
+bool FindSketchesRoot(const TDF_Label& main, TDF_Label* out,
+                      std::string* error) {
+  if (!out) {
+    if (error) *error = "OCAF sketch metadata root output is missing";
+    return false;
+  }
+  out->Nullify();
+  for (TDF_ChildIterator it(main, Standard_False); it.More(); it.Next()) {
+    Handle(TDataStd_Name) name;
+    if (it.Value().FindAttribute(TDataStd_Name::GetID(), name) &&
+        ExtToAscii(name->Get()) == "Sketches") {
+      if (!out->IsNull()) {
+        out->Nullify();
+        if (error) *error = "OCAF sketch metadata has duplicate Sketches roots";
+        return false;
+      }
+      *out = it.Value();
+    }
+  }
+  return true;
+}
+
+bool StageSketches(const TDF_Label& main, std::vector<StagedSketch>* out,
+                   std::string* error) {
+  if (!out) {
+    if (error) *error = "OCAF: missing sketch staging output";
+    return false;
+  }
+  TDF_Label root;
+  if (!FindSketchesRoot(main, &root, error)) return false;
+  std::vector<StagedSketch> staged;
+  std::map<std::string, bool> seen;
+  if (!root.IsNull()) {
+    for (TDF_ChildIterator it(root, Standard_False); it.More(); it.Next()) {
+      Handle(TDataStd_Name) name;
+      Handle(TDataStd_Comment) comment;
+      if (!it.Value().FindAttribute(TDataStd_Name::GetID(), name) ||
+          !it.Value().FindAttribute(TDataStd_Comment::GetID(), comment)) {
+        continue;
+      }
+      StagedSketch record;
+      record.id = ExtToAscii(name->Get());
+      record.json = ExtToAscii(comment->Get());
+      if (record.id.empty()) continue;
+      std::string parseError;
+      if (!ParseSketchFeature(record.json, &record.feature, &parseError)) {
+        if (error) {
+          *error = "OCAF sketch " + record.id + " is invalid: " + parseError;
+        }
+        return false;
+      }
+      if (record.feature.id != record.id) {
+        if (error) {
+          *error = "OCAF sketch " + record.id +
+                   " has mismatched feature id " + record.feature.id;
+        }
+        return false;
+      }
+      if (seen.find(record.id) != seen.end()) {
+        if (error) *error = "OCAF has duplicate sketch label " + record.id;
+        return false;
+      }
+      seen[record.id] = true;
+      record.label = it.Value();
+      staged.push_back(std::move(record));
+    }
+  }
+  *out = std::move(staged);
+  return true;
 }
 
 // See RecordFromLabel: per-face TNaming evolution makes GetShape resolve to
@@ -556,6 +640,10 @@ bool OcafLive::ResyncStore(std::string* error) {
     if (error) *error = "no live document";
     return false;
   }
+  std::vector<StagedSketch> stagedSketches;
+  if (!StageSketches(ocaf_->doc->Main(), &stagedSketches, error)) {
+    return false;
+  }
   ocaf_->shapes = XCAFDoc_DocumentTool::ShapeTool(ocaf_->doc->Main());
   ocaf_->featureLabels.clear();
   ocaf_->sketchLabels.clear();
@@ -599,34 +687,13 @@ bool OcafLive::ResyncStore(std::string* error) {
     ShapeStore::instance().put(rec);
     registry[rec.featureId] = rec.type;
   }
-  ocaf_->AdoptMetadataRoots();
-  // Rebuild SketchStore from sketch labels (inside Sketches folder).
+  if (!ocaf_->AdoptMetadataRoots(error)) return false;
+  // Adopt only after every persisted sketch has parsed successfully.
   SketchStore::instance().clear();
-  if (!ocaf_->sketchesRoot.IsNull()) {
-    for (TDF_ChildIterator it(ocaf_->sketchesRoot, Standard_False); it.More();
-         it.Next()) {
-      Handle(TDataStd_Name) n;
-      Handle(TDataStd_Comment) c;
-      if (!it.Value().FindAttribute(TDataStd_Name::GetID(), n) ||
-          !it.Value().FindAttribute(TDataStd_Comment::GetID(), c)) {
-        continue;
-      }
-      const std::string sid = ExtToAscii(n->Get());
-      if (sid.empty()) continue;
-      ocaf_->sketchLabels[sid] = it.Value();
-      // JSON lives in the comment as plain ASCII (sketch ids are ASCII).
-      const std::string js = ExtToAscii(c->Get());
-      if (!js.empty()) {
-        SketchFeature sf;
-        std::string perr;
-        if (ParseSketchFeature(js, &sf, &perr) && !sf.id.empty()) {
-          SketchStore::instance().put(std::move(sf));
-          registry[sid] = "Sketch";
-        } else {
-          LogCore("ocaf: sketch label did not parse: " + sid);
-        }
-      }
-    }
+  for (auto& record : stagedSketches) {
+    ocaf_->sketchLabels[record.id] = record.label;
+    SketchStore::instance().put(std::move(record.feature));
+    registry[record.id] = "Sketch";
   }
   // Whole-registry replace: stale (undone/deleted) entries vanish (§12).
   DocumentStore::instance().replaceAll(registry);
@@ -1035,12 +1102,68 @@ bool OcafLive::Save(const std::string& xbfPath, std::string* error) {
 #endif
 }
 
+bool OcafLive::ValidateSketchesInFile(
+    const std::string& xbfPath, std::vector<SketchFeature>* sketches,
+    std::string* error) const {
+#if KREODA_WITH_OCCT
+  Handle(TDocStd_Application) app;
+  const auto closeDocuments = [&]() {
+    if (app.IsNull()) return;
+    try {
+      while (app->NbDocuments() > 0) app->Close(app->GetDocument(1));
+    } catch (const Standard_Failure&) {
+    }
+  };
+  try {
+    app = new TDocStd_Application;
+    BinXCAFDrivers::DefineFormat(app);
+    Handle(TDocStd_Document) doc;
+    app->NewDocument("BinXCAF", doc);
+    app->Close(doc);
+    if (app->Open(TCollection_ExtendedString(xbfPath.c_str()), doc) !=
+            PCDM_RS_OK ||
+        doc.IsNull()) {
+      if (error) *error = "OCAF: cannot open " + xbfPath;
+      closeDocuments();
+      return false;
+    }
+
+    std::vector<StagedSketch> staged;
+    if (!StageSketches(doc->Main(), &staged, error)) {
+      closeDocuments();
+      return false;
+    }
+    std::vector<SketchFeature> validated;
+    validated.reserve(staged.size());
+    for (auto& record : staged) {
+      validated.push_back(std::move(record.feature));
+    }
+    closeDocuments();
+    if (sketches) *sketches = std::move(validated);
+    return true;
+  } catch (const Standard_Failure& f) {
+    closeDocuments();
+    if (error) *error = std::string("OCAF sketch validation failed: ") + f.what();
+    return false;
+  }
+#else
+  (void)xbfPath;
+  (void)sketches;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
 bool OcafLive::Load(const std::string& xbfPath,
                     std::vector<ShapeRecord>* records,
                     std::vector<std::string>* sketchJsons,
                     std::string* error, bool allowEmpty) {
 #if KREODA_WITH_OCCT
   try {
+    std::vector<SketchFeature> validatedSketches;
+    if (!ValidateSketchesInFile(xbfPath, &validatedSketches, error)) {
+      return false;
+    }
     Reset();
     // Reset created a blank baseline; Open replaces it with the loaded doc.
     ocaf_->selectionsRoot.Nullify();
@@ -1095,7 +1218,7 @@ bool OcafLive::Load(const std::string& xbfPath,
     if (records) records->push_back(rec);
     ++recovered;
   }
-  ocaf_->AdoptMetadataRoots();
+  if (!ocaf_->AdoptMetadataRoots(error)) return false;
   // Collect sketch JSON labels (do not fail the open when absent).
   int recoveredSketches = 0;
   if (!ocaf_->sketchesRoot.IsNull()) {

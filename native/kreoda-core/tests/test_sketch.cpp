@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <limits>
 
 #include "../src/features/extrusion/extrude.h"
 #include "../src/features/hole/hole.h"
@@ -20,6 +21,11 @@
 #include "../src/model/shapes.h"
 #include "../src/protocol/json_fields.h"
 
+#if KREODA_WITH_OCCT
+#include <TopAbs_ShapeEnum.hxx>
+#include <TopExp_Explorer.hxx>
+#endif
+
 TEST(SketchJson, StrictModelFieldsIgnoreNestedKeysAndRejectWrongTypes) {
   kreoda::SketchModel model;
   std::string error;
@@ -32,6 +38,110 @@ TEST(SketchJson, StrictModelFieldsIgnoreNestedKeysAndRejectWrongTypes) {
   }) EXPECT_FALSE(kreoda::ParseSketchModel(malformed, &model, &error)) << malformed;
   EXPECT_TRUE(kreoda::ParseSketchModel(R"({"points":[{"id":"p\u002d1","x":1,"y":2}]})", &model, &error));
   EXPECT_EQ(model.points[0].id, "p-1");
+}
+
+TEST(SketchJson, FeatureRoundTripsFullFrameAndOpaqueSupportRef) {
+  kreoda::SketchFeature source;
+  source.id = "frame-json";
+  source.planeKind = "XY";
+  source.plane.origin[0] = 10;
+  source.plane.origin[1] = 20;
+  source.plane.origin[2] = 30;
+  source.plane.xAxis[0] = 0;
+  source.plane.xAxis[1] = 1;
+  source.plane.xAxis[2] = 0;
+  source.plane.yAxis[0] = 0;
+  source.plane.yAxis[1] = 0;
+  source.plane.yAxis[2] = 1;
+  source.plane.normal[0] = 1;
+  source.plane.normal[1] = 0;
+  source.plane.normal[2] = 0;
+  source.supportRef = "opaque-fixture";  // Retained as data; not resolved here.
+
+  kreoda::SketchFeature parsed;
+  std::string error;
+  ASSERT_TRUE(kreoda::ParseSketchFeature(
+      kreoda::SerializeSketchFeature(source), &parsed, &error)) << error;
+  EXPECT_EQ(parsed.supportRef, source.supportRef);
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_DOUBLE_EQ(parsed.plane.origin[i], source.plane.origin[i]);
+    EXPECT_DOUBLE_EQ(parsed.plane.xAxis[i], source.plane.xAxis[i]);
+    EXPECT_DOUBLE_EQ(parsed.plane.yAxis[i], source.plane.yAxis[i]);
+    EXPECT_DOUBLE_EQ(parsed.plane.normal[i], source.plane.normal[i]);
+  }
+}
+
+TEST(SketchJson, MissingLegacyFrameUsesEachPrincipalPlane) {
+  for (const std::string kind : {"XY", "XZ", "YZ"}) {
+    const kreoda::Json legacy = {{"id", "legacy-" + kind},
+                                 {"planeKind", kind},
+                                 {"model", kreoda::Json::object()}};
+    kreoda::SketchFeature parsed;
+    std::string error;
+    ASSERT_TRUE(kreoda::ParseSketchFeature(legacy.dump(), &parsed, &error))
+        << kind << ": " << error;
+    const auto expected = kreoda::PrincipalPlane(kind);
+    for (int i = 0; i < 3; ++i) {
+      EXPECT_DOUBLE_EQ(parsed.plane.origin[i], expected.origin[i]);
+      EXPECT_DOUBLE_EQ(parsed.plane.xAxis[i], expected.xAxis[i]);
+      EXPECT_DOUBLE_EQ(parsed.plane.yAxis[i], expected.yAxis[i]);
+      EXPECT_DOUBLE_EQ(parsed.plane.normal[i], expected.normal[i]);
+    }
+  }
+}
+
+TEST(SketchJson, InvalidPresentFrameFailsWithoutChangingOutput) {
+  kreoda::SketchFeature source;
+  source.id = "invalid-frame";
+  const kreoda::Json valid = kreoda::Json::parse(
+      kreoda::SerializeSketchFeature(source));
+  std::vector<kreoda::Json> malformed;
+
+  auto wrongLength = valid;
+  wrongLength["plane"]["origin"] = {1, 2};
+  malformed.push_back(wrongLength);
+
+  auto nonFinite = valid;
+  nonFinite["plane"]["origin"][0] = nullptr;
+  malformed.push_back(nonFinite);
+
+  auto nonFiniteBasis = valid;
+  nonFiniteBasis["plane"]["yAxis"][2] = nullptr;
+  malformed.push_back(nonFiniteBasis);
+
+  auto scaled = valid;
+  scaled["plane"]["xAxis"] = {2, 0, 0};
+  malformed.push_back(scaled);
+
+  auto skewed = valid;
+  skewed["plane"]["xAxis"] = {1, 0, 0};
+  skewed["plane"]["yAxis"] = {1e-6, 1, 0};
+  skewed["plane"]["normal"] = {0, 0, 1};
+  malformed.push_back(skewed);
+
+  auto leftHanded = valid;
+  leftHanded["plane"]["normal"] = {0, 0, -1};
+  malformed.push_back(leftHanded);
+
+  auto missingVector = valid;
+  missingVector["plane"].erase("normal");
+  malformed.push_back(missingVector);
+
+  auto wrongPlaneType = valid;
+  wrongPlaneType["plane"] = "XY";
+  malformed.push_back(wrongPlaneType);
+
+  for (const auto& value : malformed) {
+    kreoda::SketchFeature output;
+    output.id = "keep-output";
+    output.plane.origin[0] = 42;
+    std::string error;
+    EXPECT_FALSE(kreoda::ParseSketchFeature(value.dump(), &output, &error))
+        << value;
+    EXPECT_FALSE(error.empty());
+    EXPECT_EQ(output.id, "keep-output");
+    EXPECT_DOUBLE_EQ(output.plane.origin[0], 42);
+  }
 }
 #include "../src/protocol/dispatcher.h"
 
@@ -63,6 +173,23 @@ kreoda::SketchModel RectModel(double w, double h) {
   return m;
 }
 
+kreoda::SketchPlane OffsetFrame() {
+  kreoda::SketchPlane plane;
+  plane.origin[0] = 10;
+  plane.origin[1] = 20;
+  plane.origin[2] = 30;
+  plane.xAxis[0] = 0;
+  plane.xAxis[1] = 1;
+  plane.xAxis[2] = 0;
+  plane.yAxis[0] = 0;
+  plane.yAxis[1] = 0;
+  plane.yAxis[2] = 1;
+  plane.normal[0] = 1;
+  plane.normal[1] = 0;
+  plane.normal[2] = 0;
+  return plane;
+}
+
 void NewDoc(const std::string& id) {
   kreoda::DocumentStore::instance().create(id);
 }
@@ -87,6 +214,93 @@ double meshVolume(const std::string& body) {
 #endif
 
 }  // namespace
+
+TEST(SketchPlane, ValidationRequiresFiniteOrthonormalRightHandedFrame) {
+  std::string error;
+  const auto valid = OffsetFrame();
+  EXPECT_TRUE(kreoda::ValidateSketchPlane(valid, &error)) << error;
+
+  auto nonFinite = valid;
+  nonFinite.origin[1] = std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(kreoda::ValidateSketchPlane(nonFinite, &error));
+
+  auto scaled = valid;
+  scaled.xAxis[1] = 2;
+  EXPECT_FALSE(kreoda::ValidateSketchPlane(scaled, &error));
+
+  auto skewed = valid;
+  skewed.xAxis[0] = 1;
+  skewed.xAxis[1] = 0;
+  skewed.yAxis[0] = 1e-6;
+  skewed.yAxis[1] = 1;
+  skewed.yAxis[2] = 0;
+  skewed.normal[0] = 0;
+  skewed.normal[1] = 0;
+  skewed.normal[2] = 1;
+  EXPECT_FALSE(kreoda::ValidateSketchPlane(skewed, &error));
+
+  auto leftHanded = valid;
+  leftHanded.normal[0] = -1;
+  EXPECT_FALSE(kreoda::ValidateSketchPlane(leftHanded, &error));
+}
+
+TEST(Sketch, ExplicitFrameExtrudesAtStoredOriginAndBasis) {
+#if KREODA_WITH_OCCT
+  NewDoc("sketch-frame-native");
+  std::string error;
+  const auto plane = OffsetFrame();
+  ASSERT_TRUE(kreoda::CreateSketchFeature(
+      "frame-sketch", "XY", RectModel(10, 5), plane, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateExtrudeFeature("frame-extrude", "frame-sketch", 7,
+                                           &error)) << error;
+
+  kreoda::SketchFeature sketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("frame-sketch", &sketch));
+  EXPECT_EQ(sketch.id, "frame-sketch");
+  EXPECT_EQ(sketch.planeKind, "XY");
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_DOUBLE_EQ(sketch.plane.origin[i], plane.origin[i]);
+    EXPECT_DOUBLE_EQ(sketch.plane.xAxis[i], plane.xAxis[i]);
+    EXPECT_DOUBLE_EQ(sketch.plane.yAxis[i], plane.yAxis[i]);
+    EXPECT_DOUBLE_EQ(sketch.plane.normal[i], plane.normal[i]);
+  }
+
+  kreoda::ShapeRecord feature;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("frame-extrude", &feature));
+  EXPECT_EQ(feature.featureId, "frame-extrude");
+  EXPECT_NEAR(feature.volumeMm3, 350, 1e-6);
+  const double expectedBounds[6] = {10, 20, 30, 17, 30, 35};
+  for (int i = 0; i < 6; ++i) {
+    EXPECT_NEAR(feature.bboxMm[i], expectedBounds[i], 1e-6) << "bbox[" << i << "]";
+  }
+  int solidCount = 0;
+  for (TopExp_Explorer it(feature.shape, TopAbs_SOLID); it.More(); it.Next()) {
+    ++solidCount;
+  }
+  EXPECT_EQ(solidCount, 1);
+#else
+  GTEST_SKIP() << "needs OCCT";
+#endif
+}
+
+TEST(Sketch, InvalidExplicitFrameLeavesDocumentAndUndoUntouched) {
+  NewDoc("sketch-frame-invalid");
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto registry = kreoda::DocumentStore::instance().snapshotRegistry();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto redos = kreoda::OcafLive::instance().AvailableRedos();
+  auto invalid = OffsetFrame();
+  invalid.xAxis[1] = 2;
+  std::string error;
+
+  EXPECT_FALSE(kreoda::CreateSketchFeature(
+      "invalid-frame-sketch", "XY", RectModel(10, 5), invalid, &error));
+  EXPECT_FALSE(kreoda::SketchStore::instance().contains("invalid-frame-sketch"));
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::DocumentStore::instance().snapshotRegistry(), registry);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableRedos(), redos);
+}
 
 TEST(Sketch, DuplicateIdsRejected) {
   NewDoc("skd");

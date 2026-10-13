@@ -127,6 +127,14 @@ bool ValidateSketchRefs(const SketchModel& model, std::string* error) {
 bool CreateSketchFeature(const std::string& sketchId,
                          const std::string& planeKind,
                          const SketchModel& model, std::string* error) {
+  return CreateSketchFeature(sketchId, planeKind, model,
+                             PrincipalPlane(planeKind), error);
+}
+
+bool CreateSketchFeature(const std::string& sketchId,
+                         const std::string& planeKind,
+                         const SketchModel& model, const SketchPlane& plane,
+                         std::string* error) {
   if (sketchId.empty()) {
     if (error) *error = "sketch id (stable UUID) required";
     return false;
@@ -139,6 +147,7 @@ bool CreateSketchFeature(const std::string& sketchId,
     if (error) *error = "planeKind must be XY|XZ|YZ";
     return false;
   }
+  if (!ValidateSketchPlane(plane, error)) return false;
   if (SketchStore::instance().contains(sketchId) ||
       ShapeStore::instance().contains(sketchId)) {
     if (error) *error = "id already exists: " + sketchId;
@@ -158,7 +167,7 @@ bool CreateSketchFeature(const std::string& sketchId,
   SketchFeature sketch;
   sketch.id = sketchId;
   sketch.planeKind = planeKind;
-  sketch.plane = PrincipalPlane(planeKind);
+  sketch.plane = plane;
   sketch.model = model;
   // Write back solved coordinates.
   for (auto& p : sketch.model.points) {

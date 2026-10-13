@@ -67,6 +67,26 @@ double RequiredNumber(const Json& value, const char* key) {
   if (!value.is_object() || !value.contains(key)) throw JsonFieldError(std::string("missing ") + key);
   return json_double_field(value, key);
 }
+void ParseVector3(const Json& value, const char* key, double out[3]) {
+  const auto values = json_number_array(value, key);
+  if (values.size() != 3) {
+    throw JsonFieldError(std::string(key) + " must contain exactly 3 finite JSON numbers");
+  }
+  for (int i = 0; i < 3; ++i) out[i] = values[i];
+}
+SketchPlane ParseSketchPlane(const Json& value) {
+  if (!value.is_object()) throw JsonFieldError("plane must be a JSON object");
+  SketchPlane plane;
+  ParseVector3(value, "origin", plane.origin);
+  ParseVector3(value, "xAxis", plane.xAxis);
+  ParseVector3(value, "yAxis", plane.yAxis);
+  ParseVector3(value, "normal", plane.normal);
+  std::string error;
+  if (!ValidateSketchPlane(plane, &error)) {
+    throw JsonFieldError("invalid sketch plane: " + error);
+  }
+  return plane;
+}
 }  // namespace
 
 bool ParseSketchModel(const std::string& text, SketchModel* out, std::string* error) {
@@ -194,7 +214,9 @@ bool ParseSketchFeature(const std::string& text, SketchFeature* out, std::string
     if (sketch.id.empty()) throw JsonFieldError("sketch id/featureId required");
     sketch.planeKind = json_string_field(value, "planeKind", "XY");
     if (sketch.planeKind != "XY" && sketch.planeKind != "XZ" && sketch.planeKind != "YZ") throw JsonFieldError("planeKind must be XY|XZ|YZ");
-    sketch.plane = PrincipalPlane(sketch.planeKind);
+    sketch.plane = value.contains("plane")
+        ? ParseSketchPlane(value.at("plane"))
+        : PrincipalPlane(sketch.planeKind);
     sketch.supportRef = json_string_field(value, "supportRef", "");
     const auto model = value.contains("model") ? value.at("model").dump() : value.dump();
     if (!ParseSketchModel(model, &sketch.model, error)) return false;

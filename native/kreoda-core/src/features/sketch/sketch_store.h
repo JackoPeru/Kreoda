@@ -47,6 +47,7 @@ class SketchStore {
 
 // Principal plane frames (mm, right-handed, orthonormal).
 SketchPlane PrincipalPlane(const std::string& kind);
+bool ValidateSketchPlane(const SketchPlane& plane, std::string* error);
 
 // Solve + write back into the stored sketch. Returns solver result;
 // on failure the stored sketch is untouched.
