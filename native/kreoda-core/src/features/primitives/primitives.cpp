@@ -19,6 +19,7 @@
 #include "features/instance/instance.h"
 #include "features/revolve/revolve.h"
 #include "features/sketch/sketch_store.h"
+#include "features/datum/datum_store.h"
 
 #include <map>
 
@@ -503,6 +504,13 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
   // DAG recompute (§53): stage new params, mark the closure dirty, rebuild
   // in topological order inside ONE OCAF command (one Undo step, §12).
   // Snapshot first (pre-images for rollback); params staged after.
+  const auto graphSnap=TheFeatureGraph();
+  const auto datumSnap=DatumStore::instance().listInOrder();
+  const auto sketchSnap=SketchStore::instance().listInOrder();
+  const auto expressionSnap=ExpressionStore::instance().listInOrder();
+  const auto registrySnap=DocumentStore::instance().snapshotRegistry();
+  const auto revisionSnap=DocumentStore::instance().snapshotRevision();
+  const auto documentIdSnap=DocumentStore::instance().snapshotDocumentId();
   // Defensive: features adopted via open/undo always have graph nodes, but a
   // missing node must never silently skip the rebuild.
   if (!TheFeatureGraph().hasFeature(featureId)) {
@@ -513,15 +521,20 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
   // C1: snapshot the WHOLE store before any mutation (expression dependents
   // are not geometry-dirty yet, and EvaluateAll is now two-phase but the
   // staged bare-value put below still needs a full pre-image).
-  std::map<std::string, ShapeRecord> snapshot;
-  for (const auto& r : ShapeStore::instance().listInOrder()) {
-    snapshot[r.featureId] = r;
-  }
+  const auto shapeSnap=ShapeStore::instance().listInOrder();
   // Slice 3: tip stays at last good on failure — restore alongside shapes.
   const std::vector<BodyRecord> bodySnap = BodyStore::instance().bodies();
-  // Previous formula map for rollback (restored on abort with the params).
-  const std::map<std::string, std::string> prevExpr =
-      ExpressionStore::instance().forFeature(featureId);
+  // Resync rebuilds OCAF maps, but may omit consumed solids from its list.
+  // Restore exact model pre-images after it so failed edits lose no nodes.
+  const auto restoreModel=[&]() {
+    ShapeStore::instance().clear();for(const auto& record:shapeSnap)ShapeStore::instance().put(record);
+    DatumStore::instance().clear();for(const auto& record:datumSnap)DatumStore::instance().put(record);
+    SketchStore::instance().clear();for(const auto& record:sketchSnap)SketchStore::instance().put(record);
+    BodyStore::instance().replaceAll(bodySnap);
+    ExpressionStore::instance().clear();for(const auto& entry:expressionSnap)ExpressionStore::instance().set(entry.featureId,entry.paramName,entry.expression);
+    TheFeatureGraph()=graphSnap;
+    DocumentStore::instance().restoreSnapshot(documentIdSnap,revisionSnap,registrySnap);
+  };
   // A bare edit replaces this parameter's formula; unrelated formulas stay.
   // Formula values land via the fixpoint below. Both paths share rollback.
   ExpressionStore::instance().set(featureId, paramName, expression);
@@ -531,9 +544,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     ShapeStore::instance().put(rec);
   }
   if (!OcafLive::instance().BeginCommand(error)) {
-    for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
-    BodyStore::instance().replaceAll(bodySnap);
-    ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
+    restoreModel();
     return false;
   }
   // Mirror the formula (or its continuity) inside the command, then run the
@@ -542,12 +553,10 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     std::string exprErr;
     if (!MirrorFeatureExpressions(featureId, &exprErr)) {
       OcafLive::instance().AbortCommand();
-      for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
-      BodyStore::instance().replaceAll(bodySnap);
-      ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
       // C7: aborted NewChild/AddShape labels are undone by OCAF but the
       // label maps still point at them — rebuild maps from the live doc.
       { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
+      restoreModel();
       if (error) *error = exprErr;
       return false;
     }
@@ -557,10 +566,8 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     std::string evalErr;
     if (!EvaluateAllExpressions(&exprChanged, &evalErr)) {
       OcafLive::instance().AbortCommand();
-      for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
-      BodyStore::instance().replaceAll(bodySnap);
-      ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
       { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
+      restoreModel();
       if (error) *error = evalErr;
       return false;
     }
@@ -574,11 +581,9 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
         return RebuildNodeFromStore(id, e);
       });
   if (!report.ok) {
-    for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
-    BodyStore::instance().replaceAll(bodySnap);
-    ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
     OcafLive::instance().AbortCommand();
     { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
+    restoreModel();
     if (error) *error = report.firstError;
     return false;
   }

@@ -1,4 +1,6 @@
 #include "features/datum/datum_store.h"
+#include "features/datum/datum_json.h"
+#include "features/datum/datum_commands.h"
 #include "dispatcher.h"
 #include "protocol/json_fields.h"
 #include "protocol/session_geometry.h"
@@ -218,7 +220,15 @@ std::string feature_list_body() {
        << "\",\"points\":" << sk.model.points.size()
        << ",\"lines\":" << sk.model.lines.size()
        << ",\"circles\":" << sk.model.circles.size()
-       << ",\"constraints\":" << sk.model.constraints.size() << "}";
+       << ",\"constraints\":" << sk.model.constraints.size()
+       << ",\"supportRef\":\"" << escape(sk.supportRef) << "\",\"plane\":"
+       << Json::parse(SerializeSketchFeature(sk))["plane"].dump() << "}";
+  }
+  os << "],\"datums\":[";
+  first=true;
+  for(const auto& record:DatumStore::instance().listInOrder()) {
+    if(!first)os << ",";
+    first=false;os << SerializeDatumRecord(record);
   }
   os << "],\"revision\":" << DocumentStore::instance().revision() << ","
      << undo_counts_body();
@@ -519,7 +529,7 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
     const bool readOnly =
         type == kGetCoreInfo || type == kRequestMesh ||
         type == kRequestSketch || type == kPreviewSketch ||
-        type == kRequestFaceInfo || type == kRequestSnapshot || type == kRequestSessionQuery;
+        type == kRequestFaceInfo || type == kRequestSnapshot || type == kRequestSessionQuery || type == kRequestDatum;
     const bool preview =
         (type == kSetFeatureParameter || type == kUpdateSketch) &&
         (json_bool_field(requestJson, "isPreview"));
@@ -544,6 +554,27 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
   }
 
   switch (type) {
+    case kCreateDatumPlane:
+    case kCreateDatumAxis:
+    case kCreateDatumPoint:
+    case kUpdateDatum: {
+      const auto id=json_string_field(requestJson,"featureId","");
+      if(!requestJson.contains("definition")||!requestJson["definition"].is_object())
+        return make_response(requestId,"error",error_body("BAD_PARAMS","definition must be an object"));
+      std::string error;
+      const auto definition=requestJson["definition"].dump();
+      const auto kind=type==kCreateDatumPlane?DatumKind::Plane:type==kCreateDatumAxis?DatumKind::Axis:DatumKind::Point;
+      const bool success=type==kUpdateDatum?UpdateDatumFeature(id,definition,&error):CreateDatumFeature(id,kind,definition,&error);
+      if(!success)return make_response(requestId,"error",error_body("DATUM_FAILED",error));
+      DatumRecord record;DatumStore::instance().get(id,&record);
+      return make_response(requestId,"ok","\"datum\":"+SerializeDatumRecord(record)+","+feature_list_body());
+    }
+    case kRequestDatum: {
+      const auto id=json_string_field(requestJson,"featureId","");DatumRecord record;
+      if(!ShapeStore::ValidFeatureId(id))return make_response(requestId,"error",error_body("BAD_PARAMS","invalid featureId"));
+      if(!DatumStore::instance().get(id,&record))return make_response(requestId,"error",error_body("NOT_FOUND",id));
+      return make_response(requestId,"ok","\"datum\":"+SerializeDatumRecord(record)+",\"revision\":"+std::to_string(DocumentStore::instance().revision()));
+    }
     case kRequestSessionQuery: {
       try {
         const auto method = json_string_field(requestJson,"method","");
@@ -1062,6 +1093,15 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
                                         "featureId, paramName and valueMm "
                                         "(or expression) are required"));
       }
+      if(DatumStore::instance().contains(featureId)) {
+        if(isPreview||!expression.empty()||json_has_key(requestJson,"parameterValues"))
+          return make_response(requestId,"error",error_body("BAD_PARAMS","datum edit requires one numeric parameter; preview and expressions are unsupported"));
+        std::string error;
+        if(!SetDatumParameter(featureId,paramName,value,&error))
+          return make_response(requestId,"error",error_body("DATUM_FAILED",error));
+        DatumRecord record;DatumStore::instance().get(featureId,&record);
+        return make_response(requestId,"ok","\"datum\":"+SerializeDatumRecord(record)+","+feature_list_body());
+      }
       if (isPreview) {
         // Transient preview (§13): resolved + built + tessellated WITHOUT
         // touching stores, revision, or OCAF. Never committed.
@@ -1178,7 +1218,9 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         }
       }
       std::string error;
-      if (!CreateSketchFeature(featureId, planeKind, model, &error)) {
+      const auto support=json_string_field(requestJson,"supportRef","");
+      if (!(support.empty()?CreateSketchFeature(featureId,planeKind,model,&error):
+                            CreateSketchOnDatumFeature(featureId,support,model,&error))) {
         return make_response(requestId, "error",
                              error_body("SKETCH_FAILED", error));
       }
@@ -1702,11 +1744,12 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       }
       const bool isShape = ShapeStore::instance().contains(featureId);
       const bool isSketch = SketchStore::instance().contains(featureId);
-      if (!isShape && !isSketch) {
+      const bool isDatum = DatumStore::instance().contains(featureId);
+      if (!isShape && !isSketch && !isDatum) {
         return make_response(requestId, "error",
                              error_body("NOT_FOUND", featureId));
       }
-      if (isShape && isSketch) {
+      if (static_cast<int>(isShape)+static_cast<int>(isSketch)+static_cast<int>(isDatum)>1) {
         return make_response(requestId, "error",
                              error_body("DELETE_FAILED",
                                         "feature id is ambiguous across stores"));
@@ -1715,6 +1758,9 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       // No cascade exists. Refuse direct geometry/sketch dependencies and
       // formula references before touching OCAF, including Instance targets.
       std::set<std::string> dependents;
+      for(const auto& record:DatumStore::instance().listInOrder())
+        if(record.featureId!=featureId&&std::find(record.dependsOn.begin(),record.dependsOn.end(),featureId)!=record.dependsOn.end())
+          dependents.insert(record.featureId);
       for (const auto& rec : ShapeStore::instance().listInOrder()) {
         if (rec.featureId != featureId &&
             std::find(rec.dependsOn.begin(), rec.dependsOn.end(), featureId) !=

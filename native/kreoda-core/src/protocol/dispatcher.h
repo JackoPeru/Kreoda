@@ -62,6 +62,11 @@ enum CommandId {
   kCommitTransaction = 28,
   kRollbackTransaction = 29,
   kRequestSessionQuery = 30,
+  kCreateDatumPlane = 31,
+  kCreateDatumAxis = 32,
+  kCreateDatumPoint = 33,
+  kUpdateDatum = 34,
+  kRequestDatum = 35,
 };
 
 }  // namespace kreoda

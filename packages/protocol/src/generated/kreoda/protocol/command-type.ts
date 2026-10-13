@@ -33,5 +33,10 @@ export enum CommandType {
   BeginTransaction = 27,
   CommitTransaction = 28,
   RollbackTransaction = 29,
-  RequestSessionQuery = 30
+  RequestSessionQuery = 30,
+  CreateDatumPlane = 31,
+  CreateDatumAxis = 32,
+  CreateDatumPoint = 33,
+  UpdateDatum = 34,
+  RequestDatum = 35
 }

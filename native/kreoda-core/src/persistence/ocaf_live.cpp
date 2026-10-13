@@ -862,7 +862,11 @@ bool OcafLive::UpsertFeature(const ShapeRecord& rec, bool isNew,
       return false;
     }
   if (isNew || ocaf_->featureLabels.count(rec.featureId) == 0) {
-    TDF_Label label = ocaf_->shapes->AddShape(rec.shape);
+    // AddShape deduplicates identical TShapes, overwriting an earlier
+    // feature's name/parameters when a boolean returns an input unchanged.
+    // Feature identity owns its label even when geometry is shared.
+    TDF_Label label = ocaf_->shapes->NewShape();
+    ocaf_->shapes->SetShape(label, rec.shape);
     TDataStd_Name::Set(
         label, TCollection_ExtendedString(rec.featureId.c_str()));
     TDataStd_Comment::Set(

@@ -1,0 +1,41 @@
+{
+  "scope": "Task2 public datum commands and native rollback/persistence, partial",
+  "accepted": false,
+  "goalComplete": false,
+  "base": "92f6f200556e4636f591fa61352edba26712c030",
+  "focused": {
+    "passed": 27,
+    "failed": 0,
+    "skipped": 0
+  },
+  "fullNative": {
+    "passed": 220,
+    "failed": 0,
+    "seconds": 73.19
+  },
+  "selfTestExit": 0,
+  "generatedProtocol": {
+    "flatc": "25.12.19",
+    "languages": [
+      "C++",
+      "TypeScript",
+      "C#"
+    ],
+    "managedTargets": [
+      "net8.0",
+      "netstandard2.1"
+    ],
+    "managedErrors": 0,
+    "managedWarnings": 0
+  },
+  "sourceFiles": 15,
+  "remaining": [
+    "indexed topology source naming",
+    "recovery and transaction failure closure proof",
+    "canonical commands and typed clients",
+    "Desktop/Quest/MCP integration",
+    "current head hosted CI",
+    "fresh independent review"
+  ],
+  "liveHermesOrHardwareTested": false
+}

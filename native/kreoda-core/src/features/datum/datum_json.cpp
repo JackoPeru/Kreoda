@@ -4,6 +4,20 @@
 #include <set>
 #include <stdexcept>
 namespace kreoda {
+std::string SerializeDatumRecord(const DatumRecord& record) {
+  const auto xyz=[](const double* p){return Json::array({p[0],p[1],p[2]});};
+  Json resolved;
+  if(record.kind==DatumKind::Plane)
+    resolved={{"originMm",xyz(record.plane.origin)},{"xAxis",xyz(record.plane.xAxis)},
+              {"yAxis",xyz(record.plane.yAxis)},{"normal",xyz(record.plane.normal)}};
+  else if(record.kind==DatumKind::Axis)
+    resolved={{"originMm",xyz(record.originMm)},{"direction",xyz(record.direction)}};
+  else resolved={{"positionMm",xyz(record.positionMm)}};
+  return Json{{"featureId",record.featureId},{"type",DatumTypeName(record.kind)},
+              {"kind",DatumTypeName(record.kind)},{"definition",Json::parse(record.definitionJson)},
+              {"dependsOn",record.dependsOn},{"resolved",resolved},
+              {"status",record.status},{"error",record.error}}.dump();
+}
 std::string SerializeDatumDefinition(const DatumRecord& record) {
   const auto kind=record.kind==DatumKind::Plane?"DatumPlane":record.kind==DatumKind::Axis?"DatumAxis":"DatumPoint";
   return Json{{"version",1},{"featureId",record.featureId},{"kind",kind},{"definition",Json::parse(record.definitionJson)}}.dump();

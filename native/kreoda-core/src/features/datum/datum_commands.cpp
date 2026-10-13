@@ -1,5 +1,7 @@
 #include "datum_commands.h"
 #include "datum_json.h"
+#include "../../protocol/json_fields.h"
+#include <cmath>
 #include "../../document/document_store.h"
 #include "../../model/body.h"
 #include "../../model/commit.h"
@@ -9,6 +11,35 @@
 #include <exception>
 #include <optional>
 namespace kreoda {
+bool SetDatumParameter(const std::string& id,const std::string& name,double value,std::string* error) {
+  try {
+    DatumRecord record;
+    if(!DatumStore::instance().get(id,&record))throw std::runtime_error("datum feature not found");
+    if(!std::isfinite(value))throw std::runtime_error("datum parameter must be finite");
+    auto definition=Json::parse(record.definitionJson);
+    const auto type=definition.value("type","");
+    bool found=false;
+    if(((type=="offset"&&name=="offsetMm")||(type=="angle"&&name=="angleDeg"))&&definition.contains(name)&&definition[name].is_number()) {
+      definition[name]=value;found=true;
+    } else {
+      const auto coordinate=[&](Json& source,const std::string& prefix) {
+        if(!source.is_object()||source.value("type","")!="coordinates")return;
+        for(int axis=0;axis<3;++axis) {
+          const std::string parameter=prefix.empty()?std::string(1,"xyz"[axis])+"Mm":prefix+"XYZ"[axis]+"Mm";
+          if(name==parameter){source.at("positionMm").at(axis)=value;found=true;}
+        }
+      };
+      if(type=="coordinates")coordinate(definition,"");
+      if(type=="threePoint"||type=="twoPoint"||type=="midpoint") {
+        for(const auto* key:{"first","second"})if(definition.contains(key))coordinate(definition[key],key);
+        if(type=="threePoint"&&definition.contains("third"))coordinate(definition["third"],"third");
+      }
+      if(type=="planeNormal"&&definition.contains("through"))coordinate(definition["through"],"through");
+    }
+    if(!found)throw std::runtime_error("unknown numeric datum parameter: "+name);
+    return UpdateDatumFeature(id,definition.dump(),error);
+  } catch(const std::exception& exception) {if(error)*error=exception.what();return false;}
+}
 namespace {
 struct ModelSnapshot {
   std::vector<ShapeRecord> shapes=ShapeStore::instance().listInOrder();
@@ -59,7 +90,8 @@ bool mutate(const std::string& id,DatumKind kind,const std::string& definition,b
       before->restore();if(error)*error=report.firstError;return false;
     }
 #if KREODA_WITH_OCCT
-    DocumentStore::instance().registerFeature(id,DatumTypeName(kind));
+    if(OcafLive::instance().InTransaction())DocumentStore::instance().noteFeature(id,DatumTypeName(kind));
+    else DocumentStore::instance().registerFeature(id,DatumTypeName(kind));
     if(!OcafLive::instance().CommitCommand(nullptr,error)) { OcafLive::instance().AbortCommand();if(create)OcafLive::instance().ForgetFeatures({id});before->restore();return false; }
 #else
     DocumentStore::instance().registerFeature(id,DatumTypeName(kind));

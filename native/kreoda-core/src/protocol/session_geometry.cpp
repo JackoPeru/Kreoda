@@ -1,4 +1,5 @@
 #include "protocol/session_geometry.h"
+#include "features/datum/datum_json.h"
 #include "document/document_store.h"
 #include "exchange/sew.h"
 #include "features/sketch/sketch_store.h"
@@ -369,6 +370,12 @@ Json RunSessionGeometryQuery(const std::string& method,const Json& p) {
   if(!p.is_object())fail("BAD_PARAMS","query params must be an object");
 #if KREODA_WITH_OCCT
   try {
+    if(method=="getDatum") {
+      const auto id=string(p,"featureId",true);DatumRecord datum;
+      if(!ShapeStore::ValidFeatureId(id))fail("BAD_PARAMS","invalid featureId");
+      if(!DatumStore::instance().get(id,&datum))fail("NOT_FOUND",id);
+      return Json::parse(SerializeDatumRecord(datum));
+    }
     if(method=="findFaces"||method=="findEdges")return find(method,p);
     if(method=="getManipulators")return manipulators(p);
     if(method=="validateDocument"||method=="validateBody"||method=="validateFeature"||method=="validateReferences")return validate(method,p);

@@ -239,7 +239,9 @@ TEST(DatumPersistence, ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable)
 #if KREODA_WITH_OCCT
 #include "features/datum/datum_commands.h"
 #include "features/sketch/sketch_commands.h"
+#include "features/sketch/sketch_json.h"
 #include "features/extrusion/extrude.h"
+#include "features/booleans/boolean.h"
 #include "model/body.h"
 namespace {
 SketchModel datumRectangle() {
@@ -316,5 +318,154 @@ TEST(DatumCommands, NativeSourceParameterEditRebuildsDatumSketchAndSolid) {
   DatumRecord plane; ASSERT_TRUE(DatumStore::instance().get("support",&plane)); EXPECT_NEAR(plane.plane.origin[2],42,1e-6);
   ShapeRecord solid; ASSERT_TRUE(ShapeStore::instance().get("supported-solid",&solid)); EXPECT_NEAR(solid.bboxMm[2],42,1e-6); EXPECT_NEAR(solid.bboxMm[5],49,1e-6); EXPECT_NEAR(solid.volumeMm3,350,1e-6);
   ASSERT_TRUE(OcafLive::instance().Undo(&error)); ASSERT_TRUE(OcafLive::instance().ResyncStore(&error)); ASSERT_TRUE(DatumStore::instance().get("support",&plane)); EXPECT_NEAR(plane.plane.origin[2],22,1e-6);
+}
+TEST(DatumCommands, FailedUpstreamBodyEditRestoresDatumSketchSolidAndGraph) {
+  DocumentStore::instance().create("datum-upstream-failure");std::string error;
+  ASSERT_TRUE(CreateBoxFeature("source-body",100,50,20,&error));
+  ASSERT_TRUE(CreateBoxFeature("clip",100,50,30,&error));
+  ASSERT_TRUE(CreateDatumFeature("support",DatumKind::Plane,Json{{"type","offset"},{"base",{{"type","face"},{"featureId","source-body"},{"persistentFaceId","source-body:box.+Z"}}},{"offsetMm",2}}.dump(),&error));
+  ASSERT_TRUE(CreateSketchOnDatumFeature("sketch","support",datumRectangle(),&error));
+  ASSERT_TRUE(CreateExtrudeFeature("solid","sketch",7,&error));
+  ASSERT_TRUE(CreateBooleanFeature("overlap","common","solid","clip",&error)) << error;
+  const auto revision=DocumentStore::instance().snapshotRevision();const auto undos=OcafLive::instance().AvailableUndos();
+  const auto registry=DocumentStore::instance().snapshotRegistry();
+  DatumRecord before;ASSERT_TRUE(DatumStore::instance().get("support",&before));
+  EXPECT_FALSE(RebuildFeature("source-body","depthMm",40,&error));
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos);
+  EXPECT_EQ(DocumentStore::instance().snapshotRegistry(),registry);
+  DatumRecord after;ASSERT_TRUE(DatumStore::instance().get("support",&after));EXPECT_EQ(after.plane.origin[2],before.plane.origin[2]);
+  SketchFeature sketch;ASSERT_TRUE(SketchStore::instance().get("sketch",&sketch));EXPECT_EQ(sketch.plane.origin[2],22);
+  ShapeRecord solid;ASSERT_TRUE(ShapeStore::instance().get("solid",&solid));EXPECT_NEAR(solid.bboxMm[2],22,1e-6);EXPECT_NEAR(solid.bboxMm[5],29,1e-6);
+  for(const auto* id:{"source-body","clip","support","sketch","solid","overlap"})EXPECT_FALSE(TheFeatureGraph().isGeometryDirty(id)) << id;
+  ASSERT_TRUE(RebuildFeature("source-body","depthMm",21,&error)) << error;
+  ASSERT_TRUE(DatumStore::instance().get("support",&after));EXPECT_EQ(after.plane.origin[2],23);
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision+1);EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos+1);
+}
+TEST(DatumCommands, IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen) {
+  DocumentStore::instance().create("datum-shape-alias");std::string error;
+  ASSERT_TRUE(CreateBoxFeature("clip",100,50,30,&error));
+  ASSERT_TRUE(CreateDatumFeature("support",DatumKind::Plane,Json{{"type","offset"},{"base",xy()},{"offsetMm",22}}.dump(),&error));
+  ASSERT_TRUE(CreateSketchOnDatumFeature("sketch","support",datumRectangle(),&error));
+  ASSERT_TRUE(CreateExtrudeFeature("solid","sketch",7,&error));
+  ASSERT_TRUE(CreateBooleanFeature("overlap","common","solid","clip",&error)) << error;
+  ShapeRecord original;ASSERT_TRUE(ShapeStore::instance().get("solid",&original));
+  ASSERT_TRUE(OcafLive::instance().ResyncStore(&error)) << error;
+  ShapeRecord solid,overlap;ASSERT_TRUE(ShapeStore::instance().get("solid",&solid));ASSERT_TRUE(ShapeStore::instance().get("overlap",&overlap));
+  EXPECT_NEAR(solid.volumeMm3,350,1e-6);EXPECT_NEAR(overlap.volumeMm3,350,1e-6);
+  EXPECT_EQ(solid.dependsOn,(std::vector<std::string>{"sketch"}));
+  auto file=datumFile("alias");ASSERT_TRUE(OcafLive::instance().Save(file.generic_string(),&error));
+  std::vector<ShapeRecord> records;std::vector<std::string> sketches;
+  ASSERT_TRUE(OcafLive::instance().Load(file.generic_string(),&records,&sketches,&error));
+  EXPECT_EQ(std::count_if(records.begin(),records.end(),[](const auto& record){return record.featureId=="solid";}),1);
+  EXPECT_EQ(std::count_if(records.begin(),records.end(),[](const auto& record){return record.featureId=="overlap";}),1);
+  std::error_code ec;std::filesystem::remove(file,ec);
+}
+#endif
+
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+namespace {
+Json datumRpc(int type,const Json& fields=Json::object()) {
+  Json request={{"protocolVersion",1},{"requestId","datum-public"},
+                {"documentId",DocumentStore::instance().snapshotDocumentId()},{"type",type}};
+  request.update(fields);
+  return Json::parse(kreoda_test::rpcText(request.dump()));
+}
+}
+TEST(DatumProtocol, PublicCommandsQueryAndNumericEditsKeepNativeIdentity) {
+  DocumentStore::instance().create("datum-protocol");
+  auto created=datumRpc(33,{{"featureId","public-point"},{"definition",point(10,20,30)}});
+  ASSERT_EQ(created["status"],"ok") << created.dump();
+  auto queried=datumRpc(35,{{"featureId","public-point"}});
+  ASSERT_EQ(queried["status"],"ok") << queried.dump();
+  EXPECT_EQ(queried["datum"]["kind"],"DatumPoint");
+  EXPECT_EQ(queried["datum"]["resolved"]["positionMm"][0],10);
+  const auto revision=DocumentStore::instance().snapshotRevision();
+  ASSERT_EQ(datumRpc(6,{{"featureId","public-point"},{"paramName","xMm"},{"valueMm",99}})["status"],"ok");
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision+1);
+  queried=datumRpc(35,{{"featureId","public-point"}});
+  EXPECT_EQ(queried["datum"]["resolved"]["positionMm"][0],99);
+  ASSERT_EQ(datumRpc(34,{{"featureId","public-point"},{"definition",point(123,20,30)}})["status"],"ok");
+  auto query=datumRpc(30,{{"method","getDatum"},{"params",{{"featureId","public-point"}}}});
+  ASSERT_EQ(query["status"],"ok") << query.dump();
+  EXPECT_EQ(query["result"]["resolved"]["positionMm"][0],123);
+  EXPECT_TRUE(ShapeStore::instance().listInOrder().empty());
+  EXPECT_TRUE(BodyStore::instance().bodies().empty());
+}
+TEST(DatumProtocol, ReferencedDatumsCannotBeDeletedAndUnreferencedDeleteIsUndoable) {
+  DocumentStore::instance().create("datum-delete");
+  ASSERT_EQ(datumRpc(31,{{"featureId","public-plane"},{"definition",xy()}})["status"],"ok");
+  ASSERT_EQ(datumRpc(32,{{"featureId","public-axis"},{"definition",{{"type","planeNormal"},{"plane",{{"type","datum"},{"featureId","public-plane"}}}}}})["status"],"ok");
+  const auto revision=DocumentStore::instance().snapshotRevision();
+  const auto undos=OcafLive::instance().AvailableUndos();
+  auto refused=datumRpc(7,{{"featureId","public-plane"}});
+  EXPECT_EQ(refused["status"],"error"); EXPECT_EQ(refused["errorCode"],"HAS_DEPENDENTS");
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);
+  EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos);
+  ASSERT_EQ(datumRpc(7,{{"featureId","public-axis"}})["status"],"ok");
+  EXPECT_FALSE(DatumStore::instance().contains("public-axis"));
+  ASSERT_EQ(datumRpc(8)["status"],"ok");
+  EXPECT_TRUE(DatumStore::instance().contains("public-axis"));
+  EXPECT_EQ(datumRpc(31,{{"featureId","public-axis"},{"definition",xy()}})["status"],"error");
+}
+TEST(DatumProtocol, SnapshotIncludesNativeSupportAndQueriesAreReadOnly) {
+  DocumentStore::instance().create("datum-snapshot");std::string error;
+  ASSERT_TRUE(CreateDatumFeature("support",DatumKind::Plane,Json{{"type","offset"},{"base",xy()},{"offsetMm",20}}.dump(),&error));
+  auto created=datumRpc(13,{{"featureId","supported"},{"supportRef","support"},{"model",Json::parse(SerializeSketchModel(datumRectangle()))}});
+  ASSERT_EQ(created["status"],"ok") << created.dump();
+  const auto revision=DocumentStore::instance().snapshotRevision();const auto undos=OcafLive::instance().AvailableUndos();
+  auto snapshot=datumRpc(26);
+  ASSERT_EQ(snapshot["status"],"ok");ASSERT_EQ(snapshot["datums"].size(),1);
+  EXPECT_EQ(snapshot["datums"][0]["resolved"]["originMm"][2],20);
+  EXPECT_EQ(snapshot["sketches"][0]["supportRef"],"support");
+  EXPECT_EQ(snapshot["sketches"][0]["plane"]["origin"][2],20);
+  EXPECT_EQ(datumRpc(35,{{"featureId","missing"}})["errorCode"],"NOT_FOUND");
+  EXPECT_EQ(datumRpc(7,{{"featureId","support"}})["errorCode"],"HAS_DEPENDENTS");
+  EXPECT_EQ(datumRpc(6,{{"featureId","support"},{"paramName","offsetMm"},{"valueMm",30},{"isPreview",true}})["status"],"error");
+  EXPECT_EQ(datumRpc(6,{{"featureId","support"},{"paramName","bogus"},{"valueMm",30}})["status"],"error");
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos);
+}
+TEST(DatumProtocol, JoinedEditsCommitOnceAndRollbackRestoresDefinitions) {
+  DocumentStore::instance().create("datum-transaction");
+  ASSERT_EQ(datumRpc(27,{{"transactionId","txn"}})["status"],"ok");
+  auto refused=datumRpc(33,{{"featureId","joined"},{"definition",point(1,2,3)}});
+  EXPECT_EQ(refused["errorCode"],"TRANSACTION_OPEN");
+  ASSERT_EQ(datumRpc(33,{{"featureId","joined"},{"definition",point(1,2,3)},{"transactionId","txn"}})["status"],"ok");
+  ASSERT_EQ(datumRpc(6,{{"featureId","joined"},{"paramName","xMm"},{"valueMm",9},{"transactionId","txn"}})["status"],"ok");
+  EXPECT_EQ(datumRpc(35,{{"featureId","joined"}})["datum"]["resolved"]["positionMm"][0],9);
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),0);EXPECT_EQ(OcafLive::instance().AvailableUndos(),0);
+  ASSERT_EQ(datumRpc(28,{{"transactionId","txn"}})["status"],"ok");
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),1);EXPECT_EQ(OcafLive::instance().AvailableUndos(),1);
+  ASSERT_EQ(datumRpc(27,{{"transactionId","txn2"}})["status"],"ok");
+  ASSERT_EQ(datumRpc(34,{{"featureId","joined"},{"definition",point(77,2,3)},{"transactionId","txn2"}})["status"],"ok");
+  ASSERT_EQ(datumRpc(29,{{"transactionId","txn2"}})["status"],"ok");
+  EXPECT_EQ(datumRpc(35,{{"featureId","joined"}})["datum"]["resolved"]["positionMm"][0],9);
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),1);EXPECT_EQ(OcafLive::instance().AvailableUndos(),1);
+  ASSERT_EQ(datumRpc(8)["status"],"ok");EXPECT_TRUE(DatumStore::instance().listInOrder().empty());
+}
+TEST(DatumProtocol, NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically) {
+  DocumentStore::instance().create("datum-numerics");
+  auto decoratedPrincipal=xy();decoratedPrincipal["offsetMm"]=7;decoratedPrincipal["through"]=point(1,2,3);
+  ASSERT_EQ(datumRpc(31,{{"featureId","principal"},{"definition",decoratedPrincipal}})["status"],"ok");
+  EXPECT_EQ(datumRpc(6,{{"featureId","principal"},{"paramName","offsetMm"},{"valueMm",12}})["status"],"error");
+  EXPECT_EQ(datumRpc(6,{{"featureId","principal"},{"paramName","throughXMm"},{"valueMm",12}})["status"],"error");
+  ASSERT_EQ(datumRpc(31,{{"featureId","offset"},{"definition",{{"type","offset"},{"base",xy()},{"offsetMm",2}}}})["status"],"ok");
+  ASSERT_EQ(datumRpc(31,{{"featureId","angle"},{"definition",{{"type","angle"},{"base",xy()},{"axis",{{"type","principal"},{"axis","X"}}},{"angleDeg",0}}}})["status"],"ok");
+  ASSERT_EQ(datumRpc(32,{{"featureId","axis"},{"definition",{{"type","twoPoint"},{"first",point(0,0,0)},{"second",point(0,0,10)}}}})["status"],"ok");
+  ASSERT_EQ(datumRpc(6,{{"featureId","offset"},{"paramName","offsetMm"},{"valueMm",15}})["status"],"ok");
+  EXPECT_EQ(datumRpc(35,{{"featureId","offset"}})["datum"]["resolved"]["originMm"][2],15);
+  ASSERT_EQ(datumRpc(6,{{"featureId","angle"},{"paramName","angleDeg"},{"value",90}})["status"],"ok");
+  EXPECT_NEAR(datumRpc(35,{{"featureId","angle"}})["datum"]["resolved"]["normal"][1].get<double>(),-1,1e-12);
+  ASSERT_EQ(datumRpc(6,{{"featureId","axis"},{"paramName","firstXMm"},{"valueMm",5}})["status"],"ok");
+  EXPECT_EQ(datumRpc(35,{{"featureId","axis"}})["datum"]["resolved"]["originMm"][0],5);
+  const auto revision=DocumentStore::instance().snapshotRevision();const auto undos=OcafLive::instance().AvailableUndos();
+  for(const auto& fields:std::vector<Json>{
+      {{"featureId","offset"},{"paramName","offsetMm"},{"valueMm",1000001}},
+      {{"featureId","angle"},{"paramName","angleDeg"},{"valueMm",361}},
+      {{"featureId","axis"},{"paramName","firstXMm"},{"valueMm","bad"}},
+      {{"featureId","axis"},{"paramName","firstXMm"},{"expression","5+2"}},
+      {{"featureId","axis"},{"paramName","firstXMm"},{"valueMm",8},{"parameterValues",{{"secondXMm",8}}}}})
+    EXPECT_EQ(datumRpc(6,fields)["status"],"error");
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos);
+  EXPECT_EQ(datumRpc(35,{{"featureId","axis"}})["datum"]["resolved"]["originMm"][0],5);
 }
 #endif
