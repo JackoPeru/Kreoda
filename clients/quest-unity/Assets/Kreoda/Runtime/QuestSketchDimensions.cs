@@ -90,6 +90,7 @@ namespace Kreoda.QuestRuntime
             ClearDrawing();
             var plane = sketch.GetProperty("plane");var origin = CadVector.Read(plane.GetProperty("origin"));
             var x = CadVector.Read(plane.GetProperty("xAxis"));var y = CadVector.Read(plane.GetProperty("yAxis"));
+            QuestDatumView.ValidateBasis(x, y, CadVector.Read(plane.GetProperty("normal")));
             Vector3 Position(double px, double py) => QuestDimensions.CadPoint(origin + x * px + y * py);
             var model = sketch.GetProperty("model");
             var points = model.GetProperty("points").EnumerateArray().ToDictionary(p => p.GetProperty("id").GetString(),

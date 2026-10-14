@@ -7,10 +7,15 @@ const fixture = JSON.parse(readFileSync(process.argv[2], "utf8"));
 const bytes = readFileSync(fixture.file);
 const sessionId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const documentId = "fixture-doc";
+const datumId = "datum-plane-wire";
+const requests = [];
 const server = new WebSocketServer({ host: "0.0.0.0", port: 0 });
 server.on("listening", () => console.log(JSON.stringify({ port: server.address().port })));
 server.on("connection", socket => socket.on("message", data => {
   const request = JSON.parse(data.toString());
+  if (fixture.datumMode) {
+    requests.push({ method: request.method, params: request.params, sessionId: request.sessionId });
+  }
   const reply = payload => socket.send(JSON.stringify({ requestId: request.requestId, ok: true, ...payload }));
   switch (request.method) {
     case "pair":
@@ -23,12 +28,30 @@ server.on("connection", socket => socket.on("message", data => {
       break;
     case "hello":
       reply({ clientId: request.params.clientId, sessionId, documentId, revision: fixture.revision,
-        capabilities: ["incremental-deltas", "binary-mesh-v1"] });
+        capabilities: ["incremental-deltas", "binary-mesh-v1", "context-commands-v1"] });
       break;
     case "snapshot":
       reply({ sessionId, documentId, revision: fixture.revision, sketches: [],
         bodies: [{ bodyId: "body-root", tip: fixture.featureId, history: [fixture.featureId] }],
-        features: [{ featureId: fixture.featureId, type: "Box", dependsOn: [], paramsMm: [100, 50, 10] }] });
+        features: [{ featureId: fixture.featureId, type: "Box", dependsOn: [], paramsMm: [100, 50, 10] }],
+        ...(fixture.datumMode ? { datums: [{ featureId: datumId, kind: "DatumPlane", status: "ok", dependsOn: [],
+          definition: { type: "offset", base: { type: "principal", planeKind: "XY" }, offsetMm: 24 },
+          resolved: { originMm: [0, 0, 24], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] } }] } : {}) });
+      break;
+    case "listCommands":
+      if (!fixture.datumMode || request.params.selectionIds?.[0] !== datumId || request.params.expectedRevision !== fixture.revision)
+        throw new Error("wrong datum context identity/revision");
+      reply({ result: { sessionId, documentId, revision: fixture.revision, contextValid: true,
+        commands: [{ id: "CreateSketch", label: "Sketch sul piano", description: "Fixture support binding",
+          available: true, supportsPreview: false, boundParameters: { supportRef: datumId } }] } });
+      break;
+    case "getCommandSchema":
+      reply({ result: { parameters: { type: "object", properties: {
+        planeKind: { type: "string", default: "XY" }, supportRef: { type: "string" }, model: { type: "object", default: {} }
+      }, required: ["supportRef", "model"] } } });
+      break;
+    case "getCapabilities":
+      reply({ result: { fixtureRequests: requests } });
       break;
     case "requestMeshLOD":
       if (request.params.expectedRevision !== fixture.revision || request.params.quality !== fixture.quality)

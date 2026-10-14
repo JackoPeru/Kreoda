@@ -53,6 +53,44 @@ namespace Kreoda.QuestRuntime.Tests
             return target.Invoke(_controls, args);
         }
 
+        [Test]
+        public void ControllerFreeDatumSelectionFeedsVoiceAndRejectsStaleOrOfflineIdentity()
+        {
+            var connection = _controls.Connection;
+            using var record = System.Text.Json.JsonDocument.Parse("{\"featureId\":\"datum-plane\",\"kind\":\"DatumPlane\",\"status\":\"ok\",\"resolved\":{\"originMm\":[0,0,24],\"xAxis\":[1,0,0],\"yAxis\":[0,1,0],\"normal\":[0,0,1]}}");
+            var model = new Kreoda.Session.SessionModelState("session", "document", 4,
+                System.Array.Empty<System.Text.Json.JsonElement>(), System.Array.Empty<System.Text.Json.JsonElement>(),
+                System.Array.Empty<System.Text.Json.JsonElement>()) { Datums = new[] { record.RootElement.Clone() } };
+            var client = (Kreoda.Session.SessionClient)typeof(Kreoda.Session.SessionClient)
+                .GetConstructor(Private, null, System.Type.EmptyTypes, null).Invoke(null);
+            var modelField = typeof(Kreoda.Session.SessionClient).GetField("_model", Private);
+            modelField.SetValue(client, model);
+            var run = new System.Threading.CancellationTokenSource();
+            typeof(QuestConnection).GetField("_client", Private).SetValue(connection, client);
+            typeof(QuestConnection).GetField("_run", Private).SetValue(connection, run);
+            typeof(QuestConnection).GetProperty("Connected").SetValue(connection, true);
+            var scene = (Kreoda.QuestFoundation.QuestSceneState)typeof(QuestConnection).GetField("_scene", Private).GetValue(connection);
+            var generation = scene.BeginConnection();
+            typeof(QuestConnection).GetMethod("Capture", Private).Invoke(connection, new object[] { run, client, generation, model, null });
+            typeof(QuestConnection).GetMethod("Update", Private).Invoke(connection, null);
+            var datum = System.Linq.Enumerable.Single(connection.DatumViews);
+
+            var pinch = typeof(QuestControls).GetMethod("IndexPinchStarted", Private | BindingFlags.Static);
+            Assert.That(pinch.Invoke(null, new object[] { true, false }), Is.True);
+            Assert.That(Call("SelectDatum", datum), Is.True);
+            Assert.That(_controls.SelectionForVoice(), Is.EqualTo(new[] { "datum-plane" }));
+            Assert.That(typeof(QuestControls).GetField("_selected", Private).GetValue(_controls), Is.Null);
+
+            modelField.SetValue(client, model with { Revision = 5 });
+            Assert.That(_controls.SelectionForVoice(), Is.Empty);
+            Call("RefreshSelection");
+            Assert.That(typeof(QuestControls).GetField("_selectedDatum", Private).GetValue(_controls), Is.Null);
+            Assert.That(Call("SelectDatum", datum), Is.False);
+            connection.Forget();
+            Assert.That(_controls.SelectionForVoice(), Is.Empty);
+            run.Dispose();
+        }
+
         [UnityTest]
         public IEnumerator RenderedButtonTextFitsItsActualHitTargetIncludingDynamicEndpoint()
         {

@@ -32,6 +32,7 @@ namespace Kreoda.QuestRuntime
         int _discardedMeshes;
         public event Action SceneChanged;
         public IReadOnlyCollection<QuestMeshView> Views => _views.Values;
+        public IReadOnlyCollection<QuestDatumView> DatumViews => _datumViews.Values;
         public SessionClient Client { get { lock (_gate) return _client; } }
 
         public bool IsCurrentView(QuestMeshView view)
@@ -42,6 +43,19 @@ namespace Kreoda.QuestRuntime
             var target = _scene.GetAppliedTarget(new SceneObjectKey(view.BodyId, view.InstanceId));
             return model != null && target != null && target.SessionId == model.SessionId &&
                 target.DocumentId == model.DocumentId && target.Revision == model.Revision && target.FeatureId == view.FeatureId;
+        }
+        public bool IsCurrentDatum(QuestDatumView view)
+        {
+            if (view == null || !view.IsSelectable || !Connected) return false;
+            SessionClient client;
+            CancellationTokenSource run;
+            lock (_gate) { client = _client;run = _run; }
+            var model = client?.Model;
+            return run != null && !run.IsCancellationRequested && model != null &&
+                _datumGeneration == _scene.ConnectionGeneration && ReferenceEquals(_datumModel, model) &&
+                _datumViews.TryGetValue(view.FeatureId, out var applied) &&
+                ReferenceEquals(applied, view) && view.SessionId == model.SessionId && view.DocumentId == model.DocumentId &&
+                view.Revision == model.Revision && _datumSessionId == model.SessionId && _datumDocumentId == model.DocumentId;
         }
         // Capture Unity identity on the caller's frame, then query off the frame loop.
         public Task<SpatialEditIntent[]> EditIntentsAsync(QuestMeshView view, string owner = null)
@@ -71,6 +85,7 @@ namespace Kreoda.QuestRuntime
         }
         readonly QuestSceneState _scene = new QuestSceneState();
         readonly Dictionary<SceneObjectKey, QuestMeshView> _views = new Dictionary<SceneObjectKey, QuestMeshView>();
+        readonly Dictionary<string, QuestDatumView> _datumViews = new Dictionary<string, QuestDatumView>(StringComparer.Ordinal);
         readonly Dictionary<SceneObjectKey, CancellationTokenSource> _jobs = new Dictionary<SceneObjectKey, CancellationTokenSource>();
         readonly Dictionary<SceneObjectKey, MeshLod> _wantedQuality = new Dictionary<SceneObjectKey, MeshLod>();
         readonly ConcurrentQueue<Action> _main = new ConcurrentQueue<Action>();
@@ -79,6 +94,9 @@ namespace Kreoda.QuestRuntime
         CancellationTokenSource _run;
         SessionClient _client;
         Observation _latest;
+        string _datumSessionId, _datumDocumentId;
+        long _datumGeneration = -1;
+        SessionModelState _datumModel;
         SavedDevice _saved;
         string _credentialFile;
         bool _destroyed;
@@ -90,7 +108,9 @@ namespace Kreoda.QuestRuntime
         sealed class Observation
         {
             public SceneObservationStamp Stamp;
+            public SessionModelState Model;
             public SceneMeshTarget[] Targets;
+            public JsonElement[] Datums;
             public bool Snapshot;
         }
 
@@ -315,7 +335,8 @@ namespace Kreoda.QuestRuntime
                     bodies.Where(b => b.History.Any(changed.Contains)).Select(b => b.BodyId),
                     features.Where(f => f.Type == "Instance" && changed.Contains(f.FeatureId)).Select(f => f.FeatureId));
                 if (stamp.Sequence == 0) return;
-                _latest = new Observation { Stamp = stamp, Targets = targets.ToArray(), Snapshot = delta == null };
+                _latest = new Observation { Stamp = stamp, Model = model, Targets = targets.ToArray(),
+                    Datums = model.Datums.Select(datum => datum.Clone()).ToArray(), Snapshot = delta == null };
             }
         }
 
@@ -328,7 +349,10 @@ namespace Kreoda.QuestRuntime
             CancellationTokenSource run;
             lock (_gate) { observation = _latest; _latest = null; client = _client; run = _run; }
             if (observation == null || client == null || run == null) return;
+            if (!ReferenceEquals(observation.Model, client.Model)) return;
             var plan = _scene.Reconcile(observation.Stamp, observation.Targets, observation.Snapshot);
+            if (plan.IgnoredStaleObservation) return;
+            var datumChanged = ReconcileDatums(observation);
             foreach (var key in plan.Removed.Concat(plan.Superseded).Distinct())
                 if (_jobs.TryGetValue(key, out var job)) { job.Cancel(); _jobs.Remove(key); }
             foreach (var key in plan.Removed)
@@ -342,7 +366,51 @@ namespace Kreoda.QuestRuntime
                 var count = _views.TryGetValue(ticket.Key, out var previous) ? previous.TriangleCount : 0;
                 StartMesh(run, client, ticket, (int)LodPolicy.ForBody(count, TriangleBudget, wanted));
             }
-            if (plan.Removed.Count > 0) NotifySceneChanged();
+            if (plan.Removed.Count > 0 || datumChanged) NotifySceneChanged();
+        }
+
+        bool ReconcileDatums(Observation observation)
+        {
+            var model = observation.Model;
+            var changed = _datumSessionId != model.SessionId || _datumDocumentId != model.DocumentId;
+            if (changed) ClearDatumViews();
+            _datumSessionId = model.SessionId;_datumDocumentId = model.DocumentId;
+            _datumGeneration = observation.Stamp.ConnectionGeneration;_datumModel = model;
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var datum in observation.Datums)
+            {
+                if (datum.ValueKind != JsonValueKind.Object || !datum.TryGetProperty("featureId", out var idValue) ||
+                    idValue.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(idValue.GetString())) continue;
+                var id = idValue.GetString();
+                if (!seen.Add(id)) continue;
+                if (!_datumViews.TryGetValue(id, out var view))
+                {
+                    var owned = new GameObject("Datum " + id);
+                    owned.transform.SetParent(DisplayRoot, false);
+                    view = owned.AddComponent<QuestDatumView>();
+                    view.LineMaterial = EdgeMaterial;view.SelectionMaterial = SelectionMaterial;
+                    _datumViews.Add(id, view);changed = true;
+                }
+                changed |= view.Apply(datum, model.SessionId, model.DocumentId, model.Revision);
+            }
+            foreach (var id in _datumViews.Keys.Where(id => !seen.Contains(id)).ToArray())
+            {
+                DestroyDatumView(_datumViews[id]);_datumViews.Remove(id);changed = true;
+            }
+            return changed;
+        }
+
+        void ClearDatumViews()
+        {
+            foreach (var view in _datumViews.Values) DestroyDatumView(view);
+            _datumViews.Clear();
+        }
+
+        static void DestroyDatumView(QuestDatumView view)
+        {
+            if (view == null) return;
+            view.DisablePicking();
+            if (Application.isPlaying) Destroy(view.gameObject);else DestroyImmediate(view.gameObject);
         }
 
         void NotifySceneChanged()
@@ -505,6 +573,34 @@ namespace Kreoda.QuestRuntime
             });
         }
 
+        public void PublishTarget(QuestDatumView view)
+        {
+            if (!IsCurrentDatum(view)) { Status = "Attendi il datum corrente prima di inviare il target";return; }
+            SessionClient client;
+            CancellationTokenSource run;
+            lock (_gate) { client = _client;run = _run; }
+            var model = client?.Model;
+            if (client == null || run == null || model == null) { Status = "PC non connesso";return; }
+            var id = view.FeatureId;
+            var selectionKind = view.SelectionKind;
+            if (selectionKind != "datumPlane" && selectionKind != "datumAxis" && selectionKind != "datumPoint")
+            { Status = "Tipo datum non valido";return; }
+            var payload = new Dictionary<string, object> { ["ids"] = new[] { id }, ["publish"] = true,
+                ["documentId"] = model.DocumentId, ["baseRevision"] = view.Revision };
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var deadline = CancellationTokenSource.CreateLinkedTokenSource(run.Token);
+                    deadline.CancelAfter(TimeSpan.FromSeconds(5));
+                    await client.CallAsync(SessionMethods.SetSelection, payload, deadline.Token,
+                        expectedSessionId: model.SessionId).ConfigureAwait(false);
+                    Post(run, () => Status = "Target datum inviato al PC");
+                }
+                catch { Post(run, () => Status = "Target non inviato: datum o connessione cambiata"); }
+            });
+        }
+
         SavedDevice ReadDevice()
         {
             try
@@ -547,6 +643,7 @@ namespace Kreoda.QuestRuntime
             CancelMeshes();
             foreach (var view in _views.Values) if (view != null) Destroy(view.gameObject);
             _views.Clear();
+            ClearDatumViews();
             while (_main.TryDequeue(out var action)) action();
         }
     }

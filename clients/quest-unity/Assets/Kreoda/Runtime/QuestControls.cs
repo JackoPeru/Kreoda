@@ -23,9 +23,11 @@ namespace Kreoda.QuestRuntime
         public QuestVoice Voice;
         Transform _voicePage;
         TextMesh _voiceStatus, _voiceTranscript, _voiceReply, _voiceButton;
-        public string[] SelectionForVoice() => _selected != null && Connection.IsCurrentView(_selected) && _selected.UploadVersion == _selectedUploadVersion
-            ? _hit != null && !_hit.ReferenceAmbiguous ? new[] { _hit.PersistentId } : _hit == null ? new[] { _selected.InstanceId ?? _selected.BodyId } : Array.Empty<string>()
-            : Array.Empty<string>();
+        public string[] SelectionForVoice() => _selectedDatum != null
+            ? Connection.IsCurrentDatum(_selectedDatum) ? new[] { _selectedDatum.FeatureId } : Array.Empty<string>()
+            : _selected != null && Connection.IsCurrentView(_selected) && _selected.UploadVersion == _selectedUploadVersion
+                ? _hit != null && !_hit.ReferenceAmbiguous ? new[] { _hit.PersistentId } : _hit == null ? new[] { _selected.InstanceId ?? _selected.BodyId } : Array.Empty<string>()
+                : Array.Empty<string>();
         Transform _sketchPage;
         TextMesh _sketchStatus;
         bool _editingSketch;
@@ -53,6 +55,7 @@ namespace Kreoda.QuestRuntime
         readonly List<Transform> _compactMenu = new List<Transform>();
         TextMesh _status, _target, _endpointLabel, _codeLabel, _viewStatus, _handLabel, _diagnostics;
         QuestMeshView _selected;
+        QuestDatumView _selectedDatum;
         MeshSemanticHit _hit;
         LineRenderer _ray;
         TouchScreenKeyboard _keyboard;
@@ -110,7 +113,7 @@ namespace Kreoda.QuestRuntime
             Button("Faccia", new Vector3(0, -.03f, 0), .11f, () => _selectionMode = 1);
             Button("Bordo", new Vector3(.13f, -.03f, 0), .11f, () => _selectionMode = 2);
             Button("Invia target al PC", new Vector3(-.067f, -.08f, 0), .245f,
-                () => Connection.PublishTarget(_selected, _hit));
+                () => { if (_selectedDatum != null) Connection.PublishTarget(_selectedDatum); else Connection.PublishTarget(_selected, _hit); });
             Button("Centra", new Vector3(.13f, -.08f, 0), .1f, Display.Recenter);
             _target = Label(_content, "Seleziona con il raggio", new Vector3(-.19f, -.11f, -.003f), .011f);
             _textLimits[_target] = new Vector2(.38f, .065f);
@@ -480,8 +483,12 @@ namespace Kreoda.QuestRuntime
             { _target.text = "Piano di sezione solo visivo · nessun target CAD";return; }
             var edit = hitCollider != null ? hitCollider.GetComponent<QuestEditHandle>() : null;
             if (Spatial != null && edit != null && Spatial.Begin(edit, ray, hitPoint, orientation)) return;
+            var datum = hitCollider != null ? hitCollider.GetComponentInParent<QuestDatumView>() : null;
+            if (datum != null) { SelectDatum(datum);return; }
             var view = hitView ?? (hitCollider != null ? hitCollider.GetComponent<QuestMeshView>() : null);
             if (view == null) return;
+            if (_selectedDatum != null) _selectedDatum.SetSelected(false);
+            _selectedDatum = null;
             if (_selected != null) _selected.ClearSelection();
             _selected = view;
             if (Spatial != null) Spatial.Select(view);
@@ -556,9 +563,28 @@ namespace Kreoda.QuestRuntime
             if (status != TouchScreenKeyboard.Status.Visible) _keyboard = null;
         }
 
+        bool SelectDatum(QuestDatumView view)
+        {
+            if (!Connection.IsCurrentDatum(view)) return false;
+            if (_selected != null) _selected.ClearSelection();
+            if (_selectedDatum != null) _selectedDatum.SetSelected(false);
+            _selected = null;_hit = null;_selectedDatum = view;
+            view.SetSelected(true);
+            Spatial?.Select(null);
+            Commands?.SelectDatum(view);
+            _target.text = (view.NativeKind == "DatumPlane" ? "Piano" : view.NativeKind == "DatumAxis" ? "Asse" : "Punto") +
+                " selezionato\n" + view.FeatureId;
+            return true;
+        }
+
         static string ShortVoiceText(string text, int limit) => text.Length <= limit ? text : text.Substring(0, limit - 1) + "…";
         void RefreshSelection()
         {
+            if (_selectedDatum != null)
+            {
+                if (Connection.IsCurrentDatum(_selectedDatum)) return;
+                _selectedDatum.SetSelected(false);_selectedDatum = null;
+            }
             if (_selected == null || !Connection.Views.Contains(_selected) || _selected.UploadVersion != _selectedUploadVersion)
             {
                 if (_selected != null) _selected.ClearSelection();

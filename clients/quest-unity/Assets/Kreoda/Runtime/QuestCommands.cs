@@ -32,6 +32,8 @@ namespace Kreoda.QuestRuntime
         readonly Dictionary<string, object> _values = new Dictionary<string, object>(StringComparer.Ordinal);
         readonly List<string> _fields = new List<string>();
         QuestMeshView _view;
+        QuestDatumView _datum;
+        long _datumRevision;
         int _upload, _index, _field;
         long _ticket;
         CancellationTokenSource _commandRun;
@@ -39,7 +41,7 @@ namespace Kreoda.QuestRuntime
 
         public void Select(QuestMeshView view, MeshSemanticHit hit)
         {
-            Invalidate();_view = view;_upload = view != null ? view.UploadVersion : 0;
+            Invalidate();_datum = null;_view = view;_upload = view != null ? view.UploadVersion : 0;
             var ticket = _ticket;
             if (view == null || !Connection.IsCurrentView(view)) return;
             if (hit?.ReferenceAmbiguous == true) { Status = "Riferimento ambiguo: scegli altro bordo o faccia";return; }
@@ -47,6 +49,15 @@ namespace Kreoda.QuestRuntime
             var client = Connection.Client;var model = client.Model;
             _ = Load(client, ids, model.DocumentId, model.Revision, ticket);
         }
+        public void SelectDatum(QuestDatumView view)
+        {
+            Invalidate();_view = null;_datum = view;
+            if (!Connection.IsCurrentDatum(view)) { Status = "Riferimento non corrente";return; }
+            var client = Connection.Client;var model = client.Model;
+            _datumRevision = model.Revision;
+            _ = Load(client, new[] { view.FeatureId }, model.DocumentId, model.Revision, _ticket);
+        }
+        bool CurrentSelection() => _datum != null ? Connection.IsCurrentDatum(_datum) : Connection.IsCurrentView(_view);
         async Task Load(Kreoda.Session.SessionClient client, string[] ids, string documentId, long revision, long ticket)
         {
             try
@@ -54,7 +65,8 @@ namespace Kreoda.QuestRuntime
                 using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
                 var context = await client.ContextCommandsAsync(ids, documentId, revision, timeout.Token).ConfigureAwait(false);
                 _main.Enqueue(() => {
-                    if (!Current(ticket) || Connection.Client != client || !Connection.IsCurrentView(_view)) return;
+                    if (!Current(ticket) || Connection.Client != client || !CurrentSelection() ||
+                        client.Model?.DocumentId != documentId || client.Model.Revision != revision) return;
                     _context = context;
                     _index = Array.FindIndex(context.Commands, command => command.Available && command.BoundParameters.Count > 0);
                     if (_index < 0) _index = 0;
@@ -126,7 +138,7 @@ namespace Kreoda.QuestRuntime
         }
         public void Confirm()
         {
-            if (Busy || Spatial?.Busy == true || _schema.ValueKind != JsonValueKind.Object || _context == null || _command?.Available != true || !Connection.IsCurrentView(_view)) return;
+            if (Busy || Spatial?.Busy == true || _schema.ValueKind != JsonValueKind.Object || _context == null || _command?.Available != true || !CurrentSelection()) return;
             var required = _schema.TryGetProperty("required", out var names) ? names.EnumerateArray().Select(p => p.GetString()) : Enumerable.Empty<string>();
             if (required.Any(name => !_values.ContainsKey(name))) { Status = "Completa tutti i valori richiesti";return; }
             Execute(_command.Id, new Dictionary<string, object>(_values), _context.SessionId, _context.DocumentId, _context.Revision);
@@ -159,7 +171,7 @@ namespace Kreoda.QuestRuntime
                     try { using var refresh = new CancellationTokenSource(TimeSpan.FromSeconds(5));await client.SnapshotAsync(document, refresh.Token).ConfigureAwait(false); } catch { }
                     PostError(ticket, error);
                 }
-                finally { _main.Enqueue(() => { if (Current(ticket)) { Busy = false;if (Connection.IsCurrentView(_view)) Select(_view, null); } });run.Dispose(); }
+                finally { _main.Enqueue(() => { if (Current(ticket)) { Busy = false;if (_datum != null && Connection.IsCurrentDatum(_datum)) SelectDatum(_datum);else if (Connection.IsCurrentView(_view)) Select(_view, null); } });run.Dispose(); }
             });
         }
         bool Current(long ticket) => !_destroyed && ticket == _ticket;
@@ -171,7 +183,16 @@ namespace Kreoda.QuestRuntime
         }
         void Update() { for (var i = 0; i < 2 && _main.TryDequeue(out var action); i++) if (!_destroyed) action(); }
         void Start() { Connection.SceneChanged += Changed; }
-        void Changed() { if (_view != null && _view.UploadVersion != _upload) { if (!Busy) Select(_view, null); } }
+        void Changed()
+        {
+            if (Busy) return;
+            if (_datum != null)
+            {
+                if (!Connection.IsCurrentDatum(_datum)) { Invalidate();_datum = null;Status = "Riferimento non corrente"; }
+                else if (_datum.Revision != _datumRevision) SelectDatum(_datum);
+            }
+            else if (_view != null && _view.UploadVersion != _upload) Select(_view, null);
+        }
         void OnApplicationFocus(bool focus) { if (!focus) Invalidate(); }
         void OnApplicationPause(bool pause) { if (pause) Invalidate(); }
         void OnDestroy() { _destroyed = true;Invalidate();if (Connection != null) Connection.SceneChanged -= Changed; }
