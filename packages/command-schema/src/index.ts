@@ -14,6 +14,9 @@ export const SelectionKindSchema = z.enum([
   "edge",
   "vertex",
   "sketch",
+  "datumPlane",
+  "datumAxis",
+  "datumPoint",
 ]);
 export type SelectionKind = z.infer<typeof SelectionKindSchema>;
 
@@ -40,6 +43,7 @@ export interface CadCommandDefinition<P = unknown> {
   advancedVisible: boolean;
   availability: (ctx: CommandContext) => AvailabilityResult;
   selectionBindings?: Record<string, "owner" | "edges" | "faceRole" | "sketch">;
+  optionalSelectionBindings?: Record<string, "datumPlane">;
 }
 
 export const CreateBoxParams = z.object({
@@ -128,6 +132,7 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateSketch",
+    optionalSelectionBindings: { supportRef: "datumPlane" },
     nativeType: CommandType.CreateSketch,
     label: "Sketch",
     beginnerLabel: "Draw a shape",
@@ -414,6 +419,7 @@ export function commandJsonSchema(id: string) {
     description: definition.description,
     supportsPreview: definition.supportsPreview,
     selectionBindings: definition.selectionBindings ?? {},
+    optionalSelectionBindings: definition.optionalSelectionBindings ?? {},
     parameters: zodToJsonSchema(definition.parameterSchema, { $refStrategy: "none", target: "jsonSchema7",
       override: def => def === StableFeatureIdSchema._def ? { ...SESSION_STABLE_FEATURE_ID_SCHEMA } : ignoreOverride,
     }),

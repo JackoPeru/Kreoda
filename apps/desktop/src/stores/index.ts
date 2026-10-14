@@ -3,6 +3,7 @@
 
 import { create } from "zustand";
 import type { CoreMeshData, SketchModel, DatumDescriptor, SketchPlaneFrame } from "@kreoda/protocol";
+import type { SelectionKind as CanonicalSelectionKind } from "@kreoda/command-schema";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 import { t, featureTypeName } from "../i18n";
 import { useSectionStore } from "../section/store";
@@ -275,6 +276,8 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
     }),
   setDatums: (datums, revision, epoch) => set(s => {
     if(epoch !== undefined && epoch !== s.epoch || revision !== undefined && revision < s.revision)return s;
+    const incoming = new Set(datums.map(datum => datum.featureId));
+    clearRemovedDatumSelections(new Set(s.datums.filter(datum => !incoming.has(datum.featureId)).map(datum => datum.featureId)));
     return { datums };
   }),
   upsertSketch: (sketch) =>
@@ -313,6 +316,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
     // Document replacement must clear local presentation even while Home
     // has unmounted the viewport. Ordinary in-document updates never use this.
     useSectionStore.getState().reset();
+    clearRemovedDatumSelections(new Set(useDocumentUiStore.getState().datums.map(datum => datum.featureId)));
     set((s) => ({
       documentId,
       revision: 0,
@@ -354,11 +358,16 @@ interface SelectionState {
   setMode: (mode: SelectionMode) => void;
 }
 
-export type SelectionKind = "body" | "face" | "edge" | "sketch";
+export type SelectionKind = CanonicalSelectionKind;
 
-/** Id convention (§0.2): bare UUID = body OR sketch (store lookup decides);
- *  "uuid:role" = face; "uuid:edge…" = edge. */
+/** Id convention (§0.2): registered datum UUIDs keep their native kind; other
+ *  bare UUIDs are body or sketch (store lookup decides); "uuid:role" = face;
+ *  "uuid:edge…" = edge. */
 export function selectionKindOf(id: string): SelectionKind {
+  const datum = useDocumentUiStore.getState().datums.find((item) => item.featureId === id);
+  if (datum?.kind === "DatumPlane") return "datumPlane";
+  if (datum?.kind === "DatumAxis") return "datumAxis";
+  if (datum?.kind === "DatumPoint") return "datumPoint";
   const cut = id.indexOf(":");
   if (cut < 0) return "body";
   return id.slice(cut + 1).startsWith("edge.") ? "edge" : "face";
@@ -387,6 +396,15 @@ export const useSelectionStore = create<SelectionState>((set) => ({
   clear: () => set({ selectedIds: [], hoveredId: null }),
   setMode: (mode) => set({ mode }),
 }));
+
+function clearRemovedDatumSelections(removed: ReadonlySet<string>): void {
+  if (removed.size === 0) return;
+  const state = useSelectionStore.getState();
+  const selectedIds = state.selectedIds.filter(id => !removed.has(id));
+  const hoveredId = state.hoveredId !== null && removed.has(state.hoveredId) ? null : state.hoveredId;
+  if (selectedIds.length !== state.selectedIds.length || hoveredId !== state.hoveredId)
+    useSelectionStore.setState({ selectedIds, hoveredId });
+}
 
 interface ToolState {
   activeTool: string;

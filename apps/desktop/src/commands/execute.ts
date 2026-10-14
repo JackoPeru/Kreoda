@@ -35,18 +35,38 @@ function commandContext(): CommandContext {
   return {
     selection: sel.selectedIds.map((id) => {
       const kind = selectionKindOf(id);
-      const mapped =
-        kind === "body" && isSketchId(id)
-          ? "sketch"
-          : kind === "body"
-            ? "body"
-            : kind === "face"
-              ? "face"
-              : "edge";
+      const mapped = kind === "body" && isSketchId(id) ? "sketch" : kind;
       return { kind: mapped, persistentId: id };
     }),
     beginnerMode: usePreferencesStore.getState().beginnerMode,
   };
+}
+
+function selectedDatumPlanes(context: CommandContext): string[] {
+  const selected = new Set(context.selection.filter(item => item.kind === "datumPlane").map(item => item.persistentId));
+  return useDocumentUiStore.getState().datums
+    .filter(datum => datum.kind === "DatumPlane" && datum.status === "ok" && selected.has(datum.featureId))
+    .map(datum => datum.featureId);
+}
+
+function optionalBindingAvailability(def: (typeof COMMANDS)[number], context: CommandContext): { available: boolean; reason?: string } {
+  const planes = context.selection.filter(item => item.kind === "datumPlane").map(item => item.persistentId);
+  for (const binding of Object.values(def.optionalSelectionBindings ?? {})) {
+    if (binding !== "datumPlane" || planes.length === 0) continue;
+    const healthy = new Set(selectedDatumPlanes(context));
+    if (planes.some(id => !healthy.has(id))) return { available: false, reason: "BROKEN_REFERENCE" };
+    if (planes.length > 1) return { available: false, reason: "AMBIGUOUS_REFERENCE" };
+  }
+  return { available: true };
+}
+
+function applyOptionalSelectionBindings(def: (typeof COMMANDS)[number], parameters: Record<string, unknown>, context: CommandContext): void {
+  for (const [name, binding] of Object.entries(def.optionalSelectionBindings ?? {})) {
+    if (parameters[name] !== undefined || binding !== "datumPlane") continue;
+    const planes = selectedDatumPlanes(context);
+    if (planes.length > 1) throw new Error("AMBIGUOUS_REFERENCE");
+    if (planes.length === 1) parameters[name] = planes[0];
+  }
 }
 
 function appendFeature(entry: FeatureSummary, revision: number): void {
@@ -104,13 +124,22 @@ export async function executeCommand(
   // zod-validated, so the single typed path (§0.4) is preserved; only the
   // UI-context gate is the caller's responsibility. SAFETY: only
   // provider.ts may pass skipAvailability.
+  const context = commandContext();
   if (!opts.skipAvailability) {
-    const availability = def.availability(commandContext());
+    const availability = def.availability(context);
     if (!availability.available) {
       throw new Error(localizeReason(availability.reason) ?? t("cmd.unavailable", { id }));
     }
   }
   const p = def.parameterSchema.parse(params) as Record<string, unknown>;
+  if (!opts.skipAvailability) {
+    const explicitlyBound = Object.entries(def.optionalSelectionBindings ?? {}).some(([name]) => p[name] !== undefined);
+    if (!explicitlyBound) {
+      const availability = optionalBindingAvailability(def, context);
+      if (!availability.available) throw new Error(availability.reason);
+      applyOptionalSelectionBindings(def, p, context);
+    }
+  }
   return dispatchCommand(id, p, def.nativeType);
 }
 
@@ -373,7 +402,12 @@ export function commandAvailability(id: string): {
   }
   const def = COMMANDS.find((c) => c.id === id);
   if (!def) return { available: false, reason: t("cmd.reasonUnknown") };
-  return def.availability(commandContext());
+  const context = commandContext();
+  const availability = def.availability(context);
+  if (!availability.available) return availability;
+  const optionalAvailability = optionalBindingAvailability(def, context);
+  if (!optionalAvailability.available) return optionalAvailability;
+  return availability;
 }
 
 function emptySketchModel(): SketchModel {

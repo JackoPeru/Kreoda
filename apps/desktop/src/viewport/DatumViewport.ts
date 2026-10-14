@@ -6,6 +6,7 @@ export class DatumViewport {
   readonly group = new THREE.Group();
   private pickables: THREE.Object3D[] = [];
   private selected = new Set<string>();
+  private sharedTargets = new Set<string>();
   private hovered: string | null = null;
   private vector(value: readonly number[]): THREE.Vector3 { return new THREE.Vector3(value[0],value[1],value[2]); }
 
@@ -40,6 +41,7 @@ export class DatumViewport {
     this.group.updateMatrixWorld(true);this.highlight();
   }
   setSelection(ids: readonly string[],hovered: string | null): void { this.selected=new Set(ids);this.hovered=hovered;this.highlight(); }
+  setSharedTargets(ids: readonly string[]): void { this.sharedTargets=new Set(ids);this.highlight(); }
   private highlight(): void {
     this.group.traverse(object => {
       const candidate=object as THREE.Mesh|THREE.Line;
@@ -47,7 +49,12 @@ export class DatumViewport {
       const materials=Array.isArray(candidate.material)?candidate.material:[candidate.material];
       for(const material of materials) {
         const colored=material as THREE.MeshBasicMaterial|THREE.LineBasicMaterial;
-        colored.color?.setHex(object.userData.datumStatus !== "ok" ? 0xff7070 : this.selected.has(object.userData.persistentId) || this.hovered===object.userData.persistentId ? 0xffcf65 : 0x69cdd8);
+        const id = object.userData.persistentId as string;
+        const color = object.userData.datumStatus !== "ok" ? 0xff7070
+          : this.selected.has(id) || this.hovered === id ? 0xffcf65
+          : this.sharedTargets.has(id) ? 0x4bcab0
+          : 0x69cdd8;
+        colored.color?.setHex(color);
       }
     });
   }

@@ -69,7 +69,7 @@ test("official MCP creates native datum, supported sketch and solid in one Deskt
       KREODA_RECOVERY_DIR: profile,
     }, [`--user-data-dir=${profile}`]);
     app = launched;
-    await expect.poll(() => window.evaluate(() => window.kreoda.coreInfo().then((info) => info.running))).toBe(true);
+    await expect.poll(() => window.evaluate(() => globalThis.window.kreoda.coreInfo().then((info) => info.running))).toBe(true);
     const kernel = await nativeCall(window, CommandType.GetCoreInfo);
     expect(kernel.occtVersion).toBe("8.0.1-native");
     const initial = await snapOf(window);
@@ -77,9 +77,9 @@ test("official MCP creates native datum, supported sketch and solid in one Deskt
     expect(initial.sketches).toHaveLength(0);
     expect(initial.bodies).toHaveLength(0);
 
-    const listener = await window.evaluate(() => window.kreoda.sessionEnable("127.0.0.1", 0));
+    const listener = await window.evaluate(() => globalThis.window.kreoda.sessionEnable("127.0.0.1", 0));
     expect(listener.listener?.port).toBeGreaterThan(0);
-    const pairing = await window.evaluate(() => window.kreoda.sessionPair());
+    const pairing = await window.evaluate(() => globalThis.window.kreoda.sessionPair());
     const bridgeEnv = {
       ...process.env,
       KREODA_HERMES_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`,

@@ -67,3 +67,53 @@ it("rejects a session reset during native validation even when revision is reuse
   f.geometry.mockImplementationOnce(async () => { f.reset();return { valid: true, checks: [{ id: "box:e1", ok: true, kind: "edge", confidence: 1, owner: "box", ownerBody: "body-box", role: "e1" }] }; });
   await expect(f.query({ selectionIds: ["box:e1"], expectedRevision: 7 })).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
 });
+
+function sketchContext(reply: { result: unknown }) {
+  const commands = (reply.result as { commands: { id: string; available: boolean; reason?: string; boundParameters: Record<string, unknown> }[] }).commands;
+  return commands.find(command => command.id === "CreateSketch")!;
+}
+
+it("binds exactly one validated datum plane UUID to optional sketch support", async () => {
+  const f = fixture();
+  const planeId = "67e12d50-c1e9-4c42-9bf8-983de4eb9c21";
+  f.geometry.mockResolvedValueOnce({ valid: true, checks: [{ id: planeId, ok: true, kind: "datumPlane", owner: planeId }] } as never);
+  const reply = await f.query({ selectionIds: [planeId], expectedRevision: 7 });
+  expect(sketchContext(reply)).toMatchObject({ available: true, boundParameters: { supportRef: planeId } });
+});
+
+it("keeps principal sketch creation unbound when no datum plane is selected", async () => {
+  const f = fixture();
+  const reply = await f.query({});
+  expect(sketchContext(reply)).toMatchObject({ available: true, boundParameters: {} });
+});
+
+it.each(["datumAxis", "datumPoint"])("never binds %s as sketch support", async kind => {
+  const f = fixture();
+  const id = "67e12d50-c1e9-4c42-9bf8-983de4eb9c22";
+  f.geometry.mockResolvedValueOnce({ valid: true, checks: [{ id, ok: true, kind, owner: id }] } as never);
+  const reply = await f.query({ selectionIds: [id], expectedRevision: 7 });
+  expect(sketchContext(reply)).toMatchObject({ available: true, boundParameters: {} });
+});
+
+it("marks multiple selected datum planes unavailable with an explicit ambiguity reason", async () => {
+  const f = fixture();
+  const first = "67e12d50-c1e9-4c42-9bf8-983de4eb9c23";
+  const second = "67e12d50-c1e9-4c42-9bf8-983de4eb9c24";
+  f.geometry.mockResolvedValueOnce({ valid: true, checks: [
+    { id: first, ok: true, kind: "datumPlane", owner: first },
+    { id: second, ok: true, kind: "datumPlane", owner: second },
+  ] } as never);
+  const reply = await f.query({ selectionIds: [first, second], expectedRevision: 7 });
+  expect(sketchContext(reply)).toMatchObject({ available: false, reason: "AMBIGUOUS_REFERENCE", boundParameters: {} });
+});
+
+it("disables optional sketch support when an explicit native reference is invalid", async () => {
+  const f = fixture();
+  const brokenPlane = "67e12d50-c1e9-4c42-9bf8-983de4eb9c2a";
+  f.geometry.mockResolvedValueOnce({ valid: false, checks: [
+    { id: brokenPlane, ok: false, kind: "datumPlane", errorCode: "BROKEN_REFERENCE" },
+  ] } as never);
+  const reply = await f.query({ selectionIds: [brokenPlane], expectedRevision: 7 });
+  expect(reply.result).toMatchObject({ contextValid: false });
+  expect(sketchContext(reply)).toMatchObject({ available: false, reason: "BROKEN_REFERENCE", boundParameters: {} });
+});

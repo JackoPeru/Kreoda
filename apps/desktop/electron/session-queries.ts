@@ -5,7 +5,7 @@ import { QUERY_METHODS_CONTRACT, SESSION_SERVER_CAPABILITIES, DatumDescriptorSch
 // fakes. Nothing here invents geometry — parameters come from the core
 // summaries; accurate measures and reference validation come from OCCT.
 
-import { COMMANDS, commandJsonSchema, type CommandContext } from "@kreoda/command-schema";
+import { COMMANDS, commandJsonSchema, SelectionKindSchema, type CommandContext } from "@kreoda/command-schema";
 import { SketchModelSchema } from "@kreoda/protocol";
 
 export interface SnapFeature {
@@ -567,7 +567,7 @@ export async function runSessionQuery(
               result.checks.some((check, index) => !check || check.id !== ids[index]))
             throw coded("CORE_FAILED", "native reference validation is incomplete");
           const invalid = result.checks.find(check => check.ok !== true || (check.confidence !== undefined &&
-            (!Number.isFinite(check.confidence) || check.confidence < .5)) || !["body", "face", "edge", "vertex", "sketch"].includes(check.kind ?? ""));
+            (!Number.isFinite(check.confidence) || check.confidence < .5)) || !SelectionKindSchema.safeParse(check.kind).success);
           if (invalid || result.valid !== true) referenceReason = invalid?.errorCode ?? "AMBIGUOUS_REFERENCE";
           else {
             references = result.checks;
@@ -587,6 +587,10 @@ export async function runSessionQuery(
           commands: COMMANDS.map((c) => {
             const availability = { ...c.availability(context) };
             const boundParameters: Record<string, unknown> = {};
+            if (availability.available && referenceReason && Object.keys(c.optionalSelectionBindings ?? {}).length > 0) {
+              availability.available = false;
+              availability.reason = referenceReason;
+            }
             if (availability.available) for (const [name, binding] of Object.entries(c.selectionBindings ?? {})) {
               if (binding === "owner") {
                 const owners = [...new Set(references.map(r => r.owner).filter((owner): owner is string => typeof owner === "string" && owner.length > 0))];
@@ -596,6 +600,12 @@ export async function runSessionQuery(
               else if (binding === "faceRole") boundParameters[name] = references.find(r => r.kind === "face")?.role;
               else if (binding === "sketch") boundParameters[name] = references.find(r => r.kind === "sketch")?.id;
               if (boundParameters[name] === undefined) { availability.available = false;availability.reason = "Selected reference has no command binding";break; }
+            }
+            if (availability.available) for (const [name, binding] of Object.entries(c.optionalSelectionBindings ?? {})) {
+              if (binding !== "datumPlane") continue;
+              const planes = references.filter(reference => reference.kind === "datumPlane");
+              if (planes.length > 1) { availability.available = false;availability.reason = "AMBIGUOUS_REFERENCE";break; }
+              if (planes.length === 1) boundParameters[name] = planes[0]!.id;
             }
             return {
             id: c.id,

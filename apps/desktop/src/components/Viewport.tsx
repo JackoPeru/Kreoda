@@ -48,8 +48,8 @@ export function Viewport() {
   const revision = useDocumentUiStore(s => s.revision);
   const sectionEnabled = useSectionStore((s) => s.enabled);
   const sectionPlane = useSectionStore((s) => s.plane);
-  const sharedIds = useMemo(() => visibleSharedTargets(meshes, { documentId, revision }).flatMap(target => target.ids),
-    [meshes, meshRevision, targetEvents, targetContext, documentId, revision]);
+  const sharedIds = useMemo(() => visibleSharedTargets(meshes, { documentId, revision }, datums).flatMap(target => target.ids),
+    [meshes, meshRevision, datums, targetEvents, targetContext, documentId, revision]);
   const refPlanes = useReferenceStore((s) => s.planes);
   const [pullHint, setPullHint] = useState<string | null>(null);
 

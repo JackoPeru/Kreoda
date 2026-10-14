@@ -963,6 +963,7 @@ export class CadViewport {
 
   setSharedTargets(ids: string[]): void {
     this.sharedTargetIds = new Set(ids);
+    this.datumView.setSharedTargets(ids);
     this.applyHighlights();
     this.rebuildSharedEdgeOverlay();
   }

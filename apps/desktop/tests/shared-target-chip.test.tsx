@@ -3,7 +3,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { SharedTargetChip } from "../src/components/workspace/SharedTargetChip";
 import { useSharedTargetStore, visibleSharedTargets } from "../src/model/shared-targets";
 import { useDocumentUiStore, useSelectionStore } from "../src/stores";
-import type { CoreMeshData } from "@kreoda/protocol";
+import { DatumDescriptorSchema, type CoreMeshData } from "@kreoda/protocol";
 
 afterEach(() => { cleanup(); useSharedTargetStore.getState().reset(); useSelectionStore.getState().clear(); });
 
@@ -25,4 +25,17 @@ it("renders only resolvable current remote refs and hides immediately when Deskt
   expect(useSelectionStore.getState().selectedIds).toEqual(["local"]);
   act(() => useDocumentUiStore.setState({ revision: 4 }));
   expect(screen.queryByTestId("shared-target-chip")).toBeNull();
+});
+
+it("renders a remote native datum UUID from the current document", () => {
+  const planeId = "67e12d50-c1e9-4c42-9bf8-983de4eb9c2a";
+  const context = { sessionId: "session-a", documentId: "doc-a", revision: 3 };
+  const plane = DatumDescriptorSchema.parse({ featureId: planeId, kind: "DatumPlane",
+    definition: { type: "principal", planeKind: "XY" }, dependsOn: [],
+    resolved: { originMm: [0, 0, 0], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] }, status: "ok" });
+  useDocumentUiStore.setState({ documentId: context.documentId, revision: 3, datums: [plane], meshes: {} });
+  useSharedTargetStore.getState().setContext(context);
+  render(<SharedTargetChip />);
+  act(() => useSharedTargetStore.getState().receive({ ...context, event: "selection", clientId: "quest", ids: [planeId] }));
+  expect(screen.getByTestId("shared-target-chip").textContent).toContain(planeId);
 });

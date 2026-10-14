@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { SelectionEventSchema, type CoreMeshData } from "@kreoda/protocol";
+import { SelectionEventSchema, type CoreMeshData, type DatumDescriptor } from "@kreoda/protocol";
 import type { SessionSelection } from "../../electron/session";
 
 export interface TargetContext { sessionId: string; documentId: string; revision: number }
@@ -41,7 +41,11 @@ export function currentSharedTargets(): SessionSelection[] {
     event.revision === context.revision) : [];
 }
 
-export function visibleSharedTargets(meshes: Record<string, CoreMeshData>, view?: Pick<TargetContext, "documentId" | "revision">): SessionSelection[] {
+export function visibleSharedTargets(
+  meshes: Record<string, CoreMeshData>,
+  view?: Pick<TargetContext, "documentId" | "revision">,
+  datums: readonly DatumDescriptor[] = [],
+): SessionSelection[] {
   const context = useSharedTargetStore.getState().context;
   if (view && (!context || context.documentId !== view.documentId || context.revision !== view.revision)) return [];
   const counts = new Map<string, number>();
@@ -50,6 +54,7 @@ export function visibleSharedTargets(meshes: Record<string, CoreMeshData>, view?
     for (const id of [...mesh.faces.map(face => face.persistentFaceId), ...mesh.edges.map(edge => edge.persistentEdgeId)])
       counts.set(id, (counts.get(id) ?? 0) + 1);
   }
+  for (const datum of datums) counts.set(datum.featureId, (counts.get(datum.featureId) ?? 0) + 1);
   return currentSharedTargets().map(event => ({ ...event, ids: event.ids.filter(id => counts.get(id) === 1) }))
     .filter(event => event.ids.length > 0);
 }
