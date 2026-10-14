@@ -1,6 +1,6 @@
 # Native datum review corrections
 
-Status: parent implemented and locally verified; fresh corrected review pending. No Phase15.1 or full-goal acceptance.
+Status: parent implemented and locally verified; fresh corrected review ship (see REVIEW.md), limited to c71b532. No Phase15.1 or full-goal acceptance.
 
 The separate GPT-6-Sol/High review of fa78baf..5b01f752 returned fix-first (see ../2026-10-14-datum-desktop-integration/REVIEW.md). The verified Luna/Max implementer then failed with a usage-limit error before changing source. Per the user's explicit quota fallback, the parent continued implementation; no replacement Luna task was spawned.
 
