@@ -14,7 +14,7 @@ Status: parent unit/build/hidden native E2E verification passed; fresh immutable
 ## Parent verification completed
 
 - Full Desktop Vitest284/284 across43 files, zero unhandled errors,36.74 seconds.
-- Canonical command-schema24/24; standard package build and lint exit0.
+- Canonical command-schema24 local executions; standard package build and lint exit0. Subsequent exact-head CI audit found these were12 unique source cases plus stale ignored compiled copies under dist; see ../2026-10-14-current-head-ci-failure. The raw local log is retained unchanged.
 - Protocol51/51 and generated session-contract check: five artifacts/43 DTO schemas match sourcefc27989e6b39fd8d12cafa770f72ab89f26e7bb0f9d14b635f687b3ebbdfe6ce.
 - Standard Desktop lint and full build exit0, including renderer/main/preload. Vite's existing chunk-size warning remains recorded rather than suppressed.
 - Parent independently reran four hidden native Electron cases:4/4 in1.2 minutes. Existing Box MCP, datum/sketch/solid edit/save/open/Undo, actual datum MCP one-group Undo/Redo, and new datum target flow all passed. New target flow creates native plane/axis, rejects wrong-kind/missing/stale references, executes CreateSketch with the actual session-returned boundParameters and verifies native/renderer full frame, then publishes a remote UUID independently of local selection and removes the guide target with Undo.
