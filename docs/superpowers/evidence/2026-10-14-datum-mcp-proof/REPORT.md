@@ -1,6 +1,6 @@
 # Actual local MCP datum proof
 
-Status: parent verified; independent immutable review pending. Not full Phase15.1 or full-goal acceptance.
+Status: parent verified; independent immutable review ship (see REVIEW.md), limited to1bd331a. Not full Phase15.1 or full-goal acceptance.
 
 ## Actual boundary and failure
 
