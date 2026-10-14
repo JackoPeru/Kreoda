@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 2019ae0e61e5ee7feb539b6401fdc1289a98d5f45d39d33bbc3203f58549829a
+// Source SHA256: fc27989e6b39fd8d12cafa770f72ab89f26e7bb0f9d14b635f687b3ebbdfe6ce
 #nullable enable annotations
 #nullable disable warnings
 namespace Kreoda.Session.Generated
@@ -271,6 +271,10 @@ namespace Kreoda.Session.Generated
         [JsonPropertyName("bodies")]
         public BodyDescriptor[] Bodies { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("datums")]
+        public DatumDescriptor[]? Datums { get; set; }
+
         [JsonPropertyName("documentId")]
         [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
         public string DocumentId { get; set; }
@@ -306,6 +310,284 @@ namespace Kreoda.Session.Generated
         [JsonPropertyName("tip")]
         [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
         public string Tip { get; set; }
+    }
+
+    public partial class DatumDescriptor
+    {
+        [JsonPropertyName("definition")]
+        public DatumDefinition Definition { get; set; }
+
+        [JsonPropertyName("dependsOn")]
+        [JsonConverter(typeof(TentacledDecodeArrayConverter))]
+        public string[] DependsOn { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("error")]
+        public string? Error { get; set; }
+
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string FeatureId { get; set; }
+
+        [JsonPropertyName("kind")]
+        public DatumDescriptorKind Kind { get; set; }
+
+        [JsonPropertyName("resolved")]
+        public DatumGeometry Resolved { get; set; }
+
+        [JsonPropertyName("status")]
+        public Status Status { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("type")]
+        public DatumDescriptorKind? Type { get; set; }
+    }
+
+    public partial class DatumDefinition
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("planeKind")]
+        public PlaneKind? PlaneKind { get; set; }
+
+        [JsonPropertyName("type")]
+        public DefinitionType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("base")]
+        public Base? Base { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("offsetMm")]
+        [JsonConverter(typeof(FluffyMinMaxValueCheckConverter))]
+        public double? OffsetMm { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("first")]
+        public DefinitionFirst? First { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("second")]
+        public DefinitionSecond? Second { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("angleDeg")]
+        [JsonConverter(typeof(PurpleMinMaxValueCheckConverter))]
+        public double? AngleDeg { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("axis")]
+        public AxisClass? Axis { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("third")]
+        public Third? Third { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("plane")]
+        public Plane? Plane { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("through")]
+        public Through? Through { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+    }
+
+    public partial class AxisClass
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("axis")]
+        public AxisEnum? Axis { get; set; }
+
+        [JsonPropertyName("type")]
+        public AxisType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("persistentEdgeId")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string? PersistentEdgeId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("selectionEntry")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string? SelectionEntry { get; set; }
+    }
+
+    public partial class Base
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("planeKind")]
+        public PlaneKind? PlaneKind { get; set; }
+
+        [JsonPropertyName("type")]
+        public BaseType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("persistentFaceId")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string? PersistentFaceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("selectionEntry")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string? SelectionEntry { get; set; }
+    }
+
+    public partial class DefinitionFirst
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("planeKind")]
+        public PlaneKind? PlaneKind { get; set; }
+
+        [JsonPropertyName("type")]
+        public PurpleType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("persistentFaceId")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string? PersistentFaceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("selectionEntry")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string? SelectionEntry { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+    }
+
+    public partial class Plane
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("planeKind")]
+        public PlaneKind? PlaneKind { get; set; }
+
+        [JsonPropertyName("type")]
+        public BaseType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("persistentFaceId")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string? PersistentFaceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("selectionEntry")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string? SelectionEntry { get; set; }
+    }
+
+    public partial class DefinitionSecond
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("planeKind")]
+        public PlaneKind? PlaneKind { get; set; }
+
+        [JsonPropertyName("type")]
+        public PurpleType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("persistentFaceId")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string? PersistentFaceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("selectionEntry")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string? SelectionEntry { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+    }
+
+    public partial class Third
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+
+        [JsonPropertyName("type")]
+        public ThirdType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+    }
+
+    public partial class Through
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+
+        [JsonPropertyName("type")]
+        public ThirdType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+    }
+
+    public partial class DatumGeometry
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("normal")]
+        public double[]? Normal { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("originMm")]
+        public double[]? OriginMm { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("xAxis")]
+        public double[]? XAxis { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("yAxis")]
+        public double[]? YAxis { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("direction")]
+        public double[]? Direction { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        public double[]? PositionMm { get; set; }
     }
 
     public partial class FeatureDescriptor
@@ -357,7 +639,7 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("plane")]
-        public Dictionary<string, object>? Plane { get; set; }
+        public SketchPlaneFrame? Plane { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("planeKind")]
@@ -367,6 +649,21 @@ namespace Kreoda.Session.Generated
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("supportRef")]
         public string? SupportRef { get; set; }
+    }
+
+    public partial class SketchPlaneFrame
+    {
+        [JsonPropertyName("normal")]
+        public double[] Normal { get; set; }
+
+        [JsonPropertyName("origin")]
+        public double[] Origin { get; set; }
+
+        [JsonPropertyName("xAxis")]
+        public double[] XAxis { get; set; }
+
+        [JsonPropertyName("yAxis")]
+        public double[] YAxis { get; set; }
     }
 
     public partial class SessionIncrementalEvent
@@ -425,7 +722,7 @@ namespace Kreoda.Session.Generated
         public long Index { get; set; }
 
         [JsonPropertyName("kind")]
-        public Kind Kind { get; set; }
+        public SessionEntityPatchKind Kind { get; set; }
 
         [JsonPropertyName("value")]
         public Dictionary<string, object> Value { get; set; }
@@ -491,7 +788,7 @@ namespace Kreoda.Session.Generated
     public partial class PairParams
     {
         [JsonPropertyName("deviceName")]
-        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(IndigoMinMaxLengthCheckConverter))]
         public string DeviceName { get; set; }
 
         [JsonPropertyName("pairingToken")]
@@ -603,7 +900,7 @@ namespace Kreoda.Session.Generated
         public long Generation { get; set; }
 
         [JsonPropertyName("previewId")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(IndecentMinMaxLengthCheckConverter))]
         public string PreviewId { get; set; }
     }
 
@@ -635,11 +932,11 @@ namespace Kreoda.Session.Generated
         public string NativeRequestId { get; set; }
 
         [JsonPropertyName("paramName")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(IndecentMinMaxLengthCheckConverter))]
         public string ParamName { get; set; }
 
         [JsonPropertyName("previewId")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(IndecentMinMaxLengthCheckConverter))]
         public string PreviewId { get; set; }
 
         [JsonPropertyName("quality")]
@@ -712,11 +1009,385 @@ namespace Kreoda.Session.Generated
         public long ExpectedRevision { get; set; }
 
         [JsonPropertyName("selectionIds")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public string[] SelectionIds { get; set; }
     }
 
-    public enum Kind { Body, Feature, Sketch };
+    public partial class DatumPlaneDescriptor
+    {
+        [JsonPropertyName("definition")]
+        public DatumPlaneDefinition Definition { get; set; }
+
+        [JsonPropertyName("dependsOn")]
+        [JsonConverter(typeof(TentacledDecodeArrayConverter))]
+        public string[] DependsOn { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("error")]
+        public string? Error { get; set; }
+
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string FeatureId { get; set; }
+
+        [JsonPropertyName("kind")]
+        public DatumPlaneDescriptorKind Kind { get; set; }
+
+        [JsonPropertyName("resolved")]
+        public DatumPlaneGeometry Resolved { get; set; }
+
+        [JsonPropertyName("status")]
+        public Status Status { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("type")]
+        public DatumPlaneDescriptorKind? Type { get; set; }
+    }
+
+    public partial class DatumPlaneDefinition
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("planeKind")]
+        public PlaneKind? PlaneKind { get; set; }
+
+        [JsonPropertyName("type")]
+        public DatumPlaneDefinitionType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("base")]
+        public Base? Base { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("offsetMm")]
+        [JsonConverter(typeof(FluffyMinMaxValueCheckConverter))]
+        public double? OffsetMm { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("first")]
+        public DatumPlaneDefinitionFirst? First { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("second")]
+        public DatumPlaneDefinitionSecond? Second { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("angleDeg")]
+        [JsonConverter(typeof(PurpleMinMaxValueCheckConverter))]
+        public double? AngleDeg { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("axis")]
+        public AxisClass? Axis { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("third")]
+        public Third? Third { get; set; }
+    }
+
+    public partial class DatumPlaneDefinitionFirst
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("planeKind")]
+        public PlaneKind? PlaneKind { get; set; }
+
+        [JsonPropertyName("type")]
+        public PurpleType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("persistentFaceId")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string? PersistentFaceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("selectionEntry")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string? SelectionEntry { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+    }
+
+    public partial class DatumPlaneDefinitionSecond
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("planeKind")]
+        public PlaneKind? PlaneKind { get; set; }
+
+        [JsonPropertyName("type")]
+        public PurpleType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("persistentFaceId")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string? PersistentFaceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("selectionEntry")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string? SelectionEntry { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+    }
+
+    public partial class DatumPlaneGeometry
+    {
+        [JsonPropertyName("normal")]
+        public double[] Normal { get; set; }
+
+        [JsonPropertyName("originMm")]
+        public double[] OriginMm { get; set; }
+
+        [JsonPropertyName("xAxis")]
+        public double[] XAxis { get; set; }
+
+        [JsonPropertyName("yAxis")]
+        public double[] YAxis { get; set; }
+    }
+
+    public partial class DatumAxisDescriptor
+    {
+        [JsonPropertyName("definition")]
+        public DatumAxisDefinition Definition { get; set; }
+
+        [JsonPropertyName("dependsOn")]
+        [JsonConverter(typeof(TentacledDecodeArrayConverter))]
+        public string[] DependsOn { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("error")]
+        public string? Error { get; set; }
+
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string FeatureId { get; set; }
+
+        [JsonPropertyName("kind")]
+        public DatumAxisDescriptorKind Kind { get; set; }
+
+        [JsonPropertyName("resolved")]
+        public DatumAxisGeometry Resolved { get; set; }
+
+        [JsonPropertyName("status")]
+        public Status Status { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("type")]
+        public DatumAxisDescriptorKind? Type { get; set; }
+    }
+
+    public partial class DatumAxisDefinition
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("first")]
+        public DatumAxisDefinitionFirst? First { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("second")]
+        public DatumAxisDefinitionSecond? Second { get; set; }
+
+        [JsonPropertyName("type")]
+        public DatumAxisDefinitionType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("plane")]
+        public Plane? Plane { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("through")]
+        public Through? Through { get; set; }
+    }
+
+    public partial class DatumAxisDefinitionFirst
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+
+        [JsonPropertyName("type")]
+        public PurpleType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("planeKind")]
+        public PlaneKind? PlaneKind { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("persistentFaceId")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string? PersistentFaceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("selectionEntry")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string? SelectionEntry { get; set; }
+    }
+
+    public partial class DatumAxisDefinitionSecond
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+
+        [JsonPropertyName("type")]
+        public PurpleType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("planeKind")]
+        public PlaneKind? PlaneKind { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("persistentFaceId")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string? PersistentFaceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("selectionEntry")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string? SelectionEntry { get; set; }
+    }
+
+    public partial class DatumAxisGeometry
+    {
+        [JsonPropertyName("direction")]
+        public double[] Direction { get; set; }
+
+        [JsonPropertyName("originMm")]
+        public double[] OriginMm { get; set; }
+    }
+
+    public partial class DatumPointDescriptor
+    {
+        [JsonPropertyName("definition")]
+        public DatumPointDefinition Definition { get; set; }
+
+        [JsonPropertyName("dependsOn")]
+        [JsonConverter(typeof(TentacledDecodeArrayConverter))]
+        public string[] DependsOn { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("error")]
+        public string? Error { get; set; }
+
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string FeatureId { get; set; }
+
+        [JsonPropertyName("kind")]
+        public DatumPointDescriptorKind Kind { get; set; }
+
+        [JsonPropertyName("resolved")]
+        public DatumPointGeometry Resolved { get; set; }
+
+        [JsonPropertyName("status")]
+        public Status Status { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("type")]
+        public DatumPointDescriptorKind? Type { get; set; }
+    }
+
+    public partial class DatumPointDefinition
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+
+        [JsonPropertyName("type")]
+        public DatumPointDefinitionType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("first")]
+        public DatumPointDefinitionFirst? First { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("second")]
+        public DatumPointDefinitionSecond? Second { get; set; }
+    }
+
+    public partial class DatumPointDefinitionFirst
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+
+        [JsonPropertyName("type")]
+        public ThirdType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+    }
+
+    public partial class DatumPointDefinitionSecond
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("positionMm")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public double[]? PositionMm { get; set; }
+
+        [JsonPropertyName("type")]
+        public ThirdType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? FeatureId { get; set; }
+    }
+
+    public partial class DatumPointGeometry
+    {
+        [JsonPropertyName("positionMm")]
+        public double[] PositionMm { get; set; }
+    }
+
+    public enum AxisEnum { X, Y, Z };
+
+    public enum AxisType { Datum, Edge, Principal };
+
+    public enum PlaneKind { Xy, Xz, Yz };
+
+    public enum BaseType { Datum, Face, Principal };
+
+    public enum PurpleType { Coordinates, Datum, Face, Principal };
+
+    public enum ThirdType { Coordinates, Datum };
+
+    public enum DefinitionType { Angle, Coordinates, Mid, Midpoint, Offset, PlaneIntersection, PlaneNormal, Principal, ThreePoint, TwoPoint };
+
+    public enum DatumDescriptorKind { DatumAxis, DatumPlane, DatumPoint };
+
+    public enum Status { Broken, Error, Ok };
+
+    public enum SessionEntityPatchKind { Body, Datum, Feature, Sketch };
 
     public enum SessionIncrementalEventEvent { Delta };
 
@@ -730,19 +1401,46 @@ namespace Kreoda.Session.Generated
 
     public enum State { Open, Pending };
 
+    public enum DatumPlaneDefinitionType { Angle, Mid, Offset, Principal, ThreePoint };
+
+    public enum DatumPlaneDescriptorKind { DatumPlane };
+
+    public enum DatumAxisDefinitionType { PlaneIntersection, PlaneNormal, TwoPoint };
+
+    public enum DatumAxisDescriptorKind { DatumAxis };
+
+    public enum DatumPointDefinitionType { Coordinates, Midpoint };
+
+    public enum DatumPointDescriptorKind { DatumPoint };
+
     internal static class Converter
     {
         public static readonly JsonSerializerOptions Settings = new(JsonSerializerDefaults.General)
         {
             Converters =
             {
-                KindConverter.Singleton,
+                AxisEnumConverter.Singleton,
+                AxisTypeConverter.Singleton,
+                PlaneKindConverter.Singleton,
+                BaseTypeConverter.Singleton,
+                PurpleTypeConverter.Singleton,
+                ThirdTypeConverter.Singleton,
+                DefinitionTypeConverter.Singleton,
+                DatumDescriptorKindConverter.Singleton,
+                StatusConverter.Singleton,
+                SessionEntityPatchKindConverter.Singleton,
                 SessionIncrementalEventEventConverter.Singleton,
                 SessionSnapshotRequiredEventEventConverter.Singleton,
                 SelectionEventEventConverter.Singleton,
                 CoreRestartedEventEventConverter.Singleton,
                 ConnectionStateConverter.Singleton,
                 StateConverter.Singleton,
+                DatumPlaneDefinitionTypeConverter.Singleton,
+                DatumAxisDefinitionTypeConverter.Singleton,
+                DatumPointDefinitionTypeConverter.Singleton,
+                DatumPlaneDescriptorKindConverter.Singleton,
+                DatumAxisDescriptorKindConverter.Singleton,
+                DatumPointDescriptorKindConverter.Singleton,
                 IsoDateTimeOffsetConverter.Singleton
             },
         };
@@ -835,43 +1533,608 @@ namespace Kreoda.Session.Generated
         public static readonly FluffyMinMaxLengthCheckConverter Singleton = new FluffyMinMaxLengthCheckConverter();
     }
 
-    internal class KindConverter : JsonConverter<Kind>
+    internal class PurpleMinMaxValueCheckConverter : JsonConverter<double>
     {
-        public override bool CanConvert(Type t) => t == typeof(Kind);
+        public override bool CanConvert(Type t) => t == typeof(double);
 
-        public override Kind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override double Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetDouble();
+            if (value >= -360 && value <= 360)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type double");
+        }
+
+        public override void Write(Utf8JsonWriter writer, double value, JsonSerializerOptions options)
+        {
+            if (value >= -360 && value <= 360)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type double");
+        }
+
+        public static readonly PurpleMinMaxValueCheckConverter Singleton = new PurpleMinMaxValueCheckConverter();
+    }
+
+    internal class AxisEnumConverter : JsonConverter<AxisEnum>
+    {
+        public override bool CanConvert(Type t) => t == typeof(AxisEnum);
+
+        public override AxisEnum Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "X":
+                    return AxisEnum.X;
+                case "Y":
+                    return AxisEnum.Y;
+                case "Z":
+                    return AxisEnum.Z;
+            }
+            throw new Exception("Cannot unmarshal type AxisEnum");
+        }
+
+        public override void Write(Utf8JsonWriter writer, AxisEnum value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case AxisEnum.X:
+                    JsonSerializer.Serialize(writer, "X", options);
+                    return;
+                case AxisEnum.Y:
+                    JsonSerializer.Serialize(writer, "Y", options);
+                    return;
+                case AxisEnum.Z:
+                    JsonSerializer.Serialize(writer, "Z", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type AxisEnum");
+        }
+
+        public static readonly AxisEnumConverter Singleton = new AxisEnumConverter();
+    }
+
+    internal class TentacledMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length >= 1 && value.Length <= 512)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length >= 1 && value.Length <= 512)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly TentacledMinMaxLengthCheckConverter Singleton = new TentacledMinMaxLengthCheckConverter();
+    }
+
+    internal class StickyMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length <= 128)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length <= 128)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly StickyMinMaxLengthCheckConverter Singleton = new StickyMinMaxLengthCheckConverter();
+    }
+
+    internal class AxisTypeConverter : JsonConverter<AxisType>
+    {
+        public override bool CanConvert(Type t) => t == typeof(AxisType);
+
+        public override AxisType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "datum":
+                    return AxisType.Datum;
+                case "edge":
+                    return AxisType.Edge;
+                case "principal":
+                    return AxisType.Principal;
+            }
+            throw new Exception("Cannot unmarshal type AxisType");
+        }
+
+        public override void Write(Utf8JsonWriter writer, AxisType value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case AxisType.Datum:
+                    JsonSerializer.Serialize(writer, "datum", options);
+                    return;
+                case AxisType.Edge:
+                    JsonSerializer.Serialize(writer, "edge", options);
+                    return;
+                case AxisType.Principal:
+                    JsonSerializer.Serialize(writer, "principal", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type AxisType");
+        }
+
+        public static readonly AxisTypeConverter Singleton = new AxisTypeConverter();
+    }
+
+    internal class PlaneKindConverter : JsonConverter<PlaneKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(PlaneKind);
+
+        public override PlaneKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "XY":
+                    return PlaneKind.Xy;
+                case "XZ":
+                    return PlaneKind.Xz;
+                case "YZ":
+                    return PlaneKind.Yz;
+            }
+            throw new Exception("Cannot unmarshal type PlaneKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, PlaneKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case PlaneKind.Xy:
+                    JsonSerializer.Serialize(writer, "XY", options);
+                    return;
+                case PlaneKind.Xz:
+                    JsonSerializer.Serialize(writer, "XZ", options);
+                    return;
+                case PlaneKind.Yz:
+                    JsonSerializer.Serialize(writer, "YZ", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type PlaneKind");
+        }
+
+        public static readonly PlaneKindConverter Singleton = new PlaneKindConverter();
+    }
+
+    internal class BaseTypeConverter : JsonConverter<BaseType>
+    {
+        public override bool CanConvert(Type t) => t == typeof(BaseType);
+
+        public override BaseType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "datum":
+                    return BaseType.Datum;
+                case "face":
+                    return BaseType.Face;
+                case "principal":
+                    return BaseType.Principal;
+            }
+            throw new Exception("Cannot unmarshal type BaseType");
+        }
+
+        public override void Write(Utf8JsonWriter writer, BaseType value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case BaseType.Datum:
+                    JsonSerializer.Serialize(writer, "datum", options);
+                    return;
+                case BaseType.Face:
+                    JsonSerializer.Serialize(writer, "face", options);
+                    return;
+                case BaseType.Principal:
+                    JsonSerializer.Serialize(writer, "principal", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type BaseType");
+        }
+
+        public static readonly BaseTypeConverter Singleton = new BaseTypeConverter();
+    }
+
+    internal class FluffyDecodeArrayConverter : JsonConverter<double[]>
+    {
+        public override bool CanConvert(Type t) => t == typeof(double[]);
+
+        public override double[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            reader.Read();
+            var value = new List<double>();
+            while (reader.TokenType != JsonTokenType.EndArray)
+            {
+                var converter = FluffyMinMaxValueCheckConverter.Singleton;
+                var arrayItem = (double)converter.Read(ref reader, typeof(double), options);
+                value.Add(arrayItem);
+                reader.Read();
+            }
+            return value.ToArray();
+        }
+
+        public override void Write(Utf8JsonWriter writer, double[] value, JsonSerializerOptions options)
+        {
+            writer.WriteStartArray();
+            foreach (var arrayItem in value)
+            {
+                var converter = FluffyMinMaxValueCheckConverter.Singleton;
+                converter.Write(writer, arrayItem, options);
+            }
+            writer.WriteEndArray();
+            return;
+        }
+
+        public static readonly FluffyDecodeArrayConverter Singleton = new FluffyDecodeArrayConverter();
+    }
+
+    internal class FluffyMinMaxValueCheckConverter : JsonConverter<double>
+    {
+        public override bool CanConvert(Type t) => t == typeof(double);
+
+        public override double Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetDouble();
+            if (value >= -1000000 && value <= 1000000)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type double");
+        }
+
+        public override void Write(Utf8JsonWriter writer, double value, JsonSerializerOptions options)
+        {
+            if (value >= -1000000 && value <= 1000000)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type double");
+        }
+
+        public static readonly FluffyMinMaxValueCheckConverter Singleton = new FluffyMinMaxValueCheckConverter();
+    }
+
+    internal class PurpleTypeConverter : JsonConverter<PurpleType>
+    {
+        public override bool CanConvert(Type t) => t == typeof(PurpleType);
+
+        public override PurpleType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "coordinates":
+                    return PurpleType.Coordinates;
+                case "datum":
+                    return PurpleType.Datum;
+                case "face":
+                    return PurpleType.Face;
+                case "principal":
+                    return PurpleType.Principal;
+            }
+            throw new Exception("Cannot unmarshal type PurpleType");
+        }
+
+        public override void Write(Utf8JsonWriter writer, PurpleType value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case PurpleType.Coordinates:
+                    JsonSerializer.Serialize(writer, "coordinates", options);
+                    return;
+                case PurpleType.Datum:
+                    JsonSerializer.Serialize(writer, "datum", options);
+                    return;
+                case PurpleType.Face:
+                    JsonSerializer.Serialize(writer, "face", options);
+                    return;
+                case PurpleType.Principal:
+                    JsonSerializer.Serialize(writer, "principal", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type PurpleType");
+        }
+
+        public static readonly PurpleTypeConverter Singleton = new PurpleTypeConverter();
+    }
+
+    internal class ThirdTypeConverter : JsonConverter<ThirdType>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ThirdType);
+
+        public override ThirdType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "coordinates":
+                    return ThirdType.Coordinates;
+                case "datum":
+                    return ThirdType.Datum;
+            }
+            throw new Exception("Cannot unmarshal type ThirdType");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ThirdType value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ThirdType.Coordinates:
+                    JsonSerializer.Serialize(writer, "coordinates", options);
+                    return;
+                case ThirdType.Datum:
+                    JsonSerializer.Serialize(writer, "datum", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ThirdType");
+        }
+
+        public static readonly ThirdTypeConverter Singleton = new ThirdTypeConverter();
+    }
+
+    internal class DefinitionTypeConverter : JsonConverter<DefinitionType>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DefinitionType);
+
+        public override DefinitionType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "angle":
+                    return DefinitionType.Angle;
+                case "coordinates":
+                    return DefinitionType.Coordinates;
+                case "mid":
+                    return DefinitionType.Mid;
+                case "midpoint":
+                    return DefinitionType.Midpoint;
+                case "offset":
+                    return DefinitionType.Offset;
+                case "planeIntersection":
+                    return DefinitionType.PlaneIntersection;
+                case "planeNormal":
+                    return DefinitionType.PlaneNormal;
+                case "principal":
+                    return DefinitionType.Principal;
+                case "threePoint":
+                    return DefinitionType.ThreePoint;
+                case "twoPoint":
+                    return DefinitionType.TwoPoint;
+            }
+            throw new Exception("Cannot unmarshal type DefinitionType");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DefinitionType value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DefinitionType.Angle:
+                    JsonSerializer.Serialize(writer, "angle", options);
+                    return;
+                case DefinitionType.Coordinates:
+                    JsonSerializer.Serialize(writer, "coordinates", options);
+                    return;
+                case DefinitionType.Mid:
+                    JsonSerializer.Serialize(writer, "mid", options);
+                    return;
+                case DefinitionType.Midpoint:
+                    JsonSerializer.Serialize(writer, "midpoint", options);
+                    return;
+                case DefinitionType.Offset:
+                    JsonSerializer.Serialize(writer, "offset", options);
+                    return;
+                case DefinitionType.PlaneIntersection:
+                    JsonSerializer.Serialize(writer, "planeIntersection", options);
+                    return;
+                case DefinitionType.PlaneNormal:
+                    JsonSerializer.Serialize(writer, "planeNormal", options);
+                    return;
+                case DefinitionType.Principal:
+                    JsonSerializer.Serialize(writer, "principal", options);
+                    return;
+                case DefinitionType.ThreePoint:
+                    JsonSerializer.Serialize(writer, "threePoint", options);
+                    return;
+                case DefinitionType.TwoPoint:
+                    JsonSerializer.Serialize(writer, "twoPoint", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DefinitionType");
+        }
+
+        public static readonly DefinitionTypeConverter Singleton = new DefinitionTypeConverter();
+    }
+
+    internal class TentacledDecodeArrayConverter : JsonConverter<string[]>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string[]);
+
+        public override string[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            reader.Read();
+            var value = new List<string>();
+            while (reader.TokenType != JsonTokenType.EndArray)
+            {
+                var converter = PurpleMinMaxLengthCheckConverter.Singleton;
+                var arrayItem = (string)converter.Read(ref reader, typeof(string), options);
+                value.Add(arrayItem);
+                reader.Read();
+            }
+            return value.ToArray();
+        }
+
+        public override void Write(Utf8JsonWriter writer, string[] value, JsonSerializerOptions options)
+        {
+            writer.WriteStartArray();
+            foreach (var arrayItem in value)
+            {
+                var converter = PurpleMinMaxLengthCheckConverter.Singleton;
+                converter.Write(writer, arrayItem, options);
+            }
+            writer.WriteEndArray();
+            return;
+        }
+
+        public static readonly TentacledDecodeArrayConverter Singleton = new TentacledDecodeArrayConverter();
+    }
+
+    internal class DatumDescriptorKindConverter : JsonConverter<DatumDescriptorKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DatumDescriptorKind);
+
+        public override DatumDescriptorKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "DatumAxis":
+                    return DatumDescriptorKind.DatumAxis;
+                case "DatumPlane":
+                    return DatumDescriptorKind.DatumPlane;
+                case "DatumPoint":
+                    return DatumDescriptorKind.DatumPoint;
+            }
+            throw new Exception("Cannot unmarshal type DatumDescriptorKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DatumDescriptorKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DatumDescriptorKind.DatumAxis:
+                    JsonSerializer.Serialize(writer, "DatumAxis", options);
+                    return;
+                case DatumDescriptorKind.DatumPlane:
+                    JsonSerializer.Serialize(writer, "DatumPlane", options);
+                    return;
+                case DatumDescriptorKind.DatumPoint:
+                    JsonSerializer.Serialize(writer, "DatumPoint", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DatumDescriptorKind");
+        }
+
+        public static readonly DatumDescriptorKindConverter Singleton = new DatumDescriptorKindConverter();
+    }
+
+    internal class StatusConverter : JsonConverter<Status>
+    {
+        public override bool CanConvert(Type t) => t == typeof(Status);
+
+        public override Status Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "broken":
+                    return Status.Broken;
+                case "error":
+                    return Status.Error;
+                case "ok":
+                    return Status.Ok;
+            }
+            throw new Exception("Cannot unmarshal type Status");
+        }
+
+        public override void Write(Utf8JsonWriter writer, Status value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case Status.Broken:
+                    JsonSerializer.Serialize(writer, "broken", options);
+                    return;
+                case Status.Error:
+                    JsonSerializer.Serialize(writer, "error", options);
+                    return;
+                case Status.Ok:
+                    JsonSerializer.Serialize(writer, "ok", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type Status");
+        }
+
+        public static readonly StatusConverter Singleton = new StatusConverter();
+    }
+
+    internal class SessionEntityPatchKindConverter : JsonConverter<SessionEntityPatchKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(SessionEntityPatchKind);
+
+        public override SessionEntityPatchKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var value = reader.GetString();
             switch (value)
             {
                 case "body":
-                    return Kind.Body;
+                    return SessionEntityPatchKind.Body;
+                case "datum":
+                    return SessionEntityPatchKind.Datum;
                 case "feature":
-                    return Kind.Feature;
+                    return SessionEntityPatchKind.Feature;
                 case "sketch":
-                    return Kind.Sketch;
+                    return SessionEntityPatchKind.Sketch;
             }
-            throw new Exception("Cannot unmarshal type Kind");
+            throw new Exception("Cannot unmarshal type SessionEntityPatchKind");
         }
 
-        public override void Write(Utf8JsonWriter writer, Kind value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, SessionEntityPatchKind value, JsonSerializerOptions options)
         {
             switch (value)
             {
-                case Kind.Body:
+                case SessionEntityPatchKind.Body:
                     JsonSerializer.Serialize(writer, "body", options);
                     return;
-                case Kind.Feature:
+                case SessionEntityPatchKind.Datum:
+                    JsonSerializer.Serialize(writer, "datum", options);
+                    return;
+                case SessionEntityPatchKind.Feature:
                     JsonSerializer.Serialize(writer, "feature", options);
                     return;
-                case Kind.Sketch:
+                case SessionEntityPatchKind.Sketch:
                     JsonSerializer.Serialize(writer, "sketch", options);
                     return;
             }
-            throw new Exception("Cannot marshal type Kind");
+            throw new Exception("Cannot marshal type SessionEntityPatchKind");
         }
 
-        public static readonly KindConverter Singleton = new KindConverter();
+        public static readonly SessionEntityPatchKindConverter Singleton = new SessionEntityPatchKindConverter();
     }
 
     internal class SessionIncrementalEventEventConverter : JsonConverter<SessionIncrementalEventEvent>
@@ -982,7 +2245,7 @@ namespace Kreoda.Session.Generated
         public static readonly CoreRestartedEventEventConverter Singleton = new CoreRestartedEventEventConverter();
     }
 
-    internal class TentacledMinMaxLengthCheckConverter : JsonConverter<string>
+    internal class IndigoMinMaxLengthCheckConverter : JsonConverter<string>
     {
         public override bool CanConvert(Type t) => t == typeof(string);
 
@@ -1006,7 +2269,7 @@ namespace Kreoda.Session.Generated
             throw new Exception("Cannot marshal type string");
         }
 
-        public static readonly TentacledMinMaxLengthCheckConverter Singleton = new TentacledMinMaxLengthCheckConverter();
+        public static readonly IndigoMinMaxLengthCheckConverter Singleton = new IndigoMinMaxLengthCheckConverter();
     }
 
     internal class ConnectionStateConverter : JsonConverter<ConnectionState>
@@ -1082,7 +2345,7 @@ namespace Kreoda.Session.Generated
         public static readonly StateConverter Singleton = new StateConverter();
     }
 
-    internal class StickyMinMaxLengthCheckConverter : JsonConverter<string>
+    internal class IndecentMinMaxLengthCheckConverter : JsonConverter<string>
     {
         public override bool CanConvert(Type t) => t == typeof(string);
 
@@ -1106,10 +2369,10 @@ namespace Kreoda.Session.Generated
             throw new Exception("Cannot marshal type string");
         }
 
-        public static readonly StickyMinMaxLengthCheckConverter Singleton = new StickyMinMaxLengthCheckConverter();
+        public static readonly IndecentMinMaxLengthCheckConverter Singleton = new IndecentMinMaxLengthCheckConverter();
     }
 
-    internal class FluffyDecodeArrayConverter : JsonConverter<string[]>
+    internal class StickyDecodeArrayConverter : JsonConverter<string[]>
     {
         public override bool CanConvert(Type t) => t == typeof(string[]);
 
@@ -1119,7 +2382,7 @@ namespace Kreoda.Session.Generated
             var value = new List<string>();
             while (reader.TokenType != JsonTokenType.EndArray)
             {
-                var converter = IndigoMinMaxLengthCheckConverter.Singleton;
+                var converter = TentacledMinMaxLengthCheckConverter.Singleton;
                 var arrayItem = (string)converter.Read(ref reader, typeof(string), options);
                 value.Add(arrayItem);
                 reader.Read();
@@ -1132,41 +2395,217 @@ namespace Kreoda.Session.Generated
             writer.WriteStartArray();
             foreach (var arrayItem in value)
             {
-                var converter = IndigoMinMaxLengthCheckConverter.Singleton;
+                var converter = TentacledMinMaxLengthCheckConverter.Singleton;
                 converter.Write(writer, arrayItem, options);
             }
             writer.WriteEndArray();
             return;
         }
 
-        public static readonly FluffyDecodeArrayConverter Singleton = new FluffyDecodeArrayConverter();
+        public static readonly StickyDecodeArrayConverter Singleton = new StickyDecodeArrayConverter();
     }
 
-    internal class IndigoMinMaxLengthCheckConverter : JsonConverter<string>
+    internal class DatumPlaneDefinitionTypeConverter : JsonConverter<DatumPlaneDefinitionType>
     {
-        public override bool CanConvert(Type t) => t == typeof(string);
+        public override bool CanConvert(Type t) => t == typeof(DatumPlaneDefinitionType);
 
-        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override DatumPlaneDefinitionType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var value = reader.GetString();
-            if (value.Length >= 1 && value.Length <= 512)
+            switch (value)
             {
-                return value;
+                case "angle":
+                    return DatumPlaneDefinitionType.Angle;
+                case "mid":
+                    return DatumPlaneDefinitionType.Mid;
+                case "offset":
+                    return DatumPlaneDefinitionType.Offset;
+                case "principal":
+                    return DatumPlaneDefinitionType.Principal;
+                case "threePoint":
+                    return DatumPlaneDefinitionType.ThreePoint;
             }
-            throw new Exception("Cannot unmarshal type string");
+            throw new Exception("Cannot unmarshal type DatumPlaneDefinitionType");
         }
 
-        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, DatumPlaneDefinitionType value, JsonSerializerOptions options)
         {
-            if (value.Length >= 1 && value.Length <= 512)
+            switch (value)
             {
-                JsonSerializer.Serialize(writer, value, options);
+                case DatumPlaneDefinitionType.Angle:
+                    JsonSerializer.Serialize(writer, "angle", options);
+                    return;
+                case DatumPlaneDefinitionType.Mid:
+                    JsonSerializer.Serialize(writer, "mid", options);
+                    return;
+                case DatumPlaneDefinitionType.Offset:
+                    JsonSerializer.Serialize(writer, "offset", options);
+                    return;
+                case DatumPlaneDefinitionType.Principal:
+                    JsonSerializer.Serialize(writer, "principal", options);
+                    return;
+                case DatumPlaneDefinitionType.ThreePoint:
+                    JsonSerializer.Serialize(writer, "threePoint", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DatumPlaneDefinitionType");
+        }
+
+        public static readonly DatumPlaneDefinitionTypeConverter Singleton = new DatumPlaneDefinitionTypeConverter();
+    }
+
+    internal class DatumAxisDefinitionTypeConverter : JsonConverter<DatumAxisDefinitionType>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DatumAxisDefinitionType);
+
+        public override DatumAxisDefinitionType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "planeIntersection":
+                    return DatumAxisDefinitionType.PlaneIntersection;
+                case "planeNormal":
+                    return DatumAxisDefinitionType.PlaneNormal;
+                case "twoPoint":
+                    return DatumAxisDefinitionType.TwoPoint;
+            }
+            throw new Exception("Cannot unmarshal type DatumAxisDefinitionType");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DatumAxisDefinitionType value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DatumAxisDefinitionType.PlaneIntersection:
+                    JsonSerializer.Serialize(writer, "planeIntersection", options);
+                    return;
+                case DatumAxisDefinitionType.PlaneNormal:
+                    JsonSerializer.Serialize(writer, "planeNormal", options);
+                    return;
+                case DatumAxisDefinitionType.TwoPoint:
+                    JsonSerializer.Serialize(writer, "twoPoint", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DatumAxisDefinitionType");
+        }
+
+        public static readonly DatumAxisDefinitionTypeConverter Singleton = new DatumAxisDefinitionTypeConverter();
+    }
+
+    internal class DatumPointDefinitionTypeConverter : JsonConverter<DatumPointDefinitionType>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DatumPointDefinitionType);
+
+        public override DatumPointDefinitionType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "coordinates":
+                    return DatumPointDefinitionType.Coordinates;
+                case "midpoint":
+                    return DatumPointDefinitionType.Midpoint;
+            }
+            throw new Exception("Cannot unmarshal type DatumPointDefinitionType");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DatumPointDefinitionType value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DatumPointDefinitionType.Coordinates:
+                    JsonSerializer.Serialize(writer, "coordinates", options);
+                    return;
+                case DatumPointDefinitionType.Midpoint:
+                    JsonSerializer.Serialize(writer, "midpoint", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DatumPointDefinitionType");
+        }
+
+        public static readonly DatumPointDefinitionTypeConverter Singleton = new DatumPointDefinitionTypeConverter();
+    }
+
+    internal class DatumPlaneDescriptorKindConverter : JsonConverter<DatumPlaneDescriptorKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DatumPlaneDescriptorKind);
+
+        public override DatumPlaneDescriptorKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value == "DatumPlane")
+            {
+                return DatumPlaneDescriptorKind.DatumPlane;
+            }
+            throw new Exception("Cannot unmarshal type DatumPlaneDescriptorKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DatumPlaneDescriptorKind value, JsonSerializerOptions options)
+        {
+            if (value == DatumPlaneDescriptorKind.DatumPlane)
+            {
+                JsonSerializer.Serialize(writer, "DatumPlane", options);
                 return;
             }
-            throw new Exception("Cannot marshal type string");
+            throw new Exception("Cannot marshal type DatumPlaneDescriptorKind");
         }
 
-        public static readonly IndigoMinMaxLengthCheckConverter Singleton = new IndigoMinMaxLengthCheckConverter();
+        public static readonly DatumPlaneDescriptorKindConverter Singleton = new DatumPlaneDescriptorKindConverter();
+    }
+
+    internal class DatumAxisDescriptorKindConverter : JsonConverter<DatumAxisDescriptorKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DatumAxisDescriptorKind);
+
+        public override DatumAxisDescriptorKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value == "DatumAxis")
+            {
+                return DatumAxisDescriptorKind.DatumAxis;
+            }
+            throw new Exception("Cannot unmarshal type DatumAxisDescriptorKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DatumAxisDescriptorKind value, JsonSerializerOptions options)
+        {
+            if (value == DatumAxisDescriptorKind.DatumAxis)
+            {
+                JsonSerializer.Serialize(writer, "DatumAxis", options);
+                return;
+            }
+            throw new Exception("Cannot marshal type DatumAxisDescriptorKind");
+        }
+
+        public static readonly DatumAxisDescriptorKindConverter Singleton = new DatumAxisDescriptorKindConverter();
+    }
+
+    internal class DatumPointDescriptorKindConverter : JsonConverter<DatumPointDescriptorKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DatumPointDescriptorKind);
+
+        public override DatumPointDescriptorKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value == "DatumPoint")
+            {
+                return DatumPointDescriptorKind.DatumPoint;
+            }
+            throw new Exception("Cannot unmarshal type DatumPointDescriptorKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DatumPointDescriptorKind value, JsonSerializerOptions options)
+        {
+            if (value == DatumPointDescriptorKind.DatumPoint)
+            {
+                JsonSerializer.Serialize(writer, "DatumPoint", options);
+                return;
+            }
+            throw new Exception("Cannot marshal type DatumPointDescriptorKind");
+        }
+
+        public static readonly DatumPointDescriptorKindConverter Singleton = new DatumPointDescriptorKindConverter();
     }
 
     internal class IsoDateTimeOffsetConverter : JsonConverter<DateTimeOffset>

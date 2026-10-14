@@ -1,11 +1,11 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 2019ae0e61e5ee7feb539b6401fdc1289a98d5f45d39d33bbc3203f58549829a
+// Source SHA256: fc27989e6b39fd8d12cafa770f72ab89f26e7bb0f9d14b635f687b3ebbdfe6ce
 namespace Kreoda.Session;
 
 public static class SessionMethods
 {
     public const int ProtocolVersion = 1;
-    public const string ContractSchemaSha256 = "2019ae0e61e5ee7feb539b6401fdc1289a98d5f45d39d33bbc3203f58549829a";
+    public const string ContractSchemaSha256 = "fc27989e6b39fd8d12cafa770f72ab89f26e7bb0f9d14b635f687b3ebbdfe6ce";
     public const string OperationReplayCapability = "operation-replay";
     public const string IncrementalDeltasCapability = "incremental-deltas";
     public const string BinaryMeshV1Capability = "binary-mesh-v1";
@@ -60,7 +60,8 @@ public static class SessionMethods
     public const string PreviewCancel = "previewCancel";
     public const string RequestPreviewMesh = "requestPreviewMesh";
     public const string PreviewSketch = "previewSketch";
-    public static readonly string[] All = ["pair", "authenticate", "hello", "getSessionInfo", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "requestMeshLOD", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "validateReferences", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel", "requestPreviewMesh", "previewSketch"];
+    public const string GetDatum = "getDatum";
+    public static readonly string[] All = ["pair", "authenticate", "hello", "getSessionInfo", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "requestMeshLOD", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "validateReferences", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel", "requestPreviewMesh", "previewSketch", "getDatum"];
     public static readonly string[] ServerCapabilities = ["operation-replay", "incremental-deltas", "binary-mesh-v1", "binary-preview-v1", "context-commands-v1", "sketch-preview-v1"];
     public static readonly string[] OperationReplayMethods = ["invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "setSelection", "clearSelection", "previewBegin", "previewUpdate", "previewCommit", "previewCancel"];
     public static bool SupportsOperationReplay(string method) => Array.IndexOf(OperationReplayMethods, method) >= 0;
@@ -114,6 +115,7 @@ public static class SessionMethods
         ["previewCancel"] = ["previewId"],
         ["requestPreviewMesh"] = ["previewId", "generation", "documentId", "expectedRevision"],
         ["previewSketch"] = ["featureId", "model", "expectedRevision"],
+        ["getDatum"] = ["featureId"],
     };
 }
 
@@ -154,5 +156,16 @@ public static class SessionContract
         ["ContextCommandInfo"] = ["id", "label", "description", "supportsPreview", "available", "boundParameters"],
         ["ContextCommandsPayload"] = ["sessionId", "documentId", "revision", "contextValid", "commands"],
         ["ContextCommandsParams"] = ["documentId", "selectionIds", "expectedRevision"],
+        ["DatumPlaneDefinition"] = [],
+        ["DatumAxisDefinition"] = [],
+        ["DatumPointDefinition"] = [],
+        ["SketchPlaneFrame"] = ["origin", "xAxis", "yAxis", "normal"],
+        ["DatumPlaneGeometry"] = ["originMm", "xAxis", "yAxis", "normal"],
+        ["DatumAxisGeometry"] = ["originMm", "direction"],
+        ["DatumPointGeometry"] = ["positionMm"],
+        ["DatumPlaneDescriptor"] = ["featureId", "kind", "definition", "dependsOn", "resolved", "status"],
+        ["DatumAxisDescriptor"] = ["featureId", "kind", "definition", "dependsOn", "resolved", "status"],
+        ["DatumPointDescriptor"] = ["featureId", "kind", "definition", "dependsOn", "resolved", "status"],
+        ["DatumDescriptor"] = [],
     };
 }

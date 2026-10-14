@@ -1,4 +1,4 @@
-import { QUERY_METHODS_CONTRACT, SESSION_SERVER_CAPABILITIES } from "@kreoda/protocol";
+import { QUERY_METHODS_CONTRACT, SESSION_SERVER_CAPABILITIES, DatumDescriptorSchema, type DatumDescriptor, type SketchPlaneFrame } from "@kreoda/protocol";
 // Session semantic query API (§11.7–§11.9, §11.11, §11.15): read-only
 // projections over authoritative snapshots and native OCCT geometry.
 // Transport-agnostic: the relay injects core access; unit tests inject
@@ -25,6 +25,9 @@ export interface SnapSketch {
   lines: number;
   circles: number;
   constraints: number;
+  plane?: SketchPlaneFrame;
+  supportRef?: string;
+  model?: Record<string, unknown>;
 }
 
 /**
@@ -53,7 +56,7 @@ export function sessionBodySemantics(type: string): "new" | "advances" | "none" 
   ) {
     return "advances";
   }
-  if (type === "Sketch" || type === "Instance") return "none";
+  if (type === "Sketch" || type === "Instance" || type === "DatumPlane" || type === "DatumAxis" || type === "DatumPoint") return "none";
   return "new";
 }
 
@@ -100,6 +103,7 @@ export interface SnapshotData {
   revision: number;
   features: SnapFeature[];
   sketches: SnapSketch[];
+  datums?: DatumDescriptor[];
   /** Slice 6: real bodies derived from the feature history (never N shapes). */
   bodies: SessionBody[];
   /** Slice 6: visible results — one tip feature id per body. */
@@ -240,6 +244,7 @@ export function normalizeSnapshot(
   revision: number,
   features: unknown[],
   sketches: unknown[],
+  datums: unknown[] = [],
 ): SnapshotData {
   const list = features
     .map(asFeature)
@@ -251,12 +256,14 @@ export function normalizeSnapshot(
     features: list,
     bodies,
     tips: bodies.map((b) => b.tip),
+    datums: datums.map(value => DatumDescriptorSchema.parse(value)),
     sketches: sketches
       .map((raw) => {
         if (typeof raw !== "object" || raw === null) return null;
         const o = raw as Record<string, unknown>;
         if (typeof o["featureId"] !== "string") return null;
         return {
+          ...o,
           featureId: o["featureId"] as string,
           planeKind: str(o["planeKind"], "XY"),
           points: num(o["points"]),
@@ -381,6 +388,7 @@ export async function runSessionQuery(
         result: {
           revision: s.revision,
           features: s.features,
+          datums: s.datums ?? [],
           bodies: s.bodies.map((b) => ({
             bodyId: b.bodyId,
             tip: b.tip,
@@ -392,6 +400,10 @@ export async function runSessionQuery(
     }
     case "getFeature": {
       return { result: await feature(needId(params["featureId"], "featureId")) };
+    }
+    case "getDatum": {
+      const result = await env.geometry(documentId, "getDatum", { featureId: needId(params["featureId"], "featureId") });
+      return { result: DatumDescriptorSchema.parse(result) };
     }
     case "getParameters": {
       const f = await feature(needId(params["featureId"], "featureId"));

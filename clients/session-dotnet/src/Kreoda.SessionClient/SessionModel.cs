@@ -16,8 +16,9 @@ public sealed record SessionModelState(
     string SessionId, string DocumentId, long Revision,
     IReadOnlyList<JsonElement> Features, IReadOnlyList<JsonElement> Sketches, IReadOnlyList<JsonElement> Bodies)
 {
+    public IReadOnlyList<JsonElement> Datums { get; init; } = Array.Empty<JsonElement>();
     private const long MaxSafeRevision = SessionContract.MaximumRevision;
-    private static readonly string[] Kinds = ["feature", "sketch", "body"];
+    private static readonly string[] Kinds = ["feature", "sketch", "body", "datum"];
 
     public static SessionModelState FromSnapshot(JsonElement raw)
     {
@@ -32,7 +33,8 @@ public sealed record SessionModelState(
             var features = ReadCollection(raw.GetProperty("features"), "feature");
             var sketches = ReadCollection(raw.GetProperty("sketches"), "sketch");
             var bodies = ReadCollection(raw.GetProperty("bodies"), "body");
-            return new(session, document, revision, features, sketches, bodies);
+            var datums = raw.TryGetProperty("datums", out var datumValues) ? ReadCollection(datumValues, "datum") : Array.Empty<JsonElement>();
+            return new(session, document, revision, features, sketches, bodies) { Datums = datums };
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException or KeyNotFoundException or FormatException)
         { throw new SessionException("BAD_MODEL", error.Message); }
@@ -43,7 +45,7 @@ public sealed record SessionModelState(
         var recovery = new SessionModelUpdate(SessionModelUpdateKind.NeedsSnapshot, this);
         try
         {
-            if (raw.ValueKind != JsonValueKind.Object || new[] { "features", "sketches", "bodies", "tips" }.Any(key => raw.TryGetProperty(key, out _))) return recovery;
+            if (raw.ValueKind != JsonValueKind.Object || new[] { "features", "sketches", "bodies", "datums", "tips" }.Any(key => raw.TryGetProperty(key, out _))) return recovery;
             // Missing numeric fields cannot silently become zero through deserialization.
             foreach (var key in new[] { "baseRevision", "newRevision", "revision" })
                 if (!raw.TryGetProperty(key, out var number) || !number.TryGetInt64(out var revision) || !ValidRevision(revision)) return recovery;
@@ -73,8 +75,9 @@ public sealed record SessionModelState(
             var features = Patch("feature", Features, delta, removed);
             var sketches = Patch("sketch", Sketches, delta, removed);
             var bodies = Patch("body", Bodies, delta, removed);
-            if (features is null || sketches is null || bodies is null) return recovery;
-            return new(SessionModelUpdateKind.Applied, new(SessionId, DocumentId, delta.NewRevision, features, sketches, bodies), delta);
+            var datums = Patch("datum", Datums, delta, removed);
+            if (features is null || sketches is null || bodies is null || datums is null) return recovery;
+            return new(SessionModelUpdateKind.Applied, new(SessionId, DocumentId, delta.NewRevision, features, sketches, bodies) { Datums = datums }, delta);
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException or KeyNotFoundException or FormatException)
         { return recovery; }

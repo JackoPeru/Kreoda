@@ -1,6 +1,6 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 2019ae0e61e5ee7feb539b6401fdc1289a98d5f45d39d33bbc3203f58549829a
-export const CONTRACT_SCHEMA_SHA256 = "2019ae0e61e5ee7feb539b6401fdc1289a98d5f45d39d33bbc3203f58549829a" as const;
+// Source SHA256: fc27989e6b39fd8d12cafa770f72ab89f26e7bb0f9d14b635f687b3ebbdfe6ce
+export const CONTRACT_SCHEMA_SHA256 = "fc27989e6b39fd8d12cafa770f72ab89f26e7bb0f9d14b635f687b3ebbdfe6ce" as const;
 export const SESSION_STABLE_FEATURE_ID_SCHEMA = {
   "type": "string",
   "minLength": 1,
@@ -39,7 +39,18 @@ export const SESSION_DTO_NAMES = [
   "PreviewMeshHeader",
   "ContextCommandInfo",
   "ContextCommandsPayload",
-  "ContextCommandsParams"
+  "ContextCommandsParams",
+  "DatumPlaneDefinition",
+  "DatumAxisDefinition",
+  "DatumPointDefinition",
+  "SketchPlaneFrame",
+  "DatumPlaneGeometry",
+  "DatumAxisGeometry",
+  "DatumPointGeometry",
+  "DatumPlaneDescriptor",
+  "DatumAxisDescriptor",
+  "DatumPointDescriptor",
+  "DatumDescriptor"
 ] as const;
 export const SESSION_CONTROL_VERSION = 1 as const;
 export const CONTROL_METHODS = [
@@ -92,7 +103,8 @@ export const QUERY_METHODS_CONTRACT = [
   "previewCommit",
   "previewCancel",
   "requestPreviewMesh",
-  "previewSketch"
+  "previewSketch",
+  "getDatum"
 ] as const;
 export const SESSION_CONTROL_METHODS = [
   "pair",
@@ -142,7 +154,8 @@ export const SESSION_CONTROL_METHODS = [
   "previewCommit",
   "previewCancel",
   "requestPreviewMesh",
-  "previewSketch"
+  "previewSketch",
+  "getDatum"
 ] as const;
 export const OPERATION_METHODS = [
   "invoke",
@@ -280,6 +293,9 @@ export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
     "featureId",
     "model",
     "expectedRevision"
+  ],
+  "getDatum": [
+    "featureId"
   ]
 };
 export const SERVER_EVENTS = [

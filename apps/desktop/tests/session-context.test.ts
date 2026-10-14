@@ -1,5 +1,19 @@
 import { expect, it, vi } from "vitest";
 import { runSessionQuery, type QueryEnv, type SelectionRegistry } from "../electron/session-queries";
+import { normalizeSnapshot } from "../electron/session-queries";
+
+it("queries authoritative native datums and retains support frames in semantic context", async () => {
+  const frame = { originMm: [10, 20, 30], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] };
+  const datum = { featureId: "plane", kind: "DatumPlane", definition: { type: "principal", planeKind: "XY" }, dependsOn: [], resolved: frame, status: "ok" };
+  const sketchFrame = { origin: frame.originMm, xAxis: frame.xAxis, yAxis: frame.yAxis, normal: frame.normal };
+  const snapshot = normalizeSnapshot("doc", 7, [], [{ featureId: "sketch", planeKind: "Datum", plane: sketchFrame, supportRef: "plane", model: { points: [] } }], [datum]);
+  expect(snapshot.datums).toEqual([datum]);expect(snapshot.sketches[0]).toMatchObject({ plane: sketchFrame, supportRef: "plane", model: { points: [] } });expect(snapshot.bodies).toEqual([]);
+  const geometry = vi.fn(async () => datum);
+  const env = { geometry, snapshot: async () => snapshot, mesh: vi.fn(), faceInfo: vi.fn() } as unknown as QueryEnv;
+  const selection: SelectionRegistry = { get: () => [], set: () => {}, clear: () => {}, drop: () => {} };
+  expect(await runSessionQuery(env, selection, "client", "getDatum", { featureId: "plane" }, "doc")).toEqual({ result: datum });
+  expect(geometry).toHaveBeenCalledWith("doc", "getDatum", { featureId: "plane" });expect(env.mesh).not.toHaveBeenCalled();
+});
 
 function fixture() {
   let lineage = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";

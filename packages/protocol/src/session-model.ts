@@ -6,6 +6,7 @@ export interface SessionModelSnapshot extends Pick<SessionSnapshotPayload, "sess
   features: SessionModelEntity[];
   sketches: SessionModelEntity[];
   bodies: SessionModelEntity[];
+  datums?: SessionModelEntity[];
 }
 
 export type SessionEntityChange = SessionEntityPatch;
@@ -25,14 +26,15 @@ export type SessionDeltaDecision =
       model: SessionModelSnapshot;
     };
 
-const KINDS: readonly SessionEntityKind[] = ["feature", "sketch", "body"];
+const KINDS: readonly SessionEntityKind[] = ["feature", "sketch", "body", "datum"];
 const COLLECTIONS: Record<SessionEntityKind, keyof Pick<
   SessionModelSnapshot,
-  "features" | "sketches" | "bodies"
+  "features" | "sketches" | "bodies" | "datums"
 >> = {
   feature: "features",
   sketch: "sketches",
   body: "bodies",
+  datum: "datums",
 };
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -62,7 +64,7 @@ function validModel(model: SessionModelSnapshot): boolean {
     !validRevision(model.revision)
   ) return false;
   for (const kind of KINDS) {
-    const collection = model[COLLECTIONS[kind]];
+    const collection = kind === "datum" && model.datums === undefined ? [] : model[COLLECTIONS[kind]];
     if (!Array.isArray(collection)) return false;
     const ids = new Set<string>();
     for (const value of collection) {
@@ -161,7 +163,7 @@ export function applySessionModelDelta(
     !Array.isArray(delta["changedMeshIds"]) ||
     !Array.isArray(delta["referenceRemaps"]) ||
     !Array.isArray(delta["warnings"]) ||
-    ["features", "sketches", "bodies", "tips"].some((key) => Object.hasOwn(delta, key))
+    ["features", "sketches", "bodies", "datums", "tips"].some((key) => Object.hasOwn(delta, key))
   ) return malformed(model);
 
   const added = parseChanges(delta["added"]);
@@ -195,7 +197,8 @@ export function applySessionModelDelta(
   const features = applyCollection("feature", model.features, removed, added, updated);
   const sketches = applyCollection("sketch", model.sketches, removed, added, updated);
   const bodies = applyCollection("body", model.bodies, removed, added, updated);
-  if (!features || !sketches || !bodies) return malformed(model);
+  const datums = applyCollection("datum", model.datums ?? [], removed, added, updated);
+  if (!features || !sketches || !bodies || !datums) return malformed(model);
 
   return {
     status: "applied",
@@ -206,6 +209,7 @@ export function applySessionModelDelta(
       features,
       sketches,
       bodies,
+      datums,
     },
     referenceRemaps: delta["referenceRemaps"],
     warnings: delta["warnings"],

@@ -16,6 +16,8 @@ function schema<T>(name: (typeof SESSION_DTO_NAMES)[number]): z.ZodType<T> {
   return z.custom<T>(value => validators[name](value), { message: 'Invalid session control ' + name });
 }
 export const StableFeatureIdSchema = schema<string>('StableFeatureId');
+export const DatumDescriptorSchema = schema<DTO.DatumDescriptor>('DatumDescriptor');
+export type { DatumDescriptor, SketchPlaneFrame } from './generated/session-dtos.js';
 export const RequestMetadataSchema = schema<DTO.RequestMetadata>('RequestMetadata');
 export const HelloParamsSchema = schema<DTO.HelloParams>('HelloParams');
 export const PairParamsSchema = schema<DTO.PairParams>('PairParams');

@@ -1,0 +1,75 @@
+
+> @kreoda/desktop@0.1.0 test C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop
+> vitest run "tests/session-relay.test.ts" "-t" "preserves native datum"
+
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop
+
+ ❯ tests/session-relay.test.ts (63 tests | 1 failed | 62 skipped) 11ms
+     × preserves native datum definitions and resolved frames in local recovery snapshots 10ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/session-relay.test.ts > SessionRelay > preserves native datum definitions and resolved frames in local recovery snapshots
+AssertionError: expected undefined to deeply equal [ { featureId: 'plane', …(7) } ]
+
+- Expected:
+[
+  {
+    "definition": {
+      "planeKind": "XY",
+      "type": "principal",
+    },
+    "dependsOn": [],
+    "error": "",
+    "featureId": "plane",
+    "kind": "DatumPlane",
+    "resolved": {
+      "normal": [
+        0,
+        0,
+        1,
+      ],
+      "originMm": [
+        10,
+        20,
+        30,
+      ],
+      "xAxis": [
+        1,
+        0,
+        0,
+      ],
+      "yAxis": [
+        0,
+        1,
+        0,
+      ],
+    },
+    "status": "ok",
+    "type": "DatumPlane",
+  },
+]
+
++ Received:
+undefined
+
+ ❯ tests/session-relay.test.ts:740:29
+    738|     const relay = new SessionRelay(() => manager);
+    739|     const snapshot = await relay.localSnapshot();
+    740|     expect(snapshot.datums).toEqual([datum]);expect(snapshot.features)…
+       |                             ^
+    741|   });
+    742|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 62 skipped (63)
+   Start at  10:52:03
+   Duration  10.06s (transform 733ms, setup 37ms, import 1.35s, tests 11ms, environment 8.44s)
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @kreoda/desktop@0.1.0 test: `vitest run "tests/session-relay.test.ts" "-t" "preserves native datum"`
+Exit status 1

@@ -64,6 +64,7 @@ interface LegacySessionDelta {
   revision: number;
   features: unknown[];
   sketches: unknown[];
+  datums: unknown[];
   /** Slice 6: real bodies (bodyId/tip/history) at this revision. */
   bodies: SessionBody[];
   /** Slice 6: visible results — one tip feature id per body. */
@@ -94,6 +95,7 @@ interface CommittedSnapshot {
   revision: number;
   features: unknown[];
   sketches: unknown[];
+  datums: unknown[];
   bodies: SessionBody[];
   tips: string[];
 }
@@ -425,6 +427,7 @@ export class SessionRelay {
         sessionId: this.sessionId, documentId: snapshot.documentId, revision: snapshot.revision,
         features: snapshot.features.map(entity), sketches: snapshot.sketches.map(entity),
         bodies: snapshot.bodies.map((body) => ({ ...body })),
+        datums: snapshot.datums.map(entity),
       };
     });
   }
@@ -1306,10 +1309,13 @@ export class SessionRelay {
     revision: number;
     features: unknown[];
     sketches: unknown[];
+    datums: unknown[];
     bodies: SessionBody[];
     tips: string[];
   }> {
     const parsed = await this.coreInvoke(documentId, 26, {});
+    if(parsed["datums"] !== undefined && !Array.isArray(parsed["datums"]))throw coded("BAD_MODEL", "native datums must be an array");
+    const datums = Array.isArray(parsed["datums"]) ? parsed["datums"] as unknown[] : [];
     const features = Array.isArray(parsed["features"])
       ? (parsed["features"] as unknown[])
       : [];
@@ -1337,8 +1343,8 @@ export class SessionRelay {
         : 0;
     // Slice 6: the core wire stays feature-flat (Slice 7 owns the protocol);
     // bodies/tips are derived here by the BodyStore rule (read-only).
-    const snap = normalizeSnapshot(documentId, revision, features, sketches);
-    return { documentId, revision, features, sketches, bodies: snap.bodies, tips: snap.tips };
+    const snap = normalizeSnapshot(documentId, revision, features, sketches, datums);
+    return { documentId, revision, features, sketches, datums: snap.datums ?? [], bodies: snap.bodies, tips: snap.tips };
   }
 
   /** QueryEnv for session-queries.ts: snapshot/mesh/frames/previews. */
@@ -1377,6 +1383,7 @@ export class SessionRelay {
           snap.revision,
           snap.features,
           snap.sketches,
+          snap.datums,
         );
       },
       mesh: async (documentId: string, featureId: string): Promise<MeshData> => {
@@ -2067,6 +2074,7 @@ export class SessionRelay {
       revision: snap.revision,
       features: snap.features,
       sketches: snap.sketches,
+      datums: snap.datums,
       bodies: snap.bodies,
       tips: snap.tips,
     };
@@ -2111,11 +2119,12 @@ export class SessionRelay {
       after.revision,
       after.features,
       after.sketches,
+      after.datums,
     );
     const affectedClosure = new Set(affectedIds);
     // Undo/Redo have no featureId in their command. Actual semantic changes,
     // including sketch coordinates, must seed mesh invalidation as well.
-    for (const kind of ["features", "sketches"] as const) {
+    for (const kind of ["features", "sketches", "datums"] as const) {
       const previous = new Map(before[kind].map((value) => {
         const record = asRecord(value);
         return [record?.["featureId"], record] as const;
@@ -2190,6 +2199,7 @@ export class SessionRelay {
 
     diffCollection("feature", before.features, after.features, affectedClosure);
     diffCollection("sketch", before.sketches, after.sketches, affectedClosure);
+    diffCollection("datum", before.datums, after.datums);
     diffCollection("body", before.bodies, after.bodies);
 
     const idsOf = (kind: SessionEntityKind, values: unknown[]): string[] => {
@@ -2202,11 +2212,13 @@ export class SessionRelay {
     const oldIds = new Set([
       ...idsOf("feature", before.features),
       ...idsOf("sketch", before.sketches),
+      ...idsOf("datum", before.datums),
       ...idsOf("body", before.bodies),
     ]);
     const newIds = new Set([
       ...idsOf("feature", after.features),
       ...idsOf("sketch", after.sketches),
+      ...idsOf("datum", after.datums),
       ...idsOf("body", after.bodies),
     ]);
     const removedIds = [...oldIds].filter((id) => !newIds.has(id));
@@ -2345,6 +2357,7 @@ export class SessionRelay {
       revision: after.revision,
       features: after.features,
       sketches: after.sketches,
+      datums: after.datums,
       bodies: snap.bodies,
       tips: snap.tips,
       changedBodyIds,

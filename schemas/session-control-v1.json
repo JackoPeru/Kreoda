@@ -595,6 +595,16 @@
       "reply": "{result:{preview:true,sketch,revision,solved,residual,dofs}}",
       "plane": "query",
       "operationReplay": false
+    },
+    {
+      "method": "getDatum",
+      "required": [
+        "featureId"
+      ],
+      "optional": [],
+      "reply": "{result:datum}",
+      "plane": "query",
+      "operationReplay": false
     }
   ],
   "wireErrorCodes": [
@@ -1136,8 +1146,7 @@
           "minLength": 1
         },
         "plane": {
-          "type": "object",
-          "additionalProperties": true
+          "$ref": "#/definitions/SketchPlaneFrame"
         },
         "supportRef": {
           "type": "string"
@@ -1217,6 +1226,12 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "datums": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DatumDescriptor"
+          }
         }
       },
       "required": [
@@ -1237,7 +1252,8 @@
           "enum": [
             "feature",
             "sketch",
-            "body"
+            "body",
+            "datum"
           ]
         },
         "id": {
@@ -1840,6 +1856,1603 @@
         "expectedRevision"
       ],
       "additionalProperties": true
+    },
+    "DatumPlaneDefinition": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "principal"
+            },
+            "planeKind": {
+              "type": "string",
+              "enum": [
+                "XY",
+                "XZ",
+                "YZ"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "planeKind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "offset"
+            },
+            "base": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "offsetMm": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            }
+          },
+          "required": [
+            "type",
+            "base",
+            "offsetMm"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "mid"
+            },
+            "first": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "second": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "first",
+            "second"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "angle"
+            },
+            "base": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "axis": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "axis": {
+                      "type": "string",
+                      "enum": [
+                        "X",
+                        "Y",
+                        "Z"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "axis"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "edge"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentEdgeId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentEdgeId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "angleDeg": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+            }
+          },
+          "required": [
+            "type",
+            "base",
+            "axis",
+            "angleDeg"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "threePoint"
+            },
+            "first": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "second": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "third": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "first",
+            "second",
+            "third"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DatumAxisDefinition": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "twoPoint"
+            },
+            "first": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "second": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "first",
+            "second"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "planeNormal"
+            },
+            "plane": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "through": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "plane"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "planeIntersection"
+            },
+            "first": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "second": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "first",
+            "second"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DatumPointDefinition": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "coordinates"
+            },
+            "positionMm": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": [
+                {
+                  "type": "number",
+                  "minimum": -1000000,
+                  "maximum": 1000000
+                },
+                {
+                  "type": "number",
+                  "minimum": -1000000,
+                  "maximum": 1000000
+                },
+                {
+                  "type": "number",
+                  "minimum": -1000000,
+                  "maximum": 1000000
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "positionMm"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "midpoint"
+            },
+            "first": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "second": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "first",
+            "second"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SketchPlaneFrame": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "xAxis": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "yAxis": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "normal": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "origin",
+        "xAxis",
+        "yAxis",
+        "normal"
+      ],
+      "additionalProperties": false
+    },
+    "DatumPlaneGeometry": {
+      "type": "object",
+      "properties": {
+        "originMm": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "xAxis": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "yAxis": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "normal": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "originMm",
+        "xAxis",
+        "yAxis",
+        "normal"
+      ],
+      "additionalProperties": false
+    },
+    "DatumAxisGeometry": {
+      "type": "object",
+      "properties": {
+        "originMm": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "direction": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "originMm",
+        "direction"
+      ],
+      "additionalProperties": false
+    },
+    "DatumPointGeometry": {
+      "type": "object",
+      "properties": {
+        "positionMm": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "positionMm"
+      ],
+      "additionalProperties": false
+    },
+    "DatumPlaneDescriptor": {
+      "type": "object",
+      "properties": {
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DatumPlane"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "DatumPlane"
+          ]
+        },
+        "definition": {
+          "$ref": "#/definitions/DatumPlaneDefinition"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
+        },
+        "resolved": {
+          "$ref": "#/definitions/DatumPlaneGeometry"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "broken",
+            "error"
+          ]
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "featureId",
+        "kind",
+        "definition",
+        "dependsOn",
+        "resolved",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    "DatumAxisDescriptor": {
+      "type": "object",
+      "properties": {
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DatumAxis"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "DatumAxis"
+          ]
+        },
+        "definition": {
+          "$ref": "#/definitions/DatumAxisDefinition"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
+        },
+        "resolved": {
+          "$ref": "#/definitions/DatumAxisGeometry"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "broken",
+            "error"
+          ]
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "featureId",
+        "kind",
+        "definition",
+        "dependsOn",
+        "resolved",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    "DatumPointDescriptor": {
+      "type": "object",
+      "properties": {
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DatumPoint"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "DatumPoint"
+          ]
+        },
+        "definition": {
+          "$ref": "#/definitions/DatumPointDefinition"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
+        },
+        "resolved": {
+          "$ref": "#/definitions/DatumPointGeometry"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "broken",
+            "error"
+          ]
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "featureId",
+        "kind",
+        "definition",
+        "dependsOn",
+        "resolved",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    "DatumDescriptor": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/DatumPlaneDescriptor"
+        },
+        {
+          "$ref": "#/definitions/DatumAxisDescriptor"
+        },
+        {
+          "$ref": "#/definitions/DatumPointDescriptor"
+        }
+      ]
     }
   }
 }

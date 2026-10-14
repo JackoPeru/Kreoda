@@ -9,6 +9,20 @@ public sealed class SessionModelTests
     private static JsonElement Json(string value) => JsonDocument.Parse(value).RootElement.Clone();
 
     [Fact]
+    public void DatumSnapshotsAndDeltasPreserveDefinitionsFramesAndLegacyConstructor()
+    {
+        var legacy = new SessionModelState("s", "d", 0, Array.Empty<JsonElement>(), Array.Empty<JsonElement>(), Array.Empty<JsonElement>());
+        Assert.Empty(legacy.Datums);
+        var snapshot = SessionModelState.FromSnapshot(Json("""{"sessionId":"s","documentId":"d","revision":0,"features":[],"sketches":[],"bodies":[],"datums":[{"featureId":"plane","kind":"DatumPlane","definition":{"type":"principal","planeKind":"XY"},"dependsOn":[],"resolved":{"originMm":[10,20,30],"xAxis":[1,0,0],"yAxis":[0,1,0],"normal":[0,0,1]},"status":"ok"}]}"""));
+        var datums = snapshot.Datums;
+        Assert.Equal(30, datums[0].GetProperty("resolved").GetProperty("originMm")[2].GetDouble());
+        var delta = Json("""{"event":"delta","sessionId":"s","documentId":"d","baseRevision":0,"newRevision":1,"revision":1,"originClientId":"c","added":[],"updated":[],"removedIds":["plane"],"changedMeshIds":[],"referenceRemaps":[],"warnings":[]}""");
+        var update = snapshot.Apply(delta); Assert.Equal(SessionModelUpdateKind.Applied, update.Kind);
+        Assert.Empty(update.Model.Datums);
+        Assert.Single(datums); Assert.Empty(update.Model.Features); Assert.Empty(update.Model.Bodies);
+    }
+
+    [Fact]
     public void GeneratedRequiredFieldsRejectMissingPatchMetadataAndNullArrays()
     {
         var model = SessionModelState.FromSnapshot(Json("""{"sessionId":"s","documentId":"d","revision":0,"features":[],"sketches":[],"bodies":[]}"""));

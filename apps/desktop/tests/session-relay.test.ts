@@ -728,6 +728,42 @@ describe("SessionRelay", () => {
     expect(relay.clientCount).toBe(0);
   });
 
+  it("preserves native datum definitions and resolved frames in local recovery snapshots", async () => {
+    const datum = { featureId: "plane", type: "DatumPlane", kind: "DatumPlane", definition: { type: "principal", planeKind: "XY" },
+      dependsOn: [], resolved: { originMm: [10, 20, 30], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] }, status: "ok", error: "" };
+    const manager = { invoke: async (frame: Uint8Array) => {
+      const request = JSON.parse(new TextDecoder().decode(frame.slice(4))) as { requestId: string };
+      return new TextEncoder().encode(JSON.stringify({ status: "ok", requestId: request.requestId, revision: 0, features: [], sketches: [], datums: [datum] }));
+    } } as unknown as SidecarManager;
+    const relay = new SessionRelay(() => manager);
+    const snapshot = await relay.localSnapshot();
+    expect(snapshot.datums).toEqual([datum]);expect(snapshot.features).toEqual([]);expect(snapshot.bodies).toEqual([]);
+  });
+
+  it("publishes datum create/edit/Undo patches without native mesh requests", async () => {
+    const prototype = { featureId: "plane", type: "DatumPlane", kind: "DatumPlane", definition: { type: "principal", planeKind: "XY" },
+      dependsOn: [], resolved: { originMm: [0, 0, 0], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] }, status: "ok", error: "" };
+    let datums: typeof prototype[] = [];let revision = 0;const calls: number[] = [];const events: unknown[] = [];
+    const manager = { invoke: async (frame: Uint8Array) => {
+      const request = JSON.parse(new TextDecoder().decode(frame.slice(4))) as { requestId: string; type: number };
+      calls.push(request.type);
+      if(request.type === 31){datums = [{ ...prototype }];revision++;}
+      if(request.type === 6){datums = [{ ...prototype, resolved: { ...prototype.resolved, originMm: [0, 0, 10] } }];revision++;}
+      if(request.type === 8){datums = [];revision++;}
+      return new TextEncoder().encode(JSON.stringify({ status: "ok", requestId: request.requestId, revision, features: [], sketches: [], datums }));
+    } } as unknown as SidecarManager;
+    const relay = new SessionRelay(() => manager, delta => events.push(delta));
+    const invoke = (type: number, fields: Record<string, unknown>) => relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1, requestId: `datum-${type}`, documentId: "doc-phase1", type, ...fields }))));
+    await invoke(31, { featureId: "plane", definition: prototype.definition });
+    await invoke(6, { featureId: "plane", paramName: "offsetMm", valueMm: 10 });
+    await invoke(8, {});
+    expect(events).toHaveLength(3);
+    expect(events[0]).toMatchObject({ added: [{ kind: "datum", id: "plane", value: prototype }], changedMeshIds: [] });
+    expect(events[1]).toMatchObject({ updated: [{ kind: "datum", id: "plane", value: { resolved: { originMm: [0, 0, 10] } } }], changedMeshIds: [] });
+    expect(events[2]).toMatchObject({ removedIds: ["plane"], changedMeshIds: [] });
+    expect(calls).not.toContain(12);expect((await relay.localSnapshot()).datums).toEqual([]);
+  });
+
   it("blocks local recovery while a remote transaction owns uncommitted state", async () => {
     const fake = fakeSidecar();
     const port = await freePort();

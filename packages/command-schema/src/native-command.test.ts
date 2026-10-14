@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { commandNativeRequest, validateLegacyNativeCommand } from "./native-command.js";
 import { commandJsonSchema } from "./index.js";
 
@@ -17,6 +18,14 @@ it("exports datum constructors with one creation and update/query with zero", ()
   expect(commandNativeRequest("CreateDatumPlane", { definition }, "plane-stable")).toEqual({ type: 31, fields: { definition, featureId: "plane-stable" } });
   expect(validateLegacyNativeCommand(35, { featureId: "plane-stable" })).toEqual({ type: 35, fields: { featureId: "plane-stable" } });
   expect(commandNativeRequest("CreateSketch", { supportRef: "plane-stable", model: {} }, "sketch-stable").fields).toHaveProperty("supportRef", "plane-stable");
+});
+
+it("keeps generated session datum definitions identical to canonical command schemas", () => {
+  const contract = JSON.parse(readFileSync(new URL("../../../schemas/session-control-v1.json", import.meta.url), "utf8")) as { definitions: Record<string, unknown> };
+  for (const kind of ["Plane", "Axis", "Point"]) {
+    const schema = commandJsonSchema(`CreateDatum${kind}`)!.parameters as { properties: { definition: unknown } };
+    expect(contract.definitions[`Datum${kind}Definition`]).toEqual(schema.properties.definition);
+  }
 });
 
 it("validates datum variants, finite bounded input and stable source identities", () => {
