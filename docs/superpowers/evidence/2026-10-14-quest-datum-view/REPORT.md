@@ -24,3 +24,11 @@ Separate GPT-6-Luna/Max task01a13ad9-3e99-7ba1-8e3c-ca39fdbf1282 supplied the in
 ## Boundaries
 
 No Hermes/server/SSH/AI calls, remote changes, device install/capture, microphone/camera, PC audio or foreground GUI. Primary dirty user checkout preserved. No push/merge/release; hosted CI remains the olderfa78 baseline. Full original Phases12–16 goal remains active, including all other Advanced CAD and Intent work.
+
+## Fresh review and reconnect correction
+
+Fresh GPT-6-Sol/high reviewer01a13be8-8b67-76a1-9c29-dcb1e0742bce returned fix-first for immutablee2c618f..b2bbfb6. A same-session/document/revision reconnect reused the datum view but could retain old PC-bound command parameters. Parent confirmed a RED test: the old command selection still returned current after a new accepted connection generation.
+
+Correction captures the command's actual SessionClient, connection generation and model lineage/revision. Confirmation and delayed schema callbacks reject retired context; execution keeps the captured client rather than reacquiring another client with old parameters. Accepted datum observations now notify on connection-generation changes, causing a context reload even if geometry/revision did not change. Datum currency follows the active client/run and accepted observation rather than the separately queued UI Connected flag; this avoids discarding the selection when observation and status callbacks arrive in different frames.
+
+The actual WebSocket test now keeps the form through reconnect. It rejects confirmation while reconnecting, returns changed PC binding XY→XZ on the second connection, requires a new listCommands before command, and checks the second command uses XZ. The original datum-only observation test also rejects old command context after a same-revision new generation. Parent repeated the full hidden Editor suite:67/67, zero failed/skipped/inconclusive, process0, all158 authored hashes restored. Corrected XML, summary and current source hashes are in reconnect-correction/. Node syntax and git diff --check pass. The previous fix-first verdict is not acceptance of this correction; a new immutable review is pending.

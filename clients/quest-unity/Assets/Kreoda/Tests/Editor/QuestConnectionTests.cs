@@ -44,6 +44,15 @@ namespace Kreoda.QuestRuntime.Tests
                 Capture(connection, client, run, generation, initial);
                 Update(connection);
                 var oldView = System.Linq.Enumerable.Single(connection.DatumViews);
+                var commands = root.AddComponent<QuestCommands>();commands.Connection = connection;
+                commands.SelectDatum(oldView);
+                var contextSelection = typeof(QuestCommands).GetMethod("CurrentSelection", Private);
+                Assert.That(contextSelection.Invoke(commands, null), Is.True);
+                var reconnect = scene.BeginConnection();
+                Capture(connection, client, run, reconnect, initial);Update(connection);
+                Assert.That(connection.IsCurrentDatum(oldView), Is.True);
+                Assert.That(contextSelection.Invoke(commands, null), Is.False, "old command context must not survive a same-revision connection generation");
+                generation = reconnect;
                 Assert.That(oldView.FeatureId, Is.EqualTo("11111111-1111-4111-8111-111111111111"));
                 Assert.That(oldView.Revision, Is.EqualTo(4));
                 Assert.That(connection.IsCurrentDatum(oldView), Is.True);
@@ -131,6 +140,7 @@ namespace Kreoda.QuestRuntime.Tests
             using var server = Process.Start(start);
             var root = new GameObject("Owned wire test");
             var display = new GameObject("Owned CAD display");
+            QuestCommands datumCommands = null;
             display.transform.SetParent(root.transform);
             try
             {
@@ -180,10 +190,12 @@ namespace Kreoda.QuestRuntime.Tests
                     Assert.That(connection.IsCurrentDatum(datum), Is.True);
                     connection.PublishTarget(datum);
                     var commands = root.AddComponent<QuestCommands>();commands.Connection = connection;
+                    datumCommands = commands;
+                    typeof(QuestCommands).GetMethod("Start", Private).Invoke(commands, null);
                     commands.SelectDatum(datum);
                     var commandUpdate = typeof(QuestCommands).GetMethod("Update", Private);
                     wait.Restart();
-                    while (commands.CommandLabel != "Sketch sul piano" || commands.FieldValue != "\"XY\"")
+                    while (commands.CommandLabel != "Sketch sul piano" || commands.FieldValue != "{}")
                     {
                         commandUpdate.Invoke(commands, null);
                         Assert.That(wait.Elapsed.TotalSeconds, Is.LessThan(10), commands.Status);
@@ -208,9 +220,14 @@ namespace Kreoda.QuestRuntime.Tests
                     Assert.That(command.GetProperty("parameters").GetProperty("supportRef").GetString(), Is.EqualTo(datum.FeatureId));
                     Assert.That(command.GetProperty("baseRevision").GetInt64(), Is.EqualTo(raw.Revision));
                     Assert.That(sent.Count(item => item.GetProperty("method").GetString() == "requestMeshLOD"), Is.EqualTo(1), "datum actions must not request meshes");
-                    Object.DestroyImmediate(commands);
                 }
                 connection.Reconnect();
+                if (datumCommands != null)
+                {
+                    Assert.That(typeof(QuestCommands).GetMethod("CurrentSelection", Private).Invoke(datumCommands, null), Is.False);
+                    datumCommands.Confirm();
+                    Assert.That(datumCommands.Busy, Is.False, "retired context cannot start a command while reconnecting");
+                }
                 wait.Restart();
                 while (view.UploadVersion < 2 && wait.Elapsed.TotalSeconds < 15)
                 { update.Invoke(connection, null); yield return null; }
@@ -218,6 +235,28 @@ namespace Kreoda.QuestRuntime.Tests
                     (server.HasExited ? " · fixture exit " + server.ExitCode + " · " + server.StandardError.ReadToEnd() : " · fixture alive"));
                 Assert.That(connection.Views.Single(), Is.SameAs(view));
                 Assert.That(firstMesh == null, Is.True, "reconnect leaked the superseded Unity mesh");
+                if (datumCommands != null)
+                {
+                    var commandUpdate = typeof(QuestCommands).GetMethod("Update", Private);
+                    wait.Restart();
+                    var values = (System.Collections.Generic.Dictionary<string, object>)typeof(QuestCommands).GetField("_values", Private).GetValue(datumCommands);
+                    while (!values.TryGetValue("planeKind", out var rebound) || rebound.ToString() != "XZ")
+                    { commandUpdate.Invoke(datumCommands, null);Assert.That(wait.Elapsed.TotalSeconds, Is.LessThan(10), "new connection must reload PC bindings");yield return null; }
+                    datumCommands.Confirm();
+                    wait.Restart();
+                    while (datumCommands.Busy && wait.Elapsed.TotalSeconds < 10)
+                    { commandUpdate.Invoke(datumCommands, null);update.Invoke(connection, null);yield return null; }
+                    var auditReply = connection.Client.CallAsync("getCapabilities", new System.Collections.Generic.Dictionary<string, object>());
+                    wait.Restart();
+                    while (!auditReply.IsCompleted && wait.Elapsed.TotalSeconds < 10) yield return null;
+                    Assert.That(auditReply.IsCompletedSuccessfully, Is.True);
+                    var sent = auditReply.GetAwaiter().GetResult().GetProperty("result").GetProperty("fixtureRequests").EnumerateArray().ToArray();
+                    var second = sent.Where(item => item.GetProperty("connection").GetInt32() == 2).ToArray();
+                    Assert.That(System.Array.FindIndex(second, item => item.GetProperty("method").GetString() == "listCommands"),
+                        Is.LessThan(System.Array.FindIndex(second, item => item.GetProperty("method").GetString() == "command")));
+                    var command = second.Single(item => item.GetProperty("method").GetString() == "command");
+                    Assert.That(command.GetProperty("params").GetProperty("parameters").GetProperty("planeKind").GetString(), Is.EqualTo("XZ"));
+                }
                 connection.Forget();
                 Assert.That(File.Exists(credentials), Is.False);
                 Assert.That(connection.Connected, Is.False);

@@ -9,12 +9,15 @@ const sessionId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const documentId = "fixture-doc";
 const datumId = "datum-plane-wire";
 const requests = [];
+let connectionCount = 0;
 const server = new WebSocketServer({ host: "0.0.0.0", port: 0 });
 server.on("listening", () => console.log(JSON.stringify({ port: server.address().port })));
-server.on("connection", socket => socket.on("message", data => {
+server.on("connection", socket => {
+  const connection = ++connectionCount;
+  socket.on("message", data => {
   const request = JSON.parse(data.toString());
   if (fixture.datumMode) {
-    requests.push({ method: request.method, params: request.params, sessionId: request.sessionId });
+    requests.push({ method: request.method, params: request.params, sessionId: request.sessionId, connection });
   }
   const reply = payload => socket.send(JSON.stringify({ requestId: request.requestId, ok: true, ...payload }));
   switch (request.method) {
@@ -43,7 +46,7 @@ server.on("connection", socket => socket.on("message", data => {
         throw new Error("wrong datum context identity/revision");
       reply({ result: { sessionId, documentId, revision: fixture.revision, contextValid: true,
         commands: [{ id: "CreateSketch", label: "Sketch sul piano", description: "Fixture support binding",
-          available: true, supportsPreview: false, boundParameters: { supportRef: datumId } }] } });
+          available: true, supportsPreview: false, boundParameters: { supportRef: datumId, planeKind: connection === 1 ? "XY" : "XZ" } }] } });
       break;
     case "getCommandSchema":
       reply({ result: { parameters: { type: "object", properties: {
@@ -68,4 +71,5 @@ server.on("connection", socket => socket.on("message", data => {
     default:
       reply({ result: {} });
   }
-}));
+  });
+});

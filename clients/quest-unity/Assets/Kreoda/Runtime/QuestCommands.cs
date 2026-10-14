@@ -34,6 +34,9 @@ namespace Kreoda.QuestRuntime
         QuestMeshView _view;
         QuestDatumView _datum;
         long _datumRevision;
+        SessionClient _selectionClient;
+        SessionModelState _selectionModel;
+        long _selectionGeneration;
         int _upload, _index, _field;
         long _ticket;
         CancellationTokenSource _commandRun;
@@ -47,6 +50,7 @@ namespace Kreoda.QuestRuntime
             if (hit?.ReferenceAmbiguous == true) { Status = "Riferimento ambiguo: scegli altro bordo o faccia";return; }
             var ids = new[] { hit?.PersistentId ?? view.InstanceId ?? view.FeatureId };
             var client = Connection.Client;var model = client.Model;
+            CaptureSelection(client);
             _ = Load(client, ids, model.DocumentId, model.Revision, ticket);
         }
         public void SelectDatum(QuestDatumView view)
@@ -54,10 +58,24 @@ namespace Kreoda.QuestRuntime
             Invalidate();_view = null;_datum = view;
             if (!Connection.IsCurrentDatum(view)) { Status = "Riferimento non corrente";return; }
             var client = Connection.Client;var model = client.Model;
+            CaptureSelection(client);
             _datumRevision = model.Revision;
             _ = Load(client, new[] { view.FeatureId }, model.DocumentId, model.Revision, _ticket);
         }
-        bool CurrentSelection() => _datum != null ? Connection.IsCurrentDatum(_datum) : Connection.IsCurrentView(_view);
+        void CaptureSelection(SessionClient client)
+        {
+            _selectionClient = client;_selectionModel = client.Model;
+            _selectionGeneration = Connection.ConnectionGeneration;
+        }
+        bool CurrentSelection()
+        {
+            var model = Connection.Client?.Model;
+            return _selectionClient != null && ReferenceEquals(_selectionClient, Connection.Client) &&
+                _selectionGeneration == Connection.ConnectionGeneration && model != null && _selectionModel != null &&
+                model.SessionId == _selectionModel.SessionId && model.DocumentId == _selectionModel.DocumentId &&
+                model.Revision == _selectionModel.Revision &&
+                (_datum != null ? Connection.IsCurrentDatum(_datum) : Connection.IsCurrentView(_view));
+        }
         async Task Load(Kreoda.Session.SessionClient client, string[] ids, string documentId, long revision, long ticket)
         {
             try
@@ -100,7 +118,7 @@ namespace Kreoda.QuestRuntime
                     expectedSessionId: _context.SessionId).ConfigureAwait(false);
                 var schema = raw.GetProperty("result").GetProperty("parameters").Clone();
                 _main.Enqueue(() => {
-                    if (!Current(ticket) || !ReferenceEquals(command, _command)) return;
+                    if (!Current(ticket) || !ReferenceEquals(command, _command) || !CurrentSelection()) return;
                     _schema = schema;
                     foreach (var bound in command.BoundParameters) _values[bound.Key] = bound.Value;
                     if (schema.TryGetProperty("properties", out var properties)) foreach (var property in properties.EnumerateObject())
@@ -141,18 +159,18 @@ namespace Kreoda.QuestRuntime
             if (Busy || Spatial?.Busy == true || _schema.ValueKind != JsonValueKind.Object || _context == null || _command?.Available != true || !CurrentSelection()) return;
             var required = _schema.TryGetProperty("required", out var names) ? names.EnumerateArray().Select(p => p.GetString()) : Enumerable.Empty<string>();
             if (required.Any(name => !_values.ContainsKey(name))) { Status = "Completa tutti i valori richiesti";return; }
-            Execute(_command.Id, new Dictionary<string, object>(_values), _context.SessionId, _context.DocumentId, _context.Revision);
+            Execute(_command.Id, new Dictionary<string, object>(_values), _context.SessionId, _context.DocumentId, _context.Revision, _selectionClient);
         }
         public void History(bool redo)
         {
             if (Busy || Spatial?.Busy == true) return;
-            var model = Connection.Client?.Model;if (model == null) return;
-            Execute(redo ? "Redo" : "Undo", new Dictionary<string, object>(), model.SessionId, model.DocumentId, model.Revision);
+            var client = Connection.Client;var model = client?.Model;if (model == null) return;
+            Execute(redo ? "Redo" : "Undo", new Dictionary<string, object>(), model.SessionId, model.DocumentId, model.Revision, client);
         }
-        void Execute(string id, Dictionary<string, object> values, string session, string document, long revision)
+        void Execute(string id, Dictionary<string, object> values, string session, string document, long revision, SessionClient client)
         {
             Busy = true;Status = "Operazione sul PC…";
-            var ticket = ++_ticket;var client = Connection.Client;
+            var ticket = ++_ticket;
             _commandRun = new CancellationTokenSource(TimeSpan.FromSeconds(15));var run = _commandRun;
             _ = Task.Run(async () => {
                 try
@@ -180,6 +198,7 @@ namespace Kreoda.QuestRuntime
         {
             _ticket++;try { _commandRun?.Cancel(); } catch (ObjectDisposedException) { }
             _commandRun = null;_context = null;_command = null;_schema = default;_fields.Clear();_values.Clear();Busy = false;
+            _selectionClient = null;_selectionModel = null;
         }
         void Update() { for (var i = 0; i < 2 && _main.TryDequeue(out var action); i++) if (!_destroyed) action(); }
         void Start() { Connection.SceneChanged += Changed; }
@@ -189,9 +208,9 @@ namespace Kreoda.QuestRuntime
             if (_datum != null)
             {
                 if (!Connection.IsCurrentDatum(_datum)) { Invalidate();_datum = null;Status = "Riferimento non corrente"; }
-                else if (_datum.Revision != _datumRevision) SelectDatum(_datum);
+                else if (!CurrentSelection() || _datum.Revision != _datumRevision) SelectDatum(_datum);
             }
-            else if (_view != null && _view.UploadVersion != _upload) Select(_view, null);
+            else if (_view != null && (!CurrentSelection() || _view.UploadVersion != _upload)) Select(_view, null);
         }
         void OnApplicationFocus(bool focus) { if (!focus) Invalidate(); }
         void OnApplicationPause(bool pause) { if (pause) Invalidate(); }

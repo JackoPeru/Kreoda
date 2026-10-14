@@ -33,6 +33,7 @@ namespace Kreoda.QuestRuntime
         public event Action SceneChanged;
         public IReadOnlyCollection<QuestMeshView> Views => _views.Values;
         public IReadOnlyCollection<QuestDatumView> DatumViews => _datumViews.Values;
+        public long ConnectionGeneration => _scene.ConnectionGeneration;
         public SessionClient Client { get { lock (_gate) return _client; } }
 
         public bool IsCurrentView(QuestMeshView view)
@@ -46,7 +47,7 @@ namespace Kreoda.QuestRuntime
         }
         public bool IsCurrentDatum(QuestDatumView view)
         {
-            if (view == null || !view.IsSelectable || !Connected) return false;
+            if (view == null || !view.IsSelectable) return false;
             SessionClient client;
             CancellationTokenSource run;
             lock (_gate) { client = _client;run = _run; }
@@ -372,8 +373,9 @@ namespace Kreoda.QuestRuntime
         bool ReconcileDatums(Observation observation)
         {
             var model = observation.Model;
-            var changed = _datumSessionId != model.SessionId || _datumDocumentId != model.DocumentId;
-            if (changed) ClearDatumViews();
+            var lineageChanged = _datumSessionId != model.SessionId || _datumDocumentId != model.DocumentId;
+            var changed = lineageChanged || _datumGeneration != observation.Stamp.ConnectionGeneration;
+            if (lineageChanged) ClearDatumViews();
             _datumSessionId = model.SessionId;_datumDocumentId = model.DocumentId;
             _datumGeneration = observation.Stamp.ConnectionGeneration;_datumModel = model;
             var seen = new HashSet<string>(StringComparer.Ordinal);
