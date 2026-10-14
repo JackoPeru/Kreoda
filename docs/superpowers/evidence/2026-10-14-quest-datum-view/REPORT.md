@@ -1,6 +1,6 @@
 # Quest native datum view and target adapter
 
-Status: parent implementation and local managed/Editor verification complete; fresh immutable review pending. This packet is not full Quest/Phase15.1 acceptance. Construction/edit controls, normal ARM64, current-head CI and physical/live acceptance remain open.
+Status: parent implementation/local managed/Editor verification and fresh corrected immutable review passed. This packet is not full Quest/Phase15.1 acceptance. Construction/edit controls, normal ARM64, current-head CI and physical/live acceptance remain open.
 
 ## Implementation and provenance
 
@@ -32,3 +32,5 @@ Fresh GPT-6-Sol/high reviewer01a13be8-8b67-76a1-9c29-dcb1e0742bce returned fix-f
 Correction captures the command's actual SessionClient, connection generation and model lineage/revision. Confirmation and delayed schema callbacks reject retired context; execution keeps the captured client rather than reacquiring another client with old parameters. Accepted datum observations now notify on connection-generation changes, causing a context reload even if geometry/revision did not change. Datum currency follows the active client/run and accepted observation rather than the separately queued UI Connected flag; this avoids discarding the selection when observation and status callbacks arrive in different frames.
 
 The actual WebSocket test now keeps the form through reconnect. It rejects confirmation while reconnecting, returns changed PC binding XY→XZ on the second connection, requires a new listCommands before command, and checks the second command uses XZ. The original datum-only observation test also rejects old command context after a same-revision new generation. Parent repeated the full hidden Editor suite:67/67, zero failed/skipped/inconclusive, process0, all158 authored hashes restored. Corrected XML, summary and current source hashes are in reconnect-correction/. Node syntax and git diff --check pass. The previous fix-first verdict is not acceptance of this correction; a new immutable review is pending.
+
+Fresh corrected reviewer01a13bee-12b7-7c32-9fcd-e5fa191e60ab returned ship for immutablee2c618f..df83caf7, no blocking findings. Parent verified recorded runtime GPT-6-Sol/high, observed unrestricted filesystem and behavioral read-only review; source checkout remained clean atdf83 afterward. Reviewer checked accumulated source, corrected67/67 XML, twelve source hashes and static checks. This accepts only the datum adapter packet; remaining construction/ARM64/CI/physical/live/full-goal gates above remain open.
