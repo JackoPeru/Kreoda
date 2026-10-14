@@ -60,6 +60,14 @@ bool ParseDatumDefinitions(const std::vector<std::string>& jsonRecords,
       const auto& definition=json.at("definition"); if(!definition.is_object()) throw std::runtime_error("datum definition must be an object");
       record.definitionJson=definition.dump(); collectSources(definition,&sourceIds[record.featureId]); definitions.emplace(record.featureId,std::move(record));
     }
+    for(const auto& sketch:sketches) {
+      if(sketch.planeKind=="Datum") {
+        const auto support=definitions.find(sketch.supportRef);
+        if(support==definitions.end()||support->second.kind!=DatumKind::Plane)
+          throw std::runtime_error("sketch "+sketch.id+" requires an incoming DatumPlane support "+sketch.supportRef);
+      } else if(!sketch.supportRef.empty())
+        throw std::runtime_error("sketch "+sketch.id+" supportRef requires planeKind Datum");
+    }
     for(const auto& [id,refs]:sourceIds) {
       for(const auto& source:refs) if(!allIds.count(source)) throw std::runtime_error("datum "+id+" references missing source "+source);
       graph.addFeature(id,std::vector<std::string>(refs.begin(),refs.end()));

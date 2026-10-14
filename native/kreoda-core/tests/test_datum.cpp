@@ -63,6 +63,31 @@ TEST(Datum, InvalidSourcesAndDegeneracyLeaveOutputUntouched) {
   EXPECT_FALSE(ResolveDatumDefinition(DatumKind::Point,point(1000001,0,0).dump(),&accepted,&error));
 }
 
+TEST(Datum, CanonicalDefinitionAndNestedReferenceKeysAreStrict) {
+  const std::vector<std::pair<DatumKind,Json>> cases={
+    {DatumKind::Plane,xy()},
+    {DatumKind::Plane,{{"type","offset"},{"base",xy()},{"offsetMm",10}}},
+    {DatumKind::Plane,{{"type","mid"},{"first",xy()},{"second",xy()}}},
+    {DatumKind::Plane,{{"type","angle"},{"base",xy()},{"axis",{{"type","principal"},{"axis","X"}}},{"angleDeg",90}}},
+    {DatumKind::Plane,{{"type","threePoint"},{"first",point(0,0,0)},{"second",point(1,0,0)},{"third",point(0,1,0)}}},
+    {DatumKind::Axis,{{"type","twoPoint"},{"first",point(0,0,0)},{"second",point(0,0,1)}}},
+    {DatumKind::Axis,{{"type","planeNormal"},{"plane",xy()},{"through",point(0,0,0)}}},
+    {DatumKind::Axis,{{"type","planeIntersection"},{"first",xy()},{"second",{{"type","principal"},{"planeKind","YZ"}}}}},
+    {DatumKind::Point,point(0,0,0)},
+    {DatumKind::Point,{{"type","midpoint"},{"first",point(0,0,0)},{"second",point(2,0,0)}}}
+  };
+  for(const auto& [kind,definition]:cases) {
+    DatumRecord accepted;std::string error;
+    ASSERT_TRUE(ResolveDatumDefinition(kind,definition.dump(),&accepted,&error)) << error;
+    auto extra=definition;extra["foo"]=1;
+    EXPECT_FALSE(ResolveDatumDefinition(kind,extra.dump(),&accepted,&error)) << extra.dump();
+    for(const auto& field:definition.items()) if(field.value().is_object()) {
+      auto nested=definition;nested[field.key()]["foo"]=1;
+      EXPECT_FALSE(ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)) << nested.dump();
+    }
+  }
+}
+
 #if KREODA_WITH_OCCT
 #include "document/document_store.h"
 #include "features/primitives/primitives.h"
@@ -105,6 +130,7 @@ TEST(Datum, CurvedAndAmbiguousNativeSourcesRejectWithoutFallback) {
   EXPECT_NE(error.find("ambiguous"),std::string::npos) << error; EXPECT_EQ(accepted.featureId,"unchanged");
 }
 #endif
+
 TEST(Datum, WrongKindBrokenSourcesAndInvalidJsonKeepAcceptedOutput) {
   DatumStore::instance().clear(); auto p=resolve(DatumKind::Point,point(1,2,3)); p.featureId="source"; DatumStore::instance().put(p);
   DatumRecord accepted; accepted.featureId="keep"; accepted.positionMm[0]=9; std::string error;
@@ -266,6 +292,22 @@ TEST(DatumCommands, CreateUpdateAndUndoAreSingleNonBodyMutations) {
   EXPECT_TRUE(BodyStore::instance().bodies().empty()); EXPECT_TRUE(ShapeStore::instance().listInOrder().empty());
   ASSERT_TRUE(OcafLive::instance().Undo(&error)); ASSERT_TRUE(OcafLive::instance().ResyncStore(&error)); DatumRecord record; ASSERT_TRUE(DatumStore::instance().get("point",&record)); EXPECT_DOUBLE_EQ(record.positionMm[0],10);
   ASSERT_TRUE(OcafLive::instance().Redo(&error)); ASSERT_TRUE(OcafLive::instance().ResyncStore(&error)); ASSERT_TRUE(DatumStore::instance().get("point",&record)); EXPECT_DOUBLE_EQ(record.positionMm[0],99);
+}
+
+TEST(DatumCommands, ExtraDefinitionKeysRejectBeforeMutation) {
+  DocumentStore::instance().create("strict-datum-command");std::string error;
+  ASSERT_TRUE(CreateBoxFeature("healthy",10,5,7,&error));
+  const auto revision=DocumentStore::instance().snapshotRevision();
+  const auto registry=DocumentStore::instance().snapshotRegistry();
+  const auto undos=OcafLive::instance().AvailableUndos();
+  auto invalid=point(1,2,3);invalid["foo"]=1;
+  EXPECT_FALSE(CreateDatumFeature("invalid",DatumKind::Point,invalid.dump(),&error));
+  EXPECT_FALSE(DatumStore::instance().contains("invalid"));
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);
+  EXPECT_EQ(DocumentStore::instance().snapshotRegistry(),registry);
+  EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos);
+  ShapeRecord healthy;ASSERT_TRUE(ShapeStore::instance().get("healthy",&healthy));
+  EXPECT_NEAR(healthy.volumeMm3,350,1e-6);
 }
 TEST(DatumCommands, CyclicAndInvalidUpdatesPreserveRegistryRevisionAndUndo) {
   DocumentStore::instance().create("datum-reject"); std::string error;
@@ -617,7 +659,8 @@ TEST(DatumProtocol, TaintedDependentFailureRollsBackEarlierJoinedCreationAndKeep
 TEST(DatumProtocol, NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically) {
   DocumentStore::instance().create("datum-numerics");
   auto decoratedPrincipal=xy();decoratedPrincipal["offsetMm"]=7;decoratedPrincipal["through"]=point(1,2,3);
-  ASSERT_EQ(datumRpc(31,{{"featureId","principal"},{"definition",decoratedPrincipal}})["status"],"ok");
+  EXPECT_EQ(datumRpc(31,{{"featureId","principal"},{"definition",decoratedPrincipal}})["status"],"error");
+  ASSERT_EQ(datumRpc(31,{{"featureId","principal"},{"definition",xy()}})["status"],"ok");
   EXPECT_EQ(datumRpc(6,{{"featureId","principal"},{"paramName","offsetMm"},{"valueMm",12}})["status"],"error");
   EXPECT_EQ(datumRpc(6,{{"featureId","principal"},{"paramName","throughXMm"},{"valueMm",12}})["status"],"error");
   ASSERT_EQ(datumRpc(31,{{"featureId","offset"},{"definition",{{"type","offset"},{"base",xy()},{"offsetMm",2}}}})["status"],"ok");
@@ -639,5 +682,69 @@ TEST(DatumProtocol, NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomi
     EXPECT_EQ(datumRpc(6,fields)["status"],"error");
   EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos);
   EXPECT_EQ(datumRpc(35,{{"featureId","axis"}})["datum"]["resolved"]["originMm"][0],5);
+}
+#endif
+
+
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+#include "persistence/icad_zip.h"
+#include <BinXCAFDrivers.hxx>
+#include <PCDM_StoreStatus.hxx>
+#include <TDocStd_Application.hxx>
+#include <TDocStd_Document.hxx>
+#include <TCollection_ExtendedString.hxx>
+TEST(DatumPersistence, InvalidIncomingSketchSupportsRejectRealIcadAtomically) {
+  for(const auto* fault:{"missing","absent-root","wrong-kind","frame-mismatch","principal-support"}) {
+    SCOPED_TRACE(fault);
+    DocumentStore::instance().create("invalid-support-source");std::string error;
+    auto& ocaf=OcafLive::instance();
+    const std::string mode=fault;
+    if(mode=="wrong-kind") ASSERT_TRUE(CreateDatumFeature("support",DatumKind::Point,point(0,0,0).dump(),&error));
+    else if(mode!="missing"&&mode!="absent-root") ASSERT_TRUE(CreateDatumFeature("support",DatumKind::Plane,
+      Json{{"type","offset"},{"base",xy()},{"offsetMm",mode=="frame-mismatch"?10:0}}.dump(),&error));
+    ASSERT_TRUE(CreateSketchFeature("incoming-sketch","XY",datumRectangle(),&error));
+    ASSERT_TRUE(CreateExtrudeFeature("incoming-solid","incoming-sketch",7,&error));
+    SketchFeature corrupt;ASSERT_TRUE(SketchStore::instance().get("incoming-sketch",&corrupt));
+    corrupt.supportRef="support";corrupt.planeKind=mode=="principal-support"?"XY":"Datum";
+    ASSERT_TRUE(ocaf.BeginCommand(&error));
+    ASSERT_TRUE(ocaf.UpsertSketch(corrupt.id,SerializeSketchFeature(corrupt),&error));
+    ASSERT_TRUE(ocaf.CommitCommand(nullptr,&error));
+    auto xbf=datumFile("invalid-support");auto icad=xbf;icad.replace_extension(".icad");
+    ASSERT_TRUE(ocaf.Save(xbf.generic_string(),&error));
+    auto fixture=xbf;
+    if(mode=="absent-root") {
+      // Legacy/foreign document: no named Datums metadata root at all.
+      Handle(TDocStd_Application) app=new TDocStd_Application;
+      BinXCAFDrivers::DefineFormat(app);Handle(TDocStd_Document) doc;
+      ASSERT_EQ(app->Open(TCollection_ExtendedString(xbf.string().c_str()),doc),PCDM_RS_OK);
+      const auto root=doc->Main().FindChild(1004,Standard_False);
+      ASSERT_FALSE(root.IsNull());root.ForgetAllAttributes(Standard_True);
+      fixture=xbf.string()+".no-datums.xbf";
+      ASSERT_EQ(app->SaveAs(doc,TCollection_ExtendedString(fixture.string().c_str())),PCDM_SS_OK);
+      app->Close(doc);
+    }
+    ASSERT_TRUE(WriteIcad(icad.generic_string(),"{}",fixture.generic_string(),&error));
+
+    DocumentStore::instance().create("healthy-support-live");
+    ASSERT_TRUE(CreateBoxFeature("healthy-body",10,5,7,&error));
+    ASSERT_TRUE(CreateDatumFeature("support",DatumKind::Plane,xy().dump(),&error));
+    ASSERT_TRUE(CreateDatumFeature("temporary-point",DatumKind::Point,point(1,2,3).dump(),&error));
+    ASSERT_TRUE(ocaf.Undo(&error));ASSERT_TRUE(ocaf.ResyncStore(&error));
+    const auto revision=DocumentStore::instance().snapshotRevision();
+    const auto registry=DocumentStore::instance().snapshotRegistry();
+    const auto undos=ocaf.AvailableUndos(),redos=ocaf.AvailableRedos();
+    const auto request=Json{{"protocolVersion",1},{"requestId","invalid-support-open"},
+      {"documentId","healthy-support-live"},{"type",11},{"path",icad.generic_string()}};
+    const auto response=Json::parse(kreoda_test::rpcText(request.dump()));
+    EXPECT_EQ(response["status"],"error") << response.dump();
+    EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);
+    EXPECT_EQ(DocumentStore::instance().snapshotRegistry(),registry);
+    EXPECT_EQ(ocaf.AvailableUndos(),undos);EXPECT_EQ(ocaf.AvailableRedos(),redos);
+    ShapeRecord healthy;ASSERT_TRUE(ShapeStore::instance().get("healthy-body",&healthy));
+    EXPECT_NEAR(healthy.volumeMm3,350,1e-6);
+    EXPECT_FALSE(SketchStore::instance().contains("incoming-sketch"));
+    std::error_code ec;std::filesystem::remove(xbf,ec);std::filesystem::remove(icad,ec);
+    if(fixture!=xbf)std::filesystem::remove(fixture,ec);
+  }
 }
 #endif

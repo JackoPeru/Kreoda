@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <initializer_list>
+#include <regex>
 #include <stdexcept>
 #include "../../model/shapes.h"
 #include "../../protocol/json_fields.h"
@@ -26,6 +28,12 @@ namespace {
 using V = std::array<double, 3>;
 constexpr double kPointTolerance = 1e-7, kParallelTolerance = 1e-9;
 [[noreturn]] void fail(const std::string& message) { throw std::runtime_error(message); }
+void keys(const Json& value,std::initializer_list<const char*> allowed) {
+  if(!value.is_object())fail("datum definition/reference must be an object");
+  for(const auto& field:value.items())
+    if(std::none_of(allowed.begin(),allowed.end(),[&](const char* name){return field.key()==name;}))
+      fail("unsupported datum field: "+field.key());
+}
 V vec(const double* p) { return {p[0],p[1],p[2]}; }
 void put(const V& v, double* p) { std::copy(v.begin(),v.end(),p); }
 V add(V a, V b) { return {a[0]+b[0],a[1]+b[1],a[2]+b[2]}; }
@@ -43,6 +51,7 @@ double number(const Json& j, const char* key, double limit=1000000) {
   double v; if(!json_double_strict(j,key,&v)||std::fabs(v)>limit) fail(std::string(key)+" is outside the finite input range"); return v;
 }
 V coordinates(const Json& j) {
+  keys(j,{"type","positionMm"});
   const auto& p=j.at("positionMm"); if(!p.is_array()||p.size()!=3) fail("positionMm must contain exactly three numbers");
   V out{}; for(int i=0;i<3;++i) { if(!p[i].is_number()) fail("positionMm must contain numbers"); out[i]=p[i].get<double>(); if(!std::isfinite(out[i])||std::fabs(out[i])>1000000) fail("positionMm is outside the finite input range"); } return out;
 }
@@ -62,6 +71,7 @@ bool storedDatum(const std::string& id, const DatumSourceRecords* sources, Datum
   if(count>1) fail("incoming datum source is ambiguous: "+id); return count==1;
 }
 DatumRecord datum(const Json& ref, DatumKind kind, DatumRecord& out, const DatumSourceRecords* sources) {
+  keys(ref,{"type","featureId"});
   const auto id=text(ref,"featureId"); dependency(id,out); DatumRecord source;
   if(!storedDatum(id,sources,&source)) fail("missing datum source "+id);
   if(source.kind!=kind) fail("datum source has the wrong kind: "+id);
@@ -75,9 +85,19 @@ V pointRef(const Json& ref, DatumRecord& out, const DatumSourceRecords* sources)
   fail("unsupported point reference type "+type);
 }
 SketchPlane principal(const Json& ref) {
+  keys(ref,{"type","planeKind"});
   const auto kind=text(ref,"planeKind"); if(kind!="XY"&&kind!="XZ"&&kind!="YZ") fail("planeKind must be XY|XZ|YZ"); return PrincipalPlane(kind);
 }
 #if KREODA_WITH_OCCT
+void topologyKeys(const Json& ref,const char* roleKey) {
+  keys(ref,{"type","featureId",roleKey,"selectionEntry"});
+  if(text(ref,roleKey).size()>512)fail("persistent topology id is too long");
+  if(ref.contains("selectionEntry")) {
+    const auto entry=text(ref,"selectionEntry");
+    static const std::regex pattern("[0-9]+(:[0-9]+)+");
+    if(entry.size()>128||!std::regex_match(entry,pattern))fail("invalid datum selectionEntry");
+  }
+}
 bool selectedSource(const Json& ref,const DatumRecord& out,const DatumSourceRecords* sources,
                     const ShapeRecord& owner,const std::string& role,bool edge,TopoDS_Shape* selected) {
   if(ref.contains("selectionEntry")) {
@@ -105,6 +125,7 @@ SketchPlane planeRef(const Json& ref, DatumRecord& out, const DatumSourceRecords
   else if(type=="datum") p=datum(ref,DatumKind::Plane,out,sources).plane;
   else if(type=="face") {
 #if KREODA_WITH_OCCT
+    topologyKeys(ref,"persistentFaceId");
     const auto id=text(ref,"featureId"), role=text(ref,"persistentFaceId"); dependency(id,out); ShapeRecord shape;
     if(!storedShape(id,sources,&shape)||shape.shape.IsNull()) fail("missing native face owner "+id);
     const auto full=role.find(':')==std::string::npos?id+":"+role:role;
@@ -129,11 +150,13 @@ Axis axisRef(const Json& ref, DatumRecord& out, const DatumSourceRecords* source
   const auto type=text(ref,"type");
   Axis axis{{0,0,0},{0,0,0}};
   if(type=="principal") {
+    keys(ref,{"type","axis"});
     const auto a=text(ref,"axis"); if(a=="X") axis.direction[0]=1; else if(a=="Y") axis.direction[1]=1; else if(a=="Z") axis.direction[2]=1; else fail("axis must be X|Y|Z");
   } else if(type=="datum") {
     const auto d=datum(ref,DatumKind::Axis,out,sources); axis={vec(d.originMm),vec(d.direction)};
   } else if(type=="edge") {
 #if KREODA_WITH_OCCT
+    topologyKeys(ref,"persistentEdgeId");
     const auto id=text(ref,"featureId"), role=text(ref,"persistentEdgeId"); dependency(id,out); ShapeRecord shape;
     if(!storedShape(id,sources,&shape)||shape.shape.IsNull()) fail("missing native edge owner "+id);
     const auto full=role.find(':')==std::string::npos?id+":"+role:role;
@@ -164,6 +187,14 @@ static bool ResolveDatumDefinitionImpl(DatumKind kind, const std::string& defini
     const auto def=parse_json_object(definitionJson); if(!def.is_object()) fail("datum definition must be an object");
     DatumRecord result; result.featureId=out->featureId; result.kind=kind; result.definitionJson=def.dump();
     const auto type=text(def,"type");
+    // Match the canonical strict definitions before geometry or mutation.
+    if(type=="principal")keys(def,{"type","planeKind"});
+    else if(type=="coordinates")keys(def,{"type","positionMm"});
+    else if(type=="offset")keys(def,{"type","base","offsetMm"});
+    else if(type=="mid"||type=="midpoint"||type=="twoPoint"||type=="planeIntersection")keys(def,{"type","first","second"});
+    else if(type=="angle")keys(def,{"type","base","axis","angleDeg"});
+    else if(type=="threePoint")keys(def,{"type","first","second","third"});
+    else if(type=="planeNormal")keys(def,{"type","plane","through"});
     if(kind==DatumKind::Point) {
       V p;
       if(type=="coordinates") p=coordinates(def);

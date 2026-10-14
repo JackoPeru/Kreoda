@@ -1,0 +1,270 @@
+Test project C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build
+    Start  7: Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict
+1/3 Test  #7: Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict .................***Failed    0.03 sec
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(83): error: Value of: ResolveDatumDefinition(kind,extra.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"foo":1,"planeKind":"XY","type":"principal"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(83): error: Value of: ResolveDatumDefinition(kind,extra.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"base":{"planeKind":"XY","type":"principal"},"foo":1,"offsetMm":10,"type":"offset"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"base":{"foo":1,"planeKind":"XY","type":"principal"},"offsetMm":10,"type":"offset"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(83): error: Value of: ResolveDatumDefinition(kind,extra.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"planeKind":"XY","type":"principal"},"foo":1,"second":{"planeKind":"XY","type":"principal"},"type":"mid"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"foo":1,"planeKind":"XY","type":"principal"},"second":{"planeKind":"XY","type":"principal"},"type":"mid"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"planeKind":"XY","type":"principal"},"second":{"foo":1,"planeKind":"XY","type":"principal"},"type":"mid"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(83): error: Value of: ResolveDatumDefinition(kind,extra.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"angleDeg":90,"axis":{"axis":"X","type":"principal"},"base":{"planeKind":"XY","type":"principal"},"foo":1,"type":"angle"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"angleDeg":90,"axis":{"axis":"X","foo":1,"type":"principal"},"base":{"planeKind":"XY","type":"principal"},"type":"angle"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"angleDeg":90,"axis":{"axis":"X","type":"principal"},"base":{"foo":1,"planeKind":"XY","type":"principal"},"type":"angle"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(83): error: Value of: ResolveDatumDefinition(kind,extra.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"foo":1,"second":{"positionMm":[1.0,0.0,0.0],"type":"coordinates"},"third":{"positionMm":[0.0,1.0,0.0],"type":"coordinates"},"type":"threePoint"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"foo":1,"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"second":{"positionMm":[1.0,0.0,0.0],"type":"coordinates"},"third":{"positionMm":[0.0,1.0,0.0],"type":"coordinates"},"type":"threePoint"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"second":{"foo":1,"positionMm":[1.0,0.0,0.0],"type":"coordinates"},"third":{"positionMm":[0.0,1.0,0.0],"type":"coordinates"},"type":"threePoint"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"second":{"positionMm":[1.0,0.0,0.0],"type":"coordinates"},"third":{"foo":1,"positionMm":[0.0,1.0,0.0],"type":"coordinates"},"type":"threePoint"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(83): error: Value of: ResolveDatumDefinition(kind,extra.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"foo":1,"second":{"positionMm":[0.0,0.0,1.0],"type":"coordinates"},"type":"twoPoint"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"foo":1,"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"second":{"positionMm":[0.0,0.0,1.0],"type":"coordinates"},"type":"twoPoint"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"second":{"foo":1,"positionMm":[0.0,0.0,1.0],"type":"coordinates"},"type":"twoPoint"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(83): error: Value of: ResolveDatumDefinition(kind,extra.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"foo":1,"plane":{"planeKind":"XY","type":"principal"},"through":{"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"type":"planeNormal"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"plane":{"foo":1,"planeKind":"XY","type":"principal"},"through":{"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"type":"planeNormal"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"plane":{"planeKind":"XY","type":"principal"},"through":{"foo":1,"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"type":"planeNormal"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(83): error: Value of: ResolveDatumDefinition(kind,extra.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"planeKind":"XY","type":"principal"},"foo":1,"second":{"planeKind":"YZ","type":"principal"},"type":"planeIntersection"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"foo":1,"planeKind":"XY","type":"principal"},"second":{"planeKind":"YZ","type":"principal"},"type":"planeIntersection"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"planeKind":"XY","type":"principal"},"second":{"foo":1,"planeKind":"YZ","type":"principal"},"type":"planeIntersection"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(83): error: Value of: ResolveDatumDefinition(kind,extra.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"foo":1,"positionMm":[0.0,0.0,0.0],"type":"coordinates"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(83): error: Value of: ResolveDatumDefinition(kind,extra.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"foo":1,"second":{"positionMm":[2.0,0.0,0.0],"type":"coordinates"},"type":"midpoint"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"foo":1,"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"second":{"positionMm":[2.0,0.0,0.0],"type":"coordinates"},"type":"midpoint"}
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(86): error: Value of: ResolveDatumDefinition(kind,nested.dump(),&accepted,&error)
+  Actual: true
+Expected: false
+{"first":{"positionMm":[0.0,0.0,0.0],"type":"coordinates"},"second":{"foo":1,"positionMm":[2.0,0.0,0.0],"type":"coordinates"},"type":"midpoint"}
+
+[  FAILED  ] Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict (1 ms)
+[----------] 1 test from Datum (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict
+
+ 1 FAILED TEST
+
+    Start 18: DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically
+2/3 Test #18: DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically ...***Failed    0.07 sec
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumPersistence
+[ RUN      ] DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(721): error: Expected equality of these values:
+  response["status"]
+    Which is: "ok"
+  "error"
+    Which is: 00007FF627F14B18
+{"datums":[],"features":[{"dependsOn":["incoming-sketch"],"expressions":{},"featureId":"incoming-solid","paramsMm":[7],"refExtra":"","type":"Extrude","volumeMm3":350}],"path":"C:/Users/matte/AppData/Local/Temp/kreoda-datum-invalid-support-31989357620200.icad","protocolVersion":1,"redos":0,"referencePlanesJson":"[]","requestId":"invalid-support-open","revision":1,"sketches":[{"circles":0,"constraints":6,"featureId":"incoming-sketch","lines":4,"plane":{"normal":[0,0,1],"origin":[0,0,0],"xAxis":[1,0,0],"yAxis":[0,1,0]},"planeKind":"Datum","points":4,"supportRef":"support","type":"Sketch"}],"status":"ok","undos":0}
+Google Test trace:
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(692): missing
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(722): error: Expected equality of these values:
+  DocumentStore::instance().snapshotRevision()
+    Which is: 1
+  revision
+    Which is: 3
+Google Test trace:
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(692): missing
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(723): error: Expected equality of these values:
+  DocumentStore::instance().snapshotRegistry()
+    Which is: { ("incoming-sketch", "Sketch"), ("incoming-solid", "Extrude") }
+  registry
+    Which is: { ("healthy-body", "Box"), ("support", "DatumPlane") }
+Google Test trace:
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(692): missing
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(724): error: Expected equality of these values:
+  ocaf.AvailableUndos()
+    Which is: 0
+  undos
+    Which is: 2
+Google Test trace:
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(692): missing
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(724): error: Expected equality of these values:
+  ocaf.AvailableRedos()
+    Which is: 0
+  redos
+    Which is: 1
+Google Test trace:
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(692): missing
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(725): error: Value of: ShapeStore::instance().get("healthy-body",&healthy)
+  Actual: false
+Expected: true
+Google Test trace:
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(692): missing
+
+[  FAILED  ] DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically (36 ms)
+[----------] 1 test from DatumPersistence (36 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (36 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically
+
+ 1 FAILED TEST
+
+    Start 20: DatumCommands.ExtraDefinitionKeysRejectBeforeMutation
+3/3 Test #20: DatumCommands.ExtraDefinitionKeysRejectBeforeMutation ....................***Failed    0.03 sec
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.ExtraDefinitionKeysRejectBeforeMutation
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.ExtraDefinitionKeysRejectBeforeMutation
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(304): error: Value of: CreateDatumFeature("invalid",DatumKind::Point,invalid.dump(),&error)
+  Actual: true
+Expected: false
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(305): error: Value of: DatumStore::instance().contains("invalid")
+  Actual: true
+Expected: false
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(306): error: Expected equality of these values:
+  DocumentStore::instance().snapshotRevision()
+    Which is: 2
+  revision
+    Which is: 1
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(307): error: Expected equality of these values:
+  DocumentStore::instance().snapshotRegistry()
+    Which is: { ("healthy", "Box"), ("invalid", "DatumPoint") }
+  registry
+    Which is: { ("healthy", "Box") }
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_datum.cpp(308): error: Expected equality of these values:
+  OcafLive::instance().AvailableUndos()
+    Which is: 2
+  undos
+    Which is: 1
+
+[  FAILED  ] DatumCommands.ExtraDefinitionKeysRejectBeforeMutation (1 ms)
+[----------] 1 test from DatumCommands (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] DatumCommands.ExtraDefinitionKeysRejectBeforeMutation
+
+ 1 FAILED TEST
+
+
+0% tests passed, 3 tests failed out of 3
+
+Total Test time (real) =   0.17 sec
+
+The following tests FAILED:
+	  7 - Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict (Failed)
+	 18 - DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically (Failed)
+	 20 - DatumCommands.ExtraDefinitionKeysRejectBeforeMutation (Failed)

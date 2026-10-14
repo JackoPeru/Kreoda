@@ -2,6 +2,8 @@
 #include "features/datum/datum_json.h"
 #include "ocaf_live.h"
 
+#include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <map>
 #include <sstream>
@@ -447,9 +449,22 @@ bool StageDatums(const TDF_Label& main,const std::vector<StagedSketch>& sketches
     if(!json.is_object()||!json.contains("featureId")||!json.at("featureId").is_string()||json.at("featureId").get<std::string>()!=ExtToAscii(name->Get())) { if(error)*error="OCAF datum label has mismatched featureId";return false; }
     records.push_back(text);
   }
-  if(records.empty()) { out->clear();return true; }
   for(const auto& sketch:sketches) sketchRecords.push_back(sketch.feature);
-  return ParseDatumDefinitions(records,DatumShapeSources(main),sketchRecords,out,error,DatumResolverFor(main));
+  if(!ParseDatumDefinitions(records,DatumShapeSources(main),sketchRecords,out,error,DatumResolverFor(main)))return false;
+  // Persistence must not publish a stale saved frame. Candidate datum edits
+  // validate support in ParseDatumDefinitions, then rebuild their sketches.
+  for(const auto& sketch:sketchRecords) if(sketch.planeKind=="Datum") {
+    const auto support=std::find_if(out->begin(),out->end(),[&](const DatumRecord& datum){return datum.featureId==sketch.supportRef;});
+    if(support==out->end()) { if(error)*error="missing incoming sketch support";return false; }
+    for(int i=0;i<3;++i) if(std::fabs(sketch.plane.origin[i]-support->plane.origin[i])>1e-7||
+      std::fabs(sketch.plane.xAxis[i]-support->plane.xAxis[i])>1e-9||
+      std::fabs(sketch.plane.yAxis[i]-support->plane.yAxis[i])>1e-9||
+      std::fabs(sketch.plane.normal[i]-support->plane.normal[i])>1e-9) {
+      if(error)*error="sketch "+sketch.id+" frame disagrees with incoming DatumPlane "+sketch.supportRef;
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace
