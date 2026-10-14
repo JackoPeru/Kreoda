@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import { CommandType, SketchModelSchema, StableFeatureIdSchema, SESSION_STABLE_FEATURE_ID_SCHEMA } from "@kreoda/protocol";
+import { DatumPlaneDefinitionSchema, DatumAxisDefinitionSchema, DatumPointDefinitionSchema, DatumDefinitionSchema } from "@kreoda/protocol";
 import { zodToJsonSchema, ignoreOverride } from "zod-to-json-schema";
 import { commandCreationRule } from "./native-command.js";
 export { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "./native-command.js";
@@ -130,10 +131,11 @@ export const COMMANDS: CadCommandDefinition[] = [
     nativeType: CommandType.CreateSketch,
     label: "Sketch",
     beginnerLabel: "Draw a shape",
-    description: "New constrained 2D sketch on a principal plane.",
+    description: "New constrained 2D sketch on a principal or native datum plane.",
     icon: "pencil",
     parameterSchema: z.object({
       planeKind: z.enum(["XY", "XZ", "YZ"]).default("XY"),
+      supportRef: StableFeatureIdSchema.optional(),
       model: SketchModelSchema.optional(),
     }),
     supportsPreview: false,
@@ -357,6 +359,41 @@ export const COMMANDS: CadCommandDefinition[] = [
     icon: "rotate-cw", supportsPreview: false, beginnerVisible: false, advancedVisible: true,
     parameterSchema: z.object({ sketchId: StableFeatureIdSchema, angleDeg: z.number().finite().positive().max(360) }),
     availability: (ctx) => ctx.selection.some((item) => item.kind === "sketch") ? always : { available: false, reason: "Select a sketch first" },
+  },
+  {
+    id: "CreateDatumPlane", nativeType: CommandType.CreateDatumPlane,
+    label: "Datum plane", beginnerLabel: "Reference plane",
+    description: "Create a principal, offset, mid, angled or three-point native reference plane.",
+    icon: "square", parameterSchema: z.object({ definition: DatumPlaneDefinitionSchema }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateDatumAxis", nativeType: CommandType.CreateDatumAxis,
+    label: "Datum axis", beginnerLabel: "Reference axis",
+    description: "Create a native reference axis through two points, normal to a plane or at two planes' intersection.",
+    icon: "move", parameterSchema: z.object({ definition: DatumAxisDefinitionSchema }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateDatumPoint", nativeType: CommandType.CreateDatumPoint,
+    label: "Datum point", beginnerLabel: "Reference point",
+    description: "Create a native reference point at coordinates or halfway between two points.",
+    icon: "crosshair", parameterSchema: z.object({ definition: DatumPointDefinitionSchema }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "UpdateDatum", nativeType: CommandType.UpdateDatum,
+    label: "Edit datum", beginnerLabel: "Edit reference",
+    description: "Replace a datum definition while preserving its identity and recomputing dependent native geometry.",
+    icon: "pencil", parameterSchema: z.object({ featureId: StableFeatureIdSchema, definition: DatumDefinitionSchema }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
+  },
+  {
+    id: "RequestDatum", nativeType: CommandType.RequestDatum,
+    label: "Inspect datum", beginnerLabel: "Inspect reference",
+    description: "Read a datum's native definition, resolved geometry, source identities and status without mutation.",
+    icon: "info", parameterSchema: z.object({ featureId: StableFeatureIdSchema }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
   },
   {
     id: "DeleteFeature", nativeType: CommandType.DeleteFeature,

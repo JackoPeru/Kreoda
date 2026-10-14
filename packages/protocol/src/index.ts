@@ -10,9 +10,11 @@
 import { z } from "zod";
 import * as flatbuffers from "flatbuffers";
 import { MeshUpdate } from "./generated/kreoda/protocol.js";
+import { StableFeatureIdSchema } from "./session-control.js";
 
 export * from "./session-control.js";
 export * from "./session-model.js";
+export * from "./datum.js";
 
 export const PROTOCOL_VERSION = 1 as const;
 
@@ -170,6 +172,7 @@ export const SketchModelSchema = z.object({
 export type SketchModel = z.infer<typeof SketchModelSchema>;
 
 export const CreateSketchPayloadSchema = z.object({
+  supportRef: StableFeatureIdSchema.optional(),
   featureId: uuid(),
   planeKind: z.enum(["XY", "XZ", "YZ"]).default("XY"),
   model: SketchModelSchema,

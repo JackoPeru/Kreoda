@@ -8,6 +8,44 @@ it("runtime schemas expose the actual creation budget including multi-hole comma
   expect(commandJsonSchema("UpdateSketch")).toHaveProperty("creation", { fixedCount: 0 });
 });
 
+it("exports datum constructors with one creation and update/query with zero", () => {
+  for (const id of ["CreateDatumPlane", "CreateDatumAxis", "CreateDatumPoint"])
+    expect(commandJsonSchema(id)).toHaveProperty("creation", { fixedCount: 1 });
+  for (const id of ["UpdateDatum", "RequestDatum"])
+    expect(commandJsonSchema(id)).toHaveProperty("creation", { fixedCount: 0 });
+  const definition = { type: "offset", base: { type: "principal", planeKind: "XY" }, offsetMm: -12 };
+  expect(commandNativeRequest("CreateDatumPlane", { definition }, "plane-stable")).toEqual({ type: 31, fields: { definition, featureId: "plane-stable" } });
+  expect(validateLegacyNativeCommand(35, { featureId: "plane-stable" })).toEqual({ type: 35, fields: { featureId: "plane-stable" } });
+  expect(commandNativeRequest("CreateSketch", { supportRef: "plane-stable", model: {} }, "sketch-stable").fields).toHaveProperty("supportRef", "plane-stable");
+});
+
+it("validates datum variants, finite bounded input and stable source identities", () => {
+  const point = (x: number, y: number, z: number) => ({ type: "coordinates", positionMm: [x, y, z] });
+  const principal = { type: "principal", planeKind: "XY" };
+  for (const [id, definition] of [
+    ["CreateDatumPlane", principal],
+    ["CreateDatumPlane", { type: "offset", base: principal, offsetMm: 10 }],
+    ["CreateDatumPlane", { type: "mid", first: principal, second: { type: "datum", featureId: "plane-other" } }],
+    ["CreateDatumPlane", { type: "angle", base: principal, axis: { type: "principal", axis: "X" }, angleDeg: 90 }],
+    ["CreateDatumPlane", { type: "threePoint", first: point(0, 0, 0), second: point(1, 0, 0), third: point(0, 1, 0) }],
+    ["CreateDatumAxis", { type: "twoPoint", first: point(0, 0, 0), second: point(0, 0, 1) }],
+    ["CreateDatumAxis", { type: "planeNormal", plane: principal }],
+    ["CreateDatumAxis", { type: "planeIntersection", first: principal, second: { type: "principal", planeKind: "YZ" } }],
+    ["CreateDatumPoint", point(1, 2, 3)],
+    ["CreateDatumPoint", { type: "midpoint", first: point(0, 0, 0), second: { type: "datum", featureId: "point-source" } }],
+  ] as const) expect(() => commandNativeRequest(id, { definition }, "datum-stable")).not.toThrow();
+  for (const definition of [
+    { type: "angle", base: principal, axis: { type: "principal", axis: "X" }, angleDeg: 361 },
+    { type: "offset", base: principal, offsetMm: Infinity },
+    { type: "offset", base: { type: "datum", featureId: "../bad" }, offsetMm: 1 },
+    { type: "offset", base: { type: "face", featureId: "body", persistentFaceId: "" }, offsetMm: 1 },
+    { type: "unsupported" },
+  ]) expect(() => commandNativeRequest("CreateDatumPlane", { definition }, "datum-stable")).toThrow();
+  expect(() => commandNativeRequest("CreateDatumPoint", { definition: point(1000001, 0, 0) }, "datum-stable")).toThrow();
+  expect(() => commandNativeRequest("CreateDatumPoint", { definition: { type: "coordinates", positionMm: [1, 2] } }, "datum-stable")).toThrow();
+  expect(() => commandNativeRequest("CreateDatumAxis", { definition: principal }, "datum-stable")).toThrow();
+});
+
 it("exports canonical stable ID constraints even though their runtime validator is opaque Zod custom", () => {
   expect(commandJsonSchema("CreateHolePattern")!.parameters).toMatchObject({ properties: {
     featureIds: { type: "array", items: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9_-]+$" } },

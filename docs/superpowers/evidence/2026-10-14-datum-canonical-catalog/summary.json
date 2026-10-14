@@ -1,0 +1,30 @@
+{
+  "scope": "Task3 canonical datum definitions and named/native command metadata, partial",
+  "accepted": false,
+  "goalComplete": false,
+  "integratedNativeHead": "b9a72f8c4a2eb0990f2cc0173c2c5166eadce57d",
+  "nativeSourceDiffEmpty": true,
+  "commandTests": {
+    "passed": 18,
+    "failed": 0
+  },
+  "protocolTests": {
+    "passed": 49,
+    "failed": 0
+  },
+  "builds": [
+    "protocol",
+    "command-schema"
+  ],
+  "lints": [
+    "protocol",
+    "command-schema"
+  ],
+  "remaining": [
+    "generated session model and managed clients",
+    "Desktop Quest MCP integration",
+    "actual client native end to end proof",
+    "fresh review and exact integrated CI",
+    "full Phases12-16 acceptance"
+  ]
+}

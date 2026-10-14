@@ -41,3 +41,9 @@ Objective remains “continua sino a completare tutto”, original Phases12–16
 ## Next actions and proof discipline
 
 Finish/parent-verify/review the live Quest section packet; observe exact Desktop CI. Then execute the written native datum plan with separate Luna/Max tasks. Preserve all remaining rows; code presence, vendored math, mock/editor gates or a green unrelated CI do not establish the requested end state. Full goal stays active. Root made read-only code/roadmap inspections plus these documents while worker owns Quest; no server, microphone/camera, PC audio or foreground GUI work.
+
+## 14 October current supplement
+
+The earlier table and CI narrative are historical; this supplement is authoritative for current progress. Exactfa78baf hostedCI38459951316 succeeded (native193, managed238, ordinaryE2E64, crashE2E29, packaging). Current local development headb9a72f8 integrates the native datum stack; it has not been pushed or checked by hosted CI. Isolated equivalent native sources passed226/226 plus33focused, actual datum/sketch/extrude/revolve, Undo/Redo/icad and native naming/reordered-topology proof. All native constructors, lifecycle, public31–35, numeric edits, delete guards and dependent rollback exist. Lost indexed native identity requires explicit repair; no ordinal fallback. Fresh independent acceptance remains unavailable after quota.
+
+Task3 has begun: shared protocol datum definition/source schemas, canonical five-command metadata, supportRef preservation; catalog18/18 andprotocol49/49/builds/lints verified. Generated session datum/frame contracts, managed clients/context, Desktop UI/reference rendering, Quest hands/frame/semantic views, actual local MCP/native client flow and integrated-head/ARM64/CI/review gates remain. All other Phase15/16 rows and live Hermes/physical acceptance remain open; original scope is unchanged. User image-work constraint remains active.
