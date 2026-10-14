@@ -1,14 +1,18 @@
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <cmath>
 #include "document/document_store.h"
 #include "features/primitives/primitives.h"
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
+#include "features/datum/datum_commands.h"
+#include "features/datum/datum_store.h"
 #include "protocol/dispatcher.h"
 #include "protocol/json_fields.h"
 #include "model/shapes.h"
 #include "features/extrusion/extrude.h"
 #include "features/sketch/sketch_commands.h"
+#include "persistence/ocaf_live.h"
 #include <BRep_Builder.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <TopoDS_Compound.hxx>
@@ -23,6 +27,20 @@ void box() {
   kreoda::DocumentStore::instance().create("geometry-doc");
   std::string error;
   ASSERT_TRUE(kreoda::CreateBoxFeature("box",20,30,10,&error)) << error;
+}
+kreoda::SketchModel rectangleSketch() {
+  kreoda::SketchModel model;
+  model.points={{"p0",0,0},{"p1",100,0},{"p2",100,50},{"p3",0,50}};
+  model.lines={{"l0","p0","p1"},{"l1","p1","p2"},{"l2","p2","p3"},{"l3","p3","p0"}};
+  return model;
+}
+void datumSketchAndSolid() {
+  kreoda::DocumentStore::instance().create("geometry-doc");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateDatumFeature("plane",kreoda::DatumKind::Plane,
+      R"({"type":"offset","base":{"type":"principal","planeKind":"XY"},"offsetMm":24})",&error)) << error;
+  ASSERT_TRUE(kreoda::CreateSketchOnDatumFeature("sketch","plane",rectangleSketch(),&error)) << error;
+  ASSERT_TRUE(kreoda::CreateExtrudeFeature("solid","sketch",7,&error)) << error;
 }
 }
 
@@ -263,4 +281,161 @@ TEST(SessionGeometry, ValidReferenceCarriesActualOwnerAndRoleForContextBinding) 
   const auto& check=result["result"]["checks"][0];
   EXPECT_EQ(check["kind"],"face");EXPECT_EQ(check["owner"],"box");EXPECT_EQ(check["role"],"box.+Z");
   ASSERT_TRUE(check.contains("ownerBody"));EXPECT_FALSE(check["ownerBody"].get<std::string>().empty());
+}
+
+TEST(SessionGeometry, DatumUuidReferencesPreserveKindAndNeverInventBodyOwnership) {
+  kreoda::DocumentStore::instance().create("geometry-doc");
+  std::string error;
+  const std::string planeId = "11111111-1111-4111-8111-111111111111";
+  const std::string axisId = "22222222-2222-4222-8222-222222222222";
+  const std::string pointId = "33333333-3333-4333-8333-333333333333";
+  ASSERT_TRUE(kreoda::CreateDatumFeature(planeId, kreoda::DatumKind::Plane,
+      R"({"type":"principal","planeKind":"XY"})", &error)) << error;
+  ASSERT_TRUE(kreoda::CreateDatumFeature(axisId, kreoda::DatumKind::Axis,
+      R"({"type":"twoPoint","first":{"type":"coordinates","positionMm":[0,0,0]},"second":{"type":"coordinates","positionMm":[0,0,10]}})", &error)) << error;
+  ASSERT_TRUE(kreoda::CreateDatumFeature(pointId, kreoda::DatumKind::Point,
+      R"({"type":"coordinates","positionMm":[1,2,3]})", &error)) << error;
+
+  const auto revision = kreoda::DocumentStore::instance().snapshotRevision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto refs = query("validateReferences", {{"ids", {planeId, axisId, pointId}}});
+  ASSERT_EQ(refs["status"], "ok") << refs;
+  ASSERT_EQ(refs["result"]["valid"], true) << refs;
+  ASSERT_EQ(refs["result"]["checks"].size(), 3u);
+  const std::vector<std::pair<std::string, std::string>> expected = {
+      {planeId, "datumPlane"}, {axisId, "datumAxis"}, {pointId, "datumPoint"}};
+  for (size_t i = 0; i < expected.size(); ++i) {
+    const auto& check = refs["result"]["checks"][i];
+    EXPECT_EQ(check["kind"], expected[i].second) << check;
+    EXPECT_EQ(check["owner"], expected[i].first) << check;
+    EXPECT_FALSE(check.contains("ownerBody")) << check;
+    EXPECT_FALSE(check.contains("body")) << check;
+    EXPECT_FALSE(check.contains("face")) << check;
+  }
+  EXPECT_EQ(refs["revision"], revision);
+  EXPECT_EQ(kreoda::DocumentStore::instance().snapshotRevision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+}
+
+TEST(SessionGeometry, DatumAndSupportedSketchValidationIsCompleteAndReadOnly) {
+  datumSketchAndSolid();
+  const auto revision=kreoda::DocumentStore::instance().snapshotRevision();
+  const auto undos=kreoda::OcafLive::instance().AvailableUndos();
+
+  const auto document=query("validateDocument");
+  ASSERT_EQ(document["status"],"ok") << document;
+  EXPECT_EQ(document["result"]["valid"],true) << document;
+  const auto datum=query("validateFeature",{{"featureId","plane"}});
+  ASSERT_EQ(datum["status"],"ok") << datum;
+  EXPECT_EQ(datum["result"]["valid"],true) << datum;
+  const auto sketch=query("validateFeature",{{"featureId","sketch"}});
+  ASSERT_EQ(sketch["status"],"ok") << sketch;
+  EXPECT_EQ(sketch["result"]["valid"],true) << sketch;
+  EXPECT_EQ(kreoda::DocumentStore::instance().snapshotRevision(),revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(),undos);
+}
+
+TEST(SessionGeometry, DatumSketchSupportRejectsWrongKindMissingAndCorruptDatums) {
+  datumSketchAndSolid();
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateDatumFeature("axis",kreoda::DatumKind::Axis,
+      R"({"type":"twoPoint","first":{"type":"coordinates","positionMm":[0,0,0]},"second":{"type":"coordinates","positionMm":[0,0,10]}})",&error)) << error;
+  const auto revision=kreoda::DocumentStore::instance().snapshotRevision();
+  const auto undos=kreoda::OcafLive::instance().AvailableUndos();
+  kreoda::SketchFeature sketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("sketch",&sketch));
+
+  sketch.supportRef="axis";
+  kreoda::SketchStore::instance().put(sketch);
+  auto result=query("validateFeature",{{"featureId","sketch"}});
+  ASSERT_EQ(result["status"],"ok") << result;
+  EXPECT_EQ(result["result"]["valid"],false) << result;
+
+  sketch.supportRef="missing-datum";
+  kreoda::SketchStore::instance().put(sketch);
+  result=query("validateDocument");
+  ASSERT_EQ(result["status"],"ok") << result;
+  EXPECT_EQ(result["result"]["valid"],false) << result;
+
+  sketch.supportRef="plane";
+  kreoda::SketchStore::instance().put(sketch);
+  kreoda::DatumRecord plane;
+  ASSERT_TRUE(kreoda::DatumStore::instance().get("plane",&plane));
+  plane.status="broken";
+  plane.error="test corruption";
+  kreoda::DatumStore::instance().put(plane);
+  result=query("validateFeature",{{"featureId","plane"}});
+  ASSERT_EQ(result["status"],"ok") << result;
+  EXPECT_EQ(result["result"]["valid"],false) << result;
+
+  plane.status="ok";
+  plane.error.clear();
+  plane.plane.origin[2]+=1;
+  kreoda::DatumStore::instance().put(plane);
+  result=query("validateDocument");
+  ASSERT_EQ(result["status"],"ok") << result;
+  EXPECT_EQ(result["result"]["valid"],false) << result;
+  EXPECT_EQ(kreoda::DocumentStore::instance().snapshotRevision(),revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(),undos);
+}
+
+TEST(SessionGeometry, DatumReferenceValidationUsesOnlyItsDependencyClosure) {
+  kreoda::DocumentStore::instance().create("geometry-doc");
+  std::string error;
+  const std::string planeJson=R"({"type":"offset","base":{"type":"principal","planeKind":"XY"},"offsetMm":24})";
+  const std::string pointJson=R"({"type":"coordinates","positionMm":[1,2,3]})";
+  ASSERT_TRUE(kreoda::CreateDatumFeature("healthy-plane",kreoda::DatumKind::Plane,planeJson,&error)) << error;
+  ASSERT_TRUE(kreoda::CreateDatumFeature("other-plane",kreoda::DatumKind::Plane,
+      R"({"type":"offset","base":{"type":"principal","planeKind":"YZ"},"offsetMm":12})",&error)) << error;
+  ASSERT_TRUE(kreoda::CreateSketchOnDatumFeature("other-supported-sketch","other-plane",rectangleSketch(),&error)) << error;
+  ASSERT_TRUE(kreoda::CreateDatumFeature("unrelated-point",kreoda::DatumKind::Point,pointJson,&error)) << error;
+  kreoda::DatumRecord unrelated;
+  ASSERT_TRUE(kreoda::DatumStore::instance().get("unrelated-point",&unrelated));
+  unrelated.status="broken";
+  unrelated.error="test corruption";
+  kreoda::DatumStore::instance().put(unrelated);
+
+  auto references=query("validateReferences",{{"ids",{"healthy-plane"}}});
+  ASSERT_EQ(references["status"],"ok") << references;
+  EXPECT_EQ(references["result"]["valid"],true) << references;
+  references=query("validateReferences",{{"ids",{"unrelated-point"}}});
+  ASSERT_EQ(references["status"],"ok") << references;
+  EXPECT_EQ(references["result"]["valid"],false) << references;
+  auto feature=query("validateFeature",{{"featureId","healthy-plane"}});
+  ASSERT_EQ(feature["status"],"ok") << feature;
+  EXPECT_EQ(feature["result"]["valid"],true) << feature;
+  auto document=query("validateDocument");
+  ASSERT_EQ(document["status"],"ok") << document;
+  EXPECT_EQ(document["result"]["valid"],false) << document;
+
+  kreoda::DocumentStore::instance().create("geometry-doc");
+  ASSERT_TRUE(kreoda::CreateDatumFeature("source",kreoda::DatumKind::Point,pointJson,&error)) << error;
+  ASSERT_TRUE(kreoda::CreateDatumFeature("child",kreoda::DatumKind::Point,
+      R"({"type":"midpoint","first":{"type":"datum","featureId":"source"},"second":{"type":"coordinates","positionMm":[5,6,7]}})",&error)) << error;
+  const auto revision=kreoda::DocumentStore::instance().snapshotRevision();
+  const auto undos=kreoda::OcafLive::instance().AvailableUndos();
+  kreoda::DatumRecord source;
+  ASSERT_TRUE(kreoda::DatumStore::instance().get("source",&source));
+  source.status="broken";
+  source.error="broken ancestor";
+  kreoda::DatumStore::instance().put(source);
+  references=query("validateReferences",{{"ids",{"child"}}});
+  ASSERT_EQ(references["status"],"ok") << references;
+  EXPECT_EQ(references["result"]["valid"],false) << references;
+  feature=query("validateFeature",{{"featureId","child"}});
+  ASSERT_EQ(feature["status"],"ok") << feature;
+  EXPECT_EQ(feature["result"]["valid"],false) << feature;
+
+  source.status="ok";
+  source.error.clear();
+  kreoda::DatumStore::instance().put(source);
+  ASSERT_TRUE(kreoda::DatumStore::instance().remove("source"));
+  references=query("validateReferences",{{"ids",{"child"}}});
+  ASSERT_EQ(references["status"],"ok") << references;
+  EXPECT_EQ(references["result"]["valid"],false) << references;
+  feature=query("validateFeature",{{"featureId","child"}});
+  ASSERT_EQ(feature["status"],"ok") << feature;
+  EXPECT_EQ(feature["result"]["valid"],false) << feature;
+  EXPECT_EQ(kreoda::DocumentStore::instance().snapshotRevision(),revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(),undos);
 }
