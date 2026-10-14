@@ -39,6 +39,8 @@
 #include <TDocStd_Document.hxx>
 #include <TopAbs_ShapeEnum.hxx>
 #include <TopExp_Explorer.hxx>
+#include <TopExp.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
@@ -400,6 +402,38 @@ std::vector<ShapeRecord> DatumShapeSources(const TDF_Label& main) {
   }
   return result;
 }
+DatumSelectionResolver DatumResolverFor(const TDF_Label& main) {
+  return [main](const std::string& entry,const std::string& datumId,const std::string& featureId,
+                const std::string& role,bool edge,TopoDS_Shape* out,std::string* error) {
+    try {
+      if(entry.empty()||entry.size()>128||entry.find_first_not_of("0123456789:")!=std::string::npos)
+        throw std::runtime_error("invalid datum selection entry");
+      TDF_Label root,label;
+      if(!FindMetadataRoot(main,"Selections",&root,error))return false;
+      TDF_Tool::Label(main.Data(),TCollection_AsciiString(entry.c_str()),label,Standard_False);
+      Handle(TDataStd_Comment) comment;Handle(TNaming_NamedShape) named;
+      if(root.IsNull()||label.IsNull()||label.Father()!=root||
+         !label.FindAttribute(TDataStd_Comment::GetID(),comment)||
+         ExtToAscii(comment->Get())!=datumId+"|"+featureId+"|"+(edge?"edge":"face")+"|"+role||
+         !label.FindAttribute(TNaming_NamedShape::GetID(),named)||named.IsNull())
+        throw std::runtime_error("datum selection is missing or belongs to another source");
+      // Selector's stored result; CurrentShape also traverses the context
+      // evolution and can return the whole owner instead of the selection.
+      *out=TNaming_Tool::GetShape(named);
+      // TNaming may wrap its single result in a compound. Accept exactly
+      // one distinct native entity; never choose the first of several.
+      if(!out->IsNull()&&out->ShapeType()==TopAbs_COMPOUND) {
+        TopTools_IndexedMapOfShape entities;TopExp::MapShapes(*out,edge?TopAbs_EDGE:TopAbs_FACE,entities);
+        if(entities.Extent()!=1)throw std::runtime_error("datum naming selection is ambiguous: "+std::to_string(entities.Extent())+" native entities");
+        *out=entities.FindKey(1);
+      }
+      if(!out->IsNull()&&out->ShapeType()!=(edge?TopAbs_EDGE:TopAbs_FACE))
+        throw std::runtime_error("datum selection has the wrong topology kind");
+      return true;
+    } catch(const Standard_Failure& failure) {if(error)*error=failure.what();return false;}
+      catch(const std::exception& failure) {if(error)*error=failure.what();return false;}
+  };
+}
 bool StageDatums(const TDF_Label& main,const std::vector<StagedSketch>& sketches,
                  std::vector<DatumRecord>* out,std::string* error) {
   TDF_Label root; if(!FindMetadataRoot(main,"Datums",&root,error)) return false;
@@ -415,7 +449,7 @@ bool StageDatums(const TDF_Label& main,const std::vector<StagedSketch>& sketches
   }
   if(records.empty()) { out->clear();return true; }
   for(const auto& sketch:sketches) sketchRecords.push_back(sketch.feature);
-  return ParseDatumDefinitions(records,DatumShapeSources(main),sketchRecords,out,error);
+  return ParseDatumDefinitions(records,DatumShapeSources(main),sketchRecords,out,error,DatumResolverFor(main));
 }
 
 }  // namespace
@@ -904,6 +938,63 @@ bool OcafLive::UpsertFeature(const ShapeRecord& rec, bool isNew,
   (void)isNew;
   if (error) *error = "OCAF requires OCCT (link via vcpkg)";
   return false;
+#endif
+}
+
+DatumSelectionResolver OcafLive::DatumSourceResolver() const {
+#if KREODA_WITH_OCCT
+  if(ocaf_&&!ocaf_->doc.IsNull())return DatumResolverFor(ocaf_->doc->Main());
+#endif
+  return {};
+}
+
+bool OcafLive::BindDatumSources(const std::string& datumId,std::string* definitionJson,std::string* error,bool refreshSemantic) {
+#if KREODA_WITH_OCCT
+  try {
+    if(!definitionJson||!ocaf_||ocaf_->doc.IsNull()||!ocaf_->doc->HasOpenCommand())
+      throw std::runtime_error("datum source binding requires an open OCAF command");
+    auto definition=Json::parse(*definitionJson);
+    std::function<void(Json&,int)> bind=[&](Json& value,int depth) {
+      if(depth>8)throw std::runtime_error("datum definition nesting is too deep");
+      if(value.is_object()) {
+        const auto type=json_string_field(value,"type","");
+        if(type=="face"||type=="edge") {
+          const auto owner=json_string_field(value,"featureId","");const bool edge=type=="edge";
+          const auto key=edge?"persistentEdgeId":"persistentFaceId";
+          auto role=json_string_field(value,key,"");if(role.find(':')==std::string::npos)role=owner+":"+role;
+          ShapeRecord record;TopoDS_Shape picked;
+          if(!ShapeStore::instance().get(owner,&record))throw std::runtime_error("missing datum source owner");
+          TDF_Label label;
+          if(value.contains("selectionEntry")) {
+            if(!refreshSemantic)return;
+            TopoDS_Shape previous;std::string resolveError;
+            const auto entry=json_string_field(value,"selectionEntry","");
+            if(!DatumSourceResolver()(entry,datumId,owner,role,edge,&previous,&resolveError))throw std::runtime_error(resolveError);
+            for(TopExp_Explorer ex(record.shape,edge?TopAbs_EDGE:TopAbs_FACE);ex.More();ex.Next())
+              if(!previous.IsNull()&&ex.Current().IsSame(previous))return;
+            if(HasIndexedTopologyRole(role))throw std::runtime_error("datum naming source needs repair; ordinal fallback is disabled");
+            TDF_Tool::Label(ocaf_->doc->GetData(),TCollection_AsciiString(entry.c_str()),label,Standard_False);
+          } else label=ocaf_->selectionsRoot.NewChild();
+          if(edge) {TopoDS_Edge candidate;if(!FindEdgeByRole(record.shape,owner,record.type,role,&candidate))throw std::runtime_error("datum edge pick is missing");picked=candidate;}
+          else {TopoDS_Face candidate;if(!FindFaceByRole(record.shape,owner,record.type,role,&candidate))throw std::runtime_error("datum face pick is missing");picked=candidate;}
+          TNaming_Selector selector(label);
+          if(!selector.Select(picked,record.shape,true,true))throw std::runtime_error("TNaming could not bind datum source");
+          // OCCT8 Selector's type-migration branch can store the entire
+          // context compound. Keep its naming recipe, but anchor the exact
+          // explicit pick as the SELECTED value (no inferred face index).
+          TNaming_Builder selected(label);selected.Select(picked,picked);
+          TDataStd_Comment::Set(label,TCollection_AsciiString((datumId+"|"+owner+"|"+type+"|"+role).c_str()));
+          TCollection_AsciiString entry;TDF_Tool::Entry(label,entry);
+          value[key]=role;value["selectionEntry"]=entry.ToCString();
+        }
+        for(auto& item:value.items())bind(item.value(),depth+1);
+      } else if(value.is_array())for(auto& item:value)bind(item,depth+1);
+    };
+    bind(definition,0);*definitionJson=definition.dump();return true;
+  } catch(const Standard_Failure& failure) {if(error)*error=failure.what();return false;}
+    catch(const std::exception& failure) {if(error)*error=failure.what();return false;}
+#else
+  if(error)*error="native datum source binding requires OCCT";return false;
 #endif
 }
 

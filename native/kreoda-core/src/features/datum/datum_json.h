@@ -6,5 +6,7 @@ std::string SerializeDatumRecord(const DatumRecord& record);
 bool ParseDatumDefinitions(const std::vector<std::string>& jsonRecords,
                            const std::vector<ShapeRecord>& shapes,
                            const std::vector<SketchFeature>& sketches,
-                           std::vector<DatumRecord>* out, std::string* error);
+                           std::vector<DatumRecord>* out, std::string* error,
+                           const DatumSelectionResolver& selectionResolver={},
+                           const std::string& unboundFeatureId="");
 }

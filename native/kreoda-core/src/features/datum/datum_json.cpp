@@ -39,7 +39,9 @@ void collectSources(const Json& value, std::set<std::string>* ids, int depth=0) 
 bool ParseDatumDefinitions(const std::vector<std::string>& jsonRecords,
                            const std::vector<ShapeRecord>& shapes,
                            const std::vector<SketchFeature>& sketches,
-                           std::vector<DatumRecord>* out,std::string* error) {
+                           std::vector<DatumRecord>* out,std::string* error,
+                           const DatumSelectionResolver& selectionResolver,
+                           const std::string& unboundFeatureId) {
   if(!out) { if(error)*error="datum staging output is required";return false; }
   try {
     std::map<std::string,DatumRecord> definitions;
@@ -68,7 +70,7 @@ bool ParseDatumDefinitions(const std::vector<std::string>& jsonRecords,
     for(const auto& id:order) {
       auto it=definitions.find(id); if(it==definitions.end()) continue;
       DatumRecord record=it->second; std::string resolveError;
-      if(!ResolveDatumDefinition(record.kind,record.definitionJson,DatumSourceRecords{resolved,shapes},&record,&resolveError)) throw std::runtime_error("datum "+id+": "+resolveError);
+      if(!ResolveDatumDefinition(record.kind,record.definitionJson,DatumSourceRecords{resolved,shapes,selectionResolver,id==unboundFeatureId},&record,&resolveError)) throw std::runtime_error("datum "+id+": "+resolveError);
       const std::set<std::string> actual(record.dependsOn.begin(),record.dependsOn.end());
       if(actual!=sourceIds.at(id)) throw std::runtime_error("datum "+id+" contains unexpected source references");
       resolved.push_back(std::move(record));

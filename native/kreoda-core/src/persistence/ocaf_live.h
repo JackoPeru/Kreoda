@@ -77,6 +77,9 @@ class OcafLive {
   // inside the caller's OCAF command so Undo/Redo restores them.
   bool UpsertDatum(const std::string& datumId, const std::string& datumJson,
                    std::string* error);
+  // Bind native datum picks within its caller-owned OCAF command.
+  bool BindDatumSources(const std::string& datumId,std::string* definitionJson,std::string* error,bool refreshSemantic=false);
+  DatumSelectionResolver DatumSourceResolver() const;
   bool UpsertSketch(const std::string& sketchId, const std::string& sketchJson,
                     std::string* error);
   bool SketchLabelEntries(std::vector<std::pair<std::string, std::string>>* out);

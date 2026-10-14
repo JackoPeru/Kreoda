@@ -35,6 +35,8 @@ bool FaceFrameInfo(const TopoDS_Shape& shape, const std::string& featureId,
                    const std::string& featureType, const std::string& role,
                    double origin[3], double xAxis[3], double yAxis[3],
                    double normal[3]);
+bool FaceFrameInfo(const TopoDS_Face& face,double origin[3],double xAxis[3],
+                   double yAxis[3],double normal[3]);
 
 // Edge roles (§4): "<featureId>:edge.<curve>.<adjA>~<adjB>" where adj are the
 // short roles of the adjacent faces (sorted), e.g. "edge.lin.box.+Z~box.+X".

@@ -243,6 +243,10 @@ TEST(DatumPersistence, ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable)
 #include "features/extrusion/extrude.h"
 #include "features/revolve/revolve.h"
 #include "features/booleans/boolean.h"
+#include "model/commit.h"
+#include <BRepBuilderAPI_Transform.hxx>
+#include <BRepBuilderAPI_Copy.hxx>
+#include <gp_Ax1.hxx>
 #include "model/body.h"
 namespace {
 SketchModel datumRectangle() {
@@ -317,6 +321,11 @@ TEST(DatumCommands, NativeSourceParameterEditRebuildsDatumSketchAndSolid) {
   ASSERT_TRUE(RebuildFeature("source-body","depthMm",40,&error)) << error;
   EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision+1); EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos+1);
   DatumRecord plane; ASSERT_TRUE(DatumStore::instance().get("support",&plane)); EXPECT_NEAR(plane.plane.origin[2],42,1e-6);
+  const auto sourceRef=Json::parse(plane.definitionJson)["base"];
+  TopoDS_Shape selected;ASSERT_TRUE(OcafLive::instance().DatumSourceResolver()(sourceRef["selectionEntry"].get<std::string>(),"support","source-body","source-body:box.+Z",false,&selected,&error)) << error;
+  ShapeRecord updatedSource;ASSERT_TRUE(ShapeStore::instance().get("source-body",&updatedSource));
+  TopoDS_Face currentFace;ASSERT_TRUE(FindFaceByRole(updatedSource.shape,"source-body","Box","box.+Z",&currentFace));
+  EXPECT_TRUE(selected.IsSame(currentFace));
   ShapeRecord solid; ASSERT_TRUE(ShapeStore::instance().get("supported-solid",&solid)); EXPECT_NEAR(solid.bboxMm[2],42,1e-6); EXPECT_NEAR(solid.bboxMm[5],49,1e-6); EXPECT_NEAR(solid.volumeMm3,350,1e-6);
   ASSERT_TRUE(OcafLive::instance().Undo(&error)); ASSERT_TRUE(OcafLive::instance().ResyncStore(&error)); ASSERT_TRUE(DatumStore::instance().get("support",&plane)); EXPECT_NEAR(plane.plane.origin[2],22,1e-6);
 }
@@ -413,6 +422,80 @@ TEST(DatumCommands, OrientedDatumSupportsMeasuredRevolveUndoAndRealIcadReopen) {
   ASSERT_TRUE(SetDatumParameter("plane","offsetMm",30,&error)) << error;bounds(30);
   std::error_code ec;std::filesystem::remove(file,ec);
 #endif
+}
+TEST(DatumNaming, IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen) {
+  DocumentStore::instance().create("datum-naming");std::string error;
+  gp_Trsf rotation;rotation.SetRotation(gp_Ax1(gp_Pnt(0,0,0),gp_Dir(0,0,1)),0.3);
+  const auto shape=BRepBuilderAPI_Transform(BRepPrimAPI_MakeBox(10,20,30).Shape(),rotation,true).Shape();
+  ASSERT_TRUE(CommitSingleFeature("imported","Imported",{},{},"",shape,&error)) << error;
+  ShapeRecord source;ASSERT_TRUE(ShapeStore::instance().get("imported",&source));
+  std::string faceId,edgeId;
+  for(const auto& role:ClassifyFaceRoles(source.shape,source.type,source.featureId))if(HasIndexedTopologyRole(role)){faceId=role;break;}
+  for(const auto& edge:ClassifyEdgeRoles(source.shape,source.type,source.featureId))if(HasIndexedTopologyRole(edge.persistentEdgeId)){edgeId=edge.persistentEdgeId;break;}
+  ASSERT_FALSE(faceId.empty());ASSERT_FALSE(edgeId.empty());
+  ASSERT_TRUE(CreateDatumFeature("plane",DatumKind::Plane,Json{{"type","offset"},{"base",{{"type","face"},{"featureId","imported"},{"persistentFaceId",faceId}}},{"offsetMm",2}}.dump(),&error)) << error;
+  ASSERT_TRUE(CreateDatumFeature("rotated",DatumKind::Plane,Json{{"type","angle"},{"base",xy()},{"axis",{{"type","edge"},{"featureId","imported"},{"persistentEdgeId",edgeId}}},{"angleDeg",45}}.dump(),&error)) << error;
+  DatumRecord plane,rotated;ASSERT_TRUE(DatumStore::instance().get("plane",&plane));ASSERT_TRUE(DatumStore::instance().get("rotated",&rotated));
+  const auto definition=Json::parse(plane.definitionJson);ASSERT_TRUE(definition["base"]["selectionEntry"].is_string());EXPECT_FALSE(definition["base"]["selectionEntry"].get<std::string>().empty());
+  EXPECT_TRUE(Json::parse(rotated.definitionJson)["axis"]["selectionEntry"].is_string());
+  DatumRecord resolved;resolved.featureId="plane";ASSERT_TRUE(ResolveDatumDefinition(DatumKind::Plane,plane.definitionJson,&resolved,&error)) << error;
+  const std::vector<DatumRecord> noDatums;const auto shapes=ShapeStore::instance().listInOrder();
+  EXPECT_FALSE(ResolveDatumDefinition(DatumKind::Plane,plane.definitionJson,DatumSourceRecords{noDatums,shapes},&resolved,&error));
+  ASSERT_TRUE(OcafLive::instance().Undo(&error));ASSERT_TRUE(OcafLive::instance().ResyncStore(&error));EXPECT_FALSE(DatumStore::instance().contains("rotated"));
+  ASSERT_TRUE(OcafLive::instance().Redo(&error));ASSERT_TRUE(OcafLive::instance().ResyncStore(&error));ASSERT_TRUE(DatumStore::instance().get("rotated",&rotated));
+  // Insert different geometry before the original owner content: face.0 now
+  // denotes another face. The naming entry must keep the actual old pick.
+  gp_Trsf translation;translation.SetTranslation(gp_Vec(100,0,0));
+  TopoDS_Compound reordered;BRep_Builder builder;builder.MakeCompound(reordered);
+  builder.Add(reordered,BRepBuilderAPI_Transform(source.shape,translation,true).Shape());builder.Add(reordered,source.shape);
+  ASSERT_TRUE(OcafLive::instance().BeginCommand(&error));
+  ASSERT_TRUE(CommitShape("imported","Imported",{},{},"",reordered,&source,true,&error));
+  ASSERT_TRUE(OcafLive::instance().CommitCommand(nullptr,&error));ASSERT_TRUE(OcafLive::instance().ResyncStore(&error));
+  ASSERT_TRUE(DatumStore::instance().get("plane",&resolved));
+  for(int i=0;i<3;++i)EXPECT_NEAR(resolved.plane.origin[i],plane.plane.origin[i],1e-6);
+  ASSERT_TRUE(CreateSketchOnDatumFeature("supported","plane",datumRectangle(),&error));
+  ASSERT_TRUE(CreateExtrudeFeature("supported-solid","supported",7,&error));
+  ShapeRecord solid;ASSERT_TRUE(ShapeStore::instance().get("supported-solid",&solid));EXPECT_NEAR(solid.volumeMm3,350,1e-6);
+#if KREODA_WITH_MINIZIP
+  auto file=datumFile("naming");file.replace_extension(".icad");
+  const auto request=[&](int type){return Json{{"protocolVersion",1},{"requestId","naming-file"},{"documentId","datum-naming"},{"type",type},{"path",file.generic_string()}}.dump();};
+  ASSERT_EQ(Json::parse(kreoda_test::rpcText(request(10)))["status"],"ok");
+  DocumentStore::instance().create("different-live");ASSERT_TRUE(CreateBoxFeature("unrelated",2,3,4,&error));
+  auto opened=Json::parse(kreoda_test::rpcText(request(11)));ASSERT_EQ(opened["status"],"ok") << opened.dump();
+  ASSERT_TRUE(DatumStore::instance().get("plane",&resolved));EXPECT_EQ(resolved.definitionJson,plane.definitionJson);
+  for(int i=0;i<3;++i)EXPECT_NEAR(resolved.plane.origin[i],plane.plane.origin[i],1e-6);
+  ASSERT_TRUE(SetDatumParameter("plane","offsetMm",3,&error)) << error;
+  ASSERT_TRUE(DatumStore::instance().get("plane",&resolved));for(int i=0;i<3;++i)EXPECT_NEAR(resolved.plane.origin[i],plane.plane.origin[i]+plane.plane.normal[i],1e-6);
+  ShapeRecord movedSolid;ASSERT_TRUE(ShapeStore::instance().get("supported-solid",&movedSolid));EXPECT_NEAR(movedSolid.volumeMm3,350,1e-6);
+  for(int i=0;i<3;++i){EXPECT_NEAR(movedSolid.bboxMm[i],solid.bboxMm[i]+plane.plane.normal[i],1e-6);EXPECT_NEAR(movedSolid.bboxMm[i+3],solid.bboxMm[i+3]+plane.plane.normal[i],1e-6);}
+  std::error_code ec;std::filesystem::remove(file,ec);
+#endif
+}
+TEST(DatumNaming, ForgedWrongOwnerAndStaleSelectionsRejectWithoutOrdinalFallback) {
+  DocumentStore::instance().create("datum-naming-invalid");std::string error;
+  gp_Trsf rotation;rotation.SetRotation(gp_Ax1(gp_Pnt(0,0,0),gp_Dir(0,0,1)),0.3);
+  ASSERT_TRUE(CommitSingleFeature("imported","Imported",{},{},"",BRepBuilderAPI_Transform(BRepPrimAPI_MakeBox(10,20,30).Shape(),rotation,true).Shape(),&error));
+  ASSERT_TRUE(CreateBoxFeature("other",10,20,30,&error));
+  ShapeRecord source;ASSERT_TRUE(ShapeStore::instance().get("imported",&source));
+  std::string faceId,edgeId;
+  for(const auto& role:ClassifyFaceRoles(source.shape,source.type,source.featureId))if(HasIndexedTopologyRole(role)){faceId=role;break;}
+  for(const auto& edge:ClassifyEdgeRoles(source.shape,source.type,source.featureId))if(HasIndexedTopologyRole(edge.persistentEdgeId)){edgeId=edge.persistentEdgeId;break;}
+  ASSERT_FALSE(faceId.empty());ASSERT_FALSE(edgeId.empty());
+  ASSERT_TRUE(CreateDatumFeature("plane",DatumKind::Plane,Json{{"type","offset"},{"base",{{"type","face"},{"featureId","imported"},{"persistentFaceId",faceId}}},{"offsetMm",2}}.dump(),&error));
+  DatumRecord original;ASSERT_TRUE(DatumStore::instance().get("plane",&original));const auto definition=Json::parse(original.definitionJson);
+  const auto revision=DocumentStore::instance().snapshotRevision();const auto undos=OcafLive::instance().AvailableUndos();
+  auto forged=definition;forged["base"]["selectionEntry"]="1:2:3:999999";EXPECT_FALSE(UpdateDatumFeature("plane",forged.dump(),&error));
+  auto wrongOwner=definition;wrongOwner["base"]["featureId"]="other";wrongOwner["base"]["persistentFaceId"]="other:box.+X";EXPECT_FALSE(UpdateDatumFeature("plane",wrongOwner.dump(),&error));
+  auto wrongKind=Json{{"type","angle"},{"base",xy()},{"axis",{{"type","edge"},{"featureId","imported"},{"persistentEdgeId",edgeId},{"selectionEntry",definition["base"]["selectionEntry"]}}},{"angleDeg",45}};
+  EXPECT_FALSE(UpdateDatumFeature("plane",wrongKind.dump(),&error));
+  auto changed=source;changed.shape=BRepBuilderAPI_Copy(source.shape).Shape();ShapeStore::instance().put(changed);
+  DatumRecord accepted=original;
+  EXPECT_FALSE(ResolveDatumDefinition(DatumKind::Plane,original.definitionJson,&accepted,&error));EXPECT_NE(error.find("repair"),std::string::npos);
+  EXPECT_EQ(accepted.definitionJson,original.definitionJson);EXPECT_FALSE(SetDatumParameter("plane","offsetMm",3,&error));
+  ShapeStore::instance().put(source);
+  EXPECT_EQ(DocumentStore::instance().snapshotRevision(),revision);EXPECT_EQ(OcafLive::instance().AvailableUndos(),undos);
+  DatumRecord after;ASSERT_TRUE(DatumStore::instance().get("plane",&after));EXPECT_EQ(after.definitionJson,original.definitionJson);
+  ASSERT_TRUE(SetDatumParameter("plane","offsetMm",3,&error)) << error;
 }
 #endif
 

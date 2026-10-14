@@ -48,7 +48,8 @@ bool stage(const DatumRecord& next,DatumRecord* resolved,std::string* error) {
   if(!replaced)datums.push_back(next);
   std::vector<std::string> definitions;for(const auto& record:datums)definitions.push_back(SerializeDatumDefinition(record));
   std::vector<DatumRecord> validated;
-  if(!ParseDatumDefinitions(definitions,ShapeStore::instance().listInOrder(),SketchStore::instance().listInOrder(),&validated,error))return false;
+  if(!ParseDatumDefinitions(definitions,ShapeStore::instance().listInOrder(),SketchStore::instance().listInOrder(),&validated,error,
+                           OcafLive::instance().DatumSourceResolver(),next.featureId))return false;
   for(const auto& record:validated)if(record.featureId==next.featureId){*resolved=record;return true;}
   if(error)*error="datum staging lost the requested feature";return false;
 }
@@ -57,12 +58,16 @@ bool mutate(const std::string& id,DatumKind kind,const std::string& definition,b
   try {
     if(create&&!CheckNewId(id,error))return false;
     DatumRecord next;next.featureId=id;
-    if(!ResolveDatumDefinition(kind,definition,&next,error))return false;
+    const auto datums=DatumStore::instance().listInOrder();const auto shapes=ShapeStore::instance().listInOrder();
+    if(!ResolveDatumDefinition(kind,definition,DatumSourceRecords{datums,shapes,OcafLive::instance().DatumSourceResolver(),true},&next,error))return false;
     DatumRecord staged;if(!stage(next,&staged,error))return false;
     before.emplace();
 #if KREODA_WITH_OCCT
     if(!OcafLive::instance().BeginCommand(error))return false;
     commandStarted=true;
+    if(!OcafLive::instance().BindDatumSources(id,&staged.definitionJson,error)) {
+      OcafLive::instance().AbortCommand();before->restore();return false;
+    }
 #endif
     DatumStore::instance().put(staged);
     TheFeatureGraph().addFeature(id,staged.dependsOn);TheFeatureGraph().markDirty(id);
@@ -104,6 +109,7 @@ bool RebuildDatumFromStore(const std::string& id,std::string* error) {
   DatumRecord next;next.featureId=id;
   if(!ResolveDatumDefinition(record.kind,record.definitionJson,&next,error))return false;
 #if KREODA_WITH_OCCT
+  if(!OcafLive::instance().BindDatumSources(id,&next.definitionJson,error,true))return false;
   if(!OcafLive::instance().UpsertDatum(id,SerializeDatumDefinition(next),error))return false;
 #endif
   DatumStore::instance().put(std::move(next));return true;

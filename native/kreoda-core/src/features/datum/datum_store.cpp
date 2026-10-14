@@ -8,6 +8,9 @@
 #include "../../topology/face_roles.h"
 #if KREODA_WITH_OCCT
 #include <BRepAdaptor_Curve.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include "../../persistence/ocaf_live.h"
 #include <Standard_Failure.hxx>
 #include <gp_Lin.hxx>
 #endif
@@ -74,6 +77,27 @@ V pointRef(const Json& ref, DatumRecord& out, const DatumSourceRecords* sources)
 SketchPlane principal(const Json& ref) {
   const auto kind=text(ref,"planeKind"); if(kind!="XY"&&kind!="XZ"&&kind!="YZ") fail("planeKind must be XY|XZ|YZ"); return PrincipalPlane(kind);
 }
+#if KREODA_WITH_OCCT
+bool selectedSource(const Json& ref,const DatumRecord& out,const DatumSourceRecords* sources,
+                    const ShapeRecord& owner,const std::string& role,bool edge,TopoDS_Shape* selected) {
+  if(ref.contains("selectionEntry")) {
+    const auto resolver=sources?sources->selectionResolver:OcafLive::instance().DatumSourceResolver();
+    if(!resolver)fail("datum selection requires its document naming context");
+    std::string error;
+    if(!resolver(text(ref,"selectionEntry"),out.featureId,owner.featureId,role,edge,selected,&error))fail(error);
+    int matches=0;
+    for(TopExp_Explorer ex(owner.shape,edge?TopAbs_EDGE:TopAbs_FACE);ex.More();ex.Next())
+      if(!selected->IsNull()&&ex.Current().IsSame(*selected))++matches;
+    // A shared edge occurs once per adjacent face in this explorer.
+    if(edge&&matches>0)return true;
+    if(matches==1)return true;
+    if(HasIndexedTopologyRole(role))fail("datum naming source needs repair; ordinal fallback is disabled");
+    return false;
+  }
+  if(HasIndexedTopologyRole(role)&&(!sources||!sources->allowUnboundIndexed))fail("indexed datum source requires a naming selection");
+  return false;
+}
+#endif
 SketchPlane planeRef(const Json& ref, DatumRecord& out, const DatumSourceRecords* sources) {
   const auto type=text(ref,"type");
   SketchPlane p;
@@ -83,11 +107,15 @@ SketchPlane planeRef(const Json& ref, DatumRecord& out, const DatumSourceRecords
 #if KREODA_WITH_OCCT
     const auto id=text(ref,"featureId"), role=text(ref,"persistentFaceId"); dependency(id,out); ShapeRecord shape;
     if(!storedShape(id,sources,&shape)||shape.shape.IsNull()) fail("missing native face owner "+id);
-    if(HasIndexedTopologyRole(role)) fail("indexed face source is not persistent");
     const auto full=role.find(':')==std::string::npos?id+":"+role:role;
-    const auto roles=ClassifyFaceRoles(shape.shape,shape.type,id);
-    if(std::count(roles.begin(),roles.end(),full)!=1) fail("native face source missing or ambiguous");
-    if(!FaceFrameInfo(shape.shape,id,shape.type,full,p.origin,p.xAxis,p.yAxis,p.normal)) fail("native face source must be planar");
+    TopoDS_Shape selected;
+    if(selectedSource(ref,out,sources,shape,full,false,&selected)) {
+      if(!FaceFrameInfo(TopoDS::Face(selected),p.origin,p.xAxis,p.yAxis,p.normal))fail("native face source must be planar");
+    } else {
+      const auto roles=ClassifyFaceRoles(shape.shape,shape.type,id);
+      if(std::count(roles.begin(),roles.end(),full)!=1) fail("native face source missing or ambiguous");
+      if(!FaceFrameInfo(shape.shape,id,shape.type,full,p.origin,p.xAxis,p.yAxis,p.normal)) fail("native face source must be planar");
+    }
     // FaceFrameInfo supplies outward normal; rebuild y for reversed faces.
     put(cross(vec(p.normal),vec(p.xAxis)),p.yAxis);
 #else
@@ -108,11 +136,14 @@ Axis axisRef(const Json& ref, DatumRecord& out, const DatumSourceRecords* source
 #if KREODA_WITH_OCCT
     const auto id=text(ref,"featureId"), role=text(ref,"persistentEdgeId"); dependency(id,out); ShapeRecord shape;
     if(!storedShape(id,sources,&shape)||shape.shape.IsNull()) fail("missing native edge owner "+id);
-    if(HasIndexedTopologyRole(role)) fail("indexed edge source is not persistent");
     const auto full=role.find(':')==std::string::npos?id+":"+role:role;
-    TopoDS_Edge edge; int matches=0;
-    for(const auto& candidate:ClassifyEdgeRoles(shape.shape,shape.type,id)) if(candidate.persistentEdgeId==full) { edge=candidate.edge; ++matches; }
-    if(matches!=1) fail("native edge source missing or ambiguous");
+    TopoDS_Edge edge;TopoDS_Shape selected;
+    if(selectedSource(ref,out,sources,shape,full,true,&selected))edge=TopoDS::Edge(selected);
+    else {
+      int matches=0;
+      for(const auto& candidate:ClassifyEdgeRoles(shape.shape,shape.type,id)) if(candidate.persistentEdgeId==full) { edge=candidate.edge; ++matches; }
+      if(matches!=1) fail("native edge source missing or ambiguous");
+    }
     BRepAdaptor_Curve curve(edge); if(curve.GetType()!=GeomAbs_Line) fail("native edge source must be a straight line");
     const auto line=curve.Line(); const auto p=line.Location(); const auto n=line.Direction(); axis={{p.X(),p.Y(),p.Z()},{n.X(),n.Y(),n.Z()}};
 #else

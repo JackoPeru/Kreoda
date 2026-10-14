@@ -212,6 +212,11 @@ bool FaceFrameInfo(const TopoDS_Shape& shape, const std::string& featureId,
   if (!FindFaceByRole(shape, featureId, featureType, role, &face)) {
     return false;
   }
+  return FaceFrameInfo(face,origin,xAxis,yAxis,normal);
+}
+
+bool FaceFrameInfo(const TopoDS_Face& face,double origin[3],double xAxis[3],
+                   double yAxis[3],double normal[3]) {
   BRepAdaptor_Surface adapt(face);
   if (adapt.GetType() != GeomAbs_Plane) return false;
   const gp_Pln pln = adapt.Plane();

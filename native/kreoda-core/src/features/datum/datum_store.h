@@ -3,6 +3,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <functional>
 #include "../sketch/sketch_store.h"
 #include "../../model/shapes.h"
 namespace kreoda {
@@ -36,9 +37,16 @@ class DatumStore {
   std::map<std::string, DatumRecord> records_;
   std::vector<std::string> order_;
 };
+#if KREODA_WITH_OCCT
+using DatumSelectionResolver=std::function<bool(const std::string&,const std::string&,const std::string&,const std::string&,bool,TopoDS_Shape*,std::string*)>;
+#else
+using DatumSelectionResolver=std::nullptr_t;
+#endif
 struct DatumSourceRecords {
   const std::vector<DatumRecord>& datums;
   const std::vector<ShapeRecord>& shapes;
+  DatumSelectionResolver selectionResolver={};
+  bool allowUnboundIndexed=false;
 };
 // Definitions and source refs use the discriminant "type". No state mutation.
 bool ResolveDatumDefinition(DatumKind kind, const std::string& definitionJson,
