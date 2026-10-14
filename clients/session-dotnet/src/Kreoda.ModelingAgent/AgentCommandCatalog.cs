@@ -104,7 +104,7 @@ public sealed class AgentCommandCatalog
     // Permission allowlist only. Query implementations and schemas remain on the PC.
     public static bool IsReadOnlyQuery(string method) => method is
         SessionMethods.DescribeModel or SessionMethods.GetDocumentInfo or SessionMethods.GetBodies or
-        SessionMethods.GetFeatures or SessionMethods.GetFeature or SessionMethods.GetParameters or
+        SessionMethods.GetFeatures or SessionMethods.GetFeature or SessionMethods.GetDatum or SessionMethods.GetParameters or
         SessionMethods.GetDependencies or SessionMethods.GetModelTree or SessionMethods.GetSelection or
         SessionMethods.ListCommands or SessionMethods.GetCommandSchema or SessionMethods.GetManipulators or
         SessionMethods.FindFaces or SessionMethods.FindEdges or SessionMethods.FindBodies or

@@ -24,11 +24,13 @@ let sidecar: SidecarManager | null = null;
 let sessionRelay: SessionRelay | null = null;
 
 const isDev = !app.isPackaged;
+const backgroundTest = process.env["KREODA_BACKGROUND_TEST"] === "1";
 
 function createWindow(previous?: BrowserWindow): void {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
+    show: !backgroundTest,
     title: "Kreoda",
     // Kreoda mark: .vite/build → apps/desktop/assets/icon.ico.
     icon: path.join(__dirname, "../../assets/icon.ico"),
@@ -37,6 +39,7 @@ function createWindow(previous?: BrowserWindow): void {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      backgroundThrottling: !backgroundTest,
     },
     backgroundColor: "#0b0e13",
   });

@@ -24,6 +24,7 @@ export function WorkspaceChrome({
   onExtrude,
   onPlugins,
   onReference,
+  onReferenceGeometry,
   onInstance,
   onEditSketch,
   projectOpen,
@@ -53,6 +54,7 @@ export function WorkspaceChrome({
   onExtrude: () => void;
   onPlugins: () => void;
   onReference: () => void;
+  onReferenceGeometry: () => void;
   onInstance: () => void;
   onEditSketch: (id: string) => void;
   projectOpen: boolean;
@@ -148,6 +150,7 @@ export function WorkspaceChrome({
           onToggleProps={() => onPropsOpenChange(!propsOpen)}
           onPlugins={onPlugins}
           onReference={onReference}
+          onReferenceGeometry={onReferenceGeometry}
           onInstance={onInstance}
         />
       </div>

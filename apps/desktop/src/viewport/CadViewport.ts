@@ -5,6 +5,8 @@
 import * as THREE from "three";
 import { MeshBVH, acceleratedRaycast } from "three-mesh-bvh";
 import type { CoreMeshData } from "@kreoda/protocol";
+import type { DatumDescriptor } from "@kreoda/protocol";
+import { DatumViewport } from "./DatumViewport";
 import { CameraController } from "./CameraController";
 import type { ReferencePlane } from "../reference/store";
 import { buildSectionCut } from "../section/mesh-cut";
@@ -34,6 +36,7 @@ interface BodyEntry {
 export class CadViewport {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
+  private datumView = new DatumViewport();
   private camera: THREE.PerspectiveCamera;
   private controls: CameraController;
   private raycaster = new THREE.Raycaster();
@@ -102,6 +105,7 @@ export class CadViewport {
     const key = new THREE.DirectionalLight(0xffffff, 1.6);
     key.position.set(220, -160, 320);
     this.scene.add(hemi, key);
+    this.scene.add(this.datumView.group);
 
     const grid = new THREE.GridHelper(1000, 50, 0x2a3a55, 0x1a2230);
     grid.rotation.x = Math.PI / 2;
@@ -947,11 +951,13 @@ export class CadViewport {
 
   setHover(persistentId: string | null): void {
     this.hoveredId = persistentId;
+    this.datumView.setSelection([...this.selectedIds],persistentId);
     this.applyHighlights();
   }
 
   setSelected(ids: string[]): void {
     this.selectedIds = new Set(ids);
+    this.datumView.setSelection(ids,this.hoveredId);
     this.applyHighlights();
   }
 
@@ -1259,6 +1265,7 @@ export class CadViewport {
   }
 
   dispose(): void {
+    this.datumView.dispose();
     this.disposed = true;
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.onResize);
@@ -1315,6 +1322,8 @@ export class CadViewport {
     g.computeBoundingSphere();
     return g;
   }
+
+  syncDatums(datums: readonly DatumDescriptor[]): void { this.datumView.sync(datums);this.requestRender(); }
 
   private pick(e: MouseEvent, commit: boolean): void {
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -1374,13 +1383,16 @@ export class CadViewport {
       ]);
       const hits = this.raycaster.intersectObjects(objects, false);
       let capDistance = Number.POSITIVE_INFINITY;
+      let surfaceDistance = Number.POSITIVE_INFINITY;
       for (const hit of hits) {
         if (hit.object.userData.sectionCut) {
           capDistance = Math.min(capDistance, hit.distance);
+          surfaceDistance = Math.min(surfaceDistance, hit.distance);
           continue;
         }
         if (hit.distance > capDistance + SECTION_PICK_TOLERANCE_MM) break;
         if (!this.isHitVisible(hit)) continue;
+        surfaceDistance = Math.min(surfaceDistance, hit.distance);
         const bodyId = hit.object.userData.persistentId as string;
         const entry = this.bodies.get(bodyId);
         const tri = hit.faceIndex ?? -1;
@@ -1396,6 +1408,11 @@ export class CadViewport {
         }
         else id = this.pickMode === "auto" && !face ? bodyId : (face ? face.persistentFaceId : null);
         if (id) break;
+      }
+      if(this.pickMode !== "face") {
+        this.raycaster.params.Line.threshold=1.5;
+        const datum=this.datumView.pick(this.raycaster);
+        if(datum && datum.distance <= surfaceDistance)id=datum.id;
       }
     }
     if (commit && id) this.events.onSelect(id, e.ctrlKey || e.metaKey);

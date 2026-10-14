@@ -4,6 +4,7 @@
 import { expect, _electron as electron, type Page } from "@playwright/test";
 import path from "node:path";
 import { createRequire } from "node:module";
+import type { DatumDescriptor, SketchPlaneFrame } from "@kreoda/protocol";
 
 export const HERE = import.meta.dirname;
 export const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
@@ -34,6 +35,9 @@ export interface BodySnapshot {
 export interface SketchSnapshot {
   id: string;
   planeKind: string;
+  plane?: SketchPlaneFrame;
+  modelPlane?: SketchPlaneFrame;
+  supportRef?: string;
   points: number;
   constraints: number;
 }
@@ -41,6 +45,7 @@ export interface SketchSnapshot {
 export interface Snapshot {
   revision: number;
   references?: import("../src/reference/store").ReferencePlane[];
+  datums?: DatumDescriptor[];
   selectedIds: string[];
   bodies: BodySnapshot[];
   sketches: SketchSnapshot[];
@@ -52,15 +57,29 @@ export interface Snapshot {
 
 /** Launch the shell, wait for DOM + sidecar handshake. */
 export async function boot(env?: Record<string, string>, extraArgs: string[] = []) {
+  const launchEnv = Object.fromEntries(
+    Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
+  Object.assign(launchEnv, env);
+  const backgroundTest = launchEnv.KREODA_BACKGROUND_TEST === "1";
   const app = await electron.launch({
     executablePath: createRequire(import.meta.url)("electron") as string,
     // --lang pins navigator.language so detectLocale() stays English:
     // specs assert English chrome regardless of the OS language.
     args: [MAIN, "--no-sandbox", "--lang=en-US", ...extraArgs],
-    ...(env ? { env } : {}),
+    env: launchEnv,
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });
+    if (backgroundTest) {
+      await app.evaluate(({ BrowserWindow }) => {
+        const windows = BrowserWindow.getAllWindows();
+        if (windows.length === 0 || windows.some((item) => item.isVisible())) {
+          throw new Error("KREODA_BACKGROUND_TEST requires every BrowserWindow hidden at launch");
+        }
+        for (const item of windows) item.webContents.setBackgroundThrottling(false);
+      });
+    }
     // Home/workspace/native readiness remains authoritative even when
     // Playwright's cached DOMContentLoaded notification is absent.
     // Home (§home) is the boot screen: enter the workspace like a user would.

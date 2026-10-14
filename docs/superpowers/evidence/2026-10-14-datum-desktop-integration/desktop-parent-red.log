@@ -1,0 +1,22 @@
+
+> @kreoda/desktop@0.1.0 test C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop
+> vitest run "--maxWorkers=2"
+
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop
+
+ ❯ tests/app.test.tsx (9 tests | 4 failed) 780ms
+     × retains section during an empty mesh interval for a same-document Box to Hole tip swap 498ms
+     × clears the section when a nonempty document switches while Home unmounts the viewport 27ms
+     × closes a transient sketch editor when the core crashes 28ms
+     × shows toolbar, viewport, command bar after entering the workspace 20ms
+
+ Test Files  1 failed | 41 passed (42)
+      Tests  4 failed | 261 passed (265)
+     Errors  1 error
+   Start at  11:36:42
+   Duration  37.02s (transform 3.05s, setup 201ms, import 11.61s, tests 27.57s, environment 25.13s)
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @kreoda/desktop@0.1.0 test: `vitest run "--maxWorkers=2"`
+Exit status 1

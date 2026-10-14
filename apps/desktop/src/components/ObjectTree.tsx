@@ -12,14 +12,15 @@ export function ObjectTree({ onInsertHole }: { onInsertHole?: () => void } = {})
   const features = useDocumentUiStore((s) => s.features);
   const bodies = useDocumentUiStore((s) => s.bodies);
   const sketches = useDocumentUiStore((s) => s.sketches);
+  const datums = useDocumentUiStore((s) => s.datums);
   // Derive OUTSIDE the subscription: the selector must return a stable
   // reference or getSnapshot never stabilizes (infinite update loop).
   // Locale is a dep so tree labels re-translate on language switch.
   const locale = useLocale();
   const items = useMemo(
-    () => buildTreeItems(features, sketches, bodies),
+    () => buildTreeItems(features, sketches, bodies, datums),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [features, sketches, bodies, locale],
+    [features, sketches, bodies, datums, locale],
   );
   const select = useSelectionStore((s) => s.select);
   const selectedIds = useSelectionStore((s) => s.selectedIds);

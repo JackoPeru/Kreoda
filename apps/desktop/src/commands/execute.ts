@@ -13,6 +13,7 @@ import {
   type FeatureSummary,
 } from "../ipc/coreClient";
 import type { CoreMeshData } from "@kreoda/protocol";
+import { CommandType } from "@kreoda/protocol";
 import {
   pullFeatureMesh,
   syncFromCoreList,
@@ -110,7 +111,7 @@ export async function executeCommand(
     }
   }
   const p = def.parameterSchema.parse(params) as Record<string, unknown>;
-  return dispatchCommand(id, p);
+  return dispatchCommand(id, p, def.nativeType);
 }
 
 
@@ -118,6 +119,7 @@ export async function executeCommand(
 async function dispatchCommand(
   id: string,
   p: Record<string, unknown>,
+  nativeType: number,
 ): Promise<CommandResult> {
   switch (id) {
     case "CreateBox": {
@@ -142,15 +144,18 @@ async function dispatchCommand(
       return { kind: "created", feature: created };
     }
     case "CreateSketch": {
-      const { planeKind, model } = p as { planeKind: "XY" | "XZ" | "YZ"; model?: SketchModel };
+      const { planeKind, model, supportRef } = p as { planeKind: "XY" | "XZ" | "YZ"; model?: SketchModel; supportRef?: string };
       const { featureId, revision } = await coreClient.createSketch({
         planeKind: planeKind ?? "XY",
         model: model ?? emptySketchModel(),
+        supportRef,
       });
       const full = await coreClient.requestSketch(featureId);
       useDocumentUiStore.getState().upsertSketch({
         featureId,
         planeKind: full.planeKind,
+        plane: full.plane,
+        supportRef: full.supportRef,
         points: full.points.length,
         lines: full.lines.length,
         circles: full.circles.length,
@@ -179,12 +184,12 @@ async function dispatchCommand(
       const { featureId, model } = p as { featureId: string; model: SketchModel };
       await coreClient.updateSketch({ featureId, model });
       const snapshot = await coreClient.requestSnapshot();
-      await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches);
+      await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
       return { kind: "list", features: snapshot.features, revision: snapshot.revision };
     }
     case "DeleteFeature": {
       const result = await coreClient.deleteFeature(p["featureId"] as string);
-      await syncFromCoreList(result.features, result.revision, result.sketches);
+      await syncFromCoreList(result.features, result.revision, result.sketches, null, result.datums);
       return { kind: "list", features: result.features, revision: result.revision };
     }
     case "CreateBoolean": {
@@ -282,6 +287,11 @@ async function dispatchCommand(
         valueMm?: number;
         expression?: string;
       };
+      if(useDocumentUiStore.getState().datums.some(datum => datum.featureId === featureId)) {
+        const result = await coreClient.datumCommand(CommandType.SetFeatureParameter,{ featureId,paramName,valueMm, ...(expression ? { expression } : {}) });
+        await syncFromCoreList(result.features,result.revision,result.sketches,null,result.datums);
+        return { kind: "list", features: result.features, revision: result.revision };
+      }
       const updated = await coreClient.setFeatureParameter(
         featureId,
         paramName,
@@ -299,7 +309,8 @@ async function dispatchCommand(
       if (list && list.length > 0) {
         const sketches =
           (updated as { sketches?: import("../ipc/coreClient").SketchSummary[] }).sketches ?? [];
-        await syncFromCoreList(list, updated.revision, sketches);
+        const datums = updated.datums ?? null;
+        await syncFromCoreList(list, updated.revision, sketches, null, datums);
       } else {
         await pullFeatureMesh(featureId, updated.revision);
         updateFeatureSummary(
@@ -317,14 +328,22 @@ async function dispatchCommand(
       return { kind: "created", feature: updated };
     }
     case "Undo": {
-      const { features, sketches, revision } = await coreClient.undo();
-      await syncFromCoreList(features, revision, sketches);
+      const { features, sketches, datums, revision } = await coreClient.undo();
+      await syncFromCoreList(features, revision, sketches, null, datums);
       return { kind: "list", features, revision };
     }
     case "Redo": {
-      const { features, sketches, revision } = await coreClient.redo();
-      await syncFromCoreList(features, revision, sketches);
+      const { features, sketches, datums, revision } = await coreClient.redo();
+      await syncFromCoreList(features, revision, sketches, null, datums);
       return { kind: "list", features, revision };
+    }
+    case "CreateDatumPlane":
+    case "CreateDatumAxis":
+    case "CreateDatumPoint":
+    case "UpdateDatum": {
+      const result = await coreClient.datumCommand(nativeType,p as Record<string,unknown>);
+      await syncFromCoreList(result.features,result.revision,result.sketches,null,result.datums);
+      return { kind: "list", features: result.features, revision: result.revision };
     }
     default:
       // Registered but not yet implemented (e.g. future Phase 8 ops).

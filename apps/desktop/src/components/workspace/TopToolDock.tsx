@@ -61,6 +61,7 @@ export function TopToolDock({
   onToggleProps,
   onPlugins,
   onReference,
+  onReferenceGeometry,
   onInstance,
 }: {
   onAdd: (kind: PrimitiveKind) => void;
@@ -69,6 +70,7 @@ export function TopToolDock({
   onToggleProps: () => void;
   onPlugins: () => void;
   onReference: () => void;
+  onReferenceGeometry: () => void;
   onInstance: () => void;
 }) {
   const [open, setOpen] = useState<"add" | "more" | null>(null);
@@ -201,6 +203,14 @@ export function TopToolDock({
             className="kreoda-float-elevated absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-60 overflow-auto p-1.5"
           >
             <MenuHeader label={t("common.model")} />
+            <button
+              role="button"
+              onClick={() => { onReferenceGeometry(); close(); }}
+              data-testid="reference-geometry-button"
+              className={menuItemClass}
+            >
+              {t("topdock.referenceGeometry")}
+            </button>
             <button
               role="button"
               onClick={() => {

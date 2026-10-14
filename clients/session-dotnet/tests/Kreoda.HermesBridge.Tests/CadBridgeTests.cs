@@ -19,6 +19,8 @@ public sealed class CadBridgeTests
         public bool DropCommitAck;
         public bool FailRollback;
         public TimeSpan CatalogDelay;
+        public object[] Sketches = Array.Empty<object>();
+        public object[] Datums = Array.Empty<object>();
         public readonly List<string> CommitOperations = new();
         readonly HashSet<string> _committed = new();
         public Wire()
@@ -41,7 +43,7 @@ public sealed class CadBridgeTests
                 result["revision"] = 7;result["capabilities"] = SessionMethods.ServerCapabilities;
             } else if (method == "snapshot") {
                 result["sessionId"] = Session;result["documentId"] = "doc-phase1";result["revision"] = 7;
-                result["features"] = Array.Empty<object>();result["sketches"] = Array.Empty<object>();result["bodies"] = Array.Empty<object>();
+                result["features"] = Array.Empty<object>();result["sketches"] = Sketches;result["bodies"] = Array.Empty<object>();result["datums"] = Datums;
             } else if (method == "getCommandSchema") {
                 result["result"] = new { commands = new object[] {
                     new { id = "CreateBox", nativeType = 3, description = "Box", creation = new { fixedCount = 1 }, parameters = new { type = "object" } },
@@ -52,6 +54,7 @@ public sealed class CadBridgeTests
                 } };
             } else if (method == "validateDocument" || method == "validateReferences") result["result"] = new { valid = Valid };
             else if (method == "measureVolume") result["result"] = new { volumeMm3 = 100000d };
+            else if (method == SessionMethods.GetDatum) result["result"] = new { featureId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", kind = "DatumPlane", status = "ok", definition = new { type = "offset", @base = new { type = "principal", planeKind = "XY" }, offsetMm = 24d }, resolved = new { originMm = new[] { 0d, 0d, 24d }, normal = new[] { 0d, 0d, 1d } } };
             else if (method == "command") { Commands++;result["status"] = "ok";result["revision"] = 7; }
             else if (method == "txnCommit") {
                 var operation = request.GetProperty("operationId").GetString()!;CommitOperations.Add(operation);
@@ -71,6 +74,40 @@ public sealed class CadBridgeTests
     }
     static JsonElement Json(string text) { using var doc = JsonDocument.Parse(text);return doc.RootElement.Clone(); }
     static CadCheck Check(double expected = 100000) => new("measureVolume", Json("{\"bodyId\":\"$plate\"}"), "volumeMm3", expected, .01);
+
+    [Fact]
+    public async Task DescribeIncludesDatumDescriptorsAndSupportedSketchFrames()
+    {
+        const string datumId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        await using var wire = new Wire();
+        wire.Datums = [new { featureId = datumId, kind = "DatumPlane", status = "ok", definition = new { type = "offset", @base = new { type = "principal", planeKind = "XY" }, offsetMm = 24d }, resolved = new { originMm = new[] { 0d, 0d, 24d }, normal = new[] { 0d, 0d, 1d } } }];
+        wire.Sketches = [new { featureId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc", planeKind = "XY", supportRef = datumId, plane = new { origin = new[] { 0d, 0d, 24d }, xAxis = new[] { 1d, 0d, 0d }, yAxis = new[] { 0d, 1d, 0d }, normal = new[] { 0d, 0d, 1d } }, points = Array.Empty<object>(), lines = Array.Empty<object>(), circles = Array.Empty<object>(), arcs = Array.Empty<object>(), constraints = Array.Empty<object>() }];
+        await using var client = await wire.Connect();
+        await using var bridge = new CadBridge(_ => Task.FromResult(client));
+
+        var description = await bridge.DescribeAsync();
+
+        Assert.Equal(datumId, description.GetProperty("datums")[0].GetProperty("featureId").GetString());
+        Assert.Equal(24d, description.GetProperty("datums")[0].GetProperty("resolved").GetProperty("originMm")[2].GetDouble());
+        Assert.Equal(datumId, description.GetProperty("sketches")[0].GetProperty("supportRef").GetString());
+        Assert.Equal(24d, description.GetProperty("sketches")[0].GetProperty("plane").GetProperty("origin")[2].GetDouble());
+        Assert.Equal(1d, description.GetProperty("sketches")[0].GetProperty("plane").GetProperty("normal")[2].GetDouble());
+    }
+
+    [Fact]
+    public async Task GetDatumQueryReturnsNativeDescriptorWithoutMutation()
+    {
+        await using var wire = new Wire();await using var client = await wire.Connect();
+        await using var bridge = new CadBridge(_ => Task.FromResult(client));
+
+        var result = await bridge.QueryAsync(null, SessionMethods.GetDatum, Json("{\"featureId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\"}"));
+
+        Assert.Equal("DatumPlane", result.GetProperty("kind").GetString());
+        Assert.Equal(24d, result.GetProperty("resolved").GetProperty("originMm")[2].GetDouble());
+        Assert.Equal(0, wire.Commands);
+        var query = wire.Server.Received.Select(Json).Single(request => request.GetProperty("method").GetString() == SessionMethods.GetDatum);
+        Assert.Equal("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", query.GetProperty("params").GetProperty("featureId").GetString());
+    }
 
     [Fact]
     public async Task FailedValidationRollbackPersistsRecoveryAndSurvivesBridgeRestart()

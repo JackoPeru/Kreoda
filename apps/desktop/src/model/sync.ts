@@ -11,6 +11,7 @@ import {
   useSelectionStore,
   visibleFeatureIds,
 } from "../stores";
+import type { DatumDescriptor } from "@kreoda/protocol";
 
 let refreshOpenedSession: (() => Promise<void>) | null = null;
 
@@ -20,12 +21,12 @@ export function bindOpenedSessionRefresh(refresh: () => Promise<void>): () => vo
   return () => { if (refreshOpenedSession === refresh) refreshOpenedSession = null; };
 }
 
-export async function syncOpenedDocument(features: FeatureSummary[], revision: number, sketches: SketchSummary[]): Promise<number> {
+export async function syncOpenedDocument(features: FeatureSummary[], revision: number, sketches: SketchSummary[], datums: DatumDescriptor[] = []): Promise<number> {
   if (refreshOpenedSession) {
     await refreshOpenedSession();
   } else {
     useDocumentUiStore.getState().resetDocument(coreClient.documentId);
-    await syncFromCoreList(features, revision, sketches);
+    await syncFromCoreList(features, revision, sketches, null, datums);
   }
   return useDocumentUiStore.getState().epoch;
 }
@@ -83,10 +84,12 @@ export async function syncFromCoreList(
   revision: number,
   sketches: SketchSummary[] = [],
   changedMeshIds: readonly string[] | null = null,
+  datums: DatumDescriptor[] | null = null,
 ): Promise<void> {
   const s = useDocumentUiStore.getState();
   const epoch = s.epoch;
   s.setFeatures(features, revision, epoch);
+  if(datums !== null)s.setDatums(datums,revision,epoch);
   s.setSketches(
     sketches.map((k) => ({
       featureId: k.featureId,
@@ -96,6 +99,8 @@ export async function syncFromCoreList(
       circles: k.circles,
       constraints: k.constraints,
       ...(k.model ? { model: k.model } : {}),
+      ...(k.plane ? { plane: k.plane } : {}),
+      ...(k.supportRef ? { supportRef: k.supportRef } : {}),
     })),
     revision,
     epoch,
@@ -146,6 +151,7 @@ export async function syncFromCoreList(
   const alive = new Set([
     ...features.map((f) => f.featureId),
     ...sketches.map((k) => k.featureId),
+    ...(datums ?? current.datums).map(datum => datum.featureId),
   ]);
   const sel = useSelectionStore.getState();
   const kept = sel.selectedIds.filter((id) => {

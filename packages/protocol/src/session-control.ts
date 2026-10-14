@@ -17,7 +17,8 @@ function schema<T>(name: (typeof SESSION_DTO_NAMES)[number]): z.ZodType<T> {
 }
 export const StableFeatureIdSchema = schema<string>('StableFeatureId');
 export const DatumDescriptorSchema = schema<DTO.DatumDescriptor>('DatumDescriptor');
-export type { DatumDescriptor, SketchPlaneFrame } from './generated/session-dtos.js';
+export const SketchPlaneFrameSchema = schema<DTO.SketchPlaneFrame>('SketchPlaneFrame');
+export type { DatumDescriptor, SketchPlaneFrame, DatumPlaneGeometry, DatumAxisGeometry, DatumPointGeometry } from './generated/session-dtos.js';
 export const RequestMetadataSchema = schema<DTO.RequestMetadata>('RequestMetadata');
 export const HelloParamsSchema = schema<DTO.HelloParams>('HelloParams');
 export const PairParamsSchema = schema<DTO.PairParams>('PairParams');

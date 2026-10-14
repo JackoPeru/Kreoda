@@ -40,6 +40,7 @@ export function Viewport() {
   const meshes = useDocumentUiStore((s) => s.meshes);
   const bodies = useDocumentUiStore((s) => s.bodies);
   const features = useDocumentUiStore((s) => s.features);
+  const datums = useDocumentUiStore(s => s.datums);
   const meshRevision = useDocumentUiStore((s) => s.meshRevision);
   const targetEvents = useSharedTargetStore(s => s.events);
   const targetContext = useSharedTargetStore(s => s.context);
@@ -118,6 +119,7 @@ export function Viewport() {
   useEffect(() => {
     vpRef.current?.syncReferencePlanes(refPlanes);
   }, [refPlanes]);
+  useEffect(() => { vpRef.current?.syncDatums(datums); },[datums]);
 
   useEffect(() => {
     vpRef.current?.setSelected(selectedIds);

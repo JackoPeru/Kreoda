@@ -2,19 +2,19 @@
 // Renderer owns UI/camera/selection state + read-only summaries (§9).
 
 import { create } from "zustand";
-import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
+import type { CoreMeshData, SketchModel, DatumDescriptor, SketchPlaneFrame } from "@kreoda/protocol";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 import { t, featureTypeName } from "../i18n";
 import { useSectionStore } from "../section/store";
 
 export interface SketchEntry extends SketchSummary {
-  model?: SketchModel & { planeKind?: string };
+  model?: SketchModel & { planeKind?: string; plane?: SketchPlaneFrame; supportRef?: string };
 }
 
 export interface ModelTreeItem {
   id: string;
   name: string;
-  kind: "body" | "feature" | "sketch";
+  kind: "body" | "feature" | "sketch" | "datum";
   children?: ModelTreeItem[];
 }
 
@@ -47,7 +47,7 @@ export function featureBodySemantics(
   ) {
     return "advances";
   }
-  if (type === "Sketch" || type === "Instance") return "none";
+  if (type === "Sketch" || type === "Instance" || type === "DatumPlane" || type === "DatumAxis" || type === "DatumPoint") return "none";
   return "new";
 }
 
@@ -136,6 +136,7 @@ interface DocumentUiState {
   bodies: BodyInfo[];
   /** Sketches (2D, rendered as overlay — never B-Rep meshes). */
   sketches: SketchEntry[];
+  datums: DatumDescriptor[];
   /** Render buffers keyed by feature UUID — replaced wholesale per update. */
   meshes: Record<string, CoreMeshData>;
   meshRevision: number;
@@ -149,6 +150,7 @@ interface DocumentUiState {
     epoch?: number,
   ) => void;
   setSketches: (sketches: SketchEntry[], revision?: number, epoch?: number) => void;
+  setDatums: (datums: DatumDescriptor[], revision?: number, epoch?: number) => void;
   upsertSketch: (sketch: SketchEntry) => void;
   upsertMesh: (
     featureId: string,
@@ -179,6 +181,7 @@ function toTreeItems(
   features: FeatureSummary[],
   sketches: SketchEntry[],
   bodies: BodyInfo[],
+  datums: DatumDescriptor[] = [],
 ): ModelTreeItem[] {
   const skItems = sketches.map((s) => ({
     id: s.featureId,
@@ -213,7 +216,7 @@ function toTreeItems(
   const extraItems = features
     .filter((f) => !covered.has(f.featureId))
     .map((f) => ({ id: f.featureId, name: featureLabel(f), kind: "body" as const }));
-  return [...skItems, ...bodyItems, ...extraItems];
+  return [...datums.map(datum => ({ id: datum.featureId, name: `${featureTypeName(datum.kind)} · ${datum.featureId}`, kind: "datum" as const })), ...skItems, ...bodyItems, ...extraItems];
 }
 
 export const useDocumentUiStore = create<DocumentUiState>((set) => ({
@@ -225,6 +228,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
   features: [],
   bodies: [],
   sketches: [],
+  datums: [],
   meshes: {},
   meshRevision: 0,
   undos: 0,
@@ -269,6 +273,10 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       if (revision !== undefined && revision < s.revision) return s;
       return { sketches };
     }),
+  setDatums: (datums, revision, epoch) => set(s => {
+    if(epoch !== undefined && epoch !== s.epoch || revision !== undefined && revision < s.revision)return s;
+    return { datums };
+  }),
   upsertSketch: (sketch) =>
     set((s) => ({
       sketches: [
@@ -312,6 +320,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       features: [],
       bodies: [],
       sketches: [],
+      datums: [],
       meshes: {},
       meshRevision: 0,
     }));
@@ -322,8 +331,9 @@ export function buildTreeItems(
   features: FeatureSummary[],
   sketches: SketchEntry[] = [],
   bodies: BodyInfo[] = buildBodies(features),
+  datums: DatumDescriptor[] = [],
 ): ModelTreeItem[] {
-  return toTreeItems(features, sketches, bodies);
+  return toTreeItems(features, sketches, bodies, datums);
 }
 
 export type SelectionMode =

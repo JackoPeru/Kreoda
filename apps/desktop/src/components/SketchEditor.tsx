@@ -574,6 +574,8 @@ async function refreshSummary(sketchId: string): Promise<void> {
     useDocumentUiStore.getState().upsertSketch({
       featureId: sketchId,
       planeKind: full.planeKind,
+      plane: full.plane,
+      supportRef: full.supportRef,
       points: full.points.length,
       lines: full.lines.length,
       circles: full.circles.length,

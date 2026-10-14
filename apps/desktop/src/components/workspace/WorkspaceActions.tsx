@@ -29,9 +29,9 @@ export async function openDocument(): Promise<string | null> {
   try {
     const path = await window.kreoda.openDialog();
     if (!path) return null;
-    const { features: list, sketches, revision } =
+    const { features: list, sketches, datums, revision } =
       await coreClient.openDocument(path);
-    await syncOpenedDocument(list, revision, sketches);
+    await syncOpenedDocument(list, revision, sketches, datums);
     return null;
   } catch (e) {
     return e instanceof Error ? e.message : t("actions.errOpenFailed");

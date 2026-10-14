@@ -3,6 +3,7 @@ import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
 import { HomeScreen } from "../components/home/HomeScreen";
 import { PluginsDialog } from "../components/PluginsDialog";
 import { ReferenceDialog } from "../components/ReferenceDialog";
+import { ReferenceGeometryPanel } from "../components/workspace/ReferenceGeometryPanel";
 import { InstanceDialog } from "../components/InstanceDialog";
 import { shouldShowOnboarding } from "../components/Onboarding";
 import { SketchEditor, defaultRectModel } from "../components/SketchEditor";
@@ -121,6 +122,7 @@ export function App() {
   const [dressUp, setDressUp] = useState<"fillet" | "chamfer" | null>(null);
   const [showPlugins, setShowPlugins] = useState(false);
   const [showReference, setShowReference] = useState(false);
+  const [showReferenceGeometry, setShowReferenceGeometry] = useState(false);
   const [showInstance, setShowInstance] = useState(false);
   // Drawers are closed by default (UX-1): capabilities on demand, never
   // permanently docked.
@@ -224,6 +226,7 @@ export function App() {
         await syncFromCoreList(
           model.features as unknown as FeatureSummary[], model.revision,
           model.sketches as unknown as SketchSummary[], changedMeshIds,
+          model.datums as import("@kreoda/protocol").DatumDescriptor[] ?? [],
         );
         if (useDocumentUiStore.getState().epoch === epoch)
           useSharedTargetStore.getState().setContext(model);
@@ -268,11 +271,15 @@ export function App() {
         return {
           revision: s.revision,
           references: useReferenceStore.getState().planes,
+          datums: s.datums,
           selectedIds: useSelectionStore.getState().selectedIds,
           sharedTarget: viewportSharedTargetSummary(),
           sketches: s.sketches.map((k) => ({
             id: k.featureId,
             planeKind: k.planeKind,
+            plane: k.plane,
+            modelPlane: k.model?.plane,
+            supportRef: k.supportRef,
             points: k.points,
             constraints: k.constraints,
           })),
@@ -310,11 +317,11 @@ export function App() {
         ).__kreoda_test.snapshot();
       },
       openIcad: async (path: string) => {
-        const { features: list, sketches, revision } =
+        const { features: list, sketches, datums, revision } =
           await coreClient.openDocument(path);
         // Document replacement = new epoch (C5): the core revision resets
         // on fresh baselines, so staleness guards key lineage, not numbers.
-        await syncOpenedDocument(list, revision, sketches);
+        await syncOpenedDocument(list, revision, sketches, datums);
         return (
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
         ).__kreoda_test.snapshot();
@@ -447,6 +454,8 @@ export function App() {
         useDocumentUiStore.getState().upsertSketch({
           featureId,
           planeKind: full.planeKind,
+          plane: full.plane,
+          supportRef: full.supportRef,
           points: full.points.length,
           lines: full.lines.length,
           circles: full.circles.length,
@@ -554,6 +563,7 @@ export function App() {
         onExtrude={() => setExtruding(true)}
         onPlugins={() => setShowPlugins(true)}
         onReference={() => setShowReference(true)}
+        onReferenceGeometry={() => setShowReferenceGeometry(true)}
         onInstance={() => setShowInstance(true)}
         onEditSketch={openSketchEditor}
         projectOpen={projectOpen}
@@ -598,6 +608,12 @@ export function App() {
       {showPlugins && <PluginsDialog onClose={() => setShowPlugins(false)} />}
       {showReference && (
         <ReferenceDialog onClose={() => setShowReference(false)} />
+      )}
+      {showReferenceGeometry && (
+        <ReferenceGeometryPanel
+          onClose={() => setShowReferenceGeometry(false)}
+          onSketchCreated={openSketchEditor}
+        />
       )}
       {showInstance && (
         <InstanceDialog onClose={() => setShowInstance(false)} />

@@ -6,6 +6,11 @@ import {
   CoreMeshData,
   PROTOCOL_VERSION,
   type SketchModel,
+  type DatumDescriptor,
+  type SketchPlaneFrame,
+  DatumDescriptorSchema,
+  SketchPlaneFrameSchema,
+  SketchModelSchema,
   decodeMeshFrame,
   decodeMeshResponse,
   frameMessage,
@@ -55,6 +60,8 @@ export interface SketchSummary {
   circles: number;
   constraints: number;
   model?: SketchModel;
+  plane?: SketchPlaneFrame;
+  supportRef?: string;
 }
 
 function b64encode(bytes: Uint8Array): string {
@@ -95,6 +102,7 @@ const CreatedFeatureSchema = z.object({
 });
 
 const FeatureListSchema = z.object({
+  datums: z.array(DatumDescriptorSchema).default([]),
   protocolVersion: z.literal(PROTOCOL_VERSION),
   requestId: z.string(),
   status: z.string(),
@@ -123,6 +131,8 @@ const FeatureListSchema = z.object({
         lines: z.number().default(0),
         circles: z.number().default(0),
         constraints: z.number().default(0),
+        plane: SketchPlaneFrameSchema.optional(),
+        supportRef: z.string().optional(),
       }),
     )
     .default([]),
@@ -227,7 +237,7 @@ export class CoreClient {
     valueMm: number,
     isPreview = false,
     expression = "",
-  ): Promise<(CreatedFeature & { features?: FeatureSummary[]; sketches?: SketchSummary[] }) | CoreMeshData> {
+  ): Promise<(CreatedFeature & { features?: FeatureSummary[]; sketches?: SketchSummary[]; datums?: DatumDescriptor[] }) | CoreMeshData> {
     const raw = await this.roundTrip({
       protocolVersion: PROTOCOL_VERSION,
       requestId: `req-${++this.seq}`,
@@ -249,16 +259,18 @@ export class CoreClient {
     // Optional full-list sidecar (C2) — validated leniently, never fatal.
     let features: FeatureSummary[] | undefined;
     let sketches: SketchSummary[] | undefined;
+    let datums: DatumDescriptor[] | undefined;
     try {
       const list = FeatureListSchema.parse(parsed);
       if (Array.isArray(list.features) && list.features.length > 0) {
         features = list.features;
       }
       if (Array.isArray(list.sketches)) sketches = list.sketches;
+      if (Array.isArray(parsed.datums)) datums = list.datums;
     } catch {
       // Old core without the list: single-id path still works.
     }
-    return { ...base, ...(features ? { features } : {}), ...(sketches ? { sketches } : {}) };
+    return { ...base, ...(features ? { features } : {}), ...(sketches ? { sketches } : {}), ...(datums ? { datums } : {}) };
   }
 
   cancelPreview(featureId: string): Promise<void> {
@@ -268,6 +280,7 @@ export class CoreClient {
   async saveDocument(path: string): Promise<{
     features: FeatureSummary[];
     sketches: SketchSummary[];
+    datums: DatumDescriptor[];
   }> {
     const parsed = await this.invoke(CommandType.SaveDocument, this.documentId, {
       path,
@@ -279,7 +292,7 @@ export class CoreClient {
         (parsed as { errorMessage?: string }).errorMessage ?? "save failed",
       );
     }
-    return { features: checked.features, sketches: checked.sketches };
+    return { features: checked.features, sketches: checked.sketches, datums: checked.datums };
   }
 
   async openDocument(
@@ -287,6 +300,7 @@ export class CoreClient {
   ): Promise<{
     features: FeatureSummary[];
     sketches: SketchSummary[];
+    datums: DatumDescriptor[];
     revision: number;
   }> {
     const parsed = await this.invoke(CommandType.OpenDocument, this.documentId, {
@@ -301,7 +315,7 @@ export class CoreClient {
     await loadReferences(checked.referencePlanesJson);
     return {
       features: checked.features,
-      sketches: checked.sketches,
+      sketches: checked.sketches, datums: checked.datums,
       revision: checked.revision,
     };
   }
@@ -309,6 +323,7 @@ export class CoreClient {
   async undo(): Promise<{
     features: FeatureSummary[];
     sketches: SketchSummary[];
+    datums: DatumDescriptor[];
     revision: number;
   }> {
     const parsed = await this.invoke(CommandType.Undo, this.documentId, {});
@@ -320,7 +335,7 @@ export class CoreClient {
     }
     return {
       features: checked.features,
-      sketches: checked.sketches,
+      sketches: checked.sketches, datums: checked.datums,
       revision: checked.revision,
     };
   }
@@ -328,6 +343,7 @@ export class CoreClient {
   async redo(): Promise<{
     features: FeatureSummary[];
     sketches: SketchSummary[];
+    datums: DatumDescriptor[];
     revision: number;
   }> {
     const parsed = await this.invoke(CommandType.Redo, this.documentId, {});
@@ -339,21 +355,21 @@ export class CoreClient {
     }
     return {
       features: checked.features,
-      sketches: checked.sketches,
+      sketches: checked.sketches, datums: checked.datums,
       revision: checked.revision,
     };
   }
 
-  async deleteFeature(featureId: string): Promise<{ features: FeatureSummary[]; sketches: SketchSummary[]; revision: number }> {
+  async deleteFeature(featureId: string): Promise<{ features: FeatureSummary[]; sketches: SketchSummary[]; datums: DatumDescriptor[]; revision: number }> {
     const parsed = await this.invoke(CommandType.DeleteFeature, this.documentId, { featureId });
     const checked = FeatureListSchema.parse(parsed);
-    return { features: checked.features, sketches: checked.sketches, revision: checked.revision };
+    return { features: checked.features, sketches: checked.sketches, datums: checked.datums, revision: checked.revision };
   }
 
-  async requestSnapshot(): Promise<{ features: FeatureSummary[]; sketches: SketchSummary[]; revision: number }> {
+  async requestSnapshot(): Promise<{ features: FeatureSummary[]; sketches: SketchSummary[]; datums: DatumDescriptor[]; revision: number }> {
     const parsed = await this.invoke(CommandType.RequestSnapshot, this.documentId, {});
     const checked = FeatureListSchema.parse(parsed);
-    return { features: checked.features, sketches: checked.sketches, revision: checked.revision };
+    return { features: checked.features, sketches: checked.sketches, datums: checked.datums, revision: checked.revision };
   }
 
   // ── Sketches (§21) ──────────────────────────────────────────────
@@ -361,12 +377,13 @@ export class CoreClient {
   async createSketch(params: {
     planeKind: "XY" | "XZ" | "YZ";
     model: import("@kreoda/protocol").SketchModel;
+    supportRef?: string;
   }): Promise<{ featureId: string; revision: number }> {
     const featureId = newFeatureId("sk");
     const parsed = await this.invoke(
       CommandType.CreateSketch,
       this.documentId,
-      { featureId, planeKind: params.planeKind, model: params.model },
+      { featureId, planeKind: params.planeKind, model: params.model, ...(params.supportRef ? { supportRef: params.supportRef } : {}) },
     );
     return {
       featureId: parsed.featureId as string,
@@ -407,7 +424,7 @@ export class CoreClient {
 
   async requestSketch(
     featureId: string,
-  ): Promise<import("@kreoda/protocol").SketchModel & { planeKind: string }> {
+  ): Promise<import("@kreoda/protocol").SketchModel & { planeKind: string; plane?: SketchPlaneFrame; supportRef?: string }> {
     const parsed = await this.invoke(
       CommandType.RequestSketch,
       this.documentId,
@@ -416,10 +433,19 @@ export class CoreClient {
     const sketch = parsed.sketch as {
       planeKind?: string;
       model?: import("@kreoda/protocol").SketchModel;
+      plane?: SketchPlaneFrame;
+      supportRef?: string;
     };
     if (!sketch?.model) throw new Error("sketch response missing model");
-    return { ...(sketch.model as object), planeKind: sketch.planeKind ?? "XY" } as
-      import("@kreoda/protocol").SketchModel & { planeKind: string };
+    const plane = sketch.plane === undefined ? undefined : SketchPlaneFrameSchema.parse(sketch.plane);
+    if(sketch.planeKind === "Datum" && (!plane || !sketch.supportRef))throw new Error("datum sketch response missing native support frame");
+    return { ...SketchModelSchema.parse(sketch.model), planeKind: sketch.planeKind ?? "XY", plane, supportRef: sketch.supportRef };
+  }
+
+  async datumCommand(type: number, fields: Record<string, unknown>): Promise<{ features: FeatureSummary[]; sketches: SketchSummary[]; datums: DatumDescriptor[]; revision: number }> {
+    const creation = type === CommandType.CreateDatumPlane || type === CommandType.CreateDatumAxis || type === CommandType.CreateDatumPoint;
+    const parsed = await this.invoke(type,this.documentId,{ ...(creation ? { featureId: newFeatureId("datum") } : {}), ...fields });
+    return FeatureListSchema.parse(parsed);
   }
 
   async createExtrude(params: {
@@ -502,6 +528,7 @@ export class CoreClient {
   }): Promise<{
     features: FeatureSummary[];
     sketches: SketchSummary[];
+    datums: DatumDescriptor[];
     revision: number;
   }> {
     if (params.points.length < 1 || params.points.length > 4) {
@@ -538,7 +565,7 @@ export class CoreClient {
     }
     return {
       features: checked.features,
-      sketches: checked.sketches,
+      sketches: checked.sketches, datums: checked.datums,
       revision: checked.revision,
     };
   }

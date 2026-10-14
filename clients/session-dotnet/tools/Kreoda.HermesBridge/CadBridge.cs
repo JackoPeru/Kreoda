@@ -120,7 +120,7 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
             _voice?.Budget.Action();
             var model = _request?.Model ?? client.Model ?? throw new SessionException("NEED_FULL_SNAPSHOT", "CAD snapshot unavailable");
             return Json(new { project = "Kreoda", units = "mm; explicit degrees/radians per parameter", sessionId = model.SessionId,
-                documentId = model.DocumentId, revision = model.Revision, features = model.Features, sketches = model.Sketches,
+                documentId = model.DocumentId, revision = model.Revision, features = model.Features, sketches = model.Sketches, datums = model.Datums,
                 bodies = model.Bodies, requestActive = _request is not null, snapshotScope = "committed baseline" });
         } finally { _gate.Release(); }
     }
