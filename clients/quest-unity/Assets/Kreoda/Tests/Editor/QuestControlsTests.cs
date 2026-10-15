@@ -301,6 +301,22 @@ namespace Kreoda.QuestRuntime.Tests
         }
 
         [Test]
+        public void EditableReferenceInspectionHasSeparateEditAndBackHitTargets()
+        {
+            Call("OpenReferences");
+            var edit = (TextMesh)typeof(QuestControls).GetField("_referenceEdit", Private).GetValue(_controls);
+            var back = (TextMesh)typeof(QuestControls).GetField("_referenceBack", Private).GetValue(_controls);
+            // Both controls are visible when inspecting an editable native datum.
+            edit.transform.parent.gameObject.SetActive(true);
+            back.transform.parent.gameObject.SetActive(true);
+            Physics.SyncTransforms();
+            var editBounds = edit.transform.parent.GetComponentInChildren<Collider>().bounds;
+            var backBounds = back.transform.parent.GetComponentInChildren<Collider>().bounds;
+            Assert.That(editBounds.max.x, Is.LessThan(backBounds.min.x),
+                "pinch rays must distinguish Edit from Back across their full hit areas");
+        }
+
+        [Test]
         public void ReferencePageShowsCommandOutcomeStatus()
         {
             var status = (TextMesh)typeof(QuestControls).GetField("_referenceStatus", Private).GetValue(_controls);
@@ -316,8 +332,13 @@ namespace Kreoda.QuestRuntime.Tests
             var references = _controls.References;
             var mode = typeof(QuestReferences).GetField("_mode", Private);
             mode.SetValue(references, System.Enum.Parse(mode.FieldType, "Form"));
+            typeof(QuestControls).GetField("_editingReference", Private).SetValue(_controls, true);
+            var ticket = references.InputTicket;
             Call("Update");
             Assert.That(references.IsFormOpen, Is.False, "tracking loss must abandon the typed reference form");
+            Assert.That(typeof(QuestControls).GetField("_editingReference", Private).GetValue(_controls), Is.False,
+                "tracking loss must also clear the numeric keyboard intent");
+            Assert.That(references.InputTicket, Is.GreaterThan(ticket), "late keyboard input must be invalidated");
 
             mode.SetValue(references, System.Enum.Parse(mode.FieldType, "Form"));
             Call("OnApplicationFocus", false);

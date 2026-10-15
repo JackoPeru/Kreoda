@@ -226,7 +226,7 @@ namespace Kreoda.QuestRuntime
             _referenceEnum = Button("Valore →", new Vector3(.105f, -.20f, 0), .17f, () => { References?.CycleEnumValue();RefreshReferencePage(); }, .03f, .010f);
             _referenceConfirm = Button("Conferma", new Vector3(-.1f, -.23f, 0), .18f, SubmitReference, .03f, .010f);
             _referenceCancel = Button("Annulla", new Vector3(.105f, -.23f, 0), .17f, CancelReference, .03f, .010f);
-            _referenceBack = Button("Indietro", new Vector3(.105f, -.215f, 0), .17f, () => { References?.OpenHome();RefreshReferencePage(); }, .03f, .010f);
+            _referenceBack = Button("Indietro", new Vector3(.135f, -.215f, 0), .12f, () => { References?.OpenHome();RefreshReferencePage(); }, .03f, .010f);
             References.OpenHome();RefreshReferencePage();
             _sketchPage = PageRoot("Canonical sketch dimensions");_content = _sketchPage;
             _sketchStatus = Label(_content, "Seleziona uno sketch", new Vector3(-.19f, .085f, -.003f), .012f);
@@ -555,7 +555,7 @@ namespace Kreoda.QuestRuntime
             { Spatial.Drag(ray, orientation, pressed, _tracked);_ray.enabled = false;return; }
             if (!_tracked)
             {
-                if (_keyboard == null && References != null && References.IsFormOpen) References.Cancel();
+                if (References != null && (References.IsFormOpen || _editingReference)) CancelReference();
                 UpdatePanelDrag(ray, pressed, false); _ray.enabled = false; _requireRelease = true; Display.UpdatePlacement(default, _yaw, false); return;
             }
             if (_requireRelease) { clicked = false; if (!pressed) _requireRelease = false; }
