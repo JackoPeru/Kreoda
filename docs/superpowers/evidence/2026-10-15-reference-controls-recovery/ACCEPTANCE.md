@@ -18,4 +18,6 @@ Root accepts these local software packets. Desktop287/287, schema12 unique sourc
 
 ## Remaining scope
 
+Later hosted supplement: exact b5d1736 CI38707325681 has now completed success, with native233,managed241,Desktop287,protocol51,schema12,ordinary E2E67 and complete crash E2E32 passed; see ../2026-10-15-ci-b5d1736/REPORT.md. The following pending-CI paragraph records this document's earlier creation state; physical/live and remaining feature boundaries continue to apply.
+
 Exact b5d1736 Windows CI38707325681 is still running at this supplement's creation; no current hosted green claim. Draft PR3 remains open with no merge/release. Physical Quest hand/voice/comfort/performance and live Hermes fixtures remain unverified under the current user restriction. All remaining Phase15/16 capabilities remain mandatory. New projection evaluator task01a13ec1-ddbd-7783-a456-28a09cf52694 is a separate GPT-6-Luna/Max implementation, after the completed crash gate; it does not narrow full15.2 acceptance to geometry helpers. The full original goal stays active.
