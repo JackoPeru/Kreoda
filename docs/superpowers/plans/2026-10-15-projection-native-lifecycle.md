@@ -57,6 +57,7 @@ The following native paths are the complete allowed implementation surface for t
 
 - New src/features/sketch/sketch_projection.h/.cpp and src/model/geometry_availability.h/.cpp under native/kreoda-core.
 - Existing sketch_store.h, sketch_commands.h/.cpp, sketch_json.h/.cpp and sketch_face.cpp under src/features/sketch.
+- Bounded ownership amendment: sketch_face.h may declare the shared exact authored-entity edge extraction helper implemented in sketch_face.cpp. Parent inspected this need during the active worker's changes; no unrelated profile API changes are authorized. Future missing-path expansions still require reporting before edits.
 - src/features/rebuild.cpp and src/features/datum/datum_json.cpp, datum_store.cpp.
 - src/persistence/ocaf_live.h/.cpp; src/model/commit.cpp, body.cpp.
 - src/protocol/dispatcher.cpp and session_geometry.cpp (existing guards/summary status only; no IDs36–38 dispatch yet).
