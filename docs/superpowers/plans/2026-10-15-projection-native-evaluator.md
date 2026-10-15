@@ -6,7 +6,7 @@
 
 **Architecture:** Pure OCCT functions consume resolved native topology plus the existing SketchPlane and return native world-coordinate edges. Source identity, sketch ownership, persistence and clients follow in explicitly required later stages.
 
-**Tech Stack:** Existing C++20, OCCT8.0.1, GoogleTest and CMake; no new dependency.
+**Tech Stack:** Existing native C++17 (the separate PlaneGCS target uses C++20), OCCT8.0.1, GoogleTest and CMake; no new dependency or standard change.
 
 **Spec:** docs/superpowers/specs/2026-10-15-phase15-projected-geometry.md
 
