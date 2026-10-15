@@ -23,6 +23,7 @@
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
+#include <BRep_Tool.hxx>
 #include <BRep_Builder.hxx>
 #include <BRepTools.hxx>
 #include <GeomAPI_PointsToBSpline.hxx>
@@ -462,6 +463,100 @@ TEST(Projection, ClosedBSplineProfileRetainsNativeCurve) {
   }
   EXPECT_EQ(edgeCount, 1);
   EXPECT_GT(ProfileArea(profile), 0);
+}
+
+TEST(Projection, TrimmedBSplineProfileValidatesOnlyUsedSpanPoles) {
+  NCollection_Array1<gp_Pnt> poles(1, 5);
+  poles.SetValue(1, gp_Pnt(0, 0, 0));
+  poles.SetValue(2, gp_Pnt(1, -1, 0));
+  poles.SetValue(3, gp_Pnt(2, 0, 0));
+  poles.SetValue(4, gp_Pnt(3, 0, 3));
+  poles.SetValue(5, gp_Pnt(4, 0, 0));
+  NCollection_Array1<double> knots(1, 3);
+  knots.SetValue(1, 0.0);
+  knots.SetValue(2, 1.0);
+  knots.SetValue(3, 2.0);
+  NCollection_Array1<int> multiplicities(1, 3);
+  multiplicities.SetValue(1, 3);
+  multiplicities.SetValue(2, 2);
+  multiplicities.SetValue(3, 3);
+  const Handle(Geom_BSplineCurve) spline =
+      new Geom_BSplineCurve(poles, knots, multiplicities, 2);
+
+  BRepBuilderAPI_MakeEdge planarSpanBuilder(spline, 0.0, 1.0);
+  ASSERT_TRUE(planarSpanBuilder.IsDone());
+  const TopoDS_Edge planarSpan = planarSpanBuilder.Edge();
+  ASSERT_EQ(BRepAdaptor_Curve(planarSpan).GetType(), GeomAbs_BSplineCurve);
+  EXPECT_DOUBLE_EQ(BRepAdaptor_Curve(planarSpan).FirstParameter(), 0.0);
+  EXPECT_DOUBLE_EQ(BRepAdaptor_Curve(planarSpan).LastParameter(), 1.0);
+  EXPECT_DOUBLE_EQ(spline->FirstParameter(), 0.0);
+  EXPECT_DOUBLE_EQ(spline->LastParameter(), 2.0);
+  EXPECT_GT(spline->Pole(4).Z(), 1.0);
+
+  const TopoDS_Edge rightSide = BRepBuilderAPI_MakeEdge(
+      gp_Pnt(2, 0, 0), gp_Pnt(1, 2, 0)).Edge();
+  const TopoDS_Edge leftSide = BRepBuilderAPI_MakeEdge(
+      gp_Pnt(1, 2, 0), gp_Pnt(0, 0, 0)).Edge();
+  const std::string planarSpanBefore = ShapeDump(planarSpan);
+  TopoDS_Shape profile;
+  std::string error;
+  const bool planarBuilt = kreoda::BuildPlanarProfileFromEdges(
+      {leftSide, planarSpan, rightSide}, kreoda::SketchPlane{}, &profile,
+      &error);
+  EXPECT_TRUE(planarBuilt) << error;
+  EXPECT_EQ(ShapeDump(planarSpan), planarSpanBefore);
+  EXPECT_DOUBLE_EQ(spline->Pole(4).Z(), 3.0);
+  EXPECT_DOUBLE_EQ(spline->Pole(5).Z(), 0.0);
+  if (planarBuilt) {
+    EXPECT_NEAR(ProfileArea(profile), 8.0 / 3.0, 1e-7);
+    bool retainedTrimmedSpline = false;
+    for (const TopoDS_Edge& edge : EdgesOf(profile)) {
+      BRepAdaptor_Curve curve(edge);
+      if (curve.GetType() != GeomAbs_BSplineCurve) continue;
+      retainedTrimmedSpline = true;
+      EXPECT_DOUBLE_EQ(curve.FirstParameter(), 0.0);
+      EXPECT_DOUBLE_EQ(curve.LastParameter(), 1.0);
+      EXPECT_EQ(edge.Orientation(), planarSpan.Orientation());
+      TopLoc_Location location;
+      double edgeFirst = 0.0;
+      double edgeLast = 0.0;
+      const Handle(Geom_Curve) retainedGeometry =
+          BRep_Tool::Curve(edge, location, edgeFirst, edgeLast);
+      const Handle(Geom_BSplineCurve) retainedSpline =
+          Handle(Geom_BSplineCurve)::DownCast(retainedGeometry);
+      ASSERT_FALSE(retainedSpline.IsNull());
+      EXPECT_DOUBLE_EQ(edgeFirst, 0.0);
+      EXPECT_DOUBLE_EQ(edgeLast, 1.0);
+      EXPECT_DOUBLE_EQ(retainedSpline->FirstParameter(), 0.0);
+      EXPECT_DOUBLE_EQ(retainedSpline->LastParameter(), 2.0);
+      EXPECT_EQ(retainedSpline->NbPoles(), 5);
+      EXPECT_DOUBLE_EQ(retainedSpline->Pole(4).Z(), 3.0);
+      EXPECT_DOUBLE_EQ(retainedSpline->Pole(5).Z(), 0.0);
+    }
+    EXPECT_TRUE(retainedTrimmedSpline);
+  }
+  EXPECT_DOUBLE_EQ(spline->FirstParameter(), 0.0);
+  EXPECT_DOUBLE_EQ(spline->LastParameter(), 2.0);
+
+  BRepBuilderAPI_MakeEdge nonPlanarSpanBuilder(spline, 0.0, 2.0);
+  ASSERT_TRUE(nonPlanarSpanBuilder.IsDone());
+  const TopoDS_Edge nonPlanarSpan = nonPlanarSpanBuilder.Edge();
+  const TopoDS_Edge closingChord = BRepBuilderAPI_MakeEdge(
+      gp_Pnt(4, 0, 0), gp_Pnt(0, 0, 0)).Edge();
+  const TopoDS_Shape sentinel = BRepPrimAPI_MakeBox(2, 3, 4).Shape();
+  const std::string sentinelBefore = ShapeDump(sentinel);
+  const std::string nonPlanarBefore = ShapeDump(nonPlanarSpan);
+  TopoDS_Shape rejectedOutput = sentinel;
+  error.clear();
+  EXPECT_FALSE(kreoda::BuildPlanarProfileFromEdges(
+      {closingChord, nonPlanarSpan}, kreoda::SketchPlane{}, &rejectedOutput,
+      &error));
+  EXPECT_NE(error.find("outside target plane"), std::string::npos) << error;
+  EXPECT_TRUE(rejectedOutput.IsSame(sentinel));
+  EXPECT_EQ(ShapeDump(rejectedOutput), sentinelBefore);
+  EXPECT_EQ(ShapeDump(nonPlanarSpan), nonPlanarBefore);
+  EXPECT_DOUBLE_EQ(spline->Pole(4).Z(), 3.0);
+  EXPECT_DOUBLE_EQ(spline->Pole(5).Z(), 0.0);
 }
 
 TEST(Projection, AmbiguousAndInvalidProfilesFailAtomically) {

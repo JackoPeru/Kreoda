@@ -1,0 +1,11 @@
+# Trimmed native B-spline correction
+
+The same verified GPT-6-Luna/Max worker completed correction turn01a14004-ebcf-7e20-840d-07c4605f3060, limited to sketch_face.cpp and test_projection.cpp. No quota replacement, extra dependency or unrelated product edit. The initial review fix-first remains recorded in ../REVIEW-FIX.md.
+
+ValidateProfileEdge now segments a private native B-spline copy to the edge's actual finite first/last bounds before inspecting its control poles. The original source curve, native edge trim/orientation and unused source geometry are unchanged. Nonplanar used geometry still fails; native exact validation is retained rather than removed or replaced with a polygon.
+
+Actual behavioral RED: the new two-span quadratic spline's planar [0,1] edge failed on the previous all-poles validator with `profile spline control point is outside target plane`. The unused span has an off-plane pole. After correction, the exact closed profile succeeds with analytic area8/3; native B-spline trim/orientation and full original poles/BRep remain intact. A trim entering the nonplanar span fails atomically, preserving prior output and source. Focused Projection/Sketch37/37 passed; worker full CTest255/255, no skips, and normal restricted-PATH core self-test passed.
+
+After authoritative worker completion, parent independently built both normal core/tests and ran all255 CTest cases:0 failure/error/skip,16 Projection cases and every required new profile/save/trim fixture present. Normal core --self-test passed again with PATH limited to System32/Windows and actual app-local dependencies. Twelve captured source/evaluator/CMake hashes stayed unchanged. Parent verifier exited0 directly; no fixture-name correction was needed for this run. Actual XML, build/native/runtime logs, summary and source manifests are retained here; raw logs remain in C:/Users/matte/Documents/Codex-tools/Native/phase15-profiles-corrected-parent-20261015. Committed log copies normalize indentation tabs/trailing whitespace only.
+
+A NEW fresh immutable review is required before acceptance. Earlier254-case candidate and published9df evaluator CI are not proof for this corrected source. All associative lifecycle/client/full-goal requirements and the user's hidden-local/Hermes restrictions remain unchanged.

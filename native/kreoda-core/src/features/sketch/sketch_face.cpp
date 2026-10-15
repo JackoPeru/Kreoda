@@ -244,9 +244,23 @@ bool ValidateProfileEdge(const TopoDS_Edge& edge, const SketchPlane& plane,
   double curveLast = 0;
   const Handle(Geom_Curve) geometry =
       BRep_Tool::Curve(edge, location, curveFirst, curveLast);
-  const Handle(Geom_BSplineCurve) spline =
+  const Handle(Geom_BSplineCurve) sourceSpline =
       Handle(Geom_BSplineCurve)::DownCast(geometry);
-  if (!spline.IsNull()) {
+  if (!sourceSpline.IsNull()) {
+    if (!std::isfinite(curveFirst) || !std::isfinite(curveLast) ||
+        Precision::IsInfinite(curveFirst) ||
+        Precision::IsInfinite(curveLast) || !(curveLast > curveFirst)) {
+      return ProfileFail(error, "profile spline interval is invalid");
+    }
+    // Edge geometry may retain a larger native curve than its trimmed edge
+    // interval. Segment a private copy so only poles that control this edge
+    // interval participate in the exact convex-hull planarity check.
+    const Handle(Geom_BSplineCurve) spline =
+        Handle(Geom_BSplineCurve)::DownCast(sourceSpline->Copy());
+    if (spline.IsNull()) {
+      return ProfileFail(error, "cannot copy profile spline for validation");
+    }
+    spline->Segment(curveFirst, curveLast, Precision::PConfusion());
     for (int i = 1; i <= spline->NbPoles(); ++i) {
       gp_Pnt pole = spline->Pole(i);
       if (!location.IsIdentity()) pole.Transform(location.Transformation());
