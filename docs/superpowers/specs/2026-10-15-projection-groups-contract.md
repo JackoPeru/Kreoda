@@ -39,6 +39,10 @@ All three commands have canonical creation.fixedCount=0: no new native feature i
 
 ## Persistent source binding
 
+Source identity encodings must be unambiguous for existing authored entity IDs, including IDs containing delimiter characters. Use canonical structured data rather than joining arbitrary ID strings with a delimiter. Private persisted identity comparison must not confuse distinct source arrays.
+
+The selected per-group limits in the native lifecycle plan apply together: up to128 groups can each contain a definition up to65536 UTF-8 bytes. An additional lower aggregate metadata cap must not silently reject otherwise permitted documents. Any concrete existing transport-envelope conflict requires an explicit architecture decision and matching contract/tests.
+
 Public mutation arguments carry semantic source IDs, never client-supplied OCAF label entries. Inside the caller-owned OCAF command, native edge picks are bound with TNaming under a projection-specific selection context containing target sketch, group and source identity. Reuse the existing checked naming machinery and owner/role/topology validation; a datum's selection entry must not be reusable as a projection binding.
 
 Persist the validated definition and private binding metadata in the sketch's versioned optional projectionGroups field. Legacy sketches without this field remain valid. Present malformed/unknown group records must never be discarded into a healthy sketch. Private label entries are opaque native persistence data and are not editable public source fields.
