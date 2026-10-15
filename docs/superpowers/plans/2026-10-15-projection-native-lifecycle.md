@@ -10,6 +10,12 @@
 
 **Spec:** docs/superpowers/specs/2026-10-15-projection-groups-contract.md and its parent projected-geometry spec.
 
+## Sequencing amendment, 2026-10-15
+
+The profile/save candidate is frozen at 9b9fdff34eb3ed747ded2d47b9c79ce1d4f7d186. Parent independently verified 256 native tests, restricted-PATH normal-core self-test and 13 unchanged source hashes. Fresh review thread 01a14015-3500-7ae0-9165-02fb1b19d970 terminated with a usage-limit error and no verdict. Previous review findings have behavioral corrections, but final acceptance remains unproven.
+
+The user's explicit instruction to continue development despite quota permits this next native lifecycle packet to proceed on that verified candidate. This supersedes only the acceptance-before-start sequencing below; it does not confer acceptance, permit quota-only reviewer retries, or waive later accumulated review and verification. The earlier worker is terminal and the shared build is free. Root owns this sequencing decision. No merge/release or Hermes/device activity is authorized by it.
+
 ## Global constraints
 
 - Start only after exact native profiles acceptance. Do not overlap the current worker's six product paths or build.
