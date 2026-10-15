@@ -86,22 +86,41 @@ export async function syncFromCoreList(
   changedMeshIds: readonly string[] | null = null,
   datums: DatumDescriptor[] | null = null,
 ): Promise<void> {
+  // Native Undo/Redo returns counts only. Use the session's ordered full-model
+  // refresh instead of replacing a supported sketch cache with an empty model.
+  if (refreshOpenedSession && sketches.some(sketch => !sketch.model)) {
+    await refreshOpenedSession();
+    return;
+  }
   const s = useDocumentUiStore.getState();
   const epoch = s.epoch;
   s.setFeatures(features, revision, epoch);
   if(datums !== null)s.setDatums(datums,revision,epoch);
   s.setSketches(
-    sketches.map((k) => ({
-      featureId: k.featureId,
-      planeKind: k.planeKind,
-      points: k.points,
-      lines: k.lines,
-      circles: k.circles,
-      constraints: k.constraints,
-      ...(k.model ? { model: k.model } : {}),
-      ...(k.plane ? { plane: k.plane } : {}),
-      ...(k.supportRef ? { supportRef: k.supportRef } : {}),
-    })),
+    sketches.map((k) => {
+      const cached = k.model as (typeof k.model & {
+        plane?: SketchSummary["plane"];
+        supportRef?: string;
+      }) | undefined;
+      const plane = k.plane ?? cached?.plane;
+      const supportRef = k.supportRef !== undefined ? k.supportRef : cached?.supportRef;
+      return {
+        featureId: k.featureId,
+        planeKind: k.planeKind,
+        points: k.points,
+        lines: k.lines,
+        circles: k.circles,
+        constraints: k.constraints,
+        ...(k.model ? { model: {
+          ...k.model,
+          planeKind: k.planeKind,
+          ...(plane !== undefined ? { plane } : {}),
+          ...(supportRef !== undefined ? { supportRef } : {}),
+        } } : {}),
+        ...(plane !== undefined ? { plane } : {}),
+        ...(supportRef !== undefined ? { supportRef } : {}),
+      };
+    }),
     revision,
     epoch,
   );

@@ -1,0 +1,7 @@
+{
+  "packages/command-schema/package.json": "bb219c93a5498fa00aa958232087adf18aa550a175f34750bd3fda24fbefb0f5",
+  "apps/desktop/src/model/sync.ts": "ee7f0b87b5e4963caa192553b880393148be1b91f72f16fd5ddf88bbbb955de5",
+  "apps/desktop/e2e/phase10-crash.spec.ts": "d7609b0873953aaf9fa06373c6e383ec109955c75b91c660cdee6bb825fc75be",
+  "apps/desktop/tests/bodies.test.ts": "d1aa91ef7ef7d0843181d4973a3401da0d66c52cf52a03d5d5f643a46ec492d4",
+  "apps/desktop/tests/sketch-sync-metadata.test.ts": "1e81198e83c36f7e6c2b5371c334e41c0d79f87267de86d26f92962203d5db2f"
+}

@@ -1,0 +1,12 @@
+
+> @kreoda/desktop@0.1.0 test C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop
+> vitest run
+
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop
+
+
+ Test Files  44 passed (44)
+      Tests  287 passed (287)
+   Start at  10:29:32
+   Duration  17.26s (transform 34.93s, setup 1.45s, import 68.39s, tests 30.88s, environment 91.12s)
