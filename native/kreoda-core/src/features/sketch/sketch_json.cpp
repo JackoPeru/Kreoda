@@ -1,5 +1,6 @@
 #include "model/shapes.h"
 #include "sketch_json.h"
+#include "sketch_projection.h"
 #include "protocol/json_fields.h"
 
 #include <cctype>
@@ -189,7 +190,9 @@ std::string SerializeSketchModel(const SketchModel& model) {
   return os.str();
 }
 
-std::string SerializeSketchFeature(const SketchFeature& sketch) {
+namespace {
+std::string SerializeSketchFeatureImpl(const SketchFeature& sketch,
+                                       bool inspection) {
   std::ostringstream os;
   os << std::setprecision(17);
   os << "{\"id\":\"" << Esc(sketch.id) << "\",\"planeKind\":\""
@@ -202,8 +205,23 @@ std::string SerializeSketchFeature(const SketchFeature& sketch) {
      << "],\"normal\":[" << sketch.plane.normal[0] << ","
      << sketch.plane.normal[1] << "," << sketch.plane.normal[2] << "]}"
      << ",\"supportRef\":\"" << Esc(sketch.supportRef) << "\",\"model\":"
-     << SerializeSketchModel(sketch.model) << "}";
+      << SerializeSketchModel(sketch.model);
+  if (!sketch.projectionGroups.empty())
+    os << ",\"projectionGroups\":"
+       << (inspection
+               ? SerializeSketchProjectionGroupsForInspection(sketch.projectionGroups)
+               : SerializeSketchProjectionGroups(sketch.projectionGroups));
+  os << "}";
   return os.str();
+}
+}  // namespace
+
+std::string SerializeSketchFeature(const SketchFeature& sketch) {
+  return SerializeSketchFeatureImpl(sketch, false);
+}
+
+std::string SerializeSketchFeatureForInspection(const SketchFeature& sketch) {
+  return SerializeSketchFeatureImpl(sketch, true);
 }
 
 bool ParseSketchFeature(const std::string& text, SketchFeature* out, std::string* error) {
@@ -220,6 +238,10 @@ bool ParseSketchFeature(const std::string& text, SketchFeature* out, std::string
         : PrincipalPlane(sketch.planeKind);
     sketch.supportRef = json_string_field(value, "supportRef", "");
     if(sketch.planeKind=="Datum"&&(!value.contains("plane")||!ShapeStore::ValidFeatureId(sketch.supportRef))) throw JsonFieldError("Datum sketch requires a frame and valid supportRef");
+    if (value.contains("projectionGroups") &&
+        !ParseSketchProjectionGroups(value.at("projectionGroups").dump(),
+                                     &sketch.projectionGroups, error))
+      return false;
     const auto model = value.contains("model") ? value.at("model").dump() : value.dump();
     if (!ParseSketchModel(model, &sketch.model, error)) return false;
     *out = std::move(sketch); return true;

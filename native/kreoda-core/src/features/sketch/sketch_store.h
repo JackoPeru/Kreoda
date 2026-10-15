@@ -1,11 +1,16 @@
 #pragma once
 
 #include <map>
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <vector>
 
 #include "../../constraints/solver.h"
+
+#if KREODA_WITH_OCCT
+#include <TopoDS_Edge.hxx>
+#endif
 
 namespace kreoda {
 
@@ -19,12 +24,26 @@ struct SketchPlane {
   double normal[3] = {0, 0, 1};
 };
 
+struct SketchProjectionGroup {
+  std::string groupId;
+  std::string definitionJson;
+  std::string bindingsJson = R"({"version":1,"entries":[]})";
+  std::string status = "ok";
+  std::string error;
+  std::vector<std::string> blockingSourceIds;
+#if KREODA_WITH_OCCT
+  std::vector<TopoDS_Edge> evaluatedEdges;
+#endif
+  uint64_t generation = 0;
+};
+
 struct SketchFeature {
   std::string id;
   std::string planeKind = "XY";  // XY | XZ | YZ (offset via origin)
   SketchPlane plane;
   SketchModel model;
   std::string supportRef;  // "" = principal plane (Phase 4)
+  std::vector<SketchProjectionGroup> projectionGroups;
 };
 
 class SketchStore {

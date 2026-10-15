@@ -7,6 +7,7 @@
 #include "features/hole/hole.h"
 #include "model/body.h"
 #include "model/shapes.h"
+#include "model/geometry_availability.h"
 #include "topology/face_roles.h"
 #include <algorithm>
 #include <cmath>
@@ -130,9 +131,18 @@ std::vector<Entity> edges(const ShapeRecord& rec) {
 }
 ShapeRecord record(const std::string& id) {
   ShapeRecord rec;
-  if(ShapeStore::instance().get(id,&rec) && !rec.shape.IsNull()) return rec;
+  std::string geometryError;
+  if (ShapeStore::instance().contains(id)) {
+    if (!GetCurrentShapeRecord(id, &rec, &geometryError))
+      fail("GEOMETRY_UNAVAILABLE", geometryError);
+    if (!rec.shape.IsNull()) return rec;
+  }
   BodyRecord b;
-  if(BodyStore::instance().get(id,&b) && ShapeStore::instance().get(b.tipFeatureId,&rec) && !rec.shape.IsNull()) return rec;
+  if (BodyStore::instance().get(id, &b)) {
+    if (!GetCurrentShapeRecord(b.tipFeatureId, &rec, &geometryError))
+      fail("GEOMETRY_UNAVAILABLE", geometryError);
+    if (!rec.shape.IsNull()) return rec;
+  }
   fail("NOT_FOUND","unknown solid feature or body "+id);
 }
 Entity resolve(const std::string& id) {
@@ -457,6 +467,9 @@ Json validate(const std::string& method,const Json& p) {
 
 Json RunSessionGeometryQuery(const std::string& method,const Json& p) {
   if(!p.is_object())fail("BAD_PARAMS","query params must be an object");
+#if !KREODA_WITH_OCCT
+  (void)method;
+#endif
 #if KREODA_WITH_OCCT
   try {
     if(method=="getDatum") {

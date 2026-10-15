@@ -126,6 +126,7 @@ set(CORE_SOURCES
   src/model/body.cpp
   src/model/shapes.cpp
   src/model/commit.cpp
+  src/model/geometry_availability.cpp
   src/features/primitives/primitives.cpp
   src/features/rebuild.cpp
   src/features/datum/datum_commands.cpp
@@ -135,6 +136,7 @@ set(CORE_SOURCES
   src/features/sketch/sketch_face.cpp
   src/features/sketch/sketch_json.cpp
   src/features/sketch/sketch_commands.cpp
+  src/features/sketch/sketch_projection.cpp
   src/features/sketch/projected_geometry.cpp
   src/features/extrusion/extrude.cpp
   src/features/revolve/revolve.cpp

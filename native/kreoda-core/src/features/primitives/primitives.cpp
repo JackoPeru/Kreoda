@@ -13,6 +13,7 @@
 #include "model/feature_graph.h"
 #include "model/model_snapshot.h"
 #include "model/shapes.h"
+#include "model/geometry_availability.h"
 #include "features/extrusion/extrude.h"
 #include "features/booleans/boolean.h"
 #include "features/fillet/fillet.h"
@@ -39,6 +40,9 @@
 #endif
 
 namespace kreoda {
+
+CoreMesh TessellatePreviewRecord(const ShapeRecord& rec, int lod,
+                                std::string* error);
 
 namespace {
 
@@ -329,6 +333,7 @@ bool BuildPreviewMesh(const std::string& featureId,
     if (error) *error = "unknown feature " + featureId;
     return false;
   }
+  if (!EnsureGeometryAvailable(featureId, error)) return false;
   if ((rec.type == "Hole" || rec.type == "HolePattern") && paramName == "depthMm" &&
       rec.refExtra.find("mode=blind") == std::string::npos) {
     if (error) *error = "throughAll hole has no depthMm (use a blind hole to set depth)";
@@ -344,7 +349,7 @@ bool BuildPreviewMesh(const std::string& featureId,
   ShapeRecord tmp = rec;
   tmp.paramsMm = std::move(newParams);
   tmp.shape = candidate;
-  *out = TessellateRecord(tmp, 0, error);
+  *out = TessellatePreviewRecord(tmp, 0, error);
   return !out->indices.empty();
 #else
   // Stub has no kernel: exact box tessellation straight from params.
@@ -368,6 +373,8 @@ bool BuildPreviewBodyMesh(const std::string& featureId, const std::string& param
     return false;
   }
 #if KREODA_WITH_OCCT
+  if (!EnsureGeometryAvailable(featureId, error) ||
+      !EnsureGeometryAvailable(tipId, error)) return false;
   std::map<std::string, ShapeRecord> records;
   for (const auto& rec : ShapeStore::instance().listInOrder()) records[rec.featureId] = rec;
   auto owner = records.find(featureId);
@@ -438,13 +445,14 @@ bool BuildPreviewBodyMesh(const std::string& featureId, const std::string& param
       if (error) *error = "requested preview tip is unrelated to the edited feature";
       return false;
     }
-    *out = TessellateRecord(records.at(tipId), 0, error);
+    *out = TessellatePreviewRecord(records.at(tipId), 0, error);
     return !out->indices.empty();
   } catch (const Standard_Failure& failure) {
     if (error) *error = std::string("preview kernel exception: ") + failure.what();
     return false;
   }
 #else
+  (void)expression;
   if (!otherValues.empty()) { if (error) *error = "compound preview requires OCCT"; return false; }
   if (tipId != featureId) { if (error) *error = "body preview requires OCCT"; return false; }
   return BuildPreviewMesh(featureId, paramName, valueMm, out, error);
@@ -455,7 +463,7 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
                       double valueMm, const std::string& expression,
                       std::string* error, const std::map<std::string, double>& otherValues) {
   ShapeRecord rec;
-  if (!ShapeStore::instance().get(featureId, &rec)) {
+  if (!GetCurrentShapeRecord(featureId, &rec, error)) {
     if (error) *error = "unknown feature " + featureId;
     return false;
   }

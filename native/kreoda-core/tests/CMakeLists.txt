@@ -24,6 +24,8 @@ add_executable(kreoda-core-tests
   test_session11.cpp
   test_session_geometry.cpp
   test_sketch.cpp
+  test_sketch_projection.cpp
+  ../src/model/geometry_availability.cpp
   test_projection.cpp
   ../src/features/sketch/projected_geometry.cpp
   test_solids.cpp
@@ -55,6 +57,7 @@ add_executable(kreoda-core-tests
   ../src/features/sketch/sketch_face.cpp
   ../src/features/sketch/sketch_json.cpp
   ../src/features/sketch/sketch_commands.cpp
+  ../src/features/sketch/sketch_projection.cpp
   ../src/features/extrusion/extrude.cpp
   ../src/features/revolve/revolve.cpp
   ../src/features/booleans/boolean.cpp

@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "model/commit.h"
+#include "model/geometry_availability.h"
 #include "model/shapes.h"
 #include "features/sketch/sketch_store.h"
 #include "persistence/ocaf_live.h"
@@ -114,8 +115,8 @@ bool CreateInstanceFeature(const std::string& featureId,
   }
 #if KREODA_WITH_OCCT
   ShapeRecord target;
-  if (!ShapeStore::instance().get(targetId, &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(targetId, &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) *error = "unknown target " + targetId;
     return false;
   }
@@ -150,8 +151,8 @@ bool RebuildInstanceFromStore(const std::string& featureId,
   }
 #if KREODA_WITH_OCCT
   ShapeRecord target;
-  if (!ShapeStore::instance().get(rec.dependsOn[0], &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(rec.dependsOn[0], &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) {
       *error = "instance target vanished (needs repair): " + rec.dependsOn[0];
     }

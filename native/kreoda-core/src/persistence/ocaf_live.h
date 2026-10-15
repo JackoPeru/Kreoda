@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -8,7 +9,24 @@
 #include "../features/datum/datum_store.h"
 #include "../model/shapes.h"
 
+#if KREODA_WITH_OCCT
+#include <TopoDS_Edge.hxx>
+#endif
+
 namespace kreoda {
+
+#if KREODA_WITH_OCCT
+struct ProjectionSelection {
+  std::string sourceIdentity;
+  std::string featureId;
+  std::string persistentEdgeId;
+  TopoDS_Edge edge;
+};
+using ProjectionSelectionResolver = std::function<bool(
+    const std::string&, const std::string&, const std::string&,
+    const std::string&, const std::string&, const std::string&,
+    TopoDS_Edge*, std::string*)>;
+#endif
 
 // Live OCAF document (§3): one BinXCAF document for the process lifetime.
 // Every feature owns a label (UUID name + params comment + XCAF shape).
@@ -83,6 +101,16 @@ class OcafLive {
   bool UpsertSketch(const std::string& sketchId, const std::string& sketchJson,
                     std::string* error);
   bool SketchLabelEntries(std::vector<std::pair<std::string, std::string>>* out);
+#if KREODA_WITH_OCCT
+  bool BindSketchProjectionSources(
+      const std::string& sketchId, const std::string& groupId,
+      const std::vector<ProjectionSelection>& selections,
+      std::string* bindingsJson, std::string* error);
+  bool ReleaseSketchProjectionSources(const std::string& sketchId,
+                                      const std::string& groupId,
+                                      std::string* error);
+  ProjectionSelectionResolver SketchProjectionSourceResolver() const;
+#endif
 
   struct FaceSelection {
     std::string entry;      // TDF_Label entry — stable across save/load

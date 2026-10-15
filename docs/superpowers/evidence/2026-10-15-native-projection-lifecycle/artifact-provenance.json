@@ -1,0 +1,72 @@
+{
+  "parent-275/summary.json": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-lifecycle-owner-delete-parent-20261015\\summary.json",
+    "rawSha256": "b09b8eaca3d6c82e96dd993bd4a964e812945d3d03289d61b3612ac552bf080a",
+    "normalizedWhitespace": false
+  },
+  "parent-275/source-before.json": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-lifecycle-owner-delete-parent-20261015\\source-before.json",
+    "rawSha256": "4e66b34cb6d6a96c023b765499e4b211aaf858debc16a3f2b1c313d4f02fab65",
+    "normalizedWhitespace": false
+  },
+  "parent-275/source-after.json": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-lifecycle-owner-delete-parent-20261015\\source-after.json",
+    "rawSha256": "4e66b34cb6d6a96c023b765499e4b211aaf858debc16a3f2b1c313d4f02fab65",
+    "normalizedWhitespace": false
+  },
+  "parent-275/native.xml": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-lifecycle-owner-delete-parent-20261015\\native.xml",
+    "rawSha256": "00c1a4cc5ade5eb0de4cd74d5bf7739ca79892bf03ec00acb1a134848e1bd0b3",
+    "normalizedWhitespace": false
+  },
+  "parent-275/build.log": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-lifecycle-owner-delete-parent-20261015\\build.log",
+    "rawSha256": "d70bd1ac0f8a3e3ea745d67ad47ed6ef868753304ceccdf8d7e5652f6f1fd51e",
+    "normalizedWhitespace": true
+  },
+  "parent-275/native.log": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-lifecycle-owner-delete-parent-20261015\\native.log",
+    "rawSha256": "425abacb39c4948eef25c89c6fd4f967f525377f284f7a663c3c5e811d97cf04",
+    "normalizedWhitespace": true
+  },
+  "parent-275/core-self-test.log": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-lifecycle-owner-delete-parent-20261015\\core-self-test.log",
+    "rawSha256": "6d9f01bed3efebf1f274ec4cfe84a30441d640513b2401d90b01cccc0a1bf9d2",
+    "normalizedWhitespace": true
+  },
+  "owner-delete/projection-owner-delete-red-confirmed-20261015.txt": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-projection-owner-delete-20261015\\qa\\projection-owner-delete-red-confirmed-20261015.txt",
+    "rawSha256": "0db8aec90055c2c07f83a53dd508b794d66c5743b297b53978fd6c94904a67e9",
+    "normalizedWhitespace": true
+  },
+  "owner-delete/projection-owner-delete-green-20261015.txt": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-projection-owner-delete-20261015\\qa\\projection-owner-delete-green-20261015.txt",
+    "rawSha256": "072d8859fb111ab8eb6c4f857e5994384657b31d81d15a9ca4f5fdf61aeadfb3",
+    "normalizedWhitespace": true
+  },
+  "owner-delete/release-build.txt": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-projection-owner-delete-20261015\\qa\\release-build.txt",
+    "rawSha256": "bbfb9b5729da4f6d0bd6ae1072d5cf36bd4eae842729e9120c71ab0955968d1b",
+    "normalizedWhitespace": true
+  },
+  "owner-delete/stub-build.txt": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-projection-owner-delete-20261015\\qa\\stub-build.txt",
+    "rawSha256": "060d973826f9acc9c0eae523c0059ff0ab082c3e87a6f47a6c41873365236af3",
+    "normalizedWhitespace": true
+  },
+  "owner-delete/stub-self-test.log": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-projection-owner-delete-20261015\\qa\\stub-self-test.log",
+    "rawSha256": "3e103859d946c7c87af08ad835ad82a1cc990f88bf172db49ab0fb48dc8b4eb4",
+    "normalizedWhitespace": true
+  },
+  "owner-delete/core-self-test.log": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-projection-owner-delete-20261015\\qa\\core-self-test.log",
+    "rawSha256": "1c8767055a224ea0520355d1ee034a9e43f702482e452bd6be95c51ace1abfda",
+    "normalizedWhitespace": true
+  },
+  "behavioral-command-evidence.json": {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-lifecycle-worker-observed-20261015\\behavioral-command-evidence.json",
+    "rawSha256": "7318901fbb007a54081bcbc25dee8f0a9ca770b7942c3d0d1b7ddfde133e7f2f",
+    "normalizedWhitespace": false
+  }
+}

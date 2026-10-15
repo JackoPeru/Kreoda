@@ -1,4 +1,5 @@
 #include "sketch_face.h"
+#include "sketch_projection.h"
 
 #if KREODA_WITH_OCCT
 #include <BRepAdaptor_Curve.hxx>
@@ -45,6 +46,8 @@
 #include <algorithm>
 #include <cmath>
 #include <exception>
+#include <map>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -74,15 +77,18 @@ const SketchPoint* FindPoint(const SketchModel& m, const std::string& id) {
 }
 
 struct Edge2D {
+  std::string id;
   TopoDS_Edge edge;
   double x1, y1, x2, y2;  // sketch-space endpoints (for chaining)
 };
 
 bool EdgesFromSketch(const SketchFeature& sketch,
-                     std::vector<Edge2D>* edges, std::string* error) {
+                     std::vector<Edge2D>* edges, std::string* error,
+                     const std::set<std::string>* selected = nullptr) {
   const auto& m = sketch.model;
   const auto& plane = sketch.plane;
   for (const auto& l : m.lines) {
+    if (selected && !selected->count(l.id)) continue;
     const SketchPoint* a = FindPoint(m, l.p1);
     const SketchPoint* b = FindPoint(m, l.p2);
     if (!a || !b) {
@@ -97,7 +103,7 @@ bool EdgesFromSketch(const SketchFeature& sketch,
         if (error) *error = "cannot build line edge";
         return false;
       }
-      edges->push_back({mk.Edge(), a->x, a->y, b->x, b->y});
+      edges->push_back({l.id, mk.Edge(), a->x, a->y, b->x, b->y});
     } catch (const Standard_Failure& f) {
       if (error) *error = std::string("line edge: ") + f.what();
       return false;
@@ -105,6 +111,7 @@ bool EdgesFromSketch(const SketchFeature& sketch,
   }
   gp_Dir normal(plane.normal[0], plane.normal[1], plane.normal[2]);
   for (const auto& c : m.circles) {
+    if (selected && !selected->count(c.id)) continue;
     const SketchPoint* o = FindPoint(m, c.center);
     if (!o) {
       if (error) *error = "circle references unknown point";
@@ -123,13 +130,14 @@ bool EdgesFromSketch(const SketchFeature& sketch,
         return false;
       }
       edges->push_back(
-          {mk.Edge(), o->x, o->y, o->x, o->y});  // closed: same endpoints
+          {c.id, mk.Edge(), o->x, o->y, o->x, o->y});  // closed: same endpoints
     } catch (const Standard_Failure& f) {
       if (error) *error = std::string("circle edge: ") + f.what();
       return false;
     }
   }
   for (const auto& a : m.arcs) {
+    if (selected && !selected->count(a.id)) continue;
     const SketchPoint* o = FindPoint(m, a.center);
     if (!o) {
       if (error) *error = "arc references unknown point";
@@ -168,7 +176,7 @@ bool EdgesFromSketch(const SketchFeature& sketch,
       const double y2 = (p2.X() - plane.origin[0]) * plane.yAxis[0] +
                         (p2.Y() - plane.origin[1]) * plane.yAxis[1] +
                         (p2.Z() - plane.origin[2]) * plane.yAxis[2];
-      edges->push_back({me.Edge(), x1, y1, x2, y2});
+      edges->push_back({a.id, me.Edge(), x1, y1, x2, y2});
     } catch (const Standard_Failure& f) {
       if (error) *error = std::string("arc edge: ") + f.what();
       return false;
@@ -620,11 +628,46 @@ bool BuildProfileFromSketch(const SketchFeature& sketch, TopoDS_Shape* output,
   std::vector<TopoDS_Edge> edges;
   edges.reserve(sketchEdges.size());
   for (const auto& edge : sketchEdges) edges.push_back(edge.edge);
+  for (const auto& group : sketch.projectionGroups) {
+    if (group.status != "ok")
+      return ProfileFail(error, "broken projection group " + group.groupId +
+                                     ": " + group.error);
+    edges.insert(edges.end(), group.evaluatedEdges.begin(),
+                 group.evaluatedEdges.end());
+  }
   TopoDS_Shape candidate;
   if (!BuildPlanarProfileFromEdges(edges, sketch.plane, &candidate, error)) {
     return false;
   }
   *output = candidate;
+  return true;
+}
+
+bool BuildSketchEntityEdges(const SketchFeature& sketch,
+                            const std::vector<std::string>& entityIds,
+                            std::vector<TopoDS_Edge>* output,
+                            std::string* error) {
+  if (!output) return ProfileFail(error, "sketch entity output is null");
+  if (entityIds.empty()) return ProfileFail(error, "sketch entityIds is empty");
+  const std::set<std::string> selected(entityIds.begin(), entityIds.end());
+  if (selected.size() != entityIds.size())
+    return ProfileFail(error, "sketch entityIds contains duplicates");
+  std::map<std::string, size_t> matches;
+  for (const auto& line : sketch.model.lines) ++matches[line.id];
+  for (const auto& circle : sketch.model.circles) ++matches[circle.id];
+  for (const auto& arc : sketch.model.arcs) ++matches[arc.id];
+  for (const auto& id : selected) {
+    if (matches[id] != 1)
+      return ProfileFail(error, "sketch entity id is missing or ambiguous");
+  }
+  std::vector<Edge2D> result;
+  if (!EdgesFromSketch(sketch, &result, error, &selected)) return false;
+  if (result.size() != selected.size())
+    return ProfileFail(error, "sketch entity id is missing or ambiguous");
+  std::vector<TopoDS_Edge> edges;
+  edges.reserve(result.size());
+  for (const auto& item : result) edges.push_back(item.edge);
+  *output = std::move(edges);
   return true;
 }
 

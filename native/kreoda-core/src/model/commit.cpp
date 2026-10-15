@@ -5,6 +5,7 @@
 #include "features/sketch/sketch_store.h"
 #include "features/datum/datum_store.h"
 #include "model/feature_graph.h"
+#include "model/geometry_availability.h"
 
 #if KREODA_WITH_OCCT
 #include <BRepBndLib.hxx>
@@ -42,6 +43,8 @@ bool CommitShape(const std::string& featureId, const std::string& type,
                  std::string refExtra, const TopoDS_Shape& shape,
                  const ShapeRecord* previous, bool countRevision,
                  std::string* error) {
+  for (const auto& dependency : deps)
+    if (!EnsureGeometryAvailable(dependency, error)) return false;
   if (shape.IsNull()) {
     if (error) *error = type + ": kernel returned null shape";
     return false;

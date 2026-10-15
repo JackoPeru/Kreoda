@@ -6,6 +6,7 @@
 #include <regex>
 #include <stdexcept>
 #include "../../model/shapes.h"
+#include "../../model/geometry_availability.h"
 #include "../../protocol/json_fields.h"
 #include "../../topology/face_roles.h"
 #if KREODA_WITH_OCCT
@@ -61,7 +62,13 @@ void dependency(const std::string& id, DatumRecord& out) {
   if(std::find(out.dependsOn.begin(),out.dependsOn.end(),id)==out.dependsOn.end()) out.dependsOn.push_back(id);
 }
 bool storedShape(const std::string& id, const DatumSourceRecords* sources, ShapeRecord* out) {
-  if(!sources) return ShapeStore::instance().get(id,out);
+  if(!sources) {
+    std::string error;
+    if (ShapeStore::instance().contains(id) &&
+        !GetCurrentShapeRecord(id, out, &error))
+      fail("datum source geometry unavailable: " + error);
+    return ShapeStore::instance().contains(id);
+  }
   int count=0; for(const auto& record:sources->shapes) if(record.featureId==id) { *out=record; ++count; }
   if(count>1) fail("incoming native source is ambiguous: "+id); return count==1;
 }

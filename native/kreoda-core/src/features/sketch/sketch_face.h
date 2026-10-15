@@ -22,6 +22,10 @@ bool BuildPlanarProfileFromEdges(const std::vector<TopoDS_Edge>& edges,
                                  TopoDS_Shape* output, std::string* error);
 bool BuildProfileFromSketch(const SketchFeature& sketch,
                             TopoDS_Shape* output, std::string* error);
+bool BuildSketchEntityEdges(const SketchFeature& sketch,
+                            const std::vector<std::string>& entityIds,
+                            std::vector<TopoDS_Edge>* output,
+                            std::string* error);
 // Compatibility API: succeeds only when the sketch has exactly one region.
 bool BuildFaceFromSketch(const SketchFeature& sketch, TopoDS_Face* out,
                          std::string* error);

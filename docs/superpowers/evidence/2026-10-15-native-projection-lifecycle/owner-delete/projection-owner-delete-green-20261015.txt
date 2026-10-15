@@ -1,0 +1,13 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = SketchProjectionLifecycle.DeletingTargetReleasesOnlyOwnedBindings
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SketchProjectionLifecycle
+[ RUN      ] SketchProjectionLifecycle.DeletingTargetReleasesOnlyOwnedBindings
+[       OK ] SketchProjectionLifecycle.DeletingTargetReleasesOnlyOwnedBindings (35 ms)
+[----------] 1 test from SketchProjectionLifecycle (35 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (35 ms total)
+[  PASSED  ] 1 test.
+FOCUSED_EXIT=0

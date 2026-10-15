@@ -5,6 +5,7 @@
 
 #include "document/document_store.h"
 #include "model/commit.h"
+#include "model/geometry_availability.h"
 #include "model/feature_graph.h"
 #include "model/shapes.h"
 #include "topology/face_roles.h"
@@ -203,8 +204,8 @@ static bool CreateDressUp(const std::string& kind, const std::string& featureId,
     return false;
   }
   ShapeRecord target;
-  if (!ShapeStore::instance().get(targetId, &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(targetId, &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) *error = "unknown target " + targetId;
     return false;
   }
@@ -267,8 +268,8 @@ bool RebuildFilletFromStore(const std::string& featureId, std::string* error) {
     return false;
   }
   ShapeRecord target;
-  if (!ShapeStore::instance().get(rec.dependsOn[0], &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(rec.dependsOn[0], &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) {
       *error = "dress-up target vanished (needs repair): " + rec.dependsOn[0];
     }

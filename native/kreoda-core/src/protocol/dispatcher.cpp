@@ -47,10 +47,12 @@
 #include "features/revolve/revolve.h"
 #include "features/sketch/sketch_commands.h"
 #include "features/sketch/sketch_json.h"
+#include "features/sketch/sketch_projection.h"
 #include "features/sketch/sketch_store.h"
 #include "model/feature_graph.h"
 #include "model/body.h"
 #include "model/shapes.h"
+#include "model/geometry_availability.h"
 #include "protocol/mesh_fb.h"
 #include "topology/face_roles.h"
 #include "persistence/icad_zip.h"
@@ -162,7 +164,19 @@ std::string sketch_body(const SketchFeature& sketch,
      << ",\"planeKind\":\"" << escape(sketch.planeKind) << "\""
      << ",\"revision\":" << DocumentStore::instance().revision() << ","
      << undo_counts_body() << ",\"sketch\":"
-     << SerializeSketchFeature(sketch);
+      << SerializeSketchFeatureForInspection(sketch);
+  const auto availability = GetGeometryAvailability(sketch.id);
+  os << ",\"geometryCurrent\":" << (availability.geometryCurrent ? "true" : "false")
+     << ",\"status\":\"" << escape(availability.status) << "\"";
+  if (!availability.geometryCurrent) {
+    os << ",\"error\":\"" << escape(availability.error)
+       << "\",\"blockingSourceIds\":[";
+    for (size_t i = 0; i < availability.blockingSourceIds.size(); ++i) {
+      if (i) os << ",";
+      os << "\"" << escape(availability.blockingSourceIds[i]) << "\"";
+    }
+    os << "]";
+  }
   if (solve) {
     os << ",\"solved\":" << (solve->ok ? "true" : "false")
        << ",\"residual\":" << solve->residual << ",\"dofs\":" << solve->dofs;
@@ -210,8 +224,22 @@ std::string feature_list_body() {
       }
     }
     os << "}";
-    os << ",\"refExtra\":\"" << escape(rec.refExtra)
-       << "\",\"volumeMm3\":" << rec.volumeMm3 << "}";
+    os << ",\"refExtra\":\"" << escape(rec.refExtra) << "\"";
+    const auto availability = GetGeometryAvailability(rec.featureId);
+    os << ",\"geometryCurrent\":" << (availability.geometryCurrent ? "true" : "false")
+       << ",\"status\":\"" << escape(availability.status) << "\"";
+    if (availability.geometryCurrent) {
+      os << ",\"volumeMm3\":" << rec.volumeMm3;
+    } else {
+      os << ",\"error\":\"" << escape(availability.error)
+         << "\",\"blockingSourceIds\":[";
+      for (size_t i = 0; i < availability.blockingSourceIds.size(); ++i) {
+        if (i) os << ",";
+        os << "\"" << escape(availability.blockingSourceIds[i]) << "\"";
+      }
+      os << "]";
+    }
+    os << "}";
   }
   os << "],\"sketches\":[";
   first = true;
@@ -225,7 +253,21 @@ std::string feature_list_body() {
        << ",\"circles\":" << sk.model.circles.size()
        << ",\"constraints\":" << sk.model.constraints.size()
        << ",\"supportRef\":\"" << escape(sk.supportRef) << "\",\"plane\":"
-       << Json::parse(SerializeSketchFeature(sk))["plane"].dump() << "}";
+       << Json::parse(SerializeSketchFeature(sk))["plane"].dump();
+    const auto availability = GetGeometryAvailability(sk.id);
+    os << ",\"geometryCurrent\":" << (availability.geometryCurrent ? "true" : "false")
+       << ",\"status\":\"" << escape(availability.status) << "\"";
+    if (!availability.geometryCurrent) {
+      os << ",\"error\":\"" << escape(availability.error)
+         << "\",\"blockingSourceIds\":[";
+      for (size_t i = 0; i < availability.blockingSourceIds.size(); ++i) {
+        if (i) os << ",";
+        os << "\"" << escape(availability.blockingSourceIds[i]) << "\"";
+      }
+      os << "]";
+    }
+    os << ",\"projectionGroups\":"
+       << SerializeSketchProjectionGroupsForInspection(sk.projectionGroups) << "}";
   }
   os << "],\"datums\":[";
   first=true;
@@ -258,7 +300,7 @@ void SyncGraphFromStore() {
     TheFeatureGraph().clearDirty(datum.featureId);
   }
   for (const auto& sk : SketchStore::instance().listInOrder()) {
-    TheFeatureGraph().addFeature(sk.id, sk.supportRef.empty() ? std::vector<std::string>{} : std::vector<std::string>{sk.supportRef});
+    TheFeatureGraph().addFeature(sk.id, SketchDependencies(sk));
     TheFeatureGraph().clearDirty(sk.id);
   }
   for (const auto& rec : ShapeStore::instance().listInOrder()) {
@@ -538,8 +580,10 @@ std::vector<uint8_t> mesh_success(const std::string& requestId,
     *error = "mesh encode failed";
   return fb;
 #else
+  (void)requestId;
   (void)featureId;
   (void)lod;
+  (void)mesh;
   if (error) *error = "mesh binary requires FlatBuffers (link via vcpkg)";
   return {};
 #endif
@@ -722,6 +766,10 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       const std::string featureId =
           json_string_field(requestJson, "featureId", "");
       const int lod = json_int_field(requestJson, "lod", 1);
+      std::string availabilityError;
+      if (!EnsureGeometryAvailable(featureId, &availabilityError))
+        return make_response(requestId, "error",
+                             error_body("MESH_FAILED", availabilityError));
       // Revision-keyed response cache (Phase 8 large-model slice): reopen /
       // undo / redo re-pull identical meshes constantly; tessellation +
       // encoding dominate the cost. The (document, revision) in the key
@@ -1765,6 +1813,7 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       return make_response(requestId, "ok", b.str());
     }
     case kRequestFaceInfo: {
+#if KREODA_WITH_OCCT
       // Face plane frame for positioning (hole defaults, §10): world-space
       // origin/axes/normal of the resolved persistent face.
       const std::string featureId =
@@ -1776,8 +1825,11 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         role = (cut == std::string::npos) ? faceId : faceId.substr(cut + 1);
       }
       ShapeRecord rec;
-      if (!ShapeStore::instance().get(featureId, &rec) ||
-          rec.shape.IsNull()) {
+      std::string availabilityError;
+      if (!GetCurrentShapeRecord(featureId, &rec, &availabilityError)) {
+        if (ShapeStore::instance().contains(featureId))
+          return make_response(requestId, "error",
+                               error_body("GEOMETRY_UNAVAILABLE", availabilityError));
         return make_response(requestId, "error",
                              error_body("NOT_FOUND", featureId));
       }
@@ -1797,6 +1849,11 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
            << normal[1] << "," << normal[2] << "],\"revision\":"
            << DocumentStore::instance().revision() << "," << undo_counts_body();
       return make_response(requestId, "ok", body.str());
+#else
+      return make_response(requestId, "error",
+                           error_body("NOT_IMPLEMENTED",
+                                      "face frames require the OCCT kernel"));
+#endif
     }
     case kDeleteFeature: {
       const std::string featureId =
@@ -1832,9 +1889,10 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         }
       }
       for (const auto& sketch : SketchStore::instance().listInOrder()) {
+        const auto dependencies = SketchDependencies(sketch);
         if (sketch.id != featureId &&
-            (sketch.supportRef == featureId ||
-             sketch.supportRef.rfind(featureId + ":", 0) == 0)) {
+            std::find(dependencies.begin(), dependencies.end(), featureId) !=
+                dependencies.end()) {
           dependents.insert(sketch.id);
         }
       }

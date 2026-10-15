@@ -22,6 +22,7 @@
 #include <gp_Pnt.hxx>
 
 #include "features/sketch/sketch_face.h"
+#include "model/geometry_availability.h"
 #include "features/sketch/sketch_store.h"
 #include "persistence/ocaf_live.h"
 #endif
@@ -36,6 +37,7 @@ bool BuildRevolveShape(const std::string& sketchId, double angleDeg,
     if (error) *error = "unknown sketch " + sketchId;
     return false;
   }
+  if (!EnsureGeometryAvailable(sketchId, error)) return false;
   TopoDS_Shape profile;
   if (!BuildProfileFromSketch(sketch, &profile, error)) return false;
   try {

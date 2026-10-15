@@ -1,5 +1,6 @@
 #include "datum_json.h"
 #include "../../protocol/json_fields.h"
+#include "../sketch/sketch_projection.h"
 #include "../../model/feature_graph.h"
 #include <set>
 #include <stdexcept>
@@ -49,7 +50,7 @@ bool ParseDatumDefinitions(const std::vector<std::string>& jsonRecords,
     std::set<std::string> allIds;
     FeatureGraph graph;
     for(const auto& shape:shapes) { if(!allIds.insert(shape.featureId).second) throw std::runtime_error("duplicate native feature id"); graph.addFeature(shape.featureId,shape.dependsOn); }
-    for(const auto& sketch:sketches) { if(!allIds.insert(sketch.id).second) throw std::runtime_error("duplicate sketch feature id"); graph.addFeature(sketch.id,sketch.supportRef.empty()?std::vector<std::string>{}:std::vector<std::string>{sketch.supportRef}); }
+    for(const auto& sketch:sketches) { if(!allIds.insert(sketch.id).second) throw std::runtime_error("duplicate sketch feature id"); graph.addFeature(sketch.id,SketchDependencies(sketch)); }
     for(const auto& text:jsonRecords) {
       if(text.size()>65536) throw std::runtime_error("datum record too large");
       const auto json=parse_json_object(text); if(!json.is_object()||json_int_field(json,"version",0)!=1) throw std::runtime_error("unsupported datum record version");

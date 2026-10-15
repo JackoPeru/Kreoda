@@ -6,6 +6,7 @@
 #include "document/document_store.h"
 #include "features/evaluate.h"
 #include "features/sketch/sketch_json.h"
+#include "features/sketch/sketch_projection.h"
 #include "model/body.h"
 #include "model/feature_graph.h"
 #include "model/model_snapshot.h"
@@ -195,15 +196,15 @@ static bool CreateSketchFeatureImpl(const std::string& sketchId,
     OcafLive::instance().AbortCommand();
     return false;
   }
-  TheFeatureGraph().addFeature(sketchId, sketch.supportRef.empty() ? std::vector<std::string>{} : std::vector<std::string>{sketch.supportRef});
+  TheFeatureGraph().addFeature(sketchId, SketchDependencies(sketch));
   TheFeatureGraph().clearDirty(sketchId);
   bool hadDelta = false;
   OcafLive::instance().CommitCommand(&hadDelta, nullptr);
   DocumentStore::instance().registerFeature(sketchId, "Sketch");
   return true;
 #else
-  SketchStore::instance().put(std::move(sketch));
-  TheFeatureGraph().addFeature(sketchId, sketch.supportRef.empty() ? std::vector<std::string>{} : std::vector<std::string>{sketch.supportRef});
+  SketchStore::instance().put(sketch);
+  TheFeatureGraph().addFeature(sketchId, SketchDependencies(sketch));
   TheFeatureGraph().clearDirty(sketchId);
   DocumentStore::instance().registerFeature(sketchId, "Sketch");
   return true;
@@ -255,10 +256,7 @@ bool UpdateSketchFeature(const std::string& sketchId,
   }
 #if KREODA_WITH_OCCT
   const ModelSnapshot before;
-  if (!TheFeatureGraph().hasFeature(sketchId)) {
-    TheFeatureGraph().addFeature(sketchId, prev.supportRef.empty() ? std::vector<std::string>{} : std::vector<std::string>{prev.supportRef});
-    TheFeatureGraph().clearDirty(sketchId);
-  }
+  TheFeatureGraph().addFeature(sketchId, SketchDependencies(next));
   TheFeatureGraph().markDirty(sketchId);
   SketchStore::instance().put(next);
   if (!OcafLive::instance().BeginCommand(error)) {
@@ -286,7 +284,8 @@ bool UpdateSketchFeature(const std::string& sketchId,
   DocumentStore::instance().registerFeature(sketchId, "Sketch");
   return true;
 #else
-  SketchStore::instance().put(std::move(next));
+  SketchStore::instance().put(next);
+  TheFeatureGraph().addFeature(sketchId, SketchDependencies(next));
   TheFeatureGraph().markDirty(sketchId);
   DocumentStore::instance().registerFeature(sketchId, "Sketch");
   return true;
@@ -295,9 +294,7 @@ bool UpdateSketchFeature(const std::string& sketchId,
 
 bool PutSketchDirect(const SketchFeature& sketch) {
   SketchStore::instance().put(sketch);
-  if (!TheFeatureGraph().hasFeature(sketch.id)) {
-    TheFeatureGraph().addFeature(sketch.id);
-  }
+  TheFeatureGraph().addFeature(sketch.id, SketchDependencies(sketch));
   TheFeatureGraph().clearDirty(sketch.id);
   return true;
 }
