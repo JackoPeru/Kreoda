@@ -1,0 +1,16 @@
+build-and-test	Native self-test + gtest	2026-10-15T14:07:47.5229873Z kreoda-core self-test OK
+build-and-test	Native self-test + gtest	2026-10-15T14:09:14.3634131Z 100% tests passed out of 244
+build-and-test	.NET build + tests	2026-10-15T14:11:14.1191517Z Passed!  - Failed:     0, Passed:   141, Skipped:     0, Total:   141, Duration: 1 s - Kreoda.SessionClient.Tests.dll (net8.0)
+build-and-test	.NET build + tests	2026-10-15T14:11:15.8983322Z Passed!  - Failed:     0, Passed:    33, Skipped:     0, Total:    33, Duration: 39 ms - Kreoda.ModelingAgent.Tests.dll (net8.0)
+build-and-test	.NET build + tests	2026-10-15T14:11:18.4405990Z Passed!  - Failed:     0, Passed:    34, Skipped:     0, Total:    34, Duration: 1 s - Kreoda.HermesBridge.Tests.dll (net8.0)
+build-and-test	.NET build + tests	2026-10-15T14:11:20.0153601Z Passed!  - Failed:     0, Passed:    33, Skipped:     0, Total:    33, Duration: 116 ms - Kreoda.ModelingAgent.Benchmark.Tests.dll (net8.0)
+build-and-test	Verify Squirrel install and packaged core	2026-10-15T14:14:40.6198802Z kreoda-core self-test OK
+build-and-test	Full regression (test:all)	2026-10-15T14:16:14.6691722Z Passed!  - Failed:     0, Passed:   141, Skipped:     0, Total:   141, Duration: 1 s - Kreoda.SessionClient.Tests.dll (net8.0)
+build-and-test	Full regression (test:all)	2026-10-15T14:16:16.3207966Z Passed!  - Failed:     0, Passed:    33, Skipped:     0, Total:    33, Duration: 39 ms - Kreoda.ModelingAgent.Tests.dll (net8.0)
+build-and-test	Full regression (test:all)	2026-10-15T14:16:18.7232994Z Passed!  - Failed:     0, Passed:    34, Skipped:     0, Total:    34, Duration: 1 s - Kreoda.HermesBridge.Tests.dll (net8.0)
+build-and-test	Full regression (test:all)	2026-10-15T14:16:20.1394365Z Passed!  - Failed:     0, Passed:    33, Skipped:     0, Total:    33, Duration: 110 ms - Kreoda.ModelingAgent.Benchmark.Tests.dll (net8.0)
+build-and-test	Full regression (test:all)	2026-10-15T14:25:17.7195513Z   67 passed (8.4m)
+build-and-test	Full regression (test:all)	2026-10-15T14:27:57.3075661Z 100% tests passed out of 1
+build-and-test	Full regression (test:all)	2026-10-15T14:30:11.9280689Z   32 passed (2.2m)
+build-and-test	Full regression (test:all)	2026-10-15T14:32:41.4798082Z 100% tests passed out of 1
+build-and-test	Full regression (test:all)	2026-10-15T14:32:41.4863453Z PHASE10_CRASH_GATE {"passed":true,"production_core_restored":true}
