@@ -49,6 +49,7 @@
 #include "../src/model/shapes.h"
 #include "../src/persistence/ocaf_live.h"
 #include "../src/protocol/dispatcher.h"
+#include "../src/protocol/save_publish_retry.h"
 #include "../src/tessellation/mesh.h"
 #include "../src/topology/face_roles.h"
 #include "../src/features/sketch/sketch_store.h"
@@ -756,6 +757,32 @@ TEST(Torture10, ReferenceMetadata100CyclesAndFailedSave) {
   fs::remove_all(dir, ec);
 }
 
+TEST(Torture10, SavePublishRetryDecisionSequence) {
+  using kreoda::protocol::save_publish_retry::Decide;
+  using kreoda::protocol::save_publish_retry::Decision;
+  using kreoda::protocol::save_publish_retry::TargetState;
+
+  // Every state below follows a failed rename. A lock observed after an
+  // immediate clear-target retry must reset that one-shot allowance.
+  bool retriedWithDeleteAvailable = false;
+  EXPECT_EQ(Decide(TargetState::DeleteAvailable, retriedWithDeleteAvailable),
+            Decision::RetryNow);
+  EXPECT_EQ(Decide(TargetState::DeleteShareLocked, retriedWithDeleteAvailable),
+            Decision::Wait);
+  EXPECT_EQ(Decide(TargetState::DeleteAvailable, retriedWithDeleteAvailable),
+            Decision::RetryNow);
+
+  // Consecutive clear-target failures mean the error is permanent; unrelated
+  // nonretryable failures also stop without a delay.
+  bool consecutiveClearRetry = false;
+  EXPECT_EQ(Decide(TargetState::DeleteAvailable, consecutiveClearRetry),
+            Decision::RetryNow);
+  EXPECT_EQ(Decide(TargetState::DeleteAvailable, consecutiveClearRetry),
+            Decision::Stop);
+  EXPECT_EQ(Decide(TargetState::NonRetryable, consecutiveClearRetry),
+            Decision::Stop);
+}
+
 #if defined(_WIN32)
 TEST(Torture10, WindowsLockedRenameErrorMapping) {
   const fs::path dir = UniqueSaveLockDirectory();
@@ -873,7 +900,7 @@ TEST(Torture10, PersistentWindowsTargetLockFailsAtomically) {
   fs::remove_all(dir, ec);
 }
 
-TEST(Torture10, PermanentWindowsPublishErrorsDoNotWait) {
+TEST(Torture10, PermanentWindowsPublishErrorsPreserveState) {
   const fs::path dir = UniqueSaveLockDirectory();
   std::error_code ec;
   ASSERT_TRUE(fs::create_directories(dir, ec)) << ec.message();
@@ -888,40 +915,40 @@ TEST(Torture10, PermanentWindowsPublishErrorsDoNotWait) {
                                        readonlyTarget.string(), oldReferences)));
   const std::string oldBytes = ReadFileBytes(readonlyTarget);
   ASSERT_FALSE(oldBytes.empty());
+  const int64_t revisionBefore =
+      kreoda::DocumentStore::instance().revision();
   DWORD attributes = GetFileAttributesW(readonlyTarget.c_str());
   ASSERT_NE(attributes, INVALID_FILE_ATTRIBUTES) << GetLastError();
   ASSERT_TRUE(SetFileAttributesW(readonlyTarget.c_str(),
                                  attributes | FILE_ATTRIBUTE_READONLY))
               << GetLastError();
 
-  const auto readonlyStarted = std::chrono::steady_clock::now();
   const std::string readonlyFailure = saveWithReferencesRpc(
       "readonly-target", "save-lock-permanent", readonlyTarget.string(),
       rejectedReferences);
-  const auto readonlyElapsed =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::steady_clock::now() - readonlyStarted);
   EXPECT_FALSE(ok(readonlyFailure)) << readonlyFailure;
-  EXPECT_LT(readonlyElapsed.count(), 150);
+  EXPECT_NE(readonlyFailure.find("SAVE_FAILED"), std::string::npos)
+      << readonlyFailure;
   EXPECT_EQ(ReadFileBytes(readonlyTarget), oldBytes);
   EXPECT_TRUE(PublicationTempsFor(readonlyTarget).empty());
+  EXPECT_EQ(kreoda::DocumentStore::instance().referencePlanesJson(),
+            oldReferences);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revisionBefore);
   EXPECT_TRUE(SetFileAttributesW(readonlyTarget.c_str(), attributes))
       << GetLastError();
 
   ASSERT_TRUE(fs::create_directory(directoryTarget, ec)) << ec.message();
-  const auto directoryStarted = std::chrono::steady_clock::now();
   const std::string directoryFailure = saveWithReferencesRpc(
       "directory-target", "save-lock-permanent", directoryTarget.string(),
       rejectedReferences);
-  const auto directoryElapsed =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::steady_clock::now() - directoryStarted);
   EXPECT_FALSE(ok(directoryFailure)) << directoryFailure;
-  EXPECT_LT(directoryElapsed.count(), 150);
+  EXPECT_NE(directoryFailure.find("SAVE_FAILED"), std::string::npos)
+      << directoryFailure;
   EXPECT_TRUE(fs::is_directory(directoryTarget));
   EXPECT_TRUE(PublicationTempsFor(directoryTarget).empty());
   EXPECT_EQ(kreoda::DocumentStore::instance().referencePlanesJson(),
             oldReferences);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revisionBefore);
   fs::remove_all(dir, ec);
 }
 #endif

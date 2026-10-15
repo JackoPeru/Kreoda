@@ -1,0 +1,109 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Torture10.SavePublishRetryDecisionSequence:Torture10.WindowsLockedRenameErrorMapping:Torture10.SaveRetriesAfterTransientWindowsTargetLock:Torture10.PersistentWindowsTargetLockFailsAtomically:Torture10.PermanentWindowsPublishErrorsPreserveState:Projection.*:Sketch.*
+[==========] Running 42 tests from 3 test suites.
+[----------] Global test environment set-up.
+[----------] 5 tests from Torture10
+[ RUN      ] Torture10.SavePublishRetryDecisionSequence
+[       OK ] Torture10.SavePublishRetryDecisionSequence (0 ms)
+[ RUN      ] Torture10.WindowsLockedRenameErrorMapping
+WIN_LOCK_RENAME_MAP value=5 category=system message=Accesso negato.
+[       OK ] Torture10.WindowsLockedRenameErrorMapping (4 ms)
+[ RUN      ] Torture10.SaveRetriesAfterTransientWindowsTargetLock
+[       OK ] Torture10.SaveRetriesAfterTransientWindowsTargetLock (159 ms)
+[ RUN      ] Torture10.PersistentWindowsTargetLockFailsAtomically
+[       OK ] Torture10.PersistentWindowsTargetLockFailsAtomically (227 ms)
+[ RUN      ] Torture10.PermanentWindowsPublishErrorsPreserveState
+[       OK ] Torture10.PermanentWindowsPublishErrorsPreserveState (23 ms)
+[----------] 5 tests from Torture10 (414 ms total)
+
+[----------] 21 tests from Sketch
+[ RUN      ] Sketch.ExplicitFrameExtrudesAtStoredOriginAndBasis
+[       OK ] Sketch.ExplicitFrameExtrudesAtStoredOriginAndBasis (3 ms)
+[ RUN      ] Sketch.InvalidExplicitFrameLeavesDocumentAndUndoUntouched
+[       OK ] Sketch.InvalidExplicitFrameLeavesDocumentAndUndoUntouched (0 ms)
+[ RUN      ] Sketch.DuplicateIdsRejected
+[       OK ] Sketch.DuplicateIdsRejected (0 ms)
+[ RUN      ] Sketch.IdCollisionAcrossStoresRejected
+[       OK ] Sketch.IdCollisionAcrossStoresRejected (0 ms)
+[ RUN      ] Sketch.FixedConstraintPinsPoint
+[       OK ] Sketch.FixedConstraintPinsPoint (0 ms)
+[ RUN      ] Sketch.UnknownDragPointRejected
+[       OK ] Sketch.UnknownDragPointRejected (0 ms)
+[ RUN      ] Sketch.ExtrudeRolesStableAcrossDistanceEdit
+[       OK ] Sketch.ExtrudeRolesStableAcrossDistanceEdit (4 ms)
+[ RUN      ] Sketch.JsonRoundTrip
+[       OK ] Sketch.JsonRoundTrip (0 ms)
+[ RUN      ] Sketch.CreateSolvesExactly
+[       OK ] Sketch.CreateSolvesExactly (0 ms)
+[ RUN      ] Sketch.ExtrudeGivesExactVolume
+[       OK ] Sketch.ExtrudeGivesExactVolume (2 ms)
+[ RUN      ] Sketch.ExtrudePreservesDisconnectedMaterialRegions
+[       OK ] Sketch.ExtrudePreservesDisconnectedMaterialRegions (3 ms)
+[ RUN      ] Sketch.OpenProfileRejected
+[       OK ] Sketch.OpenProfileRejected (0 ms)
+[ RUN      ] Sketch.UpdatePropagatesDownstream
+[       OK ] Sketch.UpdatePropagatesDownstream (5 ms)
+[ RUN      ] Sketch.ConflictingEditRejectedKeepsOld
+[planegcs] Sketcher::RedundantSolving-DogLeg-
+
+[planegcs] Sketcher Redundant solving: 0 redundants
+
+[planegcs] Sketcher::RedundantSolving-DogLeg-
+
+[planegcs] Sketcher Redundant solving: 0 redundants
+
+[       OK ] Sketch.ConflictingEditRejectedKeepsOld (0 ms)
+[ RUN      ] Sketch.RevolveFullCircleExactVolume
+[       OK ] Sketch.RevolveFullCircleExactVolume (1 ms)
+[ RUN      ] Sketch.RevolvePreservesDisconnectedMaterialRegions
+[       OK ] Sketch.RevolvePreservesDisconnectedMaterialRegions (1 ms)
+[ RUN      ] Sketch.ExtrudePreviewDoesNotCommit
+[       OK ] Sketch.ExtrudePreviewDoesNotCommit (5 ms)
+[ RUN      ] Sketch.BodyPreviewCarriesExtrudeAndHoleWithoutChangingSketch
+[       OK ] Sketch.BodyPreviewCarriesExtrudeAndHoleWithoutChangingSketch (27 ms)
+[ RUN      ] Sketch.UndoSketchEditRestoresDownstream
+[       OK ] Sketch.UndoSketchEditRestoresDownstream (12 ms)
+[ RUN      ] Sketch.SaveOpenKeepsSketchAndSolid
+[       OK ] Sketch.SaveOpenKeepsSketchAndSolid (27 ms)
+[ RUN      ] Sketch.RadiusPreviewReturnsSolvedGeometryWithoutChangingStoredSketch
+[       OK ] Sketch.RadiusPreviewReturnsSolvedGeometryWithoutChangingStoredSketch (0 ms)
+[----------] 21 tests from Sketch (98 ms total)
+
+[----------] 16 tests from Projection
+[ RUN      ] Projection.EdgesApplySourceLocationAndTiltedTargetFrame
+[       OK ] Projection.EdgesApplySourceLocationAndTiltedTargetFrame (0 ms)
+[ RUN      ] Projection.TrimmedObliqueCircleRetainsAnalyticEllipseAndTrim
+[       OK ] Projection.TrimmedObliqueCircleRetainsAnalyticEllipseAndTrim (0 ms)
+[ RUN      ] Projection.SplineProjectionRetainsNativeCurveAndParameterMapping
+[       OK ] Projection.SplineProjectionRetainsNativeCurveAndParameterMapping (0 ms)
+[ RUN      ] Projection.ClosedProjectedLoopRetainsOrientationAndAnalyticArea
+[       OK ] Projection.ClosedProjectedLoopRetainsOrientationAndAnalyticArea (0 ms)
+[ RUN      ] Projection.TiltedProjectedCircleBuildsExactProfileAndPrismWithoutMutation
+[       OK ] Projection.TiltedProjectedCircleBuildsExactProfileAndPrismWithoutMutation (1 ms)
+[ RUN      ] Projection.ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops
+[       OK ] Projection.ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops (3 ms)
+[ RUN      ] Projection.ClosedBSplineProfileRetainsNativeCurve
+[       OK ] Projection.ClosedBSplineProfileRetainsNativeCurve (0 ms)
+[ RUN      ] Projection.TrimmedBSplineProfileValidatesOnlyUsedSpanPoles
+[       OK ] Projection.TrimmedBSplineProfileValidatesOnlyUsedSpanPoles (2 ms)
+[ RUN      ] Projection.AmbiguousAndInvalidProfilesFailAtomically
+[       OK ] Projection.AmbiguousAndInvalidProfilesFailAtomically (4 ms)
+[ RUN      ] Projection.SphereSilhouetteIsTargetPlaneCircleAndRepeatable
+[       OK ] Projection.SphereSilhouetteIsTargetPlaneCircleAndRepeatable (2 ms)
+[ RUN      ] Projection.ObliqueBoxSilhouetteHasAnalyticAreaWithoutInternalCreases
+[       OK ] Projection.ObliqueBoxSilhouetteHasAnalyticAreaWithoutInternalCreases (26 ms)
+[ RUN      ] Projection.AnnularFaceSilhouettePreservesInnerContour
+[       OK ] Projection.AnnularFaceSilhouettePreservesInnerContour (1 ms)
+[ RUN      ] Projection.SphereSectionHasAnalyticRadiusInRotatedFrame
+[       OK ] Projection.SphereSectionHasAnalyticRadiusInRotatedFrame (0 ms)
+[ RUN      ] Projection.SectionPreservesSourceTopologyOnSuccessAndFailure
+[       OK ] Projection.SectionPreservesSourceTopologyOnSuccessAndFailure (5 ms)
+[ RUN      ] Projection.NullMalformedNonfiniteUnboundedAndCollapsedInputsFailAtomically
+[       OK ] Projection.NullMalformedNonfiniteUnboundedAndCollapsedInputsFailAtomically (0 ms)
+[ RUN      ] Projection.DisjointSectionAndNullSilhouetteFailWithoutPublishing
+[       OK ] Projection.DisjointSectionAndNullSilhouetteFailWithoutPublishing (0 ms)
+[----------] 16 tests from Projection (50 ms total)
+
+[----------] Global test environment tear-down
+[==========] 42 tests from 3 test suites ran. (564 ms total)
+[  PASSED  ] 42 tests.

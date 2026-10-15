@@ -3,6 +3,7 @@
 #include "features/datum/datum_commands.h"
 #include "dispatcher.h"
 #include "protocol/json_fields.h"
+#include "protocol/save_publish_retry.h"
 #include "protocol/session_geometry.h"
 #include "diagnostics/crash_barrier.h"
 
@@ -373,21 +374,19 @@ void discardDocSnapshot(const DocSnapshot& s) {
 }
 
 #ifdef _WIN32
-enum class RenameTargetState { NonRetryable, DeleteShareLocked, DeleteAvailable };
-
-RenameTargetState probeRenameTarget(const fs::path& finalPath,
-                                    const std::error_code& renameError) {
+protocol::save_publish_retry::TargetState probeRenameTarget(
+    const fs::path& finalPath, const std::error_code& renameError) {
   if (renameError.category() != std::system_category() ||
       (renameError.value() != ERROR_ACCESS_DENIED &&
        renameError.value() != ERROR_SHARING_VIOLATION)) {
-    return RenameTargetState::NonRetryable;
+    return protocol::save_publish_retry::TargetState::NonRetryable;
   }
 
   const DWORD attributes = GetFileAttributesW(finalPath.c_str());
   if (attributes == INVALID_FILE_ATTRIBUTES ||
       (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ||
       (attributes & FILE_ATTRIBUTE_READONLY) != 0) {
-    return RenameTargetState::NonRetryable;
+    return protocol::save_publish_retry::TargetState::NonRetryable;
   }
 
   // MoveFileEx reports ERROR_ACCESS_DENIED (5) when an existing target's
@@ -400,14 +399,14 @@ RenameTargetState probeRenameTarget(const fs::path& finalPath,
                              nullptr);
   if (probe != INVALID_HANDLE_VALUE) {
     CloseHandle(probe);
-    return RenameTargetState::DeleteAvailable;
+    return protocol::save_publish_retry::TargetState::DeleteAvailable;
   }
   const DWORD probeError = GetLastError();
   if (probeError == ERROR_SHARING_VIOLATION ||
       probeError == ERROR_LOCK_VIOLATION) {
-    return RenameTargetState::DeleteShareLocked;
+    return protocol::save_publish_retry::TargetState::DeleteShareLocked;
   }
-  return RenameTargetState::NonRetryable;
+  return protocol::save_publish_retry::TargetState::NonRetryable;
 }
 #endif
 
@@ -451,14 +450,11 @@ bool saveAtomically(const std::string& finalPath, Writer&& write,
     auto backoff = std::chrono::milliseconds(10);
     bool retriedWithDeleteAvailable = false;
     while (ec && std::chrono::steady_clock::now() < deadline) {
-      const RenameTargetState targetState = probeRenameTarget(finalPath, ec);
-      if (targetState == RenameTargetState::NonRetryable) break;
-      if (targetState == RenameTargetState::DeleteAvailable) {
-        // The lock can clear between rename's error and this probe. Retry once
-        // immediately; a second clear probe means the error is permanent.
-        if (retriedWithDeleteAvailable) break;
-        retriedWithDeleteAvailable = true;
-      } else {
+      const auto targetState = probeRenameTarget(finalPath, ec);
+      const auto decision = protocol::save_publish_retry::Decide(
+          targetState, retriedWithDeleteAvailable);
+      if (decision == protocol::save_publish_retry::Decision::Stop) break;
+      if (decision == protocol::save_publish_retry::Decision::Wait) {
         const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
             deadline - std::chrono::steady_clock::now());
         if (remaining <= std::chrono::milliseconds::zero()) break;
