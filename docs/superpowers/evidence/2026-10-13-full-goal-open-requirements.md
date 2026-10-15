@@ -1,5 +1,11 @@
 # Full-goal open requirements audit — 13 October
 
+## 15 October current supplement
+
+The dated tables below are historical. Datum native/protocol/Desktop/MCP/Quest construction, inspection/editing and supported-sketch packets now exist with current local evidence: native233,managed241,protocol51,schema12 unique source cases,Desktop287,Quest90 Editor cases and normal source-stable ARM64. The complete corrected native crash gate passed32/32 and restored production barriers OFF/control passed. Fresh immutable Quest and Desktop reviews returned ship; see ../evidence/2026-10-15-reference-controls-recovery/ACCEPTANCE.md. Exact b5d1736 hosted CI38707325681 is still running; physical Quest/live Hermes acceptance remains open. This does not establish full15.1/Phase15 or goal completion from local packets alone.
+
+Next native projection evaluator is dispatched to separate GPT-6-Luna/Max task01a13ec1-ddbd-7783-a456-28a09cf52694. Full15.2 requires evaluator, associative sketch groups/lifecycle/broken persistent references, downstream editable features, Desktop/Quest/MCP and corresponding gates. Spec/plan dated15 October preserve every stage. All other15.3-15.10,16.1-16.10 and outstanding12-14 physical/live requirements below remain mandatory. User's Hermes image-work restriction remains in force.
+
 Objective remains “continua sino a completare tutto”, original Phases12–16. This audit records open proof/work; it does not redefine success around completed packets. Current accepted Desktop section commit8f22b59b04a86c50a054026934b8e4bf59562cf1 has hosted run38410118843 completed failure:63E2E passed, one hidden Page screenshot timed out after the pull/Undo assertions. Separate CI acquisition correction is live; no hosted green claim. Local acceptance238Desktop tests/build, native section3tests and frozen Sol6/high ship are documented in the section evidence. Quest task01a13593 completed its implementation; selected worker/reviewer lanes later hit quota. Parent quota fallback fixed pending-Undo and independently verified55/55 Editor plus current normal ARM64 APK. Software candidate remains accepted=false pending independent final review and exact new-head CI.
 
 ## Existing scope boundaries
