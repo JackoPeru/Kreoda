@@ -26,3 +26,19 @@ Read-only parent inspection while separate Luna/Max task01a13ec1-ddbd-7783-a456-
 6. Native closed projected curved profile feeds measured face/extrude/revolve geometry; semantic status and definitions are shared across Desktop, Quest and MCP. External geometry remains linked to its source rather than copied into anonymous user geometry.
 
 The exact public command IDs, versioned group schema, persistent output naming and client curve-display representation must be specified and reviewed before lifecycle implementation. Pure evaluator tests alone cannot establish any of the lifecycle requirements above. Full original Phases12-16 and user restrictions remain in force.
+
+## 15 October source identity and unavailable-geometry follow-up
+
+Parent wrote the concrete lifecycle contract in specs/2026-10-15-projection-groups-contract.md while the separate profile worker owned its six native paths. This settles group ownership, reserved public36–38 operations, zero feature-creation metadata, typed native-edge/whole-shape/authored-sketch references, private source-binding contexts and explicit repair. Evaluated output member indices remain transient display data; no false persistent identity is assigned to silhouette contours that can split or reorder.
+
+Further actual consumers inspected for the next lifecycle implementation plan:
+
+- `protocol/dispatcher.cpp` RequestMesh checks a revision-keyed byte cache before TessellateFeature. An availability guard added only to tessellation would still serve an already-cached stale solid. Check common derived availability before cache lookup and cover that exact warm-cache case.
+- `tessellation/mesh.cpp` has both TessellateFeature and TessellateRecord; direct record calls must honor the same boundary, not only the feature-ID wrapper.
+- `protocol/session_geometry.cpp` resolves both native feature IDs and Body tip IDs in `record()`, then resolves persistent face/edge IDs. Both the direct feature and Body-tip path need checked availability. Whole-document scope calls CollectExportRecords; export/analysis cannot quietly include stale cached geometry either.
+- `protocol/dispatcher.cpp` RequestFaceInfo bypasses session_geometry and reads ShapeStore directly. It needs the same check before supplying a frame/pick from a blocked solid.
+- `model/commit.cpp` CommitShape is a common final native publication point and has explicit dependency IDs. It can defend against publishing a result based on unavailable dependencies, but this alone is too late to guard source-consuming native operations or read-only queries. Those actual source getters need the shared boundary too.
+- Source reads exist in native Boolean, Hole/HolePattern, Fillet/Chamfer, Instance, Datum and primitive parameter-edit/rebuild paths. Keep metadata/snapshot/persistence reads available for inspection and repair; use a checked current-geometry accessor for modeling consumers. Do not globally make ShapeStore::get hide broken records, since rollback/repair/export-validation need their metadata.
+- `OcafLive` StageDatums and DatumResolverFor currently stage incoming native shapes and validate selection owner/context/topology before publishing stores. Group staging must integrate into the same incoming-document dependency order. Structurally valid broken projection lineage cannot be marked healthy simply because the saved shape passes BRepCheck.
+
+These are verified implementation seams, not proof that the guards exist. The future native lifecycle packet must exercise stale-mesh, direct-record tessellation, Body query, FaceInfo, source modeling, export/analysis and healthy unrelated-branch behavior; a query-only status field is insufficient.
