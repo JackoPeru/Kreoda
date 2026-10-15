@@ -6,6 +6,9 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#if defined(_WIN32)
+#include <atomic>
+#endif
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -14,6 +17,9 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#if defined(_WIN32)
+#include <thread>
+#endif
 #include <utility>
 #include <vector>
 
@@ -120,6 +126,70 @@ kreoda::SketchModel RectModel(double w, double h) {
 std::string saveRpc(const std::string& req, const std::string& doc, const std::string& path) {
   return rpc(nlohmann::json{{"protocolVersion", 1}, {"requestId", req}, {"documentId", doc}, {"type", 10}, {"path", path}}.dump());
 }
+
+#if defined(_WIN32)
+std::string saveWithReferencesRpc(const std::string& req,
+                                  const std::string& doc,
+                                  const std::string& path,
+                                  const std::string& references) {
+  return rpc(nlohmann::json{{"protocolVersion", 1}, {"requestId", req},
+                            {"documentId", doc}, {"type", 10},
+                            {"path", path},
+                            {"referencePlanesJson", references}}.dump());
+}
+
+std::string ReadFileBytes(const fs::path& path) {
+  std::ifstream input(path, std::ios::binary);
+  return std::string(std::istreambuf_iterator<char>(input),
+                     std::istreambuf_iterator<char>());
+}
+
+std::vector<fs::path> PublicationTempsFor(const fs::path& target) {
+  std::vector<fs::path> matches;
+  const std::string prefix = target.filename().string() + ".tmp-";
+  std::error_code ec;
+  for (fs::directory_iterator it(target.parent_path(), ec), end;
+       !ec && it != end; it.increment(ec)) {
+    const std::string name = it->path().filename().string();
+    if (name.compare(0, prefix.size(), prefix) == 0) matches.push_back(it->path());
+  }
+  return matches;
+}
+
+fs::path UniqueSaveLockDirectory() {
+  static std::atomic<unsigned long> counter{0};
+  return fs::temp_directory_path() /
+         ("kreoda-save-lock-" + std::to_string(GetCurrentProcessId()) + "-" +
+          std::to_string(counter.fetch_add(1)));
+}
+
+class DestinationFileLock {
+ public:
+  explicit DestinationFileLock(const fs::path& path) {
+    // Deliberately omit FILE_SHARE_DELETE so replacing this existing target
+    // exercises the Windows sharing/access-denied mapping used by rename.
+    handle_ = CreateFileW(path.c_str(), GENERIC_READ,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  }
+
+  ~DestinationFileLock() { release(); }
+  DestinationFileLock(const DestinationFileLock&) = delete;
+  DestinationFileLock& operator=(const DestinationFileLock&) = delete;
+
+  bool valid() const { return handle_ != INVALID_HANDLE_VALUE; }
+
+  void release() {
+    if (valid()) {
+      CloseHandle(handle_);
+      handle_ = INVALID_HANDLE_VALUE;
+    }
+  }
+
+ private:
+  HANDLE handle_ = INVALID_HANDLE_VALUE;
+};
+#endif
 
 std::string openRpc(const std::string& req, const std::string& doc, const std::string& path) {
   return rpc(nlohmann::json{{"protocolVersion", 1}, {"requestId", req}, {"documentId", doc}, {"type", 11}, {"path", path}}.dump());
@@ -685,6 +755,176 @@ TEST(Torture10, ReferenceMetadata100CyclesAndFailedSave) {
   EXPECT_EQ(kreoda::DocumentStore::instance().referencePlanesJson(), references);
   fs::remove_all(dir, ec);
 }
+
+#if defined(_WIN32)
+TEST(Torture10, WindowsLockedRenameErrorMapping) {
+  const fs::path dir = UniqueSaveLockDirectory();
+  std::error_code ec;
+  ASSERT_TRUE(fs::create_directories(dir, ec)) << ec.message();
+  const fs::path target = dir / "target.icad";
+  const fs::path temp = dir / "target.tmp-map";
+  { std::ofstream(target, std::ios::binary) << "previous"; }
+  { std::ofstream(temp, std::ios::binary) << "replacement"; }
+  DestinationFileLock lock(target);
+  ASSERT_TRUE(lock.valid()) << "CreateFileW failed: " << GetLastError();
+
+  std::error_code renameError;
+  fs::rename(temp, target, renameError);
+  ASSERT_TRUE(renameError) << "rename unexpectedly replaced a locked target";
+  std::fprintf(stderr,
+               "WIN_LOCK_RENAME_MAP value=%d category=%s message=%s\n",
+               renameError.value(), renameError.category().name(),
+               renameError.message().c_str());
+  EXPECT_EQ(renameError.category(), std::system_category());
+  EXPECT_EQ(renameError.value(), ERROR_ACCESS_DENIED);
+  lock.release();
+  fs::remove_all(dir, ec);
+}
+
+TEST(Torture10, SaveRetriesAfterTransientWindowsTargetLock) {
+  const fs::path dir = UniqueSaveLockDirectory();
+  std::error_code ec;
+  ASSERT_TRUE(fs::create_directories(dir, ec)) << ec.message();
+  const fs::path target = dir / "transient.icad";
+  const std::string oldReferences = R"([{"id":"old","name":"before"}])";
+  const std::string newReferences = R"([{"id":"new","name":"after"}])";
+
+  NewDoc("save-lock-transient");
+  ASSERT_TRUE(ok(saveWithReferencesRpc("lock-seed", "save-lock-transient",
+                                       target.string(), oldReferences)));
+  const std::string oldBytes = ReadFileBytes(target);
+  ASSERT_FALSE(oldBytes.empty());
+  DestinationFileLock lock(target);
+  ASSERT_TRUE(lock.valid()) << "CreateFileW failed: " << GetLastError();
+
+  // Keep the target locked across serialization and the first publish attempt,
+  // then release it while the bounded retry window remains open.
+  std::thread releaseLater([&lock] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    lock.release();
+  });
+  const auto started = std::chrono::steady_clock::now();
+  const std::string saved = saveWithReferencesRpc(
+      "lock-transient", "save-lock-transient", target.string(), newReferences);
+  const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - started);
+  releaseLater.join();
+
+  ASSERT_TRUE(ok(saved)) << saved;
+  EXPECT_GE(elapsed.count(), 75);
+  EXPECT_NE(ReadFileBytes(target), oldBytes);
+  EXPECT_TRUE(PublicationTempsFor(target).empty());
+  NewDoc("save-lock-transient-open");
+  const std::string opened = openRpc("lock-transient-open",
+                                     "save-lock-transient-open",
+                                     target.string());
+  ASSERT_TRUE(ok(opened)) << opened;
+  EXPECT_EQ(kreoda::json_string_field_strict(opened,
+                                              "referencePlanesJson"),
+            newReferences);
+  fs::remove_all(dir, ec);
+}
+
+TEST(Torture10, PersistentWindowsTargetLockFailsAtomically) {
+  const fs::path dir = UniqueSaveLockDirectory();
+  std::error_code ec;
+  ASSERT_TRUE(fs::create_directories(dir, ec)) << ec.message();
+  const fs::path target = dir / "persistent.icad";
+  const std::string oldReferences = R"([{"id":"old","name":"preserved"}])";
+  const std::string rejectedReferences = R"([{"id":"new","name":"rejected"}])";
+
+  NewDoc("save-lock-persistent");
+  ASSERT_TRUE(ok(saveWithReferencesRpc("persistent-seed",
+                                       "save-lock-persistent",
+                                       target.string(), oldReferences)));
+  const std::string oldBytes = ReadFileBytes(target);
+  ASSERT_FALSE(oldBytes.empty());
+  const int64_t revisionBefore =
+      kreoda::DocumentStore::instance().revision();
+  DestinationFileLock lock(target);
+  ASSERT_TRUE(lock.valid()) << "CreateFileW failed: " << GetLastError();
+
+  const auto started = std::chrono::steady_clock::now();
+  const std::string failed = saveWithReferencesRpc(
+      "lock-persistent", "save-lock-persistent", target.string(),
+      rejectedReferences);
+  const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - started);
+
+  EXPECT_FALSE(ok(failed)) << failed;
+  EXPECT_NE(failed.find("SAVE_FAILED"), std::string::npos) << failed;
+  EXPECT_GE(elapsed.count(), 150);
+  EXPECT_LT(elapsed.count(), 2000);
+  EXPECT_EQ(ReadFileBytes(target), oldBytes);
+  EXPECT_EQ(kreoda::DocumentStore::instance().referencePlanesJson(),
+            oldReferences);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revisionBefore);
+  EXPECT_TRUE(PublicationTempsFor(target).empty());
+
+  lock.release();
+  NewDoc("save-lock-persistent-open");
+  const std::string opened = openRpc("lock-persistent-open",
+                                     "save-lock-persistent-open",
+                                     target.string());
+  ASSERT_TRUE(ok(opened)) << opened;
+  EXPECT_EQ(kreoda::json_string_field_strict(opened,
+                                              "referencePlanesJson"),
+            oldReferences);
+  fs::remove_all(dir, ec);
+}
+
+TEST(Torture10, PermanentWindowsPublishErrorsDoNotWait) {
+  const fs::path dir = UniqueSaveLockDirectory();
+  std::error_code ec;
+  ASSERT_TRUE(fs::create_directories(dir, ec)) << ec.message();
+  const fs::path readonlyTarget = dir / "readonly.icad";
+  const fs::path directoryTarget = dir / "existing-directory.icad";
+  const std::string oldReferences = R"([{"id":"old","name":"stable"}])";
+  const std::string rejectedReferences = R"([{"id":"new","name":"rejected"}])";
+
+  NewDoc("save-lock-permanent");
+  ASSERT_TRUE(ok(saveWithReferencesRpc("permanent-seed",
+                                       "save-lock-permanent",
+                                       readonlyTarget.string(), oldReferences)));
+  const std::string oldBytes = ReadFileBytes(readonlyTarget);
+  ASSERT_FALSE(oldBytes.empty());
+  DWORD attributes = GetFileAttributesW(readonlyTarget.c_str());
+  ASSERT_NE(attributes, INVALID_FILE_ATTRIBUTES) << GetLastError();
+  ASSERT_TRUE(SetFileAttributesW(readonlyTarget.c_str(),
+                                 attributes | FILE_ATTRIBUTE_READONLY))
+              << GetLastError();
+
+  const auto readonlyStarted = std::chrono::steady_clock::now();
+  const std::string readonlyFailure = saveWithReferencesRpc(
+      "readonly-target", "save-lock-permanent", readonlyTarget.string(),
+      rejectedReferences);
+  const auto readonlyElapsed =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - readonlyStarted);
+  EXPECT_FALSE(ok(readonlyFailure)) << readonlyFailure;
+  EXPECT_LT(readonlyElapsed.count(), 150);
+  EXPECT_EQ(ReadFileBytes(readonlyTarget), oldBytes);
+  EXPECT_TRUE(PublicationTempsFor(readonlyTarget).empty());
+  EXPECT_TRUE(SetFileAttributesW(readonlyTarget.c_str(), attributes))
+      << GetLastError();
+
+  ASSERT_TRUE(fs::create_directory(directoryTarget, ec)) << ec.message();
+  const auto directoryStarted = std::chrono::steady_clock::now();
+  const std::string directoryFailure = saveWithReferencesRpc(
+      "directory-target", "save-lock-permanent", directoryTarget.string(),
+      rejectedReferences);
+  const auto directoryElapsed =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - directoryStarted);
+  EXPECT_FALSE(ok(directoryFailure)) << directoryFailure;
+  EXPECT_LT(directoryElapsed.count(), 150);
+  EXPECT_TRUE(fs::is_directory(directoryTarget));
+  EXPECT_TRUE(PublicationTempsFor(directoryTarget).empty());
+  EXPECT_EQ(kreoda::DocumentStore::instance().referencePlanesJson(),
+            oldReferences);
+  fs::remove_all(dir, ec);
+}
+#endif
 
 TEST(Torture10, SaveOpen100Cycles) {
   const fs::path dir =

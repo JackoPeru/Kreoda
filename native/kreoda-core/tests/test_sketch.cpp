@@ -11,6 +11,7 @@
 #include "../src/features/primitives/primitives.h"
 #include "../src/features/revolve/revolve.h"
 #include "../src/features/sketch/sketch_commands.h"
+#include "../src/features/sketch/sketch_face.h"
 #include "../src/features/sketch/sketch_json.h"
 #include "../src/features/sketch/sketch_store.h"
 #include "../src/tessellation/mesh.h"
@@ -22,8 +23,12 @@
 #include "../src/protocol/json_fields.h"
 
 #if KREODA_WITH_OCCT
+#include <BRepPrimAPI_MakeBox.hxx>
 #include <TopAbs_ShapeEnum.hxx>
 #include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Shape.hxx>
 #endif
 
 TEST(SketchJson, StrictModelFieldsIgnoreNestedKeysAndRejectWrongTypes) {
@@ -450,6 +455,56 @@ TEST(Sketch, ExtrudeGivesExactVolume) {
   EXPECT_EQ(rec.dependsOn, std::vector<std::string>{"sk-r"});
 }
 
+TEST(Sketch, ExtrudePreservesDisconnectedMaterialRegions) {
+#if KREODA_WITH_OCCT
+  NewDoc("sk-disconnected-extrude");
+  std::string error;
+  kreoda::SketchModel model;
+  model.points = {{"center-a", 0, 0, true}, {"center-b", 15, 0, true}};
+  model.circles = {{"circle-a", "center-a", 3}, {"circle-b", "center-b", 2}};
+  ASSERT_TRUE(kreoda::CreateSketchFeature("sk-disconnected", "XY", model,
+                                           OffsetFrame(), &error)) << error;
+  ASSERT_TRUE(kreoda::CreateExtrudeFeature("ex-disconnected", "sk-disconnected",
+                                            10, &error)) << error;
+
+  kreoda::ShapeRecord record;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("ex-disconnected", &record));
+  EXPECT_NEAR(record.volumeMm3, 130.0 * std::acos(-1.0), 1e-5);
+  const double expectedBounds[6] = {10, 17, 27, 20, 37, 33};
+  for (int i = 0; i < 6; ++i) {
+    EXPECT_NEAR(record.bboxMm[i], expectedBounds[i], 1e-5) << "bbox[" << i << "]";
+  }
+  int solidCount = 0;
+  for (TopExp_Explorer it(record.shape, TopAbs_SOLID); it.More(); it.Next()) {
+    ++solidCount;
+  }
+  EXPECT_EQ(solidCount, 2);
+
+  kreoda::SketchFeature sketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("sk-disconnected", &sketch));
+  TopoDS_Shape profile;
+  ASSERT_TRUE(kreoda::BuildProfileFromSketch(sketch, &profile, &error)) << error;
+  int profileFaces = 0;
+  for (TopExp_Explorer it(profile, TopAbs_FACE); it.More(); it.Next()) {
+    ++profileFaces;
+  }
+  EXPECT_EQ(profileFaces, 2);
+
+  const TopoDS_Shape sentinel = BRepPrimAPI_MakeBox(2, 3, 4).Shape();
+  TopoDS_Face legacyOutput;
+  for (TopExp_Explorer it(sentinel, TopAbs_FACE); it.More(); it.Next()) {
+    legacyOutput = TopoDS::Face(it.Current());
+    break;
+  }
+  ASSERT_FALSE(legacyOutput.IsNull());
+  const TopoDS_Face originalOutput = legacyOutput;
+  EXPECT_FALSE(kreoda::BuildFaceFromSketch(sketch, &legacyOutput, &error));
+  EXPECT_TRUE(legacyOutput.IsSame(originalOutput));
+#else
+  GTEST_SKIP() << "needs OCCT";
+#endif
+}
+
 TEST(Sketch, OpenProfileRejected) {
   NewDoc("sk3");
   std::string err;
@@ -531,6 +586,33 @@ TEST(Sketch, RevolveFullCircleExactVolume) {
               5000.0 * 2 * 3.14159265358979 * 25.0 * 1e-3);
   EXPECT_FALSE(kreoda::CreateRevolveFeature("rv-bad", "sk-v", 0, &err));
   EXPECT_FALSE(kreoda::CreateRevolveFeature("rv-bad2", "nope", 90, &err));
+}
+
+TEST(Sketch, RevolvePreservesDisconnectedMaterialRegions) {
+#if KREODA_WITH_OCCT
+  NewDoc("sk-disconnected-revolve");
+  std::string error;
+  kreoda::SketchModel model;
+  model.points = {{"center-a", 0, 10, true}, {"center-b", 20, 10, true}};
+  model.circles = {{"circle-a", "center-a", 2}, {"circle-b", "center-b", 2}};
+  ASSERT_TRUE(kreoda::CreateSketchFeature("sk-disconnected-revolve", "XZ",
+                                           model, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateRevolveFeature("rv-disconnected",
+                                            "sk-disconnected-revolve", 360,
+                                            &error)) << error;
+
+  kreoda::ShapeRecord record;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("rv-disconnected", &record));
+  EXPECT_NEAR(record.volumeMm3, 160.0 * std::acos(-1.0) * std::acos(-1.0),
+              160.0 * std::acos(-1.0) * std::acos(-1.0) * 1e-6);
+  int solidCount = 0;
+  for (TopExp_Explorer it(record.shape, TopAbs_SOLID); it.More(); it.Next()) {
+    ++solidCount;
+  }
+  EXPECT_EQ(solidCount, 2);
+#else
+  GTEST_SKIP() << "needs OCCT";
+#endif
 }
 
 TEST(Sketch, ExtrudePreviewDoesNotCommit) {

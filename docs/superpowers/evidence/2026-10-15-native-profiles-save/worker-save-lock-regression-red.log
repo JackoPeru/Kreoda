@@ -1,0 +1,29 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Torture10.WindowsLockedRenameErrorMapping:Torture10.SaveRetriesAfterTransientWindowsTargetLock:Torture10.PersistentWindowsTargetLockFailsAtomically
+[==========] Running 3 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 3 tests from Torture10
+[ RUN      ] Torture10.WindowsLockedRenameErrorMapping
+WIN_LOCK_RENAME_MAP value=5 category=system message=Accesso negato.
+[       OK ] Torture10.WindowsLockedRenameErrorMapping (9 ms)
+[ RUN      ] Torture10.SaveRetriesAfterTransientWindowsTargetLock
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_torture_phase10.cpp(807): error: Value of: ok(saved)
+  Actual: false
+Expected: true
+{"protocolVersion":1,"requestId":"lock-transient","status":"error","errorCode":"SAVE_FAILED","errorMessage":"save: publish failed: Accesso negato."}
+
+[  FAILED  ] Torture10.SaveRetriesAfterTransientWindowsTargetLock (123 ms)
+[ RUN      ] Torture10.PersistentWindowsTargetLockFailsAtomically
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_torture_phase10.cpp(850): error: Expected: (elapsed.count()) >= (150), actual: 6 vs 150
+
+[  FAILED  ] Torture10.PersistentWindowsTargetLockFailsAtomically (31 ms)
+[----------] 3 tests from Torture10 (164 ms total)
+
+[----------] Global test environment tear-down
+[==========] 3 tests from 1 test suite ran. (164 ms total)
+[  PASSED  ] 1 test.
+[  FAILED  ] 2 tests, listed below:
+[  FAILED  ] Torture10.SaveRetriesAfterTransientWindowsTargetLock
+[  FAILED  ] Torture10.PersistentWindowsTargetLockFailsAtomically
+
+ 2 FAILED TESTS

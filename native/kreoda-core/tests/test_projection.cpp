@@ -2,11 +2,15 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <limits>
 #include <sstream>
 #include <vector>
 
 #include "../src/features/sketch/projected_geometry.h"
+#include "../src/features/sketch/sketch_face.h"
 
 #if KREODA_WITH_OCCT
 #include <BRepAdaptor_Curve.hxx>
@@ -17,13 +21,16 @@
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepGProp.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <BRep_Builder.hxx>
 #include <BRepTools.hxx>
 #include <GeomAPI_PointsToBSpline.hxx>
+#include <GeomAPI_Interpolate.hxx>
 #include <Geom_BSplineCurve.hxx>
 #include <Geom_Line.hxx>
 #include <GeomAbs_CurveType.hxx>
+#include <NCollection_HArray1.hxx>
 #include <GProp_GProps.hxx>
 #include <TopAbs_ShapeEnum.hxx>
 #include <TopExp_Explorer.hxx>
@@ -166,6 +173,43 @@ void ExpectSameOutput(const std::vector<TopoDS_Edge>& actual,
   }
 }
 
+std::string ShapeDump(const TopoDS_Shape& shape) {
+  std::ostringstream output;
+  BRepTools::Write(shape, output);
+  return output.str();
+}
+
+int FaceCount(const TopoDS_Shape& shape) {
+  int count = 0;
+  for (TopExp_Explorer it(shape, TopAbs_FACE); it.More(); it.Next()) ++count;
+  return count;
+}
+
+int WireCount(const TopoDS_Shape& shape) {
+  int count = 0;
+  for (TopExp_Explorer it(shape, TopAbs_WIRE); it.More(); it.Next()) ++count;
+  return count;
+}
+
+double ProfileArea(const TopoDS_Shape& shape) {
+  double area = 0;
+  for (TopExp_Explorer it(shape, TopAbs_FACE); it.More(); it.Next()) {
+    GProp_GProps properties;
+    BRepGProp::SurfaceProperties(TopoDS::Face(it.Current()), properties);
+    area += std::fabs(properties.Mass());
+  }
+  return area;
+}
+
+void SaveProfileProof(const char* name, const std::string& dump) {
+  const char* directory = std::getenv("KREODA_PROFILE_BREP_PROOF_DIR");
+  if (!directory || !*directory) return;
+  std::filesystem::create_directories(directory);
+  std::ofstream output(std::filesystem::path(directory) / name,
+                       std::ios::binary);
+  output.write(dump.data(), static_cast<std::streamsize>(dump.size()));
+}
+
 TEST(Projection, EdgesApplySourceLocationAndTiltedTargetFrame) {
   const TopoDS_Edge local = BRepBuilderAPI_MakeEdge(gp_Pnt(1, 2, 3),
                                                      gp_Pnt(5, -2, 8)).Edge();
@@ -287,6 +331,202 @@ TEST(Projection, ClosedProjectedLoopRetainsOrientationAndAnalyticArea) {
   ASSERT_TRUE(ClosedWireArea(output, &area));
   EXPECT_NEAR(area, kPi * radius * radius / std::sqrt(2.0), 1e-5);
   EXPECT_TRUE(EdgeSamplesOnPlane(output[0], kreoda::SketchPlane{}));
+  TopoDS_Shape profile;
+  ASSERT_TRUE(kreoda::BuildPlanarProfileFromEdges(
+      output, kreoda::SketchPlane{}, &profile, &error)) << error;
+  GProp_GProps profileProperties;
+  BRepGProp::SurfaceProperties(profile, profileProperties);
+  EXPECT_NEAR(std::fabs(profileProperties.Mass()), area, 1e-5);
+}
+
+TEST(Projection, TiltedProjectedCircleBuildsExactProfileAndPrismWithoutMutation) {
+  constexpr double radius = 6;
+  constexpr double height = 9;
+  const kreoda::SketchPlane plane = TiltedPlane();
+  const gp_Pnt sourceCenter = Origin(plane).Translated(
+      3 * gp_Vec(plane.xAxis[0], plane.xAxis[1], plane.xAxis[2]) +
+      4 * gp_Vec(plane.yAxis[0], plane.yAxis[1], plane.yAxis[2]) +
+      8 * Normal(plane));
+  const gp_Dir sourceNormal(1, 0, 1);
+  const TopoDS_Edge source = CircleEdge(sourceCenter, sourceNormal, radius);
+  const std::string originalSource = ShapeDump(source);
+
+  std::vector<TopoDS_Edge> projected;
+  std::string error;
+  ASSERT_TRUE(kreoda::ProjectNativeEdgesToPlane({source}, plane, &projected,
+                                                 &error)) << error;
+  ASSERT_EQ(projected.size(), 1u);
+  ASSERT_EQ(BRepAdaptor_Curve(projected[0]).GetType(), GeomAbs_BSplineCurve);
+  const std::string sourceBefore = ShapeDump(projected[0]);
+
+  TopoDS_Shape profile;
+  ASSERT_TRUE(kreoda::BuildPlanarProfileFromEdges(projected, plane, &profile,
+                                                   &error)) << error;
+  const std::string sourceAfter = ShapeDump(projected[0]);
+  EXPECT_EQ(sourceAfter, sourceBefore);
+  EXPECT_EQ(ShapeDump(source), originalSource);
+  SaveProfileProof("native-profile-source-before.brep", sourceBefore);
+  SaveProfileProof("native-profile-source-after.brep", sourceAfter);
+
+  const double projectedArea = kPi * radius * radius *
+      std::fabs(sourceNormal.Dot(gp_Dir(plane.normal[0], plane.normal[1],
+                                        plane.normal[2])));
+  GProp_GProps areaProperties;
+  BRepGProp::SurfaceProperties(profile, areaProperties);
+  EXPECT_NEAR(std::fabs(areaProperties.Mass()), projectedArea, 1e-5);
+  const gp_Pnt expectedCenter = ProjectPoint(sourceCenter, plane);
+  EXPECT_TRUE(Near(areaProperties.CentreOfMass(), expectedCenter, 1e-5));
+
+  BRepPrimAPI_MakePrism prism(profile, height * Normal(plane), false, true);
+  prism.Build();
+  ASSERT_TRUE(prism.IsDone());
+  const TopoDS_Shape solid = prism.Shape();
+  GProp_GProps volumeProperties;
+  BRepGProp::VolumeProperties(solid, volumeProperties);
+  EXPECT_NEAR(std::fabs(volumeProperties.Mass()), projectedArea * height,
+              projectedArea * height * 1e-7);
+  EXPECT_TRUE(Near(volumeProperties.CentreOfMass(),
+                   expectedCenter.Translated((height / 2) * Normal(plane)),
+                   1e-5));
+  EXPECT_EQ(FaceCount(profile), 1);
+  EXPECT_EQ(FaceCount(solid), 3);
+}
+
+TEST(Projection, ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops) {
+  const kreoda::SketchPlane plane;
+  std::string error;
+  TopoDS_Shape profile;
+
+  ASSERT_TRUE(kreoda::BuildPlanarProfileFromEdges(
+      {CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 4),
+       CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 10)},
+      plane, &profile, &error)) << error;
+  EXPECT_EQ(FaceCount(profile), 1);
+  EXPECT_EQ(WireCount(profile), 2);
+  EXPECT_NEAR(ProfileArea(profile), 84 * kPi, 1e-5);
+
+  ASSERT_TRUE(kreoda::BuildPlanarProfileFromEdges(
+      {CircleEdge(gp_Pnt(20, 0, 0), gp_Dir(0, 0, 1), 2),
+       CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 5)},
+      plane, &profile, &error)) << error;
+  EXPECT_EQ(FaceCount(profile), 2);
+  EXPECT_EQ(WireCount(profile), 2);
+  EXPECT_NEAR(ProfileArea(profile), 29 * kPi, 1e-5);
+
+  TopoDS_Edge outer = CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 10);
+  TopoDS_Edge hole = CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 6);
+  TopoDS_Edge island = CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 2);
+  outer.Reverse();
+  island.Reverse();
+  ASSERT_TRUE(kreoda::BuildPlanarProfileFromEdges(
+      {island, outer, hole}, plane, &profile, &error)) << error;
+  EXPECT_EQ(FaceCount(profile), 2);
+  EXPECT_EQ(WireCount(profile), 3);
+  EXPECT_NEAR(ProfileArea(profile), 68 * kPi, 1e-5);
+
+  TopoDS_Shape withoutErrorOutput;
+  EXPECT_TRUE(kreoda::BuildPlanarProfileFromEdges(
+      {CircleEdge(gp_Pnt(40, 0, 0), gp_Dir(0, 0, 1), 1)}, plane,
+      &withoutErrorOutput, nullptr));
+  EXPECT_NEAR(ProfileArea(withoutErrorOutput), kPi, 1e-5);
+}
+
+TEST(Projection, ClosedBSplineProfileRetainsNativeCurve) {
+  Handle(NCollection_HArray1<gp_Pnt>) points =
+      new NCollection_HArray1<gp_Pnt>(1, 8);
+  for (int i = 1; i <= 8; ++i) {
+    const double angle = 2 * kPi * (i - 1) / 8;
+    points->SetValue(i, gp_Pnt(4 * std::cos(angle), 3 * std::sin(angle), 0));
+  }
+  GeomAPI_Interpolate interpolation(points, true, 1e-7);
+  interpolation.Perform();
+  ASSERT_TRUE(interpolation.IsDone());
+  const Handle(Geom_BSplineCurve) spline = interpolation.Curve();
+  const TopoDS_Edge edge = BRepBuilderAPI_MakeEdge(spline).Edge();
+  ASSERT_TRUE(edge.Closed());
+
+  std::vector<TopoDS_Edge> projected;
+  std::string error;
+  ASSERT_TRUE(kreoda::ProjectNativeEdgesToPlane(
+      {edge}, kreoda::SketchPlane{}, &projected, &error)) << error;
+  ASSERT_EQ(projected.size(), 1u);
+  EXPECT_EQ(BRepAdaptor_Curve(projected.front()).GetType(), GeomAbs_BSplineCurve);
+  TopoDS_Shape profile;
+  ASSERT_TRUE(kreoda::BuildPlanarProfileFromEdges(
+      projected, kreoda::SketchPlane{}, &profile, &error)) << error;
+  int edgeCount = 0;
+  for (TopExp_Explorer it(profile, TopAbs_EDGE); it.More(); it.Next()) {
+    ++edgeCount;
+    EXPECT_EQ(BRepAdaptor_Curve(TopoDS::Edge(it.Current())).GetType(),
+              GeomAbs_BSplineCurve);
+  }
+  EXPECT_EQ(edgeCount, 1);
+  EXPECT_GT(ProfileArea(profile), 0);
+}
+
+TEST(Projection, AmbiguousAndInvalidProfilesFailAtomically) {
+  const kreoda::SketchPlane plane;
+  const TopoDS_Shape sentinel = BRepPrimAPI_MakeBox(2, 3, 4).Shape();
+  const std::string sentinelDump = ShapeDump(sentinel);
+  const auto expectRejected = [&](const std::vector<TopoDS_Edge>& edges,
+                                  const kreoda::SketchPlane& target) {
+    std::vector<std::string> sourceBefore;
+    for (const auto& edge : edges) sourceBefore.push_back(ShapeDump(edge));
+    TopoDS_Shape output = sentinel;
+    std::string error;
+    EXPECT_FALSE(kreoda::BuildPlanarProfileFromEdges(edges, target, &output,
+                                                      &error));
+    EXPECT_FALSE(error.empty());
+    EXPECT_TRUE(output.IsSame(sentinel));
+    EXPECT_EQ(ShapeDump(output), sentinelDump);
+    for (std::size_t i = 0; i < edges.size(); ++i) {
+      EXPECT_EQ(ShapeDump(edges[i]), sourceBefore[i]);
+    }
+  };
+
+  expectRejected({BRepBuilderAPI_MakeEdge(gp_Pnt(0, 0, 0),
+                                          gp_Pnt(5, 0, 0)).Edge()}, plane);
+  expectRejected({BRepBuilderAPI_MakeEdge(gp_Pnt(0, 0, 0),
+                                          gp_Pnt(5, 0, 1)).Edge()}, plane);
+  expectRejected({CircleEdge(gp_Pnt(0, 0, 1), gp_Dir(0, 1, 0), 2)}, plane);
+  expectRejected({CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 5),
+                  CircleEdge(gp_Pnt(7, 0, 0), gp_Dir(0, 0, 1), 2)}, plane);
+  expectRejected({CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 5),
+                  CircleEdge(gp_Pnt(4, 0, 0), gp_Dir(0, 0, 1), 2)}, plane);
+  expectRejected({CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 5),
+                  CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 5)}, plane);
+  expectRejected({}, plane);
+
+  TopoDS_Shape unchanged = sentinel;
+  const TopoDS_Edge nullEdge;
+  std::string error;
+  EXPECT_FALSE(kreoda::BuildPlanarProfileFromEdges({nullEdge}, plane,
+                                                    &unchanged, &error));
+  EXPECT_FALSE(error.empty());
+  EXPECT_TRUE(unchanged.IsSame(sentinel));
+
+  Handle(NCollection_HArray1<gp_Pnt>) crossingPoints =
+      new NCollection_HArray1<gp_Pnt>(1, 4);
+  crossingPoints->SetValue(1, gp_Pnt(-3, -3, 0));
+  crossingPoints->SetValue(2, gp_Pnt(3, 3, 0));
+  crossingPoints->SetValue(3, gp_Pnt(-3, 3, 0));
+  crossingPoints->SetValue(4, gp_Pnt(3, -3, 0));
+  GeomAPI_Interpolate crossingInterpolation(crossingPoints, true, 1e-7);
+  crossingInterpolation.Perform();
+  ASSERT_TRUE(crossingInterpolation.IsDone());
+  const TopoDS_Edge selfCrossing =
+      BRepBuilderAPI_MakeEdge(crossingInterpolation.Curve()).Edge();
+  ASSERT_TRUE(selfCrossing.Closed());
+  ASSERT_TRUE(BRepCheck_Analyzer(selfCrossing).IsValid());
+  expectRejected({selfCrossing}, plane);
+
+  auto invalidPlane = plane;
+  invalidPlane.xAxis[0] = 2;
+  expectRejected({CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 1)},
+                 invalidPlane);
+  EXPECT_FALSE(kreoda::BuildPlanarProfileFromEdges(
+      {CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 1)}, plane, nullptr,
+      nullptr));
 }
 
 TEST(Projection, SphereSilhouetteIsTargetPlaneCircleAndRepeatable) {

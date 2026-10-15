@@ -9,11 +9,13 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <iomanip>
 #include <map>
 #include <set>
 #include <sstream>
+#include <thread>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -370,6 +372,45 @@ void discardDocSnapshot(const DocSnapshot& s) {
   }
 }
 
+#ifdef _WIN32
+enum class RenameTargetState { NonRetryable, DeleteShareLocked, DeleteAvailable };
+
+RenameTargetState probeRenameTarget(const fs::path& finalPath,
+                                    const std::error_code& renameError) {
+  if (renameError.category() != std::system_category() ||
+      (renameError.value() != ERROR_ACCESS_DENIED &&
+       renameError.value() != ERROR_SHARING_VIOLATION)) {
+    return RenameTargetState::NonRetryable;
+  }
+
+  const DWORD attributes = GetFileAttributesW(finalPath.c_str());
+  if (attributes == INVALID_FILE_ATTRIBUTES ||
+      (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ||
+      (attributes & FILE_ATTRIBUTE_READONLY) != 0) {
+    return RenameTargetState::NonRetryable;
+  }
+
+  // MoveFileEx reports ERROR_ACCESS_DENIED (5) when an existing target's
+  // handle omitted FILE_SHARE_DELETE. Probe DELETE access to distinguish that
+  // transient sharing lock from ACL/read-only failures that must fail now.
+  HANDLE probe = CreateFileW(finalPath.c_str(), DELETE,
+                             FILE_SHARE_READ | FILE_SHARE_WRITE |
+                                 FILE_SHARE_DELETE,
+                             nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                             nullptr);
+  if (probe != INVALID_HANDLE_VALUE) {
+    CloseHandle(probe);
+    return RenameTargetState::DeleteAvailable;
+  }
+  const DWORD probeError = GetLastError();
+  if (probeError == ERROR_SHARING_VIOLATION ||
+      probeError == ERROR_LOCK_VIOLATION) {
+    return RenameTargetState::DeleteShareLocked;
+  }
+  return RenameTargetState::NonRetryable;
+}
+#endif
+
 // Phase 10.5 (crash recovery): a killed save must never leave a partially
 // written project behind. Writers produce a temp sibling in the SAME
 // directory (same filesystem → atomic rename); the destination is replaced
@@ -403,6 +444,32 @@ bool saveAtomically(const std::string& finalPath, Writer&& write,
   }
   CrashTestBarrier("save-before-publish");
   fs::rename(tmpPath, finalPath, ec);
+#ifdef _WIN32
+  if (ec) {
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::milliseconds(200);
+    auto backoff = std::chrono::milliseconds(10);
+    bool retriedWithDeleteAvailable = false;
+    while (ec && std::chrono::steady_clock::now() < deadline) {
+      const RenameTargetState targetState = probeRenameTarget(finalPath, ec);
+      if (targetState == RenameTargetState::NonRetryable) break;
+      if (targetState == RenameTargetState::DeleteAvailable) {
+        // The lock can clear between rename's error and this probe. Retry once
+        // immediately; a second clear probe means the error is permanent.
+        if (retriedWithDeleteAvailable) break;
+        retriedWithDeleteAvailable = true;
+      } else {
+        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+            deadline - std::chrono::steady_clock::now());
+        if (remaining <= std::chrono::milliseconds::zero()) break;
+        std::this_thread::sleep_for(std::min(backoff, remaining));
+      }
+      ec.clear();
+      fs::rename(tmpPath, finalPath, ec);
+      backoff = std::min(backoff * 2, std::chrono::milliseconds(20));
+    }
+  }
+#endif
   if (ec) {
     // m9: no remove+rename fallback by design — if the destination is locked
     // (viewer/AV), a fallback could remove the good file and then fail the

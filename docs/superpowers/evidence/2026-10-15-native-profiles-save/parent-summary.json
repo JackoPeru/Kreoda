@@ -1,0 +1,32 @@
+{
+  "expectedCTestCases": 254,
+  "requiredCases": [
+    "Projection.AmbiguousAndInvalidProfilesFailAtomically",
+    "Projection.ClosedBSplineProfileRetainsNativeCurve",
+    "Projection.TiltedProjectedCircleBuildsExactProfileAndPrismWithoutMutation",
+    "Projection.ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops",
+    "Sketch.ExtrudePreservesDisconnectedMaterialRegions",
+    "Sketch.RevolvePreservesDisconnectedMaterialRegions",
+    "Torture10.PermanentWindowsPublishErrorsDoNotWait",
+    "Torture10.PersistentWindowsTargetLockFailsAtomically",
+    "Torture10.SaveRetriesAfterTransientWindowsTargetLock",
+    "Torture10.WindowsLockedRenameErrorMapping"
+  ],
+  "buildExitCode": 0,
+  "ctestExitCode": 0,
+  "ctestCases": 254,
+  "failed": 0,
+  "skipped": 0,
+  "missingRequiredCases": [],
+  "projectionCases": 15,
+  "coreSelfTestExitCode": 0,
+  "selfTestConfirmation": true,
+  "coreSelfTestPathPolicy": "System32 and Windows only; app-local DLL loading",
+  "sourceUnchanged": true,
+  "fixtureNameCorrection": {
+    "previous": "Projection.ObliqueEllipseBuildsExactProfileAndPrismWithoutMutation",
+    "actualSourceAndXML": "Projection.TiltedProjectedCircleBuildsExactProfileAndPrismWithoutMutation",
+    "productSourceChanged": false,
+    "sameRecordedFullGateRevalidated": true
+  }
+}
