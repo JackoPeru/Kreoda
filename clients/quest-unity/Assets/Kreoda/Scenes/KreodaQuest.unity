@@ -207,6 +207,7 @@ GameObject:
   m_Component:
   - component: {fileID: 353656479}
   - component: {fileID: 353656478}
+  - component: {fileID: 353656480}
   m_Layer: 0
   m_Name: Compact Quest controls
   m_TagString: Untagged
@@ -230,6 +231,7 @@ MonoBehaviour:
   Display: {fileID: 930871081}
   Spatial: {fileID: 1130115625}
   Commands: {fileID: 1364773470}
+  References: {fileID: 353656480}
   SketchDimensions: {fileID: 196293819}
   Voice: {fileID: 1114956327}
   Environment: {fileID: 552000332}
@@ -241,6 +243,20 @@ MonoBehaviour:
   ButtonMaterial: {fileID: 2100000, guid: b0b238b6e1666d5408bd7478785ce4bb, type: 2}
   RayMaterial: {fileID: 2100000, guid: 266f1bc3ae759904c85b8f8ae3f7dc5c, type: 2}
   PreferLeftHand: 0
+--- !u!114 &353656480
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 353656477}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe36001042bb42f4979f7a94eeaea9b6, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Kreoda.QuestRuntime::Kreoda.QuestRuntime.QuestReferences
+  Connection: {fileID: 652360205}
+  Commands: {fileID: 1364773470}
 --- !u!4 &353656479
 Transform:
   m_ObjectHideFlags: 0

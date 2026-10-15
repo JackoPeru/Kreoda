@@ -19,6 +19,7 @@ namespace Kreoda.QuestRuntime
         public QuestDisplay Display;
         public QuestSpatialEdit Spatial;
         public QuestCommands Commands;
+        public QuestReferences References;
         public QuestSketchDimensions SketchDimensions;
         public QuestVoice Voice;
         Transform _voicePage;
@@ -37,14 +38,22 @@ namespace Kreoda.QuestRuntime
         bool _editingCommand;
         string _commandField;
         long _commandForm;
+        bool _editingReference;
+        long _referenceForm, _referenceInput;
         public QuestEnvironment Environment;
         public OVRCameraRig Rig;
         public OVRHand LeftHand, RightHand;
         public Font Font;
         public Material PanelMaterial, ButtonMaterial, RayMaterial;
         public bool PreferLeftHand;
-        Transform _panel, _content, _connectionPage, _viewPage, _metricsPage, _sectionPage, _editPage;
+        Transform _panel, _content, _connectionPage, _viewPage, _metricsPage, _sectionPage, _editPage, _referencePage;
         TextMesh _editStatus, _modeLabel, _sectionStatus, _sectionToggle, _sectionQuota;
+        TextMesh _referenceTitle, _referenceDetails, _referenceStatus;
+        TextMesh[] _referenceDatumLabels = new TextMesh[2], _referenceSourceLabels = new TextMesh[2];
+        TextMesh _referenceNewPlane, _referenceNewAxis, _referenceNewPoint, _referenceInspect, _referenceEdit, _referenceSketch,
+            _referenceType, _referenceOperation, _referenceFieldPrevious, _referenceFieldNext, _referenceSourcesPrevious,
+            _referenceSourcesNext, _referenceDatumPrevious, _referenceDatumNext, _referenceNumeric, _referenceEnum,
+            _referenceConfirm, _referenceCancel, _referenceBack;
         int _exactParameter;
         bool _editingValue;
         string _valueInput = "";
@@ -75,6 +84,8 @@ namespace Kreoda.QuestRuntime
 
         void Start()
         {
+            if (References == null) References = GetComponent<QuestReferences>() ?? gameObject.AddComponent<QuestReferences>();
+            References.Connection = Connection;References.Commands = Commands;References.Changed += RefreshReferencePage;
             _endpoint = Connection.SavedEndpoint;
             _handMode = Mathf.Clamp(PlayerPrefs.GetInt("kreoda-hand-mode", 0), 0, 2);
             _uiLeft = PlayerPrefs.GetInt("kreoda-ui-left", 0) != 0;
@@ -145,6 +156,7 @@ namespace Kreoda.QuestRuntime
             }, .023f);
             Button("Centra UI", new Vector3(0, -.205f, 0), .11f, ResetPanel, .03f);
             Button("Sezione", new Vector3(.13f, -.205f, 0), .11f, () => Page(_sectionPage), .03f);
+            Button("Riferimenti", new Vector3(0, -.175f, 0), .25f, OpenReferences, .032f);
             _metricsPage = PageRoot("Optional diagnostics");
             _content = _metricsPage;
             _diagnostics = Label(_content, "Metriche: attendi un campione", new Vector3(-.19f, .085f, -.003f), .012f);
@@ -185,6 +197,37 @@ namespace Kreoda.QuestRuntime
             Button("Undo", new Vector3(-.1f, -.19f, 0), .18f, () => Commands?.History(false), .032f);
             Button("Redo", new Vector3(.105f, -.19f, 0), .17f, () => Commands?.History(true), .032f);
             Button("Quote sketch", new Vector3(0, -.235f, 0), .30f, () => { SketchDimensions?.Select();Page(_sketchPage); }, .028f);
+            _referencePage = PageRoot("Riferimenti CAD");_content = _referencePage;
+            _referenceTitle = Label(_content, "Riferimenti", new Vector3(-.19f, .132f, -.003f), .013f);
+            _textLimits[_referenceTitle] = new Vector2(.38f, .025f);
+            _referenceDetails = Label(_content, "Scegli una costruzione o un datum", new Vector3(-.19f, .095f, -.003f), .010f);
+            _textLimits[_referenceDetails] = new Vector2(.38f, .045f);
+            _referenceStatus = Label(_content, "", new Vector3(-.19f, .063f, -.003f), .009f);
+            _textLimits[_referenceStatus] = new Vector2(.38f, .025f);
+            _referenceNewPlane = Button("Nuovo piano", new Vector3(-.1f, .005f, 0), .18f, () => BeginReference(QuestReferenceKind.Plane), .03f, .010f);
+            _referenceNewAxis = Button("Nuovo asse", new Vector3(.105f, .005f, 0), .17f, () => BeginReference(QuestReferenceKind.Axis), .03f, .010f);
+            _referenceNewPoint = Button("Nuovo punto", new Vector3(0, -.035f, 0), .30f, () => BeginReference(QuestReferenceKind.Point), .03f, .010f);
+            _referenceDatumLabels[0] = Button("Datum pagina 1", new Vector3(0, -.08f, 0), .37f, () => SelectReferenceDatum(0), .032f, .009f);
+            _referenceDatumLabels[1] = Button("Datum pagina 2", new Vector3(0, -.12f, 0), .37f, () => SelectReferenceDatum(1), .032f, .009f);
+            _referenceDatumPrevious = Button("Datums ←", new Vector3(-.1f, -.16f, 0), .18f, () => { References?.NextDatumPage(-1);RefreshReferencePage(); }, .03f, .010f);
+            _referenceDatumNext = Button("Datums →", new Vector3(.105f, -.16f, 0), .17f, () => { References?.NextDatumPage(1);RefreshReferencePage(); }, .03f, .010f);
+            _referenceInspect = Button("Ispeziona", new Vector3(-.135f, -.215f, 0), .12f, InspectReferenceDatum, .03f, .009f);
+            _referenceEdit = Button("Modifica", new Vector3(0, -.215f, 0), .12f, EditReferenceDatum, .03f, .009f);
+            _referenceSketch = Button("Sketch piano", new Vector3(.135f, -.215f, 0), .12f, SketchOnReferencePlane, .03f, .008f);
+            _referenceType = Button("Tipo →", new Vector3(-.1f, .005f, 0), .18f, () => { References?.CycleKind();RefreshReferencePage(); }, .03f, .010f);
+            _referenceOperation = Button("Costruzione →", new Vector3(.105f, .005f, 0), .17f, () => { References?.CycleOperation();RefreshReferencePage(); }, .03f, .009f);
+            _referenceFieldPrevious = Button("Campo ←", new Vector3(-.1f, -.035f, 0), .18f, () => { References?.PreviousField();RefreshReferencePage(); }, .03f, .010f);
+            _referenceFieldNext = Button("Campo →", new Vector3(.105f, -.035f, 0), .17f, () => { References?.NextField();RefreshReferencePage(); }, .03f, .010f);
+            _referenceSourceLabels[0] = Button("Sorgente 1", new Vector3(0, -.08f, 0), .37f, () => ChooseReferenceSource(0), .032f, .009f);
+            _referenceSourceLabels[1] = Button("Sorgente 2", new Vector3(0, -.12f, 0), .37f, () => ChooseReferenceSource(1), .032f, .009f);
+            _referenceSourcesPrevious = Button("Fonti ←", new Vector3(-.1f, -.16f, 0), .18f, () => { References?.NextSourcePage(-1);RefreshReferencePage(); }, .03f, .010f);
+            _referenceSourcesNext = Button("Fonti →", new Vector3(.105f, -.16f, 0), .17f, () => { References?.NextSourcePage(1);RefreshReferencePage(); }, .03f, .010f);
+            _referenceNumeric = Button("Valore mm/deg", new Vector3(-.1f, -.20f, 0), .18f, EditReferenceNumeric, .03f, .009f);
+            _referenceEnum = Button("Valore →", new Vector3(.105f, -.20f, 0), .17f, () => { References?.CycleEnumValue();RefreshReferencePage(); }, .03f, .010f);
+            _referenceConfirm = Button("Conferma", new Vector3(-.1f, -.23f, 0), .18f, SubmitReference, .03f, .010f);
+            _referenceCancel = Button("Annulla", new Vector3(.105f, -.23f, 0), .17f, CancelReference, .03f, .010f);
+            _referenceBack = Button("Indietro", new Vector3(.105f, -.215f, 0), .17f, () => { References?.OpenHome();RefreshReferencePage(); }, .03f, .010f);
+            References.OpenHome();RefreshReferencePage();
             _sketchPage = PageRoot("Canonical sketch dimensions");_content = _sketchPage;
             _sketchStatus = Label(_content, "Seleziona uno sketch", new Vector3(-.19f, .085f, -.003f), .012f);
             _textLimits[_sketchStatus] = new Vector2(.38f, .11f);
@@ -280,8 +323,95 @@ namespace Kreoda.QuestRuntime
             if (_sectionPage != null) _sectionPage.gameObject.SetActive(selected == _sectionPage);
             if (_editPage != null) _editPage.gameObject.SetActive(selected == _editPage);
             if (_commandPage != null) _commandPage.gameObject.SetActive(selected == _commandPage);
+            if (_referencePage != null) _referencePage.gameObject.SetActive(selected == _referencePage);
             if (_sketchPage != null) _sketchPage.gameObject.SetActive(selected == _sketchPage);
             if (_voicePage != null) _voicePage.gameObject.SetActive(selected == _voicePage);
+        }
+
+        void OpenReferences()
+        { References?.OpenHome();RefreshReferencePage();Page(_referencePage); }
+
+        void RefreshReferencePage()
+        {
+            if (References == null || _referenceTitle == null) return;
+            bool home = References.IsHome, inspect = References.IsInspecting, form = References.IsFormOpen;
+            _referenceTitle.text = References.ModeLabel + (form ? " · " + References.OperationLabel : "");
+            _referenceDetails.text = form
+                ? References.CurrentFieldLabel + "\n" + References.CurrentFieldValue
+                : inspect ? References.InspectionText : References.HomeSummary;
+            _referenceStatus.text = inspect ? "" : References.Status;
+            _referenceDetails.transform.localPosition = new Vector3(-.19f, inspect ? .085f : .095f, -.003f);
+            _textLimits[_referenceDetails] = new Vector2(.38f, inspect ? .16f : .045f);
+            _referenceStatus.transform.localPosition = new Vector3(-.19f, .063f, -.003f);
+            _referenceStatus.gameObject.SetActive(!inspect);
+
+            Show(_referenceNewPlane, home);Show(_referenceNewAxis, home);Show(_referenceNewPoint, home);
+            for (var i = 0; i < _referenceDatumLabels.Length; i++)
+            {
+                var item = References.DatumAt(i);var label = item?.Label ?? "—";
+                if (item != null && item.FeatureId == References.SelectedDatumId) label = "✓ " + label;
+                SetButton(_referenceDatumLabels[i], home && item != null, label);
+            }
+            Show(_referenceDatumPrevious, home && References.DatumPageCount > 1);
+            Show(_referenceDatumNext, home && References.DatumPageCount > 1);
+            Show(_referenceInspect, home && References.HasSelectedDatum);
+            Show(_referenceEdit, home && References.CanEditSelected || inspect && References.CanEditSelected);
+            Show(_referenceSketch, home && References.CanSketchSelected);
+            Show(_referenceBack, inspect);
+
+            var formReady = form && References.SchemaReady;
+            Show(_referenceType, formReady && !References.IsEditing);Show(_referenceOperation, formReady);
+            Show(_referenceFieldPrevious, formReady);Show(_referenceFieldNext, formReady);
+            var isSource = formReady && References.CurrentFieldIsSource;
+            for (var i = 0; i < _referenceSourceLabels.Length; i++)
+                SetButton(_referenceSourceLabels[i], isSource, isSource ? References.SourceChoiceLabel(i) : "—");
+            Show(_referenceSourcesPrevious, isSource && References.SourcePageCount > 1);
+            Show(_referenceSourcesNext, isSource && References.SourcePageCount > 1);
+            if (form)
+            {
+                _referenceSourcesPrevious.text = "Fonti " + (References.SourcePage + 1) + " ←";
+                _referenceSourcesNext.text = "→ " + (References.SourcePage + 1) + "/" + References.SourcePageCount;
+            }
+            Show(_referenceNumeric, formReady && References.CurrentFieldIsNumeric);
+            Show(_referenceEnum, formReady && References.CurrentFieldIsEnum);
+            Show(_referenceConfirm, formReady);Show(_referenceCancel, form);
+        }
+
+        static void Show(TextMesh label, bool visible)
+        { if (label != null && label.transform.parent != null) label.transform.parent.gameObject.SetActive(visible); }
+        static void SetButton(TextMesh label, bool visible, string text)
+        { if (label == null) return;label.text = text;Show(label, visible); }
+
+        void BeginReference(QuestReferenceKind kind)
+        { References?.BeginCreate(kind);RefreshReferencePage(); }
+        void SelectReferenceDatum(int slot)
+        { References?.SelectDatumPageItem(slot);RefreshReferencePage(); }
+        void InspectReferenceDatum()
+        { References?.InspectSelected();RefreshReferencePage(); }
+        void EditReferenceDatum()
+        { References?.BeginEditSelected();RefreshReferencePage(); }
+        void SketchOnReferencePlane()
+        { if (References != null && References.StartSketchOnSelected()) Page(_commandPage);RefreshReferencePage(); }
+        void ChooseReferenceSource(int slot)
+        { References?.ChooseSource(slot);RefreshReferencePage(); }
+        void SubmitReference()
+        {
+            if (Commands != null && References != null) Commands.SubmitReference(References);
+            RefreshReferencePage();
+        }
+        void CancelReference()
+        {
+            if (_editingReference && _keyboard != null) _keyboard.active = false;
+            _keyboard = null;_editingReference = false;References?.Cancel();RefreshReferencePage();
+        }
+        void EditReferenceNumeric()
+        {
+            if (References == null || !References.IsFormOpen || !References.CurrentFieldIsNumeric) return;
+            _editingValue = _editingCommand = _editingSketch = false;_editingReference = true;
+            _referenceForm = References.FormTicket;_referenceInput = References.InputTicket;
+            _valueInput = References.NumericValue;
+            _keyboard = TouchScreenKeyboard.Open(_valueInput, TouchScreenKeyboardType.NumbersAndPunctuation,
+                false, false, false, false, References.NumericInputLabel, 64);
         }
         void TogglePanel()
         {
@@ -316,11 +446,13 @@ namespace Kreoda.QuestRuntime
             offset.z >= .45f && offset.z <= 1.5f && Mathf.Abs(offset.x) <= 1 && Mathf.Abs(offset.y) <= .65f;
         void ResetIntent()
         {
-            if (_editingValue || _editingCommand || _editingSketch)
+            if (References != null && (References.IsFormOpen || _editingReference)) References.Cancel();
+            if (_editingValue || _editingCommand || _editingSketch || _editingReference)
             {
                 _editingValue = false;
                 _editingCommand = false;
                 _editingSketch = false;
+                _editingReference = false;
                 if (_keyboard != null) _keyboard.active = false;
                 _keyboard = null;
             }
@@ -422,7 +554,10 @@ namespace Kreoda.QuestRuntime
             if (Spatial != null && Spatial.Holding)
             { Spatial.Drag(ray, orientation, pressed, _tracked);_ray.enabled = false;return; }
             if (!_tracked)
-            { UpdatePanelDrag(ray, pressed, false); _ray.enabled = false; _requireRelease = true; Display.UpdatePlacement(default, _yaw, false); return; }
+            {
+                if (_keyboard == null && References != null && References.IsFormOpen) References.Cancel();
+                UpdatePanelDrag(ray, pressed, false); _ray.enabled = false; _requireRelease = true; Display.UpdatePlacement(default, _yaw, false); return;
+            }
             if (_requireRelease) { clicked = false; if (!pressed) _requireRelease = false; }
             var direction = Vector3.ProjectOnPlane(ray.direction, Vector3.up);
             if (direction.sqrMagnitude > .01f) _yaw = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
@@ -488,7 +623,7 @@ namespace Kreoda.QuestRuntime
             var view = hitView ?? (hitCollider != null ? hitCollider.GetComponent<QuestMeshView>() : null);
             if (view == null) return;
             if (_selectedDatum != null) _selectedDatum.SetSelected(false);
-            _selectedDatum = null;
+            _selectedDatum = null;References?.SelectCurrentDatum(null);
             if (_selected != null) _selected.ClearSelection();
             _selected = view;
             if (Spatial != null) Spatial.Select(view);
@@ -496,6 +631,8 @@ namespace Kreoda.QuestRuntime
             var activeSection = Connection.Section != null && Connection.Section.Enabled ? Connection.Section.Plane : null;
             _hit = _selectionMode == 2 ? view.ResolveNearestEdge(hitPoint, .008f, activeSection, Connection.DisplayRoot) :
                 _selectionMode == 1 ? view.ResolveFace(hitTriangle) : null;
+            if (_hit != null && _selectionMode != 0) References?.SetPickedMesh(view, _hit, _selectionMode == 1);
+            else References?.ClearPickedMesh();
             if (_selectionMode == 1) view.SelectFace(_hit);
             else if (_selectionMode == 2) view.SelectEdge(_hit);
             else view.SelectBody();
@@ -516,6 +653,15 @@ namespace Kreoda.QuestRuntime
 
         void ApplyKeyboardInput(string text, TouchScreenKeyboard.Status status)
         {
+            if (_editingReference)
+            {
+                if (!string.IsNullOrEmpty(text)) _valueInput = text;
+                if (status == TouchScreenKeyboard.Status.Visible) return;
+                _keyboard = null;_editingReference = false;
+                if (status != TouchScreenKeyboard.Status.Canceled && References != null && References.FormTicket == _referenceForm)
+                    References.SetNumericInput(_valueInput, _referenceForm, _referenceInput);
+                RefreshReferencePage();return;
+            }
             if (_editingSketch)
             {
                 if (!string.IsNullOrEmpty(text)) _valueInput = text;
@@ -569,6 +715,8 @@ namespace Kreoda.QuestRuntime
             if (_selected != null) _selected.ClearSelection();
             if (_selectedDatum != null) _selectedDatum.SetSelected(false);
             _selected = null;_hit = null;_selectedDatum = view;
+            References?.ClearPickedMesh();
+            References?.SelectCurrentDatum(view.FeatureId);
             view.SetSelected(true);
             Spatial?.Select(null);
             Commands?.SelectDatum(view);
@@ -759,6 +907,7 @@ namespace Kreoda.QuestRuntime
         void OnDestroy()
         {
             if (_keyboard != null) _keyboard.active = false;
+            if (References != null) References.Changed -= RefreshReferencePage;
             if (Connection != null) Connection.SceneChanged -= RefreshSelection;
         }
         void OnApplicationFocus(bool focused) { if (!focused) ResetIntent(); }

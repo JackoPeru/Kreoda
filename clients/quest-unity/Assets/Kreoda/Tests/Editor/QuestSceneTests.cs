@@ -106,6 +106,9 @@ namespace Kreoda.QuestRuntime.Tests
                 var commands = Object.FindFirstObjectByType<QuestCommands>();
                 Assert.That(commands, Is.Not.Null, "context actions must be wired into the product scene");
                 Assert.That(commands.Connection, Is.SameAs(connection));
+                Assert.That(controls.References, Is.Not.Null, "typed reference form must ship in the product scene");
+                Assert.That(controls.References.Connection, Is.SameAs(connection));
+                Assert.That(controls.References.Commands, Is.SameAs(commands));
                 Assert.That(controls.SketchDimensions, Is.Not.Null);
                 Assert.That(controls.SketchDimensions.transform.parent, Is.SameAs(connection.DisplayRoot));
                 typeof(QuestControls).GetMethod("Start", System.Reflection.BindingFlags.Instance |
@@ -114,6 +117,10 @@ namespace Kreoda.QuestRuntime.Tests
                 Assert.That(panel.Find("Panel background").localScale.x, Is.EqualTo(.42f).Within(.001f));
                 var menu = controls.transform.Find("Menu control");
                 Assert.That(menu, Is.Not.Null);
+                var referenceButton = controls.transform.Find("Compact panel (0.42 m)/Display controls/Riferimenti control");
+                Assert.That(referenceButton, Is.Not.Null, "hand-reachable display page must open reference controls");
+                referenceButton.GetComponentInChildren<QuestButton>(true).Click.Invoke();
+                Assert.That(controls.transform.Find("Compact panel (0.42 m)/Riferimenti CAD").gameObject.activeSelf, Is.True);
                 panel.gameObject.SetActive(false);
                 Assert.That(menu.gameObject.activeInHierarchy, Is.True);
                 Assert.That(menu.GetComponentInChildren<QuestButton>(), Is.Not.Null);

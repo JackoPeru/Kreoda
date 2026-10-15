@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -170,6 +171,177 @@ namespace Kreoda.QuestRuntime.Tests
             Assert.That(pinch.Invoke(null, released), Is.False);
             var nextPinch = new object[] { true, released[1] };
             Assert.That(pinch.Invoke(null, nextPinch), Is.True);
+        }
+
+        [Test]
+        public void ReferencePageAndCreateEntryUseVisibleIndexPinchButtons()
+        {
+            var viewPage = (Transform)typeof(QuestControls).GetField("_viewPage", Private).GetValue(_controls);
+            var page = (Transform)typeof(QuestControls).GetField("_referencePage", Private).GetValue(_controls);
+            Call("Page", viewPage);
+            var open = viewPage.Find("Riferimenti control").GetComponentInChildren<QuestButton>(true);
+            Assert.That(open, Is.Not.Null);
+            var pinch = typeof(QuestControls).GetMethod("IndexPinchStarted", Private | BindingFlags.Static);
+            var start = new object[] { true, false };
+            Assert.That(pinch.Invoke(null, start), Is.True);
+            open.Click.Invoke();
+            Assert.That(page.gameObject.activeSelf, Is.True);
+            var create = page.Find("Nuovo piano control").GetComponentInChildren<QuestButton>(true);
+            Assert.That(create, Is.Not.Null);
+            create.Click.Invoke();
+            Assert.That(_controls.References.IsFormOpen, Is.False, "offline UI cannot create a local fake datum");
+            Assert.That(_controls.References.Status, Does.Contain("Collega un PC"));
+        }
+
+        [Test]
+        public void ReferenceKindOperationSourceFieldAndCancelUseIndexPinchButtonRoute()
+        {
+            var connection = _controls.Connection;
+            var run = new System.Threading.CancellationTokenSource();
+            try
+            {
+                var model = new Kreoda.Session.SessionModelState("session", "document", 4,
+                    System.Array.Empty<System.Text.Json.JsonElement>(), System.Array.Empty<System.Text.Json.JsonElement>(),
+                    System.Array.Empty<System.Text.Json.JsonElement>());
+                var client = (Kreoda.Session.SessionClient)typeof(Kreoda.Session.SessionClient)
+                    .GetConstructor(Private, null, System.Type.EmptyTypes, null).Invoke(null);
+                typeof(Kreoda.Session.SessionClient).GetField("_model", Private).SetValue(client, model);
+                typeof(QuestConnection).GetField("_client", Private).SetValue(connection, client);
+                typeof(QuestConnection).GetField("_run", Private).SetValue(connection, run);
+                typeof(QuestConnection).GetProperty("Connected").SetValue(connection, true);
+                var scene = (Kreoda.QuestFoundation.QuestSceneState)typeof(QuestConnection).GetField("_scene", Private).GetValue(connection);
+                var generation = scene.BeginConnection();
+                typeof(QuestConnection).GetMethod("Capture", Private).Invoke(connection, new object[] { run, client, generation, model, null });
+                Call("Update");
+
+                var viewPage = (Transform)typeof(QuestControls).GetField("_viewPage", Private).GetValue(_controls);
+                var page = (Transform)typeof(QuestControls).GetField("_referencePage", Private).GetValue(_controls);
+                var pinch = typeof(QuestControls).GetMethod("IndexPinchStarted", Private | BindingFlags.Static);
+                void HandPress(Transform targetPage, string label)
+                {
+                    var button = targetPage.Find(label + " control").GetComponentInChildren<QuestButton>(true);
+                    Assert.That(button, Is.Not.Null, label);
+                    Assert.That(pinch.Invoke(null, new object[] { true, false }), Is.True, "index pinch must activate " + label);
+                    button.Click.Invoke();
+                    Assert.That(pinch.Invoke(null, new object[] { false, true }), Is.False, "release must not repeat " + label);
+                }
+
+                Call("Page", viewPage);
+                HandPress(viewPage, "Riferimenti");
+                HandPress(page, "Nuovo piano");
+                Assert.That(_controls.References.IsFormOpen, Is.True);
+                var allowed = (System.Collections.Generic.HashSet<string>)typeof(QuestReferences).GetField("_allowedOperations", Private).GetValue(_controls.References);
+                allowed.Add("principal");allowed.Add("offset");
+                typeof(QuestReferences).GetField("_schemaReady", Private).SetValue(_controls.References, true);
+                Call("RefreshReferencePage");
+                HandPress(page, "Costruzione →");
+                Assert.That(_controls.References.Operation, Is.EqualTo("offset"));
+                HandPress(page, "Sorgente 1");
+                Assert.That(_controls.References.CurrentFieldValue, Does.Contain("Piano XY"));
+                HandPress(page, "Campo →");
+                Assert.That(_controls.References.CurrentFieldLabel, Does.Contain("Scostamento"));
+                HandPress(page, "Annulla");
+                Assert.That(_controls.References.IsFormOpen, Is.False, "cancel button must abandon the draft without a local datum");
+            }
+            finally
+            {
+                typeof(QuestConnection).GetField("_run", Private).SetValue(connection, null);
+                typeof(QuestConnection).GetField("_client", Private).SetValue(connection, null);
+                typeof(QuestConnection).GetProperty("Connected").SetValue(connection, false);
+                ((Kreoda.QuestFoundation.QuestSceneState)typeof(QuestConnection).GetField("_scene", Private).GetValue(connection)).InvalidateConnection();
+                run.Cancel();run.Dispose();
+            }
+        }
+
+        [Test]
+        public void ReferenceHomeFormAndInspectKeepTextBoundsClearOfNeighboringButtons()
+        {
+            var page = (Transform)typeof(QuestControls).GetField("_referencePage", Private).GetValue(_controls);
+            var references = _controls.References;
+            Call("OpenReferences");
+            typeof(QuestReferences).GetField("<Status>k__BackingField", Private).SetValue(references,
+                "Scegli costruzione o datum\nPC non connesso · modello in attesa");
+            Call("RefreshReferencePage");
+            Call("LateUpdate");Physics.SyncTransforms();
+            AssertReferenceLabelsClear(page, "home with multiline status");
+
+            var mode = typeof(QuestReferences).GetField("_mode", Private);
+            mode.SetValue(references, System.Enum.Parse(mode.FieldType, "Form"));
+            typeof(QuestReferences).GetField("_kind", Private).SetValue(references, QuestReferenceKind.Plane);
+            typeof(QuestReferences).GetField("_operation", Private).SetValue(references, "offset");
+            typeof(QuestReferences).GetField("_schemaReady", Private).SetValue(references, true);
+            typeof(QuestReferences).GetField("_sourcePage", Private).SetValue(references, 1);
+            var fieldType = typeof(QuestReferences).GetNestedType("Field", BindingFlags.NonPublic);
+            var field = System.Activator.CreateInstance(fieldType, true);
+            fieldType.GetField("Key").SetValue(field, "base");
+            fieldType.GetField("Label").SetValue(field, "Piano base");
+            fieldType.GetField("Unit").SetValue(field, "sorgente");
+            fieldType.GetField("Kind").SetValue(field, QuestReferenceValueKind.Plane);
+            var fields = (System.Collections.IList)typeof(QuestReferences).GetField("_fields", Private).GetValue(references);
+            fields.Clear();fields.Add(field);
+            var values = (System.Collections.IDictionary)typeof(QuestReferences).GetField("_values", Private).GetValue(references);
+            var selected = QuestReferenceValue.Datum(QuestReferenceKind.Plane, "source-long-uuid", "DatumPlane", "ok");
+            selected.Label = "Piano datum corrente con un identificatore persistente molto lungo source-long-uuid";
+            values["base"] = selected;
+            var allowed = (System.Collections.IEnumerable)typeof(QuestReferences).GetField("_allowedOperations", Private).GetValue(references);
+            var add = allowed.GetType().GetMethod("Add");add.Invoke(allowed, new object[] { "offset" });
+            typeof(QuestReferences).GetField("<Status>k__BackingField", Private).SetValue(references,
+                "Sorgente corrente\nSchema PC confermato · unità mm");
+            Call("RefreshReferencePage");
+            Call("LateUpdate");Physics.SyncTransforms();
+            Assert.That(page.Find("Sorgente 2 control").GetComponentInChildren<TextMesh>(true).text, Does.Contain("source-long-uuid"));
+            AssertReferenceLabelsClear(page, "form with long source and multiline status");
+
+            mode.SetValue(references, System.Enum.Parse(mode.FieldType, "Inspect"));
+            Call("RefreshReferencePage");
+            var details = (TextMesh)typeof(QuestControls).GetField("_referenceDetails", Private).GetValue(_controls);
+            details.text = "ID datum\nStato broken · dipendenza rimossa\nPiano · Offset\nbase: datum source-long-uuid\nscostamento: 24 mm\nRisolto mm · origine [0, 0, 24]\nx [1, 0, 0] · y [0, 1, 0] · normale [0, 0, 1]";
+            Call("LateUpdate");Physics.SyncTransforms();
+            AssertReferenceLabelsClear(page, "inspection with multiline native detail");
+        }
+
+        [Test]
+        public void ReferencePageShowsCommandOutcomeStatus()
+        {
+            var status = (TextMesh)typeof(QuestControls).GetField("_referenceStatus", Private).GetValue(_controls);
+            typeof(QuestReferences).GetField("<Status>k__BackingField", Private).SetValue(_controls.References,
+                "PC ha rifiutato · DATUM_FAILED: Fixture rejected datum");
+            Call("RefreshReferencePage");
+            Assert.That(status.text, Does.Contain("PC ha rifiutato").And.Contain("DATUM_FAILED").And.Contain("Fixture rejected datum"));
+        }
+
+        [Test]
+        public void TrackingLossAndFocusLossCancelReferenceForm()
+        {
+            var references = _controls.References;
+            var mode = typeof(QuestReferences).GetField("_mode", Private);
+            mode.SetValue(references, System.Enum.Parse(mode.FieldType, "Form"));
+            Call("Update");
+            Assert.That(references.IsFormOpen, Is.False, "tracking loss must abandon the typed reference form");
+
+            mode.SetValue(references, System.Enum.Parse(mode.FieldType, "Form"));
+            Call("OnApplicationFocus", false);
+            Assert.That(references.IsFormOpen, Is.False, "focus loss must abandon the typed reference form");
+        }
+
+        static void AssertReferenceLabelsClear(Transform page, string state)
+        {
+            var buttons = page.GetComponentsInChildren<QuestButton>(true)
+                .Where(button => button.gameObject.activeInHierarchy && button.GetComponent<Collider>() != null).ToArray();
+            foreach (var label in page.GetComponentsInChildren<TextMesh>(true).Where(label => label.gameObject.activeInHierarchy))
+            {
+                var renderer = label.GetComponent<MeshRenderer>();
+                if (renderer == null) continue;
+                var textBounds = renderer.bounds;
+                foreach (var button in buttons)
+                {
+                    if (label.transform.parent == button.transform.parent) continue;
+                    var target = button.GetComponent<Collider>().bounds;
+                    var overlaps = textBounds.min.x < target.max.x && textBounds.max.x > target.min.x &&
+                        textBounds.min.y < target.max.y && textBounds.max.y > target.min.y;
+                    Assert.That(overlaps, Is.False, $"{state}: label '{label.text}' overlaps neighboring button '{button.transform.parent.name}'");
+                }
+            }
         }
 
         [Test]

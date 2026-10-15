@@ -10,11 +10,21 @@ const documentId = "fixture-doc";
 const datumId = "datum-plane-wire";
 const requests = [];
 let connectionCount = 0;
+const referenceOperations = {
+  CreateDatumPlane: ["principal", "offset", "mid", "angle", "threePoint"],
+  CreateDatumAxis: ["twoPoint", "planeNormal", "planeIntersection"],
+  CreateDatumPoint: ["coordinates", "midpoint"],
+  UpdateDatum: ["principal", "offset", "mid", "angle", "threePoint", "twoPoint", "planeNormal", "planeIntersection", "coordinates", "midpoint"],
+};
+const referenceSchema = id => ({ type: "object", properties: {
+  ...(id === "UpdateDatum" ? { featureId: { type: "string", minLength: 1 } } : {}),
+  definition: { anyOf: referenceOperations[id].map(type => ({ type: "object", properties: { type: { type: "string", const: type } } })) },
+}, required: id === "UpdateDatum" ? ["featureId", "definition"] : ["definition"] });
 const server = new WebSocketServer({ host: "0.0.0.0", port: 0 });
 server.on("listening", () => console.log(JSON.stringify({ port: server.address().port })));
 server.on("connection", socket => {
   const connection = ++connectionCount;
-  socket.on("message", data => {
+  socket.on("message", async data => {
   const request = JSON.parse(data.toString());
   if (fixture.datumMode) {
     requests.push({ method: request.method, params: request.params, sessionId: request.sessionId, connection });
@@ -42,13 +52,28 @@ server.on("connection", socket => {
           resolved: { originMm: [0, 0, 24], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] } }] } : {}) });
       break;
     case "listCommands":
-      if (!fixture.datumMode || request.params.selectionIds?.[0] !== datumId || request.params.expectedRevision !== fixture.revision)
+      if (!fixture.datumMode || request.params.expectedRevision !== fixture.revision)
         throw new Error("wrong datum context identity/revision");
+      const selected = request.params.selectionIds ?? [];
+      if (selected.length && (selected.length !== 1 || selected[0] !== datumId))
+        throw new Error("wrong datum context identity");
+      const commands = selected.length ? [
+        { id: "CreateSketch", label: "Sketch sul piano", description: "Fixture support binding",
+          available: true, supportsPreview: false, boundParameters: { supportRef: datumId, planeKind: connection === 1 ? "XY" : "XZ" } },
+        { id: "UpdateDatum", label: "Modifica datum", description: "Fixture edit action",
+          available: true, supportsPreview: false, boundParameters: {} },
+      ] : ["CreateDatumPlane", "CreateDatumAxis", "CreateDatumPoint"].map(id => ({
+        id, label: id, description: "Fixture reference action", available: true,
+        supportsPreview: false, boundParameters: {},
+      }));
       reply({ result: { sessionId, documentId, revision: fixture.revision, contextValid: true,
-        commands: [{ id: "CreateSketch", label: "Sketch sul piano", description: "Fixture support binding",
-          available: true, supportsPreview: false, boundParameters: { supportRef: datumId, planeKind: connection === 1 ? "XY" : "XZ" } }] } });
+        commands } });
       break;
     case "getCommandSchema":
+      if (referenceOperations[request.params.id]) {
+        reply({ result: { parameters: referenceSchema(request.params.id) } });
+        break;
+      }
       reply({ result: { parameters: { type: "object", properties: {
         planeKind: { type: "string", default: "XY" }, supportRef: { type: "string" }, model: { type: "object", default: {} }
       }, required: ["supportRef", "model"] } } });
@@ -67,6 +92,18 @@ server.on("connection", socket => {
     case "getManipulators":
       reply({ result: { featureId: fixture.featureId, manipulators: [{ id: "width", type: "linear",
         parameter: "widthMm", unit: "mm", origin: [100, 25, 10], axis: [1, 0, 0], currentValues: { widthMm: 100 } }] } });
+      break;
+    case "command":
+      if (request.params.documentId !== documentId || request.params.baseRevision !== fixture.revision)
+        throw new Error("command did not carry current fixture lineage");
+      if (request.params.commandId === fixture.delayCommandId && fixture.delayCommandMs > 0)
+        await new Promise(resolve => setTimeout(resolve, fixture.delayCommandMs));
+      if (request.params.commandId === fixture.rejectCommandId) {
+        socket.send(JSON.stringify({ requestId: request.requestId, ok: false,
+          errorCode: "DATUM_FAILED", error: "Fixture rejected datum" }));
+        break;
+      }
+      reply({ result: { accepted: true } });
       break;
     default:
       reply({ result: {} });

@@ -126,6 +126,8 @@ namespace Kreoda.QuestEditor
             controls.Spatial = spatial;
             var commands = new GameObject("Canonical Quest context commands").AddComponent<QuestCommands>();
             commands.Connection = connection;commands.Spatial = spatial;controls.Commands = commands;
+            var references = controls.gameObject.AddComponent<QuestReferences>();
+            references.Connection = connection;references.Commands = commands;controls.References = references;
             var sketchDimensions = new GameObject("Canonical sketch dimension preview").AddComponent<QuestSketchDimensions>();
             sketchDimensions.transform.SetParent(display, false);sketchDimensions.Connection = connection;sketchDimensions.Spatial = spatial;
             sketchDimensions.LineMaterial = controls.RayMaterial;controls.SketchDimensions = sketchDimensions;
@@ -268,6 +270,7 @@ namespace Kreoda.QuestEditor
                 controls.Spatial.Dimensions == null || controls.Spatial.Preview.transform.parent != connection.DisplayRoot ||
                 controls.Spatial.Dimensions.transform.parent != connection.DisplayRoot ||
                 controls.Commands == null || controls.Commands.Connection != connection || controls.Commands.Spatial != controls.Spatial ||
+                controls.References == null || controls.References.Connection != connection || controls.References.Commands != controls.Commands ||
                 controls.SketchDimensions == null || controls.SketchDimensions.Connection != connection ||
                 controls.SketchDimensions.transform.parent != connection.DisplayRoot ||
                 controls.Voice == null || controls.Voice.Connection != connection || controls.Voice.Controls != controls ||
