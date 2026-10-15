@@ -1,0 +1,12 @@
+{
+  "expectedCTestCases": 243,
+  "ctestExitCode": 0,
+  "ctestCases": 243,
+  "failed": 0,
+  "skipped": 0,
+  "projectionCases": 10,
+  "coreSelfTestExitCode": 0,
+  "selfTestConfirmation": true,
+  "coreSelfTestPathPolicy": "System32 and Windows only; app-local DLL loading",
+  "sourceUnchanged": true
+}

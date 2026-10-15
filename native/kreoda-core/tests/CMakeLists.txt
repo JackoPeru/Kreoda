@@ -24,6 +24,8 @@ add_executable(kreoda-core-tests
   test_session11.cpp
   test_session_geometry.cpp
   test_sketch.cpp
+  test_projection.cpp
+  ../src/features/sketch/projected_geometry.cpp
   test_solids.cpp
   test_step.cpp
   test_stl.cpp
@@ -108,7 +110,7 @@ if(OpenCASCADE_FOUND)
   target_link_libraries(kreoda-core-tests PRIVATE
     TKernel TKMath TKCDF TKLCAF TKCAF TKBin TKBinL TKBinXCAF TKXCAF
     TKBRep TKTopAlgo TKGeomAlgo TKGeomBase TKG3d TKG2d TKPrim TKBO
-    TKMesh TKShHealing TKXSBase TKFillet TKDE TKDESTEP TKDESTL TKDEOBJ
+    TKMesh TKShHealing TKXSBase TKFillet TKHLR TKDE TKDESTEP TKDESTL TKDEOBJ
   )
 endif()
 if(TARGET MINIZIP::minizip-ng)

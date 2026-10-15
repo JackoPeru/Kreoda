@@ -135,6 +135,7 @@ set(CORE_SOURCES
   src/features/sketch/sketch_face.cpp
   src/features/sketch/sketch_json.cpp
   src/features/sketch/sketch_commands.cpp
+  src/features/sketch/projected_geometry.cpp
   src/features/extrusion/extrude.cpp
   src/features/revolve/revolve.cpp
   src/features/booleans/boolean.cpp
@@ -230,7 +231,7 @@ if(OpenCASCADE_FOUND)
   target_link_libraries(kreoda-core PRIVATE
     TKernel TKMath TKCDF TKLCAF TKCAF TKBin TKBinL TKBinXCAF TKXCAF
     TKBRep TKTopAlgo TKGeomAlgo TKGeomBase TKG3d TKG2d TKPrim TKBO
-    TKMesh TKShHealing TKXSBase TKFillet TKDE TKDESTEP TKDESTL TKDEOBJ
+    TKMesh TKShHealing TKXSBase TKFillet TKHLR TKDE TKDESTEP TKDESTL TKDEOBJ
   )
 else()
   target_compile_definitions(kreoda-core PRIVATE KREODA_WITH_OCCT=0)
