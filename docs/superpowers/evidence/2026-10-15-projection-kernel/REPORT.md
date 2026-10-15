@@ -26,3 +26,13 @@ Build output: C:/Users/matte/Documents/Codex-tools/Native/phase15-projection-ker
 Fresh immutable Sol6/high review is pending at this report's creation. Review must check general silhouette semantics, native source topology immutability (Boolean/section algorithm defaults are a particular focus), curve/parameter retention, transform handling and failure atomicity; the ten fixtures alone are not a proof for every native shape.
 
 Hosted b5d1736 CI38707325681 completed success for the preceding source; it does not cover this new kernel. A new-head hosted runtime/package/regression gate remains required after acceptance. No merge/release, server/Hermes/SSH/Tailscale/AI probe, device/ADB action, mic/camera capture, PC audio or foreground GUI. Full original Phases12-16 remains active.
+
+## Source-topology review correction
+
+Fresh GPT-6-Sol/high reviewer01a13fd4-9adb-70d2-ac42-e97458bfb5a8 returned fix-first for candidate025fab: the public plane-section evaluator built directly from the caller's shape with OCCT's destructive default. Parent applied the user's explicit quota fallback after the original Luna worker's terminal usage-limit error; no replacement worker was launched for quota.
+
+A real regression now serializes the source box B-Rep before and after sections at z=3, z=1e-8, z=0 and disjoint z=20. The near-coincident section reproduced source edge-tolerance changes from1e-7 to1.1e-7 on the original code. The first coarse-only fixture passed before correction; it was not counted as RED. The final near-coincident fixture failed behaviorally before the fix and passed afterwards. Failure also retains the sentinel output. The fix constructs the section without building it, enables SetNonDestructive(true), then explicitly builds it. All11 focused Projection cases pass after this correction. Raw pre-fix and corrected logs remain under the user's Temp folder.
+
+Complete corrected parent verification and a new fresh immutable review are required before accepting this candidate. Earlier243/243 and hosted b5 success do not establish acceptance of the correction.
+
+Corrected parent verification now passed244/244 CTest,0 failures/errors/skips, including11 Projection cases. The normal OCCT core self-test passed again with PATH restricted to System32/Windows; the five source hashes stayed unchanged. Actual corrected XML, source manifest, summary, native/self-test logs and behavioral RED/GREEN logs are retained in purity-correction/. A new fresh immutable review remains pending; no corrected-head hosted CI is claimed.

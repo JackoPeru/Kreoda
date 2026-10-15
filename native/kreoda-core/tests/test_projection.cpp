@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <sstream>
 #include <vector>
 
 #include "../src/features/sketch/projected_geometry.h"
@@ -18,6 +19,7 @@
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <BRep_Builder.hxx>
+#include <BRepTools.hxx>
 #include <GeomAPI_PointsToBSpline.hxx>
 #include <Geom_BSplineCurve.hxx>
 #include <Geom_Line.hxx>
@@ -384,6 +386,29 @@ TEST(Projection, SphereSectionHasAnalyticRadiusInRotatedFrame) {
               std::sqrt(sphereRadius * sphereRadius - offset * offset), kTolerance);
   EXPECT_TRUE(Near(circle.Circle().Location(), Origin(plane)));
   EXPECT_TRUE(EdgeSamplesOnPlane(output[0], plane));
+}
+
+TEST(Projection, SectionPreservesSourceTopologyOnSuccessAndFailure) {
+  const TopoDS_Shape source = BRepPrimAPI_MakeBox(4, 6, 8).Shape();
+  auto snapshot = [&]() {
+    std::ostringstream stream;
+    BRepTools::Write(source, stream);
+    return stream.str();
+  };
+  const std::string before = snapshot();
+  const TopoDS_Edge sentinel = BRepBuilderAPI_MakeEdge(
+      gp_Pnt(100, 100, 100), gp_Pnt(101, 100, 100)).Edge();
+  for (const double height : {3.0, 1e-8, 0.0, 20.0}) {
+    kreoda::SketchPlane plane;
+    plane.origin[2] = height;
+    std::vector<TopoDS_Edge> output{sentinel};
+    std::string error;
+    const bool success = kreoda::IntersectNativeShapeWithPlane(
+        source, plane, &output, &error);
+    EXPECT_EQ(success, height != 20.0) << error;
+    EXPECT_EQ(snapshot(), before) << "section at z=" << height;
+    if (!success) ExpectSameOutput(output, {sentinel});
+  }
 }
 
 TEST(Projection, NullMalformedNonfiniteUnboundedAndCollapsedInputsFailAtomically) {

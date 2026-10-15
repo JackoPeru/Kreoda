@@ -418,7 +418,9 @@ bool IntersectNativeShapeWithPlane(const TopoDS_Shape& source,
       return false;
     }
 
-    BRepAlgoAPI_Section section(source, frame.plane, true);
+    BRepAlgoAPI_Section section(source, frame.plane, false);
+    section.SetNonDestructive(true);
+    section.Build();
     if (!section.IsDone()) return Fail(error, "OCCT plane section failed");
 
     std::vector<TopoDS_Edge> candidate = ExtractEdges(section.Shape());
