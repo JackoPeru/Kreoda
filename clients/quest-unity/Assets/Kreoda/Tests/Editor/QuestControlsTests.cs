@@ -99,7 +99,7 @@ namespace Kreoda.QuestRuntime.Tests
             {
                 for (var parent = label.transform; parent != _controls.transform; parent = parent.parent)
                     parent.gameObject.SetActive(true);
-                if (label.text == "IP del PC") label.text = "ws://192.168.100.254:65535";
+                if (label.text == "Endpoint manuale") label.text = "ws://192.168.100.254:65535";
             }
             yield return null;
             typeof(QuestControls).GetMethod("LateUpdate", Private)?.Invoke(_controls, null);
@@ -109,6 +109,9 @@ namespace Kreoda.QuestRuntime.Tests
                 if (!label.transform.parent.name.EndsWith(" control")) continue;
                 var target = label.transform.parent.GetComponentInChildren<QuestButton>(true);
                 if (target == null) continue;
+                // Measure inactive recovery controls too: LateUpdate correctly hides Menu while the panel is open.
+                target.transform.parent.gameObject.SetActive(true);
+                Physics.SyncTransforms();
                 var glyphs = label.GetComponent<MeshRenderer>().bounds;
                 var button = target.GetComponent<Collider>().bounds;
                 Assert.That(glyphs.size.x, Is.LessThanOrEqualTo(button.size.x * .95f), label.text + " escapes its button width");

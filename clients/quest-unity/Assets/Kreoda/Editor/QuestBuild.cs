@@ -94,12 +94,13 @@ namespace Kreoda.QuestEditor
             connection.Section.Connection = connection;
             var controls = new GameObject("Compact Quest controls").AddComponent<QuestControls>();
             controls.Connection = connection;
+            controls.Home = controls.gameObject.AddComponent<QuestHome>();
             controls.Rig = rig;
             controls.LeftHand = left;
             controls.RightHand = right;
             controls.Font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            controls.PanelMaterial = Material("Panel", "Unlit/Color", new Color(.035f, .05f, .075f));
-            controls.ButtonMaterial = Material("Buttons", "Unlit/Color", new Color(.09f, .15f, .22f));
+            controls.PanelMaterial = Material("Panel", "Kreoda/QuestUi", new Color(.94f, .96f, .985f, .78f));
+            controls.ButtonMaterial = Material("Buttons", "Kreoda/QuestUi", new Color(.99f, .99f, 1f, .88f));
             controls.RayMaterial = Material("Ray", "Unlit/Color", new Color(0, .8f, 1f));
             var placement = new GameObject("Independent physical placement").AddComponent<QuestDisplay>();
             placement.Connection = connection;
@@ -246,6 +247,19 @@ namespace Kreoda.QuestEditor
             if (report.summary.result != BuildResult.Succeeded) throw new InvalidOperationException("Quest build failed");
         }
 
+        public static void WireHome()
+        {
+            if (!File.Exists(ScenePath)) throw new InvalidOperationException("Saved Quest scene is missing; prepare it first");
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var controls = UnityEngine.Object.FindFirstObjectByType<QuestControls>();
+            if (controls == null) throw new InvalidOperationException("Saved Quest scene has no QuestControls");
+            controls.Home = controls.GetComponent<QuestHome>() ?? controls.gameObject.AddComponent<QuestHome>();
+            EditorUtility.SetDirty(controls);
+            EditorSceneManager.MarkSceneDirty(scene);
+            if (!EditorSceneManager.SaveScene(scene, ScenePath)) throw new IOException("Could not save Quest Home wiring");
+            AssetDatabase.SaveAssets();
+        }
+
         static void ValidatePrepared()
         {
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
@@ -255,7 +269,10 @@ namespace Kreoda.QuestEditor
             var projectConfig = OVRProjectConfig.CachedProjectConfig;
             var centralCamera = controls != null && controls.Rig != null && controls.Rig.centerEyeAnchor != null
                 ? controls.Rig.centerEyeAnchor.GetComponent<Camera>() : null;
-            if (connection == null || controls == null || controls.Connection != connection || controls.Rig == null ||
+            if (connection == null || controls == null || controls.Connection != connection || controls.Home == null ||
+                controls.Home != controls.GetComponent<QuestHome>() || controls.PanelMaterial == null || controls.ButtonMaterial == null ||
+                controls.PanelMaterial.shader == null || controls.PanelMaterial.shader.name != "Kreoda/QuestUi" ||
+                controls.ButtonMaterial.shader == null || controls.ButtonMaterial.shader.name != "Kreoda/QuestUi" || controls.Rig == null ||
                 connection.DisplayRoot == null || connection.Section == null || connection.Section.Connection != connection ||
                 connection.SurfaceMaterial == null || connection.EdgeMaterial == null ||
                 connection.SelectionMaterial == null || connection.PreviewMaterial == null ||

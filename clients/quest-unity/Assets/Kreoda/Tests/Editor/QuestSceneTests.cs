@@ -78,6 +78,7 @@ namespace Kreoda.QuestRuntime.Tests
                 Assert.That(connection, Is.Not.Null, "product scene has no actual CAD connection");
                 Assert.That(controls, Is.Not.Null, "product scene has no Quest input/UI");
                 Assert.That(controls.Connection, Is.SameAs(connection));
+                Assert.That(controls.Home, Is.Not.Null, "the saved product scene must serialize its Quest Home component");
                 Assert.That(controls.Rig, Is.Not.Null);
                 Assert.That(controls.LeftHand, Is.Not.Null);
                 Assert.That(controls.RightHand, Is.Not.Null);
@@ -124,6 +125,22 @@ namespace Kreoda.QuestRuntime.Tests
                 panel.gameObject.SetActive(false);
                 Assert.That(menu.gameObject.activeInHierarchy, Is.True);
                 Assert.That(menu.GetComponentInChildren<QuestButton>(), Is.Not.Null);
+            }
+            finally { EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single); }
+        }
+
+        [Test]
+        public void SavedQuestSceneHasHomeWiringWithoutCallingPrepare()
+        {
+            try
+            {
+                EditorSceneManager.OpenScene("Assets/Kreoda/Scenes/KreodaQuest.unity", OpenSceneMode.Single);
+                var controls = Object.FindFirstObjectByType<QuestControls>();
+                Assert.That(controls, Is.Not.Null);
+                Assert.That(controls.Home, Is.Not.Null, "ordinary saved-scene startup must include Home wiring");
+                Assert.That(controls.Home, Is.SameAs(controls.GetComponent<QuestHome>()));
+                Assert.That(controls.PanelMaterial.shader.name, Is.EqualTo("Kreoda/QuestUi"));
+                Assert.That(controls.ButtonMaterial.shader.name, Is.EqualTo("Kreoda/QuestUi"));
             }
             finally { EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single); }
         }

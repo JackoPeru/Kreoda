@@ -24,8 +24,8 @@ namespace Kreoda.QuestRuntime
             _eyes = Rig.GetComponentsInChildren<Camera>(true);
             Layer.passthroughLayerResumed.AddListener(LayerResumed);
             OVRManager.OnPassthroughInitializedStateChange += InitializationChanged;
-            PreferMr = PlayerPrefs.GetInt("kreoda-passthrough", 1) != 0;
-            SetPreference(PreferMr, false);
+            PreferMr = ResolveStartupPreference(PlayerPrefs.GetInt("kreoda-passthrough", 1));
+            SetPreference(PreferMr, true);
             _lastSample = Time.realtimeSinceStartupAsDouble;
         }
 
@@ -61,11 +61,14 @@ namespace Kreoda.QuestRuntime
                     eye.backgroundColor = visible ? Color.clear : new Color(.035f, .045f, .065f, 1);
                 }
             if (VrReference != null && VrReference.activeSelf == visible) VrReference.SetActive(!visible);
-            Status = !PreferMr ? "VR · stesso modello CAD" : visible ? "MR attivo · passthrough presentato" :
-                failed ? "MR non disponibile · VR attivo. Riavvia app per riprovare" :
-                OVRManager.IsInsightPassthroughInitPending() ? "MR in avvio · VR temporaneo" :
-                "MR non pronto · VR disponibile";
+            Status = StatusText(PreferMr, visible, failed, OVRManager.IsInsightPassthroughInitPending());
         }
+
+        public static bool ResolveStartupPreference(int savedPreference) => true;
+        public static string StatusText(bool preferMr, bool visible, bool failed, bool pending) =>
+            !preferMr ? "VR · stesso modello CAD" : visible ? "MR attivo · passthrough presentato" :
+            failed ? "MR non disponibile · VR attivo. Riavvia app per riprovare" :
+            pending ? "MR in avvio · VR temporaneo" : "MR non pronto · VR disponibile";
 
         void Update()
         {

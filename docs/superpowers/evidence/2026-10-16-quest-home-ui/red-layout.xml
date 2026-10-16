@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="6" result="Failed(Child)" total="6" passed="4" failed="2" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-16 19:44:53Z" end-time="2026-10-16 19:44:55Z" duration="2,154607">
+  <test-suite type="TestSuite" id="1000" name="Kreoda Quest" fullname="Kreoda Quest" runstate="Runnable" testcasecount="99" result="Failed" site="Child" start-time="2026-10-16 19:44:53Z" end-time="2026-10-16 19:44:55Z" duration="2.154607" total="6" passed="4" failed="2" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1124" name="Kreoda.QuestRuntime.Tests.dll" fullname="C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity/Library/ScriptAssemblies/Kreoda.QuestRuntime.Tests.dll" runstate="Runnable" testcasecount="99" result="Failed" site="Child" start-time="2026-10-16 19:44:53Z" end-time="2026-10-16 19:44:55Z" duration="2.145180" total="6" passed="4" failed="2" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="38024" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1125" name="Kreoda" fullname="Kreoda" runstate="Runnable" testcasecount="99" result="Failed" site="Child" start-time="2026-10-16 19:44:53Z" end-time="2026-10-16 19:44:55Z" duration="2.144344" total="6" passed="4" failed="2" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1126" name="QuestRuntime" fullname="Kreoda.QuestRuntime" runstate="Runnable" testcasecount="99" result="Failed" site="Child" start-time="2026-10-16 19:44:53Z" end-time="2026-10-16 19:44:55Z" duration="2.143586" total="6" passed="4" failed="2" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1127" name="Tests" fullname="Kreoda.QuestRuntime.Tests" runstate="Runnable" testcasecount="99" result="Failed" site="Child" start-time="2026-10-16 19:44:53Z" end-time="2026-10-16 19:44:55Z" duration="2.142871" total="6" passed="4" failed="2" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestFixture" id="1068" name="QuestHomeTests" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" testcasecount="6" result="Failed" site="Child" start-time="2026-10-16 19:44:53Z" end-time="2026-10-16 19:44:55Z" duration="2.140917" total="6" passed="4" failed="2" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-case id="1069" name="DefaultHomeMatchesDesktopHierarchyAndUsesHonestEmptyStates" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests.DefaultHomeMatchesDesktopHierarchyAndUsesHonestEmptyStates" methodname="DefaultHomeMatchesDesktopHierarchyAndUsesHonestEmptyStates" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" seed="1478459068" result="Passed" start-time="2026-10-16 19:44:53Z" end-time="2026-10-16 19:44:55Z" duration="2.029103" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1071" name="HomeActionsOpenExistingWorkspacePagesAndNeverFakeProjectCreation" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests.HomeActionsOpenExistingWorkspacePagesAndNeverFakeProjectCreation" methodname="HomeActionsOpenExistingWorkspacePagesAndNeverFakeProjectCreation" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" seed="858494947" result="Passed" start-time="2026-10-16 19:44:55Z" end-time="2026-10-16 19:44:55Z" duration="0.015246" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1072" name="LongConnectionStatusStaysInsideItsMeasuredButtonBounds" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests.LongConnectionStatusStaysInsideItsMeasuredButtonBounds" methodname="LongConnectionStatusStaysInsideItsMeasuredButtonBounds" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" seed="1685743344" result="Passed" start-time="2026-10-16 19:44:55Z" end-time="2026-10-16 19:44:55Z" duration="0.025531" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1070" name="ManualPairingInputsStayOutsideHomeAndWorkspaceActionsStayReachable" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests.ManualPairingInputsStayOutsideHomeAndWorkspaceActionsStayReachable" methodname="ManualPairingInputsStayOutsideHomeAndWorkspaceActionsStayReachable" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" seed="42762512" result="Passed" start-time="2026-10-16 19:44:55Z" end-time="2026-10-16 19:44:55Z" duration="0.011878" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1075" name="VisibleControlsStayInsideSurfaceAndNeverOverlap" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests.VisibleControlsStayInsideSurfaceAndNeverOverlap" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" testcasecount="2" result="Failed" site="Child" start-time="2026-10-16 19:44:55Z" end-time="2026-10-16 19:44:55Z" duration="0.047032" total="2" passed="0" failed="2" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <failure>
+                  <message><![CDATA[One or more child tests had errors]]></message>
+                </failure>
+                <test-case id="1073" name="VisibleControlsStayInsideSurfaceAndNeverOverlap(&quot;_homePage&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests.VisibleControlsStayInsideSurfaceAndNeverOverlap(&quot;_homePage&quot;)" methodname="VisibleControlsStayInsideSurfaceAndNeverOverlap" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" seed="844463152" result="Failed" start-time="2026-10-16 19:44:55Z" end-time="2026-10-16 19:44:55Z" duration="0.028755" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <failure>
+                    <message><![CDATA[  Menu top
+  Expected: less than or equal to 1.98925006f
+  But was:  2.0f
+]]></message>
+                    <stack-trace><![CDATA[at Kreoda.QuestRuntime.Tests.QuestHomeTests.VisibleControlsStayInsideSurfaceAndNeverOverlap (System.String pageField) [0x001dd] in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Assets\Kreoda\Tests\Editor\QuestHomeTests.cs:155
+]]></stack-trace>
+                  </failure>
+                </test-case>
+                <test-case id="1074" name="VisibleControlsStayInsideSurfaceAndNeverOverlap(&quot;_viewPage&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests.VisibleControlsStayInsideSurfaceAndNeverOverlap(&quot;_viewPage&quot;)" methodname="VisibleControlsStayInsideSurfaceAndNeverOverlap" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" seed="1817443045" result="Failed" start-time="2026-10-16 19:44:55Z" end-time="2026-10-16 19:44:55Z" duration="0.013517" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <failure>
+                    <message><![CDATA[  Trascina top
+  Expected: less than or equal to 1.93975008f
+  But was:  1.96762502f
+]]></message>
+                    <stack-trace><![CDATA[at Kreoda.QuestRuntime.Tests.QuestHomeTests.VisibleControlsStayInsideSurfaceAndNeverOverlap (System.String pageField) [0x001dd] in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Assets\Kreoda\Tests\Editor\QuestHomeTests.cs:155
+]]></stack-trace>
+                  </failure>
+                  <output><![CDATA[Saving results to: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\docs\superpowers\evidence\2026-10-16-quest-home-ui\red-layout.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

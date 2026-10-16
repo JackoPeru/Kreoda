@@ -11,6 +11,7 @@ namespace Kreoda.QuestRuntime
     {
         public Action Click;
         public bool DragPanel;
+        public string ActionId;
     }
 
     public sealed class QuestControls : MonoBehaviour
@@ -22,6 +23,7 @@ namespace Kreoda.QuestRuntime
         public QuestReferences References;
         public QuestSketchDimensions SketchDimensions;
         public QuestVoice Voice;
+        public QuestHome Home;
         Transform _voicePage;
         TextMesh _voiceStatus, _voiceTranscript, _voiceReply, _voiceButton;
         public string[] SelectionForVoice() => _selectedDatum != null
@@ -46,9 +48,10 @@ namespace Kreoda.QuestRuntime
         public Font Font;
         public Material PanelMaterial, ButtonMaterial, RayMaterial;
         public bool PreferLeftHand;
-        Transform _panel, _content, _connectionPage, _viewPage, _metricsPage, _sectionPage, _editPage, _referencePage;
+        Transform _panel, _content, _homePage, _homeNoticePage, _connectionPage, _viewPage, _metricsPage, _sectionPage, _editPage, _referencePage;
         TextMesh _editStatus, _modeLabel, _sectionStatus, _sectionToggle, _sectionQuota;
         TextMesh _referenceTitle, _referenceDetails, _referenceStatus;
+        TextMesh _homeNotice;
         TextMesh[] _referenceDatumLabels = new TextMesh[2], _referenceSourceLabels = new TextMesh[2];
         TextMesh _referenceNewPlane, _referenceNewAxis, _referenceNewPoint, _referenceInspect, _referenceEdit, _referenceSketch,
             _referenceType, _referenceOperation, _referenceFieldPrevious, _referenceFieldNext, _referenceSourcesPrevious,
@@ -63,6 +66,7 @@ namespace Kreoda.QuestRuntime
         TextMesh _valueLabel;
         readonly List<Transform> _compactMenu = new List<Transform>();
         TextMesh _status, _target, _endpointLabel, _codeLabel, _viewStatus, _handLabel, _diagnostics;
+        GameObject _panelBackground;
         QuestMeshView _selected;
         QuestDatumView _selectedDatum;
         MeshSemanticHit _hit;
@@ -98,22 +102,21 @@ namespace Kreoda.QuestRuntime
             _panel.SetParent(transform, false);
             _panel.localScale = Vector3.one * 1.65f;
             _content = _panel;
-            var back = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            back.name = "Panel background";
-            back.transform.SetParent(_panel, false);
-            back.transform.localPosition = new Vector3(0, -.035f, .008f);
-            back.transform.localScale = new Vector3(.42f, .42f, .008f);
-            back.GetComponent<MeshRenderer>().sharedMaterial = PanelMaterial;
-            back.GetComponent<Collider>().enabled = false;
-            var header = Button("KREODA · trascina", new Vector3(-.08f, .145f, 0), .21f, null, .03f, .014f);
+            _panelBackground = QuestUi.Surface(_panel, PanelMaterial, "Panel background",
+                new Vector3(0, -.01f, .008f), new Vector3(.42f, .56f, .008f));
+            if (Home == null) Home = GetComponent<QuestHome>() ?? gameObject.AddComponent<QuestHome>();
+            _homePage = Home.Build(_panel, Font, PanelMaterial, ButtonMaterial, RegisterTextBounds, HomeAction);
+            _status = Home.ConnectionStatus;
+            var header = Button("Trascina", new Vector3(-.13f, .235f, 0), .12f, null, .035f, .011f);
             header.transform.parent.GetComponentInChildren<QuestButton>().DragPanel = true;
-            Button("PC", new Vector3(.065f, .145f, 0), .07f, () => Page(_connectionPage), .027f);
-            Button("Vista", new Vector3(.15f, .145f, 0), .08f, () => Page(_viewPage), .027f);
-            _status = Label(_panel, "Non connesso", new Vector3(-.19f, .115f, -.003f), .012f);
-            _connectionPage = PageRoot("PC and selection");
+            Button("Home", new Vector3(.005f, .235f, 0), .09f, () => Page(_homePage), .035f, .011f);
+            Button("PC", new Vector3(.105f, .235f, 0), .07f, () => Page(_connectionPage), .035f, .011f);
+            Button("×", new Vector3(.18f, .235f, 0), .035f, TogglePanel, .035f, .012f);
+            _connectionPage = PageRoot("Advanced PC diagnostics");
             _content = _connectionPage;
-            _endpointLabel = Button("IP del PC", new Vector3(0, .06f, 0), .38f, () => Edit(false), .032f);
-            _codeLabel = Button("Codice 8 cifre", new Vector3(-.07f, .022f, 0), .24f, () => Edit(true));
+            Label(_content, "PC · diagnostica avanzata", new Vector3(-.19f, .115f, -.003f), .014f);
+            _endpointLabel = Button("Endpoint manuale", new Vector3(0, .06f, 0), .38f, () => Edit(false), .032f);
+            _codeLabel = Button("Codice manuale", new Vector3(-.07f, .022f, 0), .24f, () => Edit(true));
             Button("Connetti", new Vector3(.13f, .022f, 0), .1f, () =>
             {
                 if (_code.Length == 0 && Connection.SavedEndpoint == _endpoint) Connection.Reconnect();
@@ -130,6 +133,13 @@ namespace Kreoda.QuestRuntime
             _textLimits[_target] = new Vector2(.38f, .065f);
             Button("Dimentica PC", new Vector3(-.1f, -.205f, 0), .18f, Connection.Forget, .032f);
             Button("Vista MR / scale", new Vector3(.105f, -.205f, 0), .17f, () => Page(_viewPage), .032f);
+            _homeNoticePage = PageRoot("Home action status");
+            _content = _homeNoticePage;
+            _homeNotice = Label(_content, "Questa azione non è disponibile su Quest.\nIl documento CAD non verrà modificato.",
+                new Vector3(-.19f, .07f, -.003f), .011f);
+            _textLimits[_homeNotice] = new Vector2(.38f, .10f);
+            Button("Torna a Home", new Vector3(0, -.08f, 0), .22f, () => Page(_homePage), .034f, .011f);
+            Button("Diagnostica PC", new Vector3(0, -.14f, 0), .22f, () => Page(_connectionPage), .034f, .011f);
             _viewPage = PageRoot("Display controls");
             _content = _viewPage;
             _viewStatus = Label(_content, "MR in avvio", new Vector3(-.19f, .088f, -.003f), .010f);
@@ -156,7 +166,7 @@ namespace Kreoda.QuestRuntime
             }, .023f);
             Button("Centra UI", new Vector3(0, -.205f, 0), .11f, ResetPanel, .03f);
             Button("Sezione", new Vector3(.13f, -.205f, 0), .11f, () => Page(_sectionPage), .03f);
-            Button("Riferimenti", new Vector3(0, -.175f, 0), .25f, OpenReferences, .032f);
+            Button("Riferimenti", new Vector3(0, -.25f, 0), .25f, OpenReferences, .032f);
             _metricsPage = PageRoot("Optional diagnostics");
             _content = _metricsPage;
             _diagnostics = Label(_content, "Metriche: attendi un campione", new Vector3(-.19f, .085f, -.003f), .012f);
@@ -250,40 +260,13 @@ namespace Kreoda.QuestRuntime
                 Button("Parla / Invia", new Vector3(-.1f, -.205f, 0), .18f, Voice.Toggle, .032f);
                 Button("Stop", new Vector3(.105f, -.205f, 0), .17f, Voice.Cancel, .032f);
             }
-            Page(_connectionPage);
+            Page(_homePage);
             _content = _panel;
             // A small independent menu tab stays reachable when the panel hides.
-            var menu = Button("Menu", new Vector3(.30f, .335f, 0), .095f,
+            var menu = Button("Menu", Vector3.zero, .11f,
                 TogglePanel, .03f);
             menu.transform.parent.SetParent(transform, false);
             _compactMenu.Add(menu.transform.parent);
-            if (Voice != null)
-            {
-                _voiceButton = Button("Parla", new Vector3(.005f, .29f, 0), .11f, () => { Voice.Toggle(); }, .03f);
-                _voiceButton.transform.parent.SetParent(transform, false);_compactMenu.Add(_voiceButton.transform.parent);
-                var voicePage = Button("Hermes", new Vector3(.13f, .245f, 0), .15f, () => {
-                    _panel.gameObject.SetActive(true);Page(_voicePage);ResetPanel();
-                }, .03f);
-                voicePage.transform.parent.SetParent(transform, false);_compactMenu.Add(voicePage.transform.parent);
-            }
-            if (Spatial != null)
-            {
-                _modeLabel = Button("Modello", new Vector3(.04f, .335f, 0), .14f,
-                    () => { Display.EndTwoHand(false);Spatial.SetMode(!Spatial.EditMode); }, .03f);
-                _modeLabel.transform.parent.SetParent(transform, false);
-                _compactMenu.Add(_modeLabel.transform.parent);
-                var exact = Button("Valore", new Vector3(.18f, .335f, 0), .1f, EditValue, .03f);
-                exact.transform.parent.SetParent(transform, false);
-                _valueLabel = exact;_compactMenu.Add(exact.transform.parent);
-                if (Commands != null)
-                {
-                    var undo = Button("Undo", new Vector3(.13f, .29f, 0), .11f, () => Commands.History(false), .03f);
-                    undo.transform.parent.SetParent(transform, false);_compactMenu.Add(undo.transform.parent);
-                    var redo = Button("Redo", new Vector3(.255f, .29f, 0), .11f, () => Commands.History(true), .03f);
-                    redo.transform.parent.SetParent(transform, false);_compactMenu.Add(redo.transform.parent);
-                }
-                _panel.gameObject.SetActive(false);
-            }
             _ray = new GameObject("Pointer ray").AddComponent<LineRenderer>();
             _ray.transform.SetParent(transform, false);
             _ray.sharedMaterial = RayMaterial;
@@ -317,6 +300,8 @@ namespace Kreoda.QuestRuntime
         { var page = new GameObject(name).transform; page.SetParent(_panel, false); return page; }
         void Page(Transform selected)
         {
+            if (_homePage != null) _homePage.gameObject.SetActive(selected == _homePage);
+            if (_homeNoticePage != null) _homeNoticePage.gameObject.SetActive(selected == _homeNoticePage);
             if (_connectionPage != null) _connectionPage.gameObject.SetActive(selected == _connectionPage);
             if (_viewPage != null) _viewPage.gameObject.SetActive(selected == _viewPage);
             if (_metricsPage != null) _metricsPage.gameObject.SetActive(selected == _metricsPage);
@@ -326,6 +311,32 @@ namespace Kreoda.QuestRuntime
             if (_referencePage != null) _referencePage.gameObject.SetActive(selected == _referencePage);
             if (_sketchPage != null) _sketchPage.gameObject.SetActive(selected == _sketchPage);
             if (_voicePage != null) _voicePage.gameObject.SetActive(selected == _voicePage);
+            if (_panelBackground != null) _panelBackground.SetActive(selected != _homePage);
+        }
+
+        void HomeAction(string id)
+        {
+            switch (id)
+            {
+                case "home:pc": Page(_connectionPage); break;
+                case "home:ai": if (_voicePage != null) Page(_voicePage); else ShowHomeNotice(); break;
+                case "home:design": SketchDimensions?.Select();Page(_sketchPage); break;
+                case "home:model":
+                    if (Spatial != null) { Display.EndTwoHand(false);Spatial.SetMode(true); }
+                    Page(_editPage);break;
+                case "home:view": Page(_viewPage);break;
+                case "home:measure": OpenReferences();break;
+                case "home:project:new":
+                case "home:project:import":
+                case "home:project:template":
+                case "home:render": ShowHomeNotice();break;
+            }
+        }
+
+        void ShowHomeNotice()
+        {
+            _homeNotice.text = "Questa azione non è disponibile su Quest.\nIl documento CAD non verrà modificato.";
+            Page(_homeNoticePage);
         }
 
         void OpenReferences()
@@ -417,7 +428,7 @@ namespace Kreoda.QuestRuntime
         {
             UpdatePanelDrag(default, false, false);
             _panel.gameObject.SetActive(!_panel.gameObject.activeSelf);
-            if (_panel.gameObject.activeSelf) { if (Spatial != null) Page(Spatial.EditMode ? _editPage : _viewPage);ResetPanel(); }
+            if (_panel.gameObject.activeSelf) { Page(_homePage);ResetPanel(); }
         }
         void Quality(MeshLod quality)
         { if (_selected == null) { _status.text = "Seleziona prima un corpo"; return; } Connection.RequestQuality(_selected, quality); }
@@ -513,10 +524,8 @@ namespace Kreoda.QuestRuntime
                 _voiceStatus.text = ShortVoiceText(Voice.Status, 120);
                 _voiceTranscript.text = ShortVoiceText(Voice.Transcript, 160);
                 _voiceReply.text = ShortVoiceText(Voice.Reply, 260);
-                _voiceButton.text = Voice.Recording ? "Invia" : Voice.Busy ? "Stop" : "Parla";
             }
-            var status = Connection.Status.Length > 46 ? Connection.Status.Substring(0, 43) + "…" : Connection.Status;
-            if (_status.text != status) _status.text = status;
+            Home?.SetConnectionStatus(Connection.Status);
             var viewStatus = Display.PlacementActive ? Display.Status : Environment.Status + "\nScala " + Display.ScaleName + " · quote CAD mm";
             if (_viewStatus.text != viewStatus) _viewStatus.text = viewStatus;
             if (_sectionStatus != null && Connection.Section != null)
@@ -546,9 +555,9 @@ namespace Kreoda.QuestRuntime
             }
             if (_wasConnected && !Connection.Connected) ResetIntent();
             _wasConnected = Connection.Connected;
-            var endpoint = _endpoint.Length == 0 ? "IP del PC" : _endpoint;
+            var endpoint = _endpoint.Length == 0 ? "Endpoint manuale" : _endpoint;
             if (_endpointLabel.text != endpoint) _endpointLabel.text = endpoint;
-            var code = _code.Length == 0 ? "Codice 8 cifre" : "Codice inserito";
+            var code = _code.Length == 0 ? "Codice manuale" : "Codice inserito";
             if (_codeLabel.text != code) _codeLabel.text = code;
             _tracked = Pointer(out var ray, out var clicked, out var pressed, out var orientation);
             if (Spatial != null && Spatial.Holding)
@@ -814,54 +823,31 @@ namespace Kreoda.QuestRuntime
 
         TextMesh Button(string text, Vector3 position, float width, Action action, float height = .039f, float textSize = .013f)
         {
-            var button = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            button.name = text;
-            button.transform.SetParent(_content, false);
-            button.transform.localPosition = position;
-            button.transform.localScale = new Vector3(width, height, .008f);
-            button.GetComponent<MeshRenderer>().sharedMaterial = ButtonMaterial;
-            button.AddComponent<QuestButton>().Click = action;
-            // Keep text outside the scaled button so its glyphs stay proportional.
-            var label = Label(_content, text, position + new Vector3(-width / 2 + .008f, height / 2 - .006f, -.006f), textSize);
-            _textLimits[label] = new Vector2(width - .016f, height - .010f);
-            var group = new GameObject(text + " control").transform;
-            group.SetParent(_content, false);
-            button.transform.SetParent(group, true);
-            label.transform.SetParent(group, true);
-            return label;
+            return QuestUi.Button(_content, Font, ButtonMaterial, text, text, position, width, height, textSize,
+                action, RegisterTextBounds);
         }
 
         TextMesh Label(Transform parent, string text, Vector3 position, float size)
         {
-            var label = new GameObject(text).AddComponent<TextMesh>();
-            label.transform.SetParent(parent, false);
-            label.transform.localPosition = position;
-            label.font = Font;
-            label.fontSize = 64;
-            // TextMesh fontSize multiplies characterSize; size is a metre line height.
-            label.characterSize = size * 10f / label.fontSize;
-            label.anchor = TextAnchor.UpperLeft;
-            label.text = text;
-            label.color = Color.white;
-            label.GetComponent<MeshRenderer>().sharedMaterial = Font.material;
-            _textLimits[label] = new Vector2(.38f, .025f);
-            return label;
+            return QuestUi.Label(parent, Font, text, position, size, new Vector2(.38f, .025f), RegisterTextBounds);
         }
+
+        void RegisterTextBounds(TextMesh label, Vector2 bounds) => _textLimits[label] = bounds;
 
         void LateUpdate()
         {
-            if (Spatial != null)
+            var head = Rig != null ? Rig.centerEyeAnchor : Camera.main?.transform;
+            bool palm = LeftHand != null && LeftHand.IsTracked && LeftHand.IsPointerPoseValid &&
+                LeftHand.HandConfidence == OVRHand.TrackingConfidence.High && head != null;
+            foreach (var group in _compactMenu)
             {
-                var head = Rig != null ? Rig.centerEyeAnchor : Camera.main?.transform;
-                bool palm = LeftHand != null && LeftHand.IsTracked && LeftHand.IsPointerPoseValid &&
-                    LeftHand.HandConfidence == OVRHand.TrackingConfidence.High && head != null;
+                group.gameObject.SetActive(!_panel.gameObject.activeSelf);
                 if (palm)
                 {
                     var point = LeftHand.PointerPose.position + head.right * .04f + head.up * .08f;
-                    var rotation = Quaternion.LookRotation(point - head.position, head.up);
-                    foreach (var group in _compactMenu) group.SetPositionAndRotation(point - rotation * new Vector3(.18f, .335f, 0), rotation);
+                    group.SetPositionAndRotation(point, Quaternion.LookRotation(point - head.position, head.up));
                 }
-                else foreach (var group in _compactMenu) { group.localPosition = Vector3.zero;group.localRotation = Quaternion.identity; }
+                else group.SetPositionAndRotation(transform.TransformPoint(new Vector3(0, .24f, 0)), transform.rotation);
             }
             // Wait for the actual XR pose, rather than anchoring at the rig's startup origin.
             if (!_initialPanelPlaced && OVRManager.hasVrFocus && OVRPlugin.GetNodePositionTracked(OVRPlugin.Node.EyeCenter))
