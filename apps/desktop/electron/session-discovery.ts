@@ -82,7 +82,7 @@ export class SessionDiscovery {
         response.end(JSON.stringify(value));
       };
       if (!privatePeer(request.socket.remoteAddress ?? "", this.options.allowLoopback) || request.headers.origin ||
-          request.method !== "POST" || request.url !== "/pair") { send(403, { error: "FORBIDDEN" });return; }
+          request.method !== "POST" || (request.url !== "/pair" && request.url !== "/identify")) { send(403, { error: "FORBIDDEN" });return; }
       if (!this.allow(request.socket.remoteAddress ?? "")) { send(429, { error: "RATE_LIMIT" });return; }
       let size = 0;const chunks: Buffer[] = [];
       try {
@@ -93,6 +93,13 @@ export class SessionDiscovery {
           chunks.push(bytes);
         }
         const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+        if (request.url === "/identify") {
+          if (!body || body.version !== 1 || body.pcId !== this.devices.pcId || typeof body.deviceId !== "string" ||
+              typeof body.nonce !== "string" || !UUID.test(body.nonce)) { send(400, { error: "BAD_PARAMS" });return; }
+          const proof = this.devices.proveDevice(body.deviceId, body.nonce);
+          if (!proof) { send(404, { error: "UNKNOWN_DEVICE" });return; }
+          send(200, { version: 1, pcId: this.devices.pcId, nonce: body.nonce, proof });return;
+        }
         if (!body || body.version !== 1 || body.pcId !== this.devices.pcId ||
             typeof body.installationId !== "string" || typeof body.credential !== "string" || typeof body.name !== "string") {
           send(400, { error: "BAD_PARAMS" });return;

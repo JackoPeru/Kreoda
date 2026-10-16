@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { chmod, lstat, realpath, mkdir, readFile, rename, open, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
@@ -210,6 +210,12 @@ export class SessionDevices {
     this.ready();const record = this.records.get(deviceId);
     if (!record || !sameSecret(credential, record.credentialDigest)) throw unauthorized();
     return { deviceId, sessionToken: this.token(deviceId) };
+  }
+  proveDevice(deviceId: string, nonce: string): string | null {
+    this.ready();const record = this.records.get(deviceId);
+    if (!record || !/^[a-f0-9-]{36}$/.test(nonce)) return null;
+    return createHmac("sha256", Buffer.from(record.credentialDigest, "hex"))
+      .update(JSON.stringify([this.pcId, deviceId, nonce])).digest("hex");
   }
   authorize(deviceId: string, token: string): boolean {
     if (!this.loaded || !this.records.has(deviceId)) return false;

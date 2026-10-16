@@ -1,6 +1,10 @@
 // Transport fixture, not a live CAD-engine test. Raw geometry is authentic OCCT.
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
+import { createSocket } from "node:dgram";
+import { createServer } from "node:http";
+import { createHash, createHmac, randomUUID } from "node:crypto";
+import { once } from "node:events";
 const require = createRequire(new URL("../../../../../../apps/desktop/package.json", import.meta.url));
 const { WebSocketServer } = require("ws");
 const fixture = JSON.parse(readFileSync(process.argv[2], "utf8"));
@@ -10,6 +14,7 @@ const documentId = "fixture-doc";
 const datumId = "datum-plane-wire";
 const requests = [];
 let connectionCount = 0;
+const discoveryAudit = { identifyRequests: 0, wrongSocketMessages: 0, credentialInIdentityProbe: false };
 const referenceOperations = {
   CreateDatumPlane: ["principal", "offset", "mid", "angle", "threePoint"],
   CreateDatumAxis: ["twoPoint", "planeNormal", "planeIntersection"],
@@ -21,7 +26,37 @@ const referenceSchema = id => ({ type: "object", properties: {
   definition: { anyOf: referenceOperations[id].map(type => ({ type: "object", properties: { type: { type: "string", const: type } } })) },
 }, required: id === "UpdateDatum" ? ["featureId", "definition"] : ["definition"] });
 const server = new WebSocketServer({ host: "0.0.0.0", port: 0 });
-server.on("listening", () => console.log(JSON.stringify({ port: server.address().port })));
+server.on("listening", async () => {
+  if (fixture.legacyDiscoveryMode) {
+    const known = fixture.legacyDiscoveryMode === "known";
+    const pcId = randomUUID();
+    let sessionPort = server.address().port;
+    if (!known) {
+      const wrong = new WebSocketServer({ host: "127.0.0.1", port: 0 });
+      await once(wrong, "listening");sessionPort = wrong.address().port;
+      wrong.on("connection", socket => socket.on("message", () => { discoveryAudit.wrongSocketMessages++;socket.close(); }));
+    }
+    const http = createServer(async (request, response) => {
+      let text = "";for await (const chunk of request) text += chunk;
+      discoveryAudit.identifyRequests++;
+      if (text.includes('"credential"') || text.includes("A".repeat(43))) discoveryAudit.credentialInIdentityProbe = true;
+      const body = JSON.parse(text);
+      const key = createHash("sha256").update((known ? "A" : "C").repeat(43)).digest();
+      const proof = createHmac("sha256", key).update(JSON.stringify([pcId, body.deviceId, body.nonce])).digest("hex");
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ version: 1, pcId, nonce: body.nonce, proof }));
+    });
+    http.listen(0, "127.0.0.1");await once(http, "listening");
+    const udp = createSocket("udp4");
+    udp.on("message", (data, peer) => {
+      const body = JSON.parse(data.toString());
+      udp.send(JSON.stringify({ protocol: "kreoda-discovery", version: 1, nonce: body.nonce, pcId,
+        name: known ? "Old Studio" : "Unrelated PC", sessionPort, bootstrapPort: http.address().port }), peer.port, peer.address);
+    });
+    udp.bind(9843, "127.0.0.1");await once(udp, "listening");
+  }
+  console.log(JSON.stringify({ port: server.address().port }));
+});
 server.on("connection", socket => {
   const connection = ++connectionCount;
   socket.on("message", async data => {
@@ -79,7 +114,7 @@ server.on("connection", socket => {
       }, required: ["supportRef", "model"] } } });
       break;
     case "getCapabilities":
-      reply({ result: { fixtureRequests: requests } });
+      reply({ result: { fixtureRequests: requests, discoveryAudit } });
       break;
     case "requestMeshLOD":
       if (request.params.expectedRevision !== fixture.revision || request.params.quality !== fixture.quality)

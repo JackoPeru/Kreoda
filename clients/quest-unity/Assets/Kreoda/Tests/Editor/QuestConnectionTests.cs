@@ -185,12 +185,18 @@ namespace Kreoda.QuestRuntime.Tests
         public IEnumerator UsbBootstrapPairsAndReconnectsOverLoopbackWithActualMesh() => ExerciseWireClient(true);
 
         [UnityTest]
+        public IEnumerator LegacyCredentialReconnectNeverSendsSecretsToAnUnrelatedDiscoveredPc() => ExerciseWireClient(false, false, false, "wrong");
+
+        [UnityTest]
+        public IEnumerator LegacyCredentialAutomaticallyUpgradesOnlyAfterPcProvesExistingTrust() => ExerciseWireClient(false, false, false, "known");
+
+        [UnityTest]
         public IEnumerator DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport() => ExerciseWireClient(true, true);
 
         [UnityTest]
         public IEnumerator LateReferenceReplyCannotRetargetSameUuidAfterDocumentReconnect() => ExerciseWireClient(false, true, true);
 
-        IEnumerator ExerciseWireClient(bool usbBootstrap, bool datumMode = false, bool lateLineageMode = false)
+        IEnumerator ExerciseWireClient(bool usbBootstrap, bool datumMode = false, bool lateLineageMode = false, string legacyDiscoveryMode = null)
         {
             var repository = Path.GetFullPath(Path.Combine(Application.dataPath, "../../.."));
             var file = Path.Combine(repository, "packages/protocol/fixtures/native-blind-hole.meshfb");
@@ -202,7 +208,7 @@ namespace Kreoda.QuestRuntime.Tests
                 featureId = raw.FeatureId, revision = raw.Revision, quality = raw.Lod, datumMode,
                 rejectCommandId = datumMode && !lateLineageMode ? "CreateDatumPoint" : null,
                 delayCommandId = lateLineageMode ? "CreateDatumPlane" : null,
-                delayCommandMs = lateLineageMode ? 2500 : 0 }));
+                delayCommandMs = lateLineageMode ? 2500 : 0, legacyDiscoveryMode }));
             var start = new ProcessStartInfo("node", "\"" + Path.Combine(Application.dataPath,
                 "Kreoda/Tests/Editor/QuestWireFixture.mjs") + "\" \"" + metadata + "\"")
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
@@ -465,6 +471,7 @@ namespace Kreoda.QuestRuntime.Tests
                     }), Is.True,
                         "datum controls must never request datum geometry as a mesh");
                 }
+                var originalEndpoint = connection.SavedEndpoint;
                 connection.Reconnect();
                 var uploadVersionBeforeReconnect = view.UploadVersion;
                 if (referenceForm != null)
@@ -487,6 +494,29 @@ namespace Kreoda.QuestRuntime.Tests
                     (server.HasExited ? " · fixture exit " + server.ExitCode + " · " + server.StandardError.ReadToEnd() : " · fixture alive"));
                 Assert.That(connection.Views.Single(), Is.SameAs(view));
                 Assert.That(firstMesh == null, Is.True, "reconnect leaked the superseded Unity mesh");
+                if (legacyDiscoveryMode != null)
+                {
+                    var audit = connection.Client.CallAsync("getCapabilities", new System.Collections.Generic.Dictionary<string, object>());
+                    wait.Restart();
+                    while (!audit.IsCompleted && wait.Elapsed.TotalSeconds < 10) yield return null;
+                    Assert.That(audit.IsCompletedSuccessfully, Is.True);
+                    var proof = audit.GetAwaiter().GetResult().GetProperty("result").GetProperty("discoveryAudit");
+                    Assert.That(proof.GetProperty("identifyRequests").GetInt32(), Is.GreaterThan(0));
+                    Assert.That(proof.GetProperty("wrongSocketMessages").GetInt32(), Is.EqualTo(0), "never send authenticate/hello to the unverified PC");
+                    Assert.That(proof.GetProperty("credentialInIdentityProbe").GetBoolean(), Is.False, "proof request must never carry the secret");
+                    var saved = typeof(QuestConnection).GetMethod("ReadDevice", Private).Invoke(connection, null);
+                    var pcId = (string)saved.GetType().GetField("PcId").GetValue(saved);
+                    if (legacyDiscoveryMode == "wrong")
+                    {
+                        Assert.That(connection.SavedEndpoint, Is.EqualTo(originalEndpoint), "unrelated PC must not replace the saved endpoint");
+                        Assert.That(pcId, Is.Empty);
+                    }
+                    else
+                    {
+                        Assert.That(new Uri(connection.SavedEndpoint).Host, Is.EqualTo("127.0.0.1"));
+                        Assert.That(Guid.TryParse(pcId, out _), Is.True, "successful trust proof must migrate the stable PC identity");
+                    }
+                }
                 if (datumCommands != null)
                 {
                     var commandUpdate = typeof(QuestCommands).GetMethod("Update", Private);

@@ -260,8 +260,21 @@ namespace Kreoda.QuestRuntime
                         {
                             var peers = await FindLocalPcsAsync(deadline.Token).ConfigureAwait(false);
                             var selected = SessionDiscovery.Choose(peers, _chosenPcId ?? saved?.PcId);
+                            bool legacyIdentity = saved != null && !string.IsNullOrEmpty(saved.DeviceId) && string.IsNullOrEmpty(saved.PcId);
+                            if (legacyIdentity)
+                            {
+                                selected = null;
+                                foreach (var peer in peers)
+                                {
+                                    if (await VerifyKnownPcAsync(peer, saved, deadline.Token).ConfigureAwait(false))
+                                    { selected = peer;break; }
+                                }
+                            }
+                            else if (selected != null && saved != null && saved.DeviceId != "" && saved.PcId == selected.PcId &&
+                                !await VerifyKnownPcAsync(selected, saved, deadline.Token).ConfigureAwait(false))
+                                selected = null;
                             Post(run, () => AvailablePcs = peers);
-                            if (selected == null && peers.Length != 0)
+                            if (selected == null && peers.Length != 0 && !legacyIdentity)
                                 throw new SessionException("CHOOSE_PC", "select a local PC by name");
                             if (selected != null)
                             {
@@ -361,6 +374,13 @@ namespace Kreoda.QuestRuntime
             return SessionDiscovery.FindAsync(ct);
 #endif
         }
+        static Task<bool> VerifyKnownPcAsync(DiscoveredSessionPc pc, SavedDevice saved, CancellationToken ct) =>
+            SessionDiscovery.VerifyKnownDeviceAsync(pc, saved.DeviceId, saved.Credential, ct,
+#if UNITY_EDITOR
+                true);
+#else
+                false);
+#endif
         void Post(CancellationTokenSource run, Action action)
         {
             lock (_gate)

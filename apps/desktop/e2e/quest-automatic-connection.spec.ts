@@ -32,7 +32,7 @@ test("hidden desktop discovers and bootstraps the real managed Quest client with
     });
     expect(code, stderr).toBe(0);
     const proof = JSON.parse(stdout.trim().split(/\r?\n/).at(-1)!);
-    expect(proof).toMatchObject({ status: "connected-and-reconnected", manualInputs: 0, features: 1 });
+    expect(proof).toMatchObject({ status: "connected-and-reconnected", manualInputs: 0, verifiedIdentity: true, features: 1 });
     await testInfo.attach("automatic-managed-session", { body: JSON.stringify(proof, null, 2), contentType: "application/json" });
   } finally {
     if (child && child.exitCode === null) child.kill();

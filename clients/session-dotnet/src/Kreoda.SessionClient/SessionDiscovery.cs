@@ -128,4 +128,41 @@ public static class SessionDiscovery
             throw new SessionException("BAD_PARAMS", "bootstrap identity mismatch");
         return deviceId;
     }
+
+    /// <summary>Identify an already paired PC without sending its credential to a discovered endpoint.</summary>
+    public static async Task<bool> VerifyKnownDeviceAsync(DiscoveredSessionPc pc, string deviceId, string credential,
+        CancellationToken ct, bool allowLoopback = false)
+    {
+        if (!IPAddress.TryParse(pc.Bootstrap.Host, out var address) || !IsPrivate(address, allowLoopback) ||
+            pc.Bootstrap.Scheme != "http" || pc.Bootstrap.AbsolutePath != "/pair") return false;
+        var nonce = Guid.NewGuid().ToString("D");
+        using var handler = new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false };
+        using var client = new HttpClient(handler);
+        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(pc.Bootstrap, "/identify"))
+        { Content = new StringContent(JsonSerializer.Serialize(new { version = 1, pcId = pc.PcId, deviceId, nonce }), Encoding.UTF8, "application/json") };
+        try
+        {
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return false;
+            using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            var buffer = new byte[8193];var length = 0;
+            while (length < buffer.Length)
+            {
+                var read = await stream.ReadAsync(buffer, length, buffer.Length - length, ct).ConfigureAwait(false);
+                if (read == 0) break;length += read;
+            }
+            if (length > 8192) return false;
+            using var json = JsonDocument.Parse(new ReadOnlyMemory<byte>(buffer, 0, length));
+            var value = json.RootElement;
+            if (value.GetProperty("version").GetInt32() != 1 || value.GetProperty("pcId").GetString() != pc.PcId ||
+                value.GetProperty("nonce").GetString() != nonce) return false;
+            using var hash = SHA256.Create();
+            using var hmac = new HMACSHA256(hash.ComputeHash(Encoding.UTF8.GetBytes(credential)));
+            var proof = hmac.ComputeHash(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { pc.PcId, deviceId, nonce })));
+            var expected = BitConverter.ToString(proof).Replace("-", "").ToLowerInvariant();
+            return value.GetProperty("proof").GetString() == expected;
+        }
+        catch (Exception error) when (error is HttpRequestException || error is JsonException || error is InvalidOperationException ||
+            error is KeyNotFoundException || error is IOException) { return false; }
+    }
 }

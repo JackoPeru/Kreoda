@@ -1,0 +1,19 @@
+{
+  "startedAt": "2026-10-16T20:17:17.165Z",
+  "unity": "C:/Users/matte/Documents/Codex-tools/Unity/Editors/6000.3.25f1/Editor/Unity.exe",
+  "sdk": "C:/Users/matte/AppData/Local/Android/Sdk",
+  "directExitCode": 0,
+  "elapsedSeconds": 87.03,
+  "sourceChangedDuringBuild": [
+    "apps/desktop/src/components/SketchEditor.tsx",
+    "apps/desktop/src/model/sync.ts",
+    "apps/desktop/src/viewport/ProjectionViewport.ts"
+  ],
+  "sourceManifestSha256": "28ed260c13a0e18420f44d88bf3b2a24fee81359e19fb251e240bf014eafcd1e",
+  "logSha256": "8d5c828388268968d5d4b6340dbaafc9a4c2f143e3cd6b7c74ed59bb24c0a711",
+  "apkSha256": "4c0c89339de033cc3e39269e0086eca98d947935fc699a40719903ddc2e3015c",
+  "packageLockSha256": "ed2ce3a308998dada1e55e96b9e66a173322c531c55a9aed3d055f1559a413b0",
+  "managedManifestSha256": "ad8c376dde0e1dccc4d03f578c1ec74c5ee374b546fda2967ed16cc3d2e7deac",
+  "status": "BUILD_SUCCEEDED_HARDWARE_UNTESTED",
+  "finishedAt": "2026-10-16T20:18:52.606Z"
+}

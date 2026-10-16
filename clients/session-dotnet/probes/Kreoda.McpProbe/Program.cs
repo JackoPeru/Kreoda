@@ -20,10 +20,14 @@ if (scenario == "automatic-local-connection")
     }
     var rediscovered = Kreoda.Session.SessionDiscovery.Choose(await Kreoda.Session.SessionDiscovery.FindAsync(deadline.Token,
         new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, Kreoda.Session.SessionDiscovery.Port)), pc.PcId)!;
+    Check(!await Kreoda.Session.SessionDiscovery.VerifyKnownDeviceAsync(rediscovered, device,
+        Kreoda.Session.SessionDiscovery.CreateCredential(), deadline.Token, true), "wrong credential accepted PC identity proof");
+    Check(await Kreoda.Session.SessionDiscovery.VerifyKnownDeviceAsync(rediscovered, device, credential, deadline.Token, true),
+        "rediscovered PC did not prove existing trust before credentials are sent");
     await using var reconnected = await Kreoda.Session.SessionClient.ConnectDeviceAsync(rediscovered.Endpoint, device, credential, "quest", deadline.Token, logical);
     Check(reconnected.Model != null && reconnected.Model.Features.Count > 0, "automatic reconnect snapshot missing");
     Console.WriteLine(JsonSerializer.Serialize(new { scenario, status = "connected-and-reconnected", pcId = pc.PcId,
-        manualInputs = 0, features = reconnected.Model!.Features.Count, revision = reconnected.Model.Revision }));
+        manualInputs = 0, verifiedIdentity = true, features = reconnected.Model!.Features.Count, revision = reconnected.Model.Revision }));
     return;
 }
 if (scenario == "projection-archive-break")

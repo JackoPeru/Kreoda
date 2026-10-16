@@ -1,0 +1,14 @@
+# Legacy identity correction
+
+Fresh network/UI review of dbeae987 returned fix-first: an unlabelled legacy credential could be sent to a different uniquely discovered PC and its saved endpoint overwritten. Parent70-file review guard was unchanged. This supersedes any implication of acceptance of dbeae987; it remains unpushed.
+
+Desktop now supports a bounded native /identify challenge. It proves HMAC-SHA256 using the persisted credential digest over stable PC ID, device ID and a fresh nonce. Discovery and identity probes contain no credential. Quest verifies this proof before using existing credentials or updating a discovered address. During legacy migration it examines discovered PCs for existing trust; unrelated PCs are ignored, and the original saved endpoint remains available. Known version2 PCs also prove existing trust before a changed discovered endpoint receives credentials.
+
+Verification of the corrected product:
+
+- All12 QuestConnection Editor cases pass, including actual WebSocket/UDP/HTTP upgrade flows. An unrelated PC returns a wrong-key identity proof: no credential appears in identity probes, its WebSocket receives zero messages, the old endpoint stays unchanged, and the actual old session reconnects with its authentic native mesh. The correct PC proves existing trust and upgrades to its stable ID/new endpoint automatically. This exercises the actual QuestConnection reconnect owner and file, not only serialization.
+- Existing16 Desktop device/discovery tests pass. Actual hidden Electron/native OCCT/managed Quest E2E passes1/1 again, now checks a wrong credential cannot verify the identity challenge and the correct credential verifies before actual reconnect. net8.0 probe and netstandard2.1 production dependencies build.
+- Corrected normal saved-scene ARM64 APK built successfully, direct exit0,0errors. SHA256 4c0c89339de033cc3e39269e0086eca98d947935fc699a40719903ddc2e3015c, actual native libraries exclusively arm64-v8a. APK: C:/Users/matte/Documents/Codex-tools/Native/quest-autoconnect-parent-20261016/arm64-trust-fixed/KreodaQuest.apk.
+- Quest/managed/protocol/build inputs remained unchanged during APK build. Three unrelated Desktop projection files changed concurrently under separate Luna ownership; these are listed in the raw build manifest and scoped-inspection.json, and are not APK inputs or part of this correction. No claim of a wholly immutable repository build.
+
+Prior299Desktop/260managed/104Editor and43saved-scene results remain historical packet evidence; this correction uses affected16Desktop/12Editor plus actual cross-language native E2E and rebuilt APK. Fresh corrected accumulated review remains required. Physical LAN/firewall/headset/both-eye/hand/voice proof, real Home data/actions and full remaining Phases12–16 remain open. No device/ADB/server/Hermes/foreground/microphone/audio operations occurred.
