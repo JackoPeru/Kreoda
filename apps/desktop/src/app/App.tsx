@@ -37,7 +37,7 @@ import {
   restoreRecovery,
 } from "../recovery/autosave";
 import { executeCommand } from "../commands/execute";
-import { bindOpenedSessionRefresh, pullFeatureMesh, syncFromCoreList, syncOpenedDocument, updateFeatureSummary } from "../model/sync";
+import { bindOpenedSessionRefresh, pullFeatureMesh, syncFromCoreList, syncOpenedDocument, syncSketchProjectionMutation, updateFeatureSummary } from "../model/sync";
 import { createSessionUpdateQueue } from "../model/session-update-queue";
 import { useSharedTargetStore } from "../model/shared-targets";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
@@ -48,6 +48,7 @@ import {
   viewportMeshIdentity,
   viewportSectionGeometryDiagnostics,
   viewportProjectPoint,
+  viewportSketchProjectionSummary,
   viewportSharedTargetSummary,
 } from "../viewport/viewportHandle";
 
@@ -281,7 +282,15 @@ export function App() {
             modelPlane: k.model?.plane,
             supportRef: k.supportRef,
             points: k.points,
+            lines: k.lines,
+            circles: k.circles,
+            arcs: k.model?.arcs?.length ?? 0,
             constraints: k.constraints,
+            projectionGroups: k.projectionGroups ?? [],
+            geometryCurrent: k.geometryCurrent,
+            status: k.status,
+            error: k.error,
+            blockingSourceIds: k.blockingSourceIds ?? [],
           })),
           bodies: s.features.map((f) => {
             const mesh = s.meshes[f.featureId];
@@ -289,7 +298,11 @@ export function App() {
               id: f.featureId,
               type: f.type,
               paramsMm: f.paramsMm,
-              volumeMm3: f.volumeMm3,
+              ...(f.volumeMm3 !== undefined ? { volumeMm3: f.volumeMm3 } : {}),
+              geometryCurrent: f.geometryCurrent,
+              status: f.status,
+              error: f.error,
+              blockingSourceIds: f.blockingSourceIds ?? [],
               expressions: f.expressions ?? {},
               triangles: mesh ? mesh.indices.length / 3 : -1,
               faces: mesh ? mesh.faces.map((r) => r.persistentFaceId) : [],
@@ -335,6 +348,7 @@ export function App() {
         return (window as unknown as { __kreoda_test: { snapshot: () => unknown } }).__kreoda_test.snapshot();
       },
       viewportRenderStats,
+      projectionRenderSummary: viewportSketchProjectionSummary,
       // Crash-bundle E2E: same path as the banner button (works anytime).
       crashBundle: () => saveCrashBundle(),
       // Plugin E2E: register from source + run without touching the host dir.
@@ -471,6 +485,52 @@ export function App() {
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
         ).__kreoda_test;
         return hook.snapshot();
+      },
+      createProjectionSketch: async (model: SketchModel) => {
+        const { featureId } = await coreClient.createSketch({ planeKind: "XY", model });
+        const snapshot = await coreClient.requestSnapshot();
+        await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+        const full = await coreClient.requestSketch(featureId);
+        useDocumentUiStore.getState().upsertSketch({
+          featureId, planeKind: full.planeKind, plane: full.plane, supportRef: full.supportRef,
+          points: full.points.length, lines: full.lines.length, circles: full.circles.length,
+          constraints: full.constraints.length, projectionGroups: full.projectionGroups,
+          geometryCurrent: full.geometryCurrent, status: full.status, error: full.error,
+          blockingSourceIds: full.blockingSourceIds, model: full,
+        });
+        useSelectionStore.getState().select(featureId, false);
+        return (window as unknown as { __kreoda_test: { snapshot: () => unknown } }).__kreoda_test.snapshot();
+      },
+      editProjectionSourceCircle: async (featureId: string, radiusMm: number, entityId?: string) => {
+        const full = await coreClient.requestSketch(featureId);
+        const next: SketchModel = {
+          points: full.points,
+          lines: full.lines,
+          circles: full.circles.map((circle, index) => index === 0
+            ? { ...circle, r: radiusMm, ...(entityId ? { id: entityId } : {}) } : circle),
+          arcs: full.arcs ?? [],
+          constraints: full.constraints,
+        };
+        await coreClient.updateSketch({ featureId, model: next });
+        const snapshot = await coreClient.requestSnapshot();
+        await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+        const updated = await coreClient.requestSketch(featureId);
+        const current = useDocumentUiStore.getState().sketches.find(item => item.featureId === featureId);
+        if (current) useDocumentUiStore.getState().upsertSketch({
+          ...current, planeKind: updated.planeKind, plane: updated.plane, supportRef: updated.supportRef,
+          points: updated.points.length, lines: updated.lines.length, circles: updated.circles.length,
+          constraints: updated.constraints.length, projectionGroups: updated.projectionGroups,
+          geometryCurrent: updated.geometryCurrent, status: updated.status, error: updated.error,
+          blockingSourceIds: updated.blockingSourceIds, model: updated,
+        });
+        return (window as unknown as { __kreoda_test: { snapshot: () => unknown } }).__kreoda_test.snapshot();
+      },
+      nativeProjection: (featureId: string, groupId?: string) => coreClient.requestSketchProjection(featureId, groupId),
+      seedProjectionForOpenTest: async (featureId: string, groupId: string, definition: import("@kreoda/protocol").SketchProjectionDefinition) => {
+        const state = useDocumentUiStore.getState();
+        const result = await coreClient.setSketchProjection(featureId, groupId, definition);
+        await syncSketchProjectionMutation(result, state.documentId, state.epoch);
+        return (window as unknown as { __kreoda_test: { snapshot: () => unknown } }).__kreoda_test.snapshot();
       },
       openSketch: (featureId: string) => {
         setEditingSketch(featureId);

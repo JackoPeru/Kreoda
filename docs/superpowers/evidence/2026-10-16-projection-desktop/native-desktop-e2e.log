@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+(node:42944) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 e2e\projection-desktop.spec.ts:61:1 › hidden Desktop opens, edits, repairs, undoes and reopens native sketch projections (24.2s)
+
+  1 passed (24.7s)

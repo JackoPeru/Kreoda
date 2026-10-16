@@ -4,6 +4,7 @@
 import {
   coreClient,
   type FeatureSummary,
+  type SketchProjectionMutation,
   type SketchSummary,
 } from "../ipc/coreClient";
 import {
@@ -11,9 +12,11 @@ import {
   useSelectionStore,
   visibleFeatureIds,
 } from "../stores";
-import type { DatumDescriptor } from "@kreoda/protocol";
+import type { DatumDescriptor, SketchProjectionResult } from "@kreoda/protocol";
 
 let refreshOpenedSession: (() => Promise<void>) | null = null;
+const projectionTickets = new Map<string, number>();
+let nextProjectionTicket = 0;
 
 /** Open and recovery await the same queue that owns incoming session events. */
 export function bindOpenedSessionRefresh(refresh: () => Promise<void>): () => void {
@@ -29,6 +32,92 @@ export async function syncOpenedDocument(features: FeatureSummary[], revision: n
     await syncFromCoreList(features, revision, sketches, null, datums);
   }
   return useDocumentUiStore.getState().epoch;
+}
+
+/** Read native projection curves only for the exact current session view. */
+export async function refreshSketchProjection(featureId: string): Promise<SketchProjectionResult | null> {
+  const ticket = ++nextProjectionTicket;
+  projectionTickets.set(featureId, ticket);
+  const initial = useDocumentUiStore.getState();
+  const context = {
+    documentId: initial.documentId,
+    revision: initial.revision,
+    epoch: initial.epoch,
+    connectionGeneration: initial.connectionGeneration,
+  };
+  initial.clearSketchProjection(featureId);
+
+  try {
+    const before = await window.kreoda.sessionSnapshot() as { sessionId?: string; documentId: string; revision: number };
+    if (projectionTickets.get(featureId) !== ticket) return null;
+    const current = useDocumentUiStore.getState();
+    if (before.documentId !== context.documentId || before.revision !== context.revision ||
+        current.documentId !== context.documentId || current.revision !== context.revision ||
+        current.epoch !== context.epoch || current.connectionGeneration !== context.connectionGeneration ||
+        typeof before.sessionId !== "string" || coreClient.documentId !== context.documentId) return null;
+
+    const response = await coreClient.requestSketchProjection(featureId);
+    const after = await window.kreoda.sessionSnapshot() as { sessionId?: string; documentId: string; revision: number };
+    const latest = useDocumentUiStore.getState();
+    if (projectionTickets.get(featureId) !== ticket || response.documentId !== context.documentId ||
+        response.revision !== context.revision || response.projection.featureId !== featureId ||
+        after.sessionId !== before.sessionId || after.documentId !== context.documentId || after.revision !== context.revision ||
+        latest.documentId !== context.documentId || latest.revision !== context.revision || latest.epoch !== context.epoch ||
+        latest.connectionGeneration !== context.connectionGeneration) return null;
+
+    const projection = response.projection.geometryCurrent ? response.projection : {
+      ...response.projection,
+      groups: response.projection.groups.map(group => ({ ...group, edges: [] })),
+    };
+    latest.setProjectionView({ ...context, sessionId: before.sessionId, projection });
+    return projection;
+  } catch (error) {
+    if (projectionTickets.get(featureId) === ticket) {
+      const current = useDocumentUiStore.getState();
+      if (current.documentId === context.documentId && current.epoch === context.epoch &&
+          current.revision === context.revision && current.connectionGeneration === context.connectionGeneration)
+        current.clearSketchProjection(featureId);
+    }
+    throw error;
+  }
+}
+
+/** Consume direct 36/37 sketch state, then await ordered full snapshot sync. */
+export async function syncSketchProjectionMutation(
+  result: SketchProjectionMutation,
+  documentId: string,
+  epoch: number,
+): Promise<void> {
+  const state = useDocumentUiStore.getState();
+  if (state.documentId !== documentId || state.epoch !== epoch || coreClient.documentId !== documentId || result.revision < state.revision) return;
+  const model = { ...result.model, planeKind: result.planeKind, ...(result.plane ? { plane: result.plane } : {}), ...(result.supportRef !== undefined ? { supportRef: result.supportRef } : {}) };
+  const sketch = state.sketches.find(item => item.featureId === result.featureId);
+  state.setSketches([
+    ...state.sketches.filter(item => item.featureId !== result.featureId),
+    {
+      ...sketch,
+      featureId: result.featureId,
+      planeKind: result.planeKind,
+      plane: result.plane,
+      supportRef: result.supportRef,
+      points: model.points.length,
+      lines: model.lines.length,
+      circles: model.circles.length,
+      constraints: model.constraints.length,
+      projectionGroups: result.projectionGroups,
+      geometryCurrent: result.geometryCurrent,
+      status: result.status,
+      error: result.error,
+      blockingSourceIds: result.blockingSourceIds,
+      model,
+    },
+  ], result.revision, epoch);
+  state.clearSketchProjection(result.featureId);
+  if (refreshOpenedSession) await refreshOpenedSession();
+  else {
+    const snapshot = await coreClient.requestSnapshot();
+    await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+  }
 }
 
 /** Re-request + store the mesh for one feature at the given core revision. */
@@ -111,6 +200,11 @@ export async function syncFromCoreList(
         lines: k.lines,
         circles: k.circles,
         constraints: k.constraints,
+        ...(k.projectionGroups !== undefined ? { projectionGroups: k.projectionGroups } : {}),
+        geometryCurrent: k.geometryCurrent,
+        status: k.status,
+        error: k.error,
+        blockingSourceIds: k.blockingSourceIds,
         ...(k.model ? { model: {
           ...k.model,
           planeKind: k.planeKind,

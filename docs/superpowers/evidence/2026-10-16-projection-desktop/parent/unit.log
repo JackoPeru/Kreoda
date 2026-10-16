@@ -1,0 +1,306 @@
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop
+
+ ✓ tests/storage-migration.test.ts (2 tests) 194ms
+ ✓ tests/autosave.test.ts (2 tests) 395ms
+     ✓ saves reference-only edits without a CAD revision change  387ms
+ ✓ tests/projection-query-freshness.test.ts (4 tests) 385ms
+ ✓ tests/projection-desktop-opening.test.tsx (5 tests) 184ms
+ ✓ tests/session-connection-panel.test.tsx (1 test) 309ms
+   ✓ enables the selected interface, pairs explicitly and revokes a connected device  308ms
+ ✓ tests/preload-session.test.ts (1 test) 29ms
+ ✓ tests/bodies-tree.test.tsx (3 tests) 67ms
+ ✓ tests/section-panel.test.tsx (5 tests) 135ms
+ ✓ tests/session-update-queue.test.ts (7 tests) 197ms
+stdout | tests/session-bodies.test.ts > Slice 6 TEST G: session Body semantics > compares canonical sketch coordinates despite equal counts and propagates to dependent meshes
+[session] relay listening on 127.0.0.1:58998 (protocol 1)
+
+stdout | tests/session-bodies.test.ts > Slice 6 TEST G: session Body semantics > invalidates an unchanged body tip on parameter edit, Undo and Redo
+[session] relay listening on 127.0.0.1:59002 (protocol 1)
+
+stdout | tests/session-bodies.test.ts > Slice 6 TEST G: session Body semantics > seeds before first mutation and emits incremental wire without full arrays
+[session] relay listening on 127.0.0.1:59005 (protocol 1)
+
+stdout | tests/session-bodies.test.ts > Slice 6 TEST G: session Body semantics > one-body model stays 1 Body across history + remote param edit; snapshots agree
+[session] relay listening on 127.0.0.1:59008 (protocol 1)
+
+stdout | tests/session-bodies.test.ts > Slice 6 TEST G: session Body semantics > tip-change delta names the body (not N features) + undo names disappeared ids
+[session] relay listening on 127.0.0.1:59011 (protocol 1)
+
+stdout | tests/session-bodies.test.ts > Slice 6 TEST G: session Body semantics > stale client must not mutate silently (revision fencing preserved)
+[session] relay listening on 127.0.0.1:59014 (protocol 1)
+
+ ✓ tests/session-bodies.test.ts (6 tests) 212ms
+stdout | tests/session-relay.test.ts > SessionRelay > keeps native projection type 38 ordered and read-only across local, integer, named, and semantic requests
+[session] relay listening on 127.0.0.1:59017 (protocol 1)
+
+stderr | tests/i18n.test.tsx > i18n dictionaries (§i18n) > re-renders UI in italian and switches back live
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+ ✓ tests/i18n.test.tsx (6 tests) 92ms
+ ✓ tests/context-toolbar.test.tsx (2 tests) 151ms
+stdout | tests/session-relay.test.ts > SessionRelay > serializes preview actions: update then commit
+[session] relay listening on 127.0.0.1:59020 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > serializes preview actions: commit then cancel
+[session] relay listening on 127.0.0.1:59022 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > rejects overlapping clients before queueing behind a slow native command
+[session] relay listening on 127.0.0.1:59024 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > holds preview targets across calls and releases them on cancel for Desktop and network
+[session] relay listening on 127.0.0.1:59027 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > fences foreign snapshot and geometry queries while allowing metadata and owner working state
+[session] relay listening on 127.0.0.1:59030 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > keeps selection private unless explicitly published
+[session] relay listening on 127.0.0.1:59033 (protocol 1)
+
+ ✓ tests/dialog.test.tsx (2 tests) 288ms
+stdout | tests/session-relay.test.ts > SessionRelay > rejects an overlapping logical connection without clearing the current shared target
+[session] relay listening on 127.0.0.1:59036 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > runs a named command once, replays its generated identity and exports its registry schema
+[session] relay listening on 127.0.0.1:59040 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > rejects invalid named and legacy parameters or binary control calls before native dispatch
+[session] relay listening on 127.0.0.1:59042 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > blocks local recovery while a remote transaction owns uncommitted state
+[session] relay listening on 127.0.0.1:59044 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > strips unknown command fields and preserves the trusted native envelope prefix
+[session] relay listening on 127.0.0.1:59046 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > replays by operationId across request IDs, key order, and changed payloads
+[session] relay listening on 127.0.0.1:59048 (protocol 1)
+
+stdout | tests/session-pairing.test.ts > trusted device WebSocket gate > disabling transport preserves local lineage and rotates device tokens
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > treats distinct operation IDs as distinct when requestId is reused
+[session] relay listening on 127.0.0.1:59050 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > keeps requestId-only mutation replay scoped to one connection
+[session] relay listening on 127.0.0.1:59054 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > advertises server-supported capabilities, not client offers
+[session] relay listening on 127.0.0.1:59057 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > shares a pending operation between concurrent identical requests
+[session] relay listening on 127.0.0.1:59059 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > replays after disconnect only for the same authenticated logical client
+[session] relay listening on 127.0.0.1:59061 (protocol 1)
+
+stderr | tests/session-relay.test.ts > SessionRelay > replays after disconnect only for the same authenticated logical client
+[session] rejected client (bad pairing token)
+
+stdout | tests/session-relay.test.ts > SessionRelay > replays transaction begin and consumed preview commit before state guards
+[session] relay listening on 127.0.0.1:59066 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > replays orphan force rollback without repeating its native control call
+[session] relay listening on 127.0.0.1:59069 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > retains replay entries beyond 200 without evicting the first result
+[session] relay listening on 127.0.0.1:59072 (protocol 1)
+
+ ✓ tests/dialogs5.test.tsx (4 tests) 775ms
+     ✓ prevents position entry until the native frame and default center are ready  321ms
+ ✓ tests/session-discovery.test.ts (4 tests) 4392ms
+     ✓ discovers and pairs without input, persists identity, and respects revocation  3108ms
+     ✓ rejects browser origins, oversized bodies and mismatched PC identity  1266ms
+stdout | tests/session-pairing.test.ts > trusted device WebSocket gate > disabling transport preserves local lineage and rotates device tokens
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+ ✓ tests/shared-target-chip.test.tsx (2 tests) 56ms
+ ✓ tests/home-media.test.tsx (1 test) 65ms
+ ✓ tests/datum-viewport.test.ts (2 tests) 28ms
+ ✓ tests/section-picking.test.ts (7 tests) 49ms
+ ✓ tests/viewport-render.test.ts (2 tests) 29ms
+stdout | tests/session-relay.test.ts > SessionRelay > invalidates old operation and document identities after lineage resets
+[session] relay listening on 127.0.0.1:59080 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > validates operation metadata and rejects queries for another document
+[session] relay listening on 127.0.0.1:59082 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > replays selection and preview begin, update, and cancel without repeating effects
+[session] relay listening on 127.0.0.1:59084 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > rejects repeat hello and rolls back the real transaction on owner disconnect
+[session] relay listening on 127.0.0.1:59086 (protocol 1)
+
+ ✓ tests/session-context.test.ts (13 tests) 27ms
+ ✓ tests/reference-geometry-panel.test.tsx (21 tests) 1871ms
+     ✓ opens native reference geometry without opening image references  371ms
+stdout | tests/session-relay.test.ts > SessionRelay > rolls back when the owner disconnects while txnBegin is in flight
+[session] relay listening on 127.0.0.1:59089 (protocol 1)
+
+ ✓ tests/execute-availability.test.ts (10 tests) 31ms
+stdout | tests/session-relay.test.ts > SessionRelay > validates invoke fields and blocks native transaction commands
+[session] relay listening on 127.0.0.1:59092 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > fences foreign transaction controls and mutations before native dispatch
+[session] relay listening on 127.0.0.1:59094 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > rejects malformed frames before core dispatch and keeps valid frames working
+[session] relay listening on 127.0.0.1:59097 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > hello pairing, snapshot, invoke, undo broadcast, rejects
+[session] relay listening on 127.0.0.1:59109 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionRelay > rejects bad pairing tokens
+[session] relay listening on 127.0.0.1:59111 (protocol 1)
+
+stderr | tests/session-relay.test.ts > SessionRelay > rejects bad pairing tokens
+[session] rejected client (bad pairing token)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > does not attach a preview to a new lineage when its initial snapshot crosses a restart
+[session] relay listening on 127.0.0.1:59113 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > does not emit a cleared cached preview when revision lookup crosses a restart
+[session] relay listening on 127.0.0.1:59115 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > rejects stale intent and unrelated tip before requesting candidate geometry
+[session] relay listening on 127.0.0.1:59117 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > rejects a candidate over 64 MiB without retaining it
+[session] relay listening on 127.0.0.1:59119 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > fences preview owner, generations, stale model and consumed state
+[session] relay listening on 127.0.0.1:59121 (protocol 1)
+
+stdout | tests/session-pairing.test.ts > trusted device WebSocket gate > reports occupied ports and can enable a listener after failure
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+stdout | tests/session-pairing.test.ts > trusted device WebSocket gate > reports occupied ports and can enable a listener after failure
+[session] relay listening on 127.0.0.1:59124 (protocol 1)
+
+stderr | tests/session-pairing.test.ts > trusted device WebSocket gate > reports occupied ports and can enable a listener after failure
+[session] listener failed EADDRINUSE
+
+stdout | tests/session-pairing.test.ts > trusted device WebSocket gate > reports occupied ports and can enable a listener after failure
+[session] relay listening on 127.0.0.1:59124 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > retains at most four previews per client and 256 MiB across clients
+[session] relay listening on 127.0.0.1:59126 (protocol 1)
+
+ ✓ tests/datum-dimension-sync.test.ts (1 test) 21ms
+stdout | tests/session-relay.test.ts > binary mesh session requests > delivers a separate cached preview mesh without changing the committed model
+[session] relay listening on 127.0.0.1:59129 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > advertises binary-mesh-v1 on hello
+[session] relay listening on 127.0.0.1:59132 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > returns a JSON identity header followed by the exact native MeshUpdate bytes
+[session] relay listening on 127.0.0.1:59134 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > enqueues the mesh header and binary bytes before a following mutation starts in the core
+[session] relay listening on 127.0.0.1:59136 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > keeps body roots semantic while requesting visible tips and correlates two sockets with the same outer id
+[session] relay listening on 127.0.0.1:59138 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > requests one valid instance by its native owner while keeping the source body root
+[session] relay listening on 127.0.0.1:59141 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > rejects missing capability, stale revision, missing or suppressed bodies before native dispatch
+[session] relay listening on 127.0.0.1:59143 (protocol 1)
+
+stdout | tests/session-relay.test.ts > binary mesh session requests > blocks a foreign transaction owner and allows owner reads
+[session] relay listening on 127.0.0.1:59146 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionQueries (§11.7–§11.9, §11.11, §11.15) > rejects invalid body search filters instead of returning an empty candidate set
+[session] relay listening on 127.0.0.1:59149 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionQueries (§11.7–§11.9, §11.11, §11.15) > forwards geometry scopes to native query 30 without mesh approximations
+[session] relay listening on 127.0.0.1:59151 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionQueries (§11.7–§11.9, §11.11, §11.15) > preserves native ambiguous-reference errors and rejects invalid selections
+[session] relay listening on 127.0.0.1:59153 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionQueries (§11.7–§11.9, §11.11, §11.15) > introspection, selection, find, manipulators, measures, validate
+[session] relay listening on 127.0.0.1:59155 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionQueries (§11.7–§11.9, §11.11, §11.15) > rejects invalid preview values before native dispatch or state changes
+[session] relay listening on 127.0.0.1:59157 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionQueries (§11.7–§11.9, §11.11, §11.15) > spatial preview lifecycle: begin, update, commit in one undo
+[session] relay listening on 127.0.0.1:59159 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionQueries (§11.7–§11.9, §11.11, §11.15) > multi-command transaction: atomic delta, owner rules, recovery (incremental=false)
+[session] relay listening on 127.0.0.1:59161 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionQueries (§11.7–§11.9, §11.11, §11.15) > multi-command transaction: atomic delta, owner rules, recovery (incremental=true)
+[session] relay listening on 127.0.0.1:59164 (protocol 1)
+
+ ✓ tests/app.test.tsx (9 tests) 2282ms
+     ✓ retains section during an empty mesh interval for a same-document Box to Hole tip swap  939ms
+     ✓ shows toolbar, viewport, command bar after entering the workspace  320ms
+stdout | tests/session-relay.test.ts > SessionControlContract (Slice 7) > every query method yields a correlated reply (ok or coded error)
+[session] relay listening on 127.0.0.1:59167 (protocol 1)
+
+stdout | tests/session-relay.test.ts > SessionControlContract (Slice 7) > missing required fields fail with errorCode + error (never hang)
+[session] relay listening on 127.0.0.1:59169 (protocol 1)
+
+ ✓ tests/session-relay.test.ts (66 tests) 3292ms
+     ✓ retains replay entries beyond 200 without evicting the first result  1487ms
+ ✓ tests/camera.test.ts (11 tests) 21ms
+ ✓ tests/session-projection-runtime.test.ts (4 tests) 24ms
+stdout | tests/session-pairing.test.ts > trusted device WebSocket gate > exchanges one-use pairing, authenticates a device and requires hello before CAD access
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+ ✓ tests/renderer-recovery.test.ts (1 test) 10ms
+ ✓ tests/projection-core-client.test.ts (2 tests) 18ms
+ ✓ tests/section-presentation.test.ts (11 tests) 18ms
+ ✓ tests/bodies.test.ts (13 tests) 16ms
+ ✓ tests/datum-sync.test.ts (1 test) 17ms
+ ✓ tests/reference-persistence.test.ts (5 tests) 14ms
+ ✓ tests/shared-targets.test.ts (4 tests) 17ms
+ ✓ tests/hole-placement.test.ts (5 tests) 11ms
+ ✓ tests/parse.test.ts (9 tests) 14ms
+ ✓ tests/commands5.test.ts (6 tests) 17ms
+stdout | tests/session-pairing.test.ts > trusted device WebSocket gate > accepts an eight digit pairing code and counts valid-shaped schema failures toward shared lockout
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+ ✓ tests/section-plane.test.ts (6 tests) 8ms
+ ✓ tests/intent.test.ts (7 tests) 11ms
+ ✓ tests/session-sketch-preview.test.ts (1 test) 9ms
+ ✓ tests/updater-manifest.test.ts (4 tests) 9ms
+stdout | tests/session-pairing.test.ts > trusted device WebSocket gate > revocation closes connected sockets and rejects the stored credential
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+ ✓ tests/geometry-availability-sync.test.ts (1 test) 8ms
+ ✓ tests/session-pairing.test.ts (6 tests) 7126ms
+     ✓ disabling transport preserves local lineage and rotates device tokens  1692ms
+     ✓ reports occupied ports and can enable a listener after failure  1333ms
+     ✓ exchanges one-use pairing, authenticates a device and requires hello before CAD access  1577ms
+     ✓ accepts an eight digit pairing code and counts valid-shaped schema failures toward shared lockout  1076ms
+     ✓ revocation closes connected sockets and rejects the stored credential  1426ms
+ ✓ tests/selectSimilar.test.ts (4 tests) 6ms
+ ✓ tests/pull.test.ts (3 tests) 6ms
+ ✓ tests/sketch-sync-metadata.test.ts (3 tests) 7ms
+ ✓ tests/projection-viewport.test.ts (2 tests) 9ms
+ ✓ tests/reference.test.ts (2 tests) 5ms
+ ✓ tests/projection-desktop-sync.test.ts (1 test) 4ms
+ ✓ tests/sidecar-timeout.test.ts (1 test) 7ms
+ ✓ tests/session-devices.test.ts (12 tests) 12445ms
+     ✓ persists only credential digests and rotates session tokens after restart  1784ms
+     ✓ consumes a pairing token once even for simultaneous exchanges  849ms
+     ✓ replacing a pairing window retires both the previous code and token  1391ms
+     ✓ counts concurrent wrong code guesses against the same five-attempt window  1100ms
+     ✓ pairs with an eight digit code including leading zeroes and consumes both credentials  1505ms
+     ✓ locks both pairing values after five valid-shaped guesses  963ms
+     ✓ does not count malformed shapes as pairing guesses  1509ms
+     ✓ expires/cancels pairing and revokes credentials durably  1869ms
+     ✓ failed atomic replacement never adopts a device or leaves a temporary file  647ms
+     ✓ a corrupt store is rejected and its original bytes are preserved  821ms
+
+ Test Files  52 passed (52)
+      Tests  313 passed (313)
+   Start at  22:38:23
+   Duration  14.32s (transform 20.06s, setup 1.21s, import 48.74s, tests 35.41s, environment 63.34s)
+
+JUNIT report written to C:/Users/matte/Documents/Codex-tools/Native/projection-desktop-parent-20261016/unit.xml

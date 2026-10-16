@@ -8,15 +8,21 @@ import {
   type SketchModel,
   type DatumDescriptor,
   type SketchPlaneFrame,
+  type SketchProjectionDefinition,
+  type SketchProjectionGroupSummary,
+  type SketchProjectionResult,
   DatumDescriptorSchema,
   SketchPlaneFrameSchema,
   SketchModelSchema,
+  SketchProjectionGroupSummarySchema,
+  SketchProjectionResultSchema,
   decodeMeshFrame,
   decodeMeshResponse,
   frameMessage,
   isJsonResponse,
   FrameDecoder,
 } from "@kreoda/protocol";
+import { commandNativeRequest } from "@kreoda/command-schema";
 import { z } from "zod";
 import { useDocumentUiStore } from "../stores";
 import { loadReferences, serializeReferences } from "../reference/store";
@@ -66,6 +72,25 @@ export interface SketchSummary {
   model?: SketchModel;
   plane?: SketchPlaneFrame;
   supportRef?: string;
+  projectionGroups?: SketchProjectionGroupSummary[];
+  geometryCurrent?: boolean;
+  status?: string;
+  error?: string;
+  blockingSourceIds?: string[];
+}
+
+export interface SketchProjectionMutation {
+  featureId: string;
+  planeKind: string;
+  revision: number;
+  model: SketchModel;
+  plane?: SketchPlaneFrame;
+  supportRef?: string;
+  projectionGroups: SketchProjectionGroupSummary[];
+  geometryCurrent?: boolean;
+  status?: string;
+  error?: string;
+  blockingSourceIds?: string[];
 }
 
 function b64encode(bytes: Uint8Array): string {
@@ -141,12 +166,40 @@ const FeatureListSchema = z.object({
         constraints: z.number().default(0),
         plane: SketchPlaneFrameSchema.optional(),
         supportRef: z.string().optional(),
+        projectionGroups: z.array(SketchProjectionGroupSummarySchema).default([]),
+        geometryCurrent: z.boolean().optional(),
+        status: z.string().optional(),
+        error: z.string().optional(),
+        blockingSourceIds: z.array(z.string()).optional(),
       }),
     )
     .default([]),
   revision: z.number().int().nonnegative().default(0),
   errorCode: z.string().optional(),
   errorMessage: z.string().optional(),
+});
+
+const SketchBodySchema = z.object({
+  featureId: z.string(),
+  type: z.string(),
+  planeKind: z.string(),
+  revision: z.number().int().nonnegative(),
+  sketch: z.object({
+    model: SketchModelSchema,
+    plane: SketchPlaneFrameSchema.optional(),
+    supportRef: z.string().optional(),
+    projectionGroups: z.array(SketchProjectionGroupSummarySchema).default([]),
+  }),
+  geometryCurrent: z.boolean().optional(),
+  geometryStatus: z.string().optional(),
+  error: z.string().optional(),
+  blockingSourceIds: z.array(z.string()).optional(),
+});
+
+const SketchProjectionQuerySchema = z.object({
+  documentId: z.string().min(1),
+  revision: z.number().int().nonnegative(),
+  projection: SketchProjectionResultSchema,
 });
 
 function newFeatureId(prefix: string): string {
@@ -432,22 +485,65 @@ export class CoreClient {
 
   async requestSketch(
     featureId: string,
-  ): Promise<import("@kreoda/protocol").SketchModel & { planeKind: string; plane?: SketchPlaneFrame; supportRef?: string }> {
+  ): Promise<SketchModel & { planeKind: string; plane?: SketchPlaneFrame; supportRef?: string; revision: number; projectionGroups: SketchProjectionGroupSummary[]; geometryCurrent?: boolean; status?: string; error?: string; blockingSourceIds?: string[] }> {
     const parsed = await this.invoke(
       CommandType.RequestSketch,
       this.documentId,
       { featureId },
     );
-    const sketch = parsed.sketch as {
-      planeKind?: string;
-      model?: import("@kreoda/protocol").SketchModel;
-      plane?: SketchPlaneFrame;
-      supportRef?: string;
+    const body = SketchBodySchema.parse(parsed);
+    if(body.planeKind === "Datum" && (!body.sketch.plane || !body.sketch.supportRef))throw new Error("datum sketch response missing native support frame");
+    return {
+      ...body.sketch.model,
+      planeKind: body.planeKind,
+      plane: body.sketch.plane,
+      supportRef: body.sketch.supportRef,
+      revision: body.revision,
+      projectionGroups: body.sketch.projectionGroups,
+      geometryCurrent: body.geometryCurrent,
+      status: body.geometryStatus,
+      error: body.error,
+      blockingSourceIds: body.blockingSourceIds,
     };
-    if (!sketch?.model) throw new Error("sketch response missing model");
-    const plane = sketch.plane === undefined ? undefined : SketchPlaneFrameSchema.parse(sketch.plane);
-    if(sketch.planeKind === "Datum" && (!plane || !sketch.supportRef))throw new Error("datum sketch response missing native support frame");
-    return { ...SketchModelSchema.parse(sketch.model), planeKind: sketch.planeKind ?? "XY", plane, supportRef: sketch.supportRef };
+  }
+
+  async requestSketchProjection(featureId: string, groupId?: string): Promise<{
+    documentId: string; revision: number; projection: SketchProjectionResult;
+  }> {
+    const command = commandNativeRequest("RequestSketchProjection", {
+      featureId, ...(groupId !== undefined ? { groupId } : {}),
+    });
+    const parsed = await this.invoke(command.type, this.documentId, command.fields);
+    const result = SketchProjectionQuerySchema.parse(parsed);
+    if (result.projection.featureId !== featureId) throw new Error("projection response target mismatch");
+    return result;
+  }
+
+  async setSketchProjection(featureId: string, groupId: string, definition: SketchProjectionDefinition): Promise<SketchProjectionMutation> {
+    const command = commandNativeRequest("SetSketchProjection", { featureId, groupId, definition });
+    return this.parseSketchProjectionMutation(await this.invoke(command.type, this.documentId, command.fields));
+  }
+
+  async removeSketchProjection(featureId: string, groupId: string): Promise<SketchProjectionMutation> {
+    const command = commandNativeRequest("RemoveSketchProjection", { featureId, groupId });
+    return this.parseSketchProjectionMutation(await this.invoke(command.type, this.documentId, command.fields));
+  }
+
+  private parseSketchProjectionMutation(parsed: Record<string, unknown>): SketchProjectionMutation {
+    const body = SketchBodySchema.parse(parsed);
+    return {
+      featureId: body.featureId,
+      planeKind: body.planeKind,
+      revision: body.revision,
+      model: body.sketch.model,
+      plane: body.sketch.plane,
+      supportRef: body.sketch.supportRef,
+      projectionGroups: body.sketch.projectionGroups,
+      geometryCurrent: body.geometryCurrent,
+      status: body.geometryStatus,
+      error: body.error,
+      blockingSourceIds: body.blockingSourceIds,
+    };
   }
 
   async datumCommand(type: number, fields: Record<string, unknown>): Promise<{ features: FeatureSummary[]; sketches: SketchSummary[]; datums: DatumDescriptor[]; revision: number }> {

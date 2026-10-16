@@ -1,0 +1,27 @@
+[
+  {
+    "file": "desktop-build.log",
+    "originalSha256": "e067806160130bbb944f699d9ce62398f2976af1e9da329ccfd7dfb904aaaac9",
+    "archiveSha256": "0a176812f555ec0831650d0de0b519aea993a4f1fb29e894708a23582c43d652"
+  },
+  {
+    "file": "desktop-unit-suite.log",
+    "originalSha256": "05a2305783fd456474f863e2fde80d90ab275bd4b6cafed98c046bb8f4faf3b0",
+    "archiveSha256": "7cd191b333316224d5f2ab78f3ac77be77e6d4973f093c329bee778f3e8b4644"
+  },
+  {
+    "file": "native-desktop-e2e.log",
+    "originalSha256": "01817da16270a4a5cd25f2fdd22541ffcea4cee3fbbc3a6e7d6b6dd1b3d38003",
+    "archiveSha256": "9db0ee7bd3970ad4b2aa054c1b3350e3e58b91bdcaf446d308672fe03fcf957d"
+  },
+  {
+    "file": "artifacts-sha256.json",
+    "originalSha256": "88a26113171a404405390b38f6b8f6cfa0f468b190ce9d9a2709b9c5294ea498",
+    "archiveSha256": "0e80f35c97b14b834691c50f318db2b78388e91ed627e1c923d2d3a5dc3d1ab8"
+  },
+  {
+    "file": "native-e2e-proof.json",
+    "originalSha256": "4d30ed7016732543cf6a4bd3b05e6c883b02f304493fbccf32e4af51cfdd83e9",
+    "archiveSha256": "27478500028eacc622d15d9929d9c6b1413c9c95fb94494526478c151cc5007c"
+  }
+]

@@ -6,6 +6,8 @@ import * as THREE from "three";
 import { MeshBVH, acceleratedRaycast } from "three-mesh-bvh";
 import type { CoreMeshData } from "@kreoda/protocol";
 import type { DatumDescriptor } from "@kreoda/protocol";
+import type { SketchProjectionView } from "../stores";
+import { createProjectionGroup } from "./ProjectionViewport";
 import { DatumViewport } from "./DatumViewport";
 import { CameraController } from "./CameraController";
 import type { ReferencePlane } from "../reference/store";
@@ -47,6 +49,7 @@ export class CadViewport {
   private renderCpuTotalMs = 0;
   private renderCpuMaxMs = 0;
   private bodies = new Map<string, BodyEntry>();
+  private sketchProjections = new Map<string, { view: SketchProjectionView; group: THREE.Group }>();
   private hoveredId: string | null = null;
   private selectedIds = new Set<string>();
   private sharedTargetIds = new Set<string>();
@@ -234,6 +237,7 @@ export class CadViewport {
       if (!geometry.boundingBox) geometry.computeBoundingBox();
       if (geometry.boundingBox) bounds.union(geometry.boundingBox);
     }
+    for (const { group } of this.sketchProjections.values()) bounds.union(new THREE.Box3().setFromObject(group));
     if (bounds.isEmpty()) {
       this.controls.frameAll();
       return;
@@ -253,6 +257,8 @@ export class CadViewport {
     for (const id of this.selectedIds) {
       const cut = id.indexOf(":");
       const featureId = cut < 0 ? id : id.slice(0, cut);
+      const projection = this.sketchProjections.get(featureId)?.group;
+      if (projection) bounds.union(new THREE.Box3().setFromObject(projection));
       const entry = this.bodies.get(featureId);
       if (!entry) continue;
       if (cut < 0) {
@@ -1284,6 +1290,7 @@ export class CadViewport {
     for (const id of [...this.bodies.keys()]) this.removeBodyMesh(id);
     this.showPreviewMesh(null);
     this.syncReferencePlanes([]);
+    this.syncSketchProjections({});
     this.sharedTargetIds.clear();
     this.rebuildSharedEdgeOverlay();
     if (this.edgeSelectedLines) {
@@ -1325,6 +1332,45 @@ export class CadViewport {
   }
 
   syncDatums(datums: readonly DatumDescriptor[]): void { this.datumView.sync(datums);this.requestRender(); }
+
+  syncSketchProjections(views: Record<string, SketchProjectionView>): void {
+    for (const [featureId, entry] of this.sketchProjections) {
+      if (views[featureId] === entry.view) continue;
+      this.scene.remove(entry.group);
+      entry.group.traverse(object => {
+        if (object instanceof THREE.Line) {
+          object.geometry.dispose();
+          const material = object.material;
+          if (Array.isArray(material)) material.forEach(item => item.dispose()); else material.dispose();
+        }
+      });
+      this.sketchProjections.delete(featureId);
+    }
+    for (const [featureId, view] of Object.entries(views)) {
+      if (this.sketchProjections.has(featureId) || !view.projection.geometryCurrent || view.projection.status !== "ok") continue;
+      const group = createProjectionGroup(view.projection);
+      if (group.children.length === 0) continue;
+      group.traverse(object => { object.renderOrder = 5; });
+      this.sketchProjections.set(featureId, { view, group });
+      this.scene.add(group);
+    }
+    this.requestRender();
+  }
+
+  sketchProjectionSummary(featureId: string): { lineCount: number; pointsMm: [number, number, number][] } | null {
+    const entry = this.sketchProjections.get(featureId);
+    if (!entry) return null;
+    const pointsMm: [number, number, number][] = [];
+    let lineCount = 0;
+    for (const child of entry.group.children) {
+      if (!(child instanceof THREE.Line)) continue;
+      lineCount++;
+      const position = child.geometry.getAttribute("position");
+      for (let index = 0; index < position.count; index++)
+        pointsMm.push([position.getX(index), position.getY(index), position.getZ(index)]);
+    }
+    return { lineCount, pointsMm };
+  }
 
   private pick(e: MouseEvent, commit: boolean): void {
     const rect = this.renderer.domElement.getBoundingClientRect();

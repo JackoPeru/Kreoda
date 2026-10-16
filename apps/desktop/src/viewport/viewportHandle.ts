@@ -67,6 +67,7 @@ interface ViewportHandle {
   cancelReferenceMeasure: () => void;
   renderStats: () => ViewportRenderStats | null;
   meshIdentity: (featureId: string) => { geometryId: string; revision: number } | null;
+  sketchProjectionSummary: (featureId: string) => { lineCount: number; pointsMm: [number, number, number][] } | null;
   sharedTargetSummary: () => { ids: string[]; faceGroups: number; edgeSegments: number } | null;
 }
 
@@ -124,6 +125,10 @@ export function viewportRenderStats(): ViewportRenderStats | null {
 
 export function viewportMeshIdentity(featureId: string): { geometryId: string; revision: number } | null {
   return handle?.meshIdentity(featureId) ?? null;
+}
+
+export function viewportSketchProjectionSummary(featureId: string): { lineCount: number; pointsMm: [number, number, number][] } | null {
+  return handle?.sketchProjectionSummary(featureId) ?? null;
 }
 
 export function viewportSharedTargetSummary(): { ids: string[]; faceGroups: number; edgeSegments: number } | null {

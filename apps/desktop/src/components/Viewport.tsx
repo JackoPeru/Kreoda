@@ -10,6 +10,7 @@ import { markPullLearned } from "./Onboarding";
 import { useReferenceStore } from "../reference/store";
 import { t } from "../i18n";
 import { useSectionStore } from "../section/store";
+import { refreshSketchProjection } from "../model/sync";
 
 interface PullSession {
   pointerId: number;
@@ -41,6 +42,9 @@ export function Viewport() {
   const bodies = useDocumentUiStore((s) => s.bodies);
   const features = useDocumentUiStore((s) => s.features);
   const datums = useDocumentUiStore(s => s.datums);
+  const sketches = useDocumentUiStore(s => s.sketches);
+  const projectionViews = useDocumentUiStore(s => s.projectionViews);
+  const connectionGeneration = useDocumentUiStore(s => s.connectionGeneration);
   const meshRevision = useDocumentUiStore((s) => s.meshRevision);
   const targetEvents = useSharedTargetStore(s => s.events);
   const targetContext = useSharedTargetStore(s => s.context);
@@ -84,6 +88,7 @@ export function Viewport() {
       cancelReferenceMeasure: () => vpRef.current?.cancelReferenceMeasure(),
       renderStats: () => vpRef.current?.renderStats() ?? null,
       meshIdentity: (featureId) => vpRef.current?.meshIdentity(featureId) ?? null,
+      sketchProjectionSummary: (featureId) => vpRef.current?.sketchProjectionSummary(featureId) ?? null,
       sharedTargetSummary: () => vpRef.current?.sharedTargetSummary() ?? null,
     });
     return () => {
@@ -120,6 +125,13 @@ export function Viewport() {
     vpRef.current?.syncReferencePlanes(refPlanes);
   }, [refPlanes]);
   useEffect(() => { vpRef.current?.syncDatums(datums); },[datums]);
+  useEffect(() => { vpRef.current?.syncSketchProjections?.(projectionViews); }, [projectionViews]);
+
+  useEffect(() => {
+    for (const sketch of sketches) {
+      if (sketch.projectionGroups?.length) void refreshSketchProjection(sketch.featureId).catch(() => {});
+    }
+  }, [sketches, documentId, revision, connectionGeneration]);
 
   useEffect(() => {
     vpRef.current?.setSelected(selectedIds);

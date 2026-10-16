@@ -1,0 +1,22 @@
+[
+  {
+    "file": "desktop-build.log",
+    "sha256": "e067806160130bbb944f699d9ce62398f2976af1e9da329ccfd7dfb904aaaac9"
+  },
+  {
+    "file": "desktop-unit-suite.log",
+    "sha256": "05a2305783fd456474f863e2fde80d90ab275bd4b6cafed98c046bb8f4faf3b0"
+  },
+  {
+    "file": "native-desktop-e2e.log",
+    "sha256": "01817da16270a4a5cd25f2fdd22541ffcea4cee3fbbc3a6e7d6b6dd1b3d38003"
+  },
+  {
+    "file": "native-e2e-proof.json",
+    "sha256": "0df286b3e08a785320c31f98a4f31e2091d7be4a5c66d442fe4e7cceecd699c9"
+  },
+  {
+    "file": "evidence-summary.json",
+    "sha256": "80857f50b47ec8b5b37babe2b5eff9701000ba14326e2aac6be4cc0b788dc6a4"
+  }
+]

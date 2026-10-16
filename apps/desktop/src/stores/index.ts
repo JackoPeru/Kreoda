@@ -2,7 +2,7 @@
 // Renderer owns UI/camera/selection state + read-only summaries (§9).
 
 import { create } from "zustand";
-import type { CoreMeshData, SketchModel, DatumDescriptor, SketchPlaneFrame } from "@kreoda/protocol";
+import type { CoreMeshData, SketchModel, DatumDescriptor, SketchPlaneFrame, SketchProjectionResult } from "@kreoda/protocol";
 import type { SelectionKind as CanonicalSelectionKind } from "@kreoda/command-schema";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 import { t, featureTypeName } from "../i18n";
@@ -10,6 +10,15 @@ import { useSectionStore } from "../section/store";
 
 export interface SketchEntry extends SketchSummary {
   model?: SketchModel & { planeKind?: string; plane?: SketchPlaneFrame; supportRef?: string };
+}
+
+export interface SketchProjectionView {
+  documentId: string;
+  sessionId: string;
+  revision: number;
+  epoch: number;
+  connectionGeneration: number;
+  projection: SketchProjectionResult;
 }
 
 export interface ModelTreeItem {
@@ -125,6 +134,7 @@ interface DocumentUiState {
   revision: number;
   /** Bumped on every document reset; stale async sets carry the old one. */
   epoch: number;
+  connectionGeneration: number;
   coreRunning: boolean;
   coreVersion: string | null;
   /** Read-only projection of canonical features (§9). */
@@ -137,6 +147,7 @@ interface DocumentUiState {
   bodies: BodyInfo[];
   /** Sketches (2D, rendered as overlay — never B-Rep meshes). */
   sketches: SketchEntry[];
+  projectionViews: Record<string, SketchProjectionView>;
   datums: DatumDescriptor[];
   /** Render buffers keyed by feature UUID — replaced wholesale per update. */
   meshes: Record<string, CoreMeshData>;
@@ -145,6 +156,10 @@ interface DocumentUiState {
   redos: number;
   setUndoDepth: (undos: number, redos: number) => void;
   setCoreStatus: (running: boolean, version?: string | null) => void;
+  advanceConnectionGeneration: () => void;
+  setProjectionView: (view: SketchProjectionView) => void;
+  clearSketchProjection: (featureId: string) => void;
+  clearProjectionViews: () => void;
   setFeatures: (
     features: FeatureSummary[],
     revision: number,
@@ -224,19 +239,39 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
   documentId: "doc-phase1",
   revision: 0,
   epoch: 0,
+  connectionGeneration: 0,
   coreRunning: false,
   coreVersion: null,
   features: [],
   bodies: [],
   sketches: [],
+  projectionViews: {},
   datums: [],
   meshes: {},
   meshRevision: 0,
   undos: 0,
   redos: 0,
   setUndoDepth: (undos, redos) => set({ undos, redos }),
-  setCoreStatus: (running, version = null) =>
-    set({ coreRunning: running, coreVersion: version ?? null }),
+  setCoreStatus: (running, version = null) => set((s) => running === s.coreRunning
+    ? { coreVersion: version ?? null }
+    : { coreRunning: running, coreVersion: version ?? null,
+        connectionGeneration: s.connectionGeneration + 1, projectionViews: {} }),
+  advanceConnectionGeneration: () => set((s) => ({
+    connectionGeneration: s.connectionGeneration + 1, projectionViews: {},
+  })),
+  setProjectionView: (view) => set((s) => {
+    if (view.documentId !== s.documentId || view.revision !== s.revision ||
+        view.epoch !== s.epoch || view.connectionGeneration !== s.connectionGeneration ||
+        view.projection.featureId === "") return s;
+    return { projectionViews: { ...s.projectionViews, [view.projection.featureId]: view } };
+  }),
+  clearSketchProjection: (featureId) => set((s) => {
+    if (!(featureId in s.projectionViews)) return s;
+    const projectionViews = { ...s.projectionViews };
+    delete projectionViews[featureId];
+    return { projectionViews };
+  }),
+  clearProjectionViews: () => set({ projectionViews: {} }),
   // Staleness guards (C5): async hydrations race (open/autosave/undo).
   // A set carrying an older revision — or an epoch from before a document
   // reset — is dropped instead of overwriting newer state.
@@ -253,6 +288,9 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       for (const f of features) {
         if (f.type === "Instance") visible.add(f.featureId);
       }
+      for (const f of features) {
+        if (f.geometryCurrent === false || f.status === "unavailable") visible.delete(f.featureId);
+      }
       let meshes = s.meshes;
       if (Object.keys(meshes).some((id) => !visible.has(id))) {
         meshes = Object.fromEntries(
@@ -263,6 +301,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
         features,
         revision,
         bodies,
+        ...(revision !== s.revision ? { projectionViews: {} } : {}),
         ...(meshes !== s.meshes
           ? { meshes, meshRevision: s.meshRevision + 1 }
           : {}),
@@ -272,7 +311,9 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
     set((s) => {
       if (epoch !== undefined && epoch !== s.epoch) return s;
       if (revision !== undefined && revision < s.revision) return s;
-      return { sketches };
+      return revision !== undefined && revision !== s.revision
+        ? { sketches, projectionViews: {} }
+        : { sketches };
     }),
   setDatums: (datums, revision, epoch) => set(s => {
     if(epoch !== undefined && epoch !== s.epoch || revision !== undefined && revision < s.revision)return s;
@@ -324,6 +365,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       features: [],
       bodies: [],
       sketches: [],
+      projectionViews: {},
       datums: [],
       meshes: {},
       meshRevision: 0,

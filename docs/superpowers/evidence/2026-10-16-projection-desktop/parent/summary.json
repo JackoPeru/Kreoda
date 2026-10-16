@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "desktopTests": 313,
+  "nativeHiddenE2e": 1,
+  "sourceFiles": 352,
+  "sourceChanges": [],
+  "physicalQuestTested": false,
+  "initialHarnessFailure": "PowerShell comma expansion in reporter argument; fixed quoted argv, reran E2E only"
+}

@@ -26,6 +26,10 @@ export interface BodySnapshot {
   type: string;
   paramsMm: number[];
   volumeMm3: number;
+  geometryCurrent?: boolean;
+  status?: string;
+  error?: string;
+  blockingSourceIds?: string[];
   triangles: number;
   faces: string[];
   edgeCount: number;
@@ -39,7 +43,15 @@ export interface SketchSnapshot {
   modelPlane?: SketchPlaneFrame;
   supportRef?: string;
   points: number;
+  lines?: number;
+  circles?: number;
+  arcs?: number;
   constraints: number;
+  projectionGroups?: import("@kreoda/protocol").SketchProjectionGroupSummary[];
+  geometryCurrent?: boolean;
+  status?: string;
+  error?: string;
+  blockingSourceIds?: string[];
 }
 
 export interface Snapshot {

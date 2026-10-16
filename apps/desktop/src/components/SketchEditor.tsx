@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SketchModel } from "@kreoda/protocol";
+import type { SketchModel, SketchProjectionResult } from "@kreoda/protocol";
 import { coreClient } from "../ipc/coreClient";
-import { updateFeatureSummary } from "../model/sync";
+import { refreshSketchProjection, updateFeatureSummary } from "../model/sync";
 import { useDocumentUiStore, usePreferencesStore, visibleFeatureIds } from "../stores";
 import { t, useT, sketchKindName } from "../i18n";
+import { worldPointToSketchLocal } from "../viewport/ProjectionViewport";
+import { SketchProjectionPanel } from "./workspace/SketchProjectionPanel";
 
 function uid(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
@@ -39,6 +41,32 @@ export function defaultRectModel(w = 100, h = 50): SketchModel {
 
 const VIEW = 220; // svg units; fit ~200mm with margin
 
+function hasAuthoredPrimitive(model: SketchModel): boolean {
+  return model.points.length + model.lines.length + model.circles.length + model.arcs.length > 0;
+}
+
+function projectionLocalPoints(projection: SketchProjectionResult | undefined): [number, number][] {
+  if (!projection?.geometryCurrent || projection.status !== "ok") return [];
+  return projection.groups.flatMap(group => group.status === "ok"
+    ? group.edges.flatMap(edge => edge.pointsMm.map(point => worldPointToSketchLocal(point, projection.plane)))
+    : []);
+}
+
+function sketchFitPoints(model: SketchModel, projection: SketchProjectionResult | undefined): [number, number][] {
+  const points: [number, number][] = model.points.map(point => [point.x, point.y]);
+  const byId = new Map(model.points.map(point => [point.id, point]));
+  for (const circle of model.circles) {
+    const center = byId.get(circle.center);
+    if (center) points.push([center.x - circle.r, center.y - circle.r], [center.x + circle.r, center.y + circle.r]);
+  }
+  for (const arc of model.arcs) {
+    const center = byId.get(arc.center);
+    if (center) points.push([center.x - arc.r, center.y - arc.r], [center.x + arc.r, center.y + arc.r]);
+  }
+  points.push(...projectionLocalPoints(projection));
+  return points;
+}
+
 /** 2D sketch editor (§21): SVG overlay, drag-to-solve, inference badges. */
 export function SketchEditor({
   sketchId,
@@ -50,6 +78,9 @@ export function SketchEditor({
   const sketch = useDocumentUiStore((s) =>
     s.sketches.find((k) => k.featureId === sketchId),
   );
+  const projectionView = useDocumentUiStore((s) => s.projectionViews[sketchId]);
+  const documentRevision = useDocumentUiStore((s) => s.revision);
+  const documentEpoch = useDocumentUiStore((s) => s.epoch);
   const [model, setModel] = useState<SketchModel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>(() => t("common.loading"));
@@ -95,48 +126,56 @@ export function SketchEditor({
     let cancelled = false;
     setModel(null);
     setError(null);
-    coreClient
-      .requestSketch(sketchId)
-      .then((full) => {
+    modelRef.current = null;
+    void (async () => {
+      try {
+        const [full, projection] = await Promise.all([
+          coreClient.requestSketch(sketchId),
+          refreshSketchProjection(sketchId).catch((e: unknown) => {
+            if (!cancelled) setError(e instanceof Error ? e.message : tt("sketch.errLoadFailed"));
+            return null;
+          }),
+        ]);
         if (cancelled) return;
-        if (full.points.length === 0) {
-          // First-run content: dimensioned rectangle, committed once.
+        const current = useDocumentUiStore.getState();
+        const view = current.projectionViews[sketchId];
+        const currentProjection = projection && view?.revision === full.revision &&
+          view.documentId === current.documentId && view.epoch === current.epoch
+          ? projection : undefined;
+        const loaded: SketchModel = {
+          points: full.points,
+          lines: full.lines,
+          circles: full.circles,
+          arcs: full.arcs ?? [],
+          constraints: full.constraints,
+        };
+        if (currentProjection?.geometryCurrent && currentProjection.groups.length === 0 &&
+            full.projectionGroups.length === 0 && !hasAuthoredPrimitive(loaded)) {
           const rect = defaultRectModel();
-          void coreClient
-            .updateSketch({ featureId: sketchId, model: rect })
-            .then(
-              () => {
-                if (!cancelled) {
-                  setModel(rect);
-                  modelRef.current = rect;
-                  setStatus(tt("sketch.solvedDof"));
-                  refreshSummary(sketchId);
-                }
-              },
-              (e: unknown) => {
-                if (!cancelled) {
-                  setModel(rect);
-                  modelRef.current = rect;
-                  setError(e instanceof Error ? e.message : tt("sketch.errSolveFailed"));
-                }
-              },
-            );
-        } else {
-          const loaded: SketchModel = {
-            points: full.points,
-            lines: full.lines,
-            circles: full.circles,
-            arcs: full.arcs ?? [],
-            constraints: full.constraints,
-          };
-          setModel(loaded);
-          modelRef.current = loaded;
-          setStatus(tt("sketch.solved"));
+          try {
+            await coreClient.updateSketch({ featureId: sketchId, model: rect });
+            if (!cancelled) {
+              setModel(rect);
+              modelRef.current = rect;
+              setStatus(tt("sketch.solvedDof"));
+              refreshSummary(sketchId);
+            }
+          } catch (e) {
+            if (!cancelled) {
+              setModel(loaded);
+              modelRef.current = loaded;
+              setError(e instanceof Error ? e.message : tt("sketch.errSolveFailed"));
+            }
+          }
+          return;
         }
-      })
-      .catch((e: unknown) => {
+        setModel(loaded);
+        modelRef.current = loaded;
+        setStatus(tt("sketch.solved"));
+      } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : tt("sketch.errLoadFailed"));
-      });
+      }
+    })();
     return () => {
       cancelled = true;
       void coreClient.cancelPreview(sketchId).catch(() => {});
@@ -144,18 +183,20 @@ export function SketchEditor({
   }, [sketchId]);
 
   const bounds = useMemo(() => {
-    if (!model || model.points.length === 0)
+    if (!model)
       return { minX: -10, minY: -10, w: 120, h: 80 };
     let minX = Infinity,
       minY = Infinity,
       maxX = -Infinity,
       maxY = -Infinity;
-    for (const p of model.points) {
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x);
-      maxY = Math.max(maxY, p.y);
+    const boundsPoints = sketchFitPoints(model, projectionView?.projection);
+    for (const [x, y] of boundsPoints) {
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
     }
+    if (boundsPoints.length === 0) return { minX: -10, minY: -10, w: 120, h: 80 };
     const pad = 15;
     return {
       minX: minX - pad,
@@ -163,7 +204,7 @@ export function SketchEditor({
       w: Math.max(10, maxX - minX + pad * 2),
       h: Math.max(10, maxY - minY + pad * 2),
     };
-  }, [model]);
+  }, [model, projectionView]);
 
   const toClient = (x: number, y: number): [number, number] => {
     const sx = ((x - bounds.minX) / bounds.w) * VIEW;
@@ -337,8 +378,8 @@ export function SketchEditor({
   if (!sketch) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
-      <div className="kreoda-float-elevated h-[80vh] w-[720px] p-4">
+      <div data-testid="sketch-editor" className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
+      <div data-testid="sketch-editor-window" className="kreoda-float-elevated h-[80vh] w-[720px] p-4">
         <div className="flex items-center gap-2 pb-2">
           <span className="text-sm font-semibold">
             {tt("sketch.title", { plane: sketch.planeKind })}
@@ -368,6 +409,22 @@ export function SketchEditor({
             className="h-[60vh] w-[60vh] shrink-0 rounded-md bg-[#0b0e13] touch-none select-none"
             data-testid="sketch-canvas"
           >
+            {projectionView?.revision === documentRevision && projectionView.epoch === documentEpoch &&
+              projectionView.projection.geometryCurrent && projectionView.projection.status === "ok" && (
+              <g data-testid="sketch-projection-lines" data-read-only="true" pointerEvents="none" aria-label={tt("sketch.projection.readOnly")}>
+                {projectionView.projection.groups.map((group) => group.status === "ok" ? group.edges.map((edge, index) => {
+                  const points = edge.pointsMm.map(point => worldPointToSketchLocal(point, projectionView.projection.plane));
+                  if (points.length < 2 || points.some(point => point.some(value => !Number.isFinite(value)))) return null;
+                  const [startX, startY] = toClient(points[0]![0], points[0]![1]);
+                  const path = points.slice(1).map(([x, y]) => {
+                    const [px, py] = toClient(x, y);
+                    return `L ${px} ${py}`;
+                  }).join(" ");
+                  return <path key={`${group.groupId}:${index}`} d={`M ${startX} ${startY} ${path}${edge.closed ? " Z" : ""}`}
+                    fill="none" stroke="#f0a54b" strokeWidth={1.75} strokeDasharray="5 3" data-projection-group={group.groupId} />;
+                }) : null)}
+              </g>
+            )}
             {model?.lines.map((l) => {
               const a = pointById(l.p1);
               const b = pointById(l.p2);
@@ -471,10 +528,11 @@ export function SketchEditor({
               );
             })}
           </svg>
-          <div className="min-w-0 flex-1 text-xs text-white/70">
+          <div className="max-h-[60vh] min-w-0 flex-1 overflow-y-auto text-xs text-white/70">
             <div className="pb-1 text-[11px] uppercase tracking-wide text-white/45">
               {tt("sketch.dims")}
             </div>
+            <SketchProjectionPanel sketchId={sketchId} />
             {model?.constraints
               .filter(
                 (c) =>
@@ -571,7 +629,9 @@ function DimensionRow({
 async function refreshSummary(sketchId: string): Promise<void> {
   try {
     const full = await coreClient.requestSketch(sketchId);
-    useDocumentUiStore.getState().upsertSketch({
+    const state = useDocumentUiStore.getState();
+    state.setFeatures(state.features, full.revision, state.epoch);
+    state.setSketches([...state.sketches.filter(item => item.featureId !== sketchId), {
       featureId: sketchId,
       planeKind: full.planeKind,
       plane: full.plane,
@@ -580,8 +640,13 @@ async function refreshSummary(sketchId: string): Promise<void> {
       lines: full.lines.length,
       circles: full.circles.length,
       constraints: full.constraints.length,
+      projectionGroups: full.projectionGroups,
+      geometryCurrent: full.geometryCurrent,
+      status: full.status,
+      error: full.error,
+      blockingSourceIds: full.blockingSourceIds,
       model: full,
-    });
+    }], full.revision, state.epoch);
   } catch {
     // Summary refresh is best-effort; the editor already shows solved state.
   }
