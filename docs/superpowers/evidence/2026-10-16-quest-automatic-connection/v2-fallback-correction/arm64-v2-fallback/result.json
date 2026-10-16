@@ -1,0 +1,17 @@
+{
+  "startedAt": "2026-10-16T20:23:18.835Z",
+  "unity": "C:/Users/matte/Documents/Codex-tools/Unity/Editors/6000.3.25f1/Editor/Unity.exe",
+  "sdk": "C:/Users/matte/AppData/Local/Android/Sdk",
+  "directExitCode": 0,
+  "elapsedSeconds": 109.252,
+  "sourceChangedDuringBuild": [
+    "apps/desktop/tests/projection-core-client.test.ts"
+  ],
+  "sourceManifestSha256": "d1bcb24f25d1f7071484006ae0044ffce20a0f8d22cf0e026241564912b31329",
+  "logSha256": "c25011c3397f15c95893094c2a3a1ecb252ebb503dd5ca06f6c38731abb15121",
+  "apkSha256": "3f327c88bbf6354f21ac8e7fd54d55d64e6150b7a8635618c5ae37a204b493e2",
+  "packageLockSha256": "ed2ce3a308998dada1e55e96b9e66a173322c531c55a9aed3d055f1559a413b0",
+  "managedManifestSha256": "36d895f6eb3897b126fedad4cb410842834ebf9b8b796ea39ae02d76e05bb59e",
+  "status": "BUILD_SUCCEEDED_HARDWARE_UNTESTED",
+  "finishedAt": "2026-10-16T20:25:19.179Z"
+}

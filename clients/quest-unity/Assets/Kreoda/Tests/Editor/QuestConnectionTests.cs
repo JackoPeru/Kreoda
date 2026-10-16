@@ -191,6 +191,9 @@ namespace Kreoda.QuestRuntime.Tests
         public IEnumerator LegacyCredentialAutomaticallyUpgradesOnlyAfterPcProvesExistingTrust() => ExerciseWireClient(false, false, false, "known");
 
         [UnityTest]
+        public IEnumerator Version2SavedEndpointReconnectsWhenOnlyAForeignPcAnswersDiscovery() => ExerciseWireClient(false, false, false, "v2-wrong");
+
+        [UnityTest]
         public IEnumerator DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport() => ExerciseWireClient(true, true);
 
         [UnityTest]
@@ -472,6 +475,14 @@ namespace Kreoda.QuestRuntime.Tests
                         "datum controls must never request datum geometry as a mesh");
                 }
                 var originalEndpoint = connection.SavedEndpoint;
+                if (legacyDiscoveryMode == "v2-wrong")
+                {
+                    var existing = typeof(QuestConnection).GetMethod("ReadDevice", Private).Invoke(connection, null);
+                    existing.GetType().GetField("PcId").SetValue(existing, "77777777-7777-4777-8777-777777777777");
+                    typeof(QuestConnection).GetMethod("WriteDevice", Private).Invoke(connection, new[] { existing });
+                    typeof(QuestConnection).GetField("_saved", Private).SetValue(connection,
+                        typeof(QuestConnection).GetMethod("ReadDevice", Private).Invoke(connection, null));
+                }
                 connection.Reconnect();
                 var uploadVersionBeforeReconnect = view.UploadVersion;
                 if (referenceForm != null)
@@ -501,15 +512,17 @@ namespace Kreoda.QuestRuntime.Tests
                     while (!audit.IsCompleted && wait.Elapsed.TotalSeconds < 10) yield return null;
                     Assert.That(audit.IsCompletedSuccessfully, Is.True);
                     var proof = audit.GetAwaiter().GetResult().GetProperty("result").GetProperty("discoveryAudit");
-                    Assert.That(proof.GetProperty("identifyRequests").GetInt32(), Is.GreaterThan(0));
+                    if (legacyDiscoveryMode != "v2-wrong")
+                        Assert.That(proof.GetProperty("identifyRequests").GetInt32(), Is.GreaterThan(0));
                     Assert.That(proof.GetProperty("wrongSocketMessages").GetInt32(), Is.EqualTo(0), "never send authenticate/hello to the unverified PC");
                     Assert.That(proof.GetProperty("credentialInIdentityProbe").GetBoolean(), Is.False, "proof request must never carry the secret");
                     var saved = typeof(QuestConnection).GetMethod("ReadDevice", Private).Invoke(connection, null);
                     var pcId = (string)saved.GetType().GetField("PcId").GetValue(saved);
-                    if (legacyDiscoveryMode == "wrong")
+                    if (legacyDiscoveryMode == "wrong" || legacyDiscoveryMode == "v2-wrong")
                     {
                         Assert.That(connection.SavedEndpoint, Is.EqualTo(originalEndpoint), "unrelated PC must not replace the saved endpoint");
-                        Assert.That(pcId, Is.Empty);
+                        if (legacyDiscoveryMode == "wrong") Assert.That(pcId, Is.Empty);
+                        else Assert.That(pcId, Is.EqualTo("77777777-7777-4777-8777-777777777777"));
                     }
                     else
                     {

@@ -274,7 +274,13 @@ namespace Kreoda.QuestRuntime
                                 !await VerifyKnownPcAsync(selected, saved, deadline.Token).ConfigureAwait(false))
                                 selected = null;
                             Post(run, () => AvailablePcs = peers);
-                            if (selected == null && peers.Length != 0 && !legacyIdentity)
+                            bool savedEndpointAvailable = saved != null && !string.IsNullOrEmpty(saved.DeviceId) &&
+                                QuestConnectionInput.TryEndpoint(saved.Endpoint, out _);
+                            // Discovery silence must not retire a still-working trusted session address.
+                            // A peer claiming that exact address but failing identity proof cannot downgrade to credential auth.
+                            bool savedAddressRejected = savedEndpointAvailable && selected == null &&
+                                peers.Any(peer => peer.Endpoint == new Uri(saved.Endpoint));
+                            if (selected == null && peers.Length != 0 && (!savedEndpointAvailable || savedAddressRejected))
                                 throw new SessionException("CHOOSE_PC", "select a local PC by name");
                             if (selected != null)
                             {

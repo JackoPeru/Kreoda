@@ -1,0 +1,23 @@
+{
+  "apkSha256": "3f327c88bbf6354f21ac8e7fd54d55d64e6150b7a8635618c5ae37a204b493e2",
+  "nativeLibraries": [
+    "lib/arm64-v8a/LibRuntimeOptimizer.so",
+    "lib/arm64-v8a/libOVRMetricsTool.so",
+    "lib/arm64-v8a/libOVRPlugin.so",
+    "lib/arm64-v8a/libUnityOpenXR.so",
+    "lib/arm64-v8a/libUnityOpenXRHands.so",
+    "lib/arm64-v8a/libc++_shared.so",
+    "lib/arm64-v8a/libgame.so",
+    "lib/arm64-v8a/libil2cpp.so",
+    "lib/arm64-v8a/libloaderimpl.so",
+    "lib/arm64-v8a/libmain.so",
+    "lib/arm64-v8a/libopenxr_loader.so",
+    "lib/arm64-v8a/libswappywrapper.so",
+    "lib/arm64-v8a/libunity.so"
+  ],
+  "questProductSourceChanges": [],
+  "unrelatedConcurrentSourceChanges": [
+    "apps/desktop/tests/projection-core-client.test.ts"
+  ],
+  "hardwareTested": false
+}
