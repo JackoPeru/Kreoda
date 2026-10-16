@@ -1,0 +1,18 @@
+{
+  "sourceHead": "70e355084807e7223000825ddca6c6390ed879a4",
+  "executable": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\pc-frozen-70e3550\\apps\\desktop\\out\\Kreoda-win32-x64\\Kreoda.exe",
+  "executableSha256": "78639be30df325a29773d1173f85083d058c3c564d7ee367be1341b35e8c4f58",
+  "windows": {
+    "visible": false,
+    "count": 1,
+    "userData": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\packaged-smoke-profile-MfZgC6"
+  },
+  "occtVersion": "8.0.1-native",
+  "scenario": "automatic-local-connection",
+  "status": "connected-and-reconnected",
+  "pcId": "29d41dfb-89d9-4a12-b2fe-bd6bcbb38bae",
+  "manualInputs": 0,
+  "verifiedIdentity": true,
+  "features": 1,
+  "revision": 1
+}
