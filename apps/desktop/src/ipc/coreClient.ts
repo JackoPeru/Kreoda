@@ -45,9 +45,13 @@ export interface FeatureSummary {
   featureId: string;
   type: string;
   paramsMm: number[];
-  volumeMm3: number;
+  volumeMm3?: number;
   dependsOn: string[];
   refExtra: string;
+  geometryCurrent?: boolean;
+  status?: string;
+  error?: string;
+  blockingSourceIds?: string[];
   /** Formulas per parameter (§22): {} when the feature is fully numeric. */
   expressions: Record<string, string>;
 }
@@ -114,10 +118,14 @@ const FeatureListSchema = z.object({
         featureId: z.string(),
         type: z.string(),
         paramsMm: z.array(z.number()),
-        volumeMm3: z.number(),
+        volumeMm3: z.number().optional(),
         dependsOn: z.array(z.string()).default([]),
         refExtra: z.string().default(""),
         expressions: z.record(z.string(), z.string()).default({}),
+        geometryCurrent: z.boolean().optional(),
+        status: z.string().optional(),
+        error: z.string().optional(),
+        blockingSourceIds: z.array(z.string()).optional(),
       }),
     )
     .default([]),

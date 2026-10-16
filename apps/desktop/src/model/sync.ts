@@ -129,7 +129,12 @@ export async function syncFromCoreList(
   // enough to saturate local IPC without bursting the sidecar). Per-feature
   // errors collected — fail-fast would strand the summaries behind (C4).
   // Historical meshes stay core-side, pulled on demand.
-  const visible = visibleFeatureIds(features);
+  // Persisted documents can contain broken dependents whose native feature
+  // summaries intentionally omit volume and geometry. Keep their history in
+  // the model tree, but do not request or retain a stale viewport mesh.
+  const unavailable = new Set(features.filter(feature =>
+    feature.geometryCurrent === false || feature.status === "unavailable").map(feature => feature.featureId));
+  const visible = visibleFeatureIds(features).filter(id => !unavailable.has(id));
   const changed = changedMeshIds === null ? null : new Set(changedMeshIds);
   const hydrate = visible.filter((id) => changed === null || changed.has(id) || !s.meshes[id]);
   const results: (

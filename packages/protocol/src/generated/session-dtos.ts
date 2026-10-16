@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 0d310d1eb3f2fbb78d5bc8d5464b9e37625b696afabd8400bb915f3638904f67
+// Source SHA256: b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f
 type StableFeatureID = string;
 
 export interface RequestMetadata {
@@ -101,6 +101,20 @@ export interface HelloReply {
     revision:     number;
     sessionId:    string;
     [property: string]: unknown;
+}
+
+export interface GetSketchProjectionParams {
+    documentId?:       string;
+    expectedRevision?: number;
+    featureId:         string;
+    groupId?:          string;
+}
+
+export interface GetSketchProjectionPayload {
+    documentId: string;
+    result:     SketchProjectionResult;
+    revision:   number;
+    sessionId:  string;
 }
 
 export interface SketchProjectionResult {

@@ -419,10 +419,10 @@ public sealed class SessionMeshTests
     }
 
     [Fact]
-    public async Task ControlMessagesAreCappedAtFourMiBBeforeBufferGrowth()
+    public async Task ControlMessagesAreCappedAt64MiBBeforeBufferGrowth()
     {
         await using var server = new LoopbackWsServer(_ => null);
-        var oversized = JsonSerializer.Serialize(new { @event = "selection", value = new string('x', 4 * 1024 * 1024) });
+        var oversized = JsonSerializer.Serialize(new { @event = "selection", value = new string('x', 64 * 1024 * 1024) });
         server.ExtendedHandler = request =>
         {
             if (request.GetProperty("method").GetString() == SessionMethods.Hello)
@@ -434,6 +434,28 @@ public sealed class SessionMeshTests
         await using var client = await Kreoda.Session.SessionClient.ConnectAsync(uri, "t", "xunit");
         var error = await Assert.ThrowsAsync<SessionException>(() => client.RequestMeshLodAsync("body-root", 1, "doc-phase1", 7));
         Assert.Equal("MESSAGE_TOO_LARGE", error.Code);
+    }
+
+    [Fact]
+    public async Task LegalControlReplyAboveFourMiBIsAccepted()
+    {
+        const int payloadLength = 5 * 1024 * 1024;
+        await using var server = new LoopbackWsServer(_ => null);
+        server.ExtendedHandler = request =>
+        {
+            if (request.GetProperty("method").GetString() == SessionMethods.Hello)
+                return Task.FromResult<LoopbackWsResponse?>(new(HelloReply(request)));
+            var reply = JsonReply(request, new Dictionary<string, object?>
+                { ["result"] = new { padding = new string('x', payloadLength) } });
+            return Task.FromResult<LoopbackWsResponse?>(new(reply));
+        };
+        server.Start();
+        var uri = new Uri($"ws://127.0.0.1:{server.Port}/");
+        await using var client = await Kreoda.Session.SessionClient.ConnectAsync(uri, "t", "xunit");
+
+        var reply = await client.CallAsync(SessionMethods.GetSessionInfo, new Dictionary<string, object?>());
+
+        Assert.Equal(payloadLength, reply.GetProperty("result").GetProperty("padding").GetString()!.Length);
     }
 
     [Fact]

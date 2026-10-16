@@ -293,6 +293,7 @@ export const en = {
   "props.editSketch": "Edit sketch",
   "props.title": "Properties · {type}",
   "props.volume": "Volume {v} cm³",
+  "props.geometryUnavailable": "Geometry unavailable",
   "props.errNotNumber": "not a number",
   "props.errEditFailed": "edit failed",
   "props.slotWidth": "Width",

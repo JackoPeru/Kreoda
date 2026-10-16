@@ -24,7 +24,7 @@ public sealed record PairedSession(SessionClient Client, string DeviceId, string
 /// </summary>
 public sealed class SessionClient : IAsyncDisposable
 {
-    private const int MaxControlPayloadBytes = 4 * 1024 * 1024;
+    private static readonly int MaxControlPayloadBytes = SessionContract.MaximumControlPayloadBytes;
     private const int MaxMeshPayloadBytes = 64 * 1024 * 1024;
     private const int MaxMeshTableCount = 1_000_000;
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
@@ -89,6 +89,7 @@ public sealed class SessionClient : IAsyncDisposable
     public string? SessionId { get; private set; }
     public IReadOnlyCollection<string> ServerCapabilities { get; private set; } =
         Array.AsReadOnly(Array.Empty<string>());
+    public SessionSketchProjectionState SketchProjectionState { get; } = new();
 
     public event Action<JsonElement>? Delta;
     public SessionModelState? Model => Volatile.Read(ref _model);
@@ -255,6 +256,79 @@ public sealed class SessionClient : IAsyncDisposable
             Model?.SessionId != model.SessionId || Model.DocumentId != documentId || Model.Revision != expectedRevision)
             throw new SessionException("NEED_FULL_SNAPSHOT", "context changed during its query");
         return context;
+    }
+
+    /// <summary>Reads persisted sketch projection data at the current committed model revision.</summary>
+    public async Task<Generated.GetSketchProjectionPayload> GetSketchProjectionAsync(string featureId,
+        string? groupId = null, long? expectedRevision = null, CancellationToken ct = default)
+    {
+        try
+        {
+            SketchProjectionContract.ValidateStableId(featureId, "featureId");
+            if (groupId is not null) SketchProjectionContract.ValidateStableId(groupId, "groupId");
+        }
+        catch (JsonException error) { throw new SessionException("BAD_PARAMS", error.Message); }
+
+        var model = Model;
+        if (model is null || string.IsNullOrWhiteSpace(SessionId) || model.SessionId != SessionId ||
+            model.SessionId != _knownSessionId || model.DocumentId != _knownDocumentId || model.Revision != _knownRevision)
+            throw new SessionException("NEED_FULL_SNAPSHOT", "sketch projection requires the current model lineage and revision");
+        if (expectedRevision.HasValue && (expectedRevision.Value < 0 || expectedRevision.Value > SessionContract.MaximumRevision ||
+            expectedRevision.Value != model.Revision))
+            throw new SessionException("NEED_FULL_SNAPSHOT", "requested projection revision does not match the current model");
+
+        var sessionId = model.SessionId;
+        var documentId = model.DocumentId;
+        var revision = model.Revision;
+        var generation = Volatile.Read(ref _lineageGeneration);
+        var token = SketchProjectionState.BeginRequest(featureId, groupId);
+        var parameters = GeneratedControl.Parameters(new Generated.GetSketchProjectionParams
+        {
+            DocumentId = documentId,
+            ExpectedRevision = revision,
+            FeatureId = featureId,
+            GroupId = groupId,
+        });
+        bool StillLineageCurrent() => generation == Volatile.Read(ref _lineageGeneration) &&
+            SessionId == sessionId && _knownSessionId == sessionId && _knownDocumentId == documentId &&
+            _knownRevision == revision && Model is { } current && current.SessionId == sessionId &&
+            current.DocumentId == documentId && current.Revision == revision;
+        try
+        {
+            var reply = await CallAsync(SessionMethods.GetSketchProjection, parameters, ct, expectedSessionId: sessionId)
+                .ConfigureAwait(false);
+            if (!reply.TryGetProperty("result", out var projection))
+                throw new SessionException("BAD_MODEL", "projection query result is missing");
+            try { SketchProjectionContract.ValidateResult(projection); }
+            catch (JsonException error) { throw new SessionException("BAD_MODEL", error.Message); }
+            var payloadJson = JsonSerializer.SerializeToElement(new
+            {
+                sessionId = StringProperty(reply, "sessionId"),
+                documentId = StringProperty(reply, "documentId"),
+                revision = SafeRevision(reply, "revision"),
+                result = projection.Clone(),
+            });
+            var payload = GeneratedControl.Read<Generated.GetSketchProjectionPayload>(payloadJson, "GetSketchProjectionPayload");
+            bool StillCurrent() => StillLineageCurrent() && payload.SessionId == sessionId &&
+                payload.DocumentId == documentId && payload.Revision == revision && payload.Result.FeatureId == featureId;
+            if (!StillCurrent())
+                throw new SessionException("NEED_FULL_SNAPSHOT", "projection reply belongs to an older model lineage or revision");
+
+            var display = new SessionSketchProjectionDisplay(featureId, groupId, sessionId, documentId, revision, payload.Result);
+            var applied = payload.Result.GeometryCurrent && payload.Result.Status == "ok"
+                ? SketchProjectionState.TryPublish(token, display, StillCurrent)
+                : SketchProjectionState.TryClear(featureId, groupId, token, StillCurrent);
+            if (!applied)
+                throw new SessionException("NEED_FULL_SNAPSHOT", "a newer projection request or model update superseded this reply");
+            return payload;
+        }
+        catch
+        {
+            // Failures invalidate only this request's current target. A stale
+            // request cannot erase a newer response because TryClear checks its token.
+            SketchProjectionState.TryClear(featureId, groupId, token, StillLineageCurrent);
+            throw;
+        }
     }
 
     public Task<JsonElement> InvokeAsync(
@@ -545,7 +619,7 @@ public sealed class SessionClient : IAsyncDisposable
                     var limit = type == WebSocketMessageType.Text ? MaxControlPayloadBytes : MaxMeshPayloadBytes;
                     if (r.Count > limit - received)
                         throw new SessionException("MESSAGE_TOO_LARGE", type == WebSocketMessageType.Text
-                            ? "control message exceeds 4 MiB"
+                            ? "control message exceeds 64 MiB"
                             : "binary mesh exceeds 64 MiB");
                     var required = received + r.Count;
                     if (required > bytes.Length)
@@ -959,6 +1033,8 @@ public sealed class SessionClient : IAsyncDisposable
     {
         var session = StringProperty(value, "sessionId");
         if (string.IsNullOrWhiteSpace(session)) return;
+        if (_knownSessionId != session || _knownDocumentId != StringProperty(value, "documentId") ||
+            _knownRevision != SafeRevision(value, "revision")) SketchProjectionState.Clear();
         _knownSessionId = session;
         _knownDocumentId = StringProperty(value, "documentId");
         _knownRevision = SafeRevision(value, "revision");
@@ -975,6 +1051,8 @@ public sealed class SessionClient : IAsyncDisposable
             (pending.DocumentAtSend is not null && pending.DocumentAtSend != document) ||
             (pending.SessionAtSend is not null && pending.SessionAtSend != session) ||
             (_knownDocumentId is not null && _knownDocumentId != document)) return;
+        if (_knownSessionId != session || _knownDocumentId != document || _knownRevision != revision.Value)
+            SketchProjectionState.Clear();
         _knownSessionId = session;
         _knownDocumentId = document;
         if (!_knownRevision.HasValue || revision.Value >= _knownRevision.Value) _knownRevision = revision;
@@ -986,13 +1064,18 @@ public sealed class SessionClient : IAsyncDisposable
         var document = StringProperty(value, "documentId");
         var revision = SafeRevision(value, "revision");
         if (session != _knownSessionId || document != _knownDocumentId || !revision.HasValue) return;
-        if (!_knownRevision.HasValue || revision.Value >= _knownRevision.Value) _knownRevision = revision;
+        if (!_knownRevision.HasValue || revision.Value > _knownRevision.Value)
+        {
+            SketchProjectionState.Clear();
+            _knownRevision = revision;
+        }
     }
 
     private void ObserveEventLineage(JsonElement root, string? eventName)
     {
         if (eventName == "core-restarted")
         {
+            SketchProjectionState.Clear();
             Interlocked.Increment(ref _lineageGeneration);
             _knownSessionId = StringProperty(root, "sessionId");
             _knownDocumentId = StringProperty(root, "documentId") ?? _knownDocumentId;
@@ -1005,6 +1088,7 @@ public sealed class SessionClient : IAsyncDisposable
             var replacementSession = StringProperty(root, "sessionId");
             var replacementDocument = StringProperty(root, "documentId");
             if (string.IsNullOrWhiteSpace(replacementSession) || string.IsNullOrWhiteSpace(replacementDocument)) return;
+            SketchProjectionState.Clear();
             Interlocked.Increment(ref _lineageGeneration);
             _knownSessionId = replacementSession;
             _knownDocumentId = replacementDocument;
@@ -1025,6 +1109,7 @@ public sealed class SessionClient : IAsyncDisposable
             // A zero-based delta is the first authoritative update in a new
             // document lineage; retire snapshots/meshes from the prior one.
             if (baseRevision.Value != 0) return;
+            SketchProjectionState.Clear();
             Interlocked.Increment(ref _lineageGeneration);
             _knownSessionId = session;
             _knownDocumentId = document;
@@ -1032,11 +1117,16 @@ public sealed class SessionClient : IAsyncDisposable
             SessionId = session;
             return;
         }
-        if (!_knownRevision.HasValue || revision.Value >= _knownRevision.Value) _knownRevision = revision;
+        if (!_knownRevision.HasValue || revision.Value > _knownRevision.Value)
+        {
+            SketchProjectionState.Clear();
+            _knownRevision = revision;
+        }
     }
 
     private void FailAll(SessionException ex)
     {
+        SketchProjectionState.Clear();
         foreach (var key in _pending.Keys)
         {
             if (_pending.TryRemove(key, out var pending))
@@ -1065,6 +1155,7 @@ public sealed class SessionClient : IAsyncDisposable
                 try { await update().ConfigureAwait(false); }
                 catch (Exception error)
                 {
+                    SketchProjectionState.Clear();
                     Volatile.Write(ref _model, null);
                     if (_disposed == 0)
                     {
@@ -1097,6 +1188,9 @@ public sealed class SessionClient : IAsyncDisposable
 
     private void PublishModel(SessionModelUpdate update)
     {
+        var current = Model;
+        if (current is null || current.SessionId != update.Model.SessionId || current.DocumentId != update.Model.DocumentId ||
+            current.Revision != update.Model.Revision) SketchProjectionState.Clear();
         Volatile.Write(ref _model, update.Model);
         SessionId = update.Model.SessionId;
         ModelChanged?.Invoke(update);

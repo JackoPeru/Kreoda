@@ -18,6 +18,7 @@ public sealed class CadBridgeTests
         public bool Valid = true;
         public bool DropCommitAck;
         public bool FailRollback;
+        public bool FailProjection;
         public TimeSpan CatalogDelay;
         public object[] Sketches = Array.Empty<object>();
         public object[] Datums = Array.Empty<object>();
@@ -52,6 +53,14 @@ public sealed class CadBridgeTests
                         type = "object", properties = new { featureIds = new { type = "array", items = new { type = "string" } } },
                     } },
                 } };
+            } else if (method == SessionMethods.GetSketchProjection) {
+                if (FailProjection) { result["ok"] = false;result["errorCode"] = "SESSION_FAILED";result["error"] = "projection query failed"; }
+                else {
+                    result["sessionId"] = Session;result["documentId"] = "doc-phase1";result["revision"] = 7;
+                    result["result"] = new { featureId = "target", geometryCurrent = true, status = "ok", error = "", blockingSourceIds = Array.Empty<string>(),
+                        plane = new { origin = new[] { 0d, 0d, 0d }, xAxis = new[] { 1d, 0d, 0d }, yAxis = new[] { 0d, 1d, 0d }, normal = new[] { 0d, 0d, 1d } },
+                        groups = Array.Empty<object>() };
+                }
             } else if (method == "validateDocument" || method == "validateReferences") result["result"] = new { valid = Valid };
             else if (method == "measureVolume") result["result"] = new { volumeMm3 = 100000d };
             else if (method == SessionMethods.GetDatum) result["result"] = new { featureId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", kind = "DatumPlane", status = "ok", definition = new { type = "offset", @base = new { type = "principal", planeKind = "XY" }, offsetMm = 24d }, resolved = new { originMm = new[] { 0d, 0d, 24d }, normal = new[] { 0d, 0d, 1d } } };
@@ -107,6 +116,26 @@ public sealed class CadBridgeTests
         Assert.Equal(0, wire.Commands);
         var query = wire.Server.Received.Select(Json).Single(request => request.GetProperty("method").GetString() == SessionMethods.GetDatum);
         Assert.Equal("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", query.GetProperty("params").GetProperty("featureId").GetString());
+    }
+
+    [Fact]
+    public async Task SketchProjectionQueryUsesTypedRevisionFenceAndClearsCachedDisplayOnFailure()
+    {
+        await using var wire = new Wire();await using var client = await wire.Connect();
+        await using var bridge = new CadBridge(_ => Task.FromResult(client));
+
+        var result = await bridge.QueryAsync(null, SessionMethods.GetSketchProjection, Json("{\"featureId\":\"target\"}"));
+        Assert.Equal("target", result.GetProperty("featureId").GetString());
+        Assert.True(client.SketchProjectionState.Current.Single().Result.GeometryCurrent);
+        var request = wire.Server.Received.Select(Json).Single(message => message.GetProperty("method").GetString() == SessionMethods.GetSketchProjection);
+        Assert.Equal("doc-phase1", request.GetProperty("params").GetProperty("documentId").GetString());
+        Assert.Equal(7, request.GetProperty("params").GetProperty("expectedRevision").GetInt64());
+        Assert.Equal(0, wire.Commands);
+
+        wire.FailProjection = true;
+        await Assert.ThrowsAsync<SessionException>(() => client.GetSketchProjectionAsync("target"));
+        Assert.Empty(client.SketchProjectionState.Current);
+        Assert.Equal(0, wire.Commands);
     }
 
     [Fact]

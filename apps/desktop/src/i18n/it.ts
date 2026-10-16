@@ -295,6 +295,7 @@ export const it: Record<EnKey, string> = {
   "props.editSketch": "Modifica schizzo",
   "props.title": "Proprietà · {type}",
   "props.volume": "Volume {v} cm³",
+  "props.geometryUnavailable": "Geometria non disponibile",
   "props.errNotNumber": "non è un numero",
   "props.errEditFailed": "modifica non riuscita",
   "props.slotWidth": "Larghezza",

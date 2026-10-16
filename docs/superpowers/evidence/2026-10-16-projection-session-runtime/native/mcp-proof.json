@@ -1,0 +1,301 @@
+{
+  "kernel": "8.0.1-native",
+  "created": {
+    "scenario": "projection",
+    "status": "committed",
+    "passed": [
+      "official-mcp-native-circle-projection-extrude-transaction",
+      "type38-read-only-and-generated-command-metadata36-38",
+      "typed-managed-query-lineage-and-valid-source-edit-owner-rollback",
+      "same-id-analytic-source-edit-with-real-lost-ack-operation-replay",
+      "healthy-unrelated-branch-preserved"
+    ],
+    "commandMetadata": [
+      {
+        "id": "CreateSketch",
+        "nativeType": 13,
+        "creation": {
+          "fixedCount": 1
+        }
+      },
+      {
+        "id": "CreateExtrude",
+        "nativeType": 15,
+        "creation": {
+          "fixedCount": 1
+        }
+      },
+      {
+        "id": "CreateBox",
+        "nativeType": 3,
+        "creation": {
+          "fixedCount": 1
+        }
+      },
+      {
+        "id": "UpdateSketch",
+        "nativeType": 14,
+        "creation": {
+          "fixedCount": 0
+        }
+      },
+      {
+        "id": "SetSketchProjection",
+        "nativeType": 36,
+        "creation": {
+          "fixedCount": 0
+        }
+      },
+      {
+        "id": "RemoveSketchProjection",
+        "nativeType": 37,
+        "creation": {
+          "fixedCount": 0
+        }
+      },
+      {
+        "id": "RequestSketchProjection",
+        "nativeType": 38,
+        "creation": {
+          "fixedCount": 0
+        }
+      }
+    ],
+    "featureIds": {
+      "source": "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c",
+      "target": "ef543ac6-eeb0-4c0e-96a9-0714b82b4f53",
+      "solid": "0e7b0283-eb8d-4d0c-ae27-a0ff0055035f",
+      "healthy": "af609bfa-9c8a-4725-96d3-832bfc902a6a",
+      "group": "07cb07b7-025b-454a-86a7-14edf5762fdf"
+    },
+    "initialRevision": 0,
+    "createdRevision": 1,
+    "editedRevision": 2,
+    "volumeBeforeMm3": 785.3981633974482,
+    "volumeAfterMm3": 1130.9733552923256,
+    "healthyVolumeMm3": 999.9999999999998,
+    "projectedEdgeCount": 1,
+    "rollbackOwnerError": "BUSY",
+    "lostAcknowledgementError": "CANCELLED",
+    "replayRevision": 2
+  },
+  "persistedBindingBreak": {
+    "scenario": "projection-archive-break",
+    "status": "rewritten",
+    "encoding": "utf16-le",
+    "archiveEntry": "document.xbf",
+    "replacedOffset": 6112,
+    "replacementCount": 1,
+    "oldToken": "circle",
+    "newToken": "circlX",
+    "projectionBindingOccurrences": 1,
+    "xbfBytesBefore": 7840,
+    "xbfBytesAfter": 7840,
+    "healthyArchiveSha256": "750579ee91ae594e6fc1f151900fcc1ca70cc8334e36202bfa294a495eb42426",
+    "brokenArchiveSha256": "8ea2c57719f02ac1eaabc2a00af9441091b3c4aee7dcecb011d122cfe1242041",
+    "healthyXbfSha256": "cba389f690420963bd6819384d8409fa5363b3844d81e02616b080f3d19c9095",
+    "brokenXbfSha256": "39e5177c842aa86b01801ee6e4a5f7b266ee782040075de4f7ab00d725605679",
+    "bindingUnchanged": true
+  },
+  "repaired": {
+    "scenario": "projection-repair",
+    "status": "committed",
+    "passed": [
+      "saved-broken-binding-is-unavailable-without-stale-volume-or-mesh",
+      "healthy-unrelated-branch-remains-measurable",
+      "official-mcp-repair-preserves-source-target-group-and-downstream-ids"
+    ],
+    "featureIds": {
+      "source": "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c",
+      "target": "ef543ac6-eeb0-4c0e-96a9-0714b82b4f53",
+      "solid": "0e7b0283-eb8d-4d0c-ae27-a0ff0055035f",
+      "healthy": "af609bfa-9c8a-4725-96d3-832bfc902a6a",
+      "group": "07cb07b7-025b-454a-86a7-14edf5762fdf"
+    },
+    "brokenRevision": 1,
+    "repairRevision": 2,
+    "brokenProjection": {
+      "blockingSourceIds": [
+        "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c"
+      ],
+      "error": "geometry unavailable for ef543ac6-eeb0-4c0e-96a9-0714b82b4f53; blocked by 4d030370-f55a-4636-b5ac-bf3fbfb4ee4c: projection group 07cb07b7-025b-454a-86a7-14edf5762fdf is broken: sketch entity id is missing or ambiguous",
+      "featureId": "ef543ac6-eeb0-4c0e-96a9-0714b82b4f53",
+      "geometryCurrent": false,
+      "groups": [
+        {
+          "blockingSourceIds": [
+            "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c"
+          ],
+          "definition": {
+            "operation": "projectEdges",
+            "sources": [
+              {
+                "featureId": "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c",
+                "type": "sketchEntities",
+                "entityIds": [
+                  "circle"
+                ]
+              }
+            ],
+            "version": 1
+          },
+          "edges": [],
+          "error": "sketch entity id is missing or ambiguous",
+          "generation": 0,
+          "groupId": "07cb07b7-025b-454a-86a7-14edf5762fdf",
+          "sourceFeatureIds": [
+            "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c"
+          ],
+          "status": "broken"
+        }
+      ],
+      "plane": {
+        "normal": [
+          0,
+          0,
+          1
+        ],
+        "origin": [
+          0,
+          0,
+          0
+        ],
+        "xAxis": [
+          1,
+          0,
+          0
+        ],
+        "yAxis": [
+          0,
+          1,
+          0
+        ]
+      },
+      "status": "unavailable"
+    },
+    "staleMeasurementDenied": true,
+    "meshError": "GEOMETRY_UNAVAILABLE",
+    "healthyVolumeMm3": 999.9999999999998,
+    "repairedVolumeMm3": 1130.9733552923256
+  },
+  "persistedBrokenProjection": {
+    "blockingSourceIds": [
+      "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c"
+    ],
+    "error": "geometry unavailable for ef543ac6-eeb0-4c0e-96a9-0714b82b4f53; blocked by 4d030370-f55a-4636-b5ac-bf3fbfb4ee4c: projection group 07cb07b7-025b-454a-86a7-14edf5762fdf is broken: sketch entity id is missing or ambiguous",
+    "featureId": "ef543ac6-eeb0-4c0e-96a9-0714b82b4f53",
+    "geometryCurrent": false,
+    "groups": [
+      {
+        "blockingSourceIds": [
+          "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c"
+        ],
+        "definition": {
+          "operation": "projectEdges",
+          "sources": [
+            {
+              "entityIds": [
+                "circle"
+              ],
+              "featureId": "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c",
+              "type": "sketchEntities"
+            }
+          ],
+          "version": 1
+        },
+        "edges": [],
+        "error": "sketch entity id is missing or ambiguous",
+        "generation": 0,
+        "groupId": "07cb07b7-025b-454a-86a7-14edf5762fdf",
+        "sourceFeatureIds": [
+          "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c"
+        ],
+        "status": "broken"
+      }
+    ],
+    "plane": {
+      "normal": [
+        0,
+        0,
+        1
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "xAxis": [
+        1,
+        0,
+        0
+      ],
+      "yAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "status": "unavailable"
+  },
+  "undoRestoredBrokenProjection": {
+    "blockingSourceIds": [
+      "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c"
+    ],
+    "error": "geometry unavailable for ef543ac6-eeb0-4c0e-96a9-0714b82b4f53; blocked by 4d030370-f55a-4636-b5ac-bf3fbfb4ee4c: projection group 07cb07b7-025b-454a-86a7-14edf5762fdf is broken: sketch entity id is missing or ambiguous",
+    "featureId": "ef543ac6-eeb0-4c0e-96a9-0714b82b4f53",
+    "geometryCurrent": false,
+    "groups": [
+      {
+        "blockingSourceIds": [
+          "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c"
+        ],
+        "definition": {
+          "operation": "projectEdges",
+          "sources": [
+            {
+              "entityIds": [
+                "circle"
+              ],
+              "featureId": "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c",
+              "type": "sketchEntities"
+            }
+          ],
+          "version": 1
+        },
+        "edges": [],
+        "error": "sketch entity id is missing or ambiguous",
+        "generation": 0,
+        "groupId": "07cb07b7-025b-454a-86a7-14edf5762fdf",
+        "sourceFeatureIds": [
+          "4d030370-f55a-4636-b5ac-bf3fbfb4ee4c"
+        ],
+        "status": "broken"
+      }
+    ],
+    "plane": {
+      "normal": [
+        0,
+        0,
+        1
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "xAxis": [
+        1,
+        0,
+        0
+      ],
+      "yAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "status": "unavailable"
+  },
+  "backgroundWindowVerifiedAtLaunch": true,
+  "screenshots": 0
+}

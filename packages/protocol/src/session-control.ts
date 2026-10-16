@@ -7,9 +7,12 @@ export type { SelectionEvent } from './generated/session-dtos.js';
 import { CONTROL_METHODS, QUERY_METHODS_CONTRACT, SESSION_DTO_NAMES } from './generated/session-metadata.js';
 export * from './generated/session-metadata.js';
 export type { PairParams, AuthenticateParams, PairReply, AuthenticateReply, HelloParams, SnapshotParams, RequestMeshLODParams, RequestPreviewMeshParams, PreviewMeshHeader, MeshHeader, MeshReply, InvokeParams, NamedCommandParams, TxnParams, ErrorReply, RequestMetadata } from './generated/session-dtos.js';
+export type { GetSketchProjectionParams, GetSketchProjectionPayload } from './generated/session-dtos.js';
 export type ControlMethod = (typeof CONTROL_METHODS)[number];
 export type { SessionInfoPayload } from './generated/session-dtos.js';
 export const SessionInfoPayloadSchema = schema<DTO.SessionInfoPayload>('SessionInfoPayload');
+export const GetSketchProjectionParamsSchema = schema<DTO.GetSketchProjectionParams>('GetSketchProjectionParams');
+export const GetSketchProjectionPayloadSchema = schema<DTO.GetSketchProjectionPayload>('GetSketchProjectionPayload');
 export type QueryMethodContract = (typeof QUERY_METHODS_CONTRACT)[number];
 
 function schema<T>(name: (typeof SESSION_DTO_NAMES)[number]): z.ZodType<T> {

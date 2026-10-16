@@ -15,7 +15,10 @@ import {
   SERVER_EVENTS,
   SESSION_EVENT_METADATA,
   SESSION_CONTROL_METHODS,
+  SESSION_CONTROL_MAX_PAYLOAD_BYTES,
   SESSION_CONTROL_VERSION,
+  GetSketchProjectionParamsSchema,
+  GetSketchProjectionPayloadSchema,
   SessionSnapshotPayloadSchema,
   TxnParamsSchema,
 } from "./session-control.js";
@@ -48,6 +51,7 @@ describe("session control contract", () => {
     expect([...SERVER_EVENTS]).toEqual(contract.serverEvents);
     expect(SESSION_EVENT_METADATA).toEqual(contract.serverEventMetadata);
     expect([...SESSION_SERVER_CAPABILITIES]).toEqual(contract.serverCapabilities);
+    expect(SESSION_CONTROL_MAX_PAYLOAD_BYTES).toBe(64 * 1024 * 1024);
   });
 
   it("validates fixed-message fixtures (and rejects missing required)", () => {
@@ -193,6 +197,38 @@ describe("projection DTO contract", () => {
       ...healthy.groups[0], edges: [{ ...healthy.groups[0].edges[0],
         pointsMm: Array.from({ length: 130 }, () => [0, 0, 0]) }],
     }] })).toThrow();
+  });
+
+  it("admits legal projection control payloads above 4 MiB and bounds the 2000 by 129 point case", () => {
+    const largeEntityIds = Array.from({ length: 125 }, (_, index) =>
+      `${index.toString().padStart(3, "0")}${"x".repeat(509)}`);
+    const largeGroups = Array.from({ length: 65 }, (_, index) => ({
+      groupId: `group-${index}`,
+      definition: { version: 1, operation: "projectEdges", sources: [
+        { type: "sketchEntities", featureId: "source", entityIds: largeEntityIds },
+      ] },
+      sourceFeatureIds: ["source"], status: "ok", error: "", blockingSourceIds: [], generation: index,
+      edges: [],
+    }));
+    const lineage = { sessionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", documentId: "doc", revision: 7 };
+    const largePayload = { ...lineage, result: {
+      featureId: "target", plane: { origin: [0, 0, 0], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] },
+      geometryCurrent: true, status: "ok", error: "", blockingSourceIds: [], groups: largeGroups,
+    } };
+    const largeBytes = new TextEncoder().encode(JSON.stringify(largePayload)).byteLength;
+    expect(largeBytes).toBeGreaterThan(4 * 1024 * 1024);
+    expect(largeBytes).toBeLessThan(SESSION_CONTROL_MAX_PAYLOAD_BYTES);
+    expect(GetSketchProjectionPayloadSchema.parse(largePayload)).toBeTruthy();
+    expect(GetSketchProjectionParamsSchema.parse({ featureId: "target", expectedRevision: 7 })).toMatchObject({
+      featureId: "target", expectedRevision: 7,
+    });
+
+    const worstEdge = { memberIndex: 0, curveType: "bspline", firstParameter: 0, lastParameter: 1, closed: false,
+      pointsMm: Array.from({ length: 129 }, () => [1.7976931348623157e308, -1.7976931348623157e308, 1.7976931348623157e308]) };
+    const worstResult = { ...largePayload.result, groups: [{ ...largeGroups[0], definition,
+      edges: Array.from({ length: 2000 }, (_, memberIndex) => ({ ...worstEdge, memberIndex })) }] };
+    const worstBytes = new TextEncoder().encode(JSON.stringify({ ...lineage, result: worstResult })).byteLength;
+    expect(worstBytes).toBeLessThan(SESSION_CONTROL_MAX_PAYLOAD_BYTES);
   });
 
   it("keeps legacy descriptors valid and validates optional current-geometry state", () => {

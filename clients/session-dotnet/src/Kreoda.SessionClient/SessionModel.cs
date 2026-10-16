@@ -24,6 +24,7 @@ public sealed record SessionModelState(
     {
         try
         {
+            SketchProjectionContract.ValidateSnapshotProjections(raw);
             var snapshot = GeneratedControl.Read<Generated.SessionSnapshotPayload>(raw, "SessionSnapshotPayload");
             var session = snapshot.SessionId;
             var document = snapshot.DocumentId;
@@ -67,8 +68,11 @@ public sealed record SessionModelState(
             var identities = new HashSet<(string, string)>();
             var removed = delta.RemovedIds.ToHashSet(StringComparer.Ordinal);
             foreach (var change in delta.Added.Concat(delta.Updated))
+            {
                 if (change is null || !Kinds.Contains(change.Kind) || string.IsNullOrEmpty(change.Id) || change.Index < 0 ||
                     GetId(change.Value, change.Kind) != change.Id || removed.Contains(change.Id) || !identities.Add((change.Kind, change.Id))) return recovery;
+                if (change.Kind == "sketch") SketchProjectionContract.ValidateSketchRecord(change.Value);
+            }
             if (delta.SessionId != SessionId || delta.DocumentId != DocumentId) return recovery;
             if (delta.NewRevision <= Revision) return new(SessionModelUpdateKind.Duplicate, this, delta);
             if (delta.BaseRevision != Revision) return recovery;

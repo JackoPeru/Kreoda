@@ -6,7 +6,9 @@ import {
   suggestIntent,
   suggestionKey,
 } from "../src/intent/suggest";
+import { buildIntentRequest } from "../src/intent/provider";
 import type { FeatureSummary } from "../src/ipc/coreClient";
+import { useDocumentUiStore } from "../src/stores";
 
 const hole = (
   id: string,
@@ -68,5 +70,34 @@ describe("IntentEngine equal-holes (§27)", () => {
     expect(key).toContain("h1");
     dismissSuggestion(key);
     expect(dismissedIds()).toContain(key);
+  });
+
+  it("keeps unavailable feature identity and diagnostics without stale volume in intent context", () => {
+    useDocumentUiStore.getState().resetDocument("intent-unavailable");
+    useDocumentUiStore.getState().setFeatures([{
+      featureId: "broken-extrude",
+      type: "Extrude",
+      paramsMm: [10],
+      dependsOn: ["projection-sketch"],
+      refExtra: "",
+      expressions: {},
+      volumeMm3: 1570.8,
+      geometryCurrent: false,
+      status: "unavailable",
+      error: "projection source is missing",
+      blockingSourceIds: ["source-sketch"],
+    }], 8);
+
+    const request = buildIntentRequest("repair this projected sketch");
+    expect(request.model.bodies).toEqual([{
+      id: "broken-extrude",
+      type: "Extrude",
+      paramsMm: [10],
+      geometryCurrent: false,
+      status: "unavailable",
+      error: "projection source is missing",
+      blockingSourceIds: ["source-sketch"],
+    }]);
+    expect(request.model.bodies[0]).not.toHaveProperty("volumeMm3");
   });
 });

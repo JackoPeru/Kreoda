@@ -27,6 +27,9 @@ async function dto(lang, rendererOptions) {
 const typescript = await dto("typescript", { "just-types": "true", "prefer-unions": "true" });
 const csharp = await dto("csharp", { framework: "SystemTextJson", features: "attributes-only", namespace: "Kreoda.Session.Generated", "dateonly-timeonly-converters": "false" });
 const methods = contract.methods;
+const maximumControlPayloadBytes = contract.limits?.sessionControlPayloadBytes;
+if (!Number.isSafeInteger(maximumControlPayloadBytes) || maximumControlPayloadBytes <= 0)
+  throw new Error("sessionControlPayloadBytes must be a positive safe integer");
 const control = methods.filter(method => method.plane === "control").map(method => method.method);
 const queries = methods.filter(method => method.plane === "query").map(method => method.method);
 const replay = methods.filter(method => method.operationReplay).map(method => method.method);
@@ -34,6 +37,7 @@ const required = Object.fromEntries(methods.map(method => [method.method, method
 const tsConst = (name, value) => `export const ${name} = ${JSON.stringify(value, null, 2)} as const;\n`;
 const metadata = header + tsConst("CONTRACT_SCHEMA_SHA256", hash) + tsConst("SESSION_STABLE_FEATURE_ID_SCHEMA", definitions.StableFeatureId)
   + tsConst("SESSION_DTO_NAMES", names) + tsConst("SESSION_CONTROL_VERSION", contract.protocolVersion)
+  + tsConst("SESSION_CONTROL_MAX_PAYLOAD_BYTES", maximumControlPayloadBytes)
   + tsConst("CONTROL_METHODS", control) + tsConst("QUERY_METHODS_CONTRACT", queries)
   + tsConst("SESSION_CONTROL_METHODS", methods.map(method => method.method)) + tsConst("OPERATION_METHODS", replay)
   + tsConst("SESSION_SERVER_CAPABILITIES", contract.serverCapabilities)
@@ -55,7 +59,7 @@ const csMetadata = header + `namespace Kreoda.Session;\n\npublic static class Se
   + `    public static bool SupportsOperationReplay(string method) => Array.IndexOf(OperationReplayMethods, method) >= 0;\n`
   + `    public static readonly IReadOnlyDictionary<string, string[]> RequiredParams = new Dictionary<string, string[]>\n    {\n`
   + methods.map(method => `        [${quote(method.method)}] = ${csArray(method.required)},`).join("\n") + "\n    };\n}\n"
-  + `\npublic static class SessionContract\n{\n    public const long MaximumRevision = ${definitions.SessionSnapshotPayload.properties.revision.maximum};\n    public static readonly IReadOnlyDictionary<string, string[]> DtoRequiredFields = new Dictionary<string, string[]>\n    {\n`
+  + `\npublic static class SessionContract\n{\n    public const long MaximumRevision = ${definitions.SessionSnapshotPayload.properties.revision.maximum};\n    public const int MaximumControlPayloadBytes = ${maximumControlPayloadBytes};\n    public static readonly IReadOnlyDictionary<string, string[]> DtoRequiredFields = new Dictionary<string, string[]>\n    {\n`
   + names.map(name => `        [${quote(name)}] = ${csArray(definitions[name].required ?? [])},`).join("\n") + "\n    };\n}\n";
 
 // Compile once during generation. Bundle the standard runtime helpers so

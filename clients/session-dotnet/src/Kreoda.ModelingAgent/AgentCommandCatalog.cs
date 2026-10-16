@@ -105,7 +105,7 @@ public sealed class AgentCommandCatalog
     public static bool IsReadOnlyQuery(string method) => method is
         SessionMethods.DescribeModel or SessionMethods.GetDocumentInfo or SessionMethods.GetBodies or
         SessionMethods.GetFeatures or SessionMethods.GetFeature or SessionMethods.GetDatum or SessionMethods.GetParameters or
-        SessionMethods.GetDependencies or SessionMethods.GetModelTree or SessionMethods.GetSelection or
+        SessionMethods.GetSketchProjection or SessionMethods.GetDependencies or SessionMethods.GetModelTree or SessionMethods.GetSelection or
         SessionMethods.ListCommands or SessionMethods.GetCommandSchema or SessionMethods.GetManipulators or
         SessionMethods.FindFaces or SessionMethods.FindEdges or SessionMethods.FindBodies or
         SessionMethods.GetBoundingBox or SessionMethods.MeasureVolume or SessionMethods.MeasureArea or

@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createServer } from "node:net";
 import { WebSocket } from "ws";
-import { SessionRelay } from "../electron/session";
+import { SessionRelay, serializeSessionControlReply } from "../electron/session";
 import {
   QUERY_METHODS,
 } from "../electron/session-queries";
@@ -68,6 +68,7 @@ interface StoredFeature {
 function fakeSidecar(options: {
   beforeInvoke?: (type: number) => void | Promise<void>;
   geometryReply?: Record<string, unknown>;
+  projectionReply?: Record<string, unknown>;
   previewPaddingBytes?: number;
 } = {}) {
   const features = new Map<string, StoredFeature>();
@@ -214,6 +215,13 @@ function fakeSidecar(options: {
     if (envelope.type === 2) {
       features.clear();revision = 0;
       return respond({ status: "ok", documentId: envelope.documentId, revision });
+    }
+    if (envelope.type === 38) {
+      return respond(options.projectionReply ?? {
+        status: "ok", documentId: "doc-bootstrap", revision,
+        projection: { featureId: "target", plane: { origin: [0, 0, 0], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] },
+          geometryCurrent: true, status: "ok", error: "", blockingSourceIds: [], groups: [] },
+      });
     }
     if (envelope.type === 30) {
       // Canned wire fixtures only. Accurate geometry is tested in OCCT.
@@ -428,6 +436,12 @@ function fakeSidecar(options: {
         revision,
       });
     }
+    if (envelope.type === 36 || envelope.type === 37) {
+      const fence = fenced();
+      if (fence) return respond(fence);
+      revision += 1;
+      return respond({ status: "ok", revision });
+    }
     return respond({
       status: "error",
       errorCode: "UNKNOWN_COMMAND",
@@ -449,6 +463,85 @@ function fakeSidecar(options: {
 }
 
 describe("SessionRelay", () => {
+  it("returns an explicit error when serialized control output exceeds 64 MiB", () => {
+    const encoded = serializeSessionControlReply("large-reply", true, {
+      result: { value: "x".repeat(64 * 1024 * 1024) },
+    });
+    expect(encoded.ok).toBe(false);
+    expect(encoded.payload).toMatchObject({ errorCode: "MESSAGE_TOO_LARGE" });
+    expect(Buffer.byteLength(encoded.text)).toBeLessThan(64 * 1024 * 1024);
+  });
+
+  it("keeps native projection type 38 ordered and read-only across local, integer, named, and semantic requests", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const owner = new SessionClient();
+    const peer = new SessionClient();
+    const localRequest = { protocolVersion: 1, requestId: "local-projection", documentId: "doc-phase1", type: 38, featureId: "target" };
+    try {
+      const local = JSON.parse(new TextDecoder().decode(await relay.invokeLocal(
+        frameMessage(new TextEncoder().encode(JSON.stringify(localRequest)))))) as Record<string, unknown>;
+      expect(local).toMatchObject({ status: "ok", revision: 0, documentId: "doc-phase1", projection: { featureId: "target" } });
+
+      const ownerHello = await owner.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      await peer.connect(TOKEN, port, "client-660e8400-e29b-41d4-a716-446655440000");
+      const baseline = relay as unknown as { revisionCache: number | null; committedBaseline: unknown; lastBroadcastRevision: number | null };
+      const beforeReads = { revisionCache: baseline.revisionCache, committedBaseline: baseline.committedBaseline,
+        lastBroadcastRevision: baseline.lastBroadcastRevision };
+      const integer = await owner.call("invoke", {
+        type: 38, fields: { featureId: "target" }, documentId: "doc-phase1", baseRevision: 0,
+      });
+      expect(integer).toMatchObject({ ok: true, revision: 0, documentId: "doc-phase1", projection: { featureId: "target" } });
+      const named = await peer.call("command", {
+        commandId: "RequestSketchProjection", parameters: { featureId: "target" }, documentId: "doc-phase1", baseRevision: 0,
+      });
+      expect(named).toMatchObject({ ok: true, revision: 0, projection: { featureId: "target" } });
+      expect(fake.calls.filter(type => type === 38)).toHaveLength(3);
+      expect(baseline.revisionCache).toBe(beforeReads.revisionCache);
+      expect(baseline.committedBaseline).toBe(beforeReads.committedBaseline);
+      expect(baseline.lastBroadcastRevision).toBe(beforeReads.lastBroadcastRevision);
+
+      const definition = { version: 1, operation: "projectEdges", sources: [
+        { type: "sketchEntities", featureId: "source", entityIds: ["circle"] },
+      ] };
+      const set = await owner.call("command", { commandId: "SetSketchProjection", documentId: "doc-phase1", baseRevision: 0,
+        parameters: { featureId: "target", groupId: "linked", definition } });
+      expect(set).toMatchObject({ ok: true, revision: 1 });
+      expect(baseline).toMatchObject({ revisionCache: 1, lastBroadcastRevision: 1 });
+      const projectionRequests = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+        .filter(envelope => [36, 37, 38].includes(envelope["type"] as number));
+      expect(projectionRequests.length).toBeGreaterThan(0);
+      for (const envelope of projectionRequests) expect(envelope).not.toHaveProperty("isPreview");
+
+      const beforeProjectionCount = fake.calls.filter(type => type === 38).length;
+      const txnId = "77777777-7777-4777-8777-777777777777";
+      await owner.call("txnBegin", { transactionId: txnId, documentId: "doc-phase1" });
+      const baselineAtTxnRead = baseline.committedBaseline;
+      await expect(peer.call("getSketchProjection", { featureId: "target", expectedRevision: 1 }))
+        .rejects.toMatchObject({ code: "BUSY" });
+      await expect(peer.call("invoke", { type: 38, fields: { featureId: "target" }, documentId: "doc-phase1", baseRevision: 1 }))
+        .rejects.toMatchObject({ code: "BUSY" });
+      const localDuringForeignTxn = JSON.parse(new TextDecoder().decode(await relay.invokeLocal(
+        frameMessage(new TextEncoder().encode(JSON.stringify({ ...localRequest, requestId: "local-busy" })))))) as Record<string, unknown>;
+      expect(localDuringForeignTxn).toMatchObject({ status: "error", errorCode: "BUSY" });
+      const ownerRead = await owner.call("getSketchProjection", { featureId: "target", expectedRevision: 1 });
+      expect(ownerRead).toMatchObject({ ok: true, result: { featureId: "target" }, revision: 1 });
+      expect(fake.calls.filter(type => type === 38)).toHaveLength(beforeProjectionCount + 1);
+      expect(baseline.committedBaseline).toBe(baselineAtTxnRead);
+      expect(baseline).toMatchObject({ revisionCache: 1, lastBroadcastRevision: 1 });
+
+      await owner.call("txnRollback", { transactionId: txnId, documentId: "doc-phase1" });
+      const removed = await owner.call("command", { commandId: "RemoveSketchProjection", documentId: "doc-phase1", baseRevision: 1,
+        parameters: { featureId: "target", groupId: "linked" } });
+      expect(removed).toMatchObject({ ok: true, revision: 2 });
+      expect(fake.calls.filter(type => type === 37)).toHaveLength(1);
+      expect(fake.calls.filter(type => type === 36)).toHaveLength(1);
+      expect(ownerHello["sessionId"]).toBeTruthy();
+    } finally { owner.closeRaw(); peer.closeRaw(); relay.stop(); }
+  });
+
   const localFrame = (type: number, fields: Record<string, unknown> = {}, documentId = "doc-phase1") =>
     frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1, requestId: "desktop-request", documentId, type, ...fields })));
   const local = async (relay: SessionRelay, type: number, fields: Record<string, unknown> = {}, documentId = "doc-phase1") => {
@@ -512,7 +605,7 @@ describe("SessionRelay", () => {
       if (order === "update then commit") expect(result["ok"]).toBe(true);
       else expect(result).toMatchObject({ errorCode: "NOT_FOUND" });
       const committed = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
-        .filter(envelope => envelope["type"] === 6 && envelope["isPreview"] === false);
+        .filter(envelope => envelope["type"] === 6 && !Object.hasOwn(envelope, "isPreview"));
       expect(committed).toHaveLength(1);
       expect(committed[0]).toMatchObject({ valueMm: order === "update then commit" ? 30 : 20 });
       await expect(client.call("previewCommit", { previewId })).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -812,7 +905,7 @@ describe("SessionRelay", () => {
       expect(envelopeText.indexOf('"documentId":"doc-phase1"')).toBeLessThan(envelopeText.indexOf('"type":3'));
       expect(envelopeText.indexOf('"type":3')).toBeLessThan(envelopeText.indexOf('"transactionId":""'));
       expect(envelopeText.indexOf('"transactionId":""')).toBeLessThan(envelopeText.indexOf('"featureId":"lexical-box"'));
-      expect(envelopeText.indexOf('"isPreview":false')).toBeLessThan(envelopeText.indexOf('"featureId":"lexical-box"'));
+      expect(envelope).not.toHaveProperty("isPreview");
       expect(fake.calls.filter((type) => type === 3)).toHaveLength(1);
       expect(fake.calls.filter((type) => type === 28)).toHaveLength(0);
     } finally {
@@ -2458,7 +2551,7 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
       expect(fake.calls).toHaveLength(afterBegin);
       await client.call("previewCommit", { previewId });
       const committed = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
-        .filter(envelope => envelope["type"] === 6 && envelope["isPreview"] === false);
+        .filter(envelope => envelope["type"] === 6 && !Object.hasOwn(envelope, "isPreview"));
       expect(committed.at(-1)).toMatchObject({ valueMm: 20 });
     } finally {
       client.closeRaw(); relay.stop();

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Kreoda.ModelingAgent;
 using Kreoda.Session;
 
@@ -10,6 +11,10 @@ public sealed record CadCheck(string Method, JsonElement Parameters, string Path
 public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> connect, TimeSpan? operationTimeout = null,
     Func<JsonElement, Task>? persistRecovery = null, JsonElement? initialRecovery = null) : IAsyncDisposable
 {
+    static readonly JsonSerializerOptions ProjectionJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+    };
     readonly SemaphoreSlim _gate = new(1, 1);
     readonly TimeSpan _operationTimeout = ValidTimeout(operationTimeout ?? TimeSpan.FromSeconds(15));
     SessionClient? _client;
@@ -139,6 +144,26 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
             fields["documentId"] = request?.Model.DocumentId ?? client.Model?.DocumentId ?? "doc-phase1";
             using var deadline = request is null ? CancellationTokenSource.CreateLinkedTokenSource(ct) : Deadline(request, ct);
             if (request is null) deadline.CancelAfter(TimeSpan.FromSeconds(15));
+            if (method == SessionMethods.GetSketchProjection)
+            {
+                if (!fields.TryGetValue("featureId", out var rawFeatureId) || rawFeatureId is not JsonElement { ValueKind: JsonValueKind.String } featureId)
+                    throw new ArgumentException("getSketchProjection requires a featureId");
+                string? groupId = null;
+                if (fields.TryGetValue("groupId", out var rawGroupId) && rawGroupId is JsonElement groupValue && groupValue.ValueKind != JsonValueKind.Null)
+                {
+                    if (groupValue.ValueKind != JsonValueKind.String) throw new ArgumentException("groupId must be a string");
+                    groupId = groupValue.GetString();
+                }
+                long? expectedRevision = null;
+                if (fields.TryGetValue("expectedRevision", out var rawRevision))
+                {
+                    if (rawRevision is not JsonElement { ValueKind: JsonValueKind.Number } revisionValue || !revisionValue.TryGetInt64(out var parsedRevision))
+                        throw new ArgumentException("expectedRevision must be an integer");
+                    expectedRevision = parsedRevision;
+                }
+                var projection = await client.GetSketchProjectionAsync(featureId.GetString()!, groupId, expectedRevision, deadline.Token);
+                return JsonSerializer.SerializeToElement(projection.Result, ProjectionJsonOptions);
+            }
             var reply = await client.CallAsync(method, fields, deadline.Token, expectedSessionId: client.SessionId);
             return reply.GetProperty("result").Clone();
         } finally { _gate.Release(); }

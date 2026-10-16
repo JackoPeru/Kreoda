@@ -1,4 +1,5 @@
-import { QUERY_METHODS_CONTRACT, SESSION_SERVER_CAPABILITIES, DatumDescriptorSchema, type DatumDescriptor, type SketchPlaneFrame } from "@kreoda/protocol";
+import { QUERY_METHODS_CONTRACT, SESSION_SERVER_CAPABILITIES, DatumDescriptorSchema, SketchDescriptorSchema,
+  SketchProjectionResultSchema, type DatumDescriptor, type SketchPlaneFrame } from "@kreoda/protocol";
 // Session semantic query API (§11.7–§11.9, §11.11, §11.15): read-only
 // projections over authoritative snapshots and native OCCT geometry.
 // Transport-agnostic: the relay injects core access; unit tests inject
@@ -12,7 +13,11 @@ export interface SnapFeature {
   featureId: string;
   type: string;
   paramsMm: number[];
-  volumeMm3: number;
+  volumeMm3?: number;
+  geometryCurrent?: boolean;
+  status?: string;
+  error?: string;
+  blockingSourceIds?: string[];
   dependsOn: string[];
   refExtra: string;
   expressions: Record<string, string>;
@@ -28,6 +33,11 @@ export interface SnapSketch {
   plane?: SketchPlaneFrame;
   supportRef?: string;
   model?: Record<string, unknown>;
+  projectionGroups?: unknown[];
+  geometryCurrent?: boolean;
+  status?: string;
+  error?: string;
+  blockingSourceIds?: string[];
 }
 
 /**
@@ -204,6 +214,33 @@ function str(v: unknown, fallback = ""): string {
   return typeof v === "string" ? v : fallback;
 }
 
+function featureAvailability(feature: SnapFeature): Record<string, unknown> {
+  return {
+    ...(feature.geometryCurrent === undefined ? {} : { geometryCurrent: feature.geometryCurrent }),
+    ...(feature.status === undefined ? {} : { status: feature.status }),
+    ...(feature.error === undefined ? {} : { error: feature.error }),
+    ...(feature.blockingSourceIds === undefined ? {} : { blockingSourceIds: feature.blockingSourceIds }),
+  };
+}
+
+function featureVolume(feature: SnapFeature): number | undefined {
+  if (feature.geometryCurrent === false || feature.status === "unavailable") return undefined;
+  return typeof feature.volumeMm3 === "number" && Number.isFinite(feature.volumeMm3) ? feature.volumeMm3 : undefined;
+}
+
+function sketchAvailability(sketch: SnapSketch): Record<string, unknown> {
+  return {
+    ...(sketch.geometryCurrent === undefined ? {} : { geometryCurrent: sketch.geometryCurrent }),
+    ...(sketch.status === undefined ? {} : { status: sketch.status }),
+    ...(sketch.error === undefined ? {} : { error: sketch.error }),
+    ...(sketch.blockingSourceIds === undefined ? {} : { blockingSourceIds: sketch.blockingSourceIds }),
+  };
+}
+
+function byTip(snapshot: SnapshotData, tip: string): SnapFeature | undefined {
+  return snapshot.features.find(feature => feature.featureId === tip);
+}
+
 /** Coerce a raw core feature object into the structural shape (never throws). */
 export function asFeature(raw: unknown): SnapFeature | null {
   if (typeof raw !== "object" || raw === null) return null;
@@ -228,11 +265,18 @@ export function asFeature(raw: unknown): SnapFeature | null {
             .map(([k, v]) => [k, v as string]),
         )
       : {};
+  const unavailable = o["geometryCurrent"] === false || o["status"] === "unavailable";
+  const volumeMm3 = !unavailable && typeof o["volumeMm3"] === "number" && Number.isFinite(o["volumeMm3"])
+    ? o["volumeMm3"] : undefined;
   return {
     featureId: o["featureId"] as string,
     type: o["type"] as string,
     paramsMm: params,
-    volumeMm3: num(o["volumeMm3"]),
+    ...(volumeMm3 === undefined ? {} : { volumeMm3 }),
+    ...(typeof o["geometryCurrent"] === "boolean" ? { geometryCurrent: o["geometryCurrent"] } : {}),
+    ...(typeof o["status"] === "string" ? { status: o["status"] } : {}),
+    ...(typeof o["error"] === "string" ? { error: o["error"] } : {}),
+    ...(Array.isArray(o["blockingSourceIds"]) ? { blockingSourceIds: o["blockingSourceIds"].filter((id): id is string => typeof id === "string") } : {}),
     dependsOn: deps,
     refExtra: str(o["refExtra"]),
     expressions,
@@ -262,7 +306,7 @@ export function normalizeSnapshot(
         if (typeof raw !== "object" || raw === null) return null;
         const o = raw as Record<string, unknown>;
         if (typeof o["featureId"] !== "string") return null;
-        return {
+        const sketch = {
           ...o,
           featureId: o["featureId"] as string,
           planeKind: str(o["planeKind"], "XY"),
@@ -271,6 +315,7 @@ export function normalizeSnapshot(
           circles: num(o["circles"]),
           constraints: num(o["constraints"]),
         };
+        return Array.isArray(o["projectionGroups"]) ? SketchDescriptorSchema.parse(sketch) : sketch;
       })
       .filter((s): s is SnapSketch => s !== null),
   };
@@ -293,7 +338,7 @@ export async function runSessionQuery(
   method: string,
   params: Record<string, unknown>,
   documentId: string,
-): Promise<{ result: unknown; notify?: Record<string, unknown> }> {
+): Promise<{ result: unknown; notify?: Record<string, unknown>; lineage?: { sessionId: string; documentId: string; revision: number } }> {
   if ((method === "setSelection" || method === "clearSelection") && Object.hasOwn(params, "publish") && typeof params["publish"] !== "boolean") throw coded("BAD_PARAMS", "publish must be a boolean");
   const needId = (v: unknown, what: string): string => {
     if (typeof v !== "string" || v.length === 0) {
@@ -352,11 +397,14 @@ export async function runSessionQuery(
             bodyId: b.bodyId,
             tip: b.tip,
             history: [...b.history],
+            ...(byTip(s, b.tip) ? featureAvailability(byTip(s, b.tip)!) : {}),
           })),
           tips: s.tips,
           sketches: s.sketches.map((k) => ({
             id: k.featureId,
             planeKind: k.planeKind,
+            ...sketchAvailability(k),
+            ...(k.projectionGroups === undefined ? {} : { projectionGroups: k.projectionGroups }),
           })),
         },
       };
@@ -393,6 +441,7 @@ export async function runSessionQuery(
             bodyId: b.bodyId,
             tip: b.tip,
             history: [...b.history],
+            ...(byTip(s, b.tip) ? featureAvailability(byTip(s, b.tip)!) : {}),
           })),
           tips: s.tips,
         },
@@ -401,13 +450,44 @@ export async function runSessionQuery(
     case "getFeature": {
       return { result: await feature(needId(params["featureId"], "featureId")) };
     }
+    case "getSketchProjection": {
+      const featureId = needId(params["featureId"], "featureId");
+      const groupId = params["groupId"] === undefined ? undefined : needId(params["groupId"], "groupId");
+      const expectedRevision = params["expectedRevision"];
+      if (expectedRevision !== undefined && (!Number.isSafeInteger(expectedRevision) || (expectedRevision as number) < 0))
+        throw coded("BAD_PARAMS", "expectedRevision must be a nonnegative safe integer");
+      const sessionId = env.sessionId?.();
+      const nativeValue = await env.geometry(documentId, "RequestSketchProjection", {
+        featureId, ...(groupId === undefined ? {} : { groupId }),
+      });
+      const native = typeof nativeValue === "object" && nativeValue !== null && !Array.isArray(nativeValue)
+        ? nativeValue as Record<string, unknown> : null;
+      const revision = native?.["revision"];
+      if (!native)
+        throw coded("NEED_FULL_SNAPSHOT", "native projection query returned no object");
+      if (native["documentId"] !== documentId)
+        throw coded("NEED_FULL_SNAPSHOT", `native projection query returned document ${String(native["documentId"])}; expected ${documentId}`);
+      if (!Number.isSafeInteger(revision) || (revision as number) < 0)
+        throw coded("NEED_FULL_SNAPSHOT", "native projection query returned an invalid revision");
+      if (!sessionId || env.sessionId?.() !== sessionId)
+        throw coded("NEED_FULL_SNAPSHOT", "session lineage changed during native projection query");
+      if (expectedRevision !== undefined && expectedRevision !== revision)
+        throw coded("NEED_FULL_SNAPSHOT", "projection query belongs to an older model revision");
+      let result: unknown;
+      try { result = SketchProjectionResultSchema.parse(native["projection"]); }
+      catch (error) { throw coded("CORE_FAILED", `native projection result is invalid: ${error instanceof Error ? error.message : String(error)}`); }
+      if ((result as { featureId: string }).featureId !== featureId)
+        throw coded("CORE_FAILED", "native projection feature identity differs from the request");
+      return { result, lineage: { sessionId, documentId, revision: revision as number } };
+    }
     case "getDatum": {
       const result = await env.geometry(documentId, "getDatum", { featureId: needId(params["featureId"], "featureId") });
       return { result: DatumDescriptorSchema.parse(result) };
     }
     case "getParameters": {
       const f = await feature(needId(params["featureId"], "featureId"));
-      return { result: { featureId: f.featureId, paramsMm: f.paramsMm, expressions: f.expressions } };
+      return { result: { featureId: f.featureId, paramsMm: f.paramsMm, expressions: f.expressions,
+        ...featureAvailability(f) } };
     }
     case "getDependencies": {
       const f = await feature(needId(params["featureId"], "featureId"));
@@ -444,7 +524,8 @@ export async function runSessionQuery(
           summary: s.features.map((f) => ({
             id: f.featureId,
             type: f.type,
-            volumeMm3: f.volumeMm3,
+            ...(featureVolume(f) === undefined ? {} : { volumeMm3: featureVolume(f) }),
+            ...featureAvailability(f),
             formulaParams: Object.keys(f.expressions),
           })),
         },
@@ -515,8 +596,8 @@ export async function runSessionQuery(
         typeof params["type"] === "string" && params["type"] !== ""
           ? (params["type"] as string)
           : null;
-      const minVolume =
-        typeof params["minVolumeMm3"] === "number" ? (params["minVolumeMm3"] as number) : 0;
+      const hasVolumeFilter = params["minVolumeMm3"] !== undefined;
+      const minVolume = hasVolumeFilter ? params["minVolumeMm3"] as number : 0;
       const s = await snap();
       const byId = new Map(s.features.map((f) => [f.featureId, f]));
       return {
@@ -525,20 +606,26 @@ export async function runSessionQuery(
             .filter((b) => {
               const tip = byId.get(b.tip);
               if (!tip) return false;
-              return (!type || tip.type === type) && tip.volumeMm3 >= minVolume;
+              const volume = featureVolume(tip);
+              return (!type || tip.type === type) && (hasVolumeFilter
+                ? volume !== undefined && volume >= minVolume
+                : true);
             })
             .map((b) => {
               const tip = byId.get(b.tip)!;
+              const volume = featureVolume(tip);
               return {
                 bodyId: b.bodyId,
                 tip: b.tip,
                 history: [...b.history],
                 type: tip.type,
-                volumeMm3: tip.volumeMm3,
+                ...featureAvailability(tip),
+                ...(volume === undefined ? {} : { volumeMm3: volume }),
                 confidence: 1.0,
                 owner: b.bodyId,
                 description: `${tip.type} body ${b.bodyId}`,
-                geometricSummary: { volumeMm3: tip.volumeMm3 },
+                ...(volume === undefined ? { diagnostic: tip.error ?? "current geometry measurement unavailable" }
+                  : { geometricSummary: { volumeMm3: volume } }),
               };
             }),
         },

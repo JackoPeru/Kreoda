@@ -17,7 +17,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { decodeMeshFrame, decodeMeshUpdateFb, frameMessage, FrameDecoder, InvokeParamsSchema, NamedCommandParamsSchema, PairParamsSchema, AuthenticateParamsSchema,
   MeshHeaderSchema, RequestMeshLODParamsSchema, PreviewMeshHeaderSchema, RequestPreviewMeshParamsSchema, OPERATION_METHODS as OPERATION_METHOD_NAMES,
-  SESSION_CONTROL_VERSION, SESSION_SERVER_CAPABILITIES } from "@kreoda/protocol";
+  SESSION_CONTROL_MAX_PAYLOAD_BYTES, SESSION_CONTROL_VERSION, SESSION_SERVER_CAPABILITIES } from "@kreoda/protocol";
 import type { RequestMeshLODParams, RequestPreviewMeshParams, PreviewMeshHeader, SelectionEvent } from "@kreoda/protocol";
 import { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "@kreoda/command-schema";
 import type {
@@ -43,11 +43,24 @@ import {
 } from "./session-queries";
 
 export const SESSION_PROTOCOL_VERSION = SESSION_CONTROL_VERSION;
-const MAX_CONTROL_PAYLOAD_BYTES = 4 * 1024 * 1024;
+const MAX_CONTROL_PAYLOAD_BYTES = SESSION_CONTROL_MAX_PAYLOAD_BYTES;
 const MAX_BINARY_MESH_BYTES = 64 * 1024 * 1024;
 const MAX_OUTBOUND_PEER_BYTES = 64 * 1024 * 1024;
 const MAX_RETAINED_PREVIEW_BYTES = 256 * 1024 * 1024;
 const MAX_CLIENT_PREVIEWS = 4;
+export function serializeSessionControlReply(requestId: string, ok: boolean, payload: Record<string, unknown>): {
+  ok: boolean; payload: Record<string, unknown>; text: string;
+} {
+  let finalOk = ok;
+  let finalPayload = payload;
+  let text = JSON.stringify({ requestId, ok: finalOk, ...finalPayload });
+  if (Buffer.byteLength(text) > MAX_CONTROL_PAYLOAD_BYTES) {
+    finalOk = false;
+    finalPayload = { errorCode: "MESSAGE_TOO_LARGE", error: "session control reply exceeds 64 MiB" };
+    text = JSON.stringify({ requestId, ok: finalOk, ...finalPayload });
+  }
+  return { ok: finalOk, payload: finalPayload, text };
+}
 interface PreviewState {
   clientId: string; sessionId: string; documentId: string; featureId: string;
   paramName: string; valueMm: number; expression: string; baseRevision: number;
@@ -353,7 +366,7 @@ export class SessionRelay {
       const generation = this.localGeneration;
       const encode = (value: Record<string, unknown>): Uint8Array => new TextEncoder().encode(JSON.stringify({ ...value, protocolVersion: SESSION_PROTOCOL_VERSION, requestId }));
       if (![1, 2, 11].includes(type) && documentId !== this.documentId) throw coded("NEED_FULL_SNAPSHOT", "document identity changed");
-      if ([1, 12, 17, 18, 23, 26, 30].includes(type) || fields["isPreview"] === true) {
+      if ([1, 12, 17, 18, 23, 26, 30, 35, 38].includes(type) || fields["isPreview"] === true) {
         if (type !== 1) this.assertReadOwner("desktop");
         const featureId = typeof fields["featureId"] === "string" ? fields["featureId"] : "";
         let added = false;
@@ -366,6 +379,14 @@ export class SessionRelay {
             const sidecar = this.sidecar();if (!sidecar) throw coded("CORE_FAILED", "geometry engine not running");
             return sidecar.invoke(framed);
           }, generation);
+          if (type === 38 && response[0] === 0x7b) {
+            try {
+              const parsed = JSON.parse(new TextDecoder().decode(response)) as Record<string, unknown>;
+              if (parsed["status"] === "ok" && parsed["documentId"] === "doc-bootstrap") {
+                return new TextEncoder().encode(JSON.stringify({ ...parsed, documentId }));
+              }
+            } catch { /* Preserve malformed native replies for the caller to diagnose. */ }
+          }
           if (added && response[0] === 0x7b && JSON.parse(new TextDecoder().decode(response))["status"] === "error") await this.cancelLocalEdit(featureId);
           return response;
         } catch (error) { if (added) await this.cancelLocalEdit(featureId);throw error; }
@@ -655,11 +676,21 @@ export class SessionRelay {
       return;
     }
     const reply = (ok: boolean, payload: Record<string, unknown>): void => {
-      if (activeReplay && !activeReplay.settled) {
-        this.settleReplay(activeReplay, { ok, payload });
+      let encoded = serializeSessionControlReply(requestId, ok, payload);
+      if (ws.readyState !== WebSocket.OPEN) {
+        if (activeReplay && !activeReplay.settled) this.settleReplay(activeReplay, { ok: encoded.ok, payload: encoded.payload });
+        return;
       }
-      if (ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({ requestId, ok, ...payload }));
+      if (ws.bufferedAmount + Buffer.byteLength(encoded.text) > MAX_OUTBOUND_PEER_BYTES) {
+        encoded = serializeSessionControlReply(requestId, false, { errorCode: "SLOW_CONSUMER", error: "session output queue exceeds 64 MiB" });
+        if (ws.bufferedAmount + Buffer.byteLength(encoded.text) > MAX_OUTBOUND_PEER_BYTES) {
+          if (activeReplay && !activeReplay.settled) this.settleReplay(activeReplay, { ok: encoded.ok, payload: encoded.payload });
+          ws.close(4429, "slow consumer");
+          return;
+        }
+      }
+      if (activeReplay && !activeReplay.settled) this.settleReplay(activeReplay, { ok: encoded.ok, payload: encoded.payload });
+      ws.send(encoded.text);
     };
     if (typeof msg.method !== "string") {
       reply(false, { errorCode: "MALFORMED", error: "method is required" });
@@ -1016,12 +1047,27 @@ export class SessionRelay {
             params["transactionId"] !== ""
               ? (params["transactionId"] as string)
               : undefined;
+          const commandDocumentId = typeof params["documentId"] === "string" && params["documentId"] !== ""
+            ? params["documentId"] as string : this.documentId;
+          if (prepared.type === 35 || prepared.type === 38) {
+            const result = await this.orderedRead(clientId, commandDocumentId, async () => {
+              const native = await this.coreInvoke(commandDocumentId, prepared.type, prepared.fields);
+              const response = prepared.type === 38 && native["documentId"] === "doc-bootstrap"
+                ? { ...native, documentId: commandDocumentId }
+                : native;
+              if (base !== null && response["revision"] !== base)
+                throw coded("NEED_FULL_SNAPSHOT", "query belongs to an older model revision");
+              return response;
+            });
+            // Keep client request correlation; native relay-N identity is private.
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { requestId: _nativeRequestId, protocolVersion: _protocolVersion, ...payload } = result;
+            reply(true, payload);
+            return;
+          }
           const result = await this.runMutation(
             clientId,
-            typeof params["documentId"] === "string" &&
-              params["documentId"] !== ""
-              ? (params["documentId"] as string)
-              : this.documentId,
+            commandDocumentId,
             prepared.type,
             prepared.fields,
             base,
@@ -1099,8 +1145,8 @@ export class SessionRelay {
               ? this.selectionStamp(clientId, response.notify["ids"] as string[]) : undefined };
           };
           const direct = ["previewBegin", "previewUpdate", "previewCommit", "previewCancel", "getSelection", "clearSelection", "listCommands", "getCommandSchema", "getCapabilities"].includes(method);
-          const { result, selection } = await (direct ? query() : this.orderedRead(clientId, documentId, query));
-          reply(true, { result });
+          const { result, selection, lineage } = await (direct ? query() : this.orderedRead(clientId, documentId, query));
+          reply(true, { result, ...(lineage ?? {}) });
           if (selection) this.emitSelection(clientId, selection.ids, selection);
         }
       }
@@ -1203,7 +1249,9 @@ export class SessionRelay {
         typeof fields["transactionId"] === "string"
           ? (fields["transactionId"] as string)
           : "",
-      isPreview: fields["isPreview"] === true,
+      // Absence means a normal committed request. Emit preview metadata only
+      // for true previews; strict native request allowlists reject false too.
+      ...(fields["isPreview"] === true ? { isPreview: true } : {}),
       ...commandFields,
     };
     const framed = frameMessage(
@@ -1244,6 +1292,10 @@ export class SessionRelay {
       if (!tip || historyFeatures.length !== body.history.length || historyFeatures.some(feature =>
         feature["suppressed"] === true || feature["state"] === "suppressed" || feature["status"] === "suppressed")) {
         throw coded("NOT_FOUND", "body is suppressed or its visible tip is missing");
+      }
+      if (tip["geometryCurrent"] === false || tip["status"] === "unavailable") {
+        throw coded("GEOMETRY_UNAVAILABLE", typeof tip["error"] === "string"
+          ? tip["error"] : "body tip geometry is unavailable");
       }
 
       let nativeFeatureId = body.tip;
@@ -1372,6 +1424,17 @@ export class SessionRelay {
         return result;
       },
       geometry: async (documentId, method, params) => {
+        if (method === "RequestSketchProjection") {
+          const response = await this.coreInvoke(documentId, 38, params);
+          // The native store starts as doc-bootstrap before the relay has
+          // opened a named document. Bind that one bootstrap identity to the
+          // active logical session id; preserve every other native id so the
+          // query layer can reject genuine document mismatches.
+          if (response["documentId"] === "doc-bootstrap") {
+            return { ...response, documentId };
+          }
+          return response;
+        }
         const response = await this.coreInvoke(documentId, 30, { method, params });
         if (response["result"] === undefined) throw coded("CORE_FAILED", "native query result is missing");
         return response["result"];

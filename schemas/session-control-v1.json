@@ -1,6 +1,9 @@
 {
   "$comment": "Canonical session control contract. Metadata, TypeScript/C# DTOs and standalone runtime validators are generated from this file. Binary meshes remain cad_protocol.fbs.",
   "protocolVersion": 1,
+  "limits": {
+    "sessionControlPayloadBytes": 67108864
+  },
   "transport": "WebSocket JSON text control frames. With binary-mesh-v1, requestMeshLOD sends a JSON identity header followed by the unchanged cad_protocol.fbs MeshUpdate binary frame. With binary-preview-v1, requestPreviewMesh sends a separate candidate identity header then unchanged native MeshUpdate bytes.",
   "serverCapabilities": [
     "operation-replay",
@@ -603,6 +606,20 @@
       ],
       "optional": [],
       "reply": "{result:datum}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getSketchProjection",
+      "required": [
+        "featureId"
+      ],
+      "optional": [
+        "documentId",
+        "groupId",
+        "expectedRevision"
+      ],
+      "reply": "{result:SketchProjectionResult,sessionId,documentId,revision}; expectedRevision is checked by the session inside the ordered native38 read",
       "plane": "query",
       "operationReplay": false
     }
@@ -1510,6 +1527,58 @@
         "error",
         "blockingSourceIds",
         "groups"
+      ],
+      "additionalProperties": false
+    },
+    "GetSketchProjectionParams": {
+      "type": "object",
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "groupId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "featureId"
+      ],
+      "additionalProperties": false
+    },
+    "GetSketchProjectionPayload": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "result": {
+          "$ref": "#/definitions/SketchProjectionResult"
+        }
+      },
+      "required": [
+        "sessionId",
+        "documentId",
+        "revision",
+        "result"
       ],
       "additionalProperties": false
     },

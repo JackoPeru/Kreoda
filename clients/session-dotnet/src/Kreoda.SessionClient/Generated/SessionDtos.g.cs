@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 0d310d1eb3f2fbb78d5bc8d5464b9e37625b696afabd8400bb915f3638904f67
+// Source SHA256: b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f
 #nullable enable annotations
 #nullable disable warnings
 namespace Kreoda.Session.Generated
@@ -258,6 +258,43 @@ namespace Kreoda.Session.Generated
         [JsonPropertyName("requestId")]
         [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
         public string RequestId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+    }
+
+    public partial class GetSketchProjectionParams
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string? DocumentId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("expectedRevision")]
+        public long? ExpectedRevision { get; set; }
+
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("groupId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string? GroupId { get; set; }
+    }
+
+    public partial class GetSketchProjectionPayload
+    {
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("result")]
+        public SketchProjectionResult Result { get; set; }
 
         [JsonPropertyName("revision")]
         public long Revision { get; set; }

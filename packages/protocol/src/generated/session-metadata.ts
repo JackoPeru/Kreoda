@@ -1,6 +1,6 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 0d310d1eb3f2fbb78d5bc8d5464b9e37625b696afabd8400bb915f3638904f67
-export const CONTRACT_SCHEMA_SHA256 = "0d310d1eb3f2fbb78d5bc8d5464b9e37625b696afabd8400bb915f3638904f67" as const;
+// Source SHA256: b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f
+export const CONTRACT_SCHEMA_SHA256 = "b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f" as const;
 export const SESSION_STABLE_FEATURE_ID_SCHEMA = {
   "type": "string",
   "minLength": 1,
@@ -30,6 +30,8 @@ export const SESSION_DTO_NAMES = [
   "SketchProjectionDisplayEdge",
   "SketchProjectionGroupResult",
   "SketchProjectionResult",
+  "GetSketchProjectionParams",
+  "GetSketchProjectionPayload",
   "BodyDescriptor",
   "SessionSnapshotPayload",
   "SessionEntityPatch",
@@ -60,6 +62,7 @@ export const SESSION_DTO_NAMES = [
   "DatumDescriptor"
 ] as const;
 export const SESSION_CONTROL_VERSION = 1 as const;
+export const SESSION_CONTROL_MAX_PAYLOAD_BYTES = 67108864 as const;
 export const CONTROL_METHODS = [
   "pair",
   "authenticate",
@@ -111,7 +114,8 @@ export const QUERY_METHODS_CONTRACT = [
   "previewCancel",
   "requestPreviewMesh",
   "previewSketch",
-  "getDatum"
+  "getDatum",
+  "getSketchProjection"
 ] as const;
 export const SESSION_CONTROL_METHODS = [
   "pair",
@@ -162,7 +166,8 @@ export const SESSION_CONTROL_METHODS = [
   "previewCancel",
   "requestPreviewMesh",
   "previewSketch",
-  "getDatum"
+  "getDatum",
+  "getSketchProjection"
 ] as const;
 export const OPERATION_METHODS = [
   "invoke",
@@ -302,6 +307,9 @@ export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
     "expectedRevision"
   ],
   "getDatum": [
+    "featureId"
+  ],
+  "getSketchProjection": [
     "featureId"
   ]
 };

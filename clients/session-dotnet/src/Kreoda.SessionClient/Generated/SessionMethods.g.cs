@@ -1,11 +1,11 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 0d310d1eb3f2fbb78d5bc8d5464b9e37625b696afabd8400bb915f3638904f67
+// Source SHA256: b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f
 namespace Kreoda.Session;
 
 public static class SessionMethods
 {
     public const int ProtocolVersion = 1;
-    public const string ContractSchemaSha256 = "0d310d1eb3f2fbb78d5bc8d5464b9e37625b696afabd8400bb915f3638904f67";
+    public const string ContractSchemaSha256 = "b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f";
     public const string OperationReplayCapability = "operation-replay";
     public const string IncrementalDeltasCapability = "incremental-deltas";
     public const string BinaryMeshV1Capability = "binary-mesh-v1";
@@ -61,7 +61,8 @@ public static class SessionMethods
     public const string RequestPreviewMesh = "requestPreviewMesh";
     public const string PreviewSketch = "previewSketch";
     public const string GetDatum = "getDatum";
-    public static readonly string[] All = ["pair", "authenticate", "hello", "getSessionInfo", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "requestMeshLOD", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "validateReferences", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel", "requestPreviewMesh", "previewSketch", "getDatum"];
+    public const string GetSketchProjection = "getSketchProjection";
+    public static readonly string[] All = ["pair", "authenticate", "hello", "getSessionInfo", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "requestMeshLOD", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "validateReferences", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel", "requestPreviewMesh", "previewSketch", "getDatum", "getSketchProjection"];
     public static readonly string[] ServerCapabilities = ["operation-replay", "incremental-deltas", "binary-mesh-v1", "binary-preview-v1", "context-commands-v1", "sketch-preview-v1"];
     public static readonly string[] OperationReplayMethods = ["invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "setSelection", "clearSelection", "previewBegin", "previewUpdate", "previewCommit", "previewCancel"];
     public static bool SupportsOperationReplay(string method) => Array.IndexOf(OperationReplayMethods, method) >= 0;
@@ -116,12 +117,14 @@ public static class SessionMethods
         ["requestPreviewMesh"] = ["previewId", "generation", "documentId", "expectedRevision"],
         ["previewSketch"] = ["featureId", "model", "expectedRevision"],
         ["getDatum"] = ["featureId"],
+        ["getSketchProjection"] = ["featureId"],
     };
 }
 
 public static class SessionContract
 {
     public const long MaximumRevision = 9007199254740991;
+    public const int MaximumControlPayloadBytes = 67108864;
     public static readonly IReadOnlyDictionary<string, string[]> DtoRequiredFields = new Dictionary<string, string[]>
     {
         ["StableFeatureId"] = [],
@@ -146,6 +149,8 @@ public static class SessionContract
         ["SketchProjectionDisplayEdge"] = ["memberIndex", "curveType", "firstParameter", "lastParameter", "closed", "pointsMm"],
         ["SketchProjectionGroupResult"] = ["groupId", "definition", "sourceFeatureIds", "status", "error", "blockingSourceIds", "generation", "edges"],
         ["SketchProjectionResult"] = ["featureId", "plane", "geometryCurrent", "status", "error", "blockingSourceIds", "groups"],
+        ["GetSketchProjectionParams"] = ["featureId"],
+        ["GetSketchProjectionPayload"] = ["sessionId", "documentId", "revision", "result"],
         ["BodyDescriptor"] = ["bodyId", "tip", "history"],
         ["SessionSnapshotPayload"] = ["sessionId", "documentId", "revision", "features", "sketches", "bodies"],
         ["SessionEntityPatch"] = ["kind", "id", "index", "value"],

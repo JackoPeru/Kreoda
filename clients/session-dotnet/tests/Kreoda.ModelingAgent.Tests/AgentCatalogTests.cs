@@ -34,6 +34,7 @@ public sealed class AgentCatalogTests
     [InlineData("listCommands")]
     [InlineData("getCommandSchema")]
     [InlineData("getManipulators")]
+    [InlineData("getSketchProjection")]
     public void RequiredIntrospectionMethodsAreAllowed(string method) =>
         Assert.True(AgentCommandCatalog.IsReadOnlyQuery(method));
 

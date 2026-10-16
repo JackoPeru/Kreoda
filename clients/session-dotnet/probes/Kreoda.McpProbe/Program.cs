@@ -3,6 +3,14 @@ using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
 void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
+var scenario = Environment.GetEnvironmentVariable("KREODA_MCP_PROBE_SCENARIO");
+if (scenario == "projection-archive-break")
+{
+    var healthyPath = Environment.GetEnvironmentVariable("KREODA_PROJECTION_HEALTHY_FILE") ?? throw new InvalidOperationException("healthy archive path missing");
+    var brokenPath = Environment.GetEnvironmentVariable("KREODA_PROJECTION_BROKEN_FILE") ?? throw new InvalidOperationException("broken archive path missing");
+    Console.WriteLine(JsonSerializer.Serialize(ProjectionScenario.BreakPersistedProjectionBindingArchive(healthyPath, brokenPath)));
+    return;
+}
 await using var transport = new HttpClientTransport(new() { Endpoint = new Uri(Environment.GetEnvironmentVariable("KREODA_MCP_PROBE_URL")!) });
 await using var client = await McpClient.CreateAsync(transport);
 async Task<JsonElement> Tool(string name, Dictionary<string, object?> arguments)
@@ -15,7 +23,20 @@ var tools = await client.ListToolsAsync();Check(tools.Count == 7, "MCP discovery
 var resource = await client.ReadResourceAsync("kreoda://project");Check(resource.Contents.OfType<TextResourceContents>().Single().Text.Contains("Hermes owns"), "project resource missing");
 var schemas = await Tool("kreoda_query", new() { ["method"] = "getCommandSchema", ["parameters"] = new Dictionary<string, object?>() });
 Check(schemas.GetProperty("commands").EnumerateArray().Single(c => c.GetProperty("id").GetString() == "CreateBox").GetProperty("creation").GetProperty("fixedCount").GetInt32() == 1, "runtime creation metadata missing");
-if (Environment.GetEnvironmentVariable("KREODA_MCP_PROBE_SCENARIO") == "datum")
+if (scenario == "mcp-preflight")
+{
+    Console.WriteLine(JsonSerializer.Serialize(new { scenario, status = "ready", tools = tools.Count }));
+    return;
+}
+if (scenario == "projection" || scenario == "projection-repair")
+{
+    var proof = scenario == "projection"
+        ? await ProjectionScenario.CreateAndExerciseAsync(client, Tool)
+        : await ProjectionScenario.InspectAndRepairAsync(client, Tool);
+    Console.WriteLine(JsonSerializer.Serialize(proof));
+    return;
+}
+if (scenario == "datum")
 {
     var definitions = schemas.GetProperty("commands");
     var expected = new[] { ("CreateDatumPlane", 31, 1), ("CreateDatumAxis", 32, 1), ("CreateDatumPoint", 33, 1), ("UpdateDatum", 34, 0), ("RequestDatum", 35, 0) };
