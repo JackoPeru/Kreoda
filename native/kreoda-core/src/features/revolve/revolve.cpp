@@ -16,13 +16,13 @@
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
 #include <Standard_Failure.hxx>
-#include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
 #include <gp_Ax1.hxx>
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
 
 #include "features/sketch/sketch_face.h"
+#include "model/geometry_availability.h"
 #include "features/sketch/sketch_store.h"
 #include "persistence/ocaf_live.h"
 #endif
@@ -37,8 +37,9 @@ bool BuildRevolveShape(const std::string& sketchId, double angleDeg,
     if (error) *error = "unknown sketch " + sketchId;
     return false;
   }
-  TopoDS_Face face;
-  if (!BuildFaceFromSketch(sketch, &face, error)) return false;
+  if (!EnsureGeometryAvailable(sketchId, error)) return false;
+  TopoDS_Shape profile;
+  if (!BuildProfileFromSketch(sketch, &profile, error)) return false;
   try {
     // Axis = sketch local X through the sketch origin (documented).
     const gp_Ax1 axis(
@@ -47,7 +48,7 @@ bool BuildRevolveShape(const std::string& sketchId, double angleDeg,
         gp_Dir(sketch.plane.xAxis[0], sketch.plane.xAxis[1],
                sketch.plane.xAxis[2]));
     const double angleRad = angleDeg * std::acos(-1.0) / 180.0;
-    BRepPrimAPI_MakeRevol mk(face, axis, angleRad, false);
+    BRepPrimAPI_MakeRevol mk(profile, axis, angleRad, false);
     mk.Build();
     if (!mk.IsDone()) {
       if (error) *error = "Revolve: MakeRevol failed";

@@ -11,6 +11,7 @@ import {
   useSelectionStore,
   visibleFeatureIds,
 } from "../stores";
+import type { DatumDescriptor } from "@kreoda/protocol";
 
 let refreshOpenedSession: (() => Promise<void>) | null = null;
 
@@ -20,12 +21,12 @@ export function bindOpenedSessionRefresh(refresh: () => Promise<void>): () => vo
   return () => { if (refreshOpenedSession === refresh) refreshOpenedSession = null; };
 }
 
-export async function syncOpenedDocument(features: FeatureSummary[], revision: number, sketches: SketchSummary[]): Promise<number> {
+export async function syncOpenedDocument(features: FeatureSummary[], revision: number, sketches: SketchSummary[], datums: DatumDescriptor[] = []): Promise<number> {
   if (refreshOpenedSession) {
     await refreshOpenedSession();
   } else {
     useDocumentUiStore.getState().resetDocument(coreClient.documentId);
-    await syncFromCoreList(features, revision, sketches);
+    await syncFromCoreList(features, revision, sketches, null, datums);
   }
   return useDocumentUiStore.getState().epoch;
 }
@@ -83,20 +84,43 @@ export async function syncFromCoreList(
   revision: number,
   sketches: SketchSummary[] = [],
   changedMeshIds: readonly string[] | null = null,
+  datums: DatumDescriptor[] | null = null,
 ): Promise<void> {
+  // Native Undo/Redo returns counts only. Use the session's ordered full-model
+  // refresh instead of replacing a supported sketch cache with an empty model.
+  if (refreshOpenedSession && sketches.some(sketch => !sketch.model)) {
+    await refreshOpenedSession();
+    return;
+  }
   const s = useDocumentUiStore.getState();
   const epoch = s.epoch;
   s.setFeatures(features, revision, epoch);
+  if(datums !== null)s.setDatums(datums,revision,epoch);
   s.setSketches(
-    sketches.map((k) => ({
-      featureId: k.featureId,
-      planeKind: k.planeKind,
-      points: k.points,
-      lines: k.lines,
-      circles: k.circles,
-      constraints: k.constraints,
-      ...(k.model ? { model: k.model } : {}),
-    })),
+    sketches.map((k) => {
+      const cached = k.model as (typeof k.model & {
+        plane?: SketchSummary["plane"];
+        supportRef?: string;
+      }) | undefined;
+      const plane = k.plane ?? cached?.plane;
+      const supportRef = k.supportRef !== undefined ? k.supportRef : cached?.supportRef;
+      return {
+        featureId: k.featureId,
+        planeKind: k.planeKind,
+        points: k.points,
+        lines: k.lines,
+        circles: k.circles,
+        constraints: k.constraints,
+        ...(k.model ? { model: {
+          ...k.model,
+          planeKind: k.planeKind,
+          ...(plane !== undefined ? { plane } : {}),
+          ...(supportRef !== undefined ? { supportRef } : {}),
+        } } : {}),
+        ...(plane !== undefined ? { plane } : {}),
+        ...(supportRef !== undefined ? { supportRef } : {}),
+      };
+    }),
     revision,
     epoch,
   );
@@ -105,7 +129,12 @@ export async function syncFromCoreList(
   // enough to saturate local IPC without bursting the sidecar). Per-feature
   // errors collected — fail-fast would strand the summaries behind (C4).
   // Historical meshes stay core-side, pulled on demand.
-  const visible = visibleFeatureIds(features);
+  // Persisted documents can contain broken dependents whose native feature
+  // summaries intentionally omit volume and geometry. Keep their history in
+  // the model tree, but do not request or retain a stale viewport mesh.
+  const unavailable = new Set(features.filter(feature =>
+    feature.geometryCurrent === false || feature.status === "unavailable").map(feature => feature.featureId));
+  const visible = visibleFeatureIds(features).filter(id => !unavailable.has(id));
   const changed = changedMeshIds === null ? null : new Set(changedMeshIds);
   const hydrate = visible.filter((id) => changed === null || changed.has(id) || !s.meshes[id]);
   const results: (
@@ -146,6 +175,7 @@ export async function syncFromCoreList(
   const alive = new Set([
     ...features.map((f) => f.featureId),
     ...sketches.map((k) => k.featureId),
+    ...(datums ?? current.datums).map(datum => datum.featureId),
   ]);
   const sel = useSelectionStore.getState();
   const kept = sel.selectedIds.filter((id) => {

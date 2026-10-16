@@ -1,0 +1,517 @@
+Test project C:/Users/matte/Documents/Codex-tools/Native/phase15-projection-kernel-20261015/build
+        Start   1: Datum.OffsetAndOpposedMidplanesRetainFirstBasis
+  1/256 Test   #1: Datum.OffsetAndOpposedMidplanesRetainFirstBasis ..........................................   Passed    0.03 sec
+        Start   2: Datum.AngleUsesDirectedAxisAndDegrees
+  2/256 Test   #2: Datum.AngleUsesDirectedAxisAndDegrees ....................................................   Passed    0.03 sec
+        Start   3: Datum.ThreePointPlaneAndAxesUseFiniteNativeFrame
+  3/256 Test   #3: Datum.ThreePointPlaneAndAxesUseFiniteNativeFrame .........................................   Passed    0.03 sec
+        Start   4: Datum.IntersectionAxisSatisfiesBothOffsetPlanes
+  4/256 Test   #4: Datum.IntersectionAxisSatisfiesBothOffsetPlanes ..........................................   Passed    0.03 sec
+        Start   5: Datum.CoordinateAndMidpointRecordsAreReadOnlyAndKeepSources
+  5/256 Test   #5: Datum.CoordinateAndMidpointRecordsAreReadOnlyAndKeepSources ..............................   Passed    0.03 sec
+        Start   6: Datum.InvalidSourcesAndDegeneracyLeaveOutputUntouched
+  6/256 Test   #6: Datum.InvalidSourcesAndDegeneracyLeaveOutputUntouched ....................................   Passed    0.03 sec
+        Start   7: Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict
+  7/256 Test   #7: Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict .................................   Passed    0.03 sec
+        Start   8: Datum.ActualOcctFaceAndLineReferencesKeepNativeBodiesUnchanged
+  8/256 Test   #8: Datum.ActualOcctFaceAndLineReferencesKeepNativeBodiesUnchanged ...........................   Passed    0.03 sec
+        Start   9: Datum.CurvedAndAmbiguousNativeSourcesRejectWithoutFallback
+  9/256 Test   #9: Datum.CurvedAndAmbiguousNativeSourcesRejectWithoutFallback ...............................   Passed    0.03 sec
+        Start  10: Datum.WrongKindBrokenSourcesAndInvalidJsonKeepAcceptedOutput
+ 10/256 Test  #10: Datum.WrongKindBrokenSourcesAndInvalidJsonKeepAcceptedOutput .............................   Passed    0.03 sec
+        Start  11: Datum.ProspectiveRecordsNeverResolveAgainstTheCurrentDocument
+ 11/256 Test  #11: Datum.ProspectiveRecordsNeverResolveAgainstTheCurrentDocument ............................   Passed    0.03 sec
+        Start  12: Datum.ProspectiveOcctFacesUseTheIncomingGeometryOnly
+ 12/256 Test  #12: Datum.ProspectiveOcctFacesUseTheIncomingGeometryOnly .....................................   Passed    0.03 sec
+        Start  13: DatumPersistence.DefinitionsResolveInDependencyOrderWithoutCachedGeometry
+ 13/256 Test  #13: DatumPersistence.DefinitionsResolveInDependencyOrderWithoutCachedGeometry ................   Passed    0.03 sec
+        Start  14: DatumPersistence.MissingDuplicateCyclicAndMalformedDefinitionsAreAtomic
+ 14/256 Test  #14: DatumPersistence.MissingDuplicateCyclicAndMalformedDefinitionsAreAtomic ..................   Passed    0.03 sec
+        Start  15: DatumPersistence.ActualOcafRoundTripAndUndoRetainDefinitionsAndSources
+ 15/256 Test  #15: DatumPersistence.ActualOcafRoundTripAndUndoRetainDefinitionsAndSources ...................   Passed    0.03 sec
+        Start  16: DatumPersistence.BadIncomingSourcesRejectBeforeReplacingTheLiveDocument
+ 16/256 Test  #16: DatumPersistence.BadIncomingSourcesRejectBeforeReplacingTheLiveDocument ..................   Passed    0.03 sec
+        Start  17: DatumPersistence.ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable
+ 17/256 Test  #17: DatumPersistence.ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable ................   Passed    0.04 sec
+        Start  18: DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically
+ 18/256 Test  #18: DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically ...................   Passed    0.12 sec
+        Start  19: DatumCommands.CreateUpdateAndUndoAreSingleNonBodyMutations
+ 19/256 Test  #19: DatumCommands.CreateUpdateAndUndoAreSingleNonBodyMutations ...............................   Passed    0.03 sec
+        Start  20: DatumCommands.ExtraDefinitionKeysRejectBeforeMutation
+ 20/256 Test  #20: DatumCommands.ExtraDefinitionKeysRejectBeforeMutation ....................................   Passed    0.03 sec
+        Start  21: DatumCommands.CyclicAndInvalidUpdatesPreserveRegistryRevisionAndUndo
+ 21/256 Test  #21: DatumCommands.CyclicAndInvalidUpdatesPreserveRegistryRevisionAndUndo .....................   Passed    0.03 sec
+        Start  22: DatumCommands.PointPlaneSketchExtrudeRecomputesAndRejectsDegenerateSourceAtomically
+ 22/256 Test  #22: DatumCommands.PointPlaneSketchExtrudeRecomputesAndRejectsDegenerateSourceAtomically ......   Passed    0.08 sec
+        Start  23: DatumCommands.NativeSourceParameterEditRebuildsDatumSketchAndSolid
+ 23/256 Test  #23: DatumCommands.NativeSourceParameterEditRebuildsDatumSketchAndSolid .......................   Passed    0.04 sec
+        Start  24: DatumCommands.FailedUpstreamBodyEditRestoresDatumSketchSolidAndGraph
+ 24/256 Test  #24: DatumCommands.FailedUpstreamBodyEditRestoresDatumSketchSolidAndGraph .....................   Passed    0.06 sec
+        Start  25: DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen
+ 25/256 Test  #25: DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen ...   Passed    0.06 sec
+        Start  26: DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames
+ 26/256 Test  #26: DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames ................   Passed    0.06 sec
+        Start  27: DatumCommands.OrientedDatumSupportsMeasuredRevolveUndoAndRealIcadReopen
+ 27/256 Test  #27: DatumCommands.OrientedDatumSupportsMeasuredRevolveUndoAndRealIcadReopen ..................   Passed    0.05 sec
+        Start  28: DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen
+ 28/256 Test  #28: DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen ................   Passed    0.18 sec
+        Start  29: DatumNaming.ForgedWrongOwnerAndStaleSelectionsRejectWithoutOrdinalFallback
+ 29/256 Test  #29: DatumNaming.ForgedWrongOwnerAndStaleSelectionsRejectWithoutOrdinalFallback ...............   Passed    0.03 sec
+        Start  30: DatumProtocol.PublicCommandsQueryAndNumericEditsKeepNativeIdentity
+ 30/256 Test  #30: DatumProtocol.PublicCommandsQueryAndNumericEditsKeepNativeIdentity .......................   Passed    0.03 sec
+        Start  31: DatumProtocol.ReferencedDatumsCannotBeDeletedAndUnreferencedDeleteIsUndoable
+ 31/256 Test  #31: DatumProtocol.ReferencedDatumsCannotBeDeletedAndUnreferencedDeleteIsUndoable .............   Passed    0.03 sec
+        Start  32: DatumProtocol.SnapshotIncludesNativeSupportAndQueriesAreReadOnly
+ 32/256 Test  #32: DatumProtocol.SnapshotIncludesNativeSupportAndQueriesAreReadOnly .........................   Passed    0.03 sec
+        Start  33: DatumProtocol.JoinedEditsCommitOnceAndRollbackRestoresDefinitions
+ 33/256 Test  #33: DatumProtocol.JoinedEditsCommitOnceAndRollbackRestoresDefinitions ........................   Passed    0.03 sec
+        Start  34: DatumProtocol.CompleteJoinedDatumSketchSolidChainHasOneRevisionAndUndo
+ 34/256 Test  #34: DatumProtocol.CompleteJoinedDatumSketchSolidChainHasOneRevisionAndUndo ...................   Passed    0.03 sec
+        Start  35: DatumProtocol.TaintedDependentFailureRollsBackEarlierJoinedCreationAndKeepsRevision
+ 35/256 Test  #35: DatumProtocol.TaintedDependentFailureRollsBackEarlierJoinedCreationAndKeepsRevision ......   Passed    0.04 sec
+        Start  36: DatumProtocol.NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically
+ 36/256 Test  #36: DatumProtocol.NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically ..........   Passed    0.03 sec
+        Start  37: Box.ExactDimensionsAndVolume
+ 37/256 Test  #37: Box.ExactDimensionsAndVolume .............................................................   Passed    0.03 sec
+        Start  38: Box.RejectsNonPositive
+ 38/256 Test  #38: Box.RejectsNonPositive ...................................................................   Passed    0.04 sec
+        Start  39: Codegen.CreateBoxEnvelopeRoundTrips
+ 39/256 Test  #39: Codegen.CreateBoxEnvelopeRoundTrips ......................................................   Passed    0.03 sec
+        Start  40: Expressions.ParserAcceptsAndRejects
+ 40/256 Test  #40: Expressions.ParserAcceptsAndRejects ......................................................   Passed    0.04 sec
+        Start  41: Expressions.SetEvaluatesAndChains
+ 41/256 Test  #41: Expressions.SetEvaluatesAndChains ........................................................   Passed    0.03 sec
+        Start  42: Expressions.VariableDenominatorParsesReflowsAndRejectsActualZero
+ 42/256 Test  #42: Expressions.VariableDenominatorParsesReflowsAndRejectsActualZero .........................   Passed    0.03 sec
+        Start  43: Expressions.RejectCyclesTyposAndBadValues
+ 43/256 Test  #43: Expressions.RejectCyclesTyposAndBadValues ................................................   Passed    0.03 sec
+        Start  44: Expressions.PersistAndUndo
+ 44/256 Test  #44: Expressions.PersistAndUndo ...............................................................   Passed    0.05 sec
+        Start  45: Expressions.UndoRestoresFormula
+ 45/256 Test  #45: Expressions.UndoRestoresFormula ..........................................................   Passed    0.03 sec
+        Start  46: Framing.RoundTrip
+ 46/256 Test  #46: Framing.RoundTrip ........................................................................   Passed    0.02 sec
+        Start  47: Gltf.ExportImportRoundTrip
+ 47/256 Test  #47: Gltf.ExportImportRoundTrip ...............................................................   Passed    0.04 sec
+        Start  48: Gltf.GlbExportImports
+ 48/256 Test  #48: Gltf.GlbExportImports ....................................................................   Passed    0.03 sec
+        Start  49: Gltf.RejectsNonGltfHonestly
+ 49/256 Test  #49: Gltf.RejectsNonGltfHonestly ..............................................................   Passed    0.03 sec
+        Start  50: Gltf.EmptyDocumentExportFailsHonestly
+ 50/256 Test  #50: Gltf.EmptyDocumentExportFailsHonestly ....................................................   Passed    0.02 sec
+        Start  51: Gltf.RoundTripGeometryMetersYUp
+ 51/256 Test  #51: Gltf.RoundTripGeometryMetersYUp ..........................................................   Passed    0.04 sec
+        Start  52: Gltf.ImportExternalBinUint16MatrixKeepsOrder
+ 52/256 Test  #52: Gltf.ImportExternalBinUint16MatrixKeepsOrder .............................................   Passed    0.04 sec
+        Start  53: Gltf.RejectsSparseAndFloatIndices
+ 53/256 Test  #53: Gltf.RejectsSparseAndFloatIndices ........................................................   Passed    0.03 sec
+        Start  54: Gltf.ImportDataUriUint32TRS
+ 54/256 Test  #54: Gltf.ImportDataUriUint32TRS ..............................................................   Passed    0.04 sec
+        Start  55: Gltf.ImportMinimalGlbNonIndexed
+ 55/256 Test  #55: Gltf.ImportMinimalGlbNonIndexed ..........................................................   Passed    0.14 sec
+        Start  56: Instance.CreateFollowsTarget
+ 56/256 Test  #56: Instance.CreateFollowsTarget .............................................................   Passed    0.03 sec
+        Start  57: Instance.TargetEditReflowsInstance
+ 57/256 Test  #57: Instance.TargetEditReflowsInstance .......................................................   Passed    0.03 sec
+        Start  58: Instance.MoveViaSetDimension
+ 58/256 Test  #58: Instance.MoveViaSetDimension .............................................................   Passed    0.03 sec
+        Start  59: Instance.RefusesNestingSelfAndGarbage
+ 59/256 Test  #59: Instance.RefusesNestingSelfAndGarbage ....................................................   Passed    0.03 sec
+        Start  60: MeshCache.HitIsIdenticalAndCommitInvalidates
+ 60/256 Test  #60: MeshCache.HitIsIdenticalAndCommitInvalidates .............................................   Passed    0.03 sec
+        Start  61: Obj.ExportImportRoundTrip
+ 61/256 Test  #61: Obj.ExportImportRoundTrip ................................................................   Passed    0.04 sec
+        Start  62: Obj.EmptyDocumentExportFailsHonestly
+ 62/256 Test  #62: Obj.EmptyDocumentExportFailsHonestly .....................................................   Passed    0.03 sec
+        Start  63: Persistence.SaveReopenRoundTrip
+ 63/256 Test  #63: Persistence.SaveReopenRoundTrip ..........................................................   Passed    0.15 sec
+        Start  64: Persistence.OpenMissingFileFailsHonestly
+ 64/256 Test  #64: Persistence.OpenMissingFileFailsHonestly .................................................   Passed    0.03 sec
+        Start  65: Persistence.CustomSketchFrameSurvivesOCAFOpenAndPostOpenEdit
+ 65/256 Test  #65: Persistence.CustomSketchFrameSurvivesOCAFOpenAndPostOpenEdit .............................   Passed    0.05 sec
+        Start  66: Persistence.ResyncRejectsMalformedSketchWithoutChangingLiveCaches
+ 66/256 Test  #66: Persistence.ResyncRejectsMalformedSketchWithoutChangingLiveCaches ........................   Passed    0.03 sec
+        Start  67: Persistence.LoadRejectsMalformedSketchBeforeResettingLiveDocument
+ 67/256 Test  #67: Persistence.LoadRejectsMalformedSketchBeforeResettingLiveDocument ........................   Passed    0.05 sec
+        Start  68: Persistence.OpenRejectsMalformedSketchWithoutLosingUndoRedo
+ 68/256 Test  #68: Persistence.OpenRejectsMalformedSketchWithoutLosingUndoRedo ..............................   Passed    0.06 sec
+        Start  69: Persistence.DuplicateSketchMetadataRootsRejectEitherRootOrder
+ 69/256 Test  #69: Persistence.DuplicateSketchMetadataRootsRejectEitherRootOrder ............................   Passed    0.10 sec
+        Start  70: Topology.LegacySelectionsAndMissingFoldersAreAdoptedFromLoadedDocument
+ 70/256 Test  #70: Topology.LegacySelectionsAndMissingFoldersAreAdoptedFromLoadedDocument ...................   Passed    0.11 sec
+        Start  71: Topology.BoxTopFaceSurvivesWidthChange
+ 71/256 Test  #71: Topology.BoxTopFaceSurvivesWidthChange ...................................................   Passed    0.03 sec
+        Start  72: Topology.CylinderCapSurvivesHeightChange
+ 72/256 Test  #72: Topology.CylinderCapSurvivesHeightChange .................................................   Passed    0.03 sec
+        Start  73: Topology.SphereFaceSurvivesRadiusChange
+ 73/256 Test  #73: Topology.SphereFaceSurvivesRadiusChange ..................................................   Passed    0.03 sec
+        Start  74: Topology.ResolutionLayerIsReportedHonestly
+ 74/256 Test  #74: Topology.ResolutionLayerIsReportedHonestly ...............................................   Passed    0.03 sec
+        Start  75: Topology.InvalidRebuildKeepsOldGeometry
+ 75/256 Test  #75: Topology.InvalidRebuildKeepsOldGeometry ..................................................   Passed    0.03 sec
+        Start  76: Topology.PreviewDoesNotCommit
+ 76/256 Test  #76: Topology.PreviewDoesNotCommit ............................................................   Passed    0.03 sec
+        Start  77: Topology.BodyPreviewKeepsDownstreamHoleAndCommittedHistory
+ 77/256 Test  #77: Topology.BodyPreviewKeepsDownstreamHoleAndCommittedHistory ...............................   Passed    0.05 sec
+        Start  78: Topology.BodyPreviewEvaluatesDependentFormulaInScratchOnly
+ 78/256 Test  #78: Topology.BodyPreviewEvaluatesDependentFormulaInScratchOnly ...............................   Passed    0.06 sec
+        Start  79: Topology.BodyPreviewRejectsUnrelatedRequestedTipWithoutMutation
+ 79/256 Test  #79: Topology.BodyPreviewRejectsUnrelatedRequestedTipWithoutMutation ..........................   Passed    0.03 sec
+        Start  80: Topology.BodyPreviewCompoundPlacementUsesAllValuesWithoutCommit
+ 80/256 Test  #80: Topology.BodyPreviewCompoundPlacementUsesAllValuesWithoutCommit ..........................   Passed    0.13 sec
+        Start  81: Topology.CompoundParameterCommitUsesOneUndoAndRejectsInvalidLastValue
+ 81/256 Test  #81: Topology.CompoundParameterCommitUsesOneUndoAndRejectsInvalidLastValue ....................   Passed    0.03 sec
+        Start  82: Topology.CompoundParameterKernelFailureRestoresEveryStagedValue
+ 82/256 Test  #82: Topology.CompoundParameterKernelFailureRestoresEveryStagedValue ..........................   Passed    0.04 sec
+        Start  83: Topology.CompoundFormulaCommitUsesFinalCandidateAndOneUndo
+ 83/256 Test  #83: Topology.CompoundFormulaCommitUsesFinalCandidateAndOneUndo ...............................   Passed    0.03 sec
+        Start  84: Topology.BodyPreviewRejectsUnknownCompoundParameterWithoutCommit
+ 84/256 Test  #84: Topology.BodyPreviewRejectsUnknownCompoundParameterWithoutCommit .........................   Passed    0.03 sec
+        Start  85: Topology.BodyPreviewRejectsCyclicOrMissingGeometryDependencies
+ 85/256 Test  #85: Topology.BodyPreviewRejectsCyclicOrMissingGeometryDependencies ...........................   Passed    0.04 sec
+        Start  86: Topology.BodyPreviewRejectsStableSelfReferentialExpression
+ 86/256 Test  #86: Topology.BodyPreviewRejectsStableSelfReferentialExpression ...............................   Passed    0.03 sec
+        Start  87: Topology.BodyPreviewRejectsMalformedDependentPrimitiveParameters
+ 87/256 Test  #87: Topology.BodyPreviewRejectsMalformedDependentPrimitiveParameters .........................   Passed    0.05 sec
+        Start  88: Topology.BodyPreviewRejectsExtraDependentInputs
+ 88/256 Test  #88: Topology.BodyPreviewRejectsExtraDependentInputs ..........................................   Passed    0.03 sec
+        Start  89: Topology.BodyPreviewUsesCanonicalBooleanRecipe
+ 89/256 Test  #89: Topology.BodyPreviewUsesCanonicalBooleanRecipe ...........................................   Passed    0.05 sec
+        Start  90: Topology.BodyPreviewEvaluatesFormulaAfterCompoundCandidateValues
+ 90/256 Test  #90: Topology.BodyPreviewEvaluatesFormulaAfterCompoundCandidateValues .........................   Passed    0.03 sec
+        Start  91: Topology.SelectionSurvivesSaveOpen
+ 91/256 Test  #91: Topology.SelectionSurvivesSaveOpen .......................................................   Passed    0.07 sec
+        Start  92: Topology.UpstreamEditKeepsBodyTipAndFaceRefs
+ 92/256 Test  #92: Topology.UpstreamEditKeepsBodyTipAndFaceRefs .............................................   Passed    0.04 sec
+        Start  93: Topology.FilletEdgeRefSurvivesUpstreamEdit
+ 93/256 Test  #93: Topology.FilletEdgeRefSurvivesUpstreamEdit ...............................................   Passed    0.04 sec
+        Start  94: Topology.UndoRedoStepsBodyTip
+ 94/256 Test  #94: Topology.UndoRedoStepsBodyTip ............................................................   Passed    0.04 sec
+        Start  95: Topology.SaveOpenPreservesBodyTip
+ 95/256 Test  #95: Topology.SaveOpenPreservesBodyTip ........................................................   Passed    0.06 sec
+        Start  96: Topology.FallbackOnlyResolvesRealRoles
+ 96/256 Test  #96: Topology.FallbackOnlyResolvesRealRoles ...................................................   Passed    0.03 sec
+        Start  97: TopologyImports.HoleOnStepImportFace
+ 97/256 Test  #97: TopologyImports.HoleOnStepImportFace .....................................................   Passed    0.06 sec
+        Start  98: TopologyImports.StepImportOpensBodyAndHoleAdvancesTip
+ 98/256 Test  #98: TopologyImports.StepImportOpensBodyAndHoleAdvancesTip ....................................   Passed    0.15 sec
+        Start  99: TopologyImports.HoleOnMeshImportFace
+ 99/256 Test  #99: TopologyImports.HoleOnMeshImportFace .....................................................   Passed    0.05 sec
+        Start 100: Graph.TopologicalOrderFollowsDependencies
+100/256 Test #100: Graph.TopologicalOrderFollowsDependencies ................................................   Passed    0.03 sec
+        Start 101: Graph.DirtyPropagatesToDependentsOnly
+101/256 Test #101: Graph.DirtyPropagatesToDependentsOnly ....................................................   Passed    0.02 sec
+        Start 102: Graph.RecomputeSkipsFailedBranchButRunsSiblings
+102/256 Test #102: Graph.RecomputeSkipsFailedBranchButRunsSiblings ..........................................   Passed    0.02 sec
+        Start 103: Graph.CycleIsRejectedBeforeKernel
+103/256 Test #103: Graph.CycleIsRejectedBeforeKernel ........................................................   Passed    0.02 sec
+        Start 104: Graph.RemoveDropsEdges
+104/256 Test #104: Graph.RemoveDropsEdges ...................................................................   Passed    0.02 sec
+        Start 105: UndoRedo.CreateUndoRedoRoundTrip
+105/256 Test #105: UndoRedo.CreateUndoRedoRoundTrip .........................................................   Passed    0.03 sec
+        Start 106: UndoRedo.ParameterEditUndoRestoresVolume
+106/256 Test #106: UndoRedo.ParameterEditUndoRestoresVolume .................................................   Passed    0.03 sec
+        Start 107: UndoRedo.EmptyStacksFailHonestly
+107/256 Test #107: UndoRedo.EmptyStacksFailHonestly .........................................................   Passed    0.03 sec
+        Start 108: UndoRedo.NewCommandClearsRedo
+108/256 Test #108: UndoRedo.NewCommandClearsRedo ............................................................   Passed    0.03 sec
+        Start 109: UndoRedo.CustomSketchFrameSurvivesEditUndoRedo
+109/256 Test #109: UndoRedo.CustomSketchFrameSurvivesEditUndoRedo ...........................................   Passed    0.04 sec
+        Start 110: Bodies.BoxOpensOneBody
+110/256 Test #110: Bodies.BoxOpensOneBody ...................................................................   Passed    0.13 sec
+        Start 111: Bodies.HoleAdvancesTip
+111/256 Test #111: Bodies.HoleAdvancesTip ...................................................................   Passed    0.03 sec
+        Start 112: Bodies.FilletKeepsSingleBody
+112/256 Test #112: Bodies.FilletKeepsSingleBody .............................................................   Passed    0.04 sec
+        Start 113: Bodies.HolePatternIsOneBodyOneUndo
+113/256 Test #113: Bodies.HolePatternIsOneBodyOneUndo .......................................................   Passed    0.06 sec
+        Start 114: Bodies.ExtrudeOpensNewBodyAndInstanceIsNonBody
+114/256 Test #114: Bodies.ExtrudeOpensNewBodyAndInstanceIsNonBody ...........................................   Passed    0.03 sec
+        Start 115: Bodies.BooleanAdvancesTargetBody
+115/256 Test #115: Bodies.BooleanAdvancesTargetBody .........................................................   Passed    0.04 sec
+        Start 116: Bodies.SaveOpenKeepsBodyIdentity
+116/256 Test #116: Bodies.SaveOpenKeepsBodyIdentity .........................................................   Passed    0.06 sec
+        Start 117: Bodies.UpstreamEditRecomputesDownstreamAndKeepsTip
+117/256 Test #117: Bodies.UpstreamEditRecomputesDownstreamAndKeepsTip .......................................   Passed    0.07 sec
+        Start 118: Bodies.UndoRedoMovesTipWithoutGhosts
+118/256 Test #118: Bodies.UndoRedoMovesTipWithoutGhosts .....................................................   Passed    0.07 sec
+        Start 119: Bodies.LegacyFileMigratesByCreationOrder
+119/256 Test #119: Bodies.LegacyFileMigratesByCreationOrder .................................................   Passed    0.06 sec
+        Start 120: HolePattern.CumulativeTipAndSingleUndo
+120/256 Test #120: HolePattern.CumulativeTipAndSingleUndo ...................................................   Passed    0.06 sec
+        Start 121: HolePattern.AtomicOnMiss
+121/256 Test #121: HolePattern.AtomicOnMiss .................................................................   Passed    0.04 sec
+        Start 122: HolePattern.RpcEndToEnd
+122/256 Test #122: HolePattern.RpcEndToEnd ..................................................................   Passed    0.04 sec
+        Start 123: HolePattern.Section51_FourHolePlate
+123/256 Test #123: HolePattern.Section51_FourHolePlate ......................................................   Passed    0.13 sec
+        Start 124: HolePattern.CountEditPreservesLayoutUndoAndPersistence
+124/256 Test #124: HolePattern.CountEditPreservesLayoutUndoAndPersistence ...................................   Passed    0.15 sec
+        Start 125: HolePattern.LegacyTwoSlotMetadataRemainsEditable
+125/256 Test #125: HolePattern.LegacyTwoSlotMetadataRemainsEditable .........................................   Passed    0.10 sec
+        Start 126: HolePattern.BlindDimensionsAndUpstreamEditsReflowActiveCount
+126/256 Test #126: HolePattern.BlindDimensionsAndUpstreamEditsReflowActiveCount .............................   Passed    0.06 sec
+        Start 127: HolePattern.RemovedRimDependencyRejectsCountEditAtomically
+127/256 Test #127: HolePattern.RemovedRimDependencyRejectsCountEditAtomically ...............................   Passed    0.17 sec
+        Start 128: Torture10.CutAfterResyncIsExact
+128/256 Test #128: Torture10.CutAfterResyncIsExact ..........................................................   Passed    0.04 sec
+        Start 129: Torture10.TopologySurvivesParentMutations
+129/256 Test #129: Torture10.TopologySurvivesParentMutations ................................................   Passed    0.08 sec
+        Start 130: Torture10.UpstreamEditFailureKeepsTipAtLastGood
+130/256 Test #130: Torture10.UpstreamEditFailureKeepsTipAtLastGood ..........................................   Passed    0.05 sec
+        Start 131: Torture10.SaveOpenPreservesTipAndRefs
+131/256 Test #131: Torture10.SaveOpenPreservesTipAndRefs ....................................................   Passed    0.06 sec
+        Start 132: Torture10.ExtrudeAndSketchMutationsReflow
+132/256 Test #132: Torture10.ExtrudeAndSketchMutationsReflow ................................................   Passed    0.04 sec
+        Start 133: Torture10.SketchGeometryAddRemoveReflowsExtrude
+133/256 Test #133: Torture10.SketchGeometryAddRemoveReflowsExtrude ..........................................   Passed    0.04 sec
+        Start 134: Torture10.CurvedSketchOuterLoopsAndHoleWinding
+134/256 Test #134: Torture10.CurvedSketchOuterLoopsAndHoleWinding ...........................................   Passed    0.05 sec
+        Start 135: Torture10.InsertUpstreamHoleReflowsHistoryUndoAndReopen
+135/256 Test #135: Torture10.InsertUpstreamHoleReflowsHistoryUndoAndReopen ..................................   Passed    0.13 sec
+        Start 136: Torture10.UpstreamInsertionFailureRestoresAllState
+136/256 Test #136: Torture10.UpstreamInsertionFailureRestoresAllState .......................................   Passed    0.09 sec
+        Start 137: Torture10.UpstreamInsertionRejectsIndexedReferencesAndAmbiguousFaces
+137/256 Test #137: Torture10.UpstreamInsertionRejectsIndexedReferencesAndAmbiguousFaces .....................   Passed    0.11 sec
+        Start 138: Torture10.ReferenceMetadata100CyclesAndFailedSave
+138/256 Test #138: Torture10.ReferenceMetadata100CyclesAndFailedSave ........................................   Passed    1.49 sec
+        Start 139: Torture10.SavePublishRetryDecisionSequence
+139/256 Test #139: Torture10.SavePublishRetryDecisionSequence ...............................................   Passed    0.03 sec
+        Start 140: Torture10.WindowsLockedRenameErrorMapping
+140/256 Test #140: Torture10.WindowsLockedRenameErrorMapping ................................................   Passed    0.03 sec
+        Start 141: Torture10.SaveRetriesAfterTransientWindowsTargetLock
+141/256 Test #141: Torture10.SaveRetriesAfterTransientWindowsTargetLock .....................................   Passed    0.16 sec
+        Start 142: Torture10.PersistentWindowsTargetLockFailsAtomically
+142/256 Test #142: Torture10.PersistentWindowsTargetLockFailsAtomically .....................................   Passed    0.26 sec
+        Start 143: Torture10.PermanentWindowsPublishErrorsPreserveState
+143/256 Test #143: Torture10.PermanentWindowsPublishErrorsPreserveState .....................................   Passed    0.05 sec
+        Start 144: Torture10.SaveOpen100Cycles
+144/256 Test #144: Torture10.SaveOpen100Cycles ..............................................................   Passed    4.39 sec
+        Start 145: Torture10.CompletePersistenceSequence100Cycles
+145/256 Test #145: Torture10.CompletePersistenceSequence100Cycles ...........................................   Passed   10.39 sec
+        Start 146: Torture10.GoldenSketchBracketCompleteWorkflow
+146/256 Test #146: Torture10.GoldenSketchBracketCompleteWorkflow ............................................   Passed    0.42 sec
+        Start 147: Torture10.DeleteFeatureDependentsUndoRedoAndPersistence
+147/256 Test #147: Torture10.DeleteFeatureDependentsUndoRedoAndPersistence ..................................   Passed    0.07 sec
+        Start 148: Torture10.StepImportResourceCycles
+148/256 Test #148: Torture10.StepImportResourceCycles .......................................................   Passed    0.16 sec
+        Start 149: Torture10.DocumentOpenClose100Cycles
+149/256 Test #149: Torture10.DocumentOpenClose100Cycles .....................................................   Passed    1.14 sec
+        Start 150: Torture10.BodyCreateDelete1000Cycles
+150/256 Test #150: Torture10.BodyCreateDelete1000Cycles .....................................................   Passed    0.70 sec
+        Start 151: Torture10.DocumentResetReleasesPreviousShape
+151/256 Test #151: Torture10.DocumentResetReleasesPreviousShape .............................................   Passed    0.03 sec
+        Start 152: Torture10.TessellationResourceCycles
+152/256 Test #152: Torture10.TessellationResourceCycles .....................................................   Passed   22.89 sec
+        Start 153: Torture10.UndoRedoInterleaveAndAtomicOverwrite
+153/256 Test #153: Torture10.UndoRedoInterleaveAndAtomicOverwrite ...........................................   Passed    0.11 sec
+        Start 154: Torture10.TessellationBaseline
+154/256 Test #154: Torture10.TessellationBaseline ...........................................................   Passed    0.67 sec
+        Start 155: Torture10.LargeModelSphereTessellation500kAnd1M
+155/256 Test #155: Torture10.LargeModelSphereTessellation500kAnd1M ..........................................   Passed    7.64 sec
+        Start 156: Torture10.HighFeatureCountRecomputeSaveLoadBaseline
+156/256 Test #156: Torture10.HighFeatureCountRecomputeSaveLoadBaseline ......................................   Passed    2.80 sec
+        Start 157: Session11Json.TopLevelFieldsIgnoreNestedMetadataAndDecodeEscapes
+157/256 Test #157: Session11Json.TopLevelFieldsIgnoreNestedMetadataAndDecodeEscapes .........................   Passed    0.03 sec
+        Start 158: Session11Json.DoesNotCoerceScalarsOrAcceptMalformedObjects
+158/256 Test #158: Session11Json.DoesNotCoerceScalarsOrAcceptMalformedObjects ...............................   Passed    0.02 sec
+        Start 159: Session11Json.NestedTransactionCannotJoinAnOpenUnit
+159/256 Test #159: Session11Json.NestedTransactionCannotJoinAnOpenUnit ......................................   Passed    0.03 sec
+        Start 160: Session11Json.InvalidNumbersAndNestedArraysCannotCreateFeatures
+160/256 Test #160: Session11Json.InvalidNumbersAndNestedArraysCannotCreateFeatures ..........................   Passed    0.03 sec
+        Start 161: Session11.SnapshotListsFeaturesWithoutMutating
+161/256 Test #161: Session11.SnapshotListsFeaturesWithoutMutating ...........................................   Passed    0.03 sec
+        Start 162: Session11.TransactionTwoCreatesOneUndo
+162/256 Test #162: Session11.TransactionTwoCreatesOneUndo ...................................................   Passed    0.03 sec
+        Start 163: Session11.TransactionFailureAtomic
+163/256 Test #163: Session11.TransactionFailureAtomic .......................................................   Passed    0.03 sec
+        Start 164: Session11.TransactionOwnerRules
+164/256 Test #164: Session11.TransactionOwnerRules ..........................................................   Passed    0.03 sec
+        Start 165: SessionGeometry.DistanceUsesMinimumBrepDistanceInsteadOfCentroids
+165/256 Test #165: SessionGeometry.DistanceUsesMinimumBrepDistanceInsteadOfCentroids ........................   Passed    0.03 sec
+        Start 166: SessionGeometry.AnalyticAreaRadiusAndTypedSemanticSearch
+166/256 Test #166: SessionGeometry.AnalyticAreaRadiusAndTypedSemanticSearch .................................   Passed    0.03 sec
+        Start 167: SessionGeometry.ModelVolumeCountsOnlyTipsAndDisplayedInstances
+167/256 Test #167: SessionGeometry.ModelVolumeCountsOnlyTipsAndDisplayedInstances ...........................   Passed    0.04 sec
+        Start 168: SessionGeometry.OneBodyTipCountsDisconnectedBrepSolids
+168/256 Test #168: SessionGeometry.OneBodyTipCountsDisconnectedBrepSolids ...................................   Passed    0.03 sec
+        Start 169: SessionGeometry.DuplicateTopologyIsReportedAndNeverSilentlyResolved
+169/256 Test #169: SessionGeometry.DuplicateTopologyIsReportedAndNeverSilentlyResolved ......................   Passed    0.05 sec
+        Start 170: SessionGeometry.BlindHoleRoleCollisionsFailSemanticReferenceValidation
+170/256 Test #170: SessionGeometry.BlindHoleRoleCollisionsFailSemanticReferenceValidation ...................   Passed    0.04 sec
+        Start 171: SessionGeometry.DifferentAnalyticRadiiRequireAnExplicitReference
+171/256 Test #171: SessionGeometry.DifferentAnalyticRadiiRequireAnExplicitReference .........................   Passed    0.04 sec
+        Start 172: SessionGeometry.ValidatesActualTopologyAndRejectsUnknownReferences
+172/256 Test #172: SessionGeometry.ValidatesActualTopologyAndRejectsUnknownReferences .......................   Passed    0.13 sec
+        Start 173: SessionGeometry.GeometryQueriesNeverChangeRevisionOrUndoHistory
+173/256 Test #173: SessionGeometry.GeometryQueriesNeverChangeRevisionOrUndoHistory ..........................   Passed    0.03 sec
+        Start 174: SessionGeometry.ExplicitInvalidScopesNeverFallBackToWholeModel
+174/256 Test #174: SessionGeometry.ExplicitInvalidScopesNeverFallBackToWholeModel ...........................   Passed    0.03 sec
+        Start 175: SessionGeometry.AValidFaceIsNotReportedAsAValidSolidFeature
+175/256 Test #175: SessionGeometry.AValidFaceIsNotReportedAsAValidSolidFeature ..............................   Passed    0.03 sec
+        Start 176: SessionGeometry.ManipulatorUsesStoredSketchFrameRatherThanPlaneKind
+176/256 Test #176: SessionGeometry.ManipulatorUsesStoredSketchFrameRatherThanPlaneKind ......................   Passed    0.03 sec
+        Start 177: SessionGeometry.InstanceDeclaresPositionAndPlanarBasisInCadCoordinates
+177/256 Test #177: SessionGeometry.InstanceDeclaresPositionAndPlanarBasisInCadCoordinates ...................   Passed    0.03 sec
+        Start 178: SessionGeometry.ManipulatorValuesUseCanonicalParameterNamesWithoutClientSlots
+178/256 Test #178: SessionGeometry.ManipulatorValuesUseCanonicalParameterNamesWithoutClientSlots ............   Passed    0.03 sec
+        Start 179: SessionGeometry.ValidReferenceCarriesActualOwnerAndRoleForContextBinding
+179/256 Test #179: SessionGeometry.ValidReferenceCarriesActualOwnerAndRoleForContextBinding .................   Passed    0.12 sec
+        Start 180: SessionGeometry.DatumUuidReferencesPreserveKindAndNeverInventBodyOwnership
+180/256 Test #180: SessionGeometry.DatumUuidReferencesPreserveKindAndNeverInventBodyOwnership ...............   Passed    0.03 sec
+        Start 181: SessionGeometry.DatumAndSupportedSketchValidationIsCompleteAndReadOnly
+181/256 Test #181: SessionGeometry.DatumAndSupportedSketchValidationIsCompleteAndReadOnly ...................   Passed    0.03 sec
+        Start 182: SessionGeometry.DatumSketchSupportRejectsWrongKindMissingAndCorruptDatums
+182/256 Test #182: SessionGeometry.DatumSketchSupportRejectsWrongKindMissingAndCorruptDatums ................   Passed    0.03 sec
+        Start 183: SessionGeometry.DatumReferenceValidationUsesOnlyItsDependencyClosure
+183/256 Test #183: SessionGeometry.DatumReferenceValidationUsesOnlyItsDependencyClosure .....................   Passed    0.03 sec
+        Start 184: SketchJson.StrictModelFieldsIgnoreNestedKeysAndRejectWrongTypes
+184/256 Test #184: SketchJson.StrictModelFieldsIgnoreNestedKeysAndRejectWrongTypes ..........................   Passed    0.02 sec
+        Start 185: SketchJson.FeatureRoundTripsFullFrameAndOpaqueSupportRef
+185/256 Test #185: SketchJson.FeatureRoundTripsFullFrameAndOpaqueSupportRef .................................   Passed    0.03 sec
+        Start 186: SketchJson.MissingLegacyFrameUsesEachPrincipalPlane
+186/256 Test #186: SketchJson.MissingLegacyFrameUsesEachPrincipalPlane ......................................   Passed    0.02 sec
+        Start 187: SketchJson.InvalidPresentFrameFailsWithoutChangingOutput
+187/256 Test #187: SketchJson.InvalidPresentFrameFailsWithoutChangingOutput .................................   Passed    0.02 sec
+        Start 188: SketchPlane.ValidationRequiresFiniteOrthonormalRightHandedFrame
+188/256 Test #188: SketchPlane.ValidationRequiresFiniteOrthonormalRightHandedFrame ..........................   Passed    0.02 sec
+        Start 189: Sketch.ExplicitFrameExtrudesAtStoredOriginAndBasis
+189/256 Test #189: Sketch.ExplicitFrameExtrudesAtStoredOriginAndBasis .......................................   Passed    0.03 sec
+        Start 190: Sketch.InvalidExplicitFrameLeavesDocumentAndUndoUntouched
+190/256 Test #190: Sketch.InvalidExplicitFrameLeavesDocumentAndUndoUntouched ................................   Passed    0.02 sec
+        Start 191: Sketch.DuplicateIdsRejected
+191/256 Test #191: Sketch.DuplicateIdsRejected ..............................................................   Passed    0.02 sec
+        Start 192: Sketch.IdCollisionAcrossStoresRejected
+192/256 Test #192: Sketch.IdCollisionAcrossStoresRejected ...................................................   Passed    0.03 sec
+        Start 193: Sketch.FixedConstraintPinsPoint
+193/256 Test #193: Sketch.FixedConstraintPinsPoint ..........................................................   Passed    0.13 sec
+        Start 194: Sketch.UnknownDragPointRejected
+194/256 Test #194: Sketch.UnknownDragPointRejected ..........................................................   Passed    0.02 sec
+        Start 195: Sketch.ExtrudeRolesStableAcrossDistanceEdit
+195/256 Test #195: Sketch.ExtrudeRolesStableAcrossDistanceEdit ..............................................   Passed    0.13 sec
+        Start 196: Sketch.JsonRoundTrip
+196/256 Test #196: Sketch.JsonRoundTrip .....................................................................   Passed    0.03 sec
+        Start 197: Sketch.CreateSolvesExactly
+197/256 Test #197: Sketch.CreateSolvesExactly ...............................................................   Passed    0.03 sec
+        Start 198: Sketch.ExtrudeGivesExactVolume
+198/256 Test #198: Sketch.ExtrudeGivesExactVolume ...........................................................   Passed    0.13 sec
+        Start 199: Sketch.ExtrudePreservesDisconnectedMaterialRegions
+199/256 Test #199: Sketch.ExtrudePreservesDisconnectedMaterialRegions .......................................   Passed    0.12 sec
+        Start 200: Sketch.OpenProfileRejected
+200/256 Test #200: Sketch.OpenProfileRejected ...............................................................   Passed    0.03 sec
+        Start 201: Sketch.UpdatePropagatesDownstream
+201/256 Test #201: Sketch.UpdatePropagatesDownstream ........................................................   Passed    0.13 sec
+        Start 202: Sketch.ConflictingEditRejectedKeepsOld
+202/256 Test #202: Sketch.ConflictingEditRejectedKeepsOld ...................................................   Passed    0.03 sec
+        Start 203: Sketch.RevolveFullCircleExactVolume
+203/256 Test #203: Sketch.RevolveFullCircleExactVolume ......................................................   Passed    0.03 sec
+        Start 204: Sketch.RevolvePreservesDisconnectedMaterialRegions
+204/256 Test #204: Sketch.RevolvePreservesDisconnectedMaterialRegions .......................................   Passed    0.03 sec
+        Start 205: Sketch.ExtrudePreviewDoesNotCommit
+205/256 Test #205: Sketch.ExtrudePreviewDoesNotCommit .......................................................   Passed    0.04 sec
+        Start 206: Sketch.BodyPreviewCarriesExtrudeAndHoleWithoutChangingSketch
+206/256 Test #206: Sketch.BodyPreviewCarriesExtrudeAndHoleWithoutChangingSketch .............................   Passed    0.06 sec
+        Start 207: Sketch.UndoSketchEditRestoresDownstream
+207/256 Test #207: Sketch.UndoSketchEditRestoresDownstream ..................................................   Passed    0.04 sec
+        Start 208: Sketch.SaveOpenKeepsSketchAndSolid
+208/256 Test #208: Sketch.SaveOpenKeepsSketchAndSolid .......................................................   Passed    0.06 sec
+        Start 209: Sketch.RadiusPreviewReturnsSolvedGeometryWithoutChangingStoredSketch
+209/256 Test #209: Sketch.RadiusPreviewReturnsSolvedGeometryWithoutChangingStoredSketch .....................   Passed    0.03 sec
+        Start 210: Projection.EdgesApplySourceLocationAndTiltedTargetFrame
+210/256 Test #210: Projection.EdgesApplySourceLocationAndTiltedTargetFrame ..................................   Passed    0.02 sec
+        Start 211: Projection.TrimmedObliqueCircleRetainsAnalyticEllipseAndTrim
+211/256 Test #211: Projection.TrimmedObliqueCircleRetainsAnalyticEllipseAndTrim .............................   Passed    0.02 sec
+        Start 212: Projection.SplineProjectionRetainsNativeCurveAndParameterMapping
+212/256 Test #212: Projection.SplineProjectionRetainsNativeCurveAndParameterMapping .........................   Passed    0.02 sec
+        Start 213: Projection.ClosedProjectedLoopRetainsOrientationAndAnalyticArea
+213/256 Test #213: Projection.ClosedProjectedLoopRetainsOrientationAndAnalyticArea ..........................   Passed    0.13 sec
+        Start 214: Projection.TiltedProjectedCircleBuildsExactProfileAndPrismWithoutMutation
+214/256 Test #214: Projection.TiltedProjectedCircleBuildsExactProfileAndPrismWithoutMutation ................   Passed    0.03 sec
+        Start 215: Projection.ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops
+215/256 Test #215: Projection.ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops .......................   Passed    0.03 sec
+        Start 216: Projection.ClosedBSplineProfileRetainsNativeCurve
+216/256 Test #216: Projection.ClosedBSplineProfileRetainsNativeCurve ........................................   Passed    0.03 sec
+        Start 217: Projection.TrimmedBSplineProfileValidatesOnlyUsedSpanPoles
+217/256 Test #217: Projection.TrimmedBSplineProfileValidatesOnlyUsedSpanPoles ...............................   Passed    0.03 sec
+        Start 218: Projection.AmbiguousAndInvalidProfilesFailAtomically
+218/256 Test #218: Projection.AmbiguousAndInvalidProfilesFailAtomically .....................................   Passed    0.03 sec
+        Start 219: Projection.SphereSilhouetteIsTargetPlaneCircleAndRepeatable
+219/256 Test #219: Projection.SphereSilhouetteIsTargetPlaneCircleAndRepeatable ..............................   Passed    0.03 sec
+        Start 220: Projection.ObliqueBoxSilhouetteHasAnalyticAreaWithoutInternalCreases
+220/256 Test #220: Projection.ObliqueBoxSilhouetteHasAnalyticAreaWithoutInternalCreases .....................   Passed    0.05 sec
+        Start 221: Projection.AnnularFaceSilhouettePreservesInnerContour
+221/256 Test #221: Projection.AnnularFaceSilhouettePreservesInnerContour ....................................   Passed    0.03 sec
+        Start 222: Projection.SphereSectionHasAnalyticRadiusInRotatedFrame
+222/256 Test #222: Projection.SphereSectionHasAnalyticRadiusInRotatedFrame ..................................   Passed    0.03 sec
+        Start 223: Projection.SectionPreservesSourceTopologyOnSuccessAndFailure
+223/256 Test #223: Projection.SectionPreservesSourceTopologyOnSuccessAndFailure .............................   Passed    0.03 sec
+        Start 224: Projection.NullMalformedNonfiniteUnboundedAndCollapsedInputsFailAtomically
+224/256 Test #224: Projection.NullMalformedNonfiniteUnboundedAndCollapsedInputsFailAtomically ...............   Passed    0.02 sec
+        Start 225: Projection.DisjointSectionAndNullSilhouetteFailWithoutPublishing
+225/256 Test #225: Projection.DisjointSectionAndNullSilhouetteFailWithoutPublishing .........................   Passed    0.03 sec
+        Start 226: Solids.FuseAddsVolumesMinusOverlap
+226/256 Test #226: Solids.FuseAddsVolumesMinusOverlap .......................................................   Passed    0.04 sec
+        Start 227: Solids.CutSubtractsTool
+227/256 Test #227: Solids.CutSubtractsTool ..................................................................   Passed    0.05 sec
+        Start 228: Solids.HoleThroughExactVolume
+228/256 Test #228: Solids.HoleThroughExactVolume ............................................................   Passed    0.04 sec
+        Start 229: Solids.HoleBlindDepth
+229/256 Test #229: Solids.HoleBlindDepth ....................................................................   Passed    0.14 sec
+        Start 230: Solids.HoleNeedsPlanarFace
+230/256 Test #230: Solids.HoleNeedsPlanarFace ...............................................................   Passed    0.03 sec
+        Start 231: Solids.HoleSurvivesTargetResize
+231/256 Test #231: Solids.HoleSurvivesTargetResize ..........................................................   Passed    0.04 sec
+        Start 232: Solids.HoleDiameterEdit
+232/256 Test #232: Solids.HoleDiameterEdit ..................................................................   Passed    0.04 sec
+        Start 233: Solids.FilletRoundsEdges
+233/256 Test #233: Solids.FilletRoundsEdges .................................................................   Passed    0.05 sec
+        Start 234: Solids.ChamferCutsCorners
+234/256 Test #234: Solids.ChamferCutsCorners ................................................................   Passed    0.03 sec
+        Start 235: Solids.CutToEmptyAndDisjointCommonFailHonestly
+235/256 Test #235: Solids.CutToEmptyAndDisjointCommonFailHonestly ...........................................   Passed    0.04 sec
+        Start 236: Solids.HoleOnExtrudedFace
+236/256 Test #236: Solids.HoleOnExtrudedFace ................................................................   Passed    0.04 sec
+        Start 237: Solids.ChamferRebuildAfterResize
+237/256 Test #237: Solids.ChamferRebuildAfterResize .........................................................   Passed    0.03 sec
+        Start 238: Solids.SaveOpenKeepsHoleAndFillet
+238/256 Test #238: Solids.SaveOpenKeepsHoleAndFillet ........................................................   Passed    0.06 sec
+        Start 239: Solids.BooleanUndoRedo
+239/256 Test #239: Solids.BooleanUndoRedo ...................................................................   Passed    0.06 sec
+        Start 240: Step.ExportImportRoundTrip
+240/256 Test #240: Step.ExportImportRoundTrip ...............................................................   Passed    0.05 sec
+        Start 241: Step.EmptyDocumentExportFailsHonestly
+241/256 Test #241: Step.EmptyDocumentExportFailsHonestly ....................................................   Passed    0.03 sec
+        Start 242: Step.CurrentBodyTipsAndPlacedInstancesRoundTrip
+242/256 Test #242: Step.CurrentBodyTipsAndPlacedInstancesRoundTrip ..........................................   Passed    0.08 sec
+        Start 243: Stl.ExportImportRoundTrip
+243/256 Test #243: Stl.ExportImportRoundTrip ................................................................   Passed    0.04 sec
+        Start 244: Stl.EmptyDocumentExportFailsHonestly
+244/256 Test #244: Stl.EmptyDocumentExportFailsHonestly .....................................................   Passed    0.03 sec
+        Start 245: ThreeMF.ExportImportRoundTrip
+245/256 Test #245: ThreeMF.ExportImportRoundTrip ............................................................   Passed    0.15 sec
+        Start 246: ThreeMF.EmptyDocumentExportFailsHonestly
+246/256 Test #246: ThreeMF.EmptyDocumentExportFailsHonestly .................................................   Passed    0.03 sec
+        Start 247: Solver.RectangleSolvesToExactDimensions
+247/256 Test #247: Solver.RectangleSolvesToExactDimensions ..................................................   Passed    0.02 sec
+        Start 248: Solver.CircleRadiusDimension
+248/256 Test #248: Solver.CircleRadiusDimension .............................................................   Passed    0.02 sec
+        Start 249: Solver.DragTargetMovesSketchRigidly
+249/256 Test #249: Solver.DragTargetMovesSketchRigidly ......................................................   Passed    0.03 sec
+        Start 250: Solver.ConflictingDimensionsDiagnosed
+250/256 Test #250: Solver.ConflictingDimensionsDiagnosed ....................................................   Passed    0.03 sec
+        Start 251: Solver.UnderConstrainedReportsDofs
+251/256 Test #251: Solver.UnderConstrainedReportsDofs .......................................................   Passed    0.02 sec
+        Start 252: Phase10/ManyBodyStepBaseline.SaveReopenAndStepRoundTrip/128
+252/256 Test #252: Phase10/ManyBodyStepBaseline.SaveReopenAndStepRoundTrip/128 ..............................   Passed    1.27 sec
+        Start 253: Phase10/ManyBodyStepBaseline.SaveReopenAndStepRoundTrip/1024
+253/256 Test #253: Phase10/ManyBodyStepBaseline.SaveReopenAndStepRoundTrip/1024 .............................   Passed   10.56 sec
+        Start 254: CrashBarrierControl
+254/256 Test #254: CrashBarrierControl ......................................................................   Passed    0.05 sec
+        Start 255: CrashBarriersDisabledInProduction
+255/256 Test #255: CrashBarriersDisabledInProduction ........................................................   Passed    0.01 sec
+        Start 256: SolverCrashBarrierControl
+256/256 Test #256: SolverCrashBarrierControl ................................................................   Passed    0.02 sec
+
+100% tests passed out of 256
+
+Total Test time (real) =  76.21 sec

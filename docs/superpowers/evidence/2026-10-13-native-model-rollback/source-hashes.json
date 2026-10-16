@@ -1,0 +1,30 @@
+[
+  {
+    "path": "native/kreoda-core/src/document/document_store.cpp",
+    "sha256": "8029a09e3930e0385bdf051e9b96a1e52c7abadb18e6acfb866c1d0ec86db58a"
+  },
+  {
+    "path": "native/kreoda-core/src/features/datum/datum_commands.cpp",
+    "sha256": "96ce79f431f3b403e441c46b20d9e4a000064b9c7eeba41ff2eb566b0bc7d151"
+  },
+  {
+    "path": "native/kreoda-core/src/features/primitives/primitives.cpp",
+    "sha256": "66aa56acf5a5e04c73d559765de33ac654d1a0f44e4076bc8d48002f74f90def"
+  },
+  {
+    "path": "native/kreoda-core/src/features/sketch/sketch_commands.cpp",
+    "sha256": "c600af84d817c57a58803899731ea9a712b79c45d72f553f21013fea16332431"
+  },
+  {
+    "path": "native/kreoda-core/src/protocol/dispatcher.cpp",
+    "sha256": "f89f0dd9e2bb50c8a24155e3d099c4f4e62a7b56d1d103fe831c5627ff75eb85"
+  },
+  {
+    "path": "native/kreoda-core/tests/test_datum.cpp",
+    "sha256": "a82073db0949a4bc3aaaecc329a51267e0e3850558f657ac8869947d077c14fc"
+  },
+  {
+    "path": "native/kreoda-core/src/model/model_snapshot.h",
+    "sha256": "59ac80af099a35b112ae9f93b5459ef12407e1069eba9a8ecec938b68538aa93"
+  }
+]

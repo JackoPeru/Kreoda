@@ -1,0 +1,8 @@
+Versione di MSBuild 17.14.60+43b635718 per .NET Framework
+
+  1>
+  Analisi delle origini per cercare le dipendenze del modulo...
+  planegcs.vcxproj -> C:\Users\matte\Documents\Codex-tools\Native\phase15-projection-kernel-20261015\build\Release\planegcs.lib
+  test_sketch_projection.cpp
+     Creazione della libreria C:/Users/matte/Documents/Codex-tools/Native/phase15-projection-kernel-20261015/build/tests/Release/kreoda-core-tests.lib e dell'oggetto C:/Users/matte/Documents/Codex-tools/Native/phase15-projection-kernel-20261015/build/tests/Release/kreoda-core-tests.exp
+  kreoda-core-tests.vcxproj -> C:\Users\matte\Documents\Codex-tools\Native\phase15-projection-kernel-20261015\build\tests\Release\kreoda-core-tests.exe

@@ -1,0 +1,152 @@
+[
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-mesh-tests-red-explicitrefs-20261005",
+    "directExitCode": 2,
+    "total": "2",
+    "passed": "0",
+    "failed": "2",
+    "resultSha256": "2e9bec7e8be47a0fc051c7392025fa51e14791610015336e161b364e114e8dcb",
+    "testsSha256": "9c3d8a92a61ff69f74203d2054deeb472abd2bd4f9576bb1c88555799f3835ca",
+    "logSha256": "3f5b03ac254a068b220a63b7ba3f3ce7f31eec1ef16d0f5081c6f6a96d6ba66e"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-mesh-tests-green-fakenull-20261005",
+    "directExitCode": 0,
+    "total": "2",
+    "passed": "2",
+    "failed": "0",
+    "resultSha256": "09e60203876c1b6ad7c7a88f5b9b7b89c992a2c3460f187221c7f354a596cec6",
+    "testsSha256": "5a3501eb9b27252cb53bcf8b01d407dd353c42a4c28a8f78e08fe59b858014fd",
+    "logSha256": "0fb01356ac69dc2d8cecc12fc77bdb1e7ea58d8753283a3fd69e96611979315f"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-scene-red-20261005",
+    "directExitCode": 2,
+    "total": "3",
+    "passed": "2",
+    "failed": "1",
+    "resultSha256": "0a7f1f470ec94a518e37c40467f1299e24206760d3da6840561f37de346fe6d0",
+    "testsSha256": "615e6449fa51ad699ca49fef46ff59d252978b821b56083b2ca22d9abd500719",
+    "logSha256": "d709d70673a0ba4dc6786395991813d68a2c035d320f6580414e31b532c7fd60"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-unity-wire-first-20261005",
+    "directExitCode": 0,
+    "total": "4",
+    "passed": "4",
+    "failed": "0",
+    "resultSha256": "983af2d65d2bef5a89353f37352eb04d9cc92bb428effc785027b9dff8ae205b",
+    "testsSha256": "6e72131d4b7004c02db10c397d6dc2a3b8883631fbe9274c3e6d4be644c5a1e9",
+    "logSha256": "0273954915326f865e85d0aa9aa16fc4961389d9fdbe4a6394a04cd7d13ecba2"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-unity-packet3-player-lifecycle-20261005",
+    "directExitCode": 0,
+    "elapsedSeconds": 22.16430163383484,
+    "total": "5",
+    "passed": "5",
+    "failed": "0",
+    "resultSha256": "a202d39692cf90c339085dd5b244394cc24d903a80ad91ac3ac78c06305f9e9f",
+    "testsSha256": "f08aef0f00e4ba918597a978f850992eddf42ca8beeb07776f302af595fc9678",
+    "logSha256": "abdea4261a3a8f6c3bb31a4dc7a27ef3092dae54dd45de6927cb0f0230af4d43"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-packet3-current-20261009",
+    "directExitCode": 0,
+    "elapsedSeconds": 62.34100532531738,
+    "total": "5",
+    "passed": "5",
+    "failed": "0",
+    "resultSha256": "0a4d518b61d01aa0fdf91da14faa2fb574b62ce78a8f3a28007ab307133ed025",
+    "testsSha256": "d1c4913abfe832798253c2b048738c05268486e7b8a4348b633ef2380fab16ae",
+    "logSha256": "4c97f1d1aaacec299ed42251e0ffef0e4206afe9fff0c97651256b1c21503733"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-mr-placement-red-20261009",
+    "directExitCode": 2,
+    "elapsedSeconds": 23.94852328300476,
+    "total": "11",
+    "passed": "5",
+    "failed": "6",
+    "resultSha256": "21620488ece49dcc8fd77bb244e33bb60374c415d49c5e07b10fe1c83fc283f7",
+    "testsSha256": "03028b970fde6f35d6681582bd2adfa80237fc3f0f83f6ed2048dd3d7bdc5b5d",
+    "logSha256": "1522782301c1fe343c21e22f48bd5ded39140f2a3ae1d938ef1c8075de053064"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-mr-scene-red-20261009",
+    "directExitCode": 2,
+    "elapsedSeconds": 35.76315450668335,
+    "total": "11",
+    "passed": "10",
+    "failed": "1",
+    "resultSha256": "47e554d4232deb5302e5d826bb5b9eb5210a78dfa6e710f9884737e312b01a76",
+    "testsSha256": "537fa9a5b332014ffd2a5e593e3ace8cc1b6fada316c544eb21ea2e6bc921a93",
+    "logSha256": "6d57daffd72881db29c9f0e257f974492b2940ce57227a7bec75e3fee2996624"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-mr-controls-green-20261010",
+    "directExitCode": 0,
+    "elapsedSeconds": 58.28813552856445,
+    "total": "11",
+    "passed": "11",
+    "failed": "0",
+    "resultSha256": "10cc3387e8d0d25259cb50cfc19562ebca127544b211972e1380ba88bc83ca55",
+    "testsSha256": "0cca89116976062352a0c14469c9c994cfc2bca43b38870e11c30509e8c37ac5",
+    "logSha256": "a404e22afebb09f23e8430c4d547eff379f822154305a9ba7190a1cb550aeb17"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-initial-union-red-20261010",
+    "directExitCode": 2,
+    "elapsedSeconds": 20.132691860198975,
+    "total": "13",
+    "passed": "12",
+    "failed": "1",
+    "resultSha256": "99a1bd69a25ffc9011155a10276c8bc71959941f8e6fd9fc9d2b3ea50aaf0215",
+    "testsSha256": "aa6560538b56db84a35c21e6d9b776483e3faf610f18240ea453af8ee798474f",
+    "logSha256": "76b15855bb05e6b3460b19763ecf5560f91dc1781f73b1859283abd111db2c8b"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-explicit-initial-anchor-red-20261010",
+    "directExitCode": 2,
+    "elapsedSeconds": 20.204169988632202,
+    "total": "14",
+    "passed": "12",
+    "failed": "2",
+    "resultSha256": "fcf3574b4c7213d5e00a8a9706e3736a374b240fc0bb270a7f0081a96ed557bb",
+    "testsSha256": "1dae262b818042cd429a0db46b93c0d89ebfd47c166b99636630971679cf7f37",
+    "logSha256": "d227a6c19dea07012f6374c79215dfd01658f5a91d058a778c9a0831ffb8feed"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-initial-union-green-20261010",
+    "directExitCode": 0,
+    "elapsedSeconds": 40.67916250228882,
+    "total": "14",
+    "passed": "14",
+    "failed": "0",
+    "resultSha256": "0c379d715ed7c0393490d81fdd25e95ef4d29bffe8e670d8add5d42026fbce77",
+    "testsSha256": "b110a1fa09d2c9782fb19d070ae29ca442627213193c0798d0480cd4c3e1da87",
+    "logSha256": "846bea2eaa8601703b8043efe30152582373b7e6067c9fc080e2fecaeea1d6c5"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-preview-style-red-20261010",
+    "directExitCode": 2,
+    "elapsedSeconds": 17.89902639389038,
+    "total": "15",
+    "passed": "14",
+    "failed": "1",
+    "resultSha256": "16a107b8ce4dbc9adc9a95b4d5409d62a57cde9aec4872f15eb0d214032e3619",
+    "testsSha256": "1ac26eca43240da63d0c631bca078a8aac2bf316ad17d8c29bce82b9abd6a189",
+    "logSha256": "b7bebe37fd237219eb79bb725df5a7fd0d4d63b6226073ab31f3f94ee9c45718"
+  },
+  {
+    "path": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-preview-style-green-20261010",
+    "directExitCode": 0,
+    "elapsedSeconds": 20.4452645778656,
+    "total": "15",
+    "passed": "15",
+    "failed": "0",
+    "resultSha256": "465a19366a22fc75749132c39d046583ca8ad3676086b227a6706166335652c0",
+    "testsSha256": "91e23fee45ca8be46fa2332857933e0c9e7d84175a871cb33c36e66fff04c332",
+    "logSha256": "20e458010e297c98c72474b1fa3e68d3f306cb32030b27bfb3bdea1caeceb4ea"
+  }
+]

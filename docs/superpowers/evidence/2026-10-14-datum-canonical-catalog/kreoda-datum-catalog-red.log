@@ -1,0 +1,53 @@
+
+> @kreoda/command-schema@0.1.0 test C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\command-schema
+> vitest run --passWithNoTests
+
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/packages/command-schema
+
+ ❯ src/native-command.test.ts (9 tests | 2 failed) 25ms
+   × exports datum constructors with one creation and update/query with zero 5ms
+   × validates datum variants, finite bounded input and stable source identities 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/native-command.test.ts > exports datum constructors with one creation and update/query with zero
+TypeError: Cannot convert undefined or null to object
+ ❯ src/native-command.test.ts:13:35
+     11| it("exports datum constructors with one creation and update/query with…
+     12|   for (const id of ["CreateDatumPlane", "CreateDatumAxis", "CreateDatu…
+     13|     expect(commandJsonSchema(id)).toHaveProperty("creation", { fixedCo…
+       |                                   ^
+     14|   for (const id of ["UpdateDatum", "RequestDatum"])
+     15|     expect(commandJsonSchema(id)).toHaveProperty("creation", { fixedCo…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/native-command.test.ts > validates datum variants, finite bounded input and stable source identities
+AssertionError: expected [Function] to not throw an error but 'Error: unsupported CAD command: Creat…' was thrown
+
+- Expected:
+undefined
+
++ Received:
+"Error: unsupported CAD command: CreateDatumPlane"
+
+ ❯ src/native-command.test.ts:36:90
+     34|     ["CreateDatumPoint", point(1, 2, 3)],
+     35|     ["CreateDatumPoint", { type: "midpoint", first: point(0, 0, 0), se…
+     36|   ] as const) expect(() => commandNativeRequest(id, { definition }, "d…
+       |                                                                                          ^
+     37|   for (const definition of [
+     38|     { type: "angle", base: principal, axis: { type: "principal", axis:…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 14 passed (16)
+   Start at  10:25:53
+   Duration  3.83s (transform 3.85s, setup 0ms, import 6.13s, tests 42ms, environment 0ms)
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\command-schema:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @kreoda/command-schema@0.1.0 test: `vitest run --passWithNoTests`
+Exit status 1

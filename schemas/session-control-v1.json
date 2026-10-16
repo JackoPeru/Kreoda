@@ -1,7 +1,18 @@
 {
   "$comment": "Canonical session control contract. Metadata, TypeScript/C# DTOs and standalone runtime validators are generated from this file. Binary meshes remain cad_protocol.fbs.",
   "protocolVersion": 1,
-  "transport": "WebSocket JSON text frames (both directions). No binary frames on this plane.",
+  "limits": {
+    "sessionControlPayloadBytes": 67108864
+  },
+  "transport": "WebSocket JSON text control frames. With binary-mesh-v1, requestMeshLOD sends a JSON identity header followed by the unchanged cad_protocol.fbs MeshUpdate binary frame. With binary-preview-v1, requestPreviewMesh sends a separate candidate identity header then unchanged native MeshUpdate bytes.",
+  "serverCapabilities": [
+    "operation-replay",
+    "incremental-deltas",
+    "binary-mesh-v1",
+    "binary-preview-v1",
+    "context-commands-v1",
+    "sketch-preview-v1"
+  ],
   "envelope": {
     "request": {
       "requestId": "required non-empty string",
@@ -32,7 +43,7 @@
         "deviceName"
       ],
       "optional": [],
-      "reply": "flat {deviceId,credential,sessionToken}; pre-auth only, consumes one-use five-minute token; does not create a connected client",
+      "reply": "flat {deviceId,credential,sessionToken}; pairingToken accepts the eight digit code or legacy opaque token; both share one one-use five-minute window and do not create a connected client",
       "plane": "control",
       "operationReplay": false
     },
@@ -188,6 +199,21 @@
       "operationReplay": false
     },
     {
+      "method": "requestMeshLOD",
+      "required": [
+        "bodyId",
+        "quality",
+        "documentId",
+        "expectedRevision"
+      ],
+      "optional": [
+        "instanceId"
+      ],
+      "reply": "JSON {result:{nativeRequestId,sessionId,documentId,revision,bodyId,featureId,tipId,quality,byteLength,instanceId?}} immediately followed by the exact native MeshUpdate binary frame",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
       "method": "getFeatures",
       "required": [],
       "optional": [
@@ -259,9 +285,10 @@
         "ids"
       ],
       "optional": [
-        "publish"
+        "publish",
+        "baseRevision"
       ],
-      "reply": "{result:{clientId, ids}} + selection broadcast; selection broadcast only when publish is explicitly true",
+      "reply": "{result:{clientId, ids}} + selection broadcast; publish must be explicitly true; optional baseRevision fences the model used for picking",
       "plane": "query",
       "operationReplay": true
     },
@@ -465,8 +492,13 @@
     {
       "method": "listCommands",
       "required": [],
-      "optional": [],
-      "reply": "{result:{commands[{id, label, description, supportsPreview}]}}",
+      "optional": [
+        "documentId",
+        "selectionIds",
+        "expectedRevision",
+        "beginnerMode"
+      ],
+      "reply": "{result:{documentId,revision?,contextValid,commands[{id,label,description,supportsPreview,available,reason?}]}}",
       "plane": "query",
       "operationReplay": false
     },
@@ -496,9 +528,13 @@
       ],
       "optional": [
         "valueMm",
-        "expression"
+        "expression",
+        "bodyId",
+        "targetTipId",
+        "previewValues",
+        "expectedRevision"
       ],
-      "reply": "{result:{previewId, triangles, volumeMm3, bboxMm, revision}}",
+      "reply": "{result:{previewId,generation,triangles,volumeMm3,bboxMm,revision}}",
       "plane": "query",
       "operationReplay": true
     },
@@ -509,7 +545,8 @@
       ],
       "optional": [
         "valueMm",
-        "expression"
+        "expression",
+        "previewValues"
       ],
       "reply": "{result:{previewId, ...}}",
       "plane": "query",
@@ -534,6 +571,57 @@
       "reply": "{result:{previewId, cancelled:true}}",
       "plane": "query",
       "operationReplay": true
+    },
+    {
+      "method": "requestPreviewMesh",
+      "required": [
+        "previewId",
+        "generation",
+        "documentId",
+        "expectedRevision"
+      ],
+      "optional": [],
+      "reply": "Separate PreviewMeshHeader followed immediately by unchanged candidate MeshUpdate binary; never a committed model update",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "previewSketch",
+      "required": [
+        "featureId",
+        "model",
+        "expectedRevision"
+      ],
+      "optional": [
+        "documentId"
+      ],
+      "reply": "{result:{preview:true,sketch,revision,solved,residual,dofs}}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getDatum",
+      "required": [
+        "featureId"
+      ],
+      "optional": [],
+      "reply": "{result:datum}",
+      "plane": "query",
+      "operationReplay": false
+    },
+    {
+      "method": "getSketchProjection",
+      "required": [
+        "featureId"
+      ],
+      "optional": [
+        "documentId",
+        "groupId",
+        "expectedRevision"
+      ],
+      "reply": "{result:SketchProjectionResult,sessionId,documentId,revision}; expectedRevision is checked by the session inside the ordered native38 read",
+      "plane": "query",
+      "operationReplay": false
     }
   ],
   "wireErrorCodes": [
@@ -701,6 +789,112 @@
       },
       "required": [],
       "additionalProperties": true
+    },
+    "RequestMeshLODParams": {
+      "type": "object",
+      "properties": {
+        "bodyId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "quality": {
+          "type": "integer",
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "instanceId": {
+          "$ref": "#/definitions/StableFeatureId"
+        }
+      },
+      "required": [
+        "bodyId",
+        "quality",
+        "documentId",
+        "expectedRevision"
+      ],
+      "additionalProperties": false
+    },
+    "MeshHeader": {
+      "type": "object",
+      "properties": {
+        "nativeRequestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "bodyId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "tipId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "instanceId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "quality": {
+          "type": "integer",
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "byteLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        }
+      },
+      "required": [
+        "nativeRequestId",
+        "sessionId",
+        "documentId",
+        "revision",
+        "bodyId",
+        "featureId",
+        "tipId",
+        "quality",
+        "byteLength"
+      ],
+      "additionalProperties": false
+    },
+    "MeshReply": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "$ref": "#/definitions/MeshHeader"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "additionalProperties": false
     },
     "InvokeParams": {
       "type": "object",
@@ -947,6 +1141,22 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "geometryCurrent": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "error": {
+          "type": "string"
+        },
+        "blockingSourceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
         }
       },
       "required": [
@@ -969,8 +1179,7 @@
           "minLength": 1
         },
         "plane": {
-          "type": "object",
-          "additionalProperties": true
+          "$ref": "#/definitions/SketchPlaneFrame"
         },
         "supportRef": {
           "type": "string"
@@ -978,12 +1187,400 @@
         "model": {
           "type": "object",
           "additionalProperties": true
+        },
+        "projectionGroups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SketchProjectionGroupSummary"
+          },
+          "maxItems": 128
+        },
+        "geometryCurrent": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "error": {
+          "type": "string"
+        },
+        "blockingSourceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
         }
       },
       "required": [
         "featureId"
       ],
       "additionalProperties": true
+    },
+    "SketchProjectionSource": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "edge"
+            },
+            "featureId": {
+              "$ref": "#/definitions/StableFeatureId"
+            },
+            "persistentEdgeId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "maxUtf8Bytes": 512
+            }
+          },
+          "required": [
+            "type",
+            "featureId",
+            "persistentEdgeId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "shape"
+            },
+            "featureId": {
+              "$ref": "#/definitions/StableFeatureId"
+            }
+          },
+          "required": [
+            "type",
+            "featureId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "sketchEntities"
+            },
+            "featureId": {
+              "$ref": "#/definitions/StableFeatureId"
+            },
+            "entityIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "maxUtf8Bytes": 512
+              },
+              "minItems": 1,
+              "maxItems": 128,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "type",
+            "featureId",
+            "entityIds"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SketchProjectionDefinition": {
+      "type": "object",
+      "maxJsonUtf8Bytes": 65536,
+      "properties": {
+        "version": {
+          "type": "number",
+          "const": 1
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "projectEdges",
+            "silhouette",
+            "section"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SketchProjectionSource"
+          },
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "version",
+        "operation",
+        "sources"
+      ],
+      "additionalProperties": false
+    },
+    "SketchProjectionGroupSummary": {
+      "type": "object",
+      "properties": {
+        "groupId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "definition": {
+          "$ref": "#/definitions/SketchProjectionDefinition"
+        },
+        "sourceFeatureIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "broken"
+          ]
+        },
+        "error": {
+          "type": "string"
+        },
+        "blockingSourceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "groupId",
+        "definition",
+        "sourceFeatureIds",
+        "status",
+        "error",
+        "blockingSourceIds",
+        "generation"
+      ],
+      "additionalProperties": false
+    },
+    "SketchProjectionPointMm": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "SketchProjectionDisplayEdge": {
+      "type": "object",
+      "properties": {
+        "memberIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "curveType": {
+          "type": "string",
+          "enum": [
+            "line",
+            "circle",
+            "ellipse",
+            "hyperbola",
+            "parabola",
+            "bezier",
+            "bspline",
+            "offset",
+            "other"
+          ]
+        },
+        "firstParameter": {
+          "type": "number"
+        },
+        "lastParameter": {
+          "type": "number"
+        },
+        "closed": {
+          "type": "boolean"
+        },
+        "pointsMm": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SketchProjectionPointMm"
+          },
+          "minItems": 2,
+          "maxItems": 129
+        }
+      },
+      "required": [
+        "memberIndex",
+        "curveType",
+        "firstParameter",
+        "lastParameter",
+        "closed",
+        "pointsMm"
+      ],
+      "additionalProperties": false
+    },
+    "SketchProjectionGroupResult": {
+      "type": "object",
+      "properties": {
+        "groupId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "definition": {
+          "$ref": "#/definitions/SketchProjectionDefinition"
+        },
+        "sourceFeatureIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "broken"
+          ]
+        },
+        "error": {
+          "type": "string"
+        },
+        "blockingSourceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SketchProjectionDisplayEdge"
+          },
+          "maxItems": 2000
+        }
+      },
+      "required": [
+        "groupId",
+        "definition",
+        "sourceFeatureIds",
+        "status",
+        "error",
+        "blockingSourceIds",
+        "generation",
+        "edges"
+      ],
+      "additionalProperties": false
+    },
+    "SketchProjectionResult": {
+      "type": "object",
+      "properties": {
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "plane": {
+          "$ref": "#/definitions/SketchPlaneFrame"
+        },
+        "geometryCurrent": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "error": {
+          "type": "string"
+        },
+        "blockingSourceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SketchProjectionGroupResult"
+          },
+          "maxItems": 128
+        }
+      },
+      "required": [
+        "featureId",
+        "plane",
+        "geometryCurrent",
+        "status",
+        "error",
+        "blockingSourceIds",
+        "groups"
+      ],
+      "additionalProperties": false
+    },
+    "GetSketchProjectionParams": {
+      "type": "object",
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "groupId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "featureId"
+      ],
+      "additionalProperties": false
+    },
+    "GetSketchProjectionPayload": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "result": {
+          "$ref": "#/definitions/SketchProjectionResult"
+        }
+      },
+      "required": [
+        "sessionId",
+        "documentId",
+        "revision",
+        "result"
+      ],
+      "additionalProperties": false
     },
     "BodyDescriptor": {
       "type": "object",
@@ -1050,6 +1647,12 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "datums": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DatumDescriptor"
+          }
         }
       },
       "required": [
@@ -1070,7 +1673,8 @@
           "enum": [
             "feature",
             "sketch",
-            "body"
+            "body",
+            "datum"
           ]
         },
         "id": {
@@ -1232,6 +1836,19 @@
           "type": "string",
           "minLength": 1
         },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
         "ids": {
           "type": "array",
           "items": {
@@ -1272,7 +1889,7 @@
       "properties": {
         "pairingToken": {
           "type": "string",
-          "pattern": "^[A-Za-z0-9_-]{43}$"
+          "pattern": "^(?:[A-Za-z0-9_-]{43}|[0-9]{8})$"
         },
         "deviceName": {
           "type": "string",
@@ -1451,6 +2068,1812 @@
         "transactionState"
       ],
       "additionalProperties": true
+    },
+    "RequestPreviewMeshParams": {
+      "type": "object",
+      "properties": {
+        "previewId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "previewId",
+        "generation",
+        "documentId",
+        "expectedRevision"
+      ],
+      "additionalProperties": false
+    },
+    "PreviewMeshHeader": {
+      "type": "object",
+      "properties": {
+        "nativeRequestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bodyId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "quality": {
+          "type": "integer",
+          "enum": [
+            0
+          ]
+        },
+        "byteLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "baseRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "previewId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "paramName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "targetTipId": {
+          "$ref": "#/definitions/StableFeatureId"
+        }
+      },
+      "required": [
+        "nativeRequestId",
+        "sessionId",
+        "documentId",
+        "bodyId",
+        "featureId",
+        "quality",
+        "byteLength",
+        "baseRevision",
+        "previewId",
+        "generation",
+        "paramName",
+        "targetTipId"
+      ],
+      "additionalProperties": false
+    },
+    "ContextCommandInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "supportsPreview": {
+          "type": "boolean"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "boundParameters": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "description",
+        "supportsPreview",
+        "available",
+        "boundParameters"
+      ],
+      "additionalProperties": true
+    },
+    "ContextCommandsPayload": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "contextValid": {
+          "type": "boolean"
+        },
+        "commands": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/definitions/ContextCommandInfo"
+          }
+        }
+      },
+      "required": [
+        "sessionId",
+        "documentId",
+        "revision",
+        "contextValid",
+        "commands"
+      ],
+      "additionalProperties": true
+    },
+    "ContextCommandsParams": {
+      "type": "object",
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "selectionIds": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "beginnerMode": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "documentId",
+        "selectionIds",
+        "expectedRevision"
+      ],
+      "additionalProperties": true
+    },
+    "DatumPlaneDefinition": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "principal"
+            },
+            "planeKind": {
+              "type": "string",
+              "enum": [
+                "XY",
+                "XZ",
+                "YZ"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "planeKind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "offset"
+            },
+            "base": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "offsetMm": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            }
+          },
+          "required": [
+            "type",
+            "base",
+            "offsetMm"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "mid"
+            },
+            "first": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "second": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "first",
+            "second"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "angle"
+            },
+            "base": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "axis": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "axis": {
+                      "type": "string",
+                      "enum": [
+                        "X",
+                        "Y",
+                        "Z"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "axis"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "edge"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentEdgeId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentEdgeId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "angleDeg": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+            }
+          },
+          "required": [
+            "type",
+            "base",
+            "axis",
+            "angleDeg"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "threePoint"
+            },
+            "first": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "second": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "third": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "first",
+            "second",
+            "third"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DatumAxisDefinition": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "twoPoint"
+            },
+            "first": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "second": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "first",
+            "second"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "planeNormal"
+            },
+            "plane": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "through": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "plane"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "planeIntersection"
+            },
+            "first": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "second": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "principal"
+                    },
+                    "planeKind": {
+                      "type": "string",
+                      "enum": [
+                        "XY",
+                        "XZ",
+                        "YZ"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "planeKind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "face"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "persistentFaceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "selectionEntry": {
+                      "type": "string",
+                      "maxLength": 128,
+                      "pattern": "^\\d+(?::\\d+)+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId",
+                    "persistentFaceId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "first",
+            "second"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DatumPointDefinition": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "coordinates"
+            },
+            "positionMm": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": [
+                {
+                  "type": "number",
+                  "minimum": -1000000,
+                  "maximum": 1000000
+                },
+                {
+                  "type": "number",
+                  "minimum": -1000000,
+                  "maximum": 1000000
+                },
+                {
+                  "type": "number",
+                  "minimum": -1000000,
+                  "maximum": 1000000
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "positionMm"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "midpoint"
+            },
+            "first": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "second": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "coordinates"
+                    },
+                    "positionMm": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": [
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -1000000,
+                          "maximum": 1000000
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "positionMm"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datum"
+                    },
+                    "featureId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "featureId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "first",
+            "second"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SketchPlaneFrame": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "xAxis": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "yAxis": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "normal": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "origin",
+        "xAxis",
+        "yAxis",
+        "normal"
+      ],
+      "additionalProperties": false
+    },
+    "DatumPlaneGeometry": {
+      "type": "object",
+      "properties": {
+        "originMm": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "xAxis": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "yAxis": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "normal": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "originMm",
+        "xAxis",
+        "yAxis",
+        "normal"
+      ],
+      "additionalProperties": false
+    },
+    "DatumAxisGeometry": {
+      "type": "object",
+      "properties": {
+        "originMm": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "direction": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "originMm",
+        "direction"
+      ],
+      "additionalProperties": false
+    },
+    "DatumPointGeometry": {
+      "type": "object",
+      "properties": {
+        "positionMm": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "positionMm"
+      ],
+      "additionalProperties": false
+    },
+    "DatumPlaneDescriptor": {
+      "type": "object",
+      "properties": {
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DatumPlane"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "DatumPlane"
+          ]
+        },
+        "definition": {
+          "$ref": "#/definitions/DatumPlaneDefinition"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
+        },
+        "resolved": {
+          "$ref": "#/definitions/DatumPlaneGeometry"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "broken",
+            "error"
+          ]
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "featureId",
+        "kind",
+        "definition",
+        "dependsOn",
+        "resolved",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    "DatumAxisDescriptor": {
+      "type": "object",
+      "properties": {
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DatumAxis"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "DatumAxis"
+          ]
+        },
+        "definition": {
+          "$ref": "#/definitions/DatumAxisDefinition"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
+        },
+        "resolved": {
+          "$ref": "#/definitions/DatumAxisGeometry"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "broken",
+            "error"
+          ]
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "featureId",
+        "kind",
+        "definition",
+        "dependsOn",
+        "resolved",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    "DatumPointDescriptor": {
+      "type": "object",
+      "properties": {
+        "featureId": {
+          "$ref": "#/definitions/StableFeatureId"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DatumPoint"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "DatumPoint"
+          ]
+        },
+        "definition": {
+          "$ref": "#/definitions/DatumPointDefinition"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StableFeatureId"
+          }
+        },
+        "resolved": {
+          "$ref": "#/definitions/DatumPointGeometry"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "broken",
+            "error"
+          ]
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "featureId",
+        "kind",
+        "definition",
+        "dependsOn",
+        "resolved",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    "DatumDescriptor": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/DatumPlaneDescriptor"
+        },
+        {
+          "$ref": "#/definitions/DatumAxisDescriptor"
+        },
+        {
+          "$ref": "#/definitions/DatumPointDescriptor"
+        }
+      ]
     }
   }
 }

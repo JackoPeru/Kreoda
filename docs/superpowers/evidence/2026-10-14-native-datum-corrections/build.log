@@ -1,0 +1,19 @@
+Versione di MSBuild 17.14.60+43b635718 per .NET Framework
+
+  1>
+  kreoda-crash-barrier-tests.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\tests\Release\kreoda-crash-barrier-tests.exe
+  kreoda-crash-barrier-disabled-tests.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\tests\Release\kreoda-crash-barrier-disabled-tests.exe
+  Analisi delle origini per cercare le dipendenze del modulo...
+  planegcs.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\Release\planegcs.lib
+  ocaf_live.cpp
+  ocaf_live.cpp
+  kreoda-solver-crash-control.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\tests\Release\kreoda-solver-crash-control.exe
+C:\Users\matte\Desktop\Saas\Kreoda\Kreoda\native\kreoda-core\build\vcpkg_installed\x64-windows\include\opencascade\TopTools_IndexedMapOfShape.hxx(28): warning : TopTools_IndexedMapOfShape.hxx is deprecated since OCCT 8.0.0. Use NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> directly. [C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\tests\kreoda-core-tests.vcxproj]
+C:\Users\matte\Desktop\Saas\Kreoda\Kreoda\native\kreoda-core\build\vcpkg_installed\x64-windows\include\opencascade\TopTools_IndexedMapOfShape.hxx(28): warning : TopTools_IndexedMapOfShape.hxx is deprecated since OCCT 8.0.0. Use NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> directly. [C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\kreoda-core.vcxproj]
+  test_datum.cpp
+     Creazione della libreria C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build/Release/kreoda-core.lib e dell'oggetto C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build/Release/kreoda-core.exp
+  kreoda-core.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\Release\kreoda-core.exe
+    Staging release MSVC runtime DLLs beside kreoda-core
+  Generazione del codice in corso...
+     Creazione della libreria C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build/tests/Release/kreoda-core-tests.lib e dell'oggetto C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build/tests/Release/kreoda-core-tests.exp
+  kreoda-core-tests.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\tests\Release\kreoda-core-tests.exe

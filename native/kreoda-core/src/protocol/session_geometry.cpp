@@ -1,14 +1,19 @@
 #include "protocol/session_geometry.h"
+#include "features/datum/datum_json.h"
+#include "persistence/ocaf_live.h"
 #include "document/document_store.h"
 #include "exchange/sew.h"
 #include "features/sketch/sketch_store.h"
 #include "features/hole/hole.h"
 #include "model/body.h"
 #include "model/shapes.h"
+#include "model/geometry_availability.h"
 #include "topology/face_roles.h"
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <set>
+#include <stdexcept>
 
 #if KREODA_WITH_OCCT
 #include <BRepAdaptor_Curve.hxx>
@@ -126,9 +131,18 @@ std::vector<Entity> edges(const ShapeRecord& rec) {
 }
 ShapeRecord record(const std::string& id) {
   ShapeRecord rec;
-  if(ShapeStore::instance().get(id,&rec) && !rec.shape.IsNull()) return rec;
+  std::string geometryError;
+  if (ShapeStore::instance().contains(id)) {
+    if (!GetCurrentShapeRecord(id, &rec, &geometryError))
+      fail("GEOMETRY_UNAVAILABLE", geometryError);
+    if (!rec.shape.IsNull()) return rec;
+  }
   BodyRecord b;
-  if(BodyStore::instance().get(id,&b) && ShapeStore::instance().get(b.tipFeatureId,&rec) && !rec.shape.IsNull()) return rec;
+  if (BodyStore::instance().get(id, &b)) {
+    if (!GetCurrentShapeRecord(b.tipFeatureId, &rec, &geometryError))
+      fail("GEOMETRY_UNAVAILABLE", geometryError);
+    if (!rec.shape.IsNull()) return rec;
+  }
   fail("NOT_FOUND","unknown solid feature or body "+id);
 }
 Entity resolve(const std::string& id) {
@@ -235,11 +249,80 @@ gp_Vec direction(const Entity& e) {
   if(!key)fail("NOT_IMPLEMENTED","angle requires an analytic plane normal, straight edge or rotational axis");
   const auto& a=e.summary[key];return gp_Vec(a[0].get<double>(),a[1].get<double>(),a[2].get<double>());
 }
+void collectDatumReferences(const Json& value,std::set<std::string>* ids,int depth=0) {
+  if(depth>64)throw std::runtime_error("datum definition nesting is too deep");
+  if(value.is_object()) {
+    if(value.value("type",std::string())=="datum"&&value.contains("featureId")&&value["featureId"].is_string())
+      ids->insert(value["featureId"].get<std::string>());
+    for(const auto& item:value.items())collectDatumReferences(item.value(),ids,depth+1);
+  } else if(value.is_array())for(const auto& item:value)collectDatumReferences(item,ids,depth+1);
+}
+bool validateDatumRecords(const std::vector<DatumRecord>& records,
+                          const std::vector<ShapeRecord>& shapes,
+                          const std::vector<SketchFeature>& sketches,
+                          std::vector<DatumRecord>* validated,
+                          std::string* error,
+                          const std::string& onlyFeatureId="") {
+  try {
+    if(!validated)throw std::runtime_error("validated datum output is required");
+    std::vector<DatumRecord> selected;
+    if(onlyFeatureId.empty())selected=records;
+    else {
+      std::vector<std::string> pending{onlyFeatureId};std::set<std::string> included;
+      while(!pending.empty()) {
+        const auto id=std::move(pending.back());pending.pop_back();
+        if(!included.insert(id).second)continue;
+        const auto found=std::find_if(records.begin(),records.end(),[&](const DatumRecord& record){return record.featureId==id;});
+        if(found==records.end()) {
+          if(id==onlyFeatureId)throw std::runtime_error("native datum not found: "+id);
+          continue;
+        }
+        if(std::find_if(std::next(found),records.end(),[&](const DatumRecord& record){return record.featureId==id;})!=records.end())
+          throw std::runtime_error("duplicate native datum feature id: "+id);
+        selected.push_back(*found);
+        std::set<std::string> dependencies;
+        collectDatumReferences(Json::parse(found->definitionJson),&dependencies);
+        pending.insert(pending.end(),dependencies.begin(),dependencies.end());
+      }
+    }
+    std::vector<std::string> definitions;
+    definitions.reserve(selected.size());
+    for(const auto& record:selected) {
+      if(record.status!="ok"||!record.error.empty()) {
+        if(error)*error="broken native datum "+record.featureId+": "+record.error;
+        return false;
+      }
+      definitions.push_back(SerializeDatumDefinition(record));
+    }
+    if(!ParseDatumDefinitions(definitions,shapes,sketches,validated,error,OcafLive::instance().DatumSourceResolver()))return false;
+    for(const auto& record:selected) {
+      const auto canonical=std::find_if(validated->begin(),validated->end(),[&](const DatumRecord& item){return item.featureId==record.featureId;});
+      if(canonical==validated->end()||Json::parse(SerializeDatumRecord(*canonical))!=Json::parse(SerializeDatumRecord(record))) {
+        if(error)*error="native datum record differs from its validated definition: "+record.featureId;
+        return false;
+      }
+    }
+    return true;
+  } catch(const std::exception& failure) {
+    if(error)*error=failure.what();
+    return false;
+  }
+}
 Json referenceCheck(const std::string& id) {
   try {
-    if(SketchStore::instance().contains(id))return {{"id",id},{"ok",true},{"kind","sketch"}};
+    if(SketchStore::instance().contains(id))return {{"id",id},{"ok",true},{"kind","sketch"},{"owner",id}};
+    DatumRecord datum;
+    if(DatumStore::instance().get(id,&datum)) {
+      if(datum.status!="ok"||!datum.error.empty())return {{"id",id},{"ok",false},{"errorCode","BROKEN_REFERENCE"},{"detail","native datum is not healthy"}};
+      std::vector<DatumRecord> validated;std::string error;
+      if(!validateDatumRecords(DatumStore::instance().listInOrder(),ShapeStore::instance().listInOrder(),{},&validated,&error,id))
+        return {{"id",id},{"ok",false},{"errorCode","INVALID_REFERENCE"},{"detail",error}};
+      const char* kind=datum.kind==DatumKind::Plane?"datumPlane":datum.kind==DatumKind::Axis?"datumAxis":"datumPoint";
+      return {{"id",id},{"ok",true},{"kind",kind},{"owner",datum.featureId}};
+    }
     const auto e=resolve(id);
-    return {{"id",id},{"ok",true},{"kind",e.kind},{"confidence",e.summary.value("confidence",1.0)}};
+    return {{"id",id},{"ok",true},{"kind",e.kind},{"confidence",e.summary.value("confidence",1.0)},
+            {"owner",e.owner.featureId},{"ownerBody",bodyId(e.owner)},{"role",e.role}};
   } catch(const SessionQueryError& e) {return {{"id",id},{"ok",false},{"errorCode",e.code},{"detail",e.what()}};}
 }
 Json manipulators(const Json& p) {
@@ -287,8 +370,23 @@ Json manipulators(const Json& p) {
   else if(rec.type=="Chamfer")add("distance","linear","distanceMm","mm");
   else if(rec.type=="Instance"&&values.size()==6) {
     const Json position=Json::array({values[0],values[1],values[2]});
-    out.push_back({{"id","position"},{"type","position"},{"parameters",{"txMm","tyMm","tzMm"}},{"origin",position},{"unit","mm"}});
-    out.push_back({{"id","rotation"},{"type","angular"},{"parameters",{"rxDeg","ryDeg","rzDeg"}},{"origin",position},{"unit","deg"},{"rotationConvention","extrinsic-ZYX"}});
+    const Json basis=Json::array({{1,0,0},{0,1,0},{0,0,1}});
+    out.push_back({{"id","position"},{"type","position"},{"parameters",{"txMm","tyMm","tzMm"}},{"origin",position},{"unit","mm"},{"basis",basis}});
+    out.push_back({{"id","position-xy"},{"type","planar"},{"parameters",{"txMm","tyMm"}},{"origin",position},{"unit","mm"},
+      {"xAxis",{1,0,0}},{"yAxis",{0,1,0}},{"normal",{0,0,1}}});
+    out.push_back({{"id","rotation"},{"type","angular"},{"parameters",{"rxDeg","ryDeg","rzDeg"}},{"origin",position},{"unit","deg"},{"basis",basis},{"rotationConvention","extrinsic-ZYX"}});
+  }
+  const auto names=DescribeParams(rec.type);
+  for(auto& manip:out) {
+    Json current=Json::object();
+    const Json parameters=manip.contains("parameters")?manip["parameters"]:Json::array({manip["parameter"]});
+    for(const auto& name:parameters) {
+      const auto found=std::find(names.begin(),names.end(),name.get<std::string>());
+      if(found==names.end()||static_cast<std::size_t>(found-names.begin())>=values.size())
+        fail("QUERY_FAILED","manipulator parameter has no canonical value");
+      current[name.get<std::string>()]=values[found-names.begin()];
+    }
+    manip["currentValues"]=std::move(current);
   }
   return {{"featureId",rec.featureId},{"manipulators",out}};
 }
@@ -304,11 +402,14 @@ Json validate(const std::string& method,const Json& p) {
   }
   std::vector<ShapeRecord> recs;
   std::vector<SketchFeature> sketches;
+  std::vector<DatumRecord> datums;
+  std::string datumScopeId;
   if(method=="validateDocument") {
-    recs=ShapeStore::instance().listInOrder();sketches=SketchStore::instance().listInOrder();
+    recs=ShapeStore::instance().listInOrder();sketches=SketchStore::instance().listInOrder();datums=DatumStore::instance().listInOrder();
   } else if(method=="validateFeature") {
-    const auto id=string(p,"featureId",true);SketchFeature sketch;
-    if(SketchStore::instance().get(id,&sketch))sketches.push_back(sketch);else recs.push_back(record(id));
+    const auto id=string(p,"featureId",true);SketchFeature sketch;DatumRecord datum;
+    if(DatumStore::instance().get(id,&datum)){datums=DatumStore::instance().listInOrder();datumScopeId=id;}
+    else if(SketchStore::instance().get(id,&sketch))sketches.push_back(sketch);else recs.push_back(record(id));
   } else {
     const auto id=string(p,"bodyId",true);BodyRecord body;
     if(!BodyStore::instance().get(id,&body))fail("NOT_FOUND","unknown body "+id);
@@ -316,6 +417,17 @@ Json validate(const std::string& method,const Json& p) {
   }
   Json checks=Json::array();bool valid=true;
   auto check=[&](std::string code,std::string detail,bool ok) {checks.push_back({{"code",code},{"detail",detail},{"ok",ok}});valid=valid&&ok;};
+  if(!datums.empty()) {
+    std::vector<DatumRecord> validated;std::string error;
+    const bool datumRecordsValid=validateDatumRecords(datums,ShapeStore::instance().listInOrder(),
+        datumScopeId.empty()?SketchStore::instance().listInOrder():std::vector<SketchFeature>{},&validated,&error,datumScopeId);
+    for(const auto& datum:datums) {
+      if(!datumScopeId.empty()&&datum.featureId!=datumScopeId)continue;
+      const bool present=std::any_of(validated.begin(),validated.end(),[&](const DatumRecord& item){return item.featureId==datum.featureId;});
+      check("datum-definition-valid",datum.featureId,datumRecordsValid&&present);
+    }
+    if(!datumRecordsValid&&!datums.empty())check("datum-validation-detail",error,false);
+  }
   for(const auto& rec:recs) {
     check("brep-valid",rec.featureId,!rec.shape.IsNull()&&BRepCheck_Analyzer(rec.shape,true).IsValid());
     check("solid-present",rec.featureId,!rec.shape.IsNull()&&TopExp_Explorer(rec.shape,TopAbs_SOLID).More());
@@ -341,7 +453,11 @@ Json validate(const std::string& method,const Json& p) {
     }
   }
   for(const auto& sketch:sketches) {
-    if(!sketch.supportRef.empty())check("sketch-support-resolves",sketch.id,referenceCheck(sketch.supportRef)["ok"].get<bool>());
+    if(sketch.planeKind=="Datum"||!sketch.supportRef.empty()) {
+      const auto support=sketch.supportRef.empty()?Json{{"ok",false}}:referenceCheck(sketch.supportRef);
+      const bool isDatumPlane=support.value("ok",false)&&support.contains("kind")&&support["kind"]=="datumPlane";
+      check("sketch-support-is-datum-plane",sketch.id+" -> "+sketch.supportRef,sketch.planeKind=="Datum"&&isDatumPlane);
+    }
     check("sketch-points-finite",sketch.id,std::all_of(sketch.model.points.begin(),sketch.model.points.end(),[](const auto& point){return std::isfinite(point.x)&&std::isfinite(point.y);}));
   }
   return {{"valid",valid},{"checks",checks},{"scope","kernel"}};
@@ -351,8 +467,17 @@ Json validate(const std::string& method,const Json& p) {
 
 Json RunSessionGeometryQuery(const std::string& method,const Json& p) {
   if(!p.is_object())fail("BAD_PARAMS","query params must be an object");
+#if !KREODA_WITH_OCCT
+  (void)method;
+#endif
 #if KREODA_WITH_OCCT
   try {
+    if(method=="getDatum") {
+      const auto id=string(p,"featureId",true);DatumRecord datum;
+      if(!ShapeStore::ValidFeatureId(id))fail("BAD_PARAMS","invalid featureId");
+      if(!DatumStore::instance().get(id,&datum))fail("NOT_FOUND",id);
+      return Json::parse(SerializeDatumRecord(datum));
+    }
     if(method=="findFaces"||method=="findEdges")return find(method,p);
     if(method=="getManipulators")return manipulators(p);
     if(method=="validateDocument"||method=="validateBody"||method=="validateFeature"||method=="validateReferences")return validate(method,p);
@@ -392,7 +517,12 @@ Json RunSessionGeometryQuery(const std::string& method,const Json& p) {
         else BRepGProp::SurfaceProperties(shape,props,false,false);
       }
       Json result={{method=="measureArea"?"areaMm2":"volumeMm3",empty?0:props.Mass()},{"basis","brep"}};
-      if(method=="getBoundingBox")result["bboxMm"]=bounds(shape);
+      if(method=="getBoundingBox") {
+        result["bboxMm"]=bounds(shape);
+        int solidCount=0;
+        for(TopExp_Explorer ex(shape,TopAbs_SOLID);ex.More();ex.Next())++solidCount;
+        result["solidCount"]=solidCount;
+      }
       bool selected=false;
       for(const auto key:{"featureId","bodyId","referenceId","ownerBody"})if(p.contains(key)){result[key]=p[key];selected=true;}
       result["modelScope"]=selected?"selected-entity":"current-body-tips-and-displayed-instances";

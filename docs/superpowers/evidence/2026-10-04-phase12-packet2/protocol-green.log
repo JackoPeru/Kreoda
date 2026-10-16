@@ -1,0 +1,8 @@
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/packages/protocol
+
+
+ Test Files  2 passed (2)
+      Tests  30 passed (30)
+   Start at  21:23:47
+   Duration  999ms (transform 560ms, setup 0ms, import 1.01s, tests 29ms, environment 0ms)

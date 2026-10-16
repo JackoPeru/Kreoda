@@ -1,6 +1,7 @@
 #include "mesh.h"
 #include "mesh_parameters.h"
 #include "diagnostics/crash_barrier.h"
+#include "model/geometry_availability.h"
 
 #include <cmath>
 
@@ -117,17 +118,29 @@ void appendFaceTriangles(CoreMesh& mesh, const TopoDS_Face& face,
 CoreMesh TessellateFeature(const std::string& featureId, int lod,
                            std::string* error) {
   ShapeRecord rec;
-  if (!ShapeStore::instance().get(featureId, &rec)) {
-    if (error) *error = "unknown feature " + featureId;
+  if (!GetCurrentShapeRecord(featureId, &rec, error)) {
     return {};
   }
   return TessellateRecord(rec, lod, error);
 }
 
-CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
-                          std::string* error) {
+static CoreMesh TessellateRecordImpl(const ShapeRecord& rec, int lod,
+                                     std::string* error,
+                                     bool validateCurrent) {
   const std::string& featureId = rec.featureId;
 #if KREODA_WITH_OCCT
+  if (validateCurrent && ShapeStore::instance().contains(rec.featureId)) {
+    ShapeRecord current;
+    if (!GetCurrentShapeRecord(rec.featureId, &current, error)) return {};
+    if (!current.shape.IsSame(rec.shape)) {
+      if (error) *error = "stale native record geometry for " + rec.featureId;
+      return {};
+    }
+  } else if (validateCurrent) {
+    for (const auto& dependency : rec.dependsOn) {
+      if (!EnsureGeometryAvailable(dependency, error)) return {};
+    }
+  }
   if (rec.shape.IsNull()) {
     if (error) *error = "feature has no B-Rep shape";
     return {};
@@ -203,6 +216,7 @@ CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
 #else
   // Stub: exact box only (cylinder/sphere need OCCT).
   (void)lod;
+  (void)validateCurrent;
   if (rec.type != "Box" || rec.paramsMm.size() != 3) {
     if (error) *error = "stub core tessellates Box only (link OCCT)";
     return {};
@@ -224,6 +238,19 @@ CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
   }
   return mesh;
 #endif
+}
+
+CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
+                          std::string* error) {
+  return TessellateRecordImpl(rec, lod, error, true);
+}
+
+// Internal preview geometry is intentionally a candidate shape with the
+// owner's existing featureId. The live direct-record API keeps its stale
+// geometry guard; previews validate their dependency chain before calling here.
+CoreMesh TessellatePreviewRecord(const ShapeRecord& rec, int lod,
+                                std::string* error) {
+  return TessellateRecordImpl(rec, lod, error, false);
 }
 
 }  // namespace kreoda

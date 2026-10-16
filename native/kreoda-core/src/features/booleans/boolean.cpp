@@ -2,6 +2,7 @@
 
 #include "document/document_store.h"
 #include "model/commit.h"
+#include "model/geometry_availability.h"
 #include "model/feature_graph.h"
 #include "model/shapes.h"
 #include "features/sketch/sketch_store.h"
@@ -32,6 +33,8 @@ const char* OpType(const std::string& op) {
   if (op == "common") return "Intersect";
   return nullptr;
 }
+
+}  // namespace
 
 bool BuildBooleanShape(const std::string& op, const TopoDS_Shape& target,
                        const TopoDS_Shape& tool, TopoDS_Shape* out,
@@ -107,8 +110,6 @@ bool BuildBooleanShape(const std::string& op, const TopoDS_Shape& target,
   }
 }
 
-}  // namespace
-
 bool CreateBooleanFeature(const std::string& featureId, const std::string& op,
                           const std::string& targetId,
                           const std::string& toolId, std::string* error) {
@@ -126,11 +127,13 @@ bool CreateBooleanFeature(const std::string& featureId, const std::string& op,
   }
   if (!CheckNewId(featureId, error)) return false;
   ShapeRecord target, tool;
-  if (!ShapeStore::instance().get(targetId, &target) || target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(targetId, &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) *error = "unknown target " + targetId;
     return false;
   }
-  if (!ShapeStore::instance().get(toolId, &tool) || tool.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(toolId, &tool, error)) return false;
+  if (tool.shape.IsNull()) {
     if (error) *error = "unknown tool " + toolId;
     return false;
   }
@@ -163,15 +166,15 @@ bool RebuildBooleanFromStore(const std::string& featureId,
     return false;
   }
   ShapeRecord target, tool;
-  if (!ShapeStore::instance().get(rec.dependsOn[0], &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(rec.dependsOn[0], &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) {
       *error = "boolean input vanished (needs repair): " + rec.dependsOn[0];
     }
     return false;
   }
-  if (!ShapeStore::instance().get(rec.dependsOn[1], &tool) ||
-      tool.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(rec.dependsOn[1], &tool, error)) return false;
+  if (tool.shape.IsNull()) {
     if (error) {
       *error = "boolean input vanished (needs repair): " + rec.dependsOn[1];
     }

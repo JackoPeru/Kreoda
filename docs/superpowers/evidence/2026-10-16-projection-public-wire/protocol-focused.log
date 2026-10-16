@@ -1,0 +1,12 @@
+
+> @kreoda/protocol@0.1.0 test C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol
+> vitest run
+
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/packages/protocol
+
+
+ Test Files  5 passed (5)
+      Tests  54 passed (54)
+   Start at  10:30:46
+   Duration  1.61s (transform 2.93s, setup 0ms, import 4.59s, tests 76ms, environment 1ms)

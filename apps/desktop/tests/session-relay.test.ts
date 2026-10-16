@@ -3,10 +3,10 @@
 // fencing, delta broadcast. The sidecar is stubbed at the framed-bytes
 // boundary with canned core JSON responses.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createServer } from "node:net";
 import { WebSocket } from "ws";
-import { SessionRelay } from "../electron/session";
+import { SessionRelay, serializeSessionControlReply } from "../electron/session";
 import {
   QUERY_METHODS,
 } from "../electron/session-queries";
@@ -16,8 +16,12 @@ import {
   SESSION_CONTROL_METHODS,
 } from "@kreoda/protocol";
 import type { SidecarManager } from "../electron/sidecar";
-import { frameMessage, SessionInfoPayloadSchema } from "@kreoda/protocol";
+import { decodeMeshUpdateFb, frameMessage, SessionInfoPayloadSchema } from "@kreoda/protocol";
 import { SessionClient } from "../e2e/ws-test-client";
+import * as flatbuffers from "flatbuffers";
+import { MeshUpdate } from "../../../packages/protocol/src/generated/kreoda/protocol/mesh-update.js";
+import { FaceRange } from "../../../packages/protocol/src/generated/kreoda/protocol/face-range.js";
+import { EdgeRange } from "../../../packages/protocol/src/generated/kreoda/protocol/edge-range.js";
 
 const TOKEN = "unit-token";
 const LOGICAL_CLIENT_ID = "client-550e8400-e29b-41d4-a716-446655440000";
@@ -57,12 +61,15 @@ interface StoredFeature {
   dependsOn: string[];
   refExtra: string;
   expressions: Record<string, string>;
+  suppressed?: boolean;
 }
 
 /** Canned core: boxes + snapshot + undo, with a revision counter. */
 function fakeSidecar(options: {
   beforeInvoke?: (type: number) => void | Promise<void>;
   geometryReply?: Record<string, unknown>;
+  projectionReply?: Record<string, unknown>;
+  previewPaddingBytes?: number;
 } = {}) {
   const features = new Map<string, StoredFeature>();
   let revision = 0;
@@ -73,6 +80,7 @@ function fakeSidecar(options: {
   let txnBaseline: Set<string> | null = null;
   const calls: number[] = [];
   const envelopeTexts: string[] = [];
+  const meshFrames: Uint8Array[] = [];
   const b64 = (a: Float32Array | Uint32Array): string =>
     Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString("base64");
   // Two-quad box mesh (top +Z / bottom -Z) for the given owner id.
@@ -114,6 +122,32 @@ function fakeSidecar(options: {
       }),
     );
   };
+  const meshUpdateBytes = (requestId: string, featureId: string, w: number, h: number, z: number, lod: number): Uint8Array => {
+    const builder = new flatbuffers.Builder(1024);
+    const fid = builder.createString(featureId);
+    const rid = builder.createString(requestId);
+    const positions = new Float32Array([0, 0, z, w, 0, z, w, h, z, 0, h, z, 0, 0, 0, w, 0, 0, w, h, 0, 0, h, 0]);
+    const normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1]);
+    const indices = new Uint32Array([0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6]);
+    const floats = (values: Float32Array) => new Uint8Array(values.buffer);
+    const pos = MeshUpdate.createPositionsVector(builder, floats(positions));
+    const nrm = MeshUpdate.createNormalsVector(builder, floats(normals));
+    const idx = MeshUpdate.createIndicesVector(builder, new Uint8Array(indices.buffer));
+    const edgeVertices = MeshUpdate.createEdgeVerticesVector(builder, new Uint8Array(0));
+    const faceOffsets = [
+      FaceRange.createFaceRange(builder, builder.createString(`${featureId}:box.+Z`), 0, 2),
+      FaceRange.createFaceRange(builder, builder.createString(`${featureId}:box.-Z`), 2, 2),
+    ];
+    const faces = MeshUpdate.createFacesVector(builder, faceOffsets);
+    const edges = MeshUpdate.createEdgesVector(builder, [] as ReturnType<typeof EdgeRange.createEdgeRange>[]);
+    const bbox = MeshUpdate.createBboxMmVector(builder, [0, 0, 0, w, h, z]);
+    const update = MeshUpdate.createMeshUpdate(
+      builder, fid, fid, lod, rid, positions.length, normals.length, indices.length,
+      pos, nrm, idx, edgeVertices, faces, edges, w * h * z, bbox, BigInt(revision),
+    );
+    builder.finish(update);
+    return builder.asUint8Array();
+  };
   const invoke = async (frame: Uint8Array): Promise<Uint8Array> => {
     const envelopeText = new TextDecoder().decode(frame.slice(4));
     envelopeTexts.push(envelopeText);
@@ -127,6 +161,10 @@ function fakeSidecar(options: {
       heightMm?: number;
       depthMm?: number;
       isPreview?: boolean;
+      paramName?: string;
+      valueMm?: number;
+      previewValues?: Record<string, number>;
+      parameterValues?: Record<string, number>;
       transactionId?: string;
       method?: string;
       params?: Record<string, unknown>;
@@ -137,6 +175,7 @@ function fakeSidecar(options: {
       // Joined steps (27-29 control excluded) must carry the open unit id.
       if (
         openTxn &&
+        envelope.type !== 12 &&
         envelope.type !== 27 &&
         envelope.type !== 28 &&
         envelope.type !== 29 &&
@@ -176,6 +215,13 @@ function fakeSidecar(options: {
     if (envelope.type === 2) {
       features.clear();revision = 0;
       return respond({ status: "ok", documentId: envelope.documentId, revision });
+    }
+    if (envelope.type === 38) {
+      return respond(options.projectionReply ?? {
+        status: "ok", documentId: "doc-bootstrap", revision,
+        projection: { featureId: "target", plane: { origin: [0, 0, 0], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] },
+          geometryCurrent: true, status: "ok", error: "", blockingSourceIds: [], groups: [] },
+      });
     }
     if (envelope.type === 30) {
       // Canned wire fixtures only. Accurate geometry is tested in OCCT.
@@ -226,7 +272,9 @@ function fakeSidecar(options: {
         });
       }
       const [w, h, d] = [rec.paramsMm[0] ?? 10, rec.paramsMm[1] ?? 10, rec.paramsMm[2] ?? 10];
-      return meshBytes(envelope.requestId, rec.featureId, w, h, d);
+      const raw = meshUpdateBytes(envelope.requestId, rec.featureId, w, h, d, Number((envelope as { lod?: number }).lod ?? 1));
+      meshFrames.push(raw);
+      return raw;
     }
     if (envelope.type === 23) {
       const rec = envelope.featureId ? features.get(envelope.featureId) : undefined;
@@ -256,7 +304,20 @@ function fakeSidecar(options: {
         });
       }
       const [w, h, d] = [rec.paramsMm[0] ?? 10, rec.paramsMm[1] ?? 10, rec.paramsMm[2] ?? 10];
-      return meshBytes(envelope.requestId, rec.featureId, w, h, d);
+      const draft = [w, h, d];
+      const slot = ["widthMm", "heightMm", "depthMm"].indexOf(envelope.paramName ?? "");
+      if (slot >= 0 && typeof envelope.valueMm === "number") draft[slot] = envelope.valueMm;
+      for (const [name, value] of Object.entries(envelope.previewValues ?? {})) {
+        const index = ["widthMm", "heightMm", "depthMm"].indexOf(name);
+        if (index < 0) return respond({ status: "error", errorCode: "PREVIEW_FAILED", errorMessage: "unknown parameter" });
+        draft[index] = value;
+      }
+      let raw = meshUpdateBytes(envelope.requestId, rec.featureId, draft[0]!, draft[1]!, draft[2]!, 0);
+      if (options.previewPaddingBytes) {
+        const padded = new Uint8Array(options.previewPaddingBytes);padded.set(raw);raw = padded;
+      }
+      meshFrames.push(raw);
+      return raw;
     }
     if (envelope.type === 3) {
       const fence = fenced();
@@ -277,6 +338,15 @@ function fakeSidecar(options: {
     if (envelope.type === 6) {
       const fence = fenced();
       if (fence) return respond(fence);
+      const record = envelope.featureId ? features.get(envelope.featureId) : undefined;
+      if (record) {
+        const params = [...record.paramsMm];
+        for (const [name, value] of Object.entries({ [envelope.paramName ?? ""]: envelope.valueMm, ...(envelope.parameterValues ?? {}) })) {
+          const index = ["widthMm", "heightMm", "depthMm"].indexOf(name);
+          if (index >= 0 && typeof value === "number") params[index] = value;
+        }
+        record.paramsMm = params;
+      }
       revision += 1;
       return respond({
         status: "ok",
@@ -366,6 +436,12 @@ function fakeSidecar(options: {
         revision,
       });
     }
+    if (envelope.type === 36 || envelope.type === 37) {
+      const fence = fenced();
+      if (fence) return respond(fence);
+      revision += 1;
+      return respond({ status: "ok", revision });
+    }
     return respond({
       status: "error",
       errorCode: "UNKNOWN_COMMAND",
@@ -376,15 +452,103 @@ function fakeSidecar(options: {
     manager: { invoke } as unknown as SidecarManager,
     calls,
     envelopeTexts,
+    meshFrames,
     features: () => [...features.values()],
+    seedFeatures: (records: StoredFeature[], nextRevision: number) => {
+      features.clear();
+      for (const record of records) features.set(record.featureId, { ...record });
+      revision = nextRevision;
+    },
   };
 }
 
 describe("SessionRelay", () => {
+  it("returns an explicit error when serialized control output exceeds 64 MiB", () => {
+    const encoded = serializeSessionControlReply("large-reply", true, {
+      result: { value: "x".repeat(64 * 1024 * 1024) },
+    });
+    expect(encoded.ok).toBe(false);
+    expect(encoded.payload).toMatchObject({ errorCode: "MESSAGE_TOO_LARGE" });
+    expect(Buffer.byteLength(encoded.text)).toBeLessThan(64 * 1024 * 1024);
+  });
+
+  it("keeps native projection type 38 ordered and read-only across local, integer, named, and semantic requests", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const owner = new SessionClient();
+    const peer = new SessionClient();
+    const localRequest = { protocolVersion: 1, requestId: "local-projection", documentId: "doc-phase1", type: 38, featureId: "target" };
+    try {
+      const local = JSON.parse(new TextDecoder().decode(await relay.invokeLocal(
+        frameMessage(new TextEncoder().encode(JSON.stringify(localRequest)))))) as Record<string, unknown>;
+      expect(local).toMatchObject({ status: "ok", revision: 0, documentId: "doc-phase1", projection: { featureId: "target" } });
+
+      const ownerHello = await owner.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      await peer.connect(TOKEN, port, "client-660e8400-e29b-41d4-a716-446655440000");
+      const baseline = relay as unknown as { revisionCache: number | null; committedBaseline: unknown; lastBroadcastRevision: number | null };
+      const beforeReads = { revisionCache: baseline.revisionCache, committedBaseline: baseline.committedBaseline,
+        lastBroadcastRevision: baseline.lastBroadcastRevision };
+      const integer = await owner.call("invoke", {
+        type: 38, fields: { featureId: "target" }, documentId: "doc-phase1", baseRevision: 0,
+      });
+      expect(integer).toMatchObject({ ok: true, revision: 0, documentId: "doc-phase1", projection: { featureId: "target" } });
+      const named = await peer.call("command", {
+        commandId: "RequestSketchProjection", parameters: { featureId: "target" }, documentId: "doc-phase1", baseRevision: 0,
+      });
+      expect(named).toMatchObject({ ok: true, revision: 0, projection: { featureId: "target" } });
+      expect(fake.calls.filter(type => type === 38)).toHaveLength(3);
+      expect(baseline.revisionCache).toBe(beforeReads.revisionCache);
+      expect(baseline.committedBaseline).toBe(beforeReads.committedBaseline);
+      expect(baseline.lastBroadcastRevision).toBe(beforeReads.lastBroadcastRevision);
+
+      const definition = { version: 1, operation: "projectEdges", sources: [
+        { type: "sketchEntities", featureId: "source", entityIds: ["circle"] },
+      ] };
+      const set = await owner.call("command", { commandId: "SetSketchProjection", documentId: "doc-phase1", baseRevision: 0,
+        parameters: { featureId: "target", groupId: "linked", definition } });
+      expect(set).toMatchObject({ ok: true, revision: 1 });
+      expect(baseline).toMatchObject({ revisionCache: 1, lastBroadcastRevision: 1 });
+      const projectionRequests = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+        .filter(envelope => [36, 37, 38].includes(envelope["type"] as number));
+      expect(projectionRequests.length).toBeGreaterThan(0);
+      for (const envelope of projectionRequests) expect(envelope).not.toHaveProperty("isPreview");
+
+      const beforeProjectionCount = fake.calls.filter(type => type === 38).length;
+      const txnId = "77777777-7777-4777-8777-777777777777";
+      await owner.call("txnBegin", { transactionId: txnId, documentId: "doc-phase1" });
+      const baselineAtTxnRead = baseline.committedBaseline;
+      await expect(peer.call("getSketchProjection", { featureId: "target", expectedRevision: 1 }))
+        .rejects.toMatchObject({ code: "BUSY" });
+      await expect(peer.call("invoke", { type: 38, fields: { featureId: "target" }, documentId: "doc-phase1", baseRevision: 1 }))
+        .rejects.toMatchObject({ code: "BUSY" });
+      const localDuringForeignTxn = JSON.parse(new TextDecoder().decode(await relay.invokeLocal(
+        frameMessage(new TextEncoder().encode(JSON.stringify({ ...localRequest, requestId: "local-busy" })))))) as Record<string, unknown>;
+      expect(localDuringForeignTxn).toMatchObject({ status: "error", errorCode: "BUSY" });
+      const ownerRead = await owner.call("getSketchProjection", { featureId: "target", expectedRevision: 1 });
+      expect(ownerRead).toMatchObject({ ok: true, result: { featureId: "target" }, revision: 1 });
+      expect(fake.calls.filter(type => type === 38)).toHaveLength(beforeProjectionCount + 1);
+      expect(baseline.committedBaseline).toBe(baselineAtTxnRead);
+      expect(baseline).toMatchObject({ revisionCache: 1, lastBroadcastRevision: 1 });
+
+      await owner.call("txnRollback", { transactionId: txnId, documentId: "doc-phase1" });
+      const removed = await owner.call("command", { commandId: "RemoveSketchProjection", documentId: "doc-phase1", baseRevision: 1,
+        parameters: { featureId: "target", groupId: "linked" } });
+      expect(removed).toMatchObject({ ok: true, revision: 2 });
+      expect(fake.calls.filter(type => type === 37)).toHaveLength(1);
+      expect(fake.calls.filter(type => type === 36)).toHaveLength(1);
+      expect(ownerHello["sessionId"]).toBeTruthy();
+    } finally { owner.closeRaw(); peer.closeRaw(); relay.stop(); }
+  });
+
   const localFrame = (type: number, fields: Record<string, unknown> = {}, documentId = "doc-phase1") =>
     frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1, requestId: "desktop-request", documentId, type, ...fields })));
-  const local = async (relay: SessionRelay, type: number, fields: Record<string, unknown> = {}, documentId = "doc-phase1") =>
-    JSON.parse(new TextDecoder().decode(await relay.invokeLocal(localFrame(type, fields, documentId)))) as Record<string, unknown>;
+  const local = async (relay: SessionRelay, type: number, fields: Record<string, unknown> = {}, documentId = "doc-phase1") => {
+    const raw = await relay.invokeLocal(localFrame(type, fields, documentId));
+    return raw[0] === 0x7b ? JSON.parse(new TextDecoder().decode(raw)) as Record<string, unknown>
+      : { status: "ok", ...decodeMeshUpdateFb(raw) };
+  };
 
   it("routes Desktop commits through the authoritative delta queue without a listener", async () => {
     const fake = fakeSidecar();const events: unknown[] = [];
@@ -441,7 +605,7 @@ describe("SessionRelay", () => {
       if (order === "update then commit") expect(result["ok"]).toBe(true);
       else expect(result).toMatchObject({ errorCode: "NOT_FOUND" });
       const committed = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
-        .filter(envelope => envelope["type"] === 6 && envelope["isPreview"] === false);
+        .filter(envelope => envelope["type"] === 6 && !Object.hasOwn(envelope, "isPreview"));
       expect(committed).toHaveLength(1);
       expect(committed[0]).toMatchObject({ valueMm: order === "update then commit" ? 30 : 20 });
       await expect(client.call("previewCommit", { previewId })).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -534,18 +698,54 @@ describe("SessionRelay", () => {
   });
 
   it("keeps selection private unless explicitly published", async () => {
-    const fake = fakeSidecar();const port = await freePort();const relay = new SessionRelay(() => fake.manager);
+    const published: unknown[] = [];
+    const fake = fakeSidecar();const port = await freePort();const relay = new SessionRelay(() => fake.manager,
+      undefined, undefined, event => published.push(event));
     const client = new SessionClient();const other = new SessionClient();relay.start({ port, host: "127.0.0.1", token: TOKEN });
     try {
       const hello = await client.connect(TOKEN, port);await other.connect(TOKEN, port);
       await local(relay, 3, { featureId: "selected", widthMm: 10, heightMm: 10, depthMm: 10 });
       await client.call("setSelection", { ids: ["selected"] });
+      expect(published).toHaveLength(0);
       expect(client.events.filter(event => event["event"] === "selection")).toHaveLength(0);
       expect((await other.call("getSelection", { clientId: hello["clientId"] }))["result"]).toMatchObject({ ids: [] });
       await client.call("setSelection", { ids: ["selected"], publish: true });
       expect(client.events.filter(event => event["event"] === "selection")).toHaveLength(1);
+      expect(published).toEqual([expect.objectContaining({ event: "selection", clientId: hello["clientId"],
+        ids: ["selected"], documentId: "doc-phase1", revision: 1, sessionId: expect.any(String) })]);
       expect((await other.call("getSelection", { clientId: hello["clientId"] }))["result"]).toMatchObject({ ids: ["selected"] });
+      await local(relay, 6, { featureId: "selected", paramName: "widthMm", valueMm: 11 });
+      expect(published.at(-1)).toMatchObject({ clientId: hello["clientId"], ids: [], revision: 2 });
+      expect((await other.call("getSelection", { clientId: hello["clientId"] }))["result"]).toMatchObject({ ids: [] });
+      expect((await client.call("getSelection", {}))["result"]).toMatchObject({ ids: ["selected"] });
+      await expect(client.call("setSelection", { ids: ["selected"], publish: true, baseRevision: 1 }))
+        .rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      expect(published.at(-1)).toMatchObject({ ids: [] });
+      await expect(client.call("setSelection", { ids: ["selected"], publish: true, baseRevision: -1 }))
+        .rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await client.call("setSelection", { ids: ["selected"], publish: true });
+      client.closeRaw();
+      await vi.waitFor(() => expect(published.at(-1)).toMatchObject({ clientId: hello["clientId"], ids: [] }));
     } finally { client.closeRaw();other.closeRaw();relay.stop(); }
+  });
+
+  it("rejects an overlapping logical connection without clearing the current shared target", async () => {
+    const published: unknown[] = [];
+    const fake = fakeSidecar(); const port = await freePort();
+    const relay = new SessionRelay(() => fake.manager, undefined, undefined, event => published.push(event));
+    const first = new SessionClient(); const replacement = new SessionClient(); const observer = new SessionClient();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      const hello = await first.connect(TOKEN, port, LOGICAL_CLIENT_ID);
+      await observer.connect(TOKEN, port);
+      await local(relay, 3, { featureId: "shared", widthMm: 10, heightMm: 10, depthMm: 10 });
+      await first.call("setSelection", { ids: ["shared"], publish: true });
+      await expect(replacement.connect(TOKEN, port, LOGICAL_CLIENT_ID)).rejects.toMatchObject({ code: "CONFLICT" });
+      expect((await observer.call("getSelection", { clientId: hello["clientId"] }))["result"]).toMatchObject({ ids: ["shared"] });
+      expect(published.at(-1)).toMatchObject({ ids: ["shared"] });
+      await first.closed();
+      await vi.waitFor(() => expect(published.at(-1)).toMatchObject({ ids: [] }));
+    } finally { first.closeRaw(); replacement.closeRaw(); observer.closeRaw(); relay.stop(); }
   });
 
   it("releases failed previews and rejects malformed Desktop framing before native dispatch", async () => {
@@ -621,6 +821,42 @@ describe("SessionRelay", () => {
     expect(relay.clientCount).toBe(0);
   });
 
+  it("preserves native datum definitions and resolved frames in local recovery snapshots", async () => {
+    const datum = { featureId: "plane", type: "DatumPlane", kind: "DatumPlane", definition: { type: "principal", planeKind: "XY" },
+      dependsOn: [], resolved: { originMm: [10, 20, 30], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] }, status: "ok", error: "" };
+    const manager = { invoke: async (frame: Uint8Array) => {
+      const request = JSON.parse(new TextDecoder().decode(frame.slice(4))) as { requestId: string };
+      return new TextEncoder().encode(JSON.stringify({ status: "ok", requestId: request.requestId, revision: 0, features: [], sketches: [], datums: [datum] }));
+    } } as unknown as SidecarManager;
+    const relay = new SessionRelay(() => manager);
+    const snapshot = await relay.localSnapshot();
+    expect(snapshot.datums).toEqual([datum]);expect(snapshot.features).toEqual([]);expect(snapshot.bodies).toEqual([]);
+  });
+
+  it("publishes datum create/edit/Undo patches without native mesh requests", async () => {
+    const prototype = { featureId: "plane", type: "DatumPlane", kind: "DatumPlane", definition: { type: "principal", planeKind: "XY" },
+      dependsOn: [], resolved: { originMm: [0, 0, 0], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] }, status: "ok", error: "" };
+    let datums: typeof prototype[] = [];let revision = 0;const calls: number[] = [];const events: unknown[] = [];
+    const manager = { invoke: async (frame: Uint8Array) => {
+      const request = JSON.parse(new TextDecoder().decode(frame.slice(4))) as { requestId: string; type: number };
+      calls.push(request.type);
+      if(request.type === 31){datums = [{ ...prototype }];revision++;}
+      if(request.type === 6){datums = [{ ...prototype, resolved: { ...prototype.resolved, originMm: [0, 0, 10] } }];revision++;}
+      if(request.type === 8){datums = [];revision++;}
+      return new TextEncoder().encode(JSON.stringify({ status: "ok", requestId: request.requestId, revision, features: [], sketches: [], datums }));
+    } } as unknown as SidecarManager;
+    const relay = new SessionRelay(() => manager, delta => events.push(delta));
+    const invoke = (type: number, fields: Record<string, unknown>) => relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1, requestId: `datum-${type}`, documentId: "doc-phase1", type, ...fields }))));
+    await invoke(31, { featureId: "plane", definition: prototype.definition });
+    await invoke(6, { featureId: "plane", paramName: "offsetMm", valueMm: 10 });
+    await invoke(8, {});
+    expect(events).toHaveLength(3);
+    expect(events[0]).toMatchObject({ added: [{ kind: "datum", id: "plane", value: prototype }], changedMeshIds: [] });
+    expect(events[1]).toMatchObject({ updated: [{ kind: "datum", id: "plane", value: { resolved: { originMm: [0, 0, 10] } } }], changedMeshIds: [] });
+    expect(events[2]).toMatchObject({ removedIds: ["plane"], changedMeshIds: [] });
+    expect(calls).not.toContain(12);expect((await relay.localSnapshot()).datums).toEqual([]);
+  });
+
   it("blocks local recovery while a remote transaction owns uncommitted state", async () => {
     const fake = fakeSidecar();
     const port = await freePort();
@@ -669,7 +905,7 @@ describe("SessionRelay", () => {
       expect(envelopeText.indexOf('"documentId":"doc-phase1"')).toBeLessThan(envelopeText.indexOf('"type":3'));
       expect(envelopeText.indexOf('"type":3')).toBeLessThan(envelopeText.indexOf('"transactionId":""'));
       expect(envelopeText.indexOf('"transactionId":""')).toBeLessThan(envelopeText.indexOf('"featureId":"lexical-box"'));
-      expect(envelopeText.indexOf('"isPreview":false')).toBeLessThan(envelopeText.indexOf('"featureId":"lexical-box"'));
+      expect(envelope).not.toHaveProperty("isPreview");
       expect(fake.calls.filter((type) => type === 3)).toHaveLength(1);
       expect(fake.calls.filter((type) => type === 28)).toHaveLength(0);
     } finally {
@@ -798,6 +1034,10 @@ describe("SessionRelay", () => {
       expect(hello["capabilities"]).toEqual([
         "operation-replay",
         "incremental-deltas",
+        "binary-mesh-v1",
+        "binary-preview-v1",
+        "context-commands-v1",
+        "sketch-preview-v1",
       ]);
     } finally {
       client.closeRaw();
@@ -1611,6 +1851,528 @@ describe("SessionRelay", () => {
   });
 });
 
+type RelayFrame = { data: Buffer; isBinary: boolean };
+type RelayFrameQueue = { frames: RelayFrame[]; waiters: { resolve: (frame: RelayFrame) => void; reject: (error: Error) => void }[]; error: Error | null };
+const relayFrameQueues = new WeakMap<WebSocket, RelayFrameQueue>();
+
+function trackRelayFrames(ws: WebSocket): void {
+  if (relayFrameQueues.has(ws)) return;
+  const queue: RelayFrameQueue = { frames: [], waiters: [], error: null };
+  relayFrameQueues.set(ws, queue);
+  ws.on("message", (data, isBinary) => {
+    const bytes = Buffer.isBuffer(data) ? data : data instanceof ArrayBuffer ? Buffer.from(data) : Buffer.concat(data);
+    const frame = { data: bytes, isBinary };
+    const waiter = queue.waiters.shift();
+    if (waiter) waiter.resolve(frame);
+    else queue.frames.push(frame);
+  });
+  const fail = (error: Error) => {
+    queue.error = error;
+    for (const waiter of queue.waiters.splice(0)) waiter.reject(error);
+  };
+  ws.on("error", fail);
+  ws.on("close", () => fail(new Error("relay socket closed before frame")));
+}
+
+function receiveRelayFrame(ws: WebSocket, timeoutMs = 5000): Promise<RelayFrame> {
+  trackRelayFrames(ws);
+  const queue = relayFrameQueues.get(ws)!;
+  if (queue.frames.length) return Promise.resolve(queue.frames.shift()!);
+  if (queue.error) return Promise.reject(queue.error);
+  return new Promise((resolve, reject) => {
+    let timer: ReturnType<typeof setTimeout>;
+    const waiter = {
+      resolve: (frame: RelayFrame) => { clearTimeout(timer);resolve(frame); },
+      reject: (error: Error) => { clearTimeout(timer);reject(error); },
+    };
+    timer = setTimeout(() => {
+      const index = queue.waiters.indexOf(waiter);
+      if (index >= 0) queue.waiters.splice(index, 1);
+      reject(new Error("timed out waiting for relay frame"));
+    }, timeoutMs);
+    queue.waiters.push(waiter);
+  });
+}
+
+async function connectRawRelayClient(
+  port: number,
+  clientId = LOGICAL_CLIENT_ID,
+  capabilities: string[] = ["incremental-deltas", "binary-mesh-v1"],
+): Promise<{ ws: WebSocket; hello: Record<string, unknown> }> {
+  const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+  await new Promise<void>((resolve, reject) => {
+    ws.once("open", resolve);
+    ws.once("error", reject);
+  });
+  trackRelayFrames(ws);
+  const reply = receiveRelayFrame(ws);
+  ws.send(JSON.stringify({
+    requestId: "raw-hello",
+    method: "hello",
+    params: {
+      token: TOKEN,
+      protocolVersion: 1,
+      clientId,
+      capabilities,
+    },
+  }));
+  const frame = await reply;
+  expect(frame.isBinary).toBe(false);
+  return { ws, hello: JSON.parse(frame.data.toString("utf8")) as Record<string, unknown> };
+}
+
+describe("binary mesh session requests", () => {
+  it("does not attach a preview to a new lineage when its initial snapshot crosses a restart", async () => {
+    let block = false;let entered!: () => void;let release!: () => void;
+    const arrived = new Promise<void>(ready => entered = ready), held = new Promise<void>(ready => release = ready);
+    const fake = fakeSidecar({ beforeInvoke: async type => {
+      if (block && type === 26) { block = false;entered();await held; }
+    } });
+    const relay = new SessionRelay(() => fake.manager);const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });const client = new SessionClient();
+    try {
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1,
+        requestId: "restart-box", documentId: "doc-phase1", type: 3, featureId: "restart-box",
+        widthMm: 10, heightMm: 20, depthMm: 30 }))));
+      await client.connect(TOKEN, port);block = true;
+      const pending = client.call("previewBegin", { featureId: "restart-box", paramName: "widthMm", valueMm: 40 });
+      await arrived;relay.onSidecarCrashed();release();
+      await expect(pending).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      expect((relay as unknown as { previews: Map<string, unknown> }).previews.size).toBe(0);
+      expect(fake.calls.filter(type => type === 6)).toHaveLength(0);
+    } finally { release();client.closeRaw();relay.stop(); }
+  });
+
+  it("does not emit a cleared cached preview when revision lookup crosses a restart", async () => {
+    let block = false;let entered!: () => void;let release!: () => void;
+    const arrived = new Promise<void>(ready => entered = ready), held = new Promise<void>(ready => release = ready);
+    const fake = fakeSidecar({ beforeInvoke: async type => {
+      if (block && type === 26) { block = false;entered();await held; }
+    } });
+    const relay = new SessionRelay(() => fake.manager);const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });let ws: WebSocket | undefined;
+    try {
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1,
+        requestId: "cache-restart-box", documentId: "doc-phase1", type: 3, featureId: "cache-restart-box",
+        widthMm: 10, heightMm: 20, depthMm: 30 }))));
+      const connected = await connectRawRelayClient(port, LOGICAL_CLIENT_ID, ["binary-preview-v1"]);ws = connected.ws;
+      ws.send(JSON.stringify({ requestId: "cache-begin", method: "previewBegin",
+        params: { featureId: "cache-restart-box", paramName: "widthMm", valueMm: 40 } }));
+      const begin = JSON.parse((await receiveRelayFrame(ws)).data.toString()) as { result: { previewId: string } };
+      (relay as unknown as { revisionCache: number | null }).revisionCache = null;block = true;
+      ws.send(JSON.stringify({ requestId: "cache-read", method: "requestPreviewMesh", sessionId: connected.hello["sessionId"],
+        params: { previewId: begin.result.previewId, generation: 0, documentId: "doc-phase1", expectedRevision: 1 } }));
+      await arrived;relay.onSidecarCrashed();release();
+      for (;;) {
+        const frame = await receiveRelayFrame(ws);expect(frame.isBinary).toBe(false);
+        const reply = JSON.parse(frame.data.toString()) as Record<string, unknown>;
+        if (reply["requestId"] === "cache-read") {
+          expect(reply).toMatchObject({ ok: false, errorCode: "NEED_FULL_SNAPSHOT" });break;
+        }
+      }
+      expect((relay as unknown as { previews: Map<string, unknown> }).previews.size).toBe(0);
+    } finally { release();ws?.close();relay.stop(); }
+  });
+  it("rejects stale intent and unrelated tip before requesting candidate geometry", async () => {
+    const fake = fakeSidecar();const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1,
+        requestId: "intent-box", documentId: "doc-phase1", type: 3, featureId: "intent-box",
+        widthMm: 10, heightMm: 20, depthMm: 30 }))));
+      await client.connect(TOKEN, port);
+      const params = { featureId: "intent-box", paramName: "widthMm", valueMm: 40 };
+      await expect(client.call("previewBegin", { ...params, expectedRevision: 0 })).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      await expect(client.call("previewBegin", { ...params, targetTipId: "unrelated" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect(fake.calls.filter(type => type === 6)).toHaveLength(0);
+      expect(await client.call("previewBegin", { ...params, expectedRevision: 1 })).toMatchObject({ ok: true });
+    } finally { client.closeRaw();relay.stop(); }
+  });
+
+  it("rejects a candidate over 64 MiB without retaining it", async () => {
+    const fake = fakeSidecar({ previewPaddingBytes: 64 * 1024 * 1024 + 1 });
+    const relay = new SessionRelay(() => fake.manager);const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });const client = new SessionClient();
+    try {
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1,
+        requestId: "large-box", documentId: "doc-phase1", type: 3, featureId: "large-box",
+        widthMm: 10, heightMm: 20, depthMm: 30 }))));
+      await client.connect(TOKEN, port);
+      await expect(client.call("previewBegin", { featureId: "large-box", paramName: "widthMm", valueMm: 40 }))
+        .rejects.toMatchObject({ code: "MESH_TOO_LARGE" });
+      expect((relay as unknown as { previews: Map<string, unknown> }).previews.size).toBe(0);
+    } finally { client.closeRaw();relay.stop(); }
+  });
+  it("fences preview owner, generations, stale model and consumed state", async () => {
+    const fake = fakeSidecar();const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let a: WebSocket | undefined, b: WebSocket | undefined;
+    try {
+      for (const id of ["preview-life", "unrelated-life"]) await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({
+        protocolVersion: 1, requestId: id, documentId: "doc-phase1", type: 3,
+        featureId: id, widthMm: 10, heightMm: 20, depthMm: 30,
+      }))));
+      const owner = await connectRawRelayClient(port, LOGICAL_CLIENT_ID, ["binary-preview-v1"]);a = owner.ws;
+      const other = await connectRawRelayClient(port, "client-660e8400-e29b-41d4-a716-446655440000", ["binary-preview-v1"]);b = other.ws;
+      let serial = 0;
+      const call = async (ws: WebSocket, method: string, params: Record<string, unknown>) => {
+        const id = `life-${++serial}`;
+        ws.send(JSON.stringify({ requestId: id, method, params, sessionId: owner.hello["sessionId"] }));
+        for (;;) {
+          const frame = await receiveRelayFrame(ws);
+          if (frame.isBinary) continue;
+          const value = JSON.parse(frame.data.toString()) as Record<string, unknown>;
+          if (value["requestId"] === id) return value;
+        }
+      };
+      const begin = await call(a, "previewBegin", { featureId: "preview-life", paramName: "widthMm", valueMm: 40 });
+      const id = (begin["result"] as Record<string, unknown>)["previewId"];
+      const read = { previewId: id, generation: 0, documentId: "doc-phase1", expectedRevision: 2 };
+      expect(await call(b, "requestPreviewMesh", read)).toMatchObject({ ok: false, errorCode: "NOT_FOUND" });
+      const nativeCalls = fake.calls.length;
+      for (let i = 0; i < 2; ++i) {
+        expect(await call(a, "requestPreviewMesh", read)).toMatchObject({ ok: true });
+        expect((await receiveRelayFrame(a)).isBinary).toBe(true);
+      }
+      expect(fake.calls.length).toBe(nativeCalls);
+      expect(await call(a, "previewUpdate", { previewId: id, valueMm: 50 })).toMatchObject({ result: { generation: 1 } });
+      expect(await call(a, "requestPreviewMesh", read)).toMatchObject({ ok: false, errorCode: "STALE_PREVIEW" });
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({
+        protocolVersion: 1, requestId: "unrelated-edit", documentId: "doc-phase1", type: 6,
+        featureId: "unrelated-life", paramName: "widthMm", valueMm: 15,
+      }))));
+      expect(await call(a, "requestPreviewMesh", { ...read, generation: 1 })).toMatchObject({ ok: false, errorCode: "NEED_FULL_SNAPSHOT" });
+      expect(await call(a, "previewCancel", { previewId: id })).toMatchObject({ ok: true });
+      expect(await call(a, "requestPreviewMesh", { ...read, generation: 1 })).toMatchObject({ ok: false, errorCode: "NOT_FOUND" });
+    } finally { a?.close(); b?.close(); relay.stop(); }
+  });
+
+  it("retains at most four previews per client and 256 MiB across clients", async () => {
+    const fake = fakeSidecar({ previewPaddingBytes: 64 * 1024 * 1024 });
+    const relay = new SessionRelay(() => fake.manager);const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const a = new SessionClient(), b = new SessionClient();
+    try {
+      for (const id of ["budget-a", "budget-b"]) await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({
+        protocolVersion: 1, requestId: id, documentId: "doc-phase1", type: 3,
+        featureId: id, widthMm: 10, heightMm: 20, depthMm: 30,
+      }))));
+      await a.connect(TOKEN, port);await b.connect(TOKEN, port);
+      const params = { featureId: "budget-a", paramName: "widthMm", valueMm: 40 };
+      const ids: unknown[] = [];
+      for (let i = 0; i < 4; ++i) ids.push(((await a.call("previewBegin", params))["result"] as Record<string, unknown>)["previewId"]);
+      await expect(a.call("previewBegin", params)).rejects.toMatchObject({ code: "PREVIEW_LIMIT" });
+      await expect(b.call("previewBegin", { ...params, featureId: "budget-b" })).rejects.toMatchObject({ code: "PREVIEW_LIMIT" });
+      await a.call("previewCancel", { previewId: ids[0] });
+      expect(await b.call("previewBegin", { ...params, featureId: "budget-b" })).toMatchObject({ ok: true });
+      relay.onSidecarCrashed();
+      const previews = (relay as unknown as { previews: Map<string, unknown> }).previews;
+      expect(previews.size).toBe(0);
+    } finally { a.closeRaw(); b.closeRaw(); relay.stop(); }
+  });
+  it("delivers a separate cached preview mesh without changing the committed model", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let ws: WebSocket | undefined;
+    try {
+      await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({
+        protocolVersion: 1, requestId: "preview-base", documentId: "doc-phase1", type: 3,
+        featureId: "preview-mesh-box", widthMm: 10, heightMm: 20, depthMm: 30,
+      }))));
+      const raw = await connectRawRelayClient(port, LOGICAL_CLIENT_ID,
+        ["incremental-deltas", "binary-mesh-v1", "binary-preview-v1"]);
+      ws = raw.ws;
+      ws.send(JSON.stringify({ requestId: "preview-begin", method: "previewBegin", params: {
+        featureId: "preview-mesh-box", paramName: "widthMm", valueMm: 40,
+        bodyId: "body-preview-mesh-box", targetTipId: "preview-mesh-box",
+      } }));
+      const begun = JSON.parse((await receiveRelayFrame(ws)).data.toString()) as { result: Record<string, unknown> };
+      expect(begun.result).toMatchObject({ generation: 0, revision: 1, volumeMm3: 24000 });
+      ws.send(JSON.stringify({ requestId: "preview-read", method: "requestPreviewMesh", sessionId: raw.hello["sessionId"],
+        params: { previewId: begun.result["previewId"], generation: 0, documentId: "doc-phase1", expectedRevision: 1 } }));
+      const header = JSON.parse((await receiveRelayFrame(ws)).data.toString()) as { ok: boolean; result: Record<string, unknown> };
+      expect(header).toMatchObject({ ok: true, result: { generation: 0, quality: 0,
+        bodyId: "body-preview-mesh-box", featureId: "preview-mesh-box", targetTipId: "preview-mesh-box" } });
+      const binary = await receiveRelayFrame(ws);
+      expect(binary.isBinary).toBe(true);
+      expect(binary.data.equals(Buffer.from(fake.meshFrames.at(-1)!))).toBe(true);
+      expect(decodeMeshUpdateFb(new Uint8Array(binary.data)).volumeMm3).toBe(24000);
+      expect(fake.features().find(f => f.featureId === "preview-mesh-box")!.paramsMm).toEqual([10, 20, 30]);
+    } finally { ws?.close(); relay.stop(); }
+  });
+  it("advertises binary-mesh-v1 on hello", async () => {
+    const relay = new SessionRelay(() => fakeSidecar().manager);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let ws: WebSocket | undefined;
+    try {
+      const raw = await connectRawRelayClient(port);
+      ws = raw.ws;
+      expect(raw.hello).toMatchObject({ ok: true, capabilities: expect.arrayContaining(["binary-mesh-v1"]) });
+    } finally {
+      ws?.close();
+      relay.stop();
+    }
+  });
+
+  it("returns a JSON identity header followed by the exact native MeshUpdate bytes", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let ws: WebSocket | undefined;
+    try {
+      const desktop = frameMessage(new TextEncoder().encode(JSON.stringify({
+        protocolVersion: 1, requestId: "desktop-box", documentId: "doc-phase1", type: 3,
+        featureId: "mesh-box", widthMm: 10, heightMm: 20, depthMm: 30,
+      })));
+      await relay.invokeLocal(desktop);
+      const raw = await connectRawRelayClient(port);
+      ws = raw.ws;
+      expect(raw.hello).toMatchObject({ ok: true });
+      const result = receiveRelayFrame(ws);
+      ws.send(JSON.stringify({
+        requestId: "mesh-1",
+        method: "requestMeshLOD",
+        sessionId: raw.hello["sessionId"],
+        params: { bodyId: "body-mesh-box", quality: 2, documentId: "doc-phase1", expectedRevision: 1 },
+      }));
+      const headerFrame = await result;
+      expect(headerFrame.isBinary).toBe(false);
+      const header = JSON.parse(headerFrame.data.toString("utf8")) as Record<string, unknown>;
+      expect(header).toMatchObject({
+        requestId: "mesh-1", ok: true,
+        result: {
+          sessionId: raw.hello["sessionId"], documentId: "doc-phase1", revision: 1,
+          bodyId: "body-mesh-box", featureId: "mesh-box", tipId: "mesh-box", quality: 2,
+        },
+      });
+      const meshFrame = await receiveRelayFrame(ws);
+      expect(meshFrame.isBinary).toBe(true);
+      const meshHeader = header["result"] as Record<string, unknown>;
+      expect(meshHeader["nativeRequestId"]).toBeTruthy();
+      expect(meshHeader["byteLength"]).toBe(meshFrame.data.length);
+      expect(meshFrame.data.equals(Buffer.from(fake.meshFrames[0]!))).toBe(true);
+    } finally {
+      ws?.close();
+      relay.stop();
+    }
+  });
+
+  it("enqueues the mesh header and binary bytes before a following mutation starts in the core", async () => {
+    const sendOrder: string[] = [];
+    let meshEntered!: () => void;
+    let releaseMesh!: () => void;
+    const entered = new Promise<void>(resolve => { meshEntered = resolve; });
+    const meshGate = new Promise<void>(resolve => { releaseMesh = resolve; });
+    const fake = fakeSidecar({ beforeInvoke: async type => {
+      if (type === 12) { meshEntered();await meshGate; }
+      if (type === 3) sendOrder.push("mutation-core-start");
+    } });
+    fake.seedFeatures([{ featureId: "ordered-box", type: "Box", paramsMm: [2, 3, 4], volumeMm3: 24,
+      dependsOn: [], refExtra: "", expressions: {} }], 7);
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let ws: WebSocket | undefined;
+    try {
+      const raw = await connectRawRelayClient(port);
+      ws = raw.ws;
+      const peers = (relay as unknown as { clients: Map<string, { logicalClientId: string; ws: WebSocket }> }).clients;
+      const peer = [...peers.values()].find(client => client.logicalClientId === LOGICAL_CLIENT_ID)!.ws;
+      const originalSend = peer.send;
+      Object.defineProperty(peer, "send", { configurable: true, value: (data: unknown, ...args: unknown[]) => {
+        if (typeof data === "string") {
+          try {
+            const frame = JSON.parse(data) as { requestId?: string };
+            if (frame.requestId === "ordered-mesh") sendOrder.push("mesh-header");
+          } catch { /* unsolicited selection/delta frame */ }
+        } else if (data instanceof Uint8Array && sendOrder.includes("mesh-header") && !sendOrder.includes("mesh-binary")) {
+          sendOrder.push("mesh-binary");
+        }
+        Reflect.apply(originalSend, peer, [data, ...args]);
+      } });
+      const headerReceived = receiveRelayFrame(ws);
+      const binaryReceived = receiveRelayFrame(ws);
+      ws.send(JSON.stringify({ requestId: "ordered-mesh", method: "requestMeshLOD", sessionId: raw.hello["sessionId"],
+        params: { bodyId: "body-ordered-box", quality: 1, documentId: "doc-phase1", expectedRevision: 7 } }));
+      await entered;
+      const mutationPayload = new TextEncoder().encode(JSON.stringify({ protocolVersion: 1, requestId: "ordered-mutation",
+        documentId: "doc-phase1", type: 3, featureId: "after-mesh", widthMm: 1, heightMm: 1, depthMm: 1 }));
+      const mutation = relay.invokeLocal(frameMessage(mutationPayload)); // Synchronously appended behind the held read.
+      releaseMesh();
+
+      const [header, binary] = await Promise.all([headerReceived, binaryReceived]);
+      expect(header.isBinary).toBe(false);
+      expect(binary.isBinary).toBe(true);
+      expect(JSON.parse(new TextDecoder().decode(await mutation))).toMatchObject({ requestId: "ordered-mutation", status: "ok" });
+      expect(sendOrder).toEqual(["mesh-header", "mesh-binary", "mutation-core-start"]);
+    } finally { releaseMesh();ws?.close();relay.stop(); }
+  });
+
+  it("keeps body roots semantic while requesting visible tips and correlates two sockets with the same outer id", async () => {
+    const fake = fakeSidecar();
+    fake.seedFeatures([
+      { featureId: "root-a", type: "Box", paramsMm: [2, 3, 4], volumeMm3: 24, dependsOn: [], refExtra: "", expressions: {} },
+      { featureId: "tip-a", type: "Fillet", paramsMm: [2, 3, 4], volumeMm3: 24, dependsOn: ["root-a"], refExtra: "", expressions: {} },
+      { featureId: "root-b", type: "Box", paramsMm: [5, 6, 7], volumeMm3: 210, dependsOn: [], refExtra: "", expressions: {} },
+    ], 7);
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let first: WebSocket | undefined, second: WebSocket | undefined;
+    try {
+      const a = await connectRawRelayClient(port, "client-550e8400-e29b-41d4-a716-446655440000");
+      const b = await connectRawRelayClient(port, "client-650e8400-e29b-41d4-a716-446655440000");
+      first = a.ws; second = b.ws;
+      const receiveA = receiveRelayFrame(first);
+      const receiveB = receiveRelayFrame(second);
+      for (const [ws, hello, bodyId, quality] of [
+        [first, a.hello, "body-root-a", 2],
+        [second, b.hello, "body-root-b", 0],
+      ] as const) ws.send(JSON.stringify({
+        requestId: "same-outer-id", method: "requestMeshLOD", sessionId: hello["sessionId"],
+        params: { bodyId, quality, documentId: "doc-phase1", expectedRevision: 7 },
+      }));
+      const [headerA, headerB] = await Promise.all([receiveA, receiveB]);
+      const parsedA = JSON.parse(headerA.data.toString("utf8")) as Record<string, unknown>;
+      const parsedB = JSON.parse(headerB.data.toString("utf8")) as Record<string, unknown>;
+      expect(parsedA).toMatchObject({ requestId: "same-outer-id", ok: true, result: { bodyId: "body-root-a", featureId: "tip-a", tipId: "tip-a", quality: 2 } });
+      expect(parsedB).toMatchObject({ requestId: "same-outer-id", ok: true, result: { bodyId: "body-root-b", featureId: "root-b", quality: 0 } });
+      const [rawA, rawB] = await Promise.all([receiveRelayFrame(first), receiveRelayFrame(second)]);
+      expect(rawA.data.equals(Buffer.from(fake.meshFrames[0]!)) || rawA.data.equals(Buffer.from(fake.meshFrames[1]!))).toBe(true);
+      expect(rawB.data.equals(Buffer.from(fake.meshFrames[0]!)) || rawB.data.equals(Buffer.from(fake.meshFrames[1]!))).toBe(true);
+      expect(rawA.data.equals(rawB.data)).toBe(false);
+      expect(decodeMeshUpdateFb(Uint8Array.from(rawA.data)).requestId).toBe((parsedA["result"] as Record<string, unknown>)["nativeRequestId"]);
+      expect(decodeMeshUpdateFb(Uint8Array.from(rawB.data)).requestId).toBe((parsedB["result"] as Record<string, unknown>)["nativeRequestId"]);
+      const nativeRequests = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>).filter(call => call["type"] === 12);
+      expect(nativeRequests.map(call => call["featureId"])).toEqual(["tip-a", "root-b"]);
+      expect(new Set(nativeRequests.map(call => call["requestId"])).size).toBe(2);
+    } finally {
+      first?.close(); second?.close(); relay.stop();
+    }
+  });
+
+  it("requests one valid instance by its native owner while keeping the source body root", async () => {
+    const fake = fakeSidecar();
+    fake.seedFeatures([
+      { featureId: "instance-source", type: "Box", paramsMm: [12, 8, 4], volumeMm3: 384, dependsOn: [], refExtra: "", expressions: {} },
+      { featureId: "source-tip", type: "Fillet", paramsMm: [12, 8, 4], volumeMm3: 380, dependsOn: ["instance-source"], refExtra: "", expressions: {} },
+      { featureId: "placed-instance", type: "Instance", paramsMm: [50, 10, 0, 0, 0, 0], volumeMm3: 384,
+        dependsOn: ["instance-source"], refExtra: "", expressions: {} },
+      { featureId: "other-root", type: "Box", paramsMm: [5, 5, 5], volumeMm3: 125, dependsOn: [], refExtra: "", expressions: {} },
+      { featureId: "nested-instance", type: "Instance", paramsMm: [0, 0, 0, 0, 0, 0], volumeMm3: 384,
+        dependsOn: ["placed-instance"], refExtra: "", expressions: {} },
+      { featureId: "self-instance", type: "Instance", paramsMm: [0, 0, 0, 0, 0, 0], volumeMm3: 384,
+        dependsOn: ["self-instance"], refExtra: "", expressions: {} },
+      { featureId: "hidden-instance", type: "Instance", paramsMm: [0, 0, 0, 0, 0, 0], volumeMm3: 384,
+        dependsOn: ["instance-source"], refExtra: "", expressions: {}, suppressed: true },
+    ], 7);
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let ws: WebSocket | undefined;
+    try {
+      const client = await connectRawRelayClient(port);
+      ws = client.ws;
+      const receiveHeader = async (requestId: string, bodyId: string, instanceId: string): Promise<Record<string, unknown>> => {
+        const response = receiveRelayFrame(ws!);
+        ws!.send(JSON.stringify({ requestId, method: "requestMeshLOD", sessionId: client.hello["sessionId"],
+          params: { bodyId, instanceId, quality: 2, documentId: "doc-phase1", expectedRevision: 7 } }));
+        return JSON.parse((await response).data.toString("utf8")) as Record<string, unknown>;
+      };
+      const success = await receiveHeader("mesh-instance", "body-instance-source", "placed-instance");
+      expect(success).toMatchObject({ ok: true, result: {
+        bodyId: "body-instance-source", featureId: "placed-instance", tipId: "placed-instance", instanceId: "placed-instance",
+      } });
+      const raw = await receiveRelayFrame(ws);
+      expect(raw.isBinary).toBe(true);
+      expect(raw.data.equals(Buffer.from(fake.meshFrames[0]!))).toBe(true);
+      const update = decodeMeshUpdateFb(Uint8Array.from(raw.data));
+      expect(update.featureId).toBe("placed-instance");
+      expect(update.bodyId).toBe("placed-instance");
+
+      for (const [requestId, bodyId, instanceId] of [
+        ["instance-missing", "body-instance-source", "missing-instance"],
+        ["instance-arbitrary-feature", "body-instance-source", "source-tip"],
+        ["instance-foreign-root", "body-other-root", "placed-instance"],
+        ["instance-nested", "body-instance-source", "nested-instance"],
+        ["instance-self", "body-instance-source", "self-instance"],
+        ["instance-hidden", "body-instance-source", "hidden-instance"],
+      ]) {
+        expect(await receiveHeader(requestId!, bodyId!, instanceId!)).toMatchObject({ ok: false, errorCode: "NOT_FOUND" });
+      }
+      const nativeMeshes = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>).filter(call => call["type"] === 12);
+      expect(nativeMeshes.map(call => call["featureId"])).toEqual(["placed-instance"]);
+    } finally { ws?.close();relay.stop(); }
+  });
+
+  it("rejects missing capability, stale revision, missing or suppressed bodies before native dispatch", async () => {
+    const fake = fakeSidecar();
+    fake.seedFeatures([
+      { featureId: "visible", type: "Box", paramsMm: [1, 1, 1], volumeMm3: 1, dependsOn: [], refExtra: "", expressions: {} },
+      { featureId: "hidden", type: "Box", paramsMm: [1, 1, 1], volumeMm3: 1, dependsOn: [], refExtra: "", expressions: {}, suppressed: true },
+    ], 4);
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let ws: WebSocket | undefined;
+    try {
+      const legacy = await connectRawRelayClient(port, "client-550e8400-e29b-41d4-a716-446655440000", ["incremental-deltas"]);
+      ws = legacy.ws;
+      const before = fake.calls.length;
+      const reply = receiveRelayFrame(ws);
+      ws.send(JSON.stringify({ requestId: "no-cap", method: "requestMeshLOD", sessionId: legacy.hello["sessionId"],
+        params: { bodyId: "body-visible", quality: 1, documentId: "doc-phase1", expectedRevision: 4 } }));
+      expect(JSON.parse((await reply).data.toString("utf8"))).toMatchObject({ ok: false, errorCode: "NOT_IMPLEMENTED" });
+      expect(fake.calls).toHaveLength(before);
+      ws.close(); ws = undefined;
+
+      const capable = await connectRawRelayClient(port, "client-650e8400-e29b-41d4-a716-446655440000");
+      ws = capable.ws;
+      const call = (requestId: string, sessionId: unknown, bodyId: string, expectedRevision: number) => {
+        const response = receiveRelayFrame(ws!);
+        ws!.send(JSON.stringify({ requestId, method: "requestMeshLOD", sessionId,
+          params: { bodyId, quality: 1, documentId: "doc-phase1", expectedRevision } }));
+        return response.then(frame => JSON.parse(frame.data.toString("utf8")) as Record<string, unknown>);
+      };
+      expect(await call("stale-rev", capable.hello["sessionId"], "body-visible", 3)).toMatchObject({ ok: false, errorCode: "NEED_FULL_SNAPSHOT" });
+      expect(await call("missing", capable.hello["sessionId"], "body-missing", 4)).toMatchObject({ ok: false, errorCode: "NOT_FOUND" });
+      expect(await call("suppressed", capable.hello["sessionId"], "body-hidden", 4)).toMatchObject({ ok: false, errorCode: "NOT_FOUND" });
+      expect(fake.calls.filter(type => type === 12)).toHaveLength(0);
+    } finally { ws?.close(); relay.stop(); }
+  });
+
+  it("blocks a foreign transaction owner and allows owner reads", async () => {
+    const fake = fakeSidecar();
+    fake.seedFeatures([{ featureId: "owned-box", type: "Box", paramsMm: [2, 2, 2], volumeMm3: 8, dependsOn: [], refExtra: "", expressions: {} }], 1);
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let owner: WebSocket | undefined, other: WebSocket | undefined;
+    try {
+      const a = await connectRawRelayClient(port, "client-550e8400-e29b-41d4-a716-446655440000"); owner = a.ws;
+      const b = await connectRawRelayClient(port, "client-650e8400-e29b-41d4-a716-446655440000"); other = b.ws;
+      const begin = receiveRelayFrame(owner);
+      owner.send(JSON.stringify({ requestId: "txn-begin", method: "txnBegin", sessionId: a.hello["sessionId"], params: { transactionId: "owned-txn" } }));
+      expect(JSON.parse((await begin).data.toString("utf8"))).toMatchObject({ ok: true });
+      const before = fake.calls.filter(type => type === 12).length;
+      const foreign = receiveRelayFrame(other);
+      other.send(JSON.stringify({ requestId: "mesh-foreign", method: "requestMeshLOD", sessionId: b.hello["sessionId"],
+        params: { bodyId: "body-owned-box", quality: 1, documentId: "doc-phase1", expectedRevision: 1 } }));
+      expect(JSON.parse((await foreign).data.toString("utf8"))).toMatchObject({ ok: false, errorCode: "BUSY" });
+      expect(fake.calls.filter(type => type === 12)).toHaveLength(before);
+      const header = receiveRelayFrame(owner);
+      owner.send(JSON.stringify({ requestId: "mesh-owner", method: "requestMeshLOD", sessionId: a.hello["sessionId"],
+        params: { bodyId: "body-owned-box", quality: 1, documentId: "doc-phase1", expectedRevision: 1 } }));
+      expect(JSON.parse((await header).data.toString("utf8"))).toMatchObject({ ok: true });
+      expect((await receiveRelayFrame(owner)).isBinary).toBe(true);
+    } finally { owner?.close(); other?.close(); relay.stop(); }
+  });
+});
+
 describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
   it("rejects invalid body search filters instead of returning an empty candidate set", async () => {
     const fake = fakeSidecar(); const relay = new SessionRelay(() => fake.manager);
@@ -1789,7 +2551,7 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
       expect(fake.calls).toHaveLength(afterBegin);
       await client.call("previewCommit", { previewId });
       const committed = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
-        .filter(envelope => envelope["type"] === 6 && envelope["isPreview"] === false);
+        .filter(envelope => envelope["type"] === 6 && !Object.hasOwn(envelope, "isPreview"));
       expect(committed.at(-1)).toMatchObject({ valueMm: 20 });
     } finally {
       client.closeRaw(); relay.stop();

@@ -1,0 +1,32 @@
+{
+  "scope": "Task2 native full model rollback, joined revision and measured revolve, partial",
+  "accepted": false,
+  "goalComplete": false,
+  "base": "680cea354e7837dd4aea5c292db69914d6a1419c",
+  "focused": {
+    "passed": 35,
+    "failed": 0,
+    "skipped": 0
+  },
+  "fullNative": {
+    "passed": 224,
+    "failed": 0,
+    "seconds": 74.61
+  },
+  "selfTestExit": 0,
+  "proofs": [
+    "source-sketch edit failure restores dependent datum/sketch frames and graph",
+    "one revision/Undo for joined datum-sketch-extrude chain",
+    "tainted transaction removes prior joined point and restores geometry",
+    "empty transaction preserves revision and Undo",
+    "oriented datum revolve measured bbox and volume survives actual icad reopen and later edit"
+  ],
+  "remaining": [
+    "persistent indexed topology sources",
+    "typed client and canonical command integration",
+    "recovery through client and process crash",
+    "fresh final review",
+    "current head CI",
+    "physical/live gates"
+  ]
+}

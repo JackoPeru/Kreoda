@@ -17,7 +17,16 @@ export interface IntentRequest {
   text: string;
   selection: { kind: string; persistentId: string }[];
   model: {
-    bodies: { id: string; type: string; paramsMm: number[]; volumeMm3: number }[];
+    bodies: {
+      id: string;
+      type: string;
+      paramsMm: number[];
+      volumeMm3?: number;
+      geometryCurrent?: boolean;
+      status?: string;
+      error?: string;
+      blockingSourceIds?: string[];
+    }[];
   };
   units: "mm";
 }
@@ -43,7 +52,12 @@ export function buildIntentRequest(text: string): IntentRequest {
         id: f.featureId,
         type: f.type,
         paramsMm: f.paramsMm.slice(0, 12),
-        volumeMm3: f.volumeMm3,
+        ...(f.geometryCurrent !== false && f.status !== "unavailable" && typeof f.volumeMm3 === "number"
+          ? { volumeMm3: f.volumeMm3 } : {}),
+        ...(f.geometryCurrent !== undefined ? { geometryCurrent: f.geometryCurrent } : {}),
+        ...(f.status !== undefined ? { status: f.status } : {}),
+        ...(f.error !== undefined ? { error: f.error } : {}),
+        ...(f.blockingSourceIds !== undefined ? { blockingSourceIds: [...f.blockingSourceIds] } : {}),
       })),
     },
     units: "mm",

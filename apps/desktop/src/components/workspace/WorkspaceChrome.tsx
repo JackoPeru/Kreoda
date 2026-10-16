@@ -2,6 +2,7 @@
 // window; all UI floats above it (top dock, drawers on demand, bottom
 // command dock, minimal status). No permanent sidebars or footers.
 import { Viewport } from "../Viewport";
+import { SharedTargetChip } from "./SharedTargetChip";
 import { ViewCube } from "../ViewCube";
 import { ContextToolbar } from "../ContextToolbar";
 import { DimensionChips } from "../DimensionChips";
@@ -23,6 +24,7 @@ export function WorkspaceChrome({
   onExtrude,
   onPlugins,
   onReference,
+  onReferenceGeometry,
   onInstance,
   onEditSketch,
   projectOpen,
@@ -52,6 +54,7 @@ export function WorkspaceChrome({
   onExtrude: () => void;
   onPlugins: () => void;
   onReference: () => void;
+  onReferenceGeometry: () => void;
   onInstance: () => void;
   onEditSketch: (id: string) => void;
   projectOpen: boolean;
@@ -137,6 +140,7 @@ export function WorkspaceChrome({
       )}
       <div className="relative min-h-0 flex-1 overflow-hidden">
       <Viewport />
+      <SharedTargetChip />
 
       <div className="pointer-events-none absolute left-3 right-3 top-3 z-50 flex justify-center">
         <TopToolDock
@@ -146,6 +150,7 @@ export function WorkspaceChrome({
           onToggleProps={() => onPropsOpenChange(!propsOpen)}
           onPlugins={onPlugins}
           onReference={onReference}
+          onReferenceGeometry={onReferenceGeometry}
           onInstance={onInstance}
         />
       </div>

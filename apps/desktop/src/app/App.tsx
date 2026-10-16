@@ -3,6 +3,7 @@ import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
 import { HomeScreen } from "../components/home/HomeScreen";
 import { PluginsDialog } from "../components/PluginsDialog";
 import { ReferenceDialog } from "../components/ReferenceDialog";
+import { ReferenceGeometryPanel } from "../components/workspace/ReferenceGeometryPanel";
 import { InstanceDialog } from "../components/InstanceDialog";
 import { shouldShowOnboarding } from "../components/Onboarding";
 import { SketchEditor, defaultRectModel } from "../components/SketchEditor";
@@ -38,12 +39,16 @@ import {
 import { executeCommand } from "../commands/execute";
 import { bindOpenedSessionRefresh, pullFeatureMesh, syncFromCoreList, syncOpenedDocument, updateFeatureSummary } from "../model/sync";
 import { createSessionUpdateQueue } from "../model/session-update-queue";
+import { useSharedTargetStore } from "../model/shared-targets";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 import {
   faceScreenPoint,
   viewportViewDir,
   viewportRenderStats,
   viewportMeshIdentity,
+  viewportSectionGeometryDiagnostics,
+  viewportProjectPoint,
+  viewportSharedTargetSummary,
 } from "../viewport/viewportHandle";
 
 /** Minimal workspace shell (UX-1): viewport-first, floating docks. */
@@ -117,6 +122,7 @@ export function App() {
   const [dressUp, setDressUp] = useState<"fillet" | "chamfer" | null>(null);
   const [showPlugins, setShowPlugins] = useState(false);
   const [showReference, setShowReference] = useState(false);
+  const [showReferenceGeometry, setShowReferenceGeometry] = useState(false);
   const [showInstance, setShowInstance] = useState(false);
   // Drawers are closed by default (UX-1): capabilities on demand, never
   // permanently docked.
@@ -164,6 +170,7 @@ export function App() {
     // A recovery file at boot means the previous session kept unsaved work.
     checkRecovery();
     const offCrash = window.kreoda?.onCoreCrashed?.((info) => {
+      useSharedTargetStore.getState().reset();
       setCrashed(info.code);
       setCoreStatus(false, null);
       // A drag owns solved preview coordinates from the dead engine. Unmount
@@ -219,17 +226,32 @@ export function App() {
         await syncFromCoreList(
           model.features as unknown as FeatureSummary[], model.revision,
           model.sketches as unknown as SketchSummary[], changedMeshIds,
+          model.datums as import("@kreoda/protocol").DatumDescriptor[] ?? [],
         );
+        if (useDocumentUiStore.getState().epoch === epoch)
+          useSharedTargetStore.getState().setContext(model);
       },
       onError: (error) => console.warn("[session] delta apply failed", error),
     });
     const off = window.kreoda?.onSessionDelta?.((delta) => { void updates.push(delta); });
+    const offSelection = window.kreoda?.onSessionSelection?.(event => {
+      const targets = useSharedTargetStore.getState();
+      targets.receive(event);
+      // New/open/edit deltas normally establish context. A target arriving
+      // first requests one authoritative snapshot instead of racing boot.
+      if (!targets.context) void updates.refresh();
+    });
     const unbindOpen = bindOpenedSessionRefresh(updates.refreshAndVerify);
-    const offRestart = window.kreoda?.onCoreRestarted?.(() => { void updates.refresh(); });
+    const offRestart = window.kreoda?.onCoreRestarted?.(() => {
+      useSharedTargetStore.getState().reset();
+      void updates.refresh();
+    });
     return () => {
       updates.dispose();
       unbindOpen();
       off?.();
+      offSelection?.();
+      useSharedTargetStore.getState().reset();
       offRestart?.();
     };
   }, []);
@@ -249,10 +271,15 @@ export function App() {
         return {
           revision: s.revision,
           references: useReferenceStore.getState().planes,
+          datums: s.datums,
           selectedIds: useSelectionStore.getState().selectedIds,
+          sharedTarget: viewportSharedTargetSummary(),
           sketches: s.sketches.map((k) => ({
             id: k.featureId,
             planeKind: k.planeKind,
+            plane: k.plane,
+            modelPlane: k.model?.plane,
+            supportRef: k.supportRef,
             points: k.points,
             constraints: k.constraints,
           })),
@@ -290,11 +317,11 @@ export function App() {
         ).__kreoda_test.snapshot();
       },
       openIcad: async (path: string) => {
-        const { features: list, sketches, revision } =
+        const { features: list, sketches, datums, revision } =
           await coreClient.openDocument(path);
         // Document replacement = new epoch (C5): the core revision resets
         // on fresh baselines, so staleness guards key lineage, not numbers.
-        await syncOpenedDocument(list, revision, sketches);
+        await syncOpenedDocument(list, revision, sketches, datums);
         return (
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
         ).__kreoda_test.snapshot();
@@ -411,6 +438,9 @@ export function App() {
       },
       faceScreenPoint: (featureId: string, role: string) =>
         faceScreenPoint(featureId, role),
+      sectionGeometryDiagnostics: (featureId: string, samplePointMm: [number, number, number], faceRole: string) =>
+        viewportSectionGeometryDiagnostics(featureId, samplePointMm, faceRole),
+      projectPoint: viewportProjectPoint,
       viewDir: () => viewportViewDir(),
       // Phase 4 acceptance: sketch → extrude through the real core path.
       // Single commit: create with the rect content directly (one Undo step,
@@ -424,6 +454,8 @@ export function App() {
         useDocumentUiStore.getState().upsertSketch({
           featureId,
           planeKind: full.planeKind,
+          plane: full.plane,
+          supportRef: full.supportRef,
           points: full.points.length,
           lines: full.lines.length,
           circles: full.circles.length,
@@ -531,6 +563,7 @@ export function App() {
         onExtrude={() => setExtruding(true)}
         onPlugins={() => setShowPlugins(true)}
         onReference={() => setShowReference(true)}
+        onReferenceGeometry={() => setShowReferenceGeometry(true)}
         onInstance={() => setShowInstance(true)}
         onEditSketch={openSketchEditor}
         projectOpen={projectOpen}
@@ -575,6 +608,12 @@ export function App() {
       {showPlugins && <PluginsDialog onClose={() => setShowPlugins(false)} />}
       {showReference && (
         <ReferenceDialog onClose={() => setShowReference(false)} />
+      )}
+      {showReferenceGeometry && (
+        <ReferenceGeometryPanel
+          onClose={() => setShowReferenceGeometry(false)}
+          onSketchCreated={openSketchEditor}
+        />
       )}
       {showInstance && (
         <InstanceDialog onClose={() => setShowInstance(false)} />

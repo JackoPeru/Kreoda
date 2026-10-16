@@ -2,18 +2,20 @@
 // Renderer owns UI/camera/selection state + read-only summaries (§9).
 
 import { create } from "zustand";
-import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
+import type { CoreMeshData, SketchModel, DatumDescriptor, SketchPlaneFrame } from "@kreoda/protocol";
+import type { SelectionKind as CanonicalSelectionKind } from "@kreoda/command-schema";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 import { t, featureTypeName } from "../i18n";
+import { useSectionStore } from "../section/store";
 
 export interface SketchEntry extends SketchSummary {
-  model?: SketchModel & { planeKind?: string };
+  model?: SketchModel & { planeKind?: string; plane?: SketchPlaneFrame; supportRef?: string };
 }
 
 export interface ModelTreeItem {
   id: string;
   name: string;
-  kind: "body" | "feature" | "sketch";
+  kind: "body" | "feature" | "sketch" | "datum";
   children?: ModelTreeItem[];
 }
 
@@ -46,7 +48,7 @@ export function featureBodySemantics(
   ) {
     return "advances";
   }
-  if (type === "Sketch" || type === "Instance") return "none";
+  if (type === "Sketch" || type === "Instance" || type === "DatumPlane" || type === "DatumAxis" || type === "DatumPoint") return "none";
   return "new";
 }
 
@@ -135,6 +137,7 @@ interface DocumentUiState {
   bodies: BodyInfo[];
   /** Sketches (2D, rendered as overlay — never B-Rep meshes). */
   sketches: SketchEntry[];
+  datums: DatumDescriptor[];
   /** Render buffers keyed by feature UUID — replaced wholesale per update. */
   meshes: Record<string, CoreMeshData>;
   meshRevision: number;
@@ -148,6 +151,7 @@ interface DocumentUiState {
     epoch?: number,
   ) => void;
   setSketches: (sketches: SketchEntry[], revision?: number, epoch?: number) => void;
+  setDatums: (datums: DatumDescriptor[], revision?: number, epoch?: number) => void;
   upsertSketch: (sketch: SketchEntry) => void;
   upsertMesh: (
     featureId: string,
@@ -178,6 +182,7 @@ function toTreeItems(
   features: FeatureSummary[],
   sketches: SketchEntry[],
   bodies: BodyInfo[],
+  datums: DatumDescriptor[] = [],
 ): ModelTreeItem[] {
   const skItems = sketches.map((s) => ({
     id: s.featureId,
@@ -212,7 +217,7 @@ function toTreeItems(
   const extraItems = features
     .filter((f) => !covered.has(f.featureId))
     .map((f) => ({ id: f.featureId, name: featureLabel(f), kind: "body" as const }));
-  return [...skItems, ...bodyItems, ...extraItems];
+  return [...datums.map(datum => ({ id: datum.featureId, name: `${featureTypeName(datum.kind)} · ${datum.featureId}`, kind: "datum" as const })), ...skItems, ...bodyItems, ...extraItems];
 }
 
 export const useDocumentUiStore = create<DocumentUiState>((set) => ({
@@ -224,6 +229,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
   features: [],
   bodies: [],
   sketches: [],
+  datums: [],
   meshes: {},
   meshRevision: 0,
   undos: 0,
@@ -268,6 +274,12 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       if (revision !== undefined && revision < s.revision) return s;
       return { sketches };
     }),
+  setDatums: (datums, revision, epoch) => set(s => {
+    if(epoch !== undefined && epoch !== s.epoch || revision !== undefined && revision < s.revision)return s;
+    const incoming = new Set(datums.map(datum => datum.featureId));
+    clearRemovedDatumSelections(new Set(s.datums.filter(datum => !incoming.has(datum.featureId)).map(datum => datum.featureId)));
+    return { datums };
+  }),
   upsertSketch: (sketch) =>
     set((s) => ({
       sketches: [
@@ -300,7 +312,11 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
         revision,
       };
     }),
-  resetDocument: (documentId) =>
+  resetDocument: (documentId) => {
+    // Document replacement must clear local presentation even while Home
+    // has unmounted the viewport. Ordinary in-document updates never use this.
+    useSectionStore.getState().reset();
+    clearRemovedDatumSelections(new Set(useDocumentUiStore.getState().datums.map(datum => datum.featureId)));
     set((s) => ({
       documentId,
       revision: 0,
@@ -308,17 +324,20 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       features: [],
       bodies: [],
       sketches: [],
+      datums: [],
       meshes: {},
       meshRevision: 0,
-    })),
+    }));
+  },
 }));
 
 export function buildTreeItems(
   features: FeatureSummary[],
   sketches: SketchEntry[] = [],
   bodies: BodyInfo[] = buildBodies(features),
+  datums: DatumDescriptor[] = [],
 ): ModelTreeItem[] {
-  return toTreeItems(features, sketches, bodies);
+  return toTreeItems(features, sketches, bodies, datums);
 }
 
 export type SelectionMode =
@@ -339,11 +358,16 @@ interface SelectionState {
   setMode: (mode: SelectionMode) => void;
 }
 
-export type SelectionKind = "body" | "face" | "edge" | "sketch";
+export type SelectionKind = CanonicalSelectionKind;
 
-/** Id convention (§0.2): bare UUID = body OR sketch (store lookup decides);
- *  "uuid:role" = face; "uuid:edge…" = edge. */
+/** Id convention (§0.2): registered datum UUIDs keep their native kind; other
+ *  bare UUIDs are body or sketch (store lookup decides); "uuid:role" = face;
+ *  "uuid:edge…" = edge. */
 export function selectionKindOf(id: string): SelectionKind {
+  const datum = useDocumentUiStore.getState().datums.find((item) => item.featureId === id);
+  if (datum?.kind === "DatumPlane") return "datumPlane";
+  if (datum?.kind === "DatumAxis") return "datumAxis";
+  if (datum?.kind === "DatumPoint") return "datumPoint";
   const cut = id.indexOf(":");
   if (cut < 0) return "body";
   return id.slice(cut + 1).startsWith("edge.") ? "edge" : "face";
@@ -372,6 +396,15 @@ export const useSelectionStore = create<SelectionState>((set) => ({
   clear: () => set({ selectedIds: [], hoveredId: null }),
   setMode: (mode) => set({ mode }),
 }));
+
+function clearRemovedDatumSelections(removed: ReadonlySet<string>): void {
+  if (removed.size === 0) return;
+  const state = useSelectionStore.getState();
+  const selectedIds = state.selectedIds.filter(id => !removed.has(id));
+  const hoveredId = state.hoveredId !== null && removed.has(state.hoveredId) ? null : state.hoveredId;
+  if (selectedIds.length !== state.selectedIds.length || hoveredId !== state.hoveredId)
+    useSelectionStore.setState({ selectedIds, hoveredId });
+}
 
 interface ToolState {
   activeTool: string;

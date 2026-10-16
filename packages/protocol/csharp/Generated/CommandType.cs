@@ -38,6 +38,14 @@ public enum CommandType : ushort
   CommitTransaction = 28,
   RollbackTransaction = 29,
   RequestSessionQuery = 30,
+  CreateDatumPlane = 31,
+  CreateDatumAxis = 32,
+  CreateDatumPoint = 33,
+  UpdateDatum = 34,
+  RequestDatum = 35,
+  SetSketchProjection = 36,
+  RemoveSketchProjection = 37,
+  RequestSketchProjection = 38,
 };
 
 

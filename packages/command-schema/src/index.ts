@@ -2,8 +2,10 @@
 // One definition drives toolbar, context menu, palette, shortcuts, AI tools.
 
 import { z } from "zod";
-import { CommandType, SketchModelSchema, StableFeatureIdSchema } from "@kreoda/protocol";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { CommandType, SketchModelSchema, StableFeatureIdSchema, SESSION_STABLE_FEATURE_ID_SCHEMA } from "@kreoda/protocol";
+import { DatumPlaneDefinitionSchema, DatumAxisDefinitionSchema, DatumPointDefinitionSchema, DatumDefinitionSchema } from "@kreoda/protocol";
+import { zodToJsonSchema, ignoreOverride } from "zod-to-json-schema";
+import { commandCreationRule } from "./native-command.js";
 export { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "./native-command.js";
 
 export const SelectionKindSchema = z.enum([
@@ -12,6 +14,9 @@ export const SelectionKindSchema = z.enum([
   "edge",
   "vertex",
   "sketch",
+  "datumPlane",
+  "datumAxis",
+  "datumPoint",
 ]);
 export type SelectionKind = z.infer<typeof SelectionKindSchema>;
 
@@ -37,6 +42,8 @@ export interface CadCommandDefinition<P = unknown> {
   beginnerVisible: boolean;
   advancedVisible: boolean;
   availability: (ctx: CommandContext) => AvailabilityResult;
+  selectionBindings?: Record<string, "owner" | "edges" | "faceRole" | "sketch">;
+  optionalSelectionBindings?: Record<string, "datumPlane">;
 }
 
 export const CreateBoxParams = z.object({
@@ -46,6 +53,50 @@ export const CreateBoxParams = z.object({
 });
 
 const always: AvailabilityResult = { available: true };
+const utf8Bytes = (value: string) => new TextEncoder().encode(value).length;
+const ProjectionSourceSchema = z.union([
+  z.object({ type: z.literal("edge"), featureId: StableFeatureIdSchema,
+    persistentEdgeId: z.string().min(1).max(512) }).strict(),
+  z.object({ type: z.literal("shape"), featureId: StableFeatureIdSchema }).strict(),
+  z.object({ type: z.literal("sketchEntities"), featureId: StableFeatureIdSchema,
+    entityIds: z.array(z.string().min(1).max(512)).min(1).max(128) }).strict(),
+]);
+const ProjectionDefinitionSchema = z.object({
+  version: z.literal(1),
+  operation: z.enum(["projectEdges", "silhouette", "section"]),
+  sources: z.array(ProjectionSourceSchema).min(1).max(128),
+}).strict().superRefine((definition, ctx) => {
+  if (utf8Bytes(JSON.stringify(definition)) > 65536)
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "projection definition exceeds 65536 UTF-8 bytes" });
+  const identities = new Set<string>();
+  const shapes = definition.sources.filter(source => source.type === "shape");
+  for (const [index, source] of definition.sources.entries()) {
+    const identity = JSON.stringify(source);
+    if (identities.has(identity))
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index], message: "duplicate projection source" });
+    identities.add(identity);
+    if (source.type === "edge") {
+      if (utf8Bytes(source.persistentEdgeId) > 512)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index, "persistentEdgeId"], message: "persistentEdgeId exceeds 512 UTF-8 bytes" });
+      if (!source.persistentEdgeId.startsWith(`${source.featureId}:`))
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index, "persistentEdgeId"], message: "edge source id must be owner-qualified" });
+    } else if (source.type === "sketchEntities") {
+      const entityIds = new Set<string>();
+      for (const [entityIndex, entityId] of source.entityIds.entries()) {
+        if (utf8Bytes(entityId) > 512)
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index, "entityIds", entityIndex], message: "entity id exceeds 512 UTF-8 bytes" });
+        if (entityIds.has(entityId))
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index, "entityIds", entityIndex], message: "projection entityIds must be unique" });
+        entityIds.add(entityId);
+      }
+    }
+  }
+  if (definition.operation === "projectEdges" ? shapes.length > 0
+      : shapes.length !== 1 || definition.sources.length !== 1)
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources"], message: definition.operation === "projectEdges"
+      ? "projectEdges accepts edge or sketchEntities sources"
+      : `${definition.operation} requires exactly one whole-shape source` });
+});
 
 export const COMMANDS: CadCommandDefinition[] = [
   {
@@ -97,7 +148,7 @@ export const COMMANDS: CadCommandDefinition[] = [
     nativeType: CommandType.SetFeatureParameter,
     label: "Set dimension",
     beginnerLabel: "Set size",
-    description: "Change one canonical mm parameter (one Undo step).",
+    description: "Change canonical parameters atomically (one Undo step).",
     icon: "ruler",
     parameterSchema: z.object({
       featureId: StableFeatureIdSchema,
@@ -111,6 +162,10 @@ export const COMMANDS: CadCommandDefinition[] = [
       valueMm: z.number().finite().max(1000000).min(-1000000).optional(),
       // Phase 9a: formula replacing the bare value (validated core-side).
       expression: z.string().max(256).optional(),
+      parameterValues: z.record(z.string().min(1).max(128).refine(name => name !== "__proto__", "unknown parameter"), z.number().finite().min(-1000000).max(1000000))
+        .refine(values => Object.keys(values).length <= 5, "at most five additional parameters").optional(),
+    }).refine(value => !value.parameterValues || !Object.hasOwn(value.parameterValues, value.paramName), {
+      message: "additional parameters cannot repeat the primary parameter",
     }).refine((value) => value.valueMm !== undefined || !!value.expression?.trim(), {
       message: "provide valueMm or a non-empty expression",
     }),
@@ -121,13 +176,15 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateSketch",
+    optionalSelectionBindings: { supportRef: "datumPlane" },
     nativeType: CommandType.CreateSketch,
     label: "Sketch",
     beginnerLabel: "Draw a shape",
-    description: "New constrained 2D sketch on a principal plane.",
+    description: "New constrained 2D sketch on a principal or native datum plane.",
     icon: "pencil",
     parameterSchema: z.object({
       planeKind: z.enum(["XY", "XZ", "YZ"]).default("XY"),
+      supportRef: StableFeatureIdSchema.optional(),
       model: SketchModelSchema.optional(),
     }),
     supportsPreview: false,
@@ -137,6 +194,7 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateExtrude",
+    selectionBindings: { sketchId: "sketch" },
     nativeType: CommandType.CreateExtrude,
     label: "Extrude",
     beginnerLabel: "Pull sketch",
@@ -178,6 +236,7 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateHole",
+    selectionBindings: { targetId: "owner", faceRole: "faceRole" },
     nativeType: CommandType.CreateHole,
     label: "Hole",
     beginnerLabel: "Make hole",
@@ -234,6 +293,7 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateFillet",
+    selectionBindings: { targetId: "owner", edgeIds: "edges" },
     nativeType: CommandType.CreateFillet,
     label: "Fillet",
     beginnerLabel: "Round edge",
@@ -244,7 +304,7 @@ export const COMMANDS: CadCommandDefinition[] = [
       edgeIds: z.array(z.string().min(1)).min(1),
       radiusMm: z.number().finite().positive().max(50000),
     }),
-    supportsPreview: true,
+    supportsPreview: false,
     beginnerVisible: true,
     advancedVisible: true,
     availability: (ctx) =>
@@ -254,6 +314,7 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateChamfer",
+    selectionBindings: { targetId: "owner", edgeIds: "edges" },
     nativeType: CommandType.CreateChamfer,
     label: "Chamfer",
     beginnerLabel: "Cut corner",
@@ -341,11 +402,71 @@ export const COMMANDS: CadCommandDefinition[] = [
   },
   {
     id: "CreateRevolve", nativeType: CommandType.CreateRevolve,
+    selectionBindings: { sketchId: "sketch" },
     label: "Revolve", beginnerLabel: "Revolve sketch",
     description: "Revolve a sketch around its canonical axis by an angle in degrees.",
     icon: "rotate-cw", supportsPreview: false, beginnerVisible: false, advancedVisible: true,
     parameterSchema: z.object({ sketchId: StableFeatureIdSchema, angleDeg: z.number().finite().positive().max(360) }),
     availability: (ctx) => ctx.selection.some((item) => item.kind === "sketch") ? always : { available: false, reason: "Select a sketch first" },
+  },
+  {
+    id: "CreateDatumPlane", nativeType: CommandType.CreateDatumPlane,
+    label: "Datum plane", beginnerLabel: "Reference plane",
+    description: "Create a principal, offset, mid, angled or three-point native reference plane.",
+    icon: "square", parameterSchema: z.object({ definition: DatumPlaneDefinitionSchema }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateDatumAxis", nativeType: CommandType.CreateDatumAxis,
+    label: "Datum axis", beginnerLabel: "Reference axis",
+    description: "Create a native reference axis through two points, normal to a plane or at two planes' intersection.",
+    icon: "move", parameterSchema: z.object({ definition: DatumAxisDefinitionSchema }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateDatumPoint", nativeType: CommandType.CreateDatumPoint,
+    label: "Datum point", beginnerLabel: "Reference point",
+    description: "Create a native reference point at coordinates or halfway between two points.",
+    icon: "crosshair", parameterSchema: z.object({ definition: DatumPointDefinitionSchema }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "UpdateDatum", nativeType: CommandType.UpdateDatum,
+    label: "Edit datum", beginnerLabel: "Edit reference",
+    description: "Replace a datum definition while preserving its identity and recomputing dependent native geometry.",
+    icon: "pencil", parameterSchema: z.object({ featureId: StableFeatureIdSchema, definition: DatumDefinitionSchema }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
+  },
+  {
+    id: "RequestDatum", nativeType: CommandType.RequestDatum,
+    label: "Inspect datum", beginnerLabel: "Inspect reference",
+    description: "Read a datum's native definition, resolved geometry, source identities and status without mutation.",
+    icon: "info", parameterSchema: z.object({ featureId: StableFeatureIdSchema }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
+  },
+  {
+    id: "SetSketchProjection", nativeType: CommandType.SetSketchProjection,
+    label: "Set sketch projection", beginnerLabel: "Set projection",
+    description: "Create or replace one sketch-owned associative projection group.",
+    icon: "link", parameterSchema: z.object({ featureId: StableFeatureIdSchema,
+      groupId: StableFeatureIdSchema, definition: ProjectionDefinitionSchema }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
+  },
+  {
+    id: "RemoveSketchProjection", nativeType: CommandType.RemoveSketchProjection,
+    label: "Remove sketch projection", beginnerLabel: "Remove projection",
+    description: "Remove one sketch-owned projection group and release its source references.",
+    icon: "unlink", parameterSchema: z.object({ featureId: StableFeatureIdSchema,
+      groupId: StableFeatureIdSchema }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
+  },
+  {
+    id: "RequestSketchProjection", nativeType: CommandType.RequestSketchProjection,
+    label: "Inspect sketch projection", beginnerLabel: "Inspect projection",
+    description: "Read current projection definitions, status and bounded display geometry.",
+    icon: "info", parameterSchema: z.object({ featureId: StableFeatureIdSchema,
+      groupId: StableFeatureIdSchema.optional() }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
   },
   {
     id: "DeleteFeature", nativeType: CommandType.DeleteFeature,
@@ -361,8 +482,38 @@ export const COMMANDS: CadCommandDefinition[] = [
 export function commandJsonSchema(id: string) {
   const definition = COMMANDS.find((command) => command.id === id);
   if (!definition) return null;
+  const parameters = zodToJsonSchema(definition.parameterSchema, { $refStrategy: "none", target: "jsonSchema7",
+    override: def => def === StableFeatureIdSchema._def ? { ...SESSION_STABLE_FEATURE_ID_SCHEMA } : ignoreOverride,
+  }) as Record<string, unknown>;
+  if (id === "SetSketchProjection") {
+    const record = (value: unknown) => value as Record<string, unknown>;
+    const properties = record(parameters["properties"]);
+    const projection = record(properties["definition"]);
+    projection["maxJsonUtf8Bytes"] = 65536;
+    const projectionProperties = record(projection["properties"]);
+    const sources = record(projectionProperties["sources"]);
+    sources["uniqueItems"] = true;
+    const variants = record(sources["items"])["anyOf"];
+    if (Array.isArray(variants)) {
+      for (const variant of variants) {
+        const sourceProperties = record(record(variant)["properties"]);
+        const sourceType = record(sourceProperties["type"])["const"];
+        if (sourceType === "edge") {
+          record(sourceProperties["persistentEdgeId"])["maxUtf8Bytes"] = 512;
+        } else if (sourceType === "sketchEntities") {
+          const entityIds = record(sourceProperties["entityIds"]);
+          record(entityIds["items"])["maxUtf8Bytes"] = 512;
+          record(sourceProperties["entityIds"])["uniqueItems"] = true;
+        }
+      }
+    }
+  }
   return { id: definition.id, nativeType: definition.nativeType,
+    creation: commandCreationRule(id),
     description: definition.description,
-    parameters: zodToJsonSchema(definition.parameterSchema, { $refStrategy: "none", target: "jsonSchema7" }),
+    supportsPreview: definition.supportsPreview,
+    selectionBindings: definition.selectionBindings ?? {},
+    optionalSelectionBindings: definition.optionalSelectionBindings ?? {},
+    parameters,
   };
 }

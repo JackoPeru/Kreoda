@@ -1,0 +1,23 @@
+{
+  "scopedRegistries": [
+    {
+      "name": "Meta XR NPM",
+      "url": "https://npm.developer.oculus.com",
+      "scopes": [
+        "com.meta.xr"
+      ]
+    }
+  ],
+  "dependencies": {
+    "com.meta.xr.sdk.core": "207.0.0",
+    "com.unity.inputsystem": "1.20.0",
+    "com.unity.test-framework": "1.6.0",
+    "com.unity.ugui": "2.0.0",
+    "com.unity.modules.physics": "1.0.0",
+    "com.unity.modules.physics2d": "1.0.0",
+    "com.unity.modules.animation": "1.0.0",
+    "com.unity.modules.assetbundle": "1.0.0",
+    "com.unity.xr.openxr": "1.18.0"
+  },
+  "enableLockFile": true
+}

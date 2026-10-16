@@ -1,0 +1,5 @@
+<linker>
+  <assembly fullname="Kreoda.SessionClient">
+    <namespace fullname="Kreoda.Session.Generated" preserve="all" />
+  </assembly>
+</linker>

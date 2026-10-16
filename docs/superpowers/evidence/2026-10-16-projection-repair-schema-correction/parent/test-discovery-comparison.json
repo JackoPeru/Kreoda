@@ -1,0 +1,61 @@
+{
+  "native": {
+    "old": 279,
+    "new": 284,
+    "removed": [],
+    "added": [
+      [
+        "SketchProjectionRecovery.AggregateOverflowCannotBreakALaterHealthyGroup",
+        "SketchProjectionRecovery.AggregateOverflowCannotBreakALaterHealthyGroup"
+      ],
+      [
+        "SketchProjectionRecovery.RemovesOneBrokenGroupAndLastProfileRemovalIsAtomic",
+        "SketchProjectionRecovery.RemovesOneBrokenGroupAndLastProfileRemovalIsAtomic"
+      ],
+      [
+        "SketchProjectionRecovery.RepairsTwoBrokenGroupsWithoutPublishingStaleGeometry",
+        "SketchProjectionRecovery.RepairsTwoBrokenGroupsWithoutPublishingStaleGeometry"
+      ],
+      [
+        "SketchProjectionRecovery.TaintedJoinedRepairRestoresBothBrokenGroups",
+        "SketchProjectionRecovery.TaintedJoinedRepairRestoresBothBrokenGroups"
+      ],
+      [
+        "SketchProjectionRecovery.TwoGroupRepairInOneTransactionHasOneUndo",
+        "SketchProjectionRecovery.TwoGroupRepairInOneTransactionHasOneUndo"
+      ]
+    ],
+    "distinctCaseTitles": 284,
+    "note": "Compare occurrences; parameterized Vitest cases can share a title."
+  },
+  "protocol": {
+    "old": 54,
+    "new": 56,
+    "removed": [],
+    "added": [
+      [
+        "src/session-control.test.ts",
+        "projection DTO contract > accepts the exact 65536-byte definition and rejects one byte more"
+      ],
+      [
+        "src/session-control.test.ts",
+        "projection DTO contract > enforces UTF-8 byte limits in standalone and nested validators"
+      ]
+    ],
+    "distinctCaseTitles": 53,
+    "note": "Compare occurrences; parameterized Vitest cases can share a title."
+  },
+  "canonical": {
+    "old": 14,
+    "new": 15,
+    "removed": [],
+    "added": [
+      [
+        "src/native-command.test.ts",
+        "keeps Unicode identifiers valid below 512 bytes and enforces exact definition bytes"
+      ]
+    ],
+    "distinctCaseTitles": 15,
+    "note": "Compare occurrences; parameterized Vitest cases can share a title."
+  }
+}

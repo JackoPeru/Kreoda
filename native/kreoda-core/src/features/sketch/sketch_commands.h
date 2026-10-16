@@ -13,6 +13,12 @@ namespace kreoda {
 bool CreateSketchFeature(const std::string& sketchId,
                          const std::string& planeKind,
                          const SketchModel& model, std::string* error);
+bool CreateSketchFeature(const std::string& sketchId,
+                         const std::string& planeKind,
+                         const SketchModel& model, const SketchPlane& plane,
+                         std::string* error);
+bool CreateSketchOnDatumFeature(const std::string& sketchId,const std::string& datumId,
+                                const SketchModel& model,std::string* error);
 bool UpdateSketchFeature(const std::string& sketchId,
                          const SketchModel& model, std::string* error);
 

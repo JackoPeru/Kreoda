@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Kreoda.SessionClient/Kreoda.SessionClient.csproj" />
+    <ProjectReference Include="../../src/Kreoda.QuestFoundation/Kreoda.QuestFoundation.csproj" />
   </ItemGroup>
 </Project>

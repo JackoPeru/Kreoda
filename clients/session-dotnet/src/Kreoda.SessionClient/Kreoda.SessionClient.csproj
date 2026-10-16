@@ -5,13 +5,14 @@
        tests and tools without an engine. No Unity dependency. -->
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;netstandard2.1</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="8.0.6" Condition="'$(TargetFramework)' == 'netstandard2.1'" />
     <ProjectReference Include="..\..\..\..\packages\protocol\csharp\Kreoda.Protocol.csproj" />
   </ItemGroup>
 

@@ -1,0 +1,8 @@
+  Individuazione dei progetti da ripristinare...
+  Tutti i progetti sono aggiornati per il ripristino.
+
+Sono state usate le origini seguenti:
+   https://api.nuget.org/v3/index.json
+   C:\Program Files (x86)\Microsoft SDKs\NuGetPackages\
+
+Considerate le origini correnti, il progetto specificato `Kreoda.SessionClient` non contiene pacchetti vulnerabili.

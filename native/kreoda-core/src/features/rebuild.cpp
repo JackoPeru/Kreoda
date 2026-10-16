@@ -11,6 +11,10 @@
 #include "features/instance/instance.h"
 #include "features/revolve/revolve.h"
 #include "features/sketch/sketch_store.h"
+#include "features/sketch/sketch_json.h"
+#include "features/sketch/sketch_projection.h"
+#include "features/datum/datum_commands.h"
+#include "persistence/ocaf_live.h"
 #include "model/commit.h"
 #include "model/shapes.h"
 
@@ -24,9 +28,26 @@ bool RebuildNodeFromStore(const std::string& featureId, std::string* error) {
 #if KREODA_WITH_OCCT
   // Sketch nodes live in SketchStore (no B-Rep of their own): re-validate
   // by re-solving; dependent solids rebuild in their own steps (§53).
+  if (DatumStore::instance().contains(featureId)) return RebuildDatumFromStore(featureId,error);
   if (SketchStore::instance().contains(featureId)) {
+    SketchFeature sketch;SketchStore::instance().get(featureId,&sketch);
+    if(sketch.planeKind=="Datum") {
+      DatumRecord support;if(!DatumStore::instance().get(sketch.supportRef,&support)||support.kind!=DatumKind::Plane||support.status!="ok") {if(error)*error="sketch datum support is missing or broken";return false;}
+      sketch.plane=support.plane;SketchStore::instance().put(sketch);
+    }
     SolveResult r = SolveStoredSketch(featureId, SolveOptions{}, error);
-    return r.ok;
+    if(!r.ok)return false;
+    SketchStore::instance().get(featureId,&sketch);
+    const auto shapes = ShapeStore::instance().listInOrder();
+    auto sketches = SketchStore::instance().listInOrder();
+    const auto datums = DatumStore::instance().listInOrder();
+    for (auto& source : sketches) if (source.id == featureId) source = sketch;
+    if (!ResolveSketchProjectionGroups(
+            &sketch, shapes, sketches, datums,
+            OcafLive::instance().SketchProjectionSourceResolver(), "", true,
+            false, nullptr, error)) return false;
+    SketchStore::instance().put(sketch);
+    return OcafLive::instance().UpsertSketch(featureId,SerializeSketchFeature(sketch),error);
   }
   ShapeRecord rec;
   if (!ShapeStore::instance().get(featureId, &rec)) {

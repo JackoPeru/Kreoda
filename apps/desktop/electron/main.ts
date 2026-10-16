@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { SidecarManager } from "./sidecar";
 import { installRendererRecovery } from "./renderer-recovery";
-import { SessionRelay, type SessionDelta } from "./session";
+import { SessionRelay, type SessionDelta, type SessionSelection } from "./session";
 import { SessionDevices } from "./session-devices";
 import { sessionInterfaces } from "./session-listener";
 import type { SessionConnectionStatus } from "./session-control-ui";
@@ -24,11 +24,13 @@ let sidecar: SidecarManager | null = null;
 let sessionRelay: SessionRelay | null = null;
 
 const isDev = !app.isPackaged;
+const backgroundTest = process.env["KREODA_BACKGROUND_TEST"] === "1";
 
 function createWindow(previous?: BrowserWindow): void {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
+    show: !backgroundTest,
     title: "Kreoda",
     // Kreoda mark: .vite/build → apps/desktop/assets/icon.ico.
     icon: path.join(__dirname, "../../assets/icon.ico"),
@@ -37,6 +39,7 @@ function createWindow(previous?: BrowserWindow): void {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      backgroundThrottling: !backgroundTest,
     },
     backgroundColor: "#0b0e13",
   });
@@ -100,7 +103,9 @@ app.whenReady().then(async () => {
   void initSidecar();
   sessionRelay = new SessionRelay(() => sidecar, (delta: SessionDelta) => {
     mainWindow?.webContents.send("kreoda:session-delta", delta);
-  }, devices);
+  }, devices, (selection: SessionSelection) => {
+    mainWindow?.webContents.send("kreoda:session-selection", selection);
+  });
   // The local session service exists without a listener. Environment settings
   // enable the development/test network endpoint; production pairing follows.
   const sessionPort = Number(process.env["KREODA_SESSION_PORT"] ?? "");

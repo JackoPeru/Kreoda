@@ -5,6 +5,7 @@
 #include "model/shapes.h"
 #include "expressions/expressions.h"
 #include "features/sketch/sketch_store.h"
+#include "features/datum/datum_store.h"
 #include "persistence/ocaf_live.h"
 
 namespace kreoda {
@@ -19,6 +20,7 @@ void DocumentStore::create(const std::string& documentId) {
   documentId_ = documentId.empty() ? "doc-bootstrap" : documentId;
   ShapeStore::instance().clear();  // new document owns an empty model (§9)
   BodyStore::instance().clear();  // bodies rebuild from history (Slice 2)
+  DatumStore::instance().clear();
   SketchStore::instance().clear();  // sketches are part of the model (§21)
   ExpressionStore::instance().clear();  // formulas are part of the model (§22)
 #if KREODA_WITH_OCCT
@@ -39,6 +41,10 @@ void DocumentStore::registerFeature(const std::string& featureId,
                                     const std::string& type) {
   std::lock_guard<std::mutex> lock(mutex_);
   features_[featureId] = type;
+#if KREODA_WITH_OCCT
+  // Joined operations are provisional; CommitTransaction owns one revision.
+  if (OcafLive::instance().InTransaction()) return;
+#endif
   ++revision_;
 }
 

@@ -1,12 +1,32 @@
 #pragma once
 
 #include <map>
+#include <functional>
 #include <string>
 #include <vector>
 
+#include "../features/sketch/sketch_store.h"
+#include "../features/datum/datum_store.h"
 #include "../model/shapes.h"
 
+#if KREODA_WITH_OCCT
+#include <TopoDS_Edge.hxx>
+#endif
+
 namespace kreoda {
+
+#if KREODA_WITH_OCCT
+struct ProjectionSelection {
+  std::string sourceIdentity;
+  std::string featureId;
+  std::string persistentEdgeId;
+  TopoDS_Edge edge;
+};
+using ProjectionSelectionResolver = std::function<bool(
+    const std::string&, const std::string&, const std::string&,
+    const std::string&, const std::string&, const std::string&,
+    TopoDS_Edge*, std::string*)>;
+#endif
 
 // Live OCAF document (§3): one BinXCAF document for the process lifetime.
 // Every feature owns a label (UUID name + params comment + XCAF shape).
@@ -73,9 +93,24 @@ class OcafLive {
   // Sketch labels (§21): sketches live under a Sketches folder as
   // name=sketch UUID + comment=serialized SketchFeature JSON. Mutations run
   // inside the caller's OCAF command so Undo/Redo restores them.
+  bool UpsertDatum(const std::string& datumId, const std::string& datumJson,
+                   std::string* error);
+  // Bind native datum picks within its caller-owned OCAF command.
+  bool BindDatumSources(const std::string& datumId,std::string* definitionJson,std::string* error,bool refreshSemantic=false);
+  DatumSelectionResolver DatumSourceResolver() const;
   bool UpsertSketch(const std::string& sketchId, const std::string& sketchJson,
                     std::string* error);
   bool SketchLabelEntries(std::vector<std::pair<std::string, std::string>>* out);
+#if KREODA_WITH_OCCT
+  bool BindSketchProjectionSources(
+      const std::string& sketchId, const std::string& groupId,
+      const std::vector<ProjectionSelection>& selections,
+      std::string* bindingsJson, std::string* error);
+  bool ReleaseSketchProjectionSources(const std::string& sketchId,
+                                      const std::string& groupId,
+                                      std::string* error);
+  ProjectionSelectionResolver SketchProjectionSourceResolver() const;
+#endif
 
   struct FaceSelection {
     std::string entry;      // TDF_Label entry — stable across save/load
@@ -97,6 +132,11 @@ class OcafLive {
                            bool checkAmbiguity = false) const;
 
   bool Save(const std::string& xbfPath, std::string* error);
+  // Read and validate persisted sketch labels without touching the live doc.
+  bool ValidateSketchesInFile(const std::string& xbfPath,
+                              std::vector<SketchFeature>* sketches,
+                              std::string* error,
+                              std::vector<DatumRecord>* datums = nullptr) const;
   // Opens into the live doc and rebuilds label/selection maps.
   // Fills records (solids) and sketchJsons (serialized SketchFeatures).
   bool Load(const std::string& xbfPath, std::vector<ShapeRecord>* records,

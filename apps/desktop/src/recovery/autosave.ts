@@ -64,10 +64,10 @@ export async function recoveryAvailable(): Promise<boolean> {
 /** Restore the autosave snapshot through the real Open path (no shortcuts). */
 export async function restoreRecovery(): Promise<void> {
   const path = await window.kreoda.recoveryPath();
-  const { features: list, sketches, revision } =
+  const { features: list, sketches, datums, revision } =
     await coreClient.openDocument(path);
   // Document replacement = new epoch (C5): core revisions reset.
-  const restoreEpoch = await syncOpenedDocument(list, revision, sketches);
+  const restoreEpoch = await syncOpenedDocument(list, revision, sketches, datums);
   // Keep the file: quitting again without saving must prompt again.
   const restored = docState();
   if (restored.epoch === restoreEpoch && restored.revision === revision) {

@@ -178,9 +178,13 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
         </label>
         );
       })}
-      <div className="pt-1 text-xs text-white/55">
-        {tt("props.volume", { v: (feature.volumeMm3 / 1000).toFixed(1) })}
-      </div>
+      {feature.geometryCurrent === false || feature.status === "unavailable" ? (
+        <div className="pt-1 text-xs text-red-300">{tt("props.geometryUnavailable")}</div>
+      ) : typeof feature.volumeMm3 === "number" ? (
+        <div className="pt-1 text-xs text-white/55">
+          {tt("props.volume", { v: (feature.volumeMm3 / 1000).toFixed(1) })}
+        </div>
+      ) : null}
       {error && <div className="pt-2 text-xs text-red-300">{error}</div>}
       {busyParam && <div className="pt-1 text-[11px] text-white/40">{tt("common.recomputing")}</div>}
     </div>

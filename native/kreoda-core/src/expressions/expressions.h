@@ -7,6 +7,8 @@
 
 namespace kreoda {
 
+struct ShapeRecord;
+
 // Parametric expressions, Phase 9a (§22): a feature parameter may hold a
 // formula (`heightMm * 2`, `box-1.widthMm + 5`) instead of a bare number.
 // Formulas are core-owned state (ExpressionStore, never UI state), mirrored
@@ -56,6 +58,13 @@ bool EvaluateOneExpression(const std::string& ownerId,
 // change detection is sound.
 bool EvaluateAllExpressions(std::vector<std::string>* changed,
                             std::string* error);
+
+// Same bounded evaluation against caller-owned records; never writes live stores.
+// A failing evaluation may change the scratch records, which the caller discards.
+bool EvaluateExpressionSnapshot(std::map<std::string, ShapeRecord>* records,
+                                const std::vector<ExpressionEntry>& entries,
+                                std::vector<std::string>* changed,
+                                std::string* error);
 
 // Flat JSON codec for OCAF expression labels: {"widthMm":"h*2"}.
 // Keys/values are strict-charset (no quotes/backslashes possible), so the

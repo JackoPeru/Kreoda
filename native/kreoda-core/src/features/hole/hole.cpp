@@ -11,6 +11,7 @@
 #include "document/document_store.h"
 #include "model/body.h"
 #include "model/commit.h"
+#include "model/geometry_availability.h"
 #include "model/feature_graph.h"
 #include "model/shapes.h"
 #include "topology/face_roles.h"
@@ -350,8 +351,8 @@ bool CreateHoleFeature(const std::string& featureId,
     return false;
   }
   ShapeRecord target;
-  if (!ShapeStore::instance().get(targetId, &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(targetId, &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) *error = "unknown target " + targetId;
     return false;
   }
@@ -383,7 +384,7 @@ bool CreateHoleFeature(const std::string& featureId,
       if (error) *error = "upstream insertion requires its own command (close the session transaction first)";
       return false;
     }
-    if (!ShapeStore::instance().get(insertBeforeId, &before) ||
+    if (!GetCurrentShapeRecord(insertBeforeId, &before, error) ||
         FeatureBodySemantics(before.type) != BodySemantics::AdvancesBody ||
         before.dependsOn.empty() || before.dependsOn[0] != targetId ||
         !BodyStore::instance().bodyForFeature(insertBeforeId, &body)) {
@@ -399,7 +400,7 @@ bool CreateHoleFeature(const std::string& featureId,
     // which branch becomes the tip. Require one explicit linear chain.
     for (size_t i = 1; i < body.history.size(); ++i) {
       ShapeRecord member;
-      if (!ShapeStore::instance().get(body.history[i], &member) || member.dependsOn.empty() ||
+      if (!GetCurrentShapeRecord(body.history[i], &member, error) || member.dependsOn.empty() ||
           member.dependsOn[0] != body.history[i - 1]) {
         if (error) *error = "upstream insertion requires a linear body history (branched history needs repair)";
         return false;
@@ -465,8 +466,8 @@ bool CreateHoleFeature(const std::string& featureId,
       // During insertion, duplicated semantic roles are ambiguous too.
       // Verify each affected reference before invoking its evaluator.
       ShapeRecord rec, target;
-      ShapeStore::instance().get(id, &rec);
-      if (!rec.dependsOn.empty() && ShapeStore::instance().get(rec.dependsOn[0], &target)) {
+      if (!GetCurrentShapeRecord(id, &rec, e)) return false;
+      if (!rec.dependsOn.empty() && GetCurrentShapeRecord(rec.dependsOn[0], &target, e)) {
         if (rec.type == "Fillet" || rec.type == "Chamfer") {
           const auto edges = ClassifyEdgeRoles(target.shape, target.type, target.featureId);
           for (const auto& ref : SplitEdgeIds(rec.refExtra)) {
@@ -566,8 +567,8 @@ bool CreateHolePatternFeature(
   }
 #if KREODA_WITH_OCCT
   ShapeRecord target;
-  if (!ShapeStore::instance().get(targetId, &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(targetId, &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) *error = "unknown target " + targetId;
     return false;
   }
@@ -642,8 +643,8 @@ bool RebuildHoleFromStore(const std::string& featureId, std::string* error) {
     return false;
   }
   ShapeRecord target;
-  if (!ShapeStore::instance().get(rec.dependsOn[0], &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(rec.dependsOn[0], &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) {
       *error = "hole target vanished (needs repair): " + rec.dependsOn[0];
     }
@@ -673,8 +674,8 @@ bool RebuildHolePatternFromStore(const std::string& featureId,
   }
   if (!NormalizeHolePatternParams(rec.refExtra, &rec.paramsMm, error)) return false;
   ShapeRecord target;
-  if (!ShapeStore::instance().get(rec.dependsOn[0], &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(rec.dependsOn[0], &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) {
       *error =
           "hole pattern target vanished (needs repair): " + rec.dependsOn[0];
@@ -700,6 +701,15 @@ bool CreateHoleFeature(const std::string&, const std::string&,
 }
 
 bool RebuildHoleFromStore(const std::string&, std::string* error) {
+  if (error) *error = "holes require OCCT (link via vcpkg)";
+  return false;
+}
+
+bool CreateHolePatternFeature(
+    const std::string&, const std::string&,
+    const std::vector<std::pair<double, double>>&, double,
+    const std::string&, double, const std::vector<std::string>&,
+    std::vector<std::string>*, std::string* error) {
   if (error) *error = "holes require OCCT (link via vcpkg)";
   return false;
 }

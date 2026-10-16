@@ -1,0 +1,3 @@
+
+> @kreoda/protocol@0.1.0 lint C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol
+> tsc --noEmit -p tsconfig.json

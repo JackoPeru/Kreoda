@@ -2,24 +2,32 @@
 #include "diagnostics/crash_barrier.h"
 
 #include <cmath>
+#include <algorithm>
+#include <functional>
+#include <set>
 
 #include "document/document_store.h"
 #include "expressions/expressions.h"
 #include "model/body.h"
 #include "model/commit.h"
 #include "model/feature_graph.h"
+#include "model/model_snapshot.h"
 #include "model/shapes.h"
+#include "model/geometry_availability.h"
 #include "features/extrusion/extrude.h"
+#include "features/booleans/boolean.h"
 #include "features/fillet/fillet.h"
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
 #include "features/revolve/revolve.h"
 #include "features/sketch/sketch_store.h"
+#include "features/datum/datum_store.h"
 
 #include <map>
 
 #if KREODA_WITH_OCCT
 #include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepBuilderAPI_Copy.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <Standard_Failure.hxx>
@@ -32,6 +40,9 @@
 #endif
 
 namespace kreoda {
+
+CoreMesh TessellatePreviewRecord(const ShapeRecord& rec, int lod,
+                                std::string* error);
 
 namespace {
 
@@ -209,45 +220,39 @@ bool ResolveParamsForEdit(const ShapeRecord& rec, const std::string& paramName,
 
 // DAG recompute dispatch lives in features/rebuild.cpp (all B-Rep types).
 
-bool BuildPreviewMesh(const std::string& featureId,
-                      const std::string& paramName, double valueMm,
-                      CoreMesh* out, std::string* error) {
-  ShapeRecord rec;
-  if (!ShapeStore::instance().get(featureId, &rec)) {
-    if (error) *error = "unknown feature " + featureId;
-    return false;
-  }
-  if ((rec.type == "Hole" || rec.type == "HolePattern") && paramName == "depthMm" &&
-      rec.refExtra.find("mode=blind") == std::string::npos) {
-    if (error) *error = "throughAll hole has no depthMm (use a blind hole to set depth)";
-    return false;
-  }
-  std::vector<double> newParams;
-  if (!ResolveParamsForEdit(rec, paramName, valueMm, &newParams, error)) {
-    return false;
-  }
 #if KREODA_WITH_OCCT
+namespace {
+bool BuildCandidateShape(const ShapeRecord& rec, const std::vector<double>& newParams,
+                         const std::map<std::string, ShapeRecord>* records,
+                         TopoDS_Shape* out, std::string* error) {
+  auto get = [&](const std::string& id, ShapeRecord* result) {
+    if (!records) return ShapeStore::instance().get(id, result);
+    const auto found = records->find(id);
+    if (found == records->end()) return false;
+    *result = found->second;
+    return true;
+  };
   TopoDS_Shape candidate;
   bool built = false;
-  if (rec.type == "Box") {
+  if (rec.type == "Box" && newParams.size() == 3) {
     built = BuildBoxShape(newParams[0], newParams[1], newParams[2],
                           &candidate, error);
-  } else if (rec.type == "Cylinder") {
+  } else if (rec.type == "Cylinder" && newParams.size() == 2) {
     built = BuildCylinderShape(newParams[0], newParams[1], &candidate, error);
-  } else if (rec.type == "Sphere") {
+  } else if (rec.type == "Sphere" && newParams.size() == 1) {
     built = BuildSphereShape(newParams[0], &candidate, error);
   } else if (rec.type == "Extrude" && newParams.size() == 1 &&
-             !rec.dependsOn.empty()) {
+             rec.dependsOn.size() == 1) {
     built = BuildExtrudeShape(rec.dependsOn[0], newParams[0], &candidate,
                               error);
   } else if (rec.type == "Revolve" && newParams.size() == 1 &&
-             !rec.dependsOn.empty()) {
+             rec.dependsOn.size() == 1) {
     built = BuildRevolveShape(rec.dependsOn[0], newParams[0], &candidate,
                               error);
   } else if (rec.type == "Hole" && newParams.size() == 2 &&
-             !rec.dependsOn.empty()) {
+             rec.dependsOn.size() == 1) {
     ShapeRecord target;
-    if (!ShapeStore::instance().get(rec.dependsOn[0], &target)) {
+    if (!get(rec.dependsOn[0], &target)) {
       if (error) *error = "hole target vanished";
       return false;
     }
@@ -260,18 +265,18 @@ bool BuildPreviewMesh(const std::string& featureId,
     built = BuildHoleShape(target.shape, target.featureId, target.type,
                            faceRole, hx, hy, newParams[0], mode, newParams[1],
                            &candidate, error);
-  } else if (rec.type == "HolePattern" && !rec.dependsOn.empty()) {
+  } else if (rec.type == "HolePattern" && rec.dependsOn.size() == 1) {
     ShapeRecord target;
-    if (!ShapeStore::instance().get(rec.dependsOn[0], &target)) {
+    if (!get(rec.dependsOn[0], &target)) {
       if (error) *error = "hole pattern target vanished";
       return false;
     }
     built = BuildHolePatternShape(target.shape, target.featureId, target.type,
                                   rec.refExtra, newParams, &candidate, error);
   } else if ((rec.type == "Fillet" || rec.type == "Chamfer") &&
-             newParams.size() == 1 && !rec.dependsOn.empty()) {
+             newParams.size() == 1 && rec.dependsOn.size() == 1) {
     ShapeRecord target;
-    if (!ShapeStore::instance().get(rec.dependsOn[0], &target)) {
+    if (!get(rec.dependsOn[0], &target)) {
       if (error) *error = "dress-up target vanished";
       return false;
     }
@@ -284,23 +289,67 @@ bool BuildPreviewMesh(const std::string& featureId,
                                 edgeIds, newParams[0], &candidate, error);
     }
   } else if (rec.type == "Instance" && newParams.size() == 6 &&
-             !rec.dependsOn.empty()) {
+             rec.dependsOn.size() == 1) {
     // M1: preview must match commit (BuildInstanceShape + tessellate).
     ShapeRecord target;
-    if (!ShapeStore::instance().get(rec.dependsOn[0], &target)) {
+    if (!get(rec.dependsOn[0], &target)) {
       if (error) *error = "instance target vanished";
       return false;
     }
+    if (target.type == "Instance") {
+      if (error) *error = "nested instances are not supported (slice 1)";
+      return false;
+    }
     built = BuildInstanceShape(target.shape, newParams, &candidate, error);
+  } else if ((rec.type == "Union" || rec.type == "Subtract" || rec.type == "Intersect") && rec.dependsOn.size() == 2) {
+    ShapeRecord target, tool;
+    if (!get(rec.dependsOn[0], &target) || !get(rec.dependsOn[1], &tool)) {
+      if (error) *error = "boolean dependency vanished";
+      return false;
+    }
+    const auto opPosition = rec.refExtra.find("op=");
+    if (opPosition == std::string::npos) {
+      if (error) *error = "boolean record missing op";
+      return false;
+    }
+    const auto op = rec.refExtra.substr(opPosition + 3);
+    built = BuildBooleanShape(op, target.shape, tool.shape, &candidate, error);
   } else {
     if (error) *error = "cannot preview " + rec.type;
     return false;
   }
   if (!built) return false;
+  *out = candidate;
+  return true;
+}
+}  // namespace
+#endif
+
+bool BuildPreviewMesh(const std::string& featureId,
+                      const std::string& paramName, double valueMm,
+                      CoreMesh* out, std::string* error) {
+  ShapeRecord rec;
+  if (!ShapeStore::instance().get(featureId, &rec)) {
+    if (error) *error = "unknown feature " + featureId;
+    return false;
+  }
+  if (!EnsureGeometryAvailable(featureId, error)) return false;
+  if ((rec.type == "Hole" || rec.type == "HolePattern") && paramName == "depthMm" &&
+      rec.refExtra.find("mode=blind") == std::string::npos) {
+    if (error) *error = "throughAll hole has no depthMm (use a blind hole to set depth)";
+    return false;
+  }
+  std::vector<double> newParams;
+  if (!ResolveParamsForEdit(rec, paramName, valueMm, &newParams, error)) {
+    return false;
+  }
+#if KREODA_WITH_OCCT
+  TopoDS_Shape candidate;
+  if (!BuildCandidateShape(rec, newParams, nullptr, &candidate, error)) return false;
   ShapeRecord tmp = rec;
   tmp.paramsMm = std::move(newParams);
   tmp.shape = candidate;
-  *out = TessellateRecord(tmp, 0, error);
+  *out = TessellatePreviewRecord(tmp, 0, error);
   return !out->indices.empty();
 #else
   // Stub has no kernel: exact box tessellation straight from params.
@@ -315,11 +364,106 @@ bool BuildPreviewMesh(const std::string& featureId,
 #endif
 }
 
+bool BuildPreviewBodyMesh(const std::string& featureId, const std::string& paramName,
+                         double valueMm, const std::string& tipId, CoreMesh* out,
+                         std::string* error, const std::string& expression,
+                         const std::map<std::string, double>& otherValues) {
+  if (!out || !ShapeStore::ValidFeatureId(tipId)) {
+    if (error) *error = "preview tip or output is invalid";
+    return false;
+  }
+#if KREODA_WITH_OCCT
+  if (!EnsureGeometryAvailable(featureId, error) ||
+      !EnsureGeometryAvailable(tipId, error)) return false;
+  std::map<std::string, ShapeRecord> records;
+  for (const auto& rec : ShapeStore::instance().listInOrder()) records[rec.featureId] = rec;
+  auto owner = records.find(featureId);
+  if (owner == records.end() || records.find(tipId) == records.end()) {
+    if (error) *error = "preview owner or tip is missing";
+    return false;
+  }
+  if ((owner->second.type == "Hole" || owner->second.type == "HolePattern") &&
+      (paramName == "depthMm" || otherValues.count("depthMm")) &&
+      owner->second.refExtra.find("mode=blind") == std::string::npos) {
+    if (error) *error = "throughAll hole has no depthMm";
+    return false;
+  }
+  std::vector<double> params;
+  if (!ResolveParamsForEdit(owner->second, paramName, valueMm, &params, error)) return false;
+  owner->second.paramsMm = std::move(params);
+  for (const auto& [name, value] : otherValues) {
+    if (name == paramName || !ResolveParamsForEdit(owner->second, name, value, &params, error)) {
+      if (name == paramName && error) *error = "duplicate primary preview parameter";
+      return false;
+    }
+    owner->second.paramsMm = std::move(params);
+  }
+  auto expressions = ExpressionStore::instance().listInOrder();
+  expressions.erase(std::remove_if(expressions.begin(), expressions.end(), [&](const ExpressionEntry& entry) {
+    return entry.featureId == featureId && (entry.paramName == paramName || otherValues.count(entry.paramName));
+  }), expressions.end());
+  if (!expression.empty()) expressions.push_back({featureId, paramName, expression});
+  std::vector<std::string> changed;
+  if (!EvaluateExpressionSnapshot(&records, expressions, &changed, error)) return false;
+
+  // Walk only the requested tip's geometry ancestors, without changing the live DAG.
+  std::map<std::string, int> visiting;
+  std::set<std::string> affected(changed.begin(), changed.end());
+  affected.insert(featureId);
+  std::function<bool(const std::string&)> build = [&](const std::string& id) {
+    if (visiting[id] == 2) return true;
+    if (visiting[id] == 1) { if (error) *error = "cyclic preview dependencies"; return false; }
+    auto current = records.find(id);
+    if (current == records.end()) {
+      if (SketchStore::instance().contains(id)) return true;
+      if (error) *error = "missing preview dependency " + id;
+      return false;
+    }
+    visiting[id] = 1;
+    bool rebuild = affected.count(id) != 0;
+    for (const auto& dependency : current->second.dependsOn) {
+      if (!build(dependency)) return false;
+      if (affected.count(dependency)) rebuild = true;
+    }
+    if (rebuild) {
+      TopoDS_Shape candidate;
+      if (!BuildCandidateShape(current->second, current->second.paramsMm, &records, &candidate, error)) return false;
+      current->second.shape = candidate;
+      affected.insert(id);
+    } else {
+      // Kernel builders may update operand topology. Detach unchanged inputs too.
+      BRepBuilderAPI_Copy copy(current->second.shape, true, false);
+      if (!copy.IsDone()) { if (error) *error = "cannot detach preview dependency"; return false; }
+      current->second.shape = copy.Shape();
+    }
+    visiting[id] = 2;
+    return true;
+  };
+  try {
+    if (!build(tipId)) return false;
+    if (visiting[featureId] != 2) {
+      if (error) *error = "requested preview tip is unrelated to the edited feature";
+      return false;
+    }
+    *out = TessellatePreviewRecord(records.at(tipId), 0, error);
+    return !out->indices.empty();
+  } catch (const Standard_Failure& failure) {
+    if (error) *error = std::string("preview kernel exception: ") + failure.what();
+    return false;
+  }
+#else
+  (void)expression;
+  if (!otherValues.empty()) { if (error) *error = "compound preview requires OCCT"; return false; }
+  if (tipId != featureId) { if (error) *error = "body preview requires OCCT"; return false; }
+  return BuildPreviewMesh(featureId, paramName, valueMm, out, error);
+#endif
+}
+
 bool RebuildFeature(const std::string& featureId, const std::string& paramName,
                       double valueMm, const std::string& expression,
-                      std::string* error) {
+                      std::string* error, const std::map<std::string, double>& otherValues) {
   ShapeRecord rec;
-  if (!ShapeStore::instance().get(featureId, &rec)) {
+  if (!GetCurrentShapeRecord(featureId, &rec, error)) {
     if (error) *error = "unknown feature " + featureId;
     return false;
   }
@@ -330,26 +474,46 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     if (error) *error = "throughAll hole has no depthMm (use a blind hole to set depth)";
     return false;
   }
-  // Phase 9a: a formula replaces the bare value. Validate it NOW (parse +
-  // resolution against live values) so typos fail before anything stages.
-  if (!expression.empty()) {
+  // Validate the complete candidate before staging any live parameter/formula.
+  ShapeRecord staged = rec;
+  for (const auto& [name, value] : otherValues) {
+    if (name == paramName || !std::isfinite(value) ||
+        ((rec.type == "Hole" || rec.type == "HolePattern") && name == "depthMm" &&
+         rec.refExtra.find("mode=blind") == std::string::npos)) {
+      if (error) *error = "invalid additional parameter " + name;
+      return false;
+    }
+    std::vector<double> checked;
+    if (!ResolveParamsForEdit(staged, name, value, &checked, error)) return false;
+    staged.paramsMm = std::move(checked);
+  }
+  if (expression.empty()) {
+    std::vector<double> checked;
+    if (!ResolveParamsForEdit(staged, paramName, valueMm, &checked, error)) return false;
+    staged.paramsMm = std::move(checked);
+  } else if (otherValues.empty()) {
     double probe = 0;
-    if (!EvaluateOneExpression(featureId, paramName, expression, &probe,
-                               error)) {
-      return false;
-    }
-    std::vector<double> check;
-    if (!ResolveParamsForEdit(rec, paramName, probe, &check, error)) return false;
+    if (!EvaluateOneExpression(featureId, paramName, expression, &probe, error)) return false;
+    std::vector<double> checked;
+    if (!ResolveParamsForEdit(staged, paramName, probe, &checked, error)) return false;
   } else {
-    std::vector<double> check;
-    if (!ResolveParamsForEdit(rec, paramName, valueMm, &check, error)) {
-      return false;
-    }
+    std::map<std::string, ShapeRecord> scratch;
+    for (const auto& item : ShapeStore::instance().listInOrder()) scratch[item.featureId] = item;
+    scratch[featureId] = staged;
+    auto formulas = ExpressionStore::instance().listInOrder();
+    formulas.erase(std::remove_if(formulas.begin(), formulas.end(), [&](const ExpressionEntry& entry) {
+      return entry.featureId == featureId && (entry.paramName == paramName || otherValues.count(entry.paramName));
+    }), formulas.end());
+    formulas.push_back({featureId, paramName, expression});
+    std::vector<std::string> changed;
+    if (!EvaluateExpressionSnapshot(&scratch, formulas, &changed, error)) return false;
+    staged = scratch.at(featureId);
   }
 #if KREODA_WITH_OCCT
   // DAG recompute (§53): stage new params, mark the closure dirty, rebuild
   // in topological order inside ONE OCAF command (one Undo step, §12).
   // Snapshot first (pre-images for rollback); params staged after.
+  const ModelSnapshot before;
   // Defensive: features adopted via open/undo always have graph nodes, but a
   // missing node must never silently skip the rebuild.
   if (!TheFeatureGraph().hasFeature(featureId)) {
@@ -357,33 +521,16 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     TheFeatureGraph().clearDirty(featureId);
   }
   TheFeatureGraph().markDirty(featureId);
-  // C1: snapshot the WHOLE store before any mutation (expression dependents
-  // are not geometry-dirty yet, and EvaluateAll is now two-phase but the
-  // staged bare-value put below still needs a full pre-image).
-  std::map<std::string, ShapeRecord> snapshot;
-  for (const auto& r : ShapeStore::instance().listInOrder()) {
-    snapshot[r.featureId] = r;
-  }
-  // Slice 3: tip stays at last good on failure — restore alongside shapes.
-  const std::vector<BodyRecord> bodySnap = BodyStore::instance().bodies();
-  // Previous formula map for rollback (restored on abort with the params).
-  const std::map<std::string, std::string> prevExpr =
-      ExpressionStore::instance().forFeature(featureId);
   // A bare edit replaces this parameter's formula; unrelated formulas stay.
   // Formula values land via the fixpoint below. Both paths share rollback.
   ExpressionStore::instance().set(featureId, paramName, expression);
-  if (expression.empty()) {
-    std::vector<double> newParams;
-    if (!ResolveParamsForEdit(rec, paramName, valueMm, &newParams, error)) {
-      return false;
-    }
-    rec.paramsMm = newParams;
+  for (const auto& [name, value] : otherValues) ExpressionStore::instance().set(featureId, name, "");
+  if (expression.empty() || !otherValues.empty()) {
+    rec.paramsMm = staged.paramsMm;
     ShapeStore::instance().put(rec);
   }
   if (!OcafLive::instance().BeginCommand(error)) {
-    for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
-    BodyStore::instance().replaceAll(bodySnap);
-    ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
+    before.restore();
     return false;
   }
   // Mirror the formula (or its continuity) inside the command, then run the
@@ -392,12 +539,10 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     std::string exprErr;
     if (!MirrorFeatureExpressions(featureId, &exprErr)) {
       OcafLive::instance().AbortCommand();
-      for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
-      BodyStore::instance().replaceAll(bodySnap);
-      ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
       // C7: aborted NewChild/AddShape labels are undone by OCAF but the
       // label maps still point at them — rebuild maps from the live doc.
       { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
+      before.restore();
       if (error) *error = exprErr;
       return false;
     }
@@ -407,10 +552,8 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     std::string evalErr;
     if (!EvaluateAllExpressions(&exprChanged, &evalErr)) {
       OcafLive::instance().AbortCommand();
-      for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
-      BodyStore::instance().replaceAll(bodySnap);
-      ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
       { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
+      before.restore();
       if (error) *error = evalErr;
       return false;
     }
@@ -424,11 +567,9 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
         return RebuildNodeFromStore(id, e);
       });
   if (!report.ok) {
-    for (const auto& [id, s] : snapshot) ShapeStore::instance().put(s);
-    BodyStore::instance().replaceAll(bodySnap);
-    ExpressionStore::instance().setFeatureMap(featureId, prevExpr);
     OcafLive::instance().AbortCommand();
     { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
+    before.restore();
     if (error) *error = report.firstError;
     return false;
   }

@@ -12,6 +12,7 @@
 #include "model/commit.h"
 #include "model/body.h"
 #include "model/shapes.h"
+#include "model/geometry_availability.h"
 #include "model/feature_graph.h"
 #include "document/document_store.h"
 #include "features/sketch/sketch_store.h"
@@ -322,15 +323,24 @@ bool CollectExportRecords(std::vector<ShapeRecord>* records, std::string* error)
   }
   records->clear();
   std::vector<std::string> tips;
+  for (const auto& stored : ShapeStore::instance().listInOrder()) {
+    ShapeRecord current;
+    if (!GetCurrentShapeRecord(stored.featureId, &current, error)) return false;
+  }
   for (const auto& body : BodyStore::instance().bodies()) {
     ShapeRecord tip;
-    if (!ShapeStore::instance().get(body.tipFeatureId, &tip) || tip.shape.IsNull()) {
+    if (!GetCurrentShapeRecord(body.tipFeatureId, &tip, error) || tip.shape.IsNull()) {
       if (error) *error = "cannot export missing body tip: " + body.tipFeatureId;
       return false;
     }
     tips.push_back(body.tipFeatureId);
   }
-  for (const auto& rec : ShapeStore::instance().listInOrder()) {
+  for (const auto& stored : ShapeStore::instance().listInOrder()) {
+    ShapeRecord rec;
+    if (!GetCurrentShapeRecord(stored.featureId, &rec, error)) {
+      records->clear();
+      return false;
+    }
     if (rec.type != "Instance" &&
         std::find(tips.begin(), tips.end(), rec.featureId) == tips.end()) continue;
     if (rec.shape.IsNull()) {

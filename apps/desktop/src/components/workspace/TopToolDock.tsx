@@ -29,6 +29,7 @@ import { WorkspaceActions, openDocument } from "./WorkspaceActions";
 import { useT } from "../../i18n";
 import { commandText, localizeReason } from "../../i18n/commands";
 import { SessionConnectionPanel } from "./SessionConnectionPanel";
+import { SectionPanel } from "./SectionPanel";
 
 const PRIMITIVE_ICONS: Record<string, React.ReactNode> = {
   box: <Box size={16} />,
@@ -60,6 +61,7 @@ export function TopToolDock({
   onToggleProps,
   onPlugins,
   onReference,
+  onReferenceGeometry,
   onInstance,
 }: {
   onAdd: (kind: PrimitiveKind) => void;
@@ -68,6 +70,7 @@ export function TopToolDock({
   onToggleProps: () => void;
   onPlugins: () => void;
   onReference: () => void;
+  onReferenceGeometry: () => void;
   onInstance: () => void;
 }) {
   const [open, setOpen] = useState<"add" | "more" | null>(null);
@@ -202,6 +205,14 @@ export function TopToolDock({
             <MenuHeader label={t("common.model")} />
             <button
               role="button"
+              onClick={() => { onReferenceGeometry(); close(); }}
+              data-testid="reference-geometry-button"
+              className={menuItemClass}
+            >
+              {t("topdock.referenceGeometry")}
+            </button>
+            <button
+              role="button"
               onClick={() => {
                 setTool(activeTool === "pull" ? "select" : "pull");
                 close();
@@ -275,6 +286,7 @@ export function TopToolDock({
             >
               {t("topdock.reference")}
             </button>
+            <SectionPanel />
             <div className="flex items-center gap-0.5 px-1 py-1" title={t("topdock.pickTitle")}>
               {(["auto", "body", "face", "edge"] as const).map((m) => (
                 <button

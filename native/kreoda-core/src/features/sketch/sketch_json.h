@@ -15,6 +15,7 @@ bool ParseSketchModel(const std::string& json, SketchModel* out,
                       std::string* error);
 std::string SerializeSketchModel(const SketchModel& model);
 std::string SerializeSketchFeature(const SketchFeature& sketch);
+std::string SerializeSketchFeatureForInspection(const SketchFeature& sketch);
 bool ParseSketchFeature(const std::string& json, SketchFeature* out,
                         std::string* error);
 

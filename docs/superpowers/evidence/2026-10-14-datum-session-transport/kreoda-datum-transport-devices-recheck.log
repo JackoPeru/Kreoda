@@ -1,0 +1,12 @@
+
+> @kreoda/desktop@0.1.0 test C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop
+> vitest run "tests/session-devices.test.ts"
+
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop
+
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  10:59:39
+   Duration  17.47s (transform 54ms, setup 20ms, import 76ms, tests 16.56s, environment 601ms)

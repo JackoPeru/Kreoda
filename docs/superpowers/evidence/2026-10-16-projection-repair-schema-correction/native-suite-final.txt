@@ -1,0 +1,66 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+WIN_LOCK_RENAME_MAP value=5 category=system message=Accesso negato.
+PHASE10_PERSISTENCE_SEQUENCE {"cycles":100,"features":4,"bodies":2,"placed_instances":1,"sequence":"edit-save-close-open-edit-save_as-undo-redo-close-open","reference_metadata":true,"revision_scope":"new session baseline plus one increment per committed mutation"}
+PHASE10_SKETCH_BRACKET {"workflow":"sketch-extrude-second_feature-hole-pattern-fillet-expression-upstream_edit-undo-redo-save-close-open-step","features":6,"bodies":1,"before_edit_volume_mm3":87309.557730200,"after_edit_volume_mm3":105309.557730200,"step_bytes":48015,"reopened_editable":true,"step_round_trip":true}
+PHASE10_RESOURCE_NATIVE {"scenario":"step_import_25","cycles":25,"elapsed_ms":163,"ms_per_cycle":6.52,"working_set_baseline_bytes":37761024,"working_set_after_warm_bytes":37847040,"working_set_final_bytes":37855232,"peak_working_set_bytes":37855232,"private_baseline_bytes":11644928,"private_after_warm_bytes":11657216,"private_final_bytes":11665408,"handles_baseline":159,"handles_after_warm":159,"handles_final":159}
+PHASE10_RESOURCE_NATIVE {"scenario":"document_open_close_100","cycles":100,"elapsed_ms":1524,"ms_per_cycle":15.24,"handles_baseline":159,"handles_after_10":159,"handles_after_100":159,"working_set_baseline_bytes":37871616,"working_set_final_bytes":38076416,"peak_working_set_bytes":38080512,"private_final_bytes":11665408}
+PHASE10_RESOURCE_NATIVE {"scenario":"body_create_delete_1000","cycles":1000,"elapsed_ms":792,"ms_per_cycle":0.79,"handles_baseline":159,"handles_after_10":159,"handles_after_1000":159,"working_set_baseline_bytes":38084608,"working_set_after_10_bytes":38100992,"working_set_final_bytes":52887552,"peak_working_set_bytes":52887552,"private_baseline_bytes":11665408,"private_after_10_bytes":11677696,"private_final_bytes":26636288}
+PHASE10_RESOURCE_NATIVE {"scenario":"fresh_sphere_tessellation","cycles":20,"working_set_bytes":45887488,"peak_working_set_bytes":79355904,"private_bytes":19558400,"handles":159}
+PHASE10_RESOURCE_NATIVE {"scenario":"fresh_sphere_tessellation","cycles":50,"working_set_bytes":46927872,"peak_working_set_bytes":80187392,"private_bytes":20574208,"handles":159}
+PHASE10_RESOURCE_NATIVE {"scenario":"fresh_sphere_tessellation","cycles":100,"working_set_bytes":45137920,"peak_working_set_bytes":80318464,"private_bytes":19206144,"handles":159}
+PHASE10_RESOURCE_NATIVE {"scenario":"fresh_sphere_tessellation_100","cycles":100,"elapsed_ms":24278,"ms_per_cycle":242.78,"working_set_baseline_bytes":37474304,"working_set_after_warm_bytes":41074688,"working_set_final_bytes":45137920,"peak_working_set_bytes":80318464,"private_baseline_bytes":11489280,"private_after_warm_bytes":14393344,"private_final_bytes":19206144,"handles_baseline":159,"handles_after_warm":159,"handles_final":159}
+PHASE10_PERF_NATIVE {"sphere_r50_lod1_tris": 10150, "sphere_r50_lod1_ms": 15, "sphere_r50_lod2_tris": 50540, "sphere_r50_lod2_ms": 111, "cyl_r20_h100_lod2_tris": 1004, "cyl_r20_h100_lod2_ms": 5}
+PHASE10_PERF_NATIVE {"sphere_r200_lod2_tris": 201374, "sphere_r200_lod2_ms": 598}
+PHASE10_PERF_NATIVE {"scenario":"sphere_lod2","radius_mm":200,"triangles":201374,"tessellation_ms":573,"windows_process_metrics_available":true,"working_set_bytes":55734272,"peak_working_set_bytes":120377344,"private_bytes":29466624,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"sphere_lod2","radius_mm":600,"triangles":604110,"tessellation_ms":2384,"windows_process_metrics_available":true,"working_set_bytes":83230720,"peak_working_set_bytes":270991360,"private_bytes":60186624,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"sphere_lod2","radius_mm":1100,"triangles":1108272,"tessellation_ms":5437,"windows_process_metrics_available":true,"working_set_bytes":106151936,"peak_working_set_bytes":470384640,"private_bytes":87728128,"handles":159}
+PHASE10_PERF_NATIVE {"target":"500k","radius_mm":600,"triangles":604110,"tessellation_ms":2384,"working_set_bytes":83230720,"peak_working_set_bytes":270991360,"private_bytes":60186624,"handles":159}
+PHASE10_PERF_NATIVE {"target":"1M","radius_mm":1100,"triangles":1108272,"tessellation_ms":5437,"working_set_bytes":106151936,"peak_working_set_bytes":470384640,"private_bytes":87728128,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"high_feature_chain","hole_features":40,"feature_count":41,"body_count":1,"feature_build_ms":1150,"recompute_ms":1120,"save_icad_ms":17,"icad_bytes":16517,"load_icad_ms":1271,"final_volume_mm3":4129212.392}
+PHASE10_PERF_NATIVE {"scenario":"high_feature_chain","stage":"baseline","working_set_bytes":43958272,"peak_working_set_bytes":470384640,"private_bytes":19025920,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"high_feature_chain","stage":"after_feature_build","working_set_bytes":45252608,"peak_working_set_bytes":470384640,"private_bytes":21544960,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"high_feature_chain","stage":"after_recompute","working_set_bytes":45830144,"peak_working_set_bytes":470384640,"private_bytes":21901312,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"high_feature_chain","stage":"after_save","working_set_bytes":46006272,"peak_working_set_bytes":470384640,"private_bytes":21909504,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"high_feature_chain","stage":"after_load","working_set_bytes":39673856,"peak_working_set_bytes":470384640,"private_bytes":12812288,"handles":159}
+[planegcs] Sketcher::RedundantSolving-DogLeg-
+
+[planegcs] Sketcher Redundant solving: 0 redundants
+
+[planegcs] Sketcher::RedundantSolving-DogLeg-
+
+[planegcs] Sketcher Redundant solving: 0 redundants
+
+[planegcs] Sketcher::RedundantSolving-DogLeg-
+
+[planegcs] Sketcher Redundant solving: 0 redundants
+
+[planegcs] Sketcher::RedundantSolving-DogLeg-
+
+[planegcs] Sketcher Redundant solving: 0 redundants
+
+[planegcs] Sketcher::RedundantSolving-DogLeg-
+
+[planegcs] Sketcher Redundant solving: 0 redundants
+
+[planegcs] Sketcher::RedundantSolving-DogLeg-
+
+[planegcs] Sketcher Redundant solving: 0 redundants
+
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","body_count":128,"feature_count":128,"create_bodies_ms":86,"recompute_bodies":128,"recompute_ms":96,"save_icad_ms":30,"icad_bytes":32633,"load_icad_ms":564,"step_export_ms":178,"step_bytes":2161008,"step_import_ms":686,"imported_solids":128,"total_volume_mm3":274856.891}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"baseline","working_set_bytes":45428736,"peak_working_set_bytes":470384640,"private_bytes":18505728,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_create","working_set_bytes":46616576,"peak_working_set_bytes":470384640,"private_bytes":19230720,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_recompute","working_set_bytes":48619520,"peak_working_set_bytes":470384640,"private_bytes":20418560,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_save","working_set_bytes":49213440,"peak_working_set_bytes":470384640,"private_bytes":20742144,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_load","working_set_bytes":44974080,"peak_working_set_bytes":470384640,"private_bytes":15564800,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_step_export","working_set_bytes":58052608,"peak_working_set_bytes":470384640,"private_bytes":29495296,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_step_import","working_set_bytes":59105280,"peak_working_set_bytes":470384640,"private_bytes":30314496,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","body_count":1024,"feature_count":1024,"create_bodies_ms":756,"recompute_bodies":1024,"recompute_ms":1608,"save_icad_ms":153,"icad_bytes":245820,"load_icad_ms":3869,"step_export_ms":1693,"step_bytes":18017251,"step_import_ms":5053,"imported_solids":1024,"total_volume_mm3":8982630.672}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"baseline","working_set_bytes":58130432,"peak_working_set_bytes":470384640,"private_bytes":29245440,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_create","working_set_bytes":63320064,"peak_working_set_bytes":470384640,"private_bytes":34611200,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_recompute","working_set_bytes":80265216,"peak_working_set_bytes":470384640,"private_bytes":52199424,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_save","working_set_bytes":84328448,"peak_working_set_bytes":470384640,"private_bytes":56348672,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_load","working_set_bytes":64933888,"peak_working_set_bytes":470384640,"private_bytes":36913152,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_step_export","working_set_bytes":89702400,"peak_working_set_bytes":470384640,"private_bytes":62771200,"handles":159}
+PHASE10_PERF_NATIVE {"scenario":"many_body_step_roundtrip","stage":"after_step_import","working_set_bytes":75653120,"peak_working_set_bytes":470384640,"private_bytes":53338112,"handles":159}
+[==========] 281 tests from 46 test suites ran. (83129 ms total)
+[  PASSED  ] 281 tests.

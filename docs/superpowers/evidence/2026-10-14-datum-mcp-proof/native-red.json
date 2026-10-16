@@ -1,0 +1,61 @@
+{
+  "isolated": true,
+  "responses": [
+    {
+      "requestId": "isolated-0",
+      "status": "ok",
+      "errorMessage": null,
+      "result": null
+    },
+    {
+      "requestId": "isolated-1",
+      "status": "ok",
+      "errorMessage": null,
+      "result": null
+    },
+    {
+      "requestId": "isolated-2",
+      "status": "ok",
+      "errorMessage": null,
+      "result": null
+    },
+    {
+      "requestId": "isolated-3",
+      "status": "ok",
+      "errorMessage": null,
+      "result": {
+        "checks": [
+          {
+            "code": "sketch-support-resolves",
+            "detail": "proof-sketch",
+            "ok": false
+          },
+          {
+            "code": "sketch-points-finite",
+            "detail": "proof-sketch",
+            "ok": true
+          }
+        ],
+        "scope": "kernel",
+        "valid": false
+      }
+    },
+    {
+      "requestId": "isolated-4",
+      "status": "ok",
+      "errorMessage": null,
+      "result": {
+        "checks": [
+          {
+            "detail": "unknown solid feature or body proof-plane",
+            "errorCode": "NOT_FOUND",
+            "id": "proof-plane",
+            "ok": false
+          }
+        ],
+        "scope": "kernel-references",
+        "valid": false
+      }
+    }
+  ]
+}

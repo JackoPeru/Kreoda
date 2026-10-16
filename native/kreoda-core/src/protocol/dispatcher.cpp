@@ -1,16 +1,22 @@
+#include "features/datum/datum_store.h"
+#include "features/datum/datum_json.h"
+#include "features/datum/datum_commands.h"
 #include "dispatcher.h"
 #include "protocol/json_fields.h"
+#include "protocol/save_publish_retry.h"
 #include "protocol/session_geometry.h"
 #include "diagnostics/crash_barrier.h"
 
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <iomanip>
 #include <map>
 #include <set>
 #include <sstream>
+#include <thread>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -41,10 +47,12 @@
 #include "features/revolve/revolve.h"
 #include "features/sketch/sketch_commands.h"
 #include "features/sketch/sketch_json.h"
+#include "features/sketch/sketch_projection.h"
 #include "features/sketch/sketch_store.h"
 #include "model/feature_graph.h"
 #include "model/body.h"
 #include "model/shapes.h"
+#include "model/geometry_availability.h"
 #include "protocol/mesh_fb.h"
 #include "topology/face_roles.h"
 #include "persistence/icad_zip.h"
@@ -114,6 +122,22 @@ std::string error_body(const std::string& code, const std::string& msg) {
          "\",\"errorMessage\":\"" + escape(msg) + "\"";
 }
 
+bool projection_request_fields_valid(
+    const Json& request, std::initializer_list<const char*> arguments,
+    std::string* error) {
+  std::set<std::string> allowed = {
+      "protocolVersion", "requestId", "documentId", "type",
+      "transactionId"};
+  for (const auto* argument : arguments) allowed.insert(argument);
+  for (const auto& field : request.items()) {
+    if (!allowed.count(field.key())) {
+      if (error) *error = "unsupported projection argument: " + field.key();
+      return false;
+    }
+  }
+  return true;
+}
+
 std::string shape_body(const ShapeRecord& rec) {
   std::ostringstream os;
   os << std::setprecision(17);
@@ -156,7 +180,19 @@ std::string sketch_body(const SketchFeature& sketch,
      << ",\"planeKind\":\"" << escape(sketch.planeKind) << "\""
      << ",\"revision\":" << DocumentStore::instance().revision() << ","
      << undo_counts_body() << ",\"sketch\":"
-     << SerializeSketchFeature(sketch);
+      << SerializeSketchFeatureForInspection(sketch);
+  const auto availability = GetGeometryAvailability(sketch.id);
+  os << ",\"geometryCurrent\":" << (availability.geometryCurrent ? "true" : "false")
+     << ",\"geometryStatus\":\"" << escape(availability.status) << "\"";
+  if (!availability.geometryCurrent) {
+    os << ",\"error\":\"" << escape(availability.error)
+       << "\",\"blockingSourceIds\":[";
+    for (size_t i = 0; i < availability.blockingSourceIds.size(); ++i) {
+      if (i) os << ",";
+      os << "\"" << escape(availability.blockingSourceIds[i]) << "\"";
+    }
+    os << "]";
+  }
   if (solve) {
     os << ",\"solved\":" << (solve->ok ? "true" : "false")
        << ",\"residual\":" << solve->residual << ",\"dofs\":" << solve->dofs;
@@ -204,8 +240,22 @@ std::string feature_list_body() {
       }
     }
     os << "}";
-    os << ",\"refExtra\":\"" << escape(rec.refExtra)
-       << "\",\"volumeMm3\":" << rec.volumeMm3 << "}";
+    os << ",\"refExtra\":\"" << escape(rec.refExtra) << "\"";
+    const auto availability = GetGeometryAvailability(rec.featureId);
+    os << ",\"geometryCurrent\":" << (availability.geometryCurrent ? "true" : "false")
+       << ",\"status\":\"" << escape(availability.status) << "\"";
+    if (availability.geometryCurrent) {
+      os << ",\"volumeMm3\":" << rec.volumeMm3;
+    } else {
+      os << ",\"error\":\"" << escape(availability.error)
+         << "\",\"blockingSourceIds\":[";
+      for (size_t i = 0; i < availability.blockingSourceIds.size(); ++i) {
+        if (i) os << ",";
+        os << "\"" << escape(availability.blockingSourceIds[i]) << "\"";
+      }
+      os << "]";
+    }
+    os << "}";
   }
   os << "],\"sketches\":[";
   first = true;
@@ -217,7 +267,29 @@ std::string feature_list_body() {
        << "\",\"points\":" << sk.model.points.size()
        << ",\"lines\":" << sk.model.lines.size()
        << ",\"circles\":" << sk.model.circles.size()
-       << ",\"constraints\":" << sk.model.constraints.size() << "}";
+       << ",\"constraints\":" << sk.model.constraints.size()
+       << ",\"supportRef\":\"" << escape(sk.supportRef) << "\",\"plane\":"
+       << Json::parse(SerializeSketchFeature(sk))["plane"].dump();
+    const auto availability = GetGeometryAvailability(sk.id);
+    os << ",\"geometryCurrent\":" << (availability.geometryCurrent ? "true" : "false")
+       << ",\"status\":\"" << escape(availability.status) << "\"";
+    if (!availability.geometryCurrent) {
+      os << ",\"error\":\"" << escape(availability.error)
+         << "\",\"blockingSourceIds\":[";
+      for (size_t i = 0; i < availability.blockingSourceIds.size(); ++i) {
+        if (i) os << ",";
+        os << "\"" << escape(availability.blockingSourceIds[i]) << "\"";
+      }
+      os << "]";
+    }
+    os << ",\"projectionGroups\":"
+       << SerializeSketchProjectionGroupsForInspection(sk.projectionGroups) << "}";
+  }
+  os << "],\"datums\":[";
+  first=true;
+  for(const auto& record:DatumStore::instance().listInOrder()) {
+    if(!first)os << ",";
+    first=false;os << SerializeDatumRecord(record);
   }
   os << "],\"revision\":" << DocumentStore::instance().revision() << ","
      << undo_counts_body();
@@ -239,8 +311,12 @@ std::string manifest_json(const std::string& documentId, const std::string& refe
 // solids carry their sketch/feature deps.
 void SyncGraphFromStore() {
   TheFeatureGraph().clear();
+  for (const auto& datum : DatumStore::instance().listInOrder()) {
+    TheFeatureGraph().addFeature(datum.featureId, datum.dependsOn);
+    TheFeatureGraph().clearDirty(datum.featureId);
+  }
   for (const auto& sk : SketchStore::instance().listInOrder()) {
-    TheFeatureGraph().addFeature(sk.id);
+    TheFeatureGraph().addFeature(sk.id, SketchDependencies(sk));
     TheFeatureGraph().clearDirty(sk.id);
   }
   for (const auto& rec : ShapeStore::instance().listInOrder()) {
@@ -267,6 +343,7 @@ std::string undo_counts_body() {
 struct DocSnapshot {
   std::vector<ShapeRecord> shapes;
   std::vector<SketchFeature> sketches;
+  std::vector<DatumRecord> datums;
   std::vector<ExpressionEntry> exprs;
   std::vector<BodyRecord> bodies;  // Slice 2: failed Open restores tips too
   std::map<std::string, std::string> registry;
@@ -282,6 +359,7 @@ DocSnapshot takeDocSnapshot(const std::string& docId) {
   DocSnapshot s;
   s.shapes = ShapeStore::instance().listInOrder();
   s.sketches = SketchStore::instance().listInOrder();
+  s.datums = DatumStore::instance().listInOrder();
   s.exprs = ExpressionStore::instance().listInOrder();
   s.bodies = BodyStore::instance().bodies();
   s.registry = DocumentStore::instance().snapshotRegistry();
@@ -290,7 +368,7 @@ DocSnapshot takeDocSnapshot(const std::string& docId) {
   s.references = DocumentStore::instance().referencePlanesJson();
   (void)docId;
 #if KREODA_WITH_OCCT
-  if (!s.shapes.empty() || !s.sketches.empty()) {
+  if (!s.shapes.empty() || !s.sketches.empty() || !s.datums.empty()) {
     std::error_code ec;
     std::string tmp = uniqueTempDir("kreoda-backup", ec);
     if (!tmp.empty()) {
@@ -313,6 +391,8 @@ void restoreDocSnapshot(const DocSnapshot& s) {
   ShapeStore::instance().clear();
   for (const auto& r : s.shapes) ShapeStore::instance().put(r);
   BodyStore::instance().replaceAll(s.bodies);  // Slice 2: tips survive abort
+  DatumStore::instance().clear();
+  for (const auto& datum : s.datums) DatumStore::instance().put(datum);
   SketchStore::instance().clear();
   for (const auto& sk : s.sketches) SketchStore::instance().put(sk);
   ExpressionStore::instance().clear();
@@ -351,6 +431,43 @@ void discardDocSnapshot(const DocSnapshot& s) {
   }
 }
 
+#ifdef _WIN32
+protocol::save_publish_retry::TargetState probeRenameTarget(
+    const fs::path& finalPath, const std::error_code& renameError) {
+  if (renameError.category() != std::system_category() ||
+      (renameError.value() != ERROR_ACCESS_DENIED &&
+       renameError.value() != ERROR_SHARING_VIOLATION)) {
+    return protocol::save_publish_retry::TargetState::NonRetryable;
+  }
+
+  const DWORD attributes = GetFileAttributesW(finalPath.c_str());
+  if (attributes == INVALID_FILE_ATTRIBUTES ||
+      (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ||
+      (attributes & FILE_ATTRIBUTE_READONLY) != 0) {
+    return protocol::save_publish_retry::TargetState::NonRetryable;
+  }
+
+  // MoveFileEx reports ERROR_ACCESS_DENIED (5) when an existing target's
+  // handle omitted FILE_SHARE_DELETE. Probe DELETE access to distinguish that
+  // transient sharing lock from ACL/read-only failures that must fail now.
+  HANDLE probe = CreateFileW(finalPath.c_str(), DELETE,
+                             FILE_SHARE_READ | FILE_SHARE_WRITE |
+                                 FILE_SHARE_DELETE,
+                             nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                             nullptr);
+  if (probe != INVALID_HANDLE_VALUE) {
+    CloseHandle(probe);
+    return protocol::save_publish_retry::TargetState::DeleteAvailable;
+  }
+  const DWORD probeError = GetLastError();
+  if (probeError == ERROR_SHARING_VIOLATION ||
+      probeError == ERROR_LOCK_VIOLATION) {
+    return protocol::save_publish_retry::TargetState::DeleteShareLocked;
+  }
+  return protocol::save_publish_retry::TargetState::NonRetryable;
+}
+#endif
+
 // Phase 10.5 (crash recovery): a killed save must never leave a partially
 // written project behind. Writers produce a temp sibling in the SAME
 // directory (same filesystem → atomic rename); the destination is replaced
@@ -384,6 +501,29 @@ bool saveAtomically(const std::string& finalPath, Writer&& write,
   }
   CrashTestBarrier("save-before-publish");
   fs::rename(tmpPath, finalPath, ec);
+#ifdef _WIN32
+  if (ec) {
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::milliseconds(200);
+    auto backoff = std::chrono::milliseconds(10);
+    bool retriedWithDeleteAvailable = false;
+    while (ec && std::chrono::steady_clock::now() < deadline) {
+      const auto targetState = probeRenameTarget(finalPath, ec);
+      const auto decision = protocol::save_publish_retry::Decide(
+          targetState, retriedWithDeleteAvailable);
+      if (decision == protocol::save_publish_retry::Decision::Stop) break;
+      if (decision == protocol::save_publish_retry::Decision::Wait) {
+        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+            deadline - std::chrono::steady_clock::now());
+        if (remaining <= std::chrono::milliseconds::zero()) break;
+        std::this_thread::sleep_for(std::min(backoff, remaining));
+      }
+      ec.clear();
+      fs::rename(tmpPath, finalPath, ec);
+      backoff = std::min(backoff * 2, std::chrono::milliseconds(20));
+    }
+  }
+#endif
   if (ec) {
     // m9: no remove+rename fallback by design — if the destination is locked
     // (viewer/AV), a fallback could remove the good file and then fail the
@@ -456,8 +596,10 @@ std::vector<uint8_t> mesh_success(const std::string& requestId,
     *error = "mesh encode failed";
   return fb;
 #else
+  (void)requestId;
   (void)featureId;
   (void)lod;
+  (void)mesh;
   if (error) *error = "mesh binary requires FlatBuffers (link via vcpkg)";
   return {};
 #endif
@@ -510,7 +652,8 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
     const bool readOnly =
         type == kGetCoreInfo || type == kRequestMesh ||
         type == kRequestSketch || type == kPreviewSketch ||
-        type == kRequestFaceInfo || type == kRequestSnapshot || type == kRequestSessionQuery;
+        type == kRequestFaceInfo || type == kRequestSnapshot || type == kRequestSessionQuery || type == kRequestDatum ||
+        type == kRequestSketchProjection;
     const bool preview =
         (type == kSetFeatureParameter || type == kUpdateSketch) &&
         (json_bool_field(requestJson, "isPreview"));
@@ -535,6 +678,113 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
   }
 
   switch (type) {
+    case kCreateDatumPlane:
+    case kCreateDatumAxis:
+    case kCreateDatumPoint:
+    case kUpdateDatum: {
+      const auto id=json_string_field(requestJson,"featureId","");
+      if(!requestJson.contains("definition")||!requestJson["definition"].is_object())
+        return make_response(requestId,"error",error_body("BAD_PARAMS","definition must be an object"));
+      std::string error;
+      const auto definition=requestJson["definition"].dump();
+      const auto kind=type==kCreateDatumPlane?DatumKind::Plane:type==kCreateDatumAxis?DatumKind::Axis:DatumKind::Point;
+      const bool success=type==kUpdateDatum?UpdateDatumFeature(id,definition,&error):CreateDatumFeature(id,kind,definition,&error);
+      if(!success)return make_response(requestId,"error",error_body("DATUM_FAILED",error));
+      DatumRecord record;DatumStore::instance().get(id,&record);
+      return make_response(requestId,"ok","\"datum\":"+SerializeDatumRecord(record)+","+feature_list_body());
+    }
+    case kRequestDatum: {
+      const auto id=json_string_field(requestJson,"featureId","");DatumRecord record;
+      if(!ShapeStore::ValidFeatureId(id))return make_response(requestId,"error",error_body("BAD_PARAMS","invalid featureId"));
+      if(!DatumStore::instance().get(id,&record))return make_response(requestId,"error",error_body("NOT_FOUND",id));
+      return make_response(requestId,"ok","\"datum\":"+SerializeDatumRecord(record)+",\"revision\":"+std::to_string(DocumentStore::instance().revision()));
+    }
+    case kSetSketchProjection: {
+      std::string error;
+      if (!projection_request_fields_valid(requestJson,
+              {"featureId", "groupId", "definition"}, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      const auto featureId = json_string_field(requestJson, "featureId", "");
+      const auto groupId = json_string_field(requestJson, "groupId", "");
+      if (!ShapeStore::ValidFeatureId(featureId) ||
+          !ShapeStore::ValidFeatureId(groupId))
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "invalid sketch or projection group id"));
+      SketchFeature sketch;
+      if (!SketchStore::instance().get(featureId, &sketch))
+        return make_response(requestId, "error", error_body("NOT_FOUND", featureId));
+      if (!requestJson.contains("definition") ||
+          !requestJson.at("definition").is_object())
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "definition must be an object"));
+      std::string canonical;
+      std::vector<std::string> sourceIds;
+      if (!ValidateSketchProjectionDefinition(groupId,
+              requestJson.at("definition").dump(), &canonical, &sourceIds, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      if (!SetSketchProjectionGroup(featureId, groupId, canonical, &error))
+        return make_response(requestId, "error", error_body("PROJECTION_FAILED", error));
+      if (!SketchStore::instance().get(featureId, &sketch))
+        return make_response(requestId, "error",
+                             error_body("PROJECTION_FAILED", "updated sketch disappeared"));
+      return make_response(requestId, "ok", sketch_body(sketch));
+    }
+    case kRemoveSketchProjection: {
+      std::string error;
+      if (!projection_request_fields_valid(requestJson,
+              {"featureId", "groupId"}, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      const auto featureId = json_string_field(requestJson, "featureId", "");
+      const auto groupId = json_string_field(requestJson, "groupId", "");
+      if (!ShapeStore::ValidFeatureId(featureId) ||
+          !ShapeStore::ValidFeatureId(groupId))
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "invalid sketch or projection group id"));
+      SketchFeature sketch;
+      if (!SketchStore::instance().get(featureId, &sketch))
+        return make_response(requestId, "error", error_body("NOT_FOUND", featureId));
+      if (std::none_of(sketch.projectionGroups.begin(), sketch.projectionGroups.end(),
+              [&](const auto& group) { return group.groupId == groupId; }))
+        return make_response(requestId, "error", error_body("NOT_FOUND", groupId));
+      if (!RemoveSketchProjectionGroup(featureId, groupId, &error))
+        return make_response(requestId, "error", error_body("PROJECTION_FAILED", error));
+      if (!SketchStore::instance().get(featureId, &sketch))
+        return make_response(requestId, "error",
+                             error_body("PROJECTION_FAILED", "updated sketch disappeared"));
+      return make_response(requestId, "ok", sketch_body(sketch));
+    }
+    case kRequestSketchProjection: {
+      std::string error;
+      if (!projection_request_fields_valid(requestJson,
+              {"featureId", "groupId"}, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      const auto featureId = json_string_field(requestJson, "featureId", "");
+      if (!ShapeStore::ValidFeatureId(featureId))
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "invalid sketch featureId"));
+      const bool hasGroupId = requestJson.contains("groupId");
+      const auto groupId = json_string_field(requestJson, "groupId", "");
+      if (hasGroupId && !ShapeStore::ValidFeatureId(groupId))
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "invalid projection groupId"));
+      SketchFeature sketch;
+      if (!SketchStore::instance().get(featureId, &sketch))
+        return make_response(requestId, "error", error_body("NOT_FOUND", featureId));
+      if (hasGroupId && std::none_of(sketch.projectionGroups.begin(),
+              sketch.projectionGroups.end(), [&](const auto& group) {
+                return group.groupId == groupId;
+              }))
+        return make_response(requestId, "error", error_body("NOT_FOUND", groupId));
+      std::string projection;
+      if (!SerializeSketchProjectionQuery(sketch, groupId, &projection, &error))
+        return make_response(requestId, "error", error_body("QUERY_FAILED", error));
+      const Json body = {{"projection", Json::parse(projection)},
+                         {"documentId", DocumentStore::instance().snapshotDocumentId()},
+                         {"revision", DocumentStore::instance().revision()}};
+      const auto serialized = body.dump();
+      return make_response(requestId, "ok",
+                           serialized.substr(1, serialized.size() - 2));
+    }
     case kRequestSessionQuery: {
       try {
         const auto method = json_string_field(requestJson,"method","");
@@ -619,6 +869,10 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       const std::string featureId =
           json_string_field(requestJson, "featureId", "");
       const int lod = json_int_field(requestJson, "lod", 1);
+      std::string availabilityError;
+      if (!EnsureGeometryAvailable(featureId, &availabilityError))
+        return make_response(requestId, "error",
+                             error_body("MESH_FAILED", availabilityError));
       // Revision-keyed response cache (Phase 8 large-model slice): reopen /
       // undo / redo re-pull identical meshes constantly; tessellation +
       // encoding dominate the cost. The (document, revision) in the key
@@ -938,8 +1192,15 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         return make_response(requestId, "error",
                              error_body("OPEN_FAILED", "reference metadata too large"));
       }
+      std::vector<SketchFeature> sketches;
+      std::vector<DatumRecord> datums;
+      if (!OcafLive::instance().ValidateSketchesInFile(xbf, &sketches, &error, &datums)) {
+        fs::remove_all(tmp, ec);
+        discardDocSnapshot(backup);
+        return make_response(requestId, "error",
+                             error_body("OPEN_FAILED", error));
+      }
       std::vector<ShapeRecord> records;
-      std::vector<std::string> sketchJsons;
       std::vector<BodyRecord> declaredBodies;
       const bool allowEmpty =
           ParseBodiesJson(manifest, &declaredBodies) && declaredBodies.empty() &&
@@ -947,10 +1208,11 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       // Fresh baseline BEFORE load (clears stores + OCAF); Load then opens
       // the file into the live doc with all labels (solids, sketches,
       // selections, evolution) intact — no re-mirroring needed.
-      // C5: backup already taken above; restore it if Load fails.
+      // Sketches were fully staged above so malformed labels cannot reach this
+      // destructive boundary. C5 backup remains for later open failures.
       // C8: validate adopted Instances (nested/self/missing never open).
       DocumentStore::instance().create(documentId);
-      if (!OcafLive::instance().Load(xbf, &records, &sketchJsons, &error,
+      if (!OcafLive::instance().Load(xbf, &records, nullptr, &error,
                                      allowEmpty)) {
         fs::remove_all(tmp, ec);
         restoreDocSnapshot(backup);
@@ -992,13 +1254,13 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
           BodyStore::instance().rebuildFromRecords(ordered);
         }
       }
-      for (const auto& js : sketchJsons) {
-        SketchFeature sf;
-        std::string perr;
-        if (ParseSketchFeature(js, &sf, &perr) && !sf.id.empty()) {
-          SketchStore::instance().put(sf);
-          DocumentStore::instance().noteFeature(sf.id, "Sketch");
-        }
+      for (const auto& datum : datums) {
+        DatumStore::instance().put(datum);
+        DocumentStore::instance().noteFeature(datum.featureId, DatumTypeName(datum.kind));
+      }
+      for (const auto& sf : sketches) {
+        SketchStore::instance().put(sf);
+        DocumentStore::instance().noteFeature(sf.id, "Sketch");
       }
       SyncGraphFromStore();
       DocumentStore::instance().commit();
@@ -1045,30 +1307,57 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
                                         "featureId, paramName and valueMm "
                                         "(or expression) are required"));
       }
+      if(DatumStore::instance().contains(featureId)) {
+        if(isPreview||!expression.empty()||json_has_key(requestJson,"parameterValues"))
+          return make_response(requestId,"error",error_body("BAD_PARAMS","datum edit requires one numeric parameter; preview and expressions are unsupported"));
+        std::string error;
+        if(!SetDatumParameter(featureId,paramName,value,&error))
+          return make_response(requestId,"error",error_body("DATUM_FAILED",error));
+        DatumRecord record;DatumStore::instance().get(featureId,&record);
+        return make_response(requestId,"ok","\"datum\":"+SerializeDatumRecord(record)+","+feature_list_body());
+      }
       if (isPreview) {
         // Transient preview (§13): resolved + built + tessellated WITHOUT
         // touching stores, revision, or OCAF. Never committed.
-        // A formula previews at its evaluated value (read-only evaluation).
         double previewValue = value;
-        if (!expression.empty()) {
-          std::string evalErr;
-          if (!EvaluateOneExpression(featureId, paramName, expression,
-                                     &previewValue, &evalErr)) {
-            return make_response(requestId, "error",
-                                 error_body("PREVIEW_FAILED", evalErr));
-          }
-        }
         std::string error;
         CoreMesh mesh;
-        if (!BuildPreviewMesh(featureId, paramName, previewValue, &mesh,
-                              &error) ||
-            mesh.indices.empty()) {
+        const std::string previewTipId = json_string_field(requestJson, "previewTipId", "");
+        if (requestJson.contains("previewTipId") &&
+            (!requestJson["previewTipId"].is_string() || previewTipId.empty())) {
+          return make_response(requestId, "error", error_body("BAD_PARAMS", "previewTipId must be a non-empty feature id"));
+        }
+        std::map<std::string, double> otherValues;
+        if (requestJson.contains("previewValues")) {
+          const auto& values = requestJson["previewValues"];
+          if (!values.is_object() || values.size() > 5 || values.contains(paramName)) {
+            return make_response(requestId, "error", error_body("BAD_PARAMS", "previewValues must contain at most five distinct additional parameters"));
+          }
+          for (const auto& [name, value] : values.items()) {
+            if (!value.is_number() || !std::isfinite(value.get<double>())) {
+              return make_response(requestId, "error", error_body("BAD_PARAMS", "previewValues must be finite numbers"));
+            }
+            otherValues[name] = value.get<double>();
+          }
+        }
+        const bool useBodyPreview = !previewTipId.empty() || requestJson.contains("previewValues");
+        // Body/compound formulas evaluate only after all candidate values have
+        // reached scratch. Legacy single-feature callers keep their evaluator.
+        if (!useBodyPreview && !expression.empty() &&
+            !EvaluateOneExpression(featureId, paramName, expression, &previewValue, &error)) {
+          return make_response(requestId, "error", error_body("PREVIEW_FAILED", error));
+        }
+        const bool previewOk = useBodyPreview
+            ? BuildPreviewBodyMesh(featureId, paramName, previewValue, previewTipId.empty() ? featureId : previewTipId,
+                                   &mesh, &error, expression, otherValues)
+            : BuildPreviewMesh(featureId, paramName, previewValue, &mesh, &error);
+        if (!previewOk || mesh.indices.empty()) {
           return make_response(requestId, "error",
                                error_body("PREVIEW_FAILED",
                                           error.empty() ? paramName : error));
         }
         std::vector<uint8_t> preview =
-            mesh_success(requestId, featureId, 1, mesh, &error);
+            mesh_success(requestId, previewTipId.empty() ? featureId : previewTipId, 0, mesh, &error);
         if (preview.empty()) {
           return make_response(requestId, "error",
                                error_body("PREVIEW_FAILED", error.empty()
@@ -1077,8 +1366,19 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         }
         return preview;
       }
+      std::map<std::string, double> parameterValues;
+      if (requestJson.contains("parameterValues")) {
+        const auto& values = requestJson["parameterValues"];
+        if (!values.is_object() || values.size() > 5 || values.contains(paramName))
+          return make_response(requestId, "error", error_body("BAD_PARAMS", "invalid additional parameterValues"));
+        for (const auto& [name, value] : values.items()) {
+          if (!value.is_number() || !std::isfinite(value.get<double>()))
+            return make_response(requestId, "error", error_body("BAD_PARAMS", "parameterValues must be finite numbers"));
+          parameterValues[name] = value.get<double>();
+        }
+      }
       std::string error;
-      if (!RebuildFeature(featureId, paramName, value, expression, &error)) {
+      if (!RebuildFeature(featureId, paramName, value, expression, &error, parameterValues)) {
         return make_response(requestId, "error",
                              error_body("REBUILD_FAILED", error));
       }
@@ -1132,7 +1432,9 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         }
       }
       std::string error;
-      if (!CreateSketchFeature(featureId, planeKind, model, &error)) {
+      const auto support=json_string_field(requestJson,"supportRef","");
+      if (!(support.empty()?CreateSketchFeature(featureId,planeKind,model,&error):
+                            CreateSketchOnDatumFeature(featureId,support,model,&error))) {
         return make_response(requestId, "error",
                              error_body("SKETCH_FAILED", error));
       }
@@ -1193,6 +1495,14 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
             p.x = it->second.first;
             p.y = it->second.second;
           }
+        }
+        for (auto& circle : tmp.model.circles) {
+          const auto it = r.radii.find(circle.id);
+          if (it != r.radii.end()) circle.r = it->second;
+        }
+        for (auto& arc : tmp.model.arcs) {
+          const auto it = r.radii.find(arc.id);
+          if (it != r.radii.end()) arc.r = it->second;
         }
         std::ostringstream b;
         b << "\"preview\":true," << sketch_body(tmp, &r);
@@ -1449,7 +1759,7 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
                                  body.str());
       }
       SyncGraphFromStore();
-      DocumentStore::instance().commit();
+      if(hadDelta)DocumentStore::instance().commit();
       std::ostringstream body;
       body << "\"transactionId\":\"" << escape(tid) << "\","
            << feature_list_body();
@@ -1606,6 +1916,7 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       return make_response(requestId, "ok", b.str());
     }
     case kRequestFaceInfo: {
+#if KREODA_WITH_OCCT
       // Face plane frame for positioning (hole defaults, §10): world-space
       // origin/axes/normal of the resolved persistent face.
       const std::string featureId =
@@ -1617,8 +1928,11 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         role = (cut == std::string::npos) ? faceId : faceId.substr(cut + 1);
       }
       ShapeRecord rec;
-      if (!ShapeStore::instance().get(featureId, &rec) ||
-          rec.shape.IsNull()) {
+      std::string availabilityError;
+      if (!GetCurrentShapeRecord(featureId, &rec, &availabilityError)) {
+        if (ShapeStore::instance().contains(featureId))
+          return make_response(requestId, "error",
+                               error_body("GEOMETRY_UNAVAILABLE", availabilityError));
         return make_response(requestId, "error",
                              error_body("NOT_FOUND", featureId));
       }
@@ -1638,6 +1952,11 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
            << normal[1] << "," << normal[2] << "],\"revision\":"
            << DocumentStore::instance().revision() << "," << undo_counts_body();
       return make_response(requestId, "ok", body.str());
+#else
+      return make_response(requestId, "error",
+                           error_body("NOT_IMPLEMENTED",
+                                      "face frames require the OCCT kernel"));
+#endif
     }
     case kDeleteFeature: {
       const std::string featureId =
@@ -1648,11 +1967,12 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       }
       const bool isShape = ShapeStore::instance().contains(featureId);
       const bool isSketch = SketchStore::instance().contains(featureId);
-      if (!isShape && !isSketch) {
+      const bool isDatum = DatumStore::instance().contains(featureId);
+      if (!isShape && !isSketch && !isDatum) {
         return make_response(requestId, "error",
                              error_body("NOT_FOUND", featureId));
       }
-      if (isShape && isSketch) {
+      if (static_cast<int>(isShape)+static_cast<int>(isSketch)+static_cast<int>(isDatum)>1) {
         return make_response(requestId, "error",
                              error_body("DELETE_FAILED",
                                         "feature id is ambiguous across stores"));
@@ -1661,6 +1981,9 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       // No cascade exists. Refuse direct geometry/sketch dependencies and
       // formula references before touching OCAF, including Instance targets.
       std::set<std::string> dependents;
+      for(const auto& record:DatumStore::instance().listInOrder())
+        if(record.featureId!=featureId&&std::find(record.dependsOn.begin(),record.dependsOn.end(),featureId)!=record.dependsOn.end())
+          dependents.insert(record.featureId);
       for (const auto& rec : ShapeStore::instance().listInOrder()) {
         if (rec.featureId != featureId &&
             std::find(rec.dependsOn.begin(), rec.dependsOn.end(), featureId) !=
@@ -1669,9 +1992,10 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         }
       }
       for (const auto& sketch : SketchStore::instance().listInOrder()) {
+        const auto dependencies = SketchDependencies(sketch);
         if (sketch.id != featureId &&
-            (sketch.supportRef == featureId ||
-             sketch.supportRef.rfind(featureId + ":", 0) == 0)) {
+            std::find(dependencies.begin(), dependencies.end(), featureId) !=
+                dependencies.end()) {
           dependents.insert(sketch.id);
         }
       }

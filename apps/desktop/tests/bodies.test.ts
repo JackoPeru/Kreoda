@@ -73,7 +73,7 @@ it("hydrates only changed visible meshes and preserves an untouched buffer and s
 it("stores the canonical changed sketch model instead of keeping stale coordinates", async () => {
   const model = { points: [{ id: "p", x: 40, y: 20, fixed: false }], lines: [], circles: [], arcs: [], constraints: [] };
   await syncFromCoreList([], 3, [{ featureId: "sketch", planeKind: "XY", points: 1, lines: 0, circles: 0, constraints: 0, model }], []);
-  expect(useDocumentUiStore.getState().sketches[0]?.model).toBe(model);
+  expect(useDocumentUiStore.getState().sketches[0]?.model).toEqual({ ...model, planeKind: "XY" });
 });
 
 describe("buildBodies (Slice 4 body projection)", () => {

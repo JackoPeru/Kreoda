@@ -7,7 +7,7 @@ import os from "node:os";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
 import { createServer } from "node:net";
-import { boot as bootShell, MAIN, openProject, runBar, snapOf, type Snapshot } from "./helpers";
+import { boot as bootShell, MAIN, openMore, openProject, runBar, snapOf, type Snapshot } from "./helpers";
 
 const recoveryDir = path.join(os.tmpdir(), "kreoda-phase10-crash-e2e");
 const recoveryFile = path.join(recoveryDir, "autosave.icad");
@@ -418,6 +418,93 @@ test(`${target} crash with an uncommitted solved sketch drag restores committed 
     ({ app, window } = await terminateAndRestore(app, window, before, target, undefined, true));
     // Counts alone cannot detect an accidentally committed drag. Read the
     // authoritative native coordinates and constraints after recovery.
+    expect(await sketchModel(window, sketch.id)).toEqual(committedModel);
+  } finally {
+    await app.close();
+  }
+});
+
+test(`${target} crash restores native datum sketch frame, support and geometry before ordinary Undo [solo]`, async () => {
+  test.skip(process.platform !== "win32", "taskkill requires Windows");
+  let { app, window } = await boot(env);
+  try {
+    await modelAndSave(window);
+    await openMore(window);
+    await window.getByTestId("reference-geometry-button").click();
+    const panel = window.getByTestId("reference-geometry-panel");
+    await panel.getByLabel("Construction method").selectOption("threePoint");
+    for (const [label, value] of [
+      ["First point X (mm)", "10"], ["First point Y (mm)", "20"], ["First point Z (mm)", "30"],
+      ["Second point X (mm)", "110"], ["Second point Y (mm)", "40"], ["Second point Z (mm)", "60"],
+      ["Third point X (mm)", "30"], ["Third point Y (mm)", "70"], ["Third point Z (mm)", "110"],
+    ]) await panel.getByLabel(label).fill(value);
+    await panel.getByRole("button", { name: "Create reference" }).click();
+    await expect.poll(async () => (await snapOf(window)).datums ?? []).toHaveLength(1);
+    const datum = (await snapOf(window)).datums![0]!;
+    const datumId = datum.featureId;
+    expect(datum.kind).toBe("DatumPlane");
+    expect(datum.resolved).toMatchObject({ originMm: [10, 20, 30] });
+    expect(datum.resolved.yAxis).not.toEqual([0, 1, 0]);
+    expect(datum.resolved.normal).not.toEqual([0, 0, 1]);
+
+    await window.evaluate((id) => (
+      window as unknown as { __kreoda_test: { selectMany: (ids: string[]) => unknown } }
+    ).__kreoda_test.selectMany([id]), datumId);
+    await panel.getByRole("button", { name: "Create sketch here" }).click();
+    await expect(window.getByTestId("sketch-canvas")).toBeVisible();
+    // Opening an empty sketch commits the editor's initial rectangle asynchronously.
+    await expect.poll(async () => (await snapOf(window)).sketches.find(item => item.supportRef === datumId)?.points).toBe(4);
+
+    const before = await snapOf(window);
+    const sketch = before.sketches.find((item) => item.supportRef === datumId)!;
+    expect(sketch).toMatchObject({
+      planeKind: "Datum",
+      supportRef: datumId,
+      points: 4,
+    });
+    const expectedFrame = { origin: datum.resolved.originMm, xAxis: datum.resolved.xAxis,
+      yAxis: datum.resolved.yAxis, normal: datum.resolved.normal };
+    for (const frame of [sketch.plane, sketch.modelPlane]) {
+      expect(frame).toBeDefined();
+      for (const key of ["origin", "xAxis", "yAxis", "normal"] as const)
+        for (let axis = 0; axis < 3; axis++)
+          expect(frame![key][axis]).toBeCloseTo(expectedFrame[key]![axis]!, 12);
+    }
+    const committedModel = await sketchModel(window, sketch.id);
+    expect(committedModel.points).toHaveLength(4);
+    expect(committedModel).toMatchObject({ planeKind: "Datum", plane: sketch.plane, supportRef: datumId });
+    await window.evaluate(() => (globalThis.window as unknown as {
+      __kreoda_test: { autosaveNow: () => Promise<string> };
+    }).__kreoda_test.autosaveNow());
+
+    await window.evaluate((id) => (
+      window as unknown as { __kreoda_test: { openSketch: (id: string) => unknown } }
+    ).__kreoda_test.openSketch(id), sketch.id);
+    const point = window.getByTestId("sk-point-p0");
+    const label = window.locator("g", { has: point }).locator("text");
+    await expect(point).toBeVisible();
+    const beforeLabel = await label.textContent();
+    const bounds = (await point.boundingBox())!;
+    const x = bounds.x + bounds.width / 2;
+    const y = bounds.y + bounds.height / 2;
+    await window.mouse.move(x, y);
+    await window.mouse.down();
+    await window.mouse.move(x + 40, y + 12, { steps: 5 });
+    await expect.poll(() => label.textContent(), { timeout: 10000 }).not.toBe(beforeLabel);
+
+    ({ app, window } = await terminateAndRestore(app, window, before, target, undefined, true));
+    expect(await sketchModel(window, sketch.id)).toEqual(committedModel);
+    // Recovery opens a saved document; exercise a new ordinary edit and Undo/Redo.
+    await runBar(window, "box 20 30 40");
+    await expect.poll(async () => (await snapOf(window)).bodies).toHaveLength(before.bodies.length + 1);
+    await window.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(async () => (await snapOf(window)).bodies).toHaveLength(before.bodies.length);
+    expect((await snapOf(window)).sketches).toEqual(before.sketches);
+    await expect.poll(async () => (await snapOf(window)).datums?.map((item) => item.featureId) ?? []).toEqual([datumId]);
+    await window.getByRole("button", { name: "Redo" }).click();
+    await expect.poll(async () => (await snapOf(window)).bodies).toHaveLength(before.bodies.length + 1);
+    const redone = await snapOf(window);
+    expect(redone.sketches).toEqual(before.sketches);
     expect(await sketchModel(window, sketch.id)).toEqual(committedModel);
   } finally {
     await app.close();

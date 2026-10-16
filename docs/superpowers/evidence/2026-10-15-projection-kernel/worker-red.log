@@ -1,0 +1,73 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Projection.*
+[==========] Running 9 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 9 tests from Projection
+[ RUN      ] Projection.EdgesApplySourceLocationAndTiltedTargetFrame
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_projection.cpp(180): error: Value of: kreoda::ProjectNativeEdgesToPlane({source}, plane, &output, &error)
+  Actual: false
+Expected: true
+projection evaluator not implemented
+
+[  FAILED  ] Projection.EdgesApplySourceLocationAndTiltedTargetFrame (0 ms)
+[ RUN      ] Projection.TrimmedObliqueCircleRetainsAnalyticEllipseAndTrim
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_projection.cpp(210): error: Value of: kreoda::ProjectNativeEdgesToPlane({source}, plane, &output, &error)
+  Actual: false
+Expected: true
+projection evaluator not implemented
+
+[  FAILED  ] Projection.TrimmedObliqueCircleRetainsAnalyticEllipseAndTrim (0 ms)
+[ RUN      ] Projection.ClosedProjectedLoopRetainsOrientationAndAnalyticArea
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_projection.cpp(233): error: Value of: kreoda::ProjectNativeEdgesToPlane({reversed}, kreoda::SketchPlane{}, &output, &error)
+  Actual: false
+Expected: true
+projection evaluator not implemented
+
+[  FAILED  ] Projection.ClosedProjectedLoopRetainsOrientationAndAnalyticArea (0 ms)
+[ RUN      ] Projection.SphereSilhouetteIsTargetPlaneCircleAndRepeatable
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_projection.cpp(258): error: Value of: kreoda::ProjectNativeSilhouetteToPlane(source, plane, &first, &error)
+  Actual: false
+Expected: true
+projection evaluator not implemented
+
+[  FAILED  ] Projection.SphereSilhouetteIsTargetPlaneCircleAndRepeatable (0 ms)
+[ RUN      ] Projection.ObliqueBoxSilhouetteHasAnalyticAreaWithoutInternalCreases
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_projection.cpp(284): error: Value of: kreoda::ProjectNativeSilhouetteToPlane(box, plane, &output, &error)
+  Actual: false
+Expected: true
+projection evaluator not implemented
+
+[  FAILED  ] Projection.ObliqueBoxSilhouetteHasAnalyticAreaWithoutInternalCreases (0 ms)
+[ RUN      ] Projection.AnnularFaceSilhouettePreservesInnerContour
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_projection.cpp(317): error: Value of: kreoda::ProjectNativeSilhouetteToPlane( ring, kreoda::SketchPlane{}, &output, &error)
+  Actual: false
+Expected: true
+projection evaluator not implemented
+
+[  FAILED  ] Projection.AnnularFaceSilhouettePreservesInnerContour (0 ms)
+[ RUN      ] Projection.SphereSectionHasAnalyticRadiusInRotatedFrame
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_projection.cpp(333): error: Value of: kreoda::IntersectNativeShapeWithPlane(sphere, plane, &output, &error)
+  Actual: false
+Expected: true
+projection evaluator not implemented
+
+[  FAILED  ] Projection.SphereSectionHasAnalyticRadiusInRotatedFrame (0 ms)
+[ RUN      ] Projection.NullMalformedNonfiniteUnboundedAndCollapsedInputsFailAtomically
+[       OK ] Projection.NullMalformedNonfiniteUnboundedAndCollapsedInputsFailAtomically (0 ms)
+[ RUN      ] Projection.DisjointSectionAndNullSilhouetteFailWithoutPublishing
+[       OK ] Projection.DisjointSectionAndNullSilhouetteFailWithoutPublishing (0 ms)
+[----------] 9 tests from Projection (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 9 tests from 1 test suite ran. (2 ms total)
+[  PASSED  ] 2 tests.
+[  FAILED  ] 7 tests, listed below:
+[  FAILED  ] Projection.EdgesApplySourceLocationAndTiltedTargetFrame
+[  FAILED  ] Projection.TrimmedObliqueCircleRetainsAnalyticEllipseAndTrim
+[  FAILED  ] Projection.ClosedProjectedLoopRetainsOrientationAndAnalyticArea
+[  FAILED  ] Projection.SphereSilhouetteIsTargetPlaneCircleAndRepeatable
+[  FAILED  ] Projection.ObliqueBoxSilhouetteHasAnalyticAreaWithoutInternalCreases
+[  FAILED  ] Projection.AnnularFaceSilhouettePreservesInnerContour
+[  FAILED  ] Projection.SphereSectionHasAnalyticRadiusInRotatedFrame
+
+ 7 FAILED TESTS

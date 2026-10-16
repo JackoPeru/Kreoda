@@ -1,0 +1,46 @@
+
+> kreoda@0.1.0 build C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci
+> pnpm -r build
+
+Scope: 5 of 6 workspace projects
+packages/plugin-sdk build$ tsc -p tsconfig.build.json
+packages/protocol build$ tsc -p tsconfig.build.json
+packages/units build$ tsc -p tsconfig.json
+packages/plugin-sdk build: Done
+packages/units build: Done
+packages/protocol build: Done
+packages/command-schema build$ tsc -p tsconfig.json
+packages/command-schema build: Done
+apps/desktop build$ tsc --noEmit && vite build && vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts
+apps/desktop build: vite v8.3.0 building client environment for production...
+apps/desktop build: transforming...
+apps/desktop build: ✓ 1951 modules transformed.
+apps/desktop build: rendering chunks...
+apps/desktop build: computing gzip size...
+apps/desktop build: dist/index.html                            0.88 kB │ gzip:   0.46 kB
+apps/desktop build: dist/assets/index-CGS9GpXf.css            47.59 kB │ gzip:   9.56 kB
+apps/desktop build: dist/assets/i18n-dTxJJ-xB.js              56.33 kB │ gzip:  17.29 kB
+apps/desktop build: dist/assets/coreClient-7J1TkGZL.js       216.55 kB │ gzip:  34.11 kB
+apps/desktop build: dist/assets/index-D5CIAgfP.js            353.52 kB │ gzip: 109.87 kB
+apps/desktop build: dist/assets/WorkspaceChrome-AvZ_-8FX.js  694.80 kB │ gzip: 179.03 kB
+apps/desktop build: [plugin builtin:vite-reporter]
+apps/desktop build: (!) Some chunks are larger than 500 kB after minification. Consider:
+apps/desktop build: - Using dynamic import() to code-split the application
+apps/desktop build: - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+apps/desktop build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+apps/desktop build: ✓ built in 670ms
+apps/desktop build: vite v8.3.0 building client environment for production...
+apps/desktop build: transforming...
+apps/desktop build: ✓ 117 modules transformed.
+apps/desktop build: rendering chunks...
+apps/desktop build: computing gzip size...
+apps/desktop build: .vite/build/main.cjs  296.75 kB │ gzip: 56.78 kB
+apps/desktop build: ✓ built in 114ms
+apps/desktop build: vite v8.3.0 building client environment for production...
+apps/desktop build: transforming...
+apps/desktop build: ✓ 2 modules transformed.
+apps/desktop build: rendering chunks...
+apps/desktop build: computing gzip size...
+apps/desktop build: .vite/build/preload.cjs  1.89 kB │ gzip: 0.51 kB
+apps/desktop build: ✓ built in 55ms
+apps/desktop build: Done

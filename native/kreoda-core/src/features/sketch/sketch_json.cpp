@@ -1,4 +1,6 @@
+#include "model/shapes.h"
 #include "sketch_json.h"
+#include "sketch_projection.h"
 #include "protocol/json_fields.h"
 
 #include <cctype>
@@ -66,6 +68,26 @@ std::string RequiredString(const Json& value, const char* key) {
 double RequiredNumber(const Json& value, const char* key) {
   if (!value.is_object() || !value.contains(key)) throw JsonFieldError(std::string("missing ") + key);
   return json_double_field(value, key);
+}
+void ParseVector3(const Json& value, const char* key, double out[3]) {
+  const auto values = json_number_array(value, key);
+  if (values.size() != 3) {
+    throw JsonFieldError(std::string(key) + " must contain exactly 3 finite JSON numbers");
+  }
+  for (int i = 0; i < 3; ++i) out[i] = values[i];
+}
+SketchPlane ParseSketchPlane(const Json& value) {
+  if (!value.is_object()) throw JsonFieldError("plane must be a JSON object");
+  SketchPlane plane;
+  ParseVector3(value, "origin", plane.origin);
+  ParseVector3(value, "xAxis", plane.xAxis);
+  ParseVector3(value, "yAxis", plane.yAxis);
+  ParseVector3(value, "normal", plane.normal);
+  std::string error;
+  if (!ValidateSketchPlane(plane, &error)) {
+    throw JsonFieldError("invalid sketch plane: " + error);
+  }
+  return plane;
 }
 }  // namespace
 
@@ -168,7 +190,9 @@ std::string SerializeSketchModel(const SketchModel& model) {
   return os.str();
 }
 
-std::string SerializeSketchFeature(const SketchFeature& sketch) {
+namespace {
+std::string SerializeSketchFeatureImpl(const SketchFeature& sketch,
+                                       bool inspection) {
   std::ostringstream os;
   os << std::setprecision(17);
   os << "{\"id\":\"" << Esc(sketch.id) << "\",\"planeKind\":\""
@@ -181,8 +205,23 @@ std::string SerializeSketchFeature(const SketchFeature& sketch) {
      << "],\"normal\":[" << sketch.plane.normal[0] << ","
      << sketch.plane.normal[1] << "," << sketch.plane.normal[2] << "]}"
      << ",\"supportRef\":\"" << Esc(sketch.supportRef) << "\",\"model\":"
-     << SerializeSketchModel(sketch.model) << "}";
+      << SerializeSketchModel(sketch.model);
+  if (!sketch.projectionGroups.empty())
+    os << ",\"projectionGroups\":"
+       << (inspection
+               ? SerializeSketchProjectionGroupsForInspection(sketch.projectionGroups)
+               : SerializeSketchProjectionGroups(sketch.projectionGroups));
+  os << "}";
   return os.str();
+}
+}  // namespace
+
+std::string SerializeSketchFeature(const SketchFeature& sketch) {
+  return SerializeSketchFeatureImpl(sketch, false);
+}
+
+std::string SerializeSketchFeatureForInspection(const SketchFeature& sketch) {
+  return SerializeSketchFeatureImpl(sketch, true);
 }
 
 bool ParseSketchFeature(const std::string& text, SketchFeature* out, std::string* error) {
@@ -193,9 +232,16 @@ bool ParseSketchFeature(const std::string& text, SketchFeature* out, std::string
     sketch.id = json_string_field(value, "id", json_string_field(value, "featureId", ""));
     if (sketch.id.empty()) throw JsonFieldError("sketch id/featureId required");
     sketch.planeKind = json_string_field(value, "planeKind", "XY");
-    if (sketch.planeKind != "XY" && sketch.planeKind != "XZ" && sketch.planeKind != "YZ") throw JsonFieldError("planeKind must be XY|XZ|YZ");
-    sketch.plane = PrincipalPlane(sketch.planeKind);
+    if (sketch.planeKind != "XY" && sketch.planeKind != "XZ" && sketch.planeKind != "YZ" && sketch.planeKind != "Datum") throw JsonFieldError("planeKind must be XY|XZ|YZ|Datum");
+    sketch.plane = value.contains("plane")
+        ? ParseSketchPlane(value.at("plane"))
+        : PrincipalPlane(sketch.planeKind);
     sketch.supportRef = json_string_field(value, "supportRef", "");
+    if(sketch.planeKind=="Datum"&&(!value.contains("plane")||!ShapeStore::ValidFeatureId(sketch.supportRef))) throw JsonFieldError("Datum sketch requires a frame and valid supportRef");
+    if (value.contains("projectionGroups") &&
+        !ParseSketchProjectionGroups(value.at("projectionGroups").dump(),
+                                     &sketch.projectionGroups, error))
+      return false;
     const auto model = value.contains("model") ? value.at("model").dump() : value.dump();
     if (!ParseSketchModel(model, &sketch.model, error)) return false;
     *out = std::move(sketch); return true;

@@ -17,8 +17,10 @@
 #include "protocol/dispatcher.h"
 #include "protocol/framing.h"
 
+#if KREODA_WITH_OCCT
 #include <Message.hxx>
 #include <Message_Messenger.hxx>
+#endif
 
 #if KREODA_WITH_FLATBUFFERS
 #include <flatbuffers/flatbuffers.h>
@@ -224,7 +226,9 @@ int main(int argc, char** argv) {
   // stderr directly and is unaffected. Exchange calls keep their local
   // ScopedMute as defense in depth.
   kreoda::protocol::FrameDecoder decoder;
+#if KREODA_WITH_OCCT
   Message::DefaultMessenger()->ChangePrinters().Clear();
+#endif
   LogCore("sidecar ready (protocol=1)");
 
   // NOTE: std::istream::read(n) blocks until n bytes arrive — unusable for a

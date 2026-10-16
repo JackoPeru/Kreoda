@@ -1,0 +1,44 @@
+{
+  "scope": "Task2 atomic datum functions and supported native sketches, partial",
+  "accepted": false,
+  "fullDatumFeatureComplete": false,
+  "goalComplete": false,
+  "base": "a328c7852264abbd1c299d0dd69de8614e208d53",
+  "focused": {
+    "passed": 20,
+    "failed": 0,
+    "skipped": 0
+  },
+  "fullNative": {
+    "passed": 213,
+    "failed": 0,
+    "seconds": 162.32
+  },
+  "selfTestExit": 0,
+  "actualOcct": {
+    "pointPlaneSketchExtrude": true,
+    "initialBbox": [
+      10,
+      20,
+      30,
+      17,
+      30,
+      35
+    ],
+    "volumeMm3": 350,
+    "sourcePointEditUpdatesMeasuredBounds": true,
+    "unrelatedShapeIdentityPreserved": true,
+    "sourceBodyParamEdit": true,
+    "singleRevisionUndo": true,
+    "invalidCyclicAndDegenerateEditsAtomic": true,
+    "fullChainIcadSaveOpenAndPostOpenEdit": true
+  },
+  "remaining": [
+    "numeric commands31-35 and public query/snapshot routes",
+    "SetParam and referenced-delete guards",
+    "complete persistent naming support for indexed sources",
+    "full datum-chain save/open/recovery/client proofs",
+    "independent fresh review",
+    "Desktop/Quest/MCP integration"
+  ]
+}

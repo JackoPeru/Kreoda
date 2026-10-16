@@ -4,6 +4,7 @@ if(NOT GTest_FOUND)
 endif()
 
 add_executable(kreoda-core-tests
+  test_datum.cpp
   test_box.cpp
   test_codegen.cpp
   test_expressions.cpp
@@ -23,6 +24,10 @@ add_executable(kreoda-core-tests
   test_session11.cpp
   test_session_geometry.cpp
   test_sketch.cpp
+  test_sketch_projection.cpp
+  ../src/model/geometry_availability.cpp
+  test_projection.cpp
+  ../src/features/sketch/projected_geometry.cpp
   test_solids.cpp
   test_step.cpp
   test_stl.cpp
@@ -45,10 +50,14 @@ add_executable(kreoda-core-tests
   ../src/model/commit.cpp
   ../src/features/primitives/primitives.cpp
   ../src/features/rebuild.cpp
+  ../src/features/datum/datum_commands.cpp
+  ../src/features/datum/datum_json.cpp
+  ../src/features/datum/datum_store.cpp
   ../src/features/sketch/sketch_store.cpp
   ../src/features/sketch/sketch_face.cpp
   ../src/features/sketch/sketch_json.cpp
   ../src/features/sketch/sketch_commands.cpp
+  ../src/features/sketch/sketch_projection.cpp
   ../src/features/extrusion/extrude.cpp
   ../src/features/revolve/revolve.cpp
   ../src/features/booleans/boolean.cpp
@@ -104,7 +113,7 @@ if(OpenCASCADE_FOUND)
   target_link_libraries(kreoda-core-tests PRIVATE
     TKernel TKMath TKCDF TKLCAF TKCAF TKBin TKBinL TKBinXCAF TKXCAF
     TKBRep TKTopAlgo TKGeomAlgo TKGeomBase TKG3d TKG2d TKPrim TKBO
-    TKMesh TKShHealing TKXSBase TKFillet TKDE TKDESTEP TKDESTL TKDEOBJ
+    TKMesh TKShHealing TKXSBase TKFillet TKHLR TKDE TKDESTEP TKDESTL TKDEOBJ
   )
 endif()
 if(TARGET MINIZIP::minizip-ng)

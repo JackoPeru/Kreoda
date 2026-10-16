@@ -1,0 +1,14 @@
+{
+  "native/kreoda-core/src/features/sketch/sketch_face.h": "a78038df042fb6592f916fe6d5a5efeb9fe13c21276ea1201a3e903ad055f39a",
+  "native/kreoda-core/src/features/sketch/sketch_face.cpp": "4943854bca189d4d74c57214a67fdd04e861a08a5fd40c7874e0f3ee0f3b0a34",
+  "native/kreoda-core/src/features/extrusion/extrude.cpp": "7abb7eb42b941c15e3c4a585aed9718fa104e49561763b879ea22d6860dba7d9",
+  "native/kreoda-core/src/features/revolve/revolve.cpp": "03e7b6c9628d3fe4696c4606d6e062865dfe848c8e49b8268cfe7e2e44d8bbd9",
+  "native/kreoda-core/tests/test_projection.cpp": "65cb66639fba24e4eb9989a07cee530e3c622dbabe576f377eb56ea30fbabed1",
+  "native/kreoda-core/tests/test_sketch.cpp": "d5ba5110d8fadf90374924b38c262a93ee6f4a7752eb4ba3412f85bc61226898",
+  "native/kreoda-core/src/protocol/dispatcher.cpp": "5ea991ee2b881b100d0ab6807e983992f544e36da0224620c2eaa04568aa3e14",
+  "native/kreoda-core/tests/test_torture_phase10.cpp": "32c6f04bbeb4e029c63f45adcd458e5661868c89b188fe8d12bb1a69775ad4c2",
+  "native/kreoda-core/src/features/sketch/projected_geometry.h": "5c6513b59f4ad74304986c23281149607b17546d1ac0bc9704a115f23a06a238",
+  "native/kreoda-core/src/features/sketch/projected_geometry.cpp": "f14d36b750e1f713153ed2140b2e276320c44d4591de271b14c454550058bcd9",
+  "native/kreoda-core/CMakeLists.txt": "60dde7087967b4e06633733c2c49af7f1485e0a02b1c73666055709b83f4753d",
+  "native/kreoda-core/tests/CMakeLists.txt": "eb55fd29cf3f34dab3385143e0394b542d7c6dfd15facd6f3d1827203103d1cf"
+}

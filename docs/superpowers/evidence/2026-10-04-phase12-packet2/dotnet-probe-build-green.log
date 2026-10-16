@@ -1,0 +1,9 @@
+  Kreoda.Protocol -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol\csharp\bin\Release\net8.0\Kreoda.Protocol.dll
+  Kreoda.SessionClient -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\bin\Release\net8.0\Kreoda.SessionClient.dll
+  Kreoda.SessionProbe -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\probes\Kreoda.SessionProbe\bin\Release\net8.0\Kreoda.SessionProbe.dll
+
+Compilazione completata.
+    Avvisi: 0
+    Errori: 0
+
+Tempo trascorso 00:00:01.04

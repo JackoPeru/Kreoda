@@ -1,13 +1,22 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Buffers.Binary;
 using System.Text;
 using System.Text.Json;
 
 namespace Kreoda.SessionClient.Tests;
 
+internal sealed record LoopbackWsResponse(
+    string? Text,
+    byte[]? Binary = null,
+    int FragmentSize = int.MaxValue,
+    Func<Task>? AfterTextSent = null,
+    Task? BeforeBinary = null,
+    Func<Task>? AfterBinarySent = null);
+
 /// <summary>
-/// Minimal in-test WebSocket server (text frames only): accepts one client,
+/// Minimal in-test WebSocket server: accepts one client,
 /// answers scripted JSON replies, can push events and close sockets. Exists
 /// so the session client is conformance-tested without Electron/Unity.
 /// </summary>
@@ -15,9 +24,11 @@ internal sealed class LoopbackWsServer : IAsyncDisposable
 {
     private readonly TcpListener _listener;
     private readonly Func<JsonElement, string?> _handler;
+    public Func<JsonElement, Task<LoopbackWsResponse?>>? ExtendedHandler { get; set; }
     private readonly CancellationTokenSource _cts = new();
     private Task? _acceptLoop;
     private readonly object _streamGate = new();
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
     private NetworkStream? _lastStream;
 
     public int Port { get; }
@@ -98,6 +109,21 @@ internal sealed class LoopbackWsServer : IAsyncDisposable
                 }
                 using (doc)
                 {
+                    var extended = ExtendedHandler is null
+                        ? null
+                        : await ExtendedHandler(doc.RootElement.Clone());
+                    if (extended is not null)
+                    {
+                        if (extended.Text is not null) await SendTextAsync(stream, extended.Text, ct);
+                        if (extended.AfterTextSent is not null) await extended.AfterTextSent();
+                        if (extended.Binary is not null)
+                        {
+                            if (extended.BeforeBinary is not null) await extended.BeforeBinary.WaitAsync(ct);
+                            await SendMessageAsync(stream, 0x2, extended.Binary, extended.FragmentSize, ct);
+                            if (extended.AfterBinarySent is not null) await extended.AfterBinarySent();
+                        }
+                        continue;
+                    }
                     var reply = _handler(doc.RootElement.Clone());
                     if (reply == "__CLOSE__")
                     {
@@ -121,6 +147,22 @@ internal sealed class LoopbackWsServer : IAsyncDisposable
         lock (_streamGate) stream = _lastStream;
         if (stream is null) throw new InvalidOperationException("no client connected");
         await SendTextAsync(stream, json, CancellationToken.None);
+    }
+
+    public async Task PushFragmentedAsync(string json, int fragmentSize)
+    {
+        NetworkStream? stream;
+        lock (_streamGate) stream = _lastStream;
+        if (stream is null) throw new InvalidOperationException("no client connected");
+        await SendMessageAsync(stream, 0x1, Encoding.UTF8.GetBytes(json), fragmentSize, CancellationToken.None);
+    }
+
+    public async Task PushBinaryAsync(byte[] bytes, int fragmentSize = int.MaxValue)
+    {
+        NetworkStream? stream;
+        lock (_streamGate) stream = _lastStream;
+        if (stream is null) throw new InvalidOperationException("no client connected");
+        await SendMessageAsync(stream, 0x2, bytes, fragmentSize, CancellationToken.None);
     }
 
     private static async Task<string?> ReadTextFrameAsync(NetworkStream stream, CancellationToken ct)
@@ -151,25 +193,42 @@ internal sealed class LoopbackWsServer : IAsyncDisposable
         return Encoding.UTF8.GetString(payload);
     }
 
-    private static async Task SendTextAsync(NetworkStream stream, string text, CancellationToken ct)
+    private Task SendTextAsync(NetworkStream stream, string text, CancellationToken ct) =>
+        SendMessageAsync(stream, 0x1, Encoding.UTF8.GetBytes(text), int.MaxValue, ct);
+
+    private async Task SendMessageAsync(NetworkStream stream, byte opcode, byte[] payload, int fragmentSize, CancellationToken ct)
     {
-        var payload = Encoding.UTF8.GetBytes(text);
-        if (payload.Length > ushort.MaxValue) throw new InvalidOperationException("frame too large");
-        using var frame = new MemoryStream();
-        frame.WriteByte(0x81);
-        if (payload.Length < 126)
+        if (fragmentSize <= 0) throw new ArgumentOutOfRangeException(nameof(fragmentSize));
+        await _writeGate.WaitAsync(ct);
+        try
         {
-            frame.WriteByte((byte)payload.Length);
+            var offset = 0;
+            do
+            {
+                var length = Math.Min(fragmentSize, payload.Length - offset);
+                var final = offset + length == payload.Length;
+                using var frame = new MemoryStream();
+                frame.WriteByte((byte)((final ? 0x80 : 0) | (offset == 0 ? opcode : 0)));
+                if (length < 126) frame.WriteByte((byte)length);
+                else if (length <= ushort.MaxValue)
+                {
+                    frame.WriteByte(126);
+                    frame.WriteByte((byte)(length >> 8));
+                    frame.WriteByte((byte)length);
+                }
+                else
+                {
+                    frame.WriteByte(127);
+                    var encodedLength = new byte[8];
+                    BinaryPrimitives.WriteUInt64BigEndian(encodedLength, (ulong)length);
+                    frame.Write(encodedLength);
+                }
+                frame.Write(payload, offset, length);
+                await stream.WriteAsync(frame.ToArray(), ct);
+                offset += length;
+            } while (offset < payload.Length);
         }
-        else
-        {
-            frame.WriteByte(126);
-            frame.WriteByte((byte)(payload.Length >> 8));
-            frame.WriteByte((byte)(payload.Length & 0xFF));
-        }
-        frame.Write(payload, 0, payload.Length);
-        var bytes = frame.ToArray();
-        await stream.WriteAsync(bytes, ct);
+        finally { _writeGate.Release(); }
     }
 
     public async ValueTask DisposeAsync()
@@ -187,5 +246,6 @@ internal sealed class LoopbackWsServer : IAsyncDisposable
             }
         }
         _cts.Dispose();
+        _writeGate.Dispose();
     }
 }

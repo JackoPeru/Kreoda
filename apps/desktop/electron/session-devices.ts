@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { chmod, lstat, realpath, mkdir, readFile, rename, open, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -8,12 +9,19 @@ export interface TrustedSessionDevice { deviceId: string; name: string; pairedAt
 interface DeviceRecord extends TrustedSessionDevice { credentialDigest: string }
 const DEVICE_ID = /^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const OPAQUE_TOKEN = /^[A-Za-z0-9_-]{43}$/;
+const PAIRING_CODE = /^\d{8}$/;
 const runFile = promisify(execFile);
 const digest = (value: string): string => createHash("sha256").update(value).digest("hex");
 const secret = (): string => randomBytes(32).toString("base64url");
 const unauthorized = (): Error => Object.assign(new Error("device authentication failed"), { code: "UNAUTHORIZED" });
+function sameDigest(value: string, expectedDigest: string): boolean {
+  return timingSafeEqual(Buffer.from(digest(value), "hex"), Buffer.from(expectedDigest, "hex"));
+}
 function sameSecret(value: unknown, expectedDigest: string): boolean {
-  return typeof value === "string" && OPAQUE_TOKEN.test(value) && timingSafeEqual(Buffer.from(digest(value), "hex"), Buffer.from(expectedDigest, "hex"));
+  return typeof value === "string" && OPAQUE_TOKEN.test(value) && sameDigest(value, expectedDigest);
+}
+function pairingSecretShape(value: unknown): value is string {
+  return typeof value === "string" && (OPAQUE_TOKEN.test(value) || PAIRING_CODE.test(value));
 }
 
 async function protect(path: string, directory: boolean): Promise<void> {
@@ -45,7 +53,8 @@ export class SessionDevices {
   private readonly userData: string;
   private records = new Map<string, DeviceRecord>();
   private sessionTokens = new Map<string, { value: string; digest: string }>();
-  private pairing: { digest: string; expiresAt: number } | null = null;
+  private pairing: { tokenDigest: string; codeDigest: string; expiresAt: number; failures: number } | null = null;
+  private pairingTimer: NodeJS.Timeout | null = null;
   private queue: Promise<void> = Promise.resolve();
   private loaded = false;
   constructor(userData: string, private readonly now: () => number = Date.now) {
@@ -88,11 +97,33 @@ export class SessionDevices {
   list(): TrustedSessionDevice[] {
     this.ready();return [...this.records.values()].map(({ deviceId, name, pairedAt }) => ({ deviceId, name, pairedAt }));
   }
-  beginPairing(): { token: string; expiresAt: string } {
-    this.ready();const token = secret();const expiresAt = this.now() + 300000;
-    this.pairing = { digest: digest(token), expiresAt };return { token, expiresAt: new Date(expiresAt).toISOString() };
+  beginPairing(): { token: string; code: string; expiresAt: string } {
+    this.cancelPairing();
+    this.ready();const token = secret();const code = String(crypto.randomInt(0, 100000000)).padStart(8, "0");
+    if (!PAIRING_CODE.test(code)) throw new Error("pairing code generator returned an invalid value");
+    const expiresAt = this.now() + 300000;
+    this.pairing = { tokenDigest: digest(token), codeDigest: digest(code), expiresAt, failures: 0 };
+    this.pairingTimer = setTimeout(() => this.cancelPairing(), 300000);
+    this.pairingTimer.unref?.();
+    return { token, code, expiresAt: new Date(expiresAt).toISOString() };
   }
-  cancelPairing(): void { this.pairing = null; }
+  /** Count a failed, correctly-shaped guess even when another field made the request fail schema validation. */
+  noteFailedPairingGuess(value: unknown): void {
+    if (!pairingSecretShape(value)) return;
+    const pairing = this.pairing;
+    if (!pairing) return;
+    if (this.now() >= pairing.expiresAt) { this.cancelPairing();return; }
+    const matchesToken = OPAQUE_TOKEN.test(value) && sameDigest(value, pairing.tokenDigest);
+    const matchesCode = PAIRING_CODE.test(value) && sameDigest(value, pairing.codeDigest);
+    if (matchesToken || matchesCode) return;
+    pairing.failures++;
+    if (pairing.failures >= 5) this.cancelPairing();
+  }
+  cancelPairing(): void {
+    this.pairing = null;
+    if (this.pairingTimer) clearTimeout(this.pairingTimer);
+    this.pairingTimer = null;
+  }
   rotateSessionTokens(): void { this.sessionTokens.clear();this.cancelPairing(); }
   private token(deviceId: string): string {
     let token = this.sessionTokens.get(deviceId);
@@ -113,10 +144,22 @@ export class SessionDevices {
   pair(token: string, name: string): Promise<{ deviceId: string; credential: string; sessionToken: string }> {
     return this.serial(async () => {
       this.ready();
-      if (typeof name !== "string" || !name.trim() || name.length > 80 || /[\x00-\x1f\x7f]/.test(name)) throw Object.assign(new Error("deviceName must contain 1 to 80 printable characters"), { code: "BAD_PARAMS" });
+      if (typeof name !== "string" || !name.trim() || name.length > 80 || /[\x00-\x1f\x7f]/.test(name)) {
+        this.noteFailedPairingGuess(token);
+        throw Object.assign(new Error("deviceName must contain 1 to 80 printable characters"), { code: "BAD_PARAMS" });
+      }
       const pairing = this.pairing;
-      if (!pairing || this.now() >= pairing.expiresAt || !sameSecret(token, pairing.digest)) throw unauthorized();
-      this.pairing = null;
+      if (!pairing || this.now() >= pairing.expiresAt || !pairingSecretShape(token)) {
+        if (pairing && this.now() >= pairing.expiresAt) this.cancelPairing();
+        throw unauthorized();
+      }
+      const matchesToken = OPAQUE_TOKEN.test(token) && sameDigest(token, pairing.tokenDigest);
+      const matchesCode = PAIRING_CODE.test(token) && sameDigest(token, pairing.codeDigest);
+      if (!matchesToken && !matchesCode) {
+        this.noteFailedPairingGuess(token);
+        throw unauthorized();
+      }
+      this.cancelPairing();
       const deviceId = `device-${randomUUID()}`;const credential = secret();
       const records = new Map(this.records);
       records.set(deviceId, { deviceId, name: name.trim(), credentialDigest: digest(credential), pairedAt: new Date(this.now()).toISOString() });

@@ -1,0 +1,21 @@
+Command:
+pnpm --filter @kreoda/protocol exec vitest run src/codegen.test.ts -t 'checks raw geometry semantics before allocating output vectors'
+
+Observed before the fix:
+RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/packages/protocol
+
+❯ src/codegen.test.ts (26 tests | 1 failed | 25 skipped) 10ms
+    × checks raw geometry semantics before allocating output vectors 9ms
+
+FAIL  src/codegen.test.ts > flatc codegen parity (§61) > checks raw geometry semantics before allocating output vectors
+AssertionError: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+at src/codegen.test.ts:195:39
+
+The regression now passes: invalid raw coordinates are rejected before any decoded Float32Array is allocated.

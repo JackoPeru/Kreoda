@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="56" failures="0" errors="0" time="0.077315">
+    <testsuite name="src/codegen.test.ts" timestamp="2026-10-16T09:36:14.154Z" hostname="PC-Matteo" tests="25" failures="0" errors="0" skipped="0" time="0.0172536">
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; generated CommandType matches the handwritten registry" time="0.0021011">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; CreateBox envelope round-trips through the generated bindings" time="0.0013028">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; MeshUpdate decodes to validated CoreMeshData (§8)" time="0.0025286">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; preserves native blind-hole spans that share ambiguous semantic IDs" time="0.0010919">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; accepts an omitted optional edge-vertex vector when there are no edges" time="0.0005651">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; checks raw geometry semantics before allocating output vectors" time="0.001028">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: normals count" time="0.0003561">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: non-triangle indices" time="0.0002832">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: out-of-range indices" time="0.0003033">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: non-finite positions" time="0.0002806">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: non-finite normals" time="0.0002331">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: non-finite edge vertices" time="0.0004989">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: invalid face span" time="0.0002634">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: overlapping repeated face spans" time="0.0003773">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: empty face spans" time="0.0003132">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: invalid edge span" time="0.0003222">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: overlapping repeated edge spans" time="0.0002948">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: empty edge spans" time="0.0002788">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: empty semantic ids" time="0.0002705">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: reversed bounding box" time="0.000203">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: non-finite volume" time="0.0001866">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; rejects invalid MeshUpdate data: unsafe revision" time="0.0001795">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; checks declared lengths before accepting hostile vector lengths" time="0.0002243">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; corrupt mesh frames throw honestly" time="0.0002329">
+        </testcase>
+        <testcase classname="src/codegen.test.ts" name="flatc codegen parity (§61) &gt; decodeMeshFrame routes verified-FB, JSON errors, and garbage" time="0.002016">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/index.test.ts" timestamp="2026-10-16T09:36:14.163Z" hostname="PC-Matteo" tests="9" failures="0" errors="0" skipped="0" time="0.0087529">
+        <testcase classname="src/index.test.ts" name="framing (§8) &gt; round-trips a payload through [len][payload]" time="0.0014317">
+        </testcase>
+        <testcase classname="src/index.test.ts" name="framing (§8) &gt; handles split chunks" time="0.0006643">
+        </testcase>
+        <testcase classname="src/index.test.ts" name="framing (§8) &gt; rejects oversized frames so bridges can reset (M14)" time="0.0008202">
+        </testcase>
+        <testcase classname="src/index.test.ts" name="envelope validation (§63.10) &gt; rejects wrong protocol version" time="0.0014114">
+        </testcase>
+        <testcase classname="src/index.test.ts" name="primitive payloads (Phase 1) &gt; validates cylinder/sphere params" time="0.0004673">
+        </testcase>
+        <testcase classname="src/index.test.ts" name="primitive payloads (Phase 1) &gt; decodes a b64 mesh response into typed arrays" time="0.0012248">
+        </testcase>
+        <testcase classname="src/index.test.ts" name="primitive payloads (Phase 1) &gt; rejects error responses instead of fake meshes (§41)" time="0.0002918">
+        </testcase>
+        <testcase classname="src/index.test.ts" name="sketch payloads (Phase 4) &gt; validates sketch constraint kinds" time="0.0005904">
+        </testcase>
+        <testcase classname="src/index.test.ts" name="sketch payloads (Phase 4) &gt; validates extrude/revolve params" time="0.000423">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/session-control.test.ts" timestamp="2026-10-16T09:36:14.164Z" hostname="PC-Matteo" tests="10" failures="0" errors="0" skipped="0" time="0.0277193">
+        <testcase classname="src/session-control.test.ts" name="session control contract &gt; mirrors the JSON contract (methods + required fields + version)" time="0.0031626">
+        </testcase>
+        <testcase classname="src/session-control.test.ts" name="session control contract &gt; validates fixed-message fixtures (and rejects missing required)" time="0.0032209">
+        </testcase>
+        <testcase classname="src/session-control.test.ts" name="session control contract &gt; accepts exact eight digit pairing codes without widening credential auth" time="0.0013198">
+        </testcase>
+        <testcase classname="src/session-control.test.ts" name="session control contract &gt; contracts operation metadata, stable client identity, capabilities, and replay errors" time="0.0014925">
+        </testcase>
+        <testcase classname="src/session-control.test.ts" name="session control contract &gt; validates typed requestMeshLOD identity and quality" time="0.0020052">
+        </testcase>
+        <testcase classname="src/session-control.test.ts" name="projection DTO contract &gt; accepts strict healthy and broken query results with bounded display points" time="0.0034516">
+        </testcase>
+        <testcase classname="src/session-control.test.ts" name="projection DTO contract &gt; keeps legacy descriptors valid and validates optional current-geometry state" time="0.00108">
+        </testcase>
+        <testcase classname="src/session-control.test.ts" name="projection DTO contract &gt; rejects private, unknown, duplicate and wrong-kind definitions plus UTF-8 overflow" time="0.0036297">
+        </testcase>
+        <testcase classname="src/session-control.test.ts" name="projection DTO contract &gt; enforces UTF-8 byte limits in standalone and nested validators" time="0.0036231">
+        </testcase>
+        <testcase classname="src/session-control.test.ts" name="projection DTO contract &gt; accepts the exact 65536-byte definition and rejects one byte more" time="0.0027478">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/session-generated.test.ts" timestamp="2026-10-16T09:36:14.166Z" hostname="PC-Matteo" tests="3" failures="0" errors="0" skipped="0" time="0.015994">
+        <testcase classname="src/session-generated.test.ts" name="uses generated schemas without coercing transport fields" time="0.0040278">
+        </testcase>
+        <testcase classname="src/session-generated.test.ts" name="validates snapshot and delta wire shapes generated from the same source" time="0.0015931">
+        </testcase>
+        <testcase classname="src/session-generated.test.ts" name="validates native datum records and full sketch frames while accepting legacy snapshots" time="0.0092966">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/session-model.test.ts" timestamp="2026-10-16T09:36:14.167Z" hostname="PC-Matteo" tests="9" failures="0" errors="0" skipped="0" time="0.0075952">
+        <testcase classname="src/session-model.test.ts" name="session model delta application &gt; applies and removes native datum entities without treating them as meshes" time="0.0036296">
+        </testcase>
+        <testcase classname="src/session-model.test.ts" name="session model delta application &gt; patches ordered entity lists by kind and preserves metadata" time="0.0006188">
+        </testcase>
+        <testcase classname="src/session-model.test.ts" name="session model delta application &gt; accepts feature and sketch entities sharing an ID" time="0.0002204">
+        </testcase>
+        <testcase classname="src/session-model.test.ts" name="session model delta application &gt; drops same-lineage duplicates but requests a snapshot before comparing lineage revisions" time="0.0006221">
+        </testcase>
+        <testcase classname="src/session-model.test.ts" name="session model delta application &gt; requests a snapshot when base revision does not match" time="0.0001919">
+        </testcase>
+        <testcase classname="src/session-model.test.ts" name="session model delta application &gt; rejects malformed entity records without applying them" time="0.0001822">
+        </testcase>
+        <testcase classname="src/session-model.test.ts" name="session model delta application &gt; rejects malformed entity records without applying them" time="0.0001371">
+        </testcase>
+        <testcase classname="src/session-model.test.ts" name="session model delta application &gt; rejects malformed entity records without applying them" time="0.0001887">
+        </testcase>
+        <testcase classname="src/session-model.test.ts" name="session model delta application &gt; rejects malformed entity records without applying them" time="0.0001976">
+        </testcase>
+    </testsuite>
+</testsuites>

@@ -1,0 +1,101 @@
+{
+  "status": "INTERNAL_SOFTWARE_ACCEPTED_LIVE_HERMES_AND_SYNTHETIC_VOICE_VERIFIED",
+  "helper": 33,
+  "bridge": 27,
+  "managedNet8": 125,
+  "managedActualNetstandard": 125,
+  "javascriptGroups": [
+    2,
+    4,
+    49,
+    14,
+    207
+  ],
+  "javascriptTotal": 276,
+  "unity": 45,
+  "mcpActualNativeProof": 1,
+  "syntheticTtsSttSeconds": 3.213546100014355,
+  "apk": {
+    "startedAt": "2026-10-11T17:32:12.713Z",
+    "unity": "C:/Users/matte/Documents/Codex-tools/Unity/Editors/6000.3.25f1/Editor/Unity.exe",
+    "sdk": "C:/Users/matte/AppData/Local/Android/Sdk",
+    "directExitCode": 0,
+    "elapsedSeconds": 79.72,
+    "sourceChangedDuringBuild": [],
+    "sourceManifestSha256": "140e79a317dc527dd3b2f47afb30a13139cfae2bf59591b470bbc01d1037d23f",
+    "logSha256": "194cb90caac29b3733d42881812ae7b78c65877c69ab306eb81b15a8fe89163d",
+    "apkSha256": "7495c0f88680fb63eefb13bf1698288bc3ee0c03b1940b575b370d07556dcc1a",
+    "packageLockSha256": "ed2ce3a308998dada1e55e96b9e66a173322c531c55a9aed3d055f1559a413b0",
+    "managedManifestSha256": "51d5862813b33b28d088dfd932ea5c6b32a6db093ffcfdcedacdd02b8108071b",
+    "status": "BUILD_SUCCEEDED_HARDWARE_UNTESTED",
+    "finishedAt": "2026-10-11T17:33:40.560Z"
+  },
+  "apkBytes": 36354666,
+  "physicalMicrophoneCapture": false,
+  "installed": true,
+  "hermesRegistered": true,
+  "fullGoalComplete": false,
+  "syntheticVoiceRoundTrip": {
+    "syntheticInput": true,
+    "pcPlayback": false,
+    "transcript": "Quali sono le dimensioni del blocco di cui abbiamo appena parlato?",
+    "reply": "Da describe_model: il blocco Box misura 100 × 50 × 20 mm (volume ≈ 100.000 mm³).",
+    "sessionId": "run_d6cfe758b7254444bb0573288c3ab7a7",
+    "runId": "run_045c9d8899144fb4891cdc4a69f77923",
+    "conversationContinued": true,
+    "questionBytes": 172076,
+    "answerBytes": 350252,
+    "elapsedSeconds": 6.065
+  },
+  "actualHermesRuntime": {
+    "provider": "custom",
+    "model": "Qwen3.8-27B-Uncensored-EXL3-3.07bpw",
+    "route_source": "model_routes",
+    "requested": {
+      "provider": "",
+      "model": "kreoda-agent"
+    }
+  },
+  "conversationContinued": true,
+  "questConnected": true,
+  "review": {
+    "verdict": "ship",
+    "threadId": "01a12cf3-faee-7c31-a62f-3d7905a1272e",
+    "model": "gpt-6-sol",
+    "effort": "high",
+    "behaviorallyReadOnly": true,
+    "enforcedReadOnlySandbox": false,
+    "unchangedInputs": 850,
+    "freezeSha256": "b02a7dcd4fa0c568351feed8b41ea80ab5d3118bcc1184b680220fc86635b5ea"
+  },
+  "persistentProjectMemory": {
+    "diskVerified": true,
+    "ownNoteCorrectedWithBackup": true,
+    "httpWriteTurn": "timed out",
+    "outsideAppNativeConversation": "completed"
+  },
+  "failedAgentEditAttempt": {
+    "http": 500,
+    "documentPreserved": true,
+    "transactionCleared": true,
+    "cause": "Hermes argument coercion assumed dictionary for boolean JsonElement schema"
+  },
+  "compatibilityFix": "MCP query/command parameters now expose object dictionary; real Hermes coercion and command-schema handler succeed",
+  "serverRuntimePatched": false,
+  "correctedBridgePid": 26020,
+  "actualHermesEdit": {
+    "http": 200,
+    "dimensions": [
+      120,
+      50,
+      20
+    ],
+    "volumeMm3": 120000,
+    "sameFeatureId": true,
+    "oneUndoRestored": true,
+    "runId": "run_6d53817518fb4b68a9ea8ba0fd959b20"
+  },
+  "fullBenchmarkPassed": false,
+  "bridgeTestsHosted": false,
+  "bridgePid": 6692
+}

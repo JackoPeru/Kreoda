@@ -1,0 +1,8 @@
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/packages/command-schema
+
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  11:19:09
+   Duration  2.46s (transform 1.26s, setup 0ms, import 2.13s, tests 33ms, environment 0ms)

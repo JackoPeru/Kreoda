@@ -1,0 +1,3 @@
+
+> @kreoda/command-schema@0.1.0 lint C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\command-schema
+> tsc --noEmit -p tsconfig.json

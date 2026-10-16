@@ -3,7 +3,17 @@
 #include <string>
 #include <vector>
 
+#if KREODA_WITH_OCCT
+#include <TopoDS_Shape.hxx>
+#endif
+
 namespace kreoda {
+
+#if KREODA_WITH_OCCT
+bool BuildBooleanShape(const std::string& op, const TopoDS_Shape& target,
+                       const TopoDS_Shape& tool, TopoDS_Shape* out,
+                       std::string* error);
+#endif
 
 // Boolean composition (§20 Tier 3): Fuse (combine), Cut (subtract), Common
 // (keep overlap) of exactly two existing solids. Multi-input DAG deps;

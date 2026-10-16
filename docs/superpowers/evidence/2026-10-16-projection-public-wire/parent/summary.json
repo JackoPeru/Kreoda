@@ -1,0 +1,43 @@
+{
+  "expectedNativeCases": 279,
+  "expectedProtocolCases": 54,
+  "expectedCanonicalCases": 14,
+  "expectedManagedCases": 142,
+  "native-buildExitCode": 0,
+  "nativeExitCode": 0,
+  "native": {
+    "cases": 279,
+    "failed": 0,
+    "skipped": 0,
+    "missingRequired": []
+  },
+  "core-self-testExitCode": 0,
+  "restrictedPathSelfTest": true,
+  "protocol-buildExitCode": 0,
+  "canonical-buildExitCode": 0,
+  "protocol-lintExitCode": 0,
+  "canonical-lintExitCode": 0,
+  "session-contractExitCode": 0,
+  "protocolExitCode": 0,
+  "protocol": {
+    "cases": 54,
+    "failed": 0,
+    "skipped": 0,
+    "missingRequired": []
+  },
+  "canonicalExitCode": 0,
+  "canonical": {
+    "cases": 14,
+    "failed": 0,
+    "skipped": 0,
+    "missingRequired": []
+  },
+  "managedExitCode": 0,
+  "managed": {
+    "cases": 142,
+    "notPassed": [],
+    "projectionRoundTripPresent": true
+  },
+  "sourceFiles": 55,
+  "sourceUnchanged": true
+}

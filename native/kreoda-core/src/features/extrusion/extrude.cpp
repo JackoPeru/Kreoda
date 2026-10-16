@@ -16,11 +16,11 @@
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
 #include <Standard_Failure.hxx>
-#include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
 #include <gp_Vec.hxx>
 
 #include "features/sketch/sketch_face.h"
+#include "model/geometry_availability.h"
 #include "features/sketch/sketch_store.h"
 #include "persistence/ocaf_live.h"
 #endif
@@ -39,13 +39,14 @@ bool BuildExtrudeShape(const std::string& sketchId, double distanceMm,
     if (error) *error = "unknown sketch " + sketchId;
     return false;
   }
-  TopoDS_Face face;
-  if (!BuildFaceFromSketch(sketch, &face, error)) return false;
+  if (!EnsureGeometryAvailable(sketchId, error)) return false;
+  TopoDS_Shape profile;
+  if (!BuildProfileFromSketch(sketch, &profile, error)) return false;
   try {
     const gp_Vec prismVec(sketch.plane.normal[0] * distanceMm,
                           sketch.plane.normal[1] * distanceMm,
                           sketch.plane.normal[2] * distanceMm);
-    BRepPrimAPI_MakePrism mk(face, prismVec, false, true);
+    BRepPrimAPI_MakePrism mk(profile, prismVec, false, true);
     mk.Build();
     if (!mk.IsDone()) {
       if (error) *error = "Extrude: MakePrism failed";

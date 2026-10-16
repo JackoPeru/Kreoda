@@ -1,0 +1,234 @@
+[
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\canonical.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/canonical.log",
+    "originalSha256": "c1689e49c8dbf3b92bf1f86a0f77b78c8260d847e1893415f10c0d797f21ae4c",
+    "archivedSha256": "c1689e49c8dbf3b92bf1f86a0f77b78c8260d847e1893415f10c0d797f21ae4c",
+    "transformation": "none",
+    "stagedSha256": "c1689e49c8dbf3b92bf1f86a0f77b78c8260d847e1893415f10c0d797f21ae4c"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\canonical.xml",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/canonical.xml",
+    "originalSha256": "f737f037d38c03d47aca80306497a516739191d879277af429285a76224d6d67",
+    "archivedSha256": "f737f037d38c03d47aca80306497a516739191d879277af429285a76224d6d67",
+    "transformation": "none",
+    "stagedSha256": "f737f037d38c03d47aca80306497a516739191d879277af429285a76224d6d67"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\command-schema-build.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/command-schema-build.log",
+    "originalSha256": "e8dd0413b0ca69c147c214446ac6ff631c119cc09ba1d171abedc525c1849ee5",
+    "archivedSha256": "4a70c3b2bad86dae66fb7030c47305b1e210a8cad857737c91a4bc7d96494d38",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "4a70c3b2bad86dae66fb7030c47305b1e210a8cad857737c91a4bc7d96494d38"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\command-schema-lint.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/command-schema-lint.log",
+    "originalSha256": "61c47adfe60a201c425be931a520b9e272a90e80a09bec5032fa796e04356c2c",
+    "archivedSha256": "991d2bf20c79f75ec566c9eef9d81bb0d9ad6f662299a36305fb20ae6538e613",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "991d2bf20c79f75ec566c9eef9d81bb0d9ad6f662299a36305fb20ae6538e613"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\desktop-build.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/desktop-build.log",
+    "originalSha256": "e8dee63a766988b1edbe216feb90785f0f464d62d92ca18d0ec3ea9cb46310cf",
+    "archivedSha256": "c8ef367a562c9bdd6c6cf7add3ce175eec6f19ac9e633e8a8a566235c539155a",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "c8ef367a562c9bdd6c6cf7add3ce175eec6f19ac9e633e8a8a566235c539155a"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\desktop-lint.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/desktop-lint.log",
+    "originalSha256": "9c5de7e3df8aacc067d3c340c38de050421ba4fe68f5c0900b5da2c4eb6140d7",
+    "archivedSha256": "6ab9d3d2ea6a3fb8281cf1af5f8a62ba8191875e71638d2c2c113759696a1893",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "6ab9d3d2ea6a3fb8281cf1af5f8a62ba8191875e71638d2c2c113759696a1893"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\desktop.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/desktop.log",
+    "originalSha256": "d3c41090fcc1a8fdfa38b616ded2fd0a52d597b6e392df3c4e8cc600f80383b3",
+    "archivedSha256": "d3c41090fcc1a8fdfa38b616ded2fd0a52d597b6e392df3c4e8cc600f80383b3",
+    "transformation": "none",
+    "stagedSha256": "d3c41090fcc1a8fdfa38b616ded2fd0a52d597b6e392df3c4e8cc600f80383b3"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\desktop.xml",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/desktop.xml",
+    "originalSha256": "5d164dba0be05ee1ce9af8af3a641e842740de9ba42dee48c0f1ee48bac0231a",
+    "archivedSha256": "5d164dba0be05ee1ce9af8af3a641e842740de9ba42dee48c0f1ee48bac0231a",
+    "transformation": "none",
+    "stagedSha256": "5d164dba0be05ee1ce9af8af3a641e842740de9ba42dee48c0f1ee48bac0231a"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\managed-solution-build.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/managed-solution-build.log",
+    "originalSha256": "9b4d4d94bed6a3aea5451c384639c1aa84404924a9e0f7707d96fcb4771f6f42",
+    "archivedSha256": "3b9f9f9eb2054ce47e580ee1ef2c5f0bb3eba962804cff5debd2e9641a312f38",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "3b9f9f9eb2054ce47e580ee1ef2c5f0bb3eba962804cff5debd2e9641a312f38"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\native-mcp-e2e.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/native-mcp-e2e.log",
+    "originalSha256": "31701c63cc4068874be17fdab3186450909c2ee99a102c7e81833f7ac3b2f0d4",
+    "archivedSha256": "31701c63cc4068874be17fdab3186450909c2ee99a102c7e81833f7ac3b2f0d4",
+    "transformation": "none",
+    "stagedSha256": "31701c63cc4068874be17fdab3186450909c2ee99a102c7e81833f7ac3b2f0d4"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\native-mcp-e2e.xml",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/native-mcp-e2e.xml",
+    "originalSha256": "c5609b15c18a9e93b08ebdd491ecf2e1ffdea2f37a9a13f0407e83e11d96cf57",
+    "archivedSha256": "7749c52da32cfe4ac189ab74fec56948642d3f10220c4848c1b2d5d30d6270d2",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "7749c52da32cfe4ac189ab74fec56948642d3f10220c4848c1b2d5d30d6270d2"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\protocol-build.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/protocol-build.log",
+    "originalSha256": "4a32338a94b1fb435749483ac661f0724fadcd6c3a3e8a5d2996e559f6b9a108",
+    "archivedSha256": "6c1619b860e8aac1c507b16508b4df3c3efb093a4fc2677c6a695482cf25d287",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "6c1619b860e8aac1c507b16508b4df3c3efb093a4fc2677c6a695482cf25d287"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\protocol-lint.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/protocol-lint.log",
+    "originalSha256": "ac93ddaee0658e90e40f7cd4316d79a7209f8fd0d9b1af0e0368cd1630d7c754",
+    "archivedSha256": "5907e96c4cf3e6ba2afdf21d34556887987ed864e2f8b7bd9b37e525109101ad",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "5907e96c4cf3e6ba2afdf21d34556887987ed864e2f8b7bd9b37e525109101ad"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\protocol.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/protocol.log",
+    "originalSha256": "37b9a072b5022f18ea8a16942e4ab3ce67a0665034944b2173b672bd7476d095",
+    "archivedSha256": "37b9a072b5022f18ea8a16942e4ab3ce67a0665034944b2173b672bd7476d095",
+    "transformation": "none",
+    "stagedSha256": "37b9a072b5022f18ea8a16942e4ab3ce67a0665034944b2173b672bd7476d095"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\protocol.xml",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/protocol.xml",
+    "originalSha256": "1c4672d6d2494b9bac2cbaf4cafe647a35abe5948684c8963d666e660a478b31",
+    "archivedSha256": "1c4672d6d2494b9bac2cbaf4cafe647a35abe5948684c8963d666e660a478b31",
+    "transformation": "none",
+    "stagedSha256": "1c4672d6d2494b9bac2cbaf4cafe647a35abe5948684c8963d666e660a478b31"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\session-contract.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/session-contract.log",
+    "originalSha256": "6cd4e8ca09e54a812f4b6d156e747ec8637e45788c4578652177ae8585ca1075",
+    "archivedSha256": "6cd4e8ca09e54a812f4b6d156e747ec8637e45788c4578652177ae8585ca1075",
+    "transformation": "none",
+    "stagedSha256": "6cd4e8ca09e54a812f4b6d156e747ec8637e45788c4578652177ae8585ca1075"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\source-after.json",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/source-after.json",
+    "originalSha256": "b617b1ce7d556cbbd5a6917f715f79f7302e3c1e4ec1053d58ce151bb7118f43",
+    "archivedSha256": "d4c12aaec6011bbd822a9dcfcc3cb57de054e04160a6bd53eee6115d910a29be",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "d4c12aaec6011bbd822a9dcfcc3cb57de054e04160a6bd53eee6115d910a29be"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\source-before.json",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/source-before.json",
+    "originalSha256": "b617b1ce7d556cbbd5a6917f715f79f7302e3c1e4ec1053d58ce151bb7118f43",
+    "archivedSha256": "d4c12aaec6011bbd822a9dcfcc3cb57de054e04160a6bd53eee6115d910a29be",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "d4c12aaec6011bbd822a9dcfcc3cb57de054e04160a6bd53eee6115d910a29be"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\staged-core-self-test.log",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/staged-core-self-test.log",
+    "originalSha256": "6d9f01bed3efebf1f274ec4cfe84a30441d640513b2401d90b01cccc0a1bf9d2",
+    "archivedSha256": "6d9f01bed3efebf1f274ec4cfe84a30441d640513b2401d90b01cccc0a1bf9d2",
+    "transformation": "none",
+    "stagedSha256": "6d9f01bed3efebf1f274ec4cfe84a30441d640513b2401d90b01cccc0a1bf9d2"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\staged-runtime.json",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/staged-runtime.json",
+    "originalSha256": "7f4cea238908d8b0cdca9d3446e4a2a061bd980cf9987b2e87c049f9fe521a1a",
+    "archivedSha256": "1ce7c848bf02c2b777225313a58a2114a87d63de867c00c4e941b92bec51b099",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "1ce7c848bf02c2b777225313a58a2114a87d63de867c00c4e941b92bec51b099"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\summary.json",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/summary.json",
+    "originalSha256": "6b38eac4db7b321788fb34087505b0f3fc36f9aff06fb96d5702f397e90b0ac8",
+    "archivedSha256": "7d0802b9fd5b71bbfc3ae5707e168b7aefe0015d9600f46ab9399b08f4bc97e7",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "7d0802b9fd5b71bbfc3ae5707e168b7aefe0015d9600f46ab9399b08f4bc97e7"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\verify.py",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/verify.py",
+    "originalSha256": "e787094e4d0bb97ad0e04f836be3fa1c393229ba133cf15ee52e004a3aad1a7c",
+    "archivedSha256": "f2d469f37d7d199d37894f86f3bfc0977e74a851a5adfb1b29611d4185d7e707",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "f2d469f37d7d199d37894f86f3bfc0977e74a851a5adfb1b29611d4185d7e707"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\dotnet\\HermesBridge.trx",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/trx/HermesBridge.trx",
+    "originalSha256": "bbdc0949aaebb87921acd79ee9d2a414ed28b2d5082d32fb7b167033f2742f92",
+    "archivedSha256": "bf03fdf60e3075e2edec3314aa30608b97bce1b413f9d46c771d9573d0133f5a",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "bf03fdf60e3075e2edec3314aa30608b97bce1b413f9d46c771d9573d0133f5a"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\dotnet\\ModelingAgent.trx",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/trx/ModelingAgent.trx",
+    "originalSha256": "7721f64c5cb54fc0de208cc069ecca25794fb80033a5b44127af65f419e77d16",
+    "archivedSha256": "55e812296043c26252ccbd9ac6168f4f3feb52c59cd157f33be2ee9b938ef052",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "55e812296043c26252ccbd9ac6168f4f3feb52c59cd157f33be2ee9b938ef052"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\dotnet\\ModelingBenchmark.trx",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/trx/ModelingBenchmark.trx",
+    "originalSha256": "187fe8482dbbbb17319252e6ee1bbbc80c2ed398feacb68ad3ee294db07cf085",
+    "archivedSha256": "fd2dd3dd3d6a317efb02cc63050b105695a07ef38700b861d3c388a62cfa76b4",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "fd2dd3dd3d6a317efb02cc63050b105695a07ef38700b861d3c388a62cfa76b4"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-session-runtime-parent-20261016\\dotnet\\SessionClient.trx",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/trx/SessionClient.trx",
+    "originalSha256": "7e9f88dbc31b47c3e2254b7f7d6eb7dce97440e6f9baebe0f8ce36a8879c4f3e",
+    "archivedSha256": "23483c3bec2756d2d7d15628ce53b65e50be4d1d9b5ca04c354f0a0ae5544699",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "23483c3bec2756d2d7d15628ce53b65e50be4d1d9b5ca04c354f0a0ae5544699"
+  },
+  {
+    "source": "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\test-results\\phase16-projection-mcp-nat-d01d4-en-Desktop-and-official-MCP\\attachments\\native-projection-broken-icad-cc9f591e78cc07bcfd89941016760c4e33e5bd20.icad",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/native/native-projection-broken-icad-cc9f591e78cc07bcfd89941016760c4e33e5bd20.icad",
+    "originalSha256": "7adcd9c774cde5e944f0ff201ce75dbb8359a847c31b08d9f46ebcc2d63a5fc8",
+    "archivedSha256": "7adcd9c774cde5e944f0ff201ce75dbb8359a847c31b08d9f46ebcc2d63a5fc8",
+    "transformation": "none",
+    "stagedSha256": "7adcd9c774cde5e944f0ff201ce75dbb8359a847c31b08d9f46ebcc2d63a5fc8"
+  },
+  {
+    "source": "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\test-results\\phase16-projection-mcp-nat-d01d4-en-Desktop-and-official-MCP\\attachments\\native-projection-healthy-icad-ba31ce2e6b713610535bdd9909c47bd76bcaa4a7.icad",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/native/native-projection-healthy-icad-ba31ce2e6b713610535bdd9909c47bd76bcaa4a7.icad",
+    "originalSha256": "9c4e1855c7caa6028cc008ea62ca073b5c76d3644f096457b703439cf7f2818c",
+    "archivedSha256": "9c4e1855c7caa6028cc008ea62ca073b5c76d3644f096457b703439cf7f2818c",
+    "transformation": "none",
+    "stagedSha256": "9c4e1855c7caa6028cc008ea62ca073b5c76d3644f096457b703439cf7f2818c"
+  },
+  {
+    "source": "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\test-results\\phase16-projection-mcp-nat-d01d4-en-Desktop-and-official-MCP\\attachments\\native-projection-mcp-proof-c17301f7f2edd2e4c9339df5bb31dee5c917d52d.json",
+    "path": "docs/superpowers/evidence/2026-10-16-projection-session-runtime/parent/native/native-projection-mcp-proof-c17301f7f2edd2e4c9339df5bb31dee5c917d52d.json",
+    "originalSha256": "b3020e614d1fddb12843cb15487894763e01afa7638bb8cc112c649e38d9dd29",
+    "archivedSha256": "69365889bbf8095ac8a572c0aabeca07d6b6de501404341093454fc00de471a4",
+    "transformation": "UTF8 BOM removal, LF line endings and trailing whitespace normalized",
+    "stagedSha256": "69365889bbf8095ac8a572c0aabeca07d6b6de501404341093454fc00de471a4"
+  }
+]

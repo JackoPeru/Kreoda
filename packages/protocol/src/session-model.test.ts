@@ -39,6 +39,18 @@ function delta(overrides: Partial<SessionIncrementalDelta> = {}): SessionIncreme
 }
 
 describe("session model delta application", () => {
+  it("applies and removes native datum entities without treating them as meshes", () => {
+    const datum = entity("plane", { kind: "DatumPlane", definition: { type: "principal", planeKind: "XY" },
+      resolved: { originMm: [10, 20, 30], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] } });
+    const added = applySessionModelDelta(model(), delta({ added: [{ kind: "datum", id: "plane", index: 0, value: datum }], changedMeshIds: [] }));
+    expect(added.status).toBe("applied");
+    if (added.status !== "applied") return;
+    expect(added.model.datums).toEqual([datum]);
+    expect(added.model.features).toEqual(model().features);
+    const removed = applySessionModelDelta(added.model, delta({ baseRevision: 5, newRevision: 6, revision: 6, removedIds: ["plane"], changedMeshIds: [] }));
+    expect(removed.status).toBe("applied");
+    if (removed.status === "applied") expect(removed.model.datums).toEqual([]);
+  });
   it("patches ordered entity lists by kind and preserves metadata", () => {
     const current = model();
     const result = applySessionModelDelta(current, delta({

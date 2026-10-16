@@ -1,0 +1,27 @@
+[
+  {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase12-root-managed-current-net8\\managed-current-net8.trx",
+    "counters": [],
+    "sha256": "0325b708ae2225535aac2ebb5e5b241de246cadb1e06516db3154c6d59e62afd"
+  },
+  {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase12-root-managed-current-netstandard\\managed-current-netstandard.trx",
+    "counters": [],
+    "sha256": "951d99f5cc2efda75f1bcc3ac09bbc53c6e6a755c9d27d593213ff7780bc19ea"
+  },
+  {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase12-root-target-red\\managed-target-red.trx",
+    "counters": [],
+    "sha256": "2567b93be61111ef8599151d9fb68bee37522b019c87e4b1fbc4e3f445fa64cd"
+  },
+  {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase12-root-request-red\\request-abandon-red.trx",
+    "counters": [],
+    "sha256": "d58919a2c851d93345ead0a76a09e0660de24eb2c8f0e81e8a999a6e460d9af1"
+  },
+  {
+    "path": "C:\\Users\\matte\\AppData\\Local\\Temp\\kreoda-phase12-root-request-green\\request-abandon-green.trx",
+    "counters": [],
+    "sha256": "55d23fcf9d726edaab772be4cba9651cf02aee1c9c5fc0eebb6a9bfd5eeaefdf"
+  }
+]

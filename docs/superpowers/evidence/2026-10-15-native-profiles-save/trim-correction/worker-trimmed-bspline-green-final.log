@@ -1,0 +1,95 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Projection.*:Sketch.*
+[==========] Running 37 tests from 2 test suites.
+[----------] Global test environment set-up.
+[----------] 21 tests from Sketch
+[ RUN      ] Sketch.ExplicitFrameExtrudesAtStoredOriginAndBasis
+[       OK ] Sketch.ExplicitFrameExtrudesAtStoredOriginAndBasis (4 ms)
+[ RUN      ] Sketch.InvalidExplicitFrameLeavesDocumentAndUndoUntouched
+[       OK ] Sketch.InvalidExplicitFrameLeavesDocumentAndUndoUntouched (0 ms)
+[ RUN      ] Sketch.DuplicateIdsRejected
+[       OK ] Sketch.DuplicateIdsRejected (0 ms)
+[ RUN      ] Sketch.IdCollisionAcrossStoresRejected
+[       OK ] Sketch.IdCollisionAcrossStoresRejected (0 ms)
+[ RUN      ] Sketch.FixedConstraintPinsPoint
+[       OK ] Sketch.FixedConstraintPinsPoint (0 ms)
+[ RUN      ] Sketch.UnknownDragPointRejected
+[       OK ] Sketch.UnknownDragPointRejected (0 ms)
+[ RUN      ] Sketch.ExtrudeRolesStableAcrossDistanceEdit
+[       OK ] Sketch.ExtrudeRolesStableAcrossDistanceEdit (5 ms)
+[ RUN      ] Sketch.JsonRoundTrip
+[       OK ] Sketch.JsonRoundTrip (0 ms)
+[ RUN      ] Sketch.CreateSolvesExactly
+[       OK ] Sketch.CreateSolvesExactly (0 ms)
+[ RUN      ] Sketch.ExtrudeGivesExactVolume
+[       OK ] Sketch.ExtrudeGivesExactVolume (2 ms)
+[ RUN      ] Sketch.ExtrudePreservesDisconnectedMaterialRegions
+[       OK ] Sketch.ExtrudePreservesDisconnectedMaterialRegions (3 ms)
+[ RUN      ] Sketch.OpenProfileRejected
+[       OK ] Sketch.OpenProfileRejected (0 ms)
+[ RUN      ] Sketch.UpdatePropagatesDownstream
+[       OK ] Sketch.UpdatePropagatesDownstream (4 ms)
+[ RUN      ] Sketch.ConflictingEditRejectedKeepsOld
+[       OK ] Sketch.ConflictingEditRejectedKeepsOld (0 ms)
+[ RUN      ] Sketch.RevolveFullCircleExactVolume
+[planegcs] Sketcher::RedundantSolving-DogLeg-
+
+[planegcs] Sketcher Redundant solving: 0 redundants
+
+[planegcs] Sketcher::RedundantSolving-DogLeg-
+
+[planegcs] Sketcher Redundant solving: 0 redundants
+
+[       OK ] Sketch.RevolveFullCircleExactVolume (1 ms)
+[ RUN      ] Sketch.RevolvePreservesDisconnectedMaterialRegions
+[       OK ] Sketch.RevolvePreservesDisconnectedMaterialRegions (1 ms)
+[ RUN      ] Sketch.ExtrudePreviewDoesNotCommit
+[       OK ] Sketch.ExtrudePreviewDoesNotCommit (5 ms)
+[ RUN      ] Sketch.BodyPreviewCarriesExtrudeAndHoleWithoutChangingSketch
+[       OK ] Sketch.BodyPreviewCarriesExtrudeAndHoleWithoutChangingSketch (28 ms)
+[ RUN      ] Sketch.UndoSketchEditRestoresDownstream
+[       OK ] Sketch.UndoSketchEditRestoresDownstream (13 ms)
+[ RUN      ] Sketch.SaveOpenKeepsSketchAndSolid
+[       OK ] Sketch.SaveOpenKeepsSketchAndSolid (24 ms)
+[ RUN      ] Sketch.RadiusPreviewReturnsSolvedGeometryWithoutChangingStoredSketch
+[       OK ] Sketch.RadiusPreviewReturnsSolvedGeometryWithoutChangingStoredSketch (0 ms)
+[----------] 21 tests from Sketch (99 ms total)
+
+[----------] 16 tests from Projection
+[ RUN      ] Projection.EdgesApplySourceLocationAndTiltedTargetFrame
+[       OK ] Projection.EdgesApplySourceLocationAndTiltedTargetFrame (0 ms)
+[ RUN      ] Projection.TrimmedObliqueCircleRetainsAnalyticEllipseAndTrim
+[       OK ] Projection.TrimmedObliqueCircleRetainsAnalyticEllipseAndTrim (0 ms)
+[ RUN      ] Projection.SplineProjectionRetainsNativeCurveAndParameterMapping
+[       OK ] Projection.SplineProjectionRetainsNativeCurveAndParameterMapping (0 ms)
+[ RUN      ] Projection.ClosedProjectedLoopRetainsOrientationAndAnalyticArea
+[       OK ] Projection.ClosedProjectedLoopRetainsOrientationAndAnalyticArea (0 ms)
+[ RUN      ] Projection.TiltedProjectedCircleBuildsExactProfileAndPrismWithoutMutation
+[       OK ] Projection.TiltedProjectedCircleBuildsExactProfileAndPrismWithoutMutation (1 ms)
+[ RUN      ] Projection.ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops
+[       OK ] Projection.ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops (3 ms)
+[ RUN      ] Projection.ClosedBSplineProfileRetainsNativeCurve
+[       OK ] Projection.ClosedBSplineProfileRetainsNativeCurve (0 ms)
+[ RUN      ] Projection.TrimmedBSplineProfileValidatesOnlyUsedSpanPoles
+[       OK ] Projection.TrimmedBSplineProfileValidatesOnlyUsedSpanPoles (1 ms)
+[ RUN      ] Projection.AmbiguousAndInvalidProfilesFailAtomically
+[       OK ] Projection.AmbiguousAndInvalidProfilesFailAtomically (5 ms)
+[ RUN      ] Projection.SphereSilhouetteIsTargetPlaneCircleAndRepeatable
+[       OK ] Projection.SphereSilhouetteIsTargetPlaneCircleAndRepeatable (2 ms)
+[ RUN      ] Projection.ObliqueBoxSilhouetteHasAnalyticAreaWithoutInternalCreases
+[       OK ] Projection.ObliqueBoxSilhouetteHasAnalyticAreaWithoutInternalCreases (26 ms)
+[ RUN      ] Projection.AnnularFaceSilhouettePreservesInnerContour
+[       OK ] Projection.AnnularFaceSilhouettePreservesInnerContour (1 ms)
+[ RUN      ] Projection.SphereSectionHasAnalyticRadiusInRotatedFrame
+[       OK ] Projection.SphereSectionHasAnalyticRadiusInRotatedFrame (0 ms)
+[ RUN      ] Projection.SectionPreservesSourceTopologyOnSuccessAndFailure
+[       OK ] Projection.SectionPreservesSourceTopologyOnSuccessAndFailure (5 ms)
+[ RUN      ] Projection.NullMalformedNonfiniteUnboundedAndCollapsedInputsFailAtomically
+[       OK ] Projection.NullMalformedNonfiniteUnboundedAndCollapsedInputsFailAtomically (0 ms)
+[ RUN      ] Projection.DisjointSectionAndNullSilhouetteFailWithoutPublishing
+[       OK ] Projection.DisjointSectionAndNullSilhouetteFailWithoutPublishing (0 ms)
+[----------] 16 tests from Projection (49 ms total)
+
+[----------] Global test environment tear-down
+[==========] 37 tests from 2 test suites ran. (149 ms total)
+[  PASSED  ] 37 tests.

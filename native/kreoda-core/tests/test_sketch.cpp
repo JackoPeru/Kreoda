@@ -3,11 +3,15 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <limits>
 
 #include "../src/features/extrusion/extrude.h"
+#include "../src/features/hole/hole.h"
+#include "../src/persistence/ocaf_live.h"
 #include "../src/features/primitives/primitives.h"
 #include "../src/features/revolve/revolve.h"
 #include "../src/features/sketch/sketch_commands.h"
+#include "../src/features/sketch/sketch_face.h"
 #include "../src/features/sketch/sketch_json.h"
 #include "../src/features/sketch/sketch_store.h"
 #include "../src/tessellation/mesh.h"
@@ -16,6 +20,16 @@
 #include "rpc_text.h"
 #include "../src/document/document_store.h"
 #include "../src/model/shapes.h"
+#include "../src/protocol/json_fields.h"
+
+#if KREODA_WITH_OCCT
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Shape.hxx>
+#endif
 
 TEST(SketchJson, StrictModelFieldsIgnoreNestedKeysAndRejectWrongTypes) {
   kreoda::SketchModel model;
@@ -29,6 +43,110 @@ TEST(SketchJson, StrictModelFieldsIgnoreNestedKeysAndRejectWrongTypes) {
   }) EXPECT_FALSE(kreoda::ParseSketchModel(malformed, &model, &error)) << malformed;
   EXPECT_TRUE(kreoda::ParseSketchModel(R"({"points":[{"id":"p\u002d1","x":1,"y":2}]})", &model, &error));
   EXPECT_EQ(model.points[0].id, "p-1");
+}
+
+TEST(SketchJson, FeatureRoundTripsFullFrameAndOpaqueSupportRef) {
+  kreoda::SketchFeature source;
+  source.id = "frame-json";
+  source.planeKind = "XY";
+  source.plane.origin[0] = 10;
+  source.plane.origin[1] = 20;
+  source.plane.origin[2] = 30;
+  source.plane.xAxis[0] = 0;
+  source.plane.xAxis[1] = 1;
+  source.plane.xAxis[2] = 0;
+  source.plane.yAxis[0] = 0;
+  source.plane.yAxis[1] = 0;
+  source.plane.yAxis[2] = 1;
+  source.plane.normal[0] = 1;
+  source.plane.normal[1] = 0;
+  source.plane.normal[2] = 0;
+  source.supportRef = "opaque-fixture";  // Retained as data; not resolved here.
+
+  kreoda::SketchFeature parsed;
+  std::string error;
+  ASSERT_TRUE(kreoda::ParseSketchFeature(
+      kreoda::SerializeSketchFeature(source), &parsed, &error)) << error;
+  EXPECT_EQ(parsed.supportRef, source.supportRef);
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_DOUBLE_EQ(parsed.plane.origin[i], source.plane.origin[i]);
+    EXPECT_DOUBLE_EQ(parsed.plane.xAxis[i], source.plane.xAxis[i]);
+    EXPECT_DOUBLE_EQ(parsed.plane.yAxis[i], source.plane.yAxis[i]);
+    EXPECT_DOUBLE_EQ(parsed.plane.normal[i], source.plane.normal[i]);
+  }
+}
+
+TEST(SketchJson, MissingLegacyFrameUsesEachPrincipalPlane) {
+  for (const std::string kind : {"XY", "XZ", "YZ"}) {
+    const kreoda::Json legacy = {{"id", "legacy-" + kind},
+                                 {"planeKind", kind},
+                                 {"model", kreoda::Json::object()}};
+    kreoda::SketchFeature parsed;
+    std::string error;
+    ASSERT_TRUE(kreoda::ParseSketchFeature(legacy.dump(), &parsed, &error))
+        << kind << ": " << error;
+    const auto expected = kreoda::PrincipalPlane(kind);
+    for (int i = 0; i < 3; ++i) {
+      EXPECT_DOUBLE_EQ(parsed.plane.origin[i], expected.origin[i]);
+      EXPECT_DOUBLE_EQ(parsed.plane.xAxis[i], expected.xAxis[i]);
+      EXPECT_DOUBLE_EQ(parsed.plane.yAxis[i], expected.yAxis[i]);
+      EXPECT_DOUBLE_EQ(parsed.plane.normal[i], expected.normal[i]);
+    }
+  }
+}
+
+TEST(SketchJson, InvalidPresentFrameFailsWithoutChangingOutput) {
+  kreoda::SketchFeature source;
+  source.id = "invalid-frame";
+  const kreoda::Json valid = kreoda::Json::parse(
+      kreoda::SerializeSketchFeature(source));
+  std::vector<kreoda::Json> malformed;
+
+  auto wrongLength = valid;
+  wrongLength["plane"]["origin"] = {1, 2};
+  malformed.push_back(wrongLength);
+
+  auto nonFinite = valid;
+  nonFinite["plane"]["origin"][0] = nullptr;
+  malformed.push_back(nonFinite);
+
+  auto nonFiniteBasis = valid;
+  nonFiniteBasis["plane"]["yAxis"][2] = nullptr;
+  malformed.push_back(nonFiniteBasis);
+
+  auto scaled = valid;
+  scaled["plane"]["xAxis"] = {2, 0, 0};
+  malformed.push_back(scaled);
+
+  auto skewed = valid;
+  skewed["plane"]["xAxis"] = {1, 0, 0};
+  skewed["plane"]["yAxis"] = {1e-6, 1, 0};
+  skewed["plane"]["normal"] = {0, 0, 1};
+  malformed.push_back(skewed);
+
+  auto leftHanded = valid;
+  leftHanded["plane"]["normal"] = {0, 0, -1};
+  malformed.push_back(leftHanded);
+
+  auto missingVector = valid;
+  missingVector["plane"].erase("normal");
+  malformed.push_back(missingVector);
+
+  auto wrongPlaneType = valid;
+  wrongPlaneType["plane"] = "XY";
+  malformed.push_back(wrongPlaneType);
+
+  for (const auto& value : malformed) {
+    kreoda::SketchFeature output;
+    output.id = "keep-output";
+    output.plane.origin[0] = 42;
+    std::string error;
+    EXPECT_FALSE(kreoda::ParseSketchFeature(value.dump(), &output, &error))
+        << value;
+    EXPECT_FALSE(error.empty());
+    EXPECT_EQ(output.id, "keep-output");
+    EXPECT_DOUBLE_EQ(output.plane.origin[0], 42);
+  }
 }
 #include "../src/protocol/dispatcher.h"
 
@@ -60,6 +178,23 @@ kreoda::SketchModel RectModel(double w, double h) {
   return m;
 }
 
+kreoda::SketchPlane OffsetFrame() {
+  kreoda::SketchPlane plane;
+  plane.origin[0] = 10;
+  plane.origin[1] = 20;
+  plane.origin[2] = 30;
+  plane.xAxis[0] = 0;
+  plane.xAxis[1] = 1;
+  plane.xAxis[2] = 0;
+  plane.yAxis[0] = 0;
+  plane.yAxis[1] = 0;
+  plane.yAxis[2] = 1;
+  plane.normal[0] = 1;
+  plane.normal[1] = 0;
+  plane.normal[2] = 0;
+  return plane;
+}
+
 void NewDoc(const std::string& id) {
   kreoda::DocumentStore::instance().create(id);
 }
@@ -84,6 +219,93 @@ double meshVolume(const std::string& body) {
 #endif
 
 }  // namespace
+
+TEST(SketchPlane, ValidationRequiresFiniteOrthonormalRightHandedFrame) {
+  std::string error;
+  const auto valid = OffsetFrame();
+  EXPECT_TRUE(kreoda::ValidateSketchPlane(valid, &error)) << error;
+
+  auto nonFinite = valid;
+  nonFinite.origin[1] = std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(kreoda::ValidateSketchPlane(nonFinite, &error));
+
+  auto scaled = valid;
+  scaled.xAxis[1] = 2;
+  EXPECT_FALSE(kreoda::ValidateSketchPlane(scaled, &error));
+
+  auto skewed = valid;
+  skewed.xAxis[0] = 1;
+  skewed.xAxis[1] = 0;
+  skewed.yAxis[0] = 1e-6;
+  skewed.yAxis[1] = 1;
+  skewed.yAxis[2] = 0;
+  skewed.normal[0] = 0;
+  skewed.normal[1] = 0;
+  skewed.normal[2] = 1;
+  EXPECT_FALSE(kreoda::ValidateSketchPlane(skewed, &error));
+
+  auto leftHanded = valid;
+  leftHanded.normal[0] = -1;
+  EXPECT_FALSE(kreoda::ValidateSketchPlane(leftHanded, &error));
+}
+
+TEST(Sketch, ExplicitFrameExtrudesAtStoredOriginAndBasis) {
+#if KREODA_WITH_OCCT
+  NewDoc("sketch-frame-native");
+  std::string error;
+  const auto plane = OffsetFrame();
+  ASSERT_TRUE(kreoda::CreateSketchFeature(
+      "frame-sketch", "XY", RectModel(10, 5), plane, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateExtrudeFeature("frame-extrude", "frame-sketch", 7,
+                                           &error)) << error;
+
+  kreoda::SketchFeature sketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("frame-sketch", &sketch));
+  EXPECT_EQ(sketch.id, "frame-sketch");
+  EXPECT_EQ(sketch.planeKind, "XY");
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_DOUBLE_EQ(sketch.plane.origin[i], plane.origin[i]);
+    EXPECT_DOUBLE_EQ(sketch.plane.xAxis[i], plane.xAxis[i]);
+    EXPECT_DOUBLE_EQ(sketch.plane.yAxis[i], plane.yAxis[i]);
+    EXPECT_DOUBLE_EQ(sketch.plane.normal[i], plane.normal[i]);
+  }
+
+  kreoda::ShapeRecord feature;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("frame-extrude", &feature));
+  EXPECT_EQ(feature.featureId, "frame-extrude");
+  EXPECT_NEAR(feature.volumeMm3, 350, 1e-6);
+  const double expectedBounds[6] = {10, 20, 30, 17, 30, 35};
+  for (int i = 0; i < 6; ++i) {
+    EXPECT_NEAR(feature.bboxMm[i], expectedBounds[i], 1e-6) << "bbox[" << i << "]";
+  }
+  int solidCount = 0;
+  for (TopExp_Explorer it(feature.shape, TopAbs_SOLID); it.More(); it.Next()) {
+    ++solidCount;
+  }
+  EXPECT_EQ(solidCount, 1);
+#else
+  GTEST_SKIP() << "needs OCCT";
+#endif
+}
+
+TEST(Sketch, InvalidExplicitFrameLeavesDocumentAndUndoUntouched) {
+  NewDoc("sketch-frame-invalid");
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto registry = kreoda::DocumentStore::instance().snapshotRegistry();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto redos = kreoda::OcafLive::instance().AvailableRedos();
+  auto invalid = OffsetFrame();
+  invalid.xAxis[1] = 2;
+  std::string error;
+
+  EXPECT_FALSE(kreoda::CreateSketchFeature(
+      "invalid-frame-sketch", "XY", RectModel(10, 5), invalid, &error));
+  EXPECT_FALSE(kreoda::SketchStore::instance().contains("invalid-frame-sketch"));
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::DocumentStore::instance().snapshotRegistry(), registry);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableRedos(), redos);
+}
 
 TEST(Sketch, DuplicateIdsRejected) {
   NewDoc("skd");
@@ -233,6 +455,56 @@ TEST(Sketch, ExtrudeGivesExactVolume) {
   EXPECT_EQ(rec.dependsOn, std::vector<std::string>{"sk-r"});
 }
 
+TEST(Sketch, ExtrudePreservesDisconnectedMaterialRegions) {
+#if KREODA_WITH_OCCT
+  NewDoc("sk-disconnected-extrude");
+  std::string error;
+  kreoda::SketchModel model;
+  model.points = {{"center-a", 0, 0, true}, {"center-b", 15, 0, true}};
+  model.circles = {{"circle-a", "center-a", 3}, {"circle-b", "center-b", 2}};
+  ASSERT_TRUE(kreoda::CreateSketchFeature("sk-disconnected", "XY", model,
+                                           OffsetFrame(), &error)) << error;
+  ASSERT_TRUE(kreoda::CreateExtrudeFeature("ex-disconnected", "sk-disconnected",
+                                            10, &error)) << error;
+
+  kreoda::ShapeRecord record;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("ex-disconnected", &record));
+  EXPECT_NEAR(record.volumeMm3, 130.0 * std::acos(-1.0), 1e-5);
+  const double expectedBounds[6] = {10, 17, 27, 20, 37, 33};
+  for (int i = 0; i < 6; ++i) {
+    EXPECT_NEAR(record.bboxMm[i], expectedBounds[i], 1e-5) << "bbox[" << i << "]";
+  }
+  int solidCount = 0;
+  for (TopExp_Explorer it(record.shape, TopAbs_SOLID); it.More(); it.Next()) {
+    ++solidCount;
+  }
+  EXPECT_EQ(solidCount, 2);
+
+  kreoda::SketchFeature sketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("sk-disconnected", &sketch));
+  TopoDS_Shape profile;
+  ASSERT_TRUE(kreoda::BuildProfileFromSketch(sketch, &profile, &error)) << error;
+  int profileFaces = 0;
+  for (TopExp_Explorer it(profile, TopAbs_FACE); it.More(); it.Next()) {
+    ++profileFaces;
+  }
+  EXPECT_EQ(profileFaces, 2);
+
+  const TopoDS_Shape sentinel = BRepPrimAPI_MakeBox(2, 3, 4).Shape();
+  TopoDS_Face legacyOutput;
+  for (TopExp_Explorer it(sentinel, TopAbs_FACE); it.More(); it.Next()) {
+    legacyOutput = TopoDS::Face(it.Current());
+    break;
+  }
+  ASSERT_FALSE(legacyOutput.IsNull());
+  const TopoDS_Face originalOutput = legacyOutput;
+  EXPECT_FALSE(kreoda::BuildFaceFromSketch(sketch, &legacyOutput, &error));
+  EXPECT_TRUE(legacyOutput.IsSame(originalOutput));
+#else
+  GTEST_SKIP() << "needs OCCT";
+#endif
+}
+
 TEST(Sketch, OpenProfileRejected) {
   NewDoc("sk3");
   std::string err;
@@ -316,6 +588,33 @@ TEST(Sketch, RevolveFullCircleExactVolume) {
   EXPECT_FALSE(kreoda::CreateRevolveFeature("rv-bad2", "nope", 90, &err));
 }
 
+TEST(Sketch, RevolvePreservesDisconnectedMaterialRegions) {
+#if KREODA_WITH_OCCT
+  NewDoc("sk-disconnected-revolve");
+  std::string error;
+  kreoda::SketchModel model;
+  model.points = {{"center-a", 0, 10, true}, {"center-b", 20, 10, true}};
+  model.circles = {{"circle-a", "center-a", 2}, {"circle-b", "center-b", 2}};
+  ASSERT_TRUE(kreoda::CreateSketchFeature("sk-disconnected-revolve", "XZ",
+                                           model, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateRevolveFeature("rv-disconnected",
+                                            "sk-disconnected-revolve", 360,
+                                            &error)) << error;
+
+  kreoda::ShapeRecord record;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("rv-disconnected", &record));
+  EXPECT_NEAR(record.volumeMm3, 160.0 * std::acos(-1.0) * std::acos(-1.0),
+              160.0 * std::acos(-1.0) * std::acos(-1.0) * 1e-6);
+  int solidCount = 0;
+  for (TopExp_Explorer it(record.shape, TopAbs_SOLID); it.More(); it.Next()) {
+    ++solidCount;
+  }
+  EXPECT_EQ(solidCount, 2);
+#else
+  GTEST_SKIP() << "needs OCCT";
+#endif
+}
+
 TEST(Sketch, ExtrudePreviewDoesNotCommit) {
   NewDoc("skp");
   std::string err;
@@ -335,6 +634,42 @@ TEST(Sketch, ExtrudePreviewDoesNotCommit) {
   kreoda::ShapeRecord rec;
   ASSERT_TRUE(kreoda::ShapeStore::instance().get("ex-p", &rec));
   EXPECT_NEAR(rec.volumeMm3, 100000.0, 1e-3);
+}
+
+TEST(Sketch, BodyPreviewCarriesExtrudeAndHoleWithoutChangingSketch) {
+  NewDoc("p13-sketch-preview");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateSketchFeature("p13-sk", "XY", RectModel(100, 50), &error)) << error;
+  ASSERT_TRUE(kreoda::CreateExtrudeFeature("p13-ex", "p13-sk", 20, &error)) << error;
+  kreoda::ShapeRecord extrude;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("p13-ex", &extrude));
+  double origin[3]{}, u[3]{}, v[3]{}, normal[3]{};
+  ASSERT_TRUE(kreoda::FaceFrameInfo(extrude.shape, "p13-ex", "Extrude", "extrude.+Z", origin, u, v, normal));
+  const double delta[3] = {50 - origin[0], 25 - origin[1], extrude.bboxMm[5] - origin[2]};
+  const double x = delta[0] * u[0] + delta[1] * u[1] + delta[2] * u[2];
+  const double y = delta[0] * v[0] + delta[1] * v[1] + delta[2] * v[2];
+  ASSERT_TRUE(kreoda::CreateHoleFeature("p13-ex-hole", "p13-ex", "extrude.+Z", x, y,
+      6, "blind", 5, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  kreoda::SketchFeature before;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("p13-sk", &before));
+  kreoda::CoreMesh preview;
+  ASSERT_TRUE(kreoda::BuildPreviewBodyMesh("p13-ex", "distanceMm", 40, "p13-ex-hole", &preview, &error)) << error;
+  EXPECT_NEAR(preview.volumeMm3, 200000 - std::acos(-1.0) * 9 * 5, .001);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  kreoda::SketchFeature after;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("p13-sk", &after));
+  ASSERT_EQ(after.model.points.size(), before.model.points.size());
+  for (size_t i = 0; i < before.model.points.size(); ++i) {
+    EXPECT_DOUBLE_EQ(after.model.points[i].x, before.model.points[i].x);
+    EXPECT_DOUBLE_EQ(after.model.points[i].y, before.model.points[i].y);
+  }
+  ASSERT_TRUE(kreoda::RebuildFeature("p13-ex", "distanceMm", 40, &error)) << error;
+  kreoda::ShapeRecord committed;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("p13-ex-hole", &committed));
+  EXPECT_NEAR(preview.volumeMm3, committed.volumeMm3, .001);
 }
 
 TEST(Sketch, UndoSketchEditRestoresDownstream) {
@@ -407,4 +742,21 @@ TEST(Sketch, SaveOpenKeepsSketchAndSolid) {
   EXPECT_NEAR(rec.volumeMm3, 100000.0, 1e-3);
   std::error_code ec;
   fs::remove(icad, ec);
+}
+
+TEST(Sketch, RadiusPreviewReturnsSolvedGeometryWithoutChangingStoredSketch) {
+  NewDoc("radius-preview");
+  kreoda::SketchModel model;
+  model.points={{"centre",0,0,true}};model.circles={{"circle", "centre",5}};
+  model.constraints={{"radius",kreoda::SketchConstraintKind::Radius,{"circle"},5}};
+  std::string error;ASSERT_TRUE(kreoda::CreateSketchFeature("radial-sketch","XY",model,&error)) << error;
+  const auto revision=kreoda::DocumentStore::instance().revision();
+  model.constraints[0].value=10;
+  const auto request=kreoda::Json{{"protocolVersion",1},{"requestId","radius-preview"},{"documentId","radius-preview"},
+    {"type",14},{"featureId","radial-sketch"},{"isPreview",true},{"model",kreoda::Json::parse(kreoda::SerializeSketchModel(model))}};
+  const auto reply=kreoda::Json::parse(rpc(request.dump()));
+  ASSERT_EQ(reply["status"],"ok") << reply;
+  EXPECT_NEAR(reply["sketch"]["model"]["circles"][0]["r"].get<double>(),10,1e-5);
+  kreoda::SketchFeature stored;ASSERT_TRUE(kreoda::SketchStore::instance().get("radial-sketch",&stored));
+  EXPECT_NEAR(stored.model.circles[0].r,5,1e-5);EXPECT_EQ(kreoda::DocumentStore::instance().revision(),revision);
 }
