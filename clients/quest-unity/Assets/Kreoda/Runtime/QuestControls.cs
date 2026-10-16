@@ -65,6 +65,10 @@ namespace Kreoda.QuestRuntime
         Dictionary<string, double> _pendingExact;
         TextMesh _valueLabel;
         readonly List<Transform> _compactMenu = new List<Transform>();
+        Transform _pcPage;
+        TextMesh _pcStatus;
+        readonly TextMesh[] _pcChoices = new TextMesh[4];
+        int _pcChoicePage;
         TextMesh _status, _target, _endpointLabel, _codeLabel, _viewStatus, _handLabel, _diagnostics;
         GameObject _panelBackground;
         QuestMeshView _selected;
@@ -110,8 +114,23 @@ namespace Kreoda.QuestRuntime
             var header = Button("Trascina", new Vector3(-.13f, .235f, 0), .12f, null, .035f, .011f);
             header.transform.parent.GetComponentInChildren<QuestButton>().DragPanel = true;
             Button("Home", new Vector3(.005f, .235f, 0), .09f, () => Page(_homePage), .035f, .011f);
-            Button("PC", new Vector3(.105f, .235f, 0), .07f, () => Page(_connectionPage), .035f, .011f);
+            Button("PC", new Vector3(.105f, .235f, 0), .07f, () => Page(_pcPage), .035f, .011f);
             Button("×", new Vector3(.18f, .235f, 0), .035f, TogglePanel, .035f, .012f);
+            _pcPage = PageRoot("PC locali");_content = _pcPage;
+            _pcStatus = Label(_content, "Ricerca del PC locale…", new Vector3(-.19f, .13f, -.003f), .012f);
+            _textLimits[_pcStatus] = new Vector2(.38f, .055f);
+            for (int i = 0; i < _pcChoices.Length; i++)
+            {
+                int slot = i;
+                _pcChoices[i] = Button("PC " + (i + 1), new Vector3(0, .045f - i * .05f, 0), .37f, () =>
+                {
+                    var peers = Connection.AvailablePcs;int index = _pcChoicePage * _pcChoices.Length + slot;
+                    if (index < peers.Length) Connection.SelectPc(peers[index].PcId);
+                }, .038f, .011f);
+            }
+            Button("Altri PC", new Vector3(-.1f, -.165f, 0), .18f, () => _pcChoicePage++, .032f, .011f);
+            Button("Riprova", new Vector3(.105f, -.165f, 0), .17f, Connection.Reconnect, .032f, .011f);
+            Button("Diagnostica avanzata", new Vector3(0, -.225f, 0), .32f, () => Page(_connectionPage), .032f, .011f);
             _connectionPage = PageRoot("Advanced PC diagnostics");
             _content = _connectionPage;
             Label(_content, "PC · diagnostica avanzata", new Vector3(-.19f, .115f, -.003f), .014f);
@@ -300,6 +319,7 @@ namespace Kreoda.QuestRuntime
         { var page = new GameObject(name).transform; page.SetParent(_panel, false); return page; }
         void Page(Transform selected)
         {
+            if (_pcPage != null) _pcPage.gameObject.SetActive(selected == _pcPage);
             if (_homePage != null) _homePage.gameObject.SetActive(selected == _homePage);
             if (_homeNoticePage != null) _homeNoticePage.gameObject.SetActive(selected == _homeNoticePage);
             if (_connectionPage != null) _connectionPage.gameObject.SetActive(selected == _connectionPage);
@@ -318,7 +338,7 @@ namespace Kreoda.QuestRuntime
         {
             switch (id)
             {
-                case "home:pc": Page(_connectionPage); break;
+                case "home:pc": Page(_pcPage); break;
                 case "home:ai": if (_voicePage != null) Page(_voicePage); else ShowHomeNotice(); break;
                 case "home:design": SketchDimensions?.Select();Page(_sketchPage); break;
                 case "home:model":
@@ -526,6 +546,15 @@ namespace Kreoda.QuestRuntime
                 _voiceReply.text = ShortVoiceText(Voice.Reply, 260);
             }
             Home?.SetConnectionStatus(Connection.Status);
+            _pcStatus.text = ShortVoiceText(Connection.Status, 80);
+            var localPcs = Connection.AvailablePcs;
+            _pcChoicePage %= Mathf.Max(1, (localPcs.Length + _pcChoices.Length - 1) / _pcChoices.Length);
+            for (int i = 0; i < _pcChoices.Length; i++)
+            {
+                int index = _pcChoicePage * _pcChoices.Length + i;
+                SetButton(_pcChoices[i], index < localPcs.Length,
+                    index < localPcs.Length ? ShortVoiceText(localPcs[index].Name, 34) : "");
+            }
             var viewStatus = Display.PlacementActive ? Display.Status : Environment.Status + "\nScala " + Display.ScaleName + " · quote CAD mm";
             if (_viewStatus.text != viewStatus) _viewStatus.text = viewStatus;
             if (_sectionStatus != null && Connection.Section != null)

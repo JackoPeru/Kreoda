@@ -8,6 +8,8 @@ import { SidecarManager } from "./sidecar";
 import { installRendererRecovery } from "./renderer-recovery";
 import { SessionRelay, type SessionDelta, type SessionSelection } from "./session";
 import { SessionDevices } from "./session-devices";
+import { AutomaticSessionHost } from "./session-discovery";
+import { hostname } from "node:os";
 import { sessionInterfaces } from "./session-listener";
 import type { SessionConnectionStatus } from "./session-control-ui";
 import { FrameDecoder } from "@kreoda/protocol";
@@ -22,6 +24,7 @@ let sidecar: SidecarManager | null = null;
 // Phase 11b: unified session relay (Quest/agent/second-client front for the
 // local authoritative core). Listener is optional; the service always exists.
 let sessionRelay: SessionRelay | null = null;
+let automaticSession: AutomaticSessionHost | null = null;
 
 const isDev = !app.isPackaged;
 const backgroundTest = process.env["KREODA_BACKGROUND_TEST"] === "1";
@@ -121,6 +124,12 @@ app.whenReady().then(async () => {
       console.error("[session] development listener failed to start");
     }
   }
+  // Normal startup discovers native Quest clients. Hidden test profiles never advertise on LAN.
+  const automaticLoopbackTest = backgroundTest && process.env["KREODA_AUTOMATIC_LOOPBACK_TEST"] === "1";
+  if (devices && (!backgroundTest || automaticLoopbackTest) && !sessionRelay.connectionStatus().listener) {
+    automaticSession = new AutomaticSessionHost(devices, sessionRelay, hostname(), automaticLoopbackTest);
+    await automaticSession.start();
+  }
   // Signed-update check runs after boot; inert without a feed (§61).
   setTimeout(() => {
     void maybeAutoUpdate();
@@ -146,9 +155,11 @@ app.whenReady().then(async () => {
   ipcMain.handle("kreoda:session-enable", (_event, host: unknown, port: unknown) => control(async () => {
     if (typeof host !== "string" || typeof port !== "number") throw new Error("invalid session address");
     if (!devices) throw new Error("trusted device storage unavailable");
+    await automaticSession?.stop();automaticSession = null;
     await sessionRelay!.enableListener({ host, port });return connectionStatus();
   }));
   ipcMain.handle("kreoda:session-disable", () => control(async () => {
+    await automaticSession?.stop();automaticSession = null;
     await sessionRelay!.disableListener();return connectionStatus();
   }));
   ipcMain.handle("kreoda:session-pair", () => control(() => {
@@ -472,6 +483,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  void automaticSession?.stop();
   sessionRelay?.stop();
   sidecar?.stop();
 });

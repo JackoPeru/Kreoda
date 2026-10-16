@@ -23,6 +23,42 @@ namespace Kreoda.QuestRuntime.Tests
         const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
         [Test]
+        public void DeviceFileMigratesLegacyCredentialsAndAtomicallyRetainsAutomaticIdentity()
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "kreoda-device-migration-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            var file = Path.Combine(directory, "device.dat");
+            var root = new GameObject("Device migration fixture");
+            try
+            {
+                var connection = root.AddComponent<QuestConnection>();
+                typeof(QuestConnection).GetField("_credentialFile", Private).SetValue(connection, file);
+                var logicalId = "client-" + Guid.NewGuid().ToString("D");
+                using (var writer = new BinaryWriter(File.Create(file)))
+                {
+                    writer.Write(1);writer.Write("ws://192.168.1.8:9842");writer.Write("device-" + Guid.NewGuid().ToString("D"));
+                    writer.Write(new string('a', 43));writer.Write(logicalId);
+                }
+                var read = typeof(QuestConnection).GetMethod("ReadDevice", Private);
+                var write = typeof(QuestConnection).GetMethod("WriteDevice", Private);
+                var legacy = read.Invoke(connection, null);
+                Assert.That(legacy, Is.Not.Null);
+                var type = legacy.GetType();
+                var pcId = Guid.NewGuid().ToString("D");
+                type.GetField("PcId").SetValue(legacy, pcId);type.GetField("Name").SetValue(legacy, "Studio");
+                write.Invoke(connection, new[] { legacy });
+                write.Invoke(connection, new[] { legacy }); // Actual atomic replacement path, not just initial creation.
+                var current = read.Invoke(connection, null);
+                Assert.That(type.GetField("PcId").GetValue(current), Is.EqualTo(pcId));
+                Assert.That(type.GetField("Credential").GetValue(current), Is.EqualTo(new string('a', 43)));
+                Assert.That(type.GetField("LogicalId").GetValue(current), Is.EqualTo(logicalId));
+                Assert.That(Guid.TryParse((string)type.GetField("InstallationId").GetValue(current), out _), Is.True);
+                Assert.That(File.Exists(file + ".tmp"), Is.False);
+            }
+            finally { Object.DestroyImmediate(root);Directory.Delete(directory, true); }
+        }
+
+        [Test]
         public void DatumObservationsTrackCurrentRevisionRemovalDocumentAndConnectionWithoutMeshes()
         {
             var root = new GameObject("Owned datum connection test");

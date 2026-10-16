@@ -23,6 +23,7 @@ namespace Kreoda.QuestRuntime
         public string Status { get; private set; } = "Non connesso";
         public string SavedEndpoint { get { lock (_gate) return _saved?.Endpoint ?? ""; } }
         public bool Connected { get; private set; }
+        public DiscoveredSessionPc[] AvailablePcs { get; private set; } = Array.Empty<DiscoveredSessionPc>();
         public double? RttMilliseconds { get; private set; }
         public double? MeshMilliseconds { get; private set; }
         public long TriangleCount { get; private set; }
@@ -101,10 +102,12 @@ namespace Kreoda.QuestRuntime
         SavedDevice _saved;
         string _credentialFile;
         bool _destroyed;
+        string _chosenPcId;
 
         sealed class SavedDevice
         {
-            public string Endpoint, DeviceId, Credential, LogicalId;
+            public string Endpoint, DeviceId, Credential, LogicalId, PcId, Name, InstallationId;
+            public SavedDevice Copy() => (SavedDevice)MemberwiseClone();
         }
         sealed class Observation
         {
@@ -141,7 +144,11 @@ namespace Kreoda.QuestRuntime
                 if (ApplyStartupConfiguration(component?.Call<string>("getClassName"), endpoint, code)) return;
             }
 #endif
+#if UNITY_ANDROID && !UNITY_EDITOR
+            StartConnection(null, null);
+#else
             if (_saved != null) StartConnection(null, null);
+#endif
         }
 
         bool ApplyStartupConfiguration(string component, string endpoint, string code)
@@ -162,7 +169,13 @@ namespace Kreoda.QuestRuntime
 
         public void Reconnect()
         {
-            if (_saved == null) { Status = "Associa prima il PC"; return; }
+            StartConnection(null, null);
+        }
+
+        public void SelectPc(string pcId)
+        {
+            if (!AvailablePcs.Any(pc => pc.PcId == pcId)) return;
+            _chosenPcId = pcId;
             StartConnection(null, null);
         }
 
@@ -177,10 +190,12 @@ namespace Kreoda.QuestRuntime
                 _latest = null;
                 _scene.InvalidateConnection();
                 _saved = null;
+                _chosenPcId = null;
             }
             CancelMeshes();
             if (File.Exists(_credentialFile)) File.Delete(_credentialFile);
             Connected = false;
+            AvailablePcs = Array.Empty<DiscoveredSessionPc>();
             RttMilliseconds = null;
             Status = "PC dimenticato. Nuova associazione";
         }
@@ -200,7 +215,7 @@ namespace Kreoda.QuestRuntime
             CancelMeshes();
             Connected = false;
             RttMilliseconds = null;
-            Status = "Connessione…";
+            Status = "Ricerca del PC locale…";
             // All socket work, timeouts and reconnect delays stay off the frame loop.
             var ct = run.Token;
             _ = Task.Run(() => ConnectionLoop(run, ct, pairingEndpoint, code));
@@ -221,7 +236,7 @@ namespace Kreoda.QuestRuntime
                 try
                 {
                     SavedDevice saved;
-                    lock (_gate) saved = _saved;
+                    lock (_gate) saved = _saved?.Copy();
                     using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct))
                     {
                         deadline.CancelAfter(TimeSpan.FromSeconds(15));
@@ -243,7 +258,34 @@ namespace Kreoda.QuestRuntime
                         }
                         else
                         {
-                            if (saved == null) throw new SessionException("UNAUTHORIZED", "no paired device");
+                            var peers = await FindLocalPcsAsync(deadline.Token).ConfigureAwait(false);
+                            var selected = SessionDiscovery.Choose(peers, _chosenPcId ?? saved?.PcId);
+                            Post(run, () => AvailablePcs = peers);
+                            if (selected == null && peers.Length != 0)
+                                throw new SessionException("CHOOSE_PC", "select a local PC by name");
+                            if (selected != null)
+                            {
+                                if (saved == null) saved = new SavedDevice { Endpoint = "", DeviceId = "",
+                                    Credential = SessionDiscovery.CreateCredential(), LogicalId = "client-" + Guid.NewGuid().ToString("D"),
+                                    InstallationId = Guid.NewGuid().ToString("D"), PcId = "", Name = "" };
+                                if (string.IsNullOrEmpty(saved.InstallationId)) saved.InstallationId = Guid.NewGuid().ToString("D");
+                                // Persist the client secret before bootstrap, so a lost acknowledgement is idempotent.
+                                lock (_gate)
+                                {
+                                    if (!Current(run)) throw new OperationCanceledException(ct);
+                                    WriteDevice(saved);_saved = saved.Copy();
+                                }
+                                if (string.IsNullOrEmpty(saved.DeviceId) || (!string.IsNullOrEmpty(saved.PcId) && saved.PcId != selected.PcId))
+                                    saved.DeviceId = await SessionDiscovery.PairAsync(selected, saved.InstallationId, saved.Credential, deadline.Token).ConfigureAwait(false);
+                                saved.Endpoint = selected.Endpoint.AbsoluteUri;saved.PcId = selected.PcId;saved.Name = selected.Name;
+                                lock (_gate)
+                                {
+                                    if (!Current(run)) throw new OperationCanceledException(ct);
+                                    WriteDevice(saved);_saved = saved.Copy();
+                                }
+                            }
+                            if (saved == null || string.IsNullOrEmpty(saved.Endpoint) || string.IsNullOrEmpty(saved.DeviceId))
+                                throw new SessionException("SEARCHING_PC", "no local PC available");
                             client = await SessionClient.ConnectDeviceAsync(new Uri(saved.Endpoint), saved.DeviceId,
                                 saved.Credential, "quest", deadline.Token, saved.LogicalId).ConfigureAwait(false);
                         }
@@ -264,7 +306,8 @@ namespace Kreoda.QuestRuntime
                         }
                         if (client.Model == null) throw new SessionException("BAD_MODEL", "snapshot missing");
                         Capture(run, client, generation, client.Model, null);
-                        Post(run, () => { Connected = true; Status = "Connesso al PC"; UnityEngine.Debug.Log("KREODA_CONNECTED"); });
+                        var connectedName = saved?.Name;
+                        Post(run, () => { Connected = true; Status = string.IsNullOrEmpty(connectedName) ? "Connesso al PC" : "Connesso a " + connectedName; UnityEngine.Debug.Log("KREODA_CONNECTED"); });
                         attempt = 0;
                         while (!ct.IsCancellationRequested)
                         {
@@ -292,7 +335,9 @@ namespace Kreoda.QuestRuntime
                         Connected = false;
                         RttMilliseconds = null;
                         CancelMeshes();
-                        Status = unauthorized ? "Associazione scaduta o revocata: riassocia" :
+                        Status = error is SessionException state && state.Code == "CHOOSE_PC" ? "Scegli il PC dal nome" :
+                            error is SessionException searching && searching.Code == "SEARCHING_PC" ? "Ricerca del PC locale…" :
+                            unauthorized ? "Accesso revocato dal PC" :
                             code != null ? "Associazione fallita: verifica codice e rete" : "Offline: modello conservato. Riconnessione…";
                         UnityEngine.Debug.LogWarning("KREODA_CONNECTION_ERROR " + error.GetType().Name +
                             (error is SessionException failure ? " " + failure.Code : ""));
@@ -307,6 +352,15 @@ namespace Kreoda.QuestRuntime
         }
 
         bool Current(CancellationTokenSource run) => !_destroyed && ReferenceEquals(_run, run);
+        static Task<DiscoveredSessionPc[]> FindLocalPcsAsync(CancellationToken ct)
+        {
+#if UNITY_EDITOR
+            // Editor verification is local-only. Normal Android startup searches assigned LANs.
+            return SessionDiscovery.FindAsync(ct, new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, SessionDiscovery.Port));
+#else
+            return SessionDiscovery.FindAsync(ct);
+#endif
+        }
         void Post(CancellationTokenSource run, Action action)
         {
             lock (_gate)
@@ -610,14 +664,22 @@ namespace Kreoda.QuestRuntime
                 if (!File.Exists(_credentialFile) || new FileInfo(_credentialFile).Length > 4096) return null;
                 using var file = File.OpenRead(_credentialFile);
                 using var reader = new BinaryReader(file);
-                if (reader.ReadInt32() != 1) return null;
+                var version = reader.ReadInt32();
+                if (version != 1 && version != 2) return null;
                 var saved = new SavedDevice { Endpoint = reader.ReadString(), DeviceId = reader.ReadString(),
                     Credential = reader.ReadString(), LogicalId = reader.ReadString() };
-                if (!QuestConnectionInput.TryEndpoint(saved.Endpoint, out _) || saved.DeviceId.Length == 0 ||
+                if (version == 2)
+                {
+                    saved.PcId = reader.ReadString();saved.Name = reader.ReadString();saved.InstallationId = reader.ReadString();
+                    if ((!string.IsNullOrEmpty(saved.PcId) && !Guid.TryParseExact(saved.PcId, "D", out _)) ||
+                        !Guid.TryParseExact(saved.InstallationId, "D", out _) || saved.Name.Length > 80) return null;
+                }
+                if ((saved.Endpoint.Length != 0 && !QuestConnectionInput.TryEndpoint(saved.Endpoint, out _)) ||
+                    (version == 1 && (saved.Endpoint.Length == 0 || saved.DeviceId.Length == 0)) ||
                     saved.DeviceId.Length > 128 || saved.Credential.Length != 43 || saved.Credential.Any(c =>
                         !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '-')) ||
                     !saved.LogicalId.StartsWith("client-", StringComparison.Ordinal) ||
-                    !Guid.TryParse(saved.LogicalId.Substring(7), out _)) return null;
+                    !Guid.TryParse(saved.LogicalId.Substring(7), out _) || file.Position != file.Length) return null;
                 return saved;
             }
             catch (IOException) { return null; }
@@ -626,11 +688,22 @@ namespace Kreoda.QuestRuntime
 
         void WriteDevice(SavedDevice saved)
         {
-            using var file = File.Open(_credentialFile, FileMode.Create, FileAccess.Write, FileShare.None);
-            using var writer = new BinaryWriter(file);
-            writer.Write(1); writer.Write(saved.Endpoint); writer.Write(saved.DeviceId);
-            writer.Write(saved.Credential); writer.Write(saved.LogicalId);
-            file.Flush(true);
+            if (string.IsNullOrEmpty(saved.InstallationId)) saved.InstallationId = Guid.NewGuid().ToString("D");
+            var temporary = _credentialFile + ".tmp";
+            try
+            {
+                using (var file = File.Open(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
+                using (var writer = new BinaryWriter(file))
+                {
+                    writer.Write(2);writer.Write(saved.Endpoint ?? "");writer.Write(saved.DeviceId ?? "");
+                    writer.Write(saved.Credential);writer.Write(saved.LogicalId);
+                    writer.Write(saved.PcId ?? "");writer.Write(saved.Name ?? "");writer.Write(saved.InstallationId);
+                    file.Flush(true);
+                }
+                if (File.Exists(_credentialFile)) File.Replace(temporary, _credentialFile, null);
+                else File.Move(temporary, _credentialFile);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
         }
 
         void CancelMeshes()

@@ -1,0 +1,29 @@
+
+Running 1 test using 1 worker
+
+
+(node:16184) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/1] e2e\quest-automatic-connection.spec.ts:10:1 › hidden desktop discovers and bootstraps the real managed Quest client without inputs
+  1) e2e\quest-automatic-connection.spec.ts:10:1 › hidden desktop discovers and bootstraps the real managed Quest client without inputs
+
+    Error: EPERM, Permission denied: \\?\C:\Users\matte\AppData\Local\Temp\kreoda-autoconnect-e2e-fmNwPN '\\?\C:\Users\matte\AppData\Local\Temp\kreoda-autoconnect-e2e-fmNwPN'
+
+      41 |     if (path.dirname(target).toLowerCase() !== parent.toLowerCase() || !path.basename(target).startsWith("kreoda-autoconnect-e2e-"))
+      42 |       throw new Error("invalid isolated cleanup target");
+    > 43 |     rmSync(target, { recursive: true, force: true });
+         |     ^
+      44 |   }
+      45 | });
+      46 |
+        at C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop\e2e\quest-automatic-connection.spec.ts:43:5
+
+    Error Context: test-results\quest-automatic-connection-fd9d0-Quest-client-without-inputs\error-context.md
+
+
+  1 failed
+    e2e\quest-automatic-connection.spec.ts:10:1 › hidden desktop discovers and bootstraps the real managed Quest client without inputs
+undefined
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test e2e/quest-automatic-connection.spec.ts --workers=1 --reporter=line,junit

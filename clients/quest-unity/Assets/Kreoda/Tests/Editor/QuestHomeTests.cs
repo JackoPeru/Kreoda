@@ -137,6 +137,7 @@ namespace Kreoda.QuestRuntime.Tests
 
         [TestCase("_homePage")]
         [TestCase("_viewPage")]
+        [TestCase("_pcPage")]
         public void VisibleControlsStayInsideSurfaceAndNeverOverlap(string pageField)
         {
             var page = (Transform)Field(pageField);
@@ -176,6 +177,23 @@ namespace Kreoda.QuestRuntime.Tests
             typeof(QuestControls).GetMethod("LateUpdate", Private).Invoke(_controls, null);
             Assert.That(((Transform)Field("_homePage")).gameObject.activeInHierarchy, Is.True);
             Assert.That(menu.gameObject.activeInHierarchy, Is.False);
+        }
+
+        [Test]
+        public void PcHomeActionShowsNamesWithoutManualInputsAndKeepsDiagnosticsSeparate()
+        {
+            ((Transform)Field("_homePage")).Find("PC status control").GetComponentInChildren<QuestButton>(true).Click.Invoke();
+            var page = (Transform)Field("_pcPage");
+            Assert.That(page.gameObject.activeInHierarchy, Is.True);
+            var labels = page.GetComponentsInChildren<TextMesh>(true).Select(label => label.text).ToArray();
+            Assert.That(labels.Any(label => label.Contains("Endpoint") || label.Contains("Codice")), Is.False);
+            var peers = new[] { new Kreoda.Session.DiscoveredSessionPc(System.Guid.NewGuid().ToString("D"), "Studio",
+                new System.Uri("ws://192.168.1.8:1"), new System.Uri("http://192.168.1.8:2/pair")) };
+            typeof(QuestConnection).GetProperty("AvailablePcs").SetValue(_controls.Connection, peers);
+            typeof(QuestControls).GetMethod("Update", Private).Invoke(_controls, null);
+            Assert.That(page.GetComponentsInChildren<TextMesh>().Any(label => label.text == "Studio"), Is.True);
+            page.Find("Diagnostica avanzata control").GetComponentInChildren<QuestButton>(true).Click.Invoke();
+            Assert.That(((Transform)Field("_connectionPage")).gameObject.activeInHierarchy, Is.True);
         }
 
         object Field(string name) => typeof(QuestControls).GetField(name, Private)?.GetValue(_controls);

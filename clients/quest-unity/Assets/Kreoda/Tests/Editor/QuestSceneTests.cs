@@ -144,5 +144,18 @@ namespace Kreoda.QuestRuntime.Tests
             }
             finally { EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single); }
         }
+
+        [Test]
+        public void UiShaderSupportsProductSinglePassStereoAndCompilesWithoutErrors()
+        {
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Kreoda/Materials/QuestUi.shader");
+            Assert.That(shader, Is.Not.Null);
+            Assert.That(ShaderUtil.ShaderHasError(shader), Is.False);
+            var source = System.IO.File.ReadAllText("Assets/Kreoda/Materials/QuestUi.shader");
+            foreach (var contract in new[] { "#pragma multi_compile_instancing", "UNITY_VERTEX_INPUT_INSTANCE_ID",
+                "UNITY_VERTEX_OUTPUT_STEREO", "UNITY_SETUP_INSTANCE_ID(v)", "UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o)",
+                "UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i)" })
+                Assert.That(source, Does.Contain(contract), "OpenXR stereo contract: " + contract);
+        }
     }
 }

@@ -131,6 +131,7 @@ describe("private session device credentials", () => {
   it("failed atomic replacement never adopts a device or leaves a temporary file", async () => {
     await isolated(async (devices, root) => {
       const directory = join(root, "session-devices");
+      await rm(join(directory, "devices.json")); // PC identity is now persisted during load.
       await mkdir(join(directory, "devices.json"));
       const pairing = devices.beginPairing();
       await expect(devices.pair(pairing.token, "failed write")).rejects.toBeDefined();

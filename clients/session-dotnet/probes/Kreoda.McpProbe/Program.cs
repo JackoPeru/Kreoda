@@ -4,6 +4,28 @@ using ModelContextProtocol.Protocol;
 
 void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
 var scenario = Environment.GetEnvironmentVariable("KREODA_MCP_PROBE_SCENARIO");
+if (scenario == "automatic-local-connection")
+{
+    using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+    var peers = await Kreoda.Session.SessionDiscovery.FindAsync(deadline.Token,
+        new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, Kreoda.Session.SessionDiscovery.Port));
+    var pc = Kreoda.Session.SessionDiscovery.Choose(peers, null) ?? throw new InvalidOperationException("unique PC not discovered");
+    var installation = Guid.NewGuid().ToString("D");
+    var credential = Kreoda.Session.SessionDiscovery.CreateCredential();
+    var device = await Kreoda.Session.SessionDiscovery.PairAsync(pc, installation, credential, deadline.Token, true);
+    var logical = "client-" + Guid.NewGuid().ToString("D");
+    await using (var session = await Kreoda.Session.SessionClient.ConnectDeviceAsync(pc.Endpoint, device, credential, "quest", deadline.Token, logical))
+    {
+        Check(session.Model != null && session.Model.Features.Count > 0, "actual automatic Quest session snapshot missing CAD geometry");
+    }
+    var rediscovered = Kreoda.Session.SessionDiscovery.Choose(await Kreoda.Session.SessionDiscovery.FindAsync(deadline.Token,
+        new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, Kreoda.Session.SessionDiscovery.Port)), pc.PcId)!;
+    await using var reconnected = await Kreoda.Session.SessionClient.ConnectDeviceAsync(rediscovered.Endpoint, device, credential, "quest", deadline.Token, logical);
+    Check(reconnected.Model != null && reconnected.Model.Features.Count > 0, "automatic reconnect snapshot missing");
+    Console.WriteLine(JsonSerializer.Serialize(new { scenario, status = "connected-and-reconnected", pcId = pc.PcId,
+        manualInputs = 0, features = reconnected.Model!.Features.Count, revision = reconnected.Model.Revision }));
+    return;
+}
 if (scenario == "projection-archive-break")
 {
     var healthyPath = Environment.GetEnvironmentVariable("KREODA_PROJECTION_HEALTHY_FILE") ?? throw new InvalidOperationException("healthy archive path missing");

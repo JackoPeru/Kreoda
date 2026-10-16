@@ -6,7 +6,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 export interface TrustedSessionDevice { deviceId: string; name: string; pairedAt: string }
-interface DeviceRecord extends TrustedSessionDevice { credentialDigest: string }
+interface DeviceRecord extends TrustedSessionDevice { credentialDigest: string; automaticId?: string }
 const DEVICE_ID = /^device-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const OPAQUE_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const PAIRING_CODE = /^\d{8}$/;
@@ -52,6 +52,9 @@ export class SessionDevices {
   private readonly file: string;
   private readonly userData: string;
   private records = new Map<string, DeviceRecord>();
+  private blockedAutomatic = new Set<string>();
+  private _pcId: string = randomUUID();
+  get pcId(): string { return this._pcId; }
   private sessionTokens = new Map<string, { value: string; digest: string }>();
   private pairing: { tokenDigest: string; codeDigest: string; expiresAt: number; failures: number } | null = null;
   private pairingTimer: NodeJS.Timeout | null = null;
@@ -81,17 +84,28 @@ export class SessionDevices {
         if (!fileInfo.isFile() || fileInfo.isSymbolicLink()) throw new Error("session device store must be a regular file");
         await protect(this.file, false);text = await readFile(this.file, "utf8");
       }
-      catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") { this.loaded = true;return; } throw error; }
-      const value = JSON.parse(text) as { version?: unknown; devices?: unknown };
+      catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") { await this.persist(this.records);this.loaded = true;return; } throw error; }
+      const value = JSON.parse(text) as { version?: unknown; devices?: unknown; pcId?: unknown; blockedAutomatic?: unknown };
       if (value === null || typeof value !== "object" || value.version !== 1 || !Array.isArray(value.devices)) throw new Error("invalid session device storage");
+      if (value.pcId !== undefined) {
+        if (typeof value.pcId !== "string" || !/^[a-f0-9-]{36}$/.test(value.pcId)) throw new Error("invalid PC identity");
+        this._pcId = value.pcId;
+      }
+      if (value.blockedAutomatic !== undefined) {
+        if (!Array.isArray(value.blockedAutomatic) || value.blockedAutomatic.some(id => typeof id !== "string" || !/^[a-f0-9]{64}$/.test(id))) throw new Error("invalid revoked automatic devices");
+        this.blockedAutomatic = new Set(value.blockedAutomatic as string[]);
+      }
       const records = new Map<string, DeviceRecord>();
       for (const raw of value.devices as unknown[]) {
         if (raw === null || typeof raw !== "object") throw new Error("invalid trusted device record");
         const rec = raw as DeviceRecord;
         if (typeof rec.deviceId !== "string" || !DEVICE_ID.test(rec.deviceId) || typeof rec.name !== "string" || !rec.name.trim() || rec.name.length > 80 || /[\x00-\x1f\x7f]/.test(rec.name) || typeof rec.credentialDigest !== "string" || !/^[a-f0-9]{64}$/.test(rec.credentialDigest) || typeof rec.pairedAt !== "string" || !Number.isFinite(Date.parse(rec.pairedAt)) || records.has(rec.deviceId)) throw new Error("invalid trusted device record");
-        records.set(rec.deviceId, { deviceId: rec.deviceId, name: rec.name, credentialDigest: rec.credentialDigest, pairedAt: rec.pairedAt });
+        if (rec.automaticId !== undefined && (typeof rec.automaticId !== "string" || !/^[a-f0-9]{64}$/.test(rec.automaticId) ||
+            [...records.values()].some(item => item.automaticId === rec.automaticId))) throw new Error("invalid automatic identity");
+        records.set(rec.deviceId, { deviceId: rec.deviceId, name: rec.name, credentialDigest: rec.credentialDigest,
+          pairedAt: rec.pairedAt, ...(rec.automaticId ? { automaticId: rec.automaticId } : {}) });
       }
-      this.records = records;this.loaded = true;
+      this.records = records;await this.persist(records);this.loaded = true;
     });
   }
   list(): TrustedSessionDevice[] {
@@ -130,12 +144,12 @@ export class SessionDevices {
     if (!token) { const value = secret();token = { value, digest: digest(value) };this.sessionTokens.set(deviceId, token); }
     return token.value;
   }
-  private async persist(records: Map<string, DeviceRecord>): Promise<void> {
+  private async persist(records: Map<string, DeviceRecord>, blocked = this.blockedAutomatic): Promise<void> {
     const temporary = join(this.directory, `devices-${randomUUID()}.tmp`);
     try {
       const file = await open(temporary, "wx", 0o600);
       try {
-        await file.writeFile(JSON.stringify({ version: 1, devices: [...records.values()] }));await file.sync();
+        await file.writeFile(JSON.stringify({ version: 1, pcId: this.pcId, blockedAutomatic: [...blocked], devices: [...records.values()] }));await file.sync();
       } finally { await file.close(); }
       await protect(temporary, false);await rename(temporary, this.file);
     }
@@ -167,6 +181,31 @@ export class SessionDevices {
       return { deviceId, credential, sessionToken: this.token(deviceId) };
     });
   }
+  /** The native Quest installation supplies its own random secret; only a digest is persisted.
+   * Repeating bootstrap is idempotent, including a lost HTTP acknowledgement. */
+  pairAutomatic(installationId: string, credential: string, name: string): Promise<{ deviceId: string }> {
+    return this.serial(async () => {
+      this.ready();
+      if (typeof installationId !== "string" || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(installationId) ||
+          typeof credential !== "string" || !OPAQUE_TOKEN.test(credential) || typeof name !== "string" ||
+          !name.trim() || name.length > 80 || /[\x00-\x1f\x7f]/.test(name))
+        throw Object.assign(new Error("invalid automatic device"), { code: "BAD_PARAMS" });
+      const automaticId = digest(installationId);
+      if (this.blockedAutomatic.has(automaticId)) throw unauthorized();
+      const existing = [...this.records.values()].find(record => record.automaticId === automaticId);
+      if (existing) {
+        if (!sameSecret(credential, existing.credentialDigest)) throw unauthorized();
+        return { deviceId: existing.deviceId };
+      }
+      if (this.records.size >= 256) throw Object.assign(new Error("device limit reached"), { code: "BAD_PARAMS" });
+      const deviceId = `device-${randomUUID()}`;
+      const records = new Map(this.records);
+      records.set(deviceId, { deviceId, name: name.trim(), automaticId,
+        credentialDigest: digest(credential), pairedAt: new Date(this.now()).toISOString() });
+      await this.persist(records);this.records = records;
+      return { deviceId };
+    });
+  }
   authenticate(deviceId: string, credential: string): { deviceId: string; sessionToken: string } {
     this.ready();const record = this.records.get(deviceId);
     if (!record || !sameSecret(credential, record.credentialDigest)) throw unauthorized();
@@ -180,8 +219,12 @@ export class SessionDevices {
   revoke(deviceId: string): Promise<void> {
     return this.serial(async () => {
       this.ready();if (!this.records.has(deviceId)) throw Object.assign(new Error("unknown trusted device"), { code: "NOT_FOUND" });
-      const records = new Map(this.records);records.delete(deviceId);await this.persist(records);
-      this.records = records;this.sessionTokens.delete(deviceId);
+      const records = new Map(this.records);
+      const blocked = new Set(this.blockedAutomatic);
+      const automaticId = records.get(deviceId)?.automaticId;
+      if (automaticId) blocked.add(automaticId);
+      records.delete(deviceId);await this.persist(records, blocked);
+      this.records = records;this.blockedAutomatic = blocked;this.sessionTokens.delete(deviceId);
     });
   }
 }

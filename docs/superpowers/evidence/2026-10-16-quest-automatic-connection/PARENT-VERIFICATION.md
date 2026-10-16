@@ -1,0 +1,25 @@
+# Automatic local connection and corrected stereo UI
+
+User-authorized parent implementation after the selected Luna UI task exhausted usage. No quota-only recreation. Runtime protocol packet already accepted independently; this packet adds actual discovery/bootstrap/client integration and corrects the separate UI review finding.
+
+## Actual behavior
+
+- Desktop normal startup automatically owns one assigned private-IPv4 session listener, UDP discovery9843 and native HTTP bootstrap. It monitors assigned-address changes every5s and closes owned sockets/timer when disabled/exiting. Hidden/background profiles advertise nothing unless the explicit loopback-only fixture is enabled.
+- Discovery version1 bounds datagrams4096bytes, matches a random nonce, returns stable persisted PC ID/name/ports and never a credential. The C# client derives destination addresses from actual UDP senders, uses directed/limited broadcasts, waits a bounded window and closes pending receives on cancellation.
+- Quest normal Android startup searches without input. Unique first PC connects automatically; a known PC is preferred across address changes, never silently replaced by another PC. Ambiguous PCs appear by name, with paged hand-clickable choices. Manual endpoint/code fields are only inside advanced diagnostics.
+- Native bootstrap accepts private peers, rejects browser Origin, bounds request/response bodies8192bytes, and reuses persisted device trust. Quest stores its random secret before bootstrap; a lost acknowledgement retries idempotently. PC persists only digests. Revoked automatic installation identities remain revoked after restart.
+- Existing authenticate/hello/snapshot/session loop remains authoritative; no second racing Unity connection loop. Saved credential version1 migrates to version2 with stable installation/PC identity and atomic replacement. Discovery absence still allows a saved session endpoint to reconnect. Windows/Mono ICMP port-unreachable was reproduced by the real Editor wire suite and fixed as an empty discovery result.
+- QuestUi shader now includes the single-pass stereo instancing/eye macros missing in fresh review01a14645-36fc-7772-b4e2-179276c3b093 (actual gpt-6-sol/high). Prior UI verdict was fix-first; it is not represented as accepted. Editor compilation and normal Android shader build succeed; physical two-eye presentation remains untested.
+
+## Verification
+
+- Full Desktop299 passed,0failed/skipped; affected Desktop build/lint successful. Focused device/discovery16passed includes persisted revocation/idempotency, bad origins/oversize bodies/private peers and actual owner lifecycle under interface changes/disable.
+- Full managed260passed: SessionClient158, ModelingAgent34, HermesBridge35, Benchmark33. New actual UDP/nonce/selection/expiry/cancellation/quiet-responder cases are included, plus prior session regressions. netstandard2.1 production assemblies stage successfully.
+- Full Unity Editor104passed,0failed/skipped. Prepare-based tests regenerate scene serialization; parent restored the already committed saved scene and separately ran43 relevant Home/input/wire/saved-scene/stereo cases without Prepare, all passed. No runtime source changed during these checks. Scene/material differences remaining after import are EOL-only and normalized back to committed bytes.
+- Hidden real Electron + actual native OCCT + real managed Quest client discovers, bootstraps, authenticates, obtains a one-feature CAD snapshot and reconnects with0manual inputs. Final cleanup-fixed run1passed,0failures/skips. A previous run completed product assertions but failed Windows temporary-profile cleanup; bounded Node rm retries fix the fixture without suppressing failures. Both logs retained.
+- Normal saved-scene Android ARM64 IL2CPP build succeeded,0errors/4warnings, direct Editor exit0, no source changes during build. Actual APK43380605bytes, SHA256 7a09fe448eaadeb30a0dcb9b58ee78ebf30530ccdd75274b71539a5295395182. ZIP inspected: native libraries exclusively arm64-v8a, including actual IL2CPP and OpenXR. APK remains at C:/Users/matte/Documents/Codex-tools/Native/quest-autoconnect-parent-20261016/arm64/KreodaQuest.apk; no device installation.
+- After APK build, only E2E temporary cleanup retry code changed; product source is the APK source. Artifact original/archive/index normalization hashes are recorded in provenance.json. Raw originals remain in the parent QA directory.
+
+## Remaining scope
+
+Fresh accumulated review and hosted CI for this packet remain open. Automatic host currently chooses one assigned private IPv4 interface (prefers192.168 and retains the selected interface while present); multiple simultaneous LAN interfaces are not proven. Real Wi-Fi/router discovery, Windows firewall on the actual LAN, physical passthrough/both-eyes/hands/comfort, live Hermes/STT/TTS and PC Home project/task data/actions remain open. Home unsupported actions report this honestly. All remaining Phases12–16 and Desktop/Quest projection UI still required. No merge/release/full-goal completion.

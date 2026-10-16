@@ -1,0 +1,28 @@
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="1" time="17.267889999999998">
+<testsuite name="quest-automatic-connection.spec.ts" timestamp="2026-10-16T20:05:42.040Z" hostname="" tests="1" failures="0" skipped="0" time="14.307" errors="1">
+<testcase name="hidden desktop discovers and bootstraps the real managed Quest client without inputs" classname="quest-automatic-connection.spec.ts" time="14.307">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\..\..\..\Desktop\Saas\Kreoda-phase10-ci\apps\desktop\test-results\quest-automatic-connection-fd9d0-Quest-client-without-inputs\error-context.md]]
+]]>
+</system-out>
+<error message="EPERM, Permission denied: \\?\C:\Users\matte\AppData\Local\Temp\kreoda-autoconnect-e2e-fmNwPN &apos;\\?\C:\Users\matte\AppData\Local\Temp\kreoda-autoconnect-e2e-fmNwPN&apos;" type="Error">
+<![CDATA[  quest-automatic-connection.spec.ts:10:1 › hidden desktop discovers and bootstraps the real managed Quest client without inputs
+
+    Error: EPERM, Permission denied: \\?\C:\Users\matte\AppData\Local\Temp\kreoda-autoconnect-e2e-fmNwPN '\\?\C:\Users\matte\AppData\Local\Temp\kreoda-autoconnect-e2e-fmNwPN'
+
+      41 |     if (path.dirname(target).toLowerCase() !== parent.toLowerCase() || !path.basename(target).startsWith("kreoda-autoconnect-e2e-"))
+      42 |       throw new Error("invalid isolated cleanup target");
+    > 43 |     rmSync(target, { recursive: true, force: true });
+         |     ^
+      44 |   }
+      45 | });
+      46 |
+        at C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop\e2e\quest-automatic-connection.spec.ts:43:5
+
+    Error Context: ..\test-results\quest-automatic-connection-fd9d0-Quest-client-without-inputs\error-context.md
+]]>
+</error>
+</testcase>
+</testsuite>
+</testsuites>

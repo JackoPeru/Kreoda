@@ -1,0 +1,6 @@
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="6.2375370000000006">
+<testsuite name="quest-automatic-connection.spec.ts" timestamp="2026-10-16T20:08:30.336Z" hostname="" tests="1" failures="0" skipped="0" time="5.352" errors="0">
+<testcase name="hidden desktop discovers and bootstraps the real managed Quest client without inputs" classname="quest-automatic-connection.spec.ts" time="5.352">
+</testcase>
+</testsuite>
+</testsuites>
