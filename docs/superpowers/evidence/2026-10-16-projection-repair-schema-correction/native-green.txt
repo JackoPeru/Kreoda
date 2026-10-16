@@ -1,0 +1,16 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = SketchProjectionRecovery.*
+[==========] Running 3 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 3 tests from SketchProjectionRecovery
+[ RUN      ] SketchProjectionRecovery.RepairsTwoBrokenGroupsWithoutPublishingStaleGeometry
+[       OK ] SketchProjectionRecovery.RepairsTwoBrokenGroupsWithoutPublishingStaleGeometry (123 ms)
+[ RUN      ] SketchProjectionRecovery.RemovesOneBrokenGroupAndLastProfileRemovalIsAtomic
+[       OK ] SketchProjectionRecovery.RemovesOneBrokenGroupAndLastProfileRemovalIsAtomic (54 ms)
+[ RUN      ] SketchProjectionRecovery.AggregateOverflowCannotBreakALaterHealthyGroup
+[       OK ] SketchProjectionRecovery.AggregateOverflowCannotBreakALaterHealthyGroup (728 ms)
+[----------] 3 tests from SketchProjectionRecovery (907 ms total)
+
+[----------] Global test environment tear-down
+[==========] 3 tests from 1 test suite ran. (907 ms total)
+[  PASSED  ] 3 tests.

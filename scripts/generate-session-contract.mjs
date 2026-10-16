@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { quicktype, InputData, JSONSchemaInput, FetchingJSONSchemaStore } from "quicktype-core";
 import Ajv from "ajv";
 import standalone from "ajv/dist/standalone/index.js";
+import { _ } from "ajv/dist/compile/codegen/index.js";
 import { build } from "esbuild";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -60,6 +61,24 @@ const csMetadata = header + `namespace Kreoda.Session;\n\npublic static class Se
 // Compile once during generation. Bundle the standard runtime helpers so
 // Electron's renderer needs neither Ajv nor dynamic Function/eval at runtime.
 const ajv = new Ajv({ allErrors: true, strict: true, code: { source: true } });
+ajv.addKeyword({
+  keyword: "maxUtf8Bytes",
+  type: "string",
+  schemaType: ["number"],
+  metaSchema: { type: "integer", minimum: 0 },
+  code(cxt) {
+    cxt.fail(_`new TextEncoder().encode(${cxt.data}).length > ${cxt.schemaCode}`);
+  },
+});
+ajv.addKeyword({
+  keyword: "maxJsonUtf8Bytes",
+  type: "object",
+  schemaType: ["number"],
+  metaSchema: { type: "integer", minimum: 0 },
+  code(cxt) {
+    cxt.fail(_`new TextEncoder().encode(JSON.stringify(${cxt.data})).length > ${cxt.schemaCode}`);
+  },
+});
 ajv.addSchema(schema);
 const exports = {};
 for (const name of names) {

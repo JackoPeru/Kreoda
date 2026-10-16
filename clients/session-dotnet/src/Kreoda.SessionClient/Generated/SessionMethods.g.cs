@@ -1,11 +1,11 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: 729b9e136edc52106ac8bd5af4d790467274f647a1e156c1f16f9f96d6db56d1
+// Source SHA256: 0d310d1eb3f2fbb78d5bc8d5464b9e37625b696afabd8400bb915f3638904f67
 namespace Kreoda.Session;
 
 public static class SessionMethods
 {
     public const int ProtocolVersion = 1;
-    public const string ContractSchemaSha256 = "729b9e136edc52106ac8bd5af4d790467274f647a1e156c1f16f9f96d6db56d1";
+    public const string ContractSchemaSha256 = "0d310d1eb3f2fbb78d5bc8d5464b9e37625b696afabd8400bb915f3638904f67";
     public const string OperationReplayCapability = "operation-replay";
     public const string IncrementalDeltasCapability = "incremental-deltas";
     public const string BinaryMeshV1Capability = "binary-mesh-v1";

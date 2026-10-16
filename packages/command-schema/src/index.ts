@@ -489,6 +489,7 @@ export function commandJsonSchema(id: string) {
     const record = (value: unknown) => value as Record<string, unknown>;
     const properties = record(parameters["properties"]);
     const projection = record(properties["definition"]);
+    projection["maxJsonUtf8Bytes"] = 65536;
     const projectionProperties = record(projection["properties"]);
     const sources = record(projectionProperties["sources"]);
     sources["uniqueItems"] = true;
@@ -496,8 +497,14 @@ export function commandJsonSchema(id: string) {
     if (Array.isArray(variants)) {
       for (const variant of variants) {
         const sourceProperties = record(record(variant)["properties"]);
-        if (record(sourceProperties["type"])["const"] === "sketchEntities")
+        const sourceType = record(sourceProperties["type"])["const"];
+        if (sourceType === "edge") {
+          record(sourceProperties["persistentEdgeId"])["maxUtf8Bytes"] = 512;
+        } else if (sourceType === "sketchEntities") {
+          const entityIds = record(sourceProperties["entityIds"]);
+          record(entityIds["items"])["maxUtf8Bytes"] = 512;
           record(sourceProperties["entityIds"])["uniqueItems"] = true;
+        }
       }
     }
   }

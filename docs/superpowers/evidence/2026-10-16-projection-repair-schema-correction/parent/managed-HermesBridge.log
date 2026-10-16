@@ -1,0 +1,5 @@
+Esecuzione dei test per C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll (.NETCoreApp,Version=v8.0)
+Un totale di 1 file di test corrisponde al criterio specificato.
+File di risultati: C:\Users\matte\Documents\Codex-tools\Native\phase15-repair-schema-parent-20261016\dotnet\HermesBridge.trx
+
+Superato!     - Non superati:     0. Superati:    34. Ignorati:     0. Totale:    34. Durata: 929 ms - Kreoda.HermesBridge.Tests.dll (net8.0)

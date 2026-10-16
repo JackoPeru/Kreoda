@@ -183,7 +183,7 @@ std::string sketch_body(const SketchFeature& sketch,
       << SerializeSketchFeatureForInspection(sketch);
   const auto availability = GetGeometryAvailability(sketch.id);
   os << ",\"geometryCurrent\":" << (availability.geometryCurrent ? "true" : "false")
-     << ",\"status\":\"" << escape(availability.status) << "\"";
+     << ",\"geometryStatus\":\"" << escape(availability.status) << "\"";
   if (!availability.geometryCurrent) {
     os << ",\"error\":\"" << escape(availability.error)
        << "\",\"blockingSourceIds\":[";

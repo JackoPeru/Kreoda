@@ -40,6 +40,12 @@ namespace {
   throw std::runtime_error(message);
 }
 
+class ProjectionResourceLimit final : public std::runtime_error {
+ public:
+  explicit ProjectionResourceLimit(const std::string& message)
+      : std::runtime_error(message) {}
+};
+
 void RequireKeys(const Json& value, std::initializer_list<const char*> allowed,
                  const char* label) {
   if (!value.is_object()) ProjectionFail(std::string(label) + " must be an object");
@@ -607,13 +613,16 @@ bool ResolveSketchProjectionGroups(
       if (!ok) throw std::runtime_error(parseError.empty()
           ? "projection operation failed" : parseError);
       if (evaluated.size() > 2000 - edgeTotal)
-        throw std::runtime_error("sketch projection output exceeds 2000 edges");
+        throw ProjectionResourceLimit("sketch projection output exceeds 2000 edges");
       edgeTotal += evaluated.size();
       group.evaluatedEdges = std::move(evaluated);
       ++group.generation;
       if (bindingThisGroup) {
         group.bindingsJson = Json{{"version", 1}, {"entries", Json::array()}}.dump();
       }
+    } catch (const ProjectionResourceLimit& failure) {
+      if (error) *error = failure.what();
+      return false;
     } catch (const std::exception& failure) {
       if (!allowBroken) {
         if (error) *error = failure.what();
@@ -633,6 +642,54 @@ bool ResolveSketchProjectionGroups(
 }
 #endif
 
+#if KREODA_WITH_OCCT
+namespace {
+
+bool ResolveProjectionGroupOnly(
+    SketchFeature* sketch, const std::string& groupId,
+    const std::vector<ShapeRecord>& shapeSources,
+    const std::vector<SketchFeature>& sketchSources,
+    const std::vector<DatumRecord>& datumSources,
+    const ProjectionSelectionResolver& selectionResolver,
+    const std::string& bindGroupId,
+    std::vector<ProjectionSelection>* newBindings,
+    std::string* error) {
+  if (!sketch) {
+    if (error) *error = "projection target sketch is required";
+    return false;
+  }
+  const auto group = std::find_if(sketch->projectionGroups.begin(),
+      sketch->projectionGroups.end(), [&](const auto& item) {
+        return item.groupId == groupId;
+      });
+  if (group == sketch->projectionGroups.end()) {
+    if (error) *error = "unknown projection group " + groupId;
+    return false;
+  }
+  SketchFeature isolated = *sketch;
+  isolated.projectionGroups = {*group};
+  if (!ResolveSketchProjectionGroups(&isolated, shapeSources, sketchSources,
+          datumSources, selectionResolver, bindGroupId, false, false,
+          newBindings, error)) return false;
+  for (auto& item : sketch->projectionGroups)
+    if (item.groupId == groupId) {
+      item = std::move(isolated.projectionGroups.front());
+      break;
+    }
+  return true;
+}
+
+bool ProjectionCandidateCurrent(const SketchFeature& candidate) {
+  for (const auto& group : candidate.projectionGroups)
+    if (group.status != "ok" || group.evaluatedEdges.empty()) return false;
+  for (const auto& dependency : SketchDependencies(candidate))
+    if (!GetGeometryAvailability(dependency).geometryCurrent) return false;
+  return true;
+}
+
+}  // namespace
+#endif
+
 bool SetSketchProjectionGroup(const std::string& sketchId,
                               const std::string& groupId,
                               const std::string& definitionJson,
@@ -642,6 +699,8 @@ bool SetSketchProjectionGroup(const std::string& sketchId,
     SketchFeature previous;
     if (!SketchStore::instance().get(sketchId, &previous))
       throw std::runtime_error("unknown sketch " + sketchId);
+    const bool recoveringUnavailable =
+        !GetGeometryAvailability(sketchId).geometryCurrent;
     std::string canonical;
     std::vector<std::string> sourceIds;
     if (!ValidateSketchProjectionDefinition(groupId, definitionJson, &canonical,
@@ -669,11 +728,18 @@ bool SetSketchProjectionGroup(const std::string& sketchId,
     const auto sketches = SketchStore::instance().listInOrder();
     const auto datums = DatumStore::instance().listInOrder();
     std::vector<ProjectionSelection> newBindings;
-    if (!ResolveSketchProjectionGroups(&candidate, shapes, sketches, datums,
-                                       OcafLive::instance().SketchProjectionSourceResolver(),
-                                       groupId, false, false, &newBindings, error))
+    if (recoveringUnavailable) {
+      SketchFeature selectedPreflight = candidate;
+      if (!ResolveProjectionGroupOnly(&selectedPreflight, groupId, shapes,
+              sketches, datums, OcafLive::instance().SketchProjectionSourceResolver(),
+              groupId, &newBindings, error)) return false;
+    } else if (!ResolveSketchProjectionGroups(&candidate, shapes, sketches, datums,
+                   OcafLive::instance().SketchProjectionSourceResolver(),
+                   groupId, false, false, &newBindings, error)) {
       return false;
+    }
 
+    const bool targetWasDirty = TheFeatureGraph().isGeometryDirty(sketchId);
     FeatureGraph graph = TheFeatureGraph();
     graph.addFeature(sketchId, SketchDependencies(candidate));
     graph.markDirty(sketchId);
@@ -701,17 +767,47 @@ bool SetSketchProjectionGroup(const std::string& sketchId,
                                                      newBindings, &bindings, error))
       return rollback(error && !error->empty() ? *error : "cannot bind projection sources");
     group->bindingsJson = std::move(bindings);
-    if (!ResolveSketchProjectionGroups(&candidate, shapes, sketches, datums,
-            ocaf.SketchProjectionSourceResolver(), "", false, false, nullptr, error))
-      return rollback(error && !error->empty() ? *error : "cannot resolve bound projection sources");
+    bool fullRebuild = true;
+    if (recoveringUnavailable) {
+      if (!ResolveProjectionGroupOnly(&candidate, groupId, shapes, sketches,
+              datums, ocaf.SketchProjectionSourceResolver(), "", nullptr, error))
+        return rollback(error && !error->empty() ? *error
+            : "cannot resolve bound projection sources");
+      SketchFeature fullyEvaluated = candidate;
+      if (!ResolveSketchProjectionGroups(&fullyEvaluated, shapes, sketches,
+              datums, ocaf.SketchProjectionSourceResolver(), "", true, false,
+              nullptr, error))
+        return rollback(error && !error->empty() ? *error
+            : "cannot validate remaining projection groups");
+      const auto selected = std::find_if(fullyEvaluated.projectionGroups.begin(),
+          fullyEvaluated.projectionGroups.end(), [&](const auto& item) {
+            return item.groupId == groupId;
+          });
+      if (selected == fullyEvaluated.projectionGroups.end() ||
+          selected->status != "ok")
+        return rollback(selected == fullyEvaluated.projectionGroups.end()
+            ? "repaired projection group disappeared"
+            : "repaired projection group could not be evaluated: " + selected->error);
+      fullRebuild = ProjectionCandidateCurrent(fullyEvaluated);
+      candidate = std::move(fullyEvaluated);
+    } else if (!ResolveSketchProjectionGroups(&candidate, shapes, sketches, datums,
+                   ocaf.SketchProjectionSourceResolver(), "", false, false,
+                   nullptr, error)) {
+      return rollback(error && !error->empty() ? *error
+          : "cannot resolve bound projection sources");
+    }
     SketchStore::instance().put(candidate);
     if (!ocaf.UpsertSketch(sketchId, SerializeSketchFeature(candidate), error))
       return rollback(error && !error->empty() ? *error : "cannot save projection group");
     TheFeatureGraph().addFeature(sketchId, SketchDependencies(candidate));
-    TheFeatureGraph().markDirty(sketchId);
-    const auto report = TheFeatureGraph().recompute(
-        [](const std::string& id, std::string* e) { return RebuildNodeFromStore(id, e); });
-    if (!report.ok) return rollback(report.firstError);
+    if (fullRebuild) {
+      TheFeatureGraph().markDirty(sketchId);
+      const auto report = TheFeatureGraph().recompute(
+          [](const std::string& id, std::string* e) { return RebuildNodeFromStore(id, e); });
+      if (!report.ok) return rollback(report.firstError);
+    } else if (!targetWasDirty) {
+      TheFeatureGraph().clearDirty(sketchId);
+    }
     if (ocaf.InTransaction()) DocumentStore::instance().noteFeature(sketchId, "Sketch");
     else DocumentStore::instance().registerFeature(sketchId, "Sketch");
     if (!ocaf.CommitCommand(nullptr, error))
@@ -737,6 +833,8 @@ bool RemoveSketchProjectionGroup(const std::string& sketchId,
     SketchFeature previous;
     if (!SketchStore::instance().get(sketchId, &previous))
       throw std::runtime_error("unknown sketch " + sketchId);
+    const bool recoveringUnavailable =
+        !GetGeometryAvailability(sketchId).geometryCurrent;
     SketchFeature candidate = previous;
     const auto existing = std::find_if(candidate.projectionGroups.begin(),
         candidate.projectionGroups.end(), [&](const auto& group) { return group.groupId == groupId; });
@@ -746,9 +844,11 @@ bool RemoveSketchProjectionGroup(const std::string& sketchId,
     const auto shapes = ShapeStore::instance().listInOrder();
     const auto sketches = SketchStore::instance().listInOrder();
     const auto datums = DatumStore::instance().listInOrder();
-    if (!ResolveSketchProjectionGroups(&candidate, shapes, sketches, datums,
+    if (!recoveringUnavailable &&
+        !ResolveSketchProjectionGroups(&candidate, shapes, sketches, datums,
             OcafLive::instance().SketchProjectionSourceResolver(), "", false,
             false, nullptr, error)) return false;
+    const bool targetWasDirty = TheFeatureGraph().isGeometryDirty(sketchId);
     FeatureGraph graph = TheFeatureGraph();
     graph.addFeature(sketchId, SketchDependencies(candidate));
     graph.markDirty(sketchId);
@@ -767,14 +867,29 @@ bool RemoveSketchProjectionGroup(const std::string& sketchId,
     };
     if (!ocaf.ReleaseSketchProjectionSources(sketchId, groupId, error))
       return rollback(error && !error->empty() ? *error : "cannot release projection bindings");
+    bool fullRebuild = true;
+    if (recoveringUnavailable) {
+      SketchFeature fullyEvaluated = candidate;
+      if (!ResolveSketchProjectionGroups(&fullyEvaluated, shapes, sketches, datums,
+              ocaf.SketchProjectionSourceResolver(), "", true, false,
+              nullptr, error))
+        return rollback(error && !error->empty() ? *error
+            : "cannot validate remaining projection groups");
+      fullRebuild = ProjectionCandidateCurrent(fullyEvaluated);
+      candidate = std::move(fullyEvaluated);
+    }
     SketchStore::instance().put(candidate);
     if (!ocaf.UpsertSketch(sketchId, SerializeSketchFeature(candidate), error))
       return rollback(error && !error->empty() ? *error : "cannot save projection removal");
     TheFeatureGraph().addFeature(sketchId, SketchDependencies(candidate));
-    TheFeatureGraph().markDirty(sketchId);
-    const auto report = TheFeatureGraph().recompute(
-        [](const std::string& id, std::string* e) { return RebuildNodeFromStore(id, e); });
-    if (!report.ok) return rollback(report.firstError);
+    if (fullRebuild) {
+      TheFeatureGraph().markDirty(sketchId);
+      const auto report = TheFeatureGraph().recompute(
+          [](const std::string& id, std::string* e) { return RebuildNodeFromStore(id, e); });
+      if (!report.ok) return rollback(report.firstError);
+    } else if (!targetWasDirty) {
+      TheFeatureGraph().clearDirty(sketchId);
+    }
     if (ocaf.InTransaction()) DocumentStore::instance().noteFeature(sketchId, "Sketch");
     else DocumentStore::instance().registerFeature(sketchId, "Sketch");
     if (!ocaf.CommitCommand(nullptr, error))

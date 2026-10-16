@@ -46,6 +46,22 @@ it("exports strict projection commands with zero allocation and wire parity", ()
   }
   const parameters = commandJsonSchema("SetSketchProjection")!.parameters as { properties: { definition: unknown } };
   expect(parameters.properties.definition).toEqual(expand(contract.definitions["SketchProjectionDefinition"]));
+  const definitionSchema = parameters.properties.definition as { maxJsonUtf8Bytes: number };
+  expect(definitionSchema.maxJsonUtf8Bytes).toBe(65536);
+  type SourceVariant = {
+    properties: {
+      type: { const?: string };
+      persistentEdgeId?: { maxUtf8Bytes?: number };
+      entityIds?: { items?: { maxUtf8Bytes?: number } };
+    };
+  };
+  const projectionSources = (definitionSchema as unknown as {
+    properties: { sources: { items: { anyOf: SourceVariant[] } } };
+  }).properties.sources.items.anyOf;
+  const edgeVariant = projectionSources.find(variant => variant.properties.type.const === "edge")!;
+  const entityVariant = projectionSources.find(variant => variant.properties.type.const === "sketchEntities")!;
+  expect(edgeVariant.properties.persistentEdgeId.maxUtf8Bytes).toBe(512);
+  expect(entityVariant.properties.entityIds.items?.maxUtf8Bytes).toBe(512);
   const named = commandNativeRequest("SetSketchProjection", {
     featureId: "target", groupId: "linked", definition,
   });
@@ -89,6 +105,55 @@ it("rejects projection private/unknown fields, duplicates, wrong source kinds an
     featureId: "target", groupId: "linked",
     definition: { version: 1, operation: "projectEdges", sources: unicodeSources },
   })).toThrow(/UTF-8 bytes/);
+});
+
+it("keeps Unicode identifiers valid below 512 bytes and enforces exact definition bytes", () => {
+  const edgeBelow = { type: "edge", featureId: "source",
+    persistentEdgeId: `source:${"é".repeat(250)}` };
+  const edgeAbove = { type: "edge", featureId: "source",
+    persistentEdgeId: `source:${"é".repeat(253)}` };
+  const entityBelow = { type: "sketchEntities", featureId: "source",
+    entityIds: ["é".repeat(250)] };
+  const entityAbove = { type: "sketchEntities", featureId: "source",
+    entityIds: ["é".repeat(257)] };
+  expect(edgeBelow.persistentEdgeId.length).toBeLessThan(512);
+  expect(new TextEncoder().encode(edgeBelow.persistentEdgeId).length).toBeLessThan(512);
+  expect(edgeAbove.persistentEdgeId.length).toBeLessThan(512);
+  expect(new TextEncoder().encode(edgeAbove.persistentEdgeId).length).toBeGreaterThan(512);
+  expect(() => commandNativeRequest("SetSketchProjection", { featureId: "target",
+    groupId: "linked", definition: { version: 1, operation: "projectEdges",
+      sources: [edgeBelow] } })).not.toThrow();
+  expect(() => commandNativeRequest("SetSketchProjection", { featureId: "target",
+    groupId: "linked", definition: { version: 1, operation: "projectEdges",
+      sources: [edgeAbove] } })).toThrow();
+  expect(() => commandNativeRequest("SetSketchProjection", { featureId: "target",
+    groupId: "linked", definition: { version: 1, operation: "projectEdges",
+      sources: [entityBelow] } })).not.toThrow();
+  expect(() => commandNativeRequest("SetSketchProjection", { featureId: "target",
+    groupId: "linked", definition: { version: 1, operation: "projectEdges",
+      sources: [entityAbove] } })).toThrow();
+
+  const entityIds = Array.from({ length: 128 }, (_, index) =>
+    `entity-${index.toString().padStart(3, "0")}-${"a".repeat(455)}`);
+  const definitionAtLimit = { version: 1, operation: "projectEdges",
+    sources: [{ type: "sketchEntities", featureId: "source", entityIds }] };
+  let remaining = 65536 - new TextEncoder().encode(JSON.stringify(definitionAtLimit)).length;
+  for (let index = 0; index < entityIds.length - 1 && remaining > 0; index++) {
+    const extra = Math.min(512 - entityIds[index].length, remaining);
+    entityIds[index] += "a".repeat(extra);
+    remaining -= extra;
+  }
+  expect(remaining).toBeLessThan(512 - entityIds.at(-1)!.length);
+  entityIds[entityIds.length - 1] += "a".repeat(remaining);
+  expect(new TextEncoder().encode(JSON.stringify(definitionAtLimit)).length).toBe(65536);
+  expect(() => commandNativeRequest("SetSketchProjection", { featureId: "target",
+    groupId: "linked", definition: definitionAtLimit })).not.toThrow();
+  const oneByteOver = { ...definitionAtLimit,
+    sources: [{ ...definitionAtLimit.sources[0],
+      entityIds: [...entityIds.slice(0, -1), entityIds.at(-1)! + "a"] }] };
+  expect(new TextEncoder().encode(JSON.stringify(oneByteOver)).length).toBe(65537);
+  expect(() => commandNativeRequest("SetSketchProjection", { featureId: "target",
+    groupId: "linked", definition: oneByteOver })).toThrow(/UTF-8 bytes/);
 });
 
 it("validates datum variants, finite bounded input and stable source identities", () => {

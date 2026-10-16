@@ -1,0 +1,69 @@
+{
+  "expectedNativeCases": 284,
+  "expectedProtocolCases": 56,
+  "expectedCanonicalCases": 15,
+  "expectedManagedCases": 242,
+  "native-buildExitCode": 0,
+  "nativeExitCode": 0,
+  "native": {
+    "cases": 284,
+    "failed": 0,
+    "skipped": 0,
+    "missingRequired": []
+  },
+  "core-self-testExitCode": 0,
+  "restrictedPathSelfTest": true,
+  "protocol-buildExitCode": 0,
+  "canonical-buildExitCode": 0,
+  "protocol-lintExitCode": 0,
+  "canonical-lintExitCode": 0,
+  "session-contractExitCode": 0,
+  "protocolExitCode": 0,
+  "protocol": {
+    "cases": 56,
+    "failed": 0,
+    "skipped": 0,
+    "missingRequired": []
+  },
+  "canonicalExitCode": 0,
+  "canonical": {
+    "cases": 15,
+    "failed": 0,
+    "skipped": 0,
+    "missingRequired": []
+  },
+  "protocol-utf8-probeExitCode": 0,
+  "utf8Probe": {
+    "utf8Bytes": 607,
+    "standaloneAccepts": false,
+    "nestedAccepts": false,
+    "validUnicodeAccepted": true
+  },
+  "managed-solution-buildExitCode": 0,
+  "managedSuites": {
+    "SessionClient": {
+      "cases": 142,
+      "notPassed": [],
+      "projectionRoundTripPresent": true
+    },
+    "ModelingAgent": {
+      "cases": 33,
+      "notPassed": []
+    },
+    "HermesBridge": {
+      "cases": 34,
+      "notPassed": []
+    },
+    "ModelingBenchmark": {
+      "cases": 33,
+      "notPassed": []
+    }
+  },
+  "managed-SessionClientExitCode": 0,
+  "managed-ModelingAgentExitCode": 0,
+  "managed-HermesBridgeExitCode": 0,
+  "managed-ModelingBenchmarkExitCode": 0,
+  "managedTotal": 242,
+  "sourceFiles": 56,
+  "sourceUnchanged": true
+}

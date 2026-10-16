@@ -1,0 +1,22 @@
+  Individuazione dei progetti da ripristinare...
+  Tutti i progetti sono aggiornati per il ripristino.
+  Kreoda.McpProbe -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\probes\Kreoda.McpProbe\bin\Release\net8.0\Kreoda.McpProbe.dll
+  Kreoda.Protocol -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol\csharp\bin\Debug\net8.0\Kreoda.Protocol.dll
+  Kreoda.Protocol -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol\csharp\bin\Debug\netstandard2.1\Kreoda.Protocol.dll
+  Kreoda.SessionClient -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\bin\Release\netstandard2.1\Kreoda.SessionClient.dll
+  Kreoda.SessionClient -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\bin\Release\net8.0\Kreoda.SessionClient.dll
+  Kreoda.QuestFoundation -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.QuestFoundation\bin\Release\netstandard2.1\Kreoda.QuestFoundation.dll
+  Kreoda.QuestFoundation -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.QuestFoundation\bin\Release\net8.0\Kreoda.QuestFoundation.dll
+  Kreoda.ModelingAgent.Benchmark -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tools\Kreoda.ModelingAgent.Benchmark\bin\Release\net8.0\Kreoda.ModelingAgent.Benchmark.dll
+  Kreoda.ModelingAgent -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.ModelingAgent\bin\Release\net8.0\Kreoda.ModelingAgent.dll
+  Kreoda.SessionClient.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll
+  Kreoda.ModelingAgent.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.ModelingAgent.Tests\bin\Release\net8.0\Kreoda.ModelingAgent.Tests.dll
+  Kreoda.ModelingAgent.Benchmark.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.ModelingAgent.Benchmark.Tests\bin\Release\net8.0\Kreoda.ModelingAgent.Benchmark.Tests.dll
+  Kreoda.HermesBridge -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tools\Kreoda.HermesBridge\bin\Release\net8.0\Kreoda.HermesBridge.dll
+  Kreoda.HermesBridge.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll
+
+Compilazione completata.
+    Avvisi: 0
+    Errori: 0
+
+Tempo trascorso 00:00:02.19

@@ -6,6 +6,7 @@
 
 #if KREODA_WITH_OCCT
 #include <BRepAdaptor_Curve.hxx>
+#include <BRepCheck_Analyzer.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
@@ -105,6 +106,17 @@ kreoda::Json ProjectionRpc(const std::string& documentId, int type,
   return kreoda::Json::parse(kreoda_test::rpcText(request.dump()));
 }
 
+struct ProjectionTransactionCleanup {
+  std::string id;
+  ~ProjectionTransactionCleanup() {
+    auto& ocaf = kreoda::OcafLive::instance();
+    if (ocaf.InTransaction() && ocaf.TransactionOwner() == id) {
+      std::string ignored;
+      (void)ocaf.RollbackTransaction(id, &ignored);
+    }
+  }
+};
+
 kreoda::SketchModel CircleModel(double radius, double centerX = 0) {
   kreoda::SketchModel model;
   model.points = {{"center", centerX, 0}};
@@ -148,7 +160,745 @@ double ProjectionAreaTolerance(const TopoDS_Edge& edge) {
          std::acos(-1.0) * kCadToleranceMm * kCadToleranceMm;
 }
 
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+struct BrokenProjectionPair {
+  std::string prefix;
+  std::string documentId;
+  std::string targetId;
+  std::string sourceAId;
+  std::string sourceBId;
+  std::string groupAId;
+  std::string groupBId;
+  std::string solidId;
+  std::string unrelatedId;
+  std::string edgeAId;
+  std::string edgeBId;
+  kreoda::Json definitionA;
+  kreoda::Json definitionB;
+  std::filesystem::path brokenIcad;
+  std::string solidFeatureId;
+  double expectedVolume = 0;
+};
+
+std::string TopCylinderCircleEdgeId(const kreoda::ShapeRecord& source) {
+  for (const auto& role : kreoda::ClassifyEdgeRoles(
+           source.shape, source.type, source.featureId))
+    if (role.persistentEdgeId.find("edge.cir.") != std::string::npos &&
+        role.persistentEdgeId.find("cyl.+Z") != std::string::npos)
+      return role.persistentEdgeId;
+  return {};
+}
+
+std::string ProjectionManifest(const std::string& documentId) {
+  return kreoda::Json{
+      {"format", "kreoda-project"}, {"schemaVersion", 1},
+      {"appVersion", "0.1.0"}, {"documentId", documentId},
+      {"units", "mm"}, {"bodies", kreoda::Json::parse(kreoda::SerializeBodiesJson())},
+      {"referencePlanesJson", "[]"}}.dump();
+}
+
+bool SaveProjectionIcad(const std::string& documentId,
+                        const std::filesystem::path& icad,
+                        std::string* error) {
+  const auto xbf = icad.parent_path() / (icad.stem().string() + ".xbf");
+  auto& ocaf = kreoda::OcafLive::instance();
+  return ocaf.Save(xbf.string(), error) &&
+      kreoda::WriteIcad(icad.string(), ProjectionManifest(documentId),
+                        xbf.string(), error);
+}
+
+bool OpenProjectionIcad(const std::filesystem::path& icad,
+                        const std::filesystem::path& extractDir,
+                        std::string* error) {
+  std::error_code fsError;
+  if (!std::filesystem::create_directories(extractDir, fsError) && fsError) {
+    if (error) *error = fsError.message();
+    return false;
+  }
+  std::string manifest, xbf;
+  auto& ocaf = kreoda::OcafLive::instance();
+  if (!kreoda::ReadIcad(icad.string(), extractDir.string(),
+                        &manifest, &xbf, error)) return false;
+  std::vector<kreoda::ShapeRecord> records;
+  std::vector<std::string> sketches;
+  return ocaf.Load(xbf, &records, &sketches, error, true) &&
+      ocaf.ResyncStore(error);
+}
+
+bool CreateBrokenProjectionPair(const std::string& prefix,
+                                const std::filesystem::path& tempDir,
+                                BrokenProjectionPair* fixture,
+                                std::string* error) {
+  if (!fixture) {
+    if (error) *error = "projection recovery fixture output is required";
+    return false;
+  }
+  fixture->prefix = prefix;
+  fixture->documentId = prefix + "-document";
+  fixture->targetId = prefix + "-target";
+  fixture->sourceAId = prefix + "-source-a";
+  fixture->sourceBId = prefix + "-source-b";
+  fixture->groupAId = "linked-a";
+  fixture->groupBId = "linked-b";
+  fixture->solidId = prefix + "-solid";
+  fixture->unrelatedId = prefix + "-unrelated";
+  fixture->brokenIcad = tempDir / "two-broken.icad";
+  if (!StartProjectionDocument(fixture->documentId, error) ||
+      !kreoda::CreateCylinderFeature(fixture->sourceAId, 3, 10, error) ||
+      !kreoda::CreateCylinderFeature(fixture->sourceBId, 2, 10, error))
+    return false;
+
+  kreoda::ShapeRecord sourceA, sourceB;
+  if (!kreoda::ShapeStore::instance().get(fixture->sourceAId, &sourceA) ||
+      !kreoda::ShapeStore::instance().get(fixture->sourceBId, &sourceB)) {
+    if (error) *error = "projection recovery source shape is missing";
+    return false;
+  }
+  fixture->edgeAId = TopCylinderCircleEdgeId(sourceA);
+  fixture->edgeBId = TopCylinderCircleEdgeId(sourceB);
+  if (fixture->edgeAId.empty() || fixture->edgeBId.empty()) {
+    if (error) *error = "projection recovery top-circle edge is missing";
+    return false;
+  }
+  fixture->definitionA = {{"version", 1}, {"operation", "projectEdges"},
+      {"sources", {{{"type", "edge"}, {"featureId", fixture->sourceAId},
+                    {"persistentEdgeId", fixture->edgeAId}}}}};
+  fixture->definitionB = {{"version", 1}, {"operation", "projectEdges"},
+      {"sources", {{{"type", "edge"}, {"featureId", fixture->sourceBId},
+                    {"persistentEdgeId", fixture->edgeBId}}}}};
+  if (!kreoda::CreateSketchFeature(fixture->targetId, "XY", {}, error) ||
+      !kreoda::SetSketchProjectionGroup(fixture->targetId, fixture->groupAId,
+                                        fixture->definitionA.dump(), error) ||
+      !kreoda::SetSketchProjectionGroup(fixture->targetId, fixture->groupBId,
+                                        fixture->definitionB.dump(), error) ||
+      !kreoda::CreateExtrudeFeature(fixture->solidId, fixture->targetId, 5, error) ||
+      !kreoda::CreateBoxFeature(fixture->unrelatedId, 2, 3, 4, error))
+    return false;
+
+  fixture->expectedVolume = std::acos(-1.0) * (9 - 4) * 5;
+  kreoda::ShapeRecord solid;
+  if (!kreoda::GetCurrentShapeRecord(fixture->solidId, &solid, error)) return false;
+  fixture->solidFeatureId = solid.featureId;
+  if (std::fabs(solid.volumeMm3 - fixture->expectedVolume) > 1e-5) {
+    if (error) *error = "two projected circles did not build expected annular solid";
+    return false;
+  }
+
+  kreoda::SketchFeature target;
+  if (!kreoda::SketchStore::instance().get(fixture->targetId, &target) ||
+      target.projectionGroups.size() != 2) {
+    if (error) *error = "projection recovery groups were not created";
+    return false;
+  }
+  for (auto& group : target.projectionGroups) {
+    auto bindings = kreoda::Json::parse(group.bindingsJson);
+    if (!bindings.contains("entries") || bindings["entries"].empty()) {
+      if (error) *error = "projection recovery group has no real OCAF binding";
+      return false;
+    }
+    bindings["entries"][0]["selectionEntry"] =
+        group.groupId == fixture->groupAId ? "99999:1" : "99999:2";
+    group.bindingsJson = bindings.dump();
+  }
+  auto& ocaf = kreoda::OcafLive::instance();
+  if (!ocaf.BeginCommand(error)) return false;
+  if (!ocaf.UpsertSketch(fixture->targetId,
+                         kreoda::SerializeSketchFeature(target), error)) {
+    ocaf.AbortCommand();
+    return false;
+  }
+  if (!ocaf.CommitCommand(nullptr, error)) {
+    ocaf.AbortCommand();
+    return false;
+  }
+  if (!SaveProjectionIcad(fixture->documentId, fixture->brokenIcad, error))
+    return false;
+  return OpenProjectionIcad(fixture->brokenIcad,
+                            tempDir / "two-broken-open", error);
+}
+
+bool CorruptPersistedProjectionBinding(const std::string& sketchId,
+                                       const std::string& groupId,
+                                       std::string* error) {
+  kreoda::SketchFeature sketch;
+  if (!kreoda::SketchStore::instance().get(sketchId, &sketch)) {
+    if (error) *error = "projection binding corruption target is missing";
+    return false;
+  }
+  const auto group = std::find_if(sketch.projectionGroups.begin(),
+      sketch.projectionGroups.end(), [&](const auto& item) {
+        return item.groupId == groupId;
+      });
+  if (group == sketch.projectionGroups.end()) {
+    if (error) *error = "projection binding corruption group is missing";
+    return false;
+  }
+  auto bindings = kreoda::Json::parse(group->bindingsJson);
+  if (!bindings.contains("entries") || bindings["entries"].empty()) {
+    if (error) *error = "projection binding corruption group has no binding";
+    return false;
+  }
+  bindings["entries"][0]["selectionEntry"] = "99999:1";
+  group->bindingsJson = bindings.dump();
+  auto& ocaf = kreoda::OcafLive::instance();
+  if (!ocaf.BeginCommand(error)) return false;
+  if (!ocaf.UpsertSketch(sketchId, kreoda::SerializeSketchFeature(sketch), error)) {
+    ocaf.AbortCommand();
+    return false;
+  }
+  if (!ocaf.CommitCommand(nullptr, error)) return false;
+  kreoda::SketchStore::instance().put(std::move(sketch));
+  return true;
+}
+#endif
+
 }  // namespace
+
+TEST(SketchProjectionRecovery, RepairsTwoBrokenGroupsWithoutPublishingStaleGeometry) {
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+  namespace fs = std::filesystem;
+  const fs::path tempDir = fs::temp_directory_path() /
+      ("kreoda-projection-recovery-" + std::to_string(
+          std::chrono::steady_clock::now().time_since_epoch().count()));
+  struct TempDirectory {
+    fs::path path;
+    ~TempDirectory() { std::error_code ignored; fs::remove_all(path, ignored); }
+  } cleanup{tempDir};
+  std::error_code fsError;
+  ASSERT_TRUE(fs::create_directories(tempDir, fsError)) << fsError.message();
+  std::string error;
+  BrokenProjectionPair fixture;
+  ASSERT_TRUE(CreateBrokenProjectionPair("recover-pair", tempDir, &fixture,
+                                         &error)) << error;
+
+  kreoda::SketchFeature target;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  ASSERT_EQ(target.projectionGroups.size(), 2u);
+  EXPECT_EQ(target.projectionGroups[0].status, "broken");
+  EXPECT_EQ(target.projectionGroups[1].status, "broken");
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+
+  kreoda::ShapeRecord historical;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get(fixture.solidId, &historical));
+  const auto historicalShape = historical.shape;
+  const auto stableSolidId = historical.featureId;
+  EXPECT_NEAR(historical.volumeMm3, fixture.expectedVolume, 1e-5);
+
+  ASSERT_TRUE(kreoda::SetSketchProjectionGroup(
+      fixture.targetId, fixture.groupAId, fixture.definitionA.dump(), &error))
+      << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  ASSERT_EQ(target.projectionGroups.size(), 2u);
+  EXPECT_EQ(target.projectionGroups[0].status, "ok");
+  EXPECT_EQ(target.projectionGroups[1].status, "broken");
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+  auto sketchInspection = ProjectionRpc(fixture.documentId, kreoda::kRequestSketch,
+      {{"featureId", fixture.targetId}});
+  ASSERT_EQ(sketchInspection.value("status", ""), "ok")
+      << sketchInspection.dump();
+  EXPECT_EQ(sketchInspection.value("geometryStatus", ""), "unavailable");
+  EXPECT_FALSE(sketchInspection["geometryCurrent"].get<bool>());
+  EXPECT_NE(sketchInspection.value("error", "").find(fixture.sourceBId),
+            std::string::npos);
+  EXPECT_EQ(sketchInspection["blockingSourceIds"],
+            (kreoda::Json{fixture.sourceBId}));
+  ASSERT_EQ(sketchInspection["sketch"]["projectionGroups"].size(), 2u);
+  EXPECT_EQ(sketchInspection["sketch"]["projectionGroups"][0]["status"], "ok");
+  EXPECT_EQ(sketchInspection["sketch"]["projectionGroups"][1]["status"], "broken");
+  kreoda::ShapeRecord afterPartial;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get(fixture.solidId, &afterPartial));
+  EXPECT_EQ(afterPartial.featureId, stableSolidId);
+  EXPECT_TRUE(afterPartial.shape.IsSame(historicalShape));
+  EXPECT_NEAR(afterPartial.volumeMm3, fixture.expectedVolume, 1e-5);
+  EXPECT_FALSE(kreoda::TheFeatureGraph().isGeometryDirty(fixture.targetId));
+  EXPECT_FALSE(kreoda::TheFeatureGraph().isGeometryDirty(fixture.solidId));
+
+  auto display = ProjectionRpc(fixture.documentId, kreoda::kRequestSketchProjection,
+                              {{"featureId", fixture.targetId}});
+  ASSERT_EQ(display.value("status", ""), "ok") << display.dump();
+  ASSERT_FALSE(display["projection"]["geometryCurrent"].get<bool>());
+  EXPECT_EQ(display["projection"]["status"], "unavailable");
+  ASSERT_EQ(display["projection"]["groups"].size(), 2u);
+  EXPECT_EQ(display["projection"]["groups"][0]["status"], "ok");
+  EXPECT_EQ(display["projection"]["groups"][1]["status"], "broken");
+  for (const auto& group : display["projection"]["groups"])
+    EXPECT_TRUE(group["edges"].empty());
+  EXPECT_FALSE(kreoda::GetCurrentShapeRecord(fixture.solidId, nullptr, &error));
+  EXPECT_NE(error.find(fixture.sourceBId), std::string::npos) << error;
+  EXPECT_TRUE(kreoda::TessellateFeature(fixture.solidId, 1, &error).indices.empty());
+  EXPECT_NE(error.find(fixture.sourceBId), std::string::npos) << error;
+  kreoda::BodyRecord body;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature(fixture.solidId, &body));
+  for (const auto* method : {"measureVolume", "findFaces", "findEdges"}) {
+    bool denied = false;
+    try {
+      (void)kreoda::RunSessionGeometryQuery(method, {{"bodyId", body.bodyId}});
+    } catch (const kreoda::SessionQueryError& failure) {
+      denied = true;
+      EXPECT_EQ(failure.code, "GEOMETRY_UNAVAILABLE") << method;
+    }
+    EXPECT_TRUE(denied) << method;
+  }
+  std::vector<kreoda::ShapeRecord> exportRecords;
+  EXPECT_FALSE(kreoda::CollectExportRecords(&exportRecords, &error));
+  EXPECT_FALSE(kreoda::CreateInstanceFeature(
+      fixture.prefix + "-blocked-instance", fixture.solidId,
+      {0, 0, 0, 0, 0, 0}, &error));
+
+  auto& ocaf = kreoda::OcafLive::instance();
+  ASSERT_TRUE(ocaf.Undo(&error)) << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  EXPECT_EQ(target.projectionGroups[0].status, "broken");
+  EXPECT_EQ(target.projectionGroups[1].status, "broken");
+  ASSERT_TRUE(ocaf.Redo(&error)) << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  EXPECT_EQ(target.projectionGroups[0].status, "ok");
+  EXPECT_EQ(target.projectionGroups[1].status, "broken");
+
+  const fs::path partialIcad = tempDir / "partial.icad";
+  ASSERT_TRUE(SaveProjectionIcad(fixture.documentId, partialIcad, &error)) << error;
+  ASSERT_TRUE(OpenProjectionIcad(partialIcad, tempDir / "partial-open", &error))
+      << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  EXPECT_EQ(target.projectionGroups[0].status, "ok");
+  EXPECT_EQ(target.projectionGroups[1].status, "broken");
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+
+  ASSERT_TRUE(kreoda::RebuildFeature(fixture.unrelatedId, "widthMm", 3, &error))
+      << error;
+  ASSERT_TRUE(kreoda::GetCurrentShapeRecord(fixture.unrelatedId, nullptr, &error))
+      << error;
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+
+  ASSERT_TRUE(CorruptPersistedProjectionBinding(
+      fixture.targetId, fixture.groupAId, &error)) << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  EXPECT_EQ(target.projectionGroups[0].status, "ok");
+  ASSERT_FALSE(target.projectionGroups[0].evaluatedEdges.empty());
+  ASSERT_TRUE(kreoda::SetSketchProjectionGroup(
+      fixture.targetId, fixture.groupBId, fixture.definitionB.dump(), &error))
+      << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  EXPECT_EQ(target.projectionGroups[0].status, "broken");
+  EXPECT_FALSE(target.projectionGroups[0].error.empty());
+  EXPECT_TRUE(target.projectionGroups[0].evaluatedEdges.empty());
+  EXPECT_EQ(target.projectionGroups[1].status, "ok");
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+  display = ProjectionRpc(fixture.documentId, kreoda::kRequestSketchProjection,
+                          {{"featureId", fixture.targetId}});
+  ASSERT_EQ(display.value("status", ""), "ok") << display.dump();
+  ASSERT_FALSE(display["projection"]["geometryCurrent"].get<bool>());
+  for (const auto& group : display["projection"]["groups"])
+    EXPECT_TRUE(group["edges"].empty());
+
+  ASSERT_TRUE(kreoda::SetSketchProjectionGroup(
+      fixture.targetId, fixture.groupAId, fixture.definitionA.dump(), &error))
+      << error;
+  ASSERT_TRUE(kreoda::GetCurrentShapeRecord(fixture.solidId, &historical, &error))
+      << error;
+  EXPECT_EQ(historical.featureId, stableSolidId);
+  EXPECT_NEAR(historical.volumeMm3, fixture.expectedVolume, 1e-5);
+  EXPECT_TRUE(BRepCheck_Analyzer(historical.shape).IsValid());
+  EXPECT_TRUE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+
+  ASSERT_TRUE(ocaf.Undo(&error)) << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  EXPECT_EQ(target.projectionGroups[0].status, "broken");
+  EXPECT_EQ(target.projectionGroups[1].status, "ok");
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+  ASSERT_TRUE(ocaf.Redo(&error)) << error;
+  ASSERT_TRUE(kreoda::GetCurrentShapeRecord(fixture.solidId, &historical, &error))
+      << error;
+  EXPECT_EQ(historical.featureId, stableSolidId);
+  EXPECT_NEAR(historical.volumeMm3, fixture.expectedVolume, 1e-5);
+#else
+  GTEST_SKIP() << "needs OCCT + minizip-ng";
+#endif
+}
+
+TEST(SketchProjectionRecovery, RemovesOneBrokenGroupAndLastProfileRemovalIsAtomic) {
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+  namespace fs = std::filesystem;
+  const fs::path tempDir = fs::temp_directory_path() /
+      ("kreoda-projection-remove-broken-" + std::to_string(
+          std::chrono::steady_clock::now().time_since_epoch().count()));
+  struct TempDirectory {
+    fs::path path;
+    ~TempDirectory() { std::error_code ignored; fs::remove_all(path, ignored); }
+  } cleanup{tempDir};
+  std::error_code fsError;
+  ASSERT_TRUE(fs::create_directories(tempDir, fsError)) << fsError.message();
+  std::string error;
+  BrokenProjectionPair fixture;
+  ASSERT_TRUE(CreateBrokenProjectionPair("remove-pair", tempDir, &fixture,
+                                         &error)) << error;
+  kreoda::ShapeRecord cached;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get(fixture.solidId, &cached));
+  const std::string stableSolidId = cached.featureId;
+  const double historicalVolume = cached.volumeMm3;
+  auto& ocaf = kreoda::OcafLive::instance();
+
+  const auto remove = ProjectionRpc(fixture.documentId,
+      kreoda::kRemoveSketchProjection,
+      {{"featureId", fixture.targetId}, {"groupId", fixture.groupAId}});
+  ASSERT_EQ(remove.value("status", ""), "ok") << remove.dump();
+  EXPECT_EQ(remove.value("geometryStatus", ""), "unavailable");
+  EXPECT_FALSE(remove["geometryCurrent"].get<bool>());
+  ASSERT_EQ(remove["sketch"]["projectionGroups"].size(), 1u);
+  EXPECT_EQ(remove["sketch"]["projectionGroups"][0]["groupId"], fixture.groupBId);
+  EXPECT_EQ(remove["sketch"]["projectionGroups"][0]["status"], "broken");
+  kreoda::SketchFeature target;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  ASSERT_EQ(target.projectionGroups.size(), 1u);
+  EXPECT_EQ(target.projectionGroups.front().groupId, fixture.groupBId);
+  EXPECT_EQ(target.projectionGroups.front().status, "broken");
+  auto dependencies = kreoda::SketchDependencies(target);
+  EXPECT_EQ(std::find(dependencies.begin(), dependencies.end(), fixture.sourceAId),
+            dependencies.end());
+  EXPECT_NE(std::find(dependencies.begin(), dependencies.end(), fixture.sourceBId),
+            dependencies.end());
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+  ASSERT_TRUE(ocaf.Undo(&error)) << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  ASSERT_EQ(target.projectionGroups.size(), 2u);
+  ASSERT_TRUE(ocaf.Redo(&error)) << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  ASSERT_EQ(target.projectionGroups.size(), 1u);
+  EXPECT_EQ(target.projectionGroups.front().groupId, fixture.groupBId);
+
+  ASSERT_TRUE(kreoda::RebuildFeature(fixture.sourceAId, "radiusMm", 4, &error))
+      << error;
+  ASSERT_TRUE(kreoda::GetCurrentShapeRecord(fixture.sourceAId, &cached, &error))
+      << error;
+  EXPECT_NEAR(cached.volumeMm3, std::acos(-1.0) * 16 * 10, 1e-5);
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+  ASSERT_TRUE(kreoda::SetSketchProjectionGroup(
+      fixture.targetId, fixture.groupBId, fixture.definitionB.dump(), &error))
+      << error;
+  ASSERT_TRUE(kreoda::GetCurrentShapeRecord(fixture.solidId, &cached, &error))
+      << error;
+  EXPECT_EQ(cached.featureId, stableSolidId);
+  EXPECT_NEAR(cached.volumeMm3, std::acos(-1.0) * 4 * 5, 1e-5);
+
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = ocaf.AvailableUndos();
+  EXPECT_FALSE(kreoda::RemoveSketchProjectionGroup(
+      fixture.targetId, fixture.groupBId, &error));
+  EXPECT_NE(error.find("profile"), std::string::npos) << error;
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(ocaf.AvailableUndos(), undos);
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &target));
+  ASSERT_EQ(target.projectionGroups.size(), 1u);
+  EXPECT_EQ(target.projectionGroups.front().groupId, fixture.groupBId);
+  EXPECT_EQ(target.projectionGroups.front().status, "ok");
+  dependencies = kreoda::SketchDependencies(target);
+  EXPECT_NE(std::find(dependencies.begin(), dependencies.end(), fixture.sourceBId),
+            dependencies.end());
+  ASSERT_TRUE(kreoda::GetCurrentShapeRecord(fixture.solidId, &cached, &error))
+      << error;
+  EXPECT_EQ(cached.featureId, stableSolidId);
+  EXPECT_NEAR(cached.volumeMm3, std::acos(-1.0) * 4 * 5, 1e-5);
+  EXPECT_FALSE(kreoda::TheFeatureGraph().isGeometryDirty(fixture.targetId));
+  EXPECT_FALSE(kreoda::TheFeatureGraph().isGeometryDirty(fixture.solidId));
+  (void)historicalVolume;
+#else
+  GTEST_SKIP() << "needs OCCT + minizip-ng";
+#endif
+}
+
+TEST(SketchProjectionRecovery, AggregateOverflowCannotBreakALaterHealthyGroup) {
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+  namespace fs = std::filesystem;
+  const fs::path tempDir = fs::temp_directory_path() /
+      ("kreoda-projection-overflow-recovery-" + std::to_string(
+          std::chrono::steady_clock::now().time_since_epoch().count()));
+  struct TempDirectory {
+    fs::path path;
+    ~TempDirectory() { std::error_code ignored; fs::remove_all(path, ignored); }
+  } cleanup{tempDir};
+  std::error_code fsError;
+  ASSERT_TRUE(fs::create_directories(tempDir, fsError)) << fsError.message();
+  std::string error;
+  ASSERT_TRUE(StartProjectionDocument("projection-overflow-recovery", &error))
+      << error;
+
+  kreoda::SketchModel model;
+  std::vector<std::string> entityIds;
+  for (size_t i = 0; i < 128; ++i) {
+    const auto index = std::to_string(i);
+    const auto pointId = "center-" + index;
+    const auto circleId = "circle-" + index;
+    model.points.push_back({pointId, static_cast<double>(i) * 3, 0});
+    model.circles.push_back({circleId, pointId, 1});
+    entityIds.push_back(circleId);
+  }
+  ASSERT_TRUE(kreoda::CreateSketchFeature(
+      "overflow-source", "XY", model, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateSketchFeature("overflow-target", "XY", {}, &error))
+      << error;
+  const auto single = SketchEntityProjection("overflow-source", {entityIds[0]});
+  const auto many = SketchEntityProjection("overflow-source", entityIds);
+  ASSERT_TRUE(kreoda::SetSketchProjectionGroup(
+      "overflow-target", "early", single.dump(), &error)) << error;
+  for (size_t i = 0; i < 15; ++i)
+    ASSERT_TRUE(kreoda::SetSketchProjectionGroup(
+        "overflow-target", "healthy-" + std::to_string(i), many.dump(), &error))
+        << error;
+
+  kreoda::SketchFeature target;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("overflow-target", &target));
+  ASSERT_EQ(target.projectionGroups.size(), 16u);
+  ASSERT_EQ(target.projectionGroups[0].evaluatedEdges.size(), 1u);
+  for (size_t i = 1; i < target.projectionGroups.size(); ++i)
+    ASSERT_EQ(target.projectionGroups[i].evaluatedEdges.size(), 128u) << i;
+
+  kreoda::SketchProjectionGroup broken;
+  broken.groupId = "broken-last";
+  broken.definitionJson = SketchEntityProjection(
+      "overflow-source", {"missing-entity"}).dump();
+  target.projectionGroups.push_back(broken);
+  auto& ocaf = kreoda::OcafLive::instance();
+  ASSERT_TRUE(ocaf.BeginCommand(&error)) << error;
+  kreoda::SketchStore::instance().put(target);
+  if (!ocaf.UpsertSketch(target.id, kreoda::SerializeSketchFeature(target), &error)) {
+    ocaf.AbortCommand();
+    FAIL() << error;
+  }
+  ASSERT_TRUE(ocaf.CommitCommand(nullptr, &error)) << error;
+  const fs::path brokenIcad = tempDir / "broken-overflow.icad";
+  ASSERT_TRUE(SaveProjectionIcad("projection-overflow-recovery", brokenIcad,
+                                  &error)) << error;
+  ASSERT_TRUE(OpenProjectionIcad(brokenIcad, tempDir / "broken-overflow-open",
+                                  &error)) << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("overflow-target", &target));
+  ASSERT_EQ(target.projectionGroups.size(), 17u);
+  EXPECT_EQ(target.projectionGroups.back().status, "broken");
+  for (size_t i = 0; i < 16; ++i)
+    ASSERT_EQ(target.projectionGroups[i].status, "ok") << i;
+
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = ocaf.AvailableUndos();
+  EXPECT_FALSE(kreoda::SetSketchProjectionGroup(
+      "overflow-target", "early", many.dump(), &error));
+  EXPECT_NE(error.find("exceeds 2000 edges"), std::string::npos) << error;
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(ocaf.AvailableUndos(), undos);
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("overflow-target", &target));
+  EXPECT_EQ(target.projectionGroups[0].definitionJson,
+            kreoda::Json::parse(single.dump()).dump());
+  EXPECT_EQ(target.projectionGroups[0].status, "ok");
+  for (size_t i = 1; i < 16; ++i)
+    EXPECT_EQ(target.projectionGroups[i].status, "ok") << i;
+  EXPECT_EQ(target.projectionGroups.back().status, "broken");
+#else
+  GTEST_SKIP() << "needs OCCT + minizip-ng";
+#endif
+}
+
+TEST(SketchProjectionRecovery, TaintedJoinedRepairRestoresBothBrokenGroups) {
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+  namespace fs = std::filesystem;
+  const fs::path tempDir = fs::temp_directory_path() /
+      ("kreoda-projection-recovery-transaction-fail-" + std::to_string(
+          std::chrono::steady_clock::now().time_since_epoch().count()));
+  struct TempDirectory {
+    fs::path path;
+    ~TempDirectory() { std::error_code ignored; fs::remove_all(path, ignored); }
+  } cleanup{tempDir};
+  std::error_code fsError;
+  ASSERT_TRUE(fs::create_directories(tempDir, fsError)) << fsError.message();
+  std::string error;
+  BrokenProjectionPair fixture;
+  ASSERT_TRUE(CreateBrokenProjectionPair("recover-transaction-fail", tempDir,
+                                         &fixture, &error)) << error;
+
+  auto& ocaf = kreoda::OcafLive::instance();
+  kreoda::SketchFeature originalSketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId,
+                                                   &originalSketch));
+  const auto originalSketchJson = kreoda::SerializeSketchFeature(originalSketch);
+  const auto originalDependencies = kreoda::SketchDependencies(originalSketch);
+  kreoda::ShapeRecord originalSolid, originalUnrelated;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get(fixture.solidId, &originalSolid));
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get(fixture.unrelatedId,
+                                                 &originalUnrelated));
+  const auto originalSolidDump = NativeShapeDump(originalSolid.shape);
+  const auto originalUnrelatedDump = NativeShapeDump(originalUnrelated.shape);
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto registry = kreoda::DocumentStore::instance().snapshotRegistry();
+  const auto graphSize = kreoda::TheFeatureGraph().size();
+  const auto undos = ocaf.AvailableUndos();
+  const auto redos = ocaf.AvailableRedos();
+
+  const std::string transactionId = fixture.prefix + "-owner";
+  ProjectionTransactionCleanup transactionCleanup{transactionId};
+  auto response = ProjectionRpc(fixture.documentId, kreoda::kBeginTransaction,
+      {{"transactionId", transactionId}});
+  ASSERT_EQ(response.value("status", ""), "ok") << response.dump();
+  response = ProjectionRpc(fixture.documentId, kreoda::kSetSketchProjection,
+      {{"featureId", fixture.targetId}, {"groupId", fixture.groupAId},
+       {"definition", fixture.definitionA}, {"transactionId", transactionId}});
+  ASSERT_EQ(response.value("status", ""), "ok") << response.dump();
+  EXPECT_EQ(response.value("geometryStatus", ""), "unavailable")
+      << response.dump();
+  EXPECT_FALSE(response["geometryCurrent"].get<bool>());
+  ASSERT_EQ(response["sketch"]["projectionGroups"].size(), 2u);
+  EXPECT_EQ(response["sketch"]["projectionGroups"][0]["status"], "ok");
+  EXPECT_EQ(response["sketch"]["projectionGroups"][1]["status"], "broken");
+  kreoda::SketchFeature partial;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &partial));
+  ASSERT_EQ(partial.projectionGroups.size(), 2u);
+  EXPECT_EQ(partial.projectionGroups[0].status, "ok");
+  EXPECT_EQ(partial.projectionGroups[1].status, "broken");
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(ocaf.AvailableUndos(), undos);
+
+  // Leave historical B-Rep intact while making the final dependent rebuild fail.
+  auto invalidExtrude = originalSolid;
+  ASSERT_EQ(invalidExtrude.type, "Extrude");
+  ASSERT_EQ(invalidExtrude.paramsMm.size(), 1u);
+  invalidExtrude.paramsMm[0] = 0;
+  ASSERT_TRUE(ocaf.UpsertFeature(invalidExtrude, false, &error)) << error;
+  kreoda::ShapeStore::instance().put(invalidExtrude);
+
+  response = ProjectionRpc(fixture.documentId, kreoda::kSetSketchProjection,
+      {{"featureId", fixture.targetId}, {"groupId", fixture.groupBId},
+       {"definition", fixture.definitionB}, {"transactionId", transactionId}});
+  EXPECT_EQ(response.value("status", ""), "error") << response.dump();
+  EXPECT_EQ(response.value("errorCode", ""), "PROJECTION_FAILED")
+      << response.dump();
+  EXPECT_NE(response.value("errorMessage", "").find("extrude distance"),
+            std::string::npos) << response.dump();
+  EXPECT_TRUE(ocaf.InTransaction());
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+
+  response = ProjectionRpc(fixture.documentId, kreoda::kCommitTransaction,
+      {{"transactionId", transactionId}});
+  EXPECT_EQ(response.value("status", ""), "error") << response.dump();
+  EXPECT_EQ(response.value("errorCode", ""), "TRANSACTION_TAINTED")
+      << response.dump();
+  EXPECT_FALSE(ocaf.InTransaction());
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::DocumentStore::instance().snapshotRegistry(), registry);
+  EXPECT_EQ(ocaf.AvailableUndos(), undos);
+  EXPECT_EQ(ocaf.AvailableRedos(), redos);
+  EXPECT_EQ(kreoda::TheFeatureGraph().size(), graphSize);
+  EXPECT_FALSE(kreoda::TheFeatureGraph().isGeometryDirty(fixture.targetId));
+  EXPECT_FALSE(kreoda::TheFeatureGraph().isGeometryDirty(fixture.solidId));
+
+  kreoda::SketchFeature restoredSketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId,
+                                                   &restoredSketch));
+  EXPECT_EQ(kreoda::SerializeSketchFeature(restoredSketch), originalSketchJson);
+  EXPECT_EQ(kreoda::SketchDependencies(restoredSketch), originalDependencies);
+  ASSERT_EQ(restoredSketch.projectionGroups.size(), 2u);
+  EXPECT_EQ(restoredSketch.projectionGroups[0].status, "broken");
+  EXPECT_EQ(restoredSketch.projectionGroups[1].status, "broken");
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+
+  kreoda::ShapeRecord restoredSolid, restoredUnrelated;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get(fixture.solidId, &restoredSolid));
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get(fixture.unrelatedId,
+                                                  &restoredUnrelated));
+  EXPECT_EQ(restoredSolid.featureId, originalSolid.featureId);
+  EXPECT_EQ(restoredSolid.paramsMm, originalSolid.paramsMm);
+  EXPECT_EQ(NativeShapeDump(restoredSolid.shape), originalSolidDump);
+  EXPECT_NEAR(restoredSolid.volumeMm3, fixture.expectedVolume, 1e-5);
+  EXPECT_EQ(NativeShapeDump(restoredUnrelated.shape), originalUnrelatedDump);
+  EXPECT_TRUE(kreoda::GetCurrentShapeRecord(fixture.unrelatedId, nullptr, &error))
+      << error;
+#else
+  GTEST_SKIP() << "needs OCCT + minizip-ng";
+#endif
+}
+
+TEST(SketchProjectionRecovery, TwoGroupRepairInOneTransactionHasOneUndo) {
+#if KREODA_WITH_OCCT && KREODA_WITH_MINIZIP
+  namespace fs = std::filesystem;
+  const fs::path tempDir = fs::temp_directory_path() /
+      ("kreoda-projection-recovery-transaction-success-" + std::to_string(
+          std::chrono::steady_clock::now().time_since_epoch().count()));
+  struct TempDirectory {
+    fs::path path;
+    ~TempDirectory() { std::error_code ignored; fs::remove_all(path, ignored); }
+  } cleanup{tempDir};
+  std::error_code fsError;
+  ASSERT_TRUE(fs::create_directories(tempDir, fsError)) << fsError.message();
+  std::string error;
+  BrokenProjectionPair fixture;
+  ASSERT_TRUE(CreateBrokenProjectionPair("recover-transaction-success", tempDir,
+                                         &fixture, &error)) << error;
+
+  auto& ocaf = kreoda::OcafLive::instance();
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = ocaf.AvailableUndos();
+  kreoda::ShapeRecord historical;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get(fixture.solidId, &historical));
+  const std::string stableSolidId = historical.featureId;
+
+  const std::string transactionId = fixture.prefix + "-owner";
+  ProjectionTransactionCleanup transactionCleanup{transactionId};
+  auto response = ProjectionRpc(fixture.documentId, kreoda::kBeginTransaction,
+      {{"transactionId", transactionId}});
+  ASSERT_EQ(response.value("status", ""), "ok") << response.dump();
+  response = ProjectionRpc(fixture.documentId, kreoda::kSetSketchProjection,
+      {{"featureId", fixture.targetId}, {"groupId", fixture.groupAId},
+       {"definition", fixture.definitionA}, {"transactionId", transactionId}});
+  ASSERT_EQ(response.value("status", ""), "ok") << response.dump();
+  EXPECT_EQ(response.value("geometryStatus", ""), "unavailable")
+      << response.dump();
+  EXPECT_FALSE(response["geometryCurrent"].get<bool>());
+  ASSERT_EQ(response["sketch"]["projectionGroups"].size(), 2u);
+  EXPECT_EQ(response["sketch"]["projectionGroups"][0]["status"], "ok");
+  EXPECT_EQ(response["sketch"]["projectionGroups"][1]["status"], "broken");
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(ocaf.AvailableUndos(), undos);
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+
+  response = ProjectionRpc(fixture.documentId, kreoda::kSetSketchProjection,
+      {{"featureId", fixture.targetId}, {"groupId", fixture.groupBId},
+       {"definition", fixture.definitionB}, {"transactionId", transactionId}});
+  ASSERT_EQ(response.value("status", ""), "ok") << response.dump();
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  kreoda::ShapeRecord repaired;
+  ASSERT_TRUE(kreoda::GetCurrentShapeRecord(fixture.solidId, &repaired, &error))
+      << error;
+  EXPECT_EQ(repaired.featureId, stableSolidId);
+  EXPECT_NEAR(repaired.volumeMm3, fixture.expectedVolume, 1e-5);
+  EXPECT_TRUE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+
+  response = ProjectionRpc(fixture.documentId, kreoda::kCommitTransaction,
+      {{"transactionId", transactionId}});
+  ASSERT_EQ(response.value("status", ""), "ok") << response.dump();
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision + 1);
+  EXPECT_EQ(ocaf.AvailableUndos(), undos + 1);
+
+  ASSERT_TRUE(ocaf.Undo(&error)) << error;
+  kreoda::SketchFeature undoneSketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &undoneSketch));
+  ASSERT_EQ(undoneSketch.projectionGroups.size(), 2u);
+  EXPECT_EQ(undoneSketch.projectionGroups[0].status, "broken");
+  EXPECT_EQ(undoneSketch.projectionGroups[1].status, "broken");
+  EXPECT_FALSE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get(fixture.solidId, &historical));
+  EXPECT_EQ(historical.featureId, stableSolidId);
+  EXPECT_NEAR(historical.volumeMm3, fixture.expectedVolume, 1e-5);
+  EXPECT_EQ(ocaf.AvailableUndos(), undos);
+
+  ASSERT_TRUE(ocaf.Redo(&error)) << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get(fixture.targetId, &undoneSketch));
+  EXPECT_EQ(undoneSketch.projectionGroups[0].status, "ok");
+  EXPECT_EQ(undoneSketch.projectionGroups[1].status, "ok");
+  ASSERT_TRUE(kreoda::GetCurrentShapeRecord(fixture.solidId, &repaired, &error))
+      << error;
+  EXPECT_EQ(repaired.featureId, stableSolidId);
+  EXPECT_NEAR(repaired.volumeMm3, fixture.expectedVolume, 1e-5);
+  EXPECT_TRUE(kreoda::GetGeometryAvailability(fixture.solidId).geometryCurrent);
+#else
+  GTEST_SKIP() << "needs OCCT + minizip-ng";
+#endif
+}
 
 TEST(SketchProjectionLifecycle, NativeEdgeFeedsGroupOnlyExtrudeAndRecomputes) {
   kreoda::DocumentStore::instance().create("projection-native-lifecycle");

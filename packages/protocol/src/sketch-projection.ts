@@ -30,14 +30,13 @@ export const SketchProjectionDefinitionSchema = schema<DTO.SketchProjectionDefin
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index], message: "duplicate projection source" });
       identities.add(identity);
       if (source.type === "edge" && source.persistentEdgeId &&
-          (!source.persistentEdgeId.startsWith(`${source.featureId}:`) ||
-           new TextEncoder().encode(source.persistentEdgeId).length > 512))
+          !source.persistentEdgeId.startsWith(`${source.featureId}:`))
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index, "persistentEdgeId"], message: "invalid owner-qualified projection edge id" });
       if (source.type === "sketchEntities") {
         const entityIds = source.entityIds ?? [];
         const unique = new Set(entityIds);
-        if (unique.size !== entityIds.length || entityIds.some(id => new TextEncoder().encode(id).length > 512))
-          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index, "entityIds"], message: "projection entityIds must be unique and at most 512 UTF-8 bytes" });
+        if (unique.size !== entityIds.length)
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index, "entityIds"], message: "projection entityIds must be unique" });
       }
     }
     if (definition.operation === "projectEdges" ? shapeSources.length > 0

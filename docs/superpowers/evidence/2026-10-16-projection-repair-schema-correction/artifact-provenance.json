@@ -1,0 +1,425 @@
+[
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/command-green.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\command-green.txt",
+    "rawSha256": "75b36ad226604fb20e97d256abe5496d55a18e81cb9573f14e37936259a2cd6e",
+    "committedSha256": "bf80791fc2d878df8a96a3a50bc5dba9f904798c2374e1fa4f5cf7b6505458b3",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/command-red.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\command-red.txt",
+    "rawSha256": "3439ca9cb994a767954e0fc9c6e46f7d75678c2011dae0e323489813b7dcb491",
+    "committedSha256": "bbe25ab7176d4f381ade89f7b9be337183f716853826adbe1b52f4dac1341e92",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/core-self-test.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\core-self-test.txt",
+    "rawSha256": "22bd40630a91518099667fe67a75369720a73ff35f375a484e92124614f21aa5",
+    "committedSha256": "6d9f01bed3efebf1f274ec4cfe84a30441d640513b2401d90b01cccc0a1bf9d2",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/dotnet-green.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\dotnet-green.txt",
+    "rawSha256": "28f7757def473768b32cde28214a68cd7aa09948b43e02a3d9ac6d2462e41f19",
+    "committedSha256": "ad4e41688d8ca09c0baa1eeac73d702e9c49ffaf7d1d27c6a1d26f602dcc2674",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-build-final.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-build-final.txt",
+    "rawSha256": "f75dee61fdd58e382d33c04e72a6898684ae1e4ff06aacaad809187e1aff3d0b",
+    "committedSha256": "5501de482212cd786e7548162e4edad42b8d517f62f3717ea5be1f7bfff23db5",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-build-green.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-build-green.txt",
+    "rawSha256": "d5753e5c9297bccabce6029b183013c2fb05be52e87e3cd13ecd007ac5a684af",
+    "committedSha256": "dd4e311736d50f8a621e0078e3a9b1a35c125ef14616d7a1f7537e56cb5d3aa1",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-build-red.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-build-red.txt",
+    "rawSha256": "d5753e5c9297bccabce6029b183013c2fb05be52e87e3cd13ecd007ac5a684af",
+    "committedSha256": "dd4e311736d50f8a621e0078e3a9b1a35c125ef14616d7a1f7537e56cb5d3aa1",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-first-green.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-first-green.txt",
+    "rawSha256": "6fa20e71fa5d9a79be86b07fa7085318b02387e070da30558c8e4b7fec4c71f0",
+    "committedSha256": "8b8f435c244935c0561d18c0724c362def068b3897388ab72730ed126fd15a6c",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-green.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-green.txt",
+    "rawSha256": "622bb3b02772056ec1032b206d1bf76731363ae6db5d7bcf61766aa9d7a47081",
+    "committedSha256": "7d429d635d72c7244517362ed18f36b6f18466f2d3b635e0ae0d84607fd0e47e",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-red.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-red.txt",
+    "rawSha256": "a8eb6612dd37f78c9adb95b0f20b2ac4592042b4058787405a5dea57732b6d6b",
+    "committedSha256": "19a798d9af3ea99c15646fc4df569ec5c70eb470d257770cc285d81654779933",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-suite-final.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-suite-final.txt",
+    "rawSha256": "96e8eebbd1ad04b7817e591cf8f5e9ede593a06e5c60ff2e56ac2756d136b5e0",
+    "committedSha256": "356647e0d1e116d0568bbdfff9f28a11e54f601976d89aea8246a69a9cdf9626",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-transaction-build.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-transaction-build.txt",
+    "rawSha256": "d5753e5c9297bccabce6029b183013c2fb05be52e87e3cd13ecd007ac5a684af",
+    "committedSha256": "dd4e311736d50f8a621e0078e3a9b1a35c125ef14616d7a1f7537e56cb5d3aa1",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-transaction-first-attempt.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-transaction-first-attempt.txt",
+    "rawSha256": "006e7f6d32b1f4d551b9dc1feca0503d13034229878146ead7a15fc2975d09bb",
+    "committedSha256": "3ef76958146d03214f4b4e3ceb879c6909cfdc790569ff5b1a6bac25b408b7e5",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-transaction-tests.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-transaction-tests.txt",
+    "rawSha256": "adf10f0e7936504f5fca3cb4389077f387a94acf65278788fef0ff70cf2d9272",
+    "committedSha256": "93cbaae81b1ee8086ec900030c309374e80992d905565948e5c94b5dfba3f2c3",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-wire-green-build.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-wire-green-build.txt",
+    "rawSha256": "5c476507415252ef934461b6673f27d3e3eaea0083cca2481ee329fad276196f",
+    "committedSha256": "97293d03dcdae05496c659fe89a94938c7d7465e6cffdb811674e63626d561a3",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-wire-green.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-wire-green.txt",
+    "rawSha256": "ce72504e47fabaff582ba2a843ae8b2339601f6e87e2b866ca684fdc01e4c393",
+    "committedSha256": "2a57b8a03fb6246891c502f3ef46bddb5b6ac3b839a3c6e806efd20a50f0f1b4",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-wire-red-build.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-wire-red-build.txt",
+    "rawSha256": "905ef1866f3a4b33df3caf2cd47009b92ab2122620024bc00edca7f0b83b983a",
+    "committedSha256": "2c5607a5f4ba50f3a575d2a03a1c1695d5cf3a5f127e118594915efbec3f3fe6",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/native-wire-red.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\native-wire-red.txt",
+    "rawSha256": "08b8a234b3954d9673ee0c539ee7e5868a5496296bbcac3d8943d8d828171ac4",
+    "committedSha256": "8a93338649a267912b24f7af4c3b2c9a59c83e5279772db78043b1a6fec8b014",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/protocol-green.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\protocol-green.txt",
+    "rawSha256": "bd2a13ad06f7b4cbbbef766161c42df035d20205af47a90179b6bae224fa12b4",
+    "committedSha256": "68acffbb2f5861c8b6743ea8ae8f5bb19422ad46e525aca428877f8fe2e53aec",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/protocol-red.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-raw\\protocol-red.txt",
+    "rawSha256": "3c853cb9acd2ace8f380fba504951e07c5c59b5807720f7186748479383c9ef0",
+    "committedSha256": "d5cd94d641df05abe8cebb06bddf1570c2e75500d811c18d39a231db5f52e182",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/verify.py",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\verify.py",
+    "rawSha256": "7f151552c95eeca73676d404d17383cd50337b3de43a08d18a7ca3117a51d0f5",
+    "committedSha256": "7f151552c95eeca73676d404d17383cd50337b3de43a08d18a7ca3117a51d0f5",
+    "whitespaceNormalized": false,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/summary.json",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\summary.json",
+    "rawSha256": "afd14051c2bdefb07b0d80ddb40c92e7dfa80de918fc08b50382e2337e1a1817",
+    "committedSha256": "bbda8f8bc21bb01e2d609262c081c657cb2698ff617f25f186473ca0c7d885e1",
+    "whitespaceNormalized": true,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/source-before.json",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\source-before.json",
+    "rawSha256": "521f52f0c7dc0b0a9511a822368032736d9a2db3e359536c02a33b9a2be14a4f",
+    "committedSha256": "d154d8a8cc83ff1454dc5cd6b93b1d5441847167717074de988c42d5630f016c",
+    "whitespaceNormalized": true,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/source-after.json",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\source-after.json",
+    "rawSha256": "521f52f0c7dc0b0a9511a822368032736d9a2db3e359536c02a33b9a2be14a4f",
+    "committedSha256": "d154d8a8cc83ff1454dc5cd6b93b1d5441847167717074de988c42d5630f016c",
+    "whitespaceNormalized": true,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/native-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\native-build.log",
+    "rawSha256": "d70bd1ac0f8a3e3ea745d67ad47ed6ef868753304ceccdf8d7e5652f6f1fd51e",
+    "committedSha256": "c68913e6c0e1c32ca0da4ea0706e85539c644979ee7f2ac734ef97db7f4aa497",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/native.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\native.log",
+    "rawSha256": "db15abb994dc029934d97579f4a871c2419629c517ad044520df570d87a3e002",
+    "committedSha256": "db15abb994dc029934d97579f4a871c2419629c517ad044520df570d87a3e002",
+    "whitespaceNormalized": false,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/native.xml",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\native.xml",
+    "rawSha256": "a4083d7e08abb3e64a75d38df5f01db25b241b851e6b6efcbfae27061c9761cf",
+    "committedSha256": "018cd987507ab8630c4d5078a638d9141150c0dd2a72bbd29c7f73054dab490b",
+    "whitespaceNormalized": true,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/core-self-test.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\core-self-test.log",
+    "rawSha256": "6d9f01bed3efebf1f274ec4cfe84a30441d640513b2401d90b01cccc0a1bf9d2",
+    "committedSha256": "6d9f01bed3efebf1f274ec4cfe84a30441d640513b2401d90b01cccc0a1bf9d2",
+    "whitespaceNormalized": false,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/protocol-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\protocol-build.log",
+    "rawSha256": "4a32338a94b1fb435749483ac661f0724fadcd6c3a3e8a5d2996e559f6b9a108",
+    "committedSha256": "6c1619b860e8aac1c507b16508b4df3c3efb093a4fc2677c6a695482cf25d287",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/canonical-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\canonical-build.log",
+    "rawSha256": "e8dd0413b0ca69c147c214446ac6ff631c119cc09ba1d171abedc525c1849ee5",
+    "committedSha256": "4a70c3b2bad86dae66fb7030c47305b1e210a8cad857737c91a4bc7d96494d38",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/protocol-lint.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\protocol-lint.log",
+    "rawSha256": "ac93ddaee0658e90e40f7cd4316d79a7209f8fd0d9b1af0e0368cd1630d7c754",
+    "committedSha256": "5907e96c4cf3e6ba2afdf21d34556887987ed864e2f8b7bd9b37e525109101ad",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/canonical-lint.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\canonical-lint.log",
+    "rawSha256": "61c47adfe60a201c425be931a520b9e272a90e80a09bec5032fa796e04356c2c",
+    "committedSha256": "991d2bf20c79f75ec566c9eef9d81bb0d9ad6f662299a36305fb20ae6538e613",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/session-contract.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\session-contract.log",
+    "rawSha256": "b5dfa4127669f05b5f67bca42f6fe544d450f80f238ef5797e0af35a991623e1",
+    "committedSha256": "b5dfa4127669f05b5f67bca42f6fe544d450f80f238ef5797e0af35a991623e1",
+    "whitespaceNormalized": false,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/protocol.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\protocol.log",
+    "rawSha256": "05187096b6c6befe1bf6fed03e60cf023a7eeb0d52f94f3730f4b88d04f4aa25",
+    "committedSha256": "05187096b6c6befe1bf6fed03e60cf023a7eeb0d52f94f3730f4b88d04f4aa25",
+    "whitespaceNormalized": false,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/protocol.xml",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\protocol.xml",
+    "rawSha256": "a1ad022d0ace828fd5523b4cc83d69759baf51abcc362533080deec884348135",
+    "committedSha256": "a1ad022d0ace828fd5523b4cc83d69759baf51abcc362533080deec884348135",
+    "whitespaceNormalized": false,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/canonical.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\canonical.log",
+    "rawSha256": "10aa01b309a853141fd63c4af97c5216015ea17f77634fdb66aa3f8e51038e5e",
+    "committedSha256": "10aa01b309a853141fd63c4af97c5216015ea17f77634fdb66aa3f8e51038e5e",
+    "whitespaceNormalized": false,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/canonical.xml",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\canonical.xml",
+    "rawSha256": "09c10e0cb8f41b0be0576053804a23536580ba33e9eb018a369cc2505b17ed47",
+    "committedSha256": "09c10e0cb8f41b0be0576053804a23536580ba33e9eb018a369cc2505b17ed47",
+    "whitespaceNormalized": false,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/protocol-utf8-probe.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\protocol-utf8-probe.log",
+    "rawSha256": "6a2949b3e8395b7df38f51a586f23b757fe598098a4c1aabb422ecf6139b62f7",
+    "committedSha256": "6a2949b3e8395b7df38f51a586f23b757fe598098a4c1aabb422ecf6139b62f7",
+    "whitespaceNormalized": false,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/managed-solution-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\managed-solution-build.log",
+    "rawSha256": "2eaa1c198696cc174a0b652ff8a40507213899e69996d12cab232793e693b325",
+    "committedSha256": "dafbbe5281f978505d650b2aea59bb625e687f08584ea7100ba2358926ede35a",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/managed-SessionClient.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\managed-SessionClient.log",
+    "rawSha256": "4dc9c4eb818ac35087b8b7afdd3507bc371c16947cacffe250806ab1bc19419f",
+    "committedSha256": "b06fc9a05263a772f6ba8dbdcf8930aaa1964fb07f62f3bc557307cde61f308d",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/managed-ModelingAgent.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\managed-ModelingAgent.log",
+    "rawSha256": "8fe06ad8e74e9f9e89da96b9650827f149e4520faabcadae890ea9fb51339000",
+    "committedSha256": "127b7d451e634c3c6334d379a340632878ca8bfe57e904805c52890e6be6cae0",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/managed-HermesBridge.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\managed-HermesBridge.log",
+    "rawSha256": "fa98e3505c449b9026a5c7fab90d8799dd2cf85ff4c56c2f1ce918d95d6b787f",
+    "committedSha256": "e0b9de0aa7263ac845c9f2179a9126a441b5596aa2ff125aeaaca523c83f72fa",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/managed-ModelingBenchmark.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\managed-ModelingBenchmark.log",
+    "rawSha256": "c0e2d5ead2a8bd66174547016a0743669f7f6a60d554389909efaac812cef4b8",
+    "committedSha256": "77f5bfbc83133b5e17d0ac1878ec4bc2e0aca978991d5951e3ebebd062e22fce",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/dotnet/SessionClient.trx",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\dotnet\\SessionClient.trx",
+    "rawSha256": "6b533dcc9c1d8cea44fca79c6c2bb8bdb9ac82cb50f7499b4f47601fe89ee0b9",
+    "committedSha256": "67df0d11d577c5589a5d1c2865ecba9da8e0e2513cff99d567d7b9e68758447b",
+    "whitespaceNormalized": true,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/dotnet/ModelingAgent.trx",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\dotnet\\ModelingAgent.trx",
+    "rawSha256": "d3aefefdc7f43c5f2ed58d7ddac3349034cb5108e413e947ad57347a85dfb588",
+    "committedSha256": "3e64c5c961b18c2d4f6f71fe361aeb931eb4a74da34f88fde6e060a863d3e275",
+    "whitespaceNormalized": true,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/dotnet/HermesBridge.trx",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\dotnet\\HermesBridge.trx",
+    "rawSha256": "5faf3c964dbe17413f4a6a4f72800053db92007485d8b6524cd93701cc7489e4",
+    "committedSha256": "c7806e27782e71dc9436ef0bbfd4824467b3ac388cf235a0f05b9901823b265f",
+    "whitespaceNormalized": true,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/dotnet/ModelingBenchmark.trx",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\dotnet\\ModelingBenchmark.trx",
+    "rawSha256": "1338203cad9e99448791b1113cf85eaa40df4c62a3700896be6ac2b092abaa57",
+    "committedSha256": "dce0d3ba512a8e6d8ca330056abff7dd21d667295faf52b79c43ee7facd9b56e",
+    "whitespaceNormalized": true,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/protocol-utf8-red.json",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\protocol-utf8-red.json",
+    "rawSha256": "babe71a7a909b5541153500b36c9fe1f03f3037eec7091601ac3304e0878a7fe",
+    "committedSha256": "babe71a7a909b5541153500b36c9fe1f03f3037eec7091601ac3304e0878a7fe",
+    "whitespaceNormalized": false,
+    "normalization": "CRLF-to-LF only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/worker-native-red.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-native-red.txt",
+    "rawSha256": "a8eb6612dd37f78c9adb95b0f20b2ac4592042b4058787405a5dea57732b6d6b",
+    "committedSha256": "19a798d9af3ea99c15646fc4df569ec5c70eb470d257770cc285d81654779933",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/worker-protocol-red.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-protocol-red.txt",
+    "rawSha256": "3c853cb9acd2ace8f380fba504951e07c5c59b5807720f7186748479383c9ef0",
+    "committedSha256": "d5cd94d641df05abe8cebb06bddf1570c2e75500d811c18d39a231db5f52e182",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/worker-command-red.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-command-red.txt",
+    "rawSha256": "3439ca9cb994a767954e0fc9c6e46f7d75678c2011dae0e323489813b7dcb491",
+    "committedSha256": "bbe25ab7176d4f381ade89f7b9be337183f716853826adbe1b52f4dac1341e92",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/worker-native-transaction-first-failure.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\worker-native-transaction-first-failure.log",
+    "rawSha256": "adf10f0e7936504f5fca3cb4389077f387a94acf65278788fef0ff70cf2d9272",
+    "committedSha256": "93cbaae81b1ee8086ec900030c309374e80992d905565948e5c94b5dfba3f2c3",
+    "whitespaceNormalized": true,
+    "normalization": "log whitespace/EOF and CRLF-to-LF"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-repair-schema-correction/parent/test-discovery-comparison.json",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-repair-schema-parent-20261016\\test-discovery-comparison.json",
+    "rawSha256": "9594c6bd2c82fb0e3650e24d883a3011d7b3fe85b22ef3a7da31c1aa738f42ba",
+    "committedSha256": "9594c6bd2c82fb0e3650e24d883a3011d7b3fe85b22ef3a7da31c1aa738f42ba",
+    "whitespaceNormalized": false
+  }
+]

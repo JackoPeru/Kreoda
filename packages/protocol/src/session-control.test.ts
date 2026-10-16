@@ -16,6 +16,7 @@ import {
   SESSION_EVENT_METADATA,
   SESSION_CONTROL_METHODS,
   SESSION_CONTROL_VERSION,
+  SessionSnapshotPayloadSchema,
   TxnParamsSchema,
 } from "./session-control.js";
 import contract from "../../../schemas/session-control-v1.json" with { type: "json" };
@@ -24,6 +25,9 @@ import {
   FeatureDescriptorSchema,
   SketchDescriptorSchema,
   SketchProjectionDefinitionSchema,
+  SketchProjectionGroupResultSchema,
+  SketchProjectionGroupSummarySchema,
+  SketchProjectionSourceSchema,
   SketchProjectionResultSchema,
 } from "./sketch-projection.js";
 
@@ -212,6 +216,69 @@ describe("projection DTO contract", () => {
     const large = { version: 1, operation: "projectEdges", sources };
     expect(JSON.stringify(large).length).toBeLessThan(65536);
     expect(new TextEncoder().encode(JSON.stringify(large)).length).toBeGreaterThan(65536);
-    expect(() => SketchProjectionDefinitionSchema.parse(large)).toThrow(/UTF-8 bytes/);
+    expect(() => SketchProjectionDefinitionSchema.parse(large)).toThrow();
+  });
+
+  it("enforces UTF-8 byte limits in standalone and nested validators", () => {
+    const edgeBelow = { type: "edge", featureId: "source",
+      persistentEdgeId: `source:${"é".repeat(250)}` };
+    const edgeAbove = { type: "edge", featureId: "source",
+      persistentEdgeId: `source:${"é".repeat(253)}` };
+    const entityBelow = { type: "sketchEntities", featureId: "source",
+      entityIds: ["é".repeat(250)] };
+    const entityAbove = { type: "sketchEntities", featureId: "source",
+      entityIds: ["é".repeat(257)] };
+    expect(edgeBelow.persistentEdgeId.length).toBeLessThan(512);
+    expect(new TextEncoder().encode(edgeBelow.persistentEdgeId).length).toBeLessThan(512);
+    expect(edgeAbove.persistentEdgeId.length).toBeLessThan(512);
+    expect(new TextEncoder().encode(edgeAbove.persistentEdgeId).length).toBeGreaterThan(512);
+    expect(entityAbove.entityIds[0].length).toBeLessThan(512);
+    expect(new TextEncoder().encode(entityAbove.entityIds[0]).length).toBeGreaterThan(512);
+    expect(SketchProjectionSourceSchema.parse(edgeBelow)).toEqual(edgeBelow);
+    expect(SketchProjectionSourceSchema.parse(entityBelow)).toEqual(entityBelow);
+    expect(() => SketchProjectionSourceSchema.parse(edgeAbove)).toThrow();
+    expect(() => SketchProjectionSourceSchema.parse(entityAbove)).toThrow();
+    expect(() => SketchProjectionDefinitionSchema.parse({ ...definition,
+      sources: [entityAbove] })).toThrow();
+
+    const nestedDefinition = { ...definition, sources: [edgeAbove] };
+    const summary = { groupId: "linked", definition: nestedDefinition,
+      sourceFeatureIds: ["source"], status: "broken", error: "unavailable",
+      blockingSourceIds: ["source"], generation: 1 };
+    const groupResult = { ...summary, edges: [] };
+    expect(() => SketchProjectionGroupSummarySchema.parse(summary)).toThrow();
+    expect(() => SketchProjectionGroupResultSchema.parse(groupResult)).toThrow();
+    const result = { featureId: "target",
+      plane: { origin: [0, 0, 0], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] },
+      geometryCurrent: false, status: "unavailable", error: "blocked",
+      blockingSourceIds: ["source"], groups: [groupResult] };
+    expect(() => SketchProjectionResultSchema.parse(result)).toThrow();
+    expect(() => SessionSnapshotPayloadSchema.parse({
+      sessionId: "00000000-0000-4000-8000-000000000000", documentId: "doc",
+      revision: 1, features: [], sketches: [{ featureId: "target",
+        projectionGroups: [summary] }], bodies: [],
+    })).toThrow();
+  });
+
+  it("accepts the exact 65536-byte definition and rejects one byte more", () => {
+    const entityIds = Array.from({ length: 128 }, (_, index) =>
+      `entity-${index.toString().padStart(3, "0")}-${"a".repeat(455)}`);
+    const definitionAtLimit = { version: 1, operation: "projectEdges",
+      sources: [{ type: "sketchEntities", featureId: "source", entityIds }] };
+    let remaining = 65536 - new TextEncoder().encode(JSON.stringify(definitionAtLimit)).length;
+    for (let index = 0; index < entityIds.length - 1 && remaining > 0; index++) {
+      const extra = Math.min(512 - entityIds[index].length, remaining);
+      entityIds[index] += "a".repeat(extra);
+      remaining -= extra;
+    }
+    expect(remaining).toBeLessThan(512 - entityIds.at(-1)!.length);
+    entityIds[entityIds.length - 1] += "a".repeat(remaining);
+    expect(new TextEncoder().encode(JSON.stringify(definitionAtLimit)).length).toBe(65536);
+    expect(SketchProjectionDefinitionSchema.parse(definitionAtLimit)).toEqual(definitionAtLimit);
+    const oneByteOver = { ...definitionAtLimit,
+      sources: [{ ...definitionAtLimit.sources[0],
+        entityIds: [...entityIds.slice(0, -1), entityIds.at(-1)! + "a"] }] };
+    expect(new TextEncoder().encode(JSON.stringify(oneByteOver)).length).toBe(65537);
+    expect(() => SketchProjectionDefinitionSchema.parse(oneByteOver)).toThrow();
   });
 });
