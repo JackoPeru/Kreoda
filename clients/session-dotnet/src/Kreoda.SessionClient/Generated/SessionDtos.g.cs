@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: fc27989e6b39fd8d12cafa770f72ab89f26e7bb0f9d14b635f687b3ebbdfe6ce
+// Source SHA256: 729b9e136edc52106ac8bd5af4d790467274f647a1e156c1f16f9f96d6db56d1
 #nullable enable annotations
 #nullable disable warnings
 namespace Kreoda.Session.Generated
@@ -266,6 +266,131 @@ namespace Kreoda.Session.Generated
         public string SessionId { get; set; }
     }
 
+    public partial class SketchProjectionResult
+    {
+        [JsonPropertyName("blockingSourceIds")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public string[] BlockingSourceIds { get; set; }
+
+        [JsonPropertyName("error")]
+        public string Error { get; set; }
+
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string FeatureId { get; set; }
+
+        [JsonPropertyName("geometryCurrent")]
+        public bool GeometryCurrent { get; set; }
+
+        [JsonPropertyName("groups")]
+        public SketchProjectionGroupResult[] Groups { get; set; }
+
+        [JsonPropertyName("plane")]
+        public SketchPlaneFrame Plane { get; set; }
+
+        [JsonPropertyName("status")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string Status { get; set; }
+    }
+
+    public partial class SketchProjectionGroupResult
+    {
+        [JsonPropertyName("blockingSourceIds")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public string[] BlockingSourceIds { get; set; }
+
+        [JsonPropertyName("definition")]
+        public SketchProjectionDefinition Definition { get; set; }
+
+        [JsonPropertyName("edges")]
+        public SketchProjectionDisplayEdge[] Edges { get; set; }
+
+        [JsonPropertyName("error")]
+        public string Error { get; set; }
+
+        [JsonPropertyName("generation")]
+        public long Generation { get; set; }
+
+        [JsonPropertyName("groupId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string GroupId { get; set; }
+
+        [JsonPropertyName("sourceFeatureIds")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public string[] SourceFeatureIds { get; set; }
+
+        [JsonPropertyName("status")]
+        public SketchProjectionGroupSummaryStatus Status { get; set; }
+    }
+
+    public partial class SketchProjectionDefinition
+    {
+        [JsonPropertyName("operation")]
+        public Operation Operation { get; set; }
+
+        [JsonPropertyName("sources")]
+        public SketchProjectionSource[] Sources { get; set; }
+
+        [JsonPropertyName("version")]
+        public double Version { get; set; }
+    }
+
+    public partial class SketchProjectionSource
+    {
+        [JsonPropertyName("featureId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("persistentEdgeId")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string? PersistentEdgeId { get; set; }
+
+        [JsonPropertyName("type")]
+        public SketchProjectionSourceType Type { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("entityIds")]
+        [JsonConverter(typeof(TentacledDecodeArrayConverter))]
+        public string[]? EntityIds { get; set; }
+    }
+
+    public partial class SketchProjectionDisplayEdge
+    {
+        [JsonPropertyName("closed")]
+        public bool Closed { get; set; }
+
+        [JsonPropertyName("curveType")]
+        public CurveType CurveType { get; set; }
+
+        [JsonPropertyName("firstParameter")]
+        public double FirstParameter { get; set; }
+
+        [JsonPropertyName("lastParameter")]
+        public double LastParameter { get; set; }
+
+        [JsonPropertyName("memberIndex")]
+        public long MemberIndex { get; set; }
+
+        [JsonPropertyName("pointsMm")]
+        public double[][] PointsMm { get; set; }
+    }
+
+    public partial class SketchPlaneFrame
+    {
+        [JsonPropertyName("normal")]
+        public double[] Normal { get; set; }
+
+        [JsonPropertyName("origin")]
+        public double[] Origin { get; set; }
+
+        [JsonPropertyName("xAxis")]
+        public double[] XAxis { get; set; }
+
+        [JsonPropertyName("yAxis")]
+        public double[] YAxis { get; set; }
+    }
+
     public partial class SessionSnapshotPayload
     {
         [JsonPropertyName("bodies")]
@@ -318,7 +443,7 @@ namespace Kreoda.Session.Generated
         public DatumDefinition Definition { get; set; }
 
         [JsonPropertyName("dependsOn")]
-        [JsonConverter(typeof(TentacledDecodeArrayConverter))]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
         public string[] DependsOn { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -336,7 +461,7 @@ namespace Kreoda.Session.Generated
         public DatumGeometry Resolved { get; set; }
 
         [JsonPropertyName("status")]
-        public Status Status { get; set; }
+        public DatumDescriptorStatus Status { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("type")]
@@ -392,7 +517,7 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
     }
 
@@ -472,7 +597,7 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
     }
 
@@ -527,7 +652,7 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
     }
 
@@ -535,7 +660,7 @@ namespace Kreoda.Session.Generated
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
 
         [JsonPropertyName("type")]
@@ -551,7 +676,7 @@ namespace Kreoda.Session.Generated
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
 
         [JsonPropertyName("type")]
@@ -593,9 +718,18 @@ namespace Kreoda.Session.Generated
     public partial class FeatureDescriptor
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("blockingSourceIds")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public string[]? BlockingSourceIds { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("dependsOn")]
         [JsonConverter(typeof(PurpleDecodeArrayConverter))]
         public string[]? DependsOn { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("error")]
+        public string? Error { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("expressions")]
@@ -606,12 +740,21 @@ namespace Kreoda.Session.Generated
         public string FeatureId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("geometryCurrent")]
+        public bool? GeometryCurrent { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("paramsMm")]
         public double[]? ParamsMm { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("refExtra")]
         public string? RefExtra { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("status")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string? Status { get; set; }
 
         [JsonPropertyName("type")]
         [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
@@ -624,9 +767,22 @@ namespace Kreoda.Session.Generated
 
     public partial class SketchDescriptor
     {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("blockingSourceIds")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public string[]? BlockingSourceIds { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("error")]
+        public string? Error { get; set; }
+
         [JsonPropertyName("featureId")]
         [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
         public string FeatureId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("geometryCurrent")]
+        public bool? GeometryCurrent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("id")]
@@ -647,23 +803,44 @@ namespace Kreoda.Session.Generated
         public string? PlaneKind { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("projectionGroups")]
+        public SketchProjectionGroupSummary[]? ProjectionGroups { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("status")]
+        [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
+        public string? Status { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("supportRef")]
         public string? SupportRef { get; set; }
     }
 
-    public partial class SketchPlaneFrame
+    public partial class SketchProjectionGroupSummary
     {
-        [JsonPropertyName("normal")]
-        public double[] Normal { get; set; }
+        [JsonPropertyName("blockingSourceIds")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public string[] BlockingSourceIds { get; set; }
 
-        [JsonPropertyName("origin")]
-        public double[] Origin { get; set; }
+        [JsonPropertyName("definition")]
+        public SketchProjectionDefinition Definition { get; set; }
 
-        [JsonPropertyName("xAxis")]
-        public double[] XAxis { get; set; }
+        [JsonPropertyName("error")]
+        public string Error { get; set; }
 
-        [JsonPropertyName("yAxis")]
-        public double[] YAxis { get; set; }
+        [JsonPropertyName("generation")]
+        public long Generation { get; set; }
+
+        [JsonPropertyName("groupId")]
+        [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
+        public string GroupId { get; set; }
+
+        [JsonPropertyName("sourceFeatureIds")]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        public string[] SourceFeatureIds { get; set; }
+
+        [JsonPropertyName("status")]
+        public SketchProjectionGroupSummaryStatus Status { get; set; }
     }
 
     public partial class SessionIncrementalEvent
@@ -1009,7 +1186,7 @@ namespace Kreoda.Session.Generated
         public long ExpectedRevision { get; set; }
 
         [JsonPropertyName("selectionIds")]
-        [JsonConverter(typeof(StickyDecodeArrayConverter))]
+        [JsonConverter(typeof(IndigoDecodeArrayConverter))]
         public string[] SelectionIds { get; set; }
     }
 
@@ -1019,7 +1196,7 @@ namespace Kreoda.Session.Generated
         public DatumPlaneDefinition Definition { get; set; }
 
         [JsonPropertyName("dependsOn")]
-        [JsonConverter(typeof(TentacledDecodeArrayConverter))]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
         public string[] DependsOn { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -1037,7 +1214,7 @@ namespace Kreoda.Session.Generated
         public DatumPlaneGeometry Resolved { get; set; }
 
         [JsonPropertyName("status")]
-        public Status Status { get; set; }
+        public DatumDescriptorStatus Status { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("type")]
@@ -1110,7 +1287,7 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
     }
 
@@ -1140,7 +1317,7 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
     }
 
@@ -1165,7 +1342,7 @@ namespace Kreoda.Session.Generated
         public DatumAxisDefinition Definition { get; set; }
 
         [JsonPropertyName("dependsOn")]
-        [JsonConverter(typeof(TentacledDecodeArrayConverter))]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
         public string[] DependsOn { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -1183,7 +1360,7 @@ namespace Kreoda.Session.Generated
         public DatumAxisGeometry Resolved { get; set; }
 
         [JsonPropertyName("status")]
-        public Status Status { get; set; }
+        public DatumDescriptorStatus Status { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("type")]
@@ -1216,7 +1393,7 @@ namespace Kreoda.Session.Generated
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
 
         [JsonPropertyName("type")]
@@ -1246,7 +1423,7 @@ namespace Kreoda.Session.Generated
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
 
         [JsonPropertyName("type")]
@@ -1287,7 +1464,7 @@ namespace Kreoda.Session.Generated
         public DatumPointDefinition Definition { get; set; }
 
         [JsonPropertyName("dependsOn")]
-        [JsonConverter(typeof(TentacledDecodeArrayConverter))]
+        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
         public string[] DependsOn { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -1305,7 +1482,7 @@ namespace Kreoda.Session.Generated
         public DatumPointGeometry Resolved { get; set; }
 
         [JsonPropertyName("status")]
-        public Status Status { get; set; }
+        public DatumDescriptorStatus Status { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("type")]
@@ -1316,7 +1493,7 @@ namespace Kreoda.Session.Generated
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
 
         [JsonPropertyName("type")]
@@ -1335,7 +1512,7 @@ namespace Kreoda.Session.Generated
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
 
         [JsonPropertyName("type")]
@@ -1351,7 +1528,7 @@ namespace Kreoda.Session.Generated
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("positionMm")]
-        [JsonConverter(typeof(FluffyDecodeArrayConverter))]
+        [JsonConverter(typeof(StickyDecodeArrayConverter))]
         public double[]? PositionMm { get; set; }
 
         [JsonPropertyName("type")]
@@ -1369,6 +1546,14 @@ namespace Kreoda.Session.Generated
         public double[] PositionMm { get; set; }
     }
 
+    public enum Operation { ProjectEdges, Section, Silhouette };
+
+    public enum SketchProjectionSourceType { Edge, Shape, SketchEntities };
+
+    public enum CurveType { Bezier, Bspline, Circle, Ellipse, Hyperbola, Line, Offset, Other, Parabola };
+
+    public enum SketchProjectionGroupSummaryStatus { Broken, Ok };
+
     public enum AxisEnum { X, Y, Z };
 
     public enum AxisType { Datum, Edge, Principal };
@@ -1385,7 +1570,7 @@ namespace Kreoda.Session.Generated
 
     public enum DatumDescriptorKind { DatumAxis, DatumPlane, DatumPoint };
 
-    public enum Status { Broken, Error, Ok };
+    public enum DatumDescriptorStatus { Broken, Error, Ok };
 
     public enum SessionEntityPatchKind { Body, Datum, Feature, Sketch };
 
@@ -1419,6 +1604,10 @@ namespace Kreoda.Session.Generated
         {
             Converters =
             {
+                OperationConverter.Singleton,
+                SketchProjectionSourceTypeConverter.Singleton,
+                SketchProjectionGroupSummaryStatusConverter.Singleton,
+                CurveTypeConverter.Singleton,
                 AxisEnumConverter.Singleton,
                 AxisTypeConverter.Singleton,
                 PlaneKindConverter.Singleton,
@@ -1427,7 +1616,7 @@ namespace Kreoda.Session.Generated
                 ThirdTypeConverter.Singleton,
                 DefinitionTypeConverter.Singleton,
                 DatumDescriptorKindConverter.Singleton,
-                StatusConverter.Singleton,
+                DatumDescriptorStatusConverter.Singleton,
                 SessionEntityPatchKindConverter.Singleton,
                 SessionIncrementalEventEventConverter.Singleton,
                 SessionSnapshotRequiredEventEventConverter.Singleton,
@@ -1533,6 +1722,280 @@ namespace Kreoda.Session.Generated
         public static readonly FluffyMinMaxLengthCheckConverter Singleton = new FluffyMinMaxLengthCheckConverter();
     }
 
+    internal class FluffyDecodeArrayConverter : JsonConverter<string[]>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string[]);
+
+        public override string[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            reader.Read();
+            var value = new List<string>();
+            while (reader.TokenType != JsonTokenType.EndArray)
+            {
+                var converter = PurpleMinMaxLengthCheckConverter.Singleton;
+                var arrayItem = (string)converter.Read(ref reader, typeof(string), options);
+                value.Add(arrayItem);
+                reader.Read();
+            }
+            return value.ToArray();
+        }
+
+        public override void Write(Utf8JsonWriter writer, string[] value, JsonSerializerOptions options)
+        {
+            writer.WriteStartArray();
+            foreach (var arrayItem in value)
+            {
+                var converter = PurpleMinMaxLengthCheckConverter.Singleton;
+                converter.Write(writer, arrayItem, options);
+            }
+            writer.WriteEndArray();
+            return;
+        }
+
+        public static readonly FluffyDecodeArrayConverter Singleton = new FluffyDecodeArrayConverter();
+    }
+
+    internal class OperationConverter : JsonConverter<Operation>
+    {
+        public override bool CanConvert(Type t) => t == typeof(Operation);
+
+        public override Operation Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "projectEdges":
+                    return Operation.ProjectEdges;
+                case "section":
+                    return Operation.Section;
+                case "silhouette":
+                    return Operation.Silhouette;
+            }
+            throw new Exception("Cannot unmarshal type Operation");
+        }
+
+        public override void Write(Utf8JsonWriter writer, Operation value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case Operation.ProjectEdges:
+                    JsonSerializer.Serialize(writer, "projectEdges", options);
+                    return;
+                case Operation.Section:
+                    JsonSerializer.Serialize(writer, "section", options);
+                    return;
+                case Operation.Silhouette:
+                    JsonSerializer.Serialize(writer, "silhouette", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type Operation");
+        }
+
+        public static readonly OperationConverter Singleton = new OperationConverter();
+    }
+
+    internal class TentacledDecodeArrayConverter : JsonConverter<string[]>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string[]);
+
+        public override string[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            reader.Read();
+            var value = new List<string>();
+            while (reader.TokenType != JsonTokenType.EndArray)
+            {
+                var converter = TentacledMinMaxLengthCheckConverter.Singleton;
+                var arrayItem = (string)converter.Read(ref reader, typeof(string), options);
+                value.Add(arrayItem);
+                reader.Read();
+            }
+            return value.ToArray();
+        }
+
+        public override void Write(Utf8JsonWriter writer, string[] value, JsonSerializerOptions options)
+        {
+            writer.WriteStartArray();
+            foreach (var arrayItem in value)
+            {
+                var converter = TentacledMinMaxLengthCheckConverter.Singleton;
+                converter.Write(writer, arrayItem, options);
+            }
+            writer.WriteEndArray();
+            return;
+        }
+
+        public static readonly TentacledDecodeArrayConverter Singleton = new TentacledDecodeArrayConverter();
+    }
+
+    internal class TentacledMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length >= 1 && value.Length <= 512)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length >= 1 && value.Length <= 512)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly TentacledMinMaxLengthCheckConverter Singleton = new TentacledMinMaxLengthCheckConverter();
+    }
+
+    internal class SketchProjectionSourceTypeConverter : JsonConverter<SketchProjectionSourceType>
+    {
+        public override bool CanConvert(Type t) => t == typeof(SketchProjectionSourceType);
+
+        public override SketchProjectionSourceType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "edge":
+                    return SketchProjectionSourceType.Edge;
+                case "shape":
+                    return SketchProjectionSourceType.Shape;
+                case "sketchEntities":
+                    return SketchProjectionSourceType.SketchEntities;
+            }
+            throw new Exception("Cannot unmarshal type SketchProjectionSourceType");
+        }
+
+        public override void Write(Utf8JsonWriter writer, SketchProjectionSourceType value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case SketchProjectionSourceType.Edge:
+                    JsonSerializer.Serialize(writer, "edge", options);
+                    return;
+                case SketchProjectionSourceType.Shape:
+                    JsonSerializer.Serialize(writer, "shape", options);
+                    return;
+                case SketchProjectionSourceType.SketchEntities:
+                    JsonSerializer.Serialize(writer, "sketchEntities", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type SketchProjectionSourceType");
+        }
+
+        public static readonly SketchProjectionSourceTypeConverter Singleton = new SketchProjectionSourceTypeConverter();
+    }
+
+    internal class SketchProjectionGroupSummaryStatusConverter : JsonConverter<SketchProjectionGroupSummaryStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(SketchProjectionGroupSummaryStatus);
+
+        public override SketchProjectionGroupSummaryStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "broken":
+                    return SketchProjectionGroupSummaryStatus.Broken;
+                case "ok":
+                    return SketchProjectionGroupSummaryStatus.Ok;
+            }
+            throw new Exception("Cannot unmarshal type SketchProjectionGroupSummaryStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, SketchProjectionGroupSummaryStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case SketchProjectionGroupSummaryStatus.Broken:
+                    JsonSerializer.Serialize(writer, "broken", options);
+                    return;
+                case SketchProjectionGroupSummaryStatus.Ok:
+                    JsonSerializer.Serialize(writer, "ok", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type SketchProjectionGroupSummaryStatus");
+        }
+
+        public static readonly SketchProjectionGroupSummaryStatusConverter Singleton = new SketchProjectionGroupSummaryStatusConverter();
+    }
+
+    internal class CurveTypeConverter : JsonConverter<CurveType>
+    {
+        public override bool CanConvert(Type t) => t == typeof(CurveType);
+
+        public override CurveType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "bezier":
+                    return CurveType.Bezier;
+                case "bspline":
+                    return CurveType.Bspline;
+                case "circle":
+                    return CurveType.Circle;
+                case "ellipse":
+                    return CurveType.Ellipse;
+                case "hyperbola":
+                    return CurveType.Hyperbola;
+                case "line":
+                    return CurveType.Line;
+                case "offset":
+                    return CurveType.Offset;
+                case "other":
+                    return CurveType.Other;
+                case "parabola":
+                    return CurveType.Parabola;
+            }
+            throw new Exception("Cannot unmarshal type CurveType");
+        }
+
+        public override void Write(Utf8JsonWriter writer, CurveType value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case CurveType.Bezier:
+                    JsonSerializer.Serialize(writer, "bezier", options);
+                    return;
+                case CurveType.Bspline:
+                    JsonSerializer.Serialize(writer, "bspline", options);
+                    return;
+                case CurveType.Circle:
+                    JsonSerializer.Serialize(writer, "circle", options);
+                    return;
+                case CurveType.Ellipse:
+                    JsonSerializer.Serialize(writer, "ellipse", options);
+                    return;
+                case CurveType.Hyperbola:
+                    JsonSerializer.Serialize(writer, "hyperbola", options);
+                    return;
+                case CurveType.Line:
+                    JsonSerializer.Serialize(writer, "line", options);
+                    return;
+                case CurveType.Offset:
+                    JsonSerializer.Serialize(writer, "offset", options);
+                    return;
+                case CurveType.Other:
+                    JsonSerializer.Serialize(writer, "other", options);
+                    return;
+                case CurveType.Parabola:
+                    JsonSerializer.Serialize(writer, "parabola", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type CurveType");
+        }
+
+        public static readonly CurveTypeConverter Singleton = new CurveTypeConverter();
+    }
+
     internal class PurpleMinMaxValueCheckConverter : JsonConverter<double>
     {
         public override bool CanConvert(Type t) => t == typeof(double);
@@ -1597,33 +2060,6 @@ namespace Kreoda.Session.Generated
         }
 
         public static readonly AxisEnumConverter Singleton = new AxisEnumConverter();
-    }
-
-    internal class TentacledMinMaxLengthCheckConverter : JsonConverter<string>
-    {
-        public override bool CanConvert(Type t) => t == typeof(string);
-
-        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            if (value.Length >= 1 && value.Length <= 512)
-            {
-                return value;
-            }
-            throw new Exception("Cannot unmarshal type string");
-        }
-
-        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
-        {
-            if (value.Length >= 1 && value.Length <= 512)
-            {
-                JsonSerializer.Serialize(writer, value, options);
-                return;
-            }
-            throw new Exception("Cannot marshal type string");
-        }
-
-        public static readonly TentacledMinMaxLengthCheckConverter Singleton = new TentacledMinMaxLengthCheckConverter();
     }
 
     internal class StickyMinMaxLengthCheckConverter : JsonConverter<string>
@@ -1770,7 +2206,7 @@ namespace Kreoda.Session.Generated
         public static readonly BaseTypeConverter Singleton = new BaseTypeConverter();
     }
 
-    internal class FluffyDecodeArrayConverter : JsonConverter<double[]>
+    internal class StickyDecodeArrayConverter : JsonConverter<double[]>
     {
         public override bool CanConvert(Type t) => t == typeof(double[]);
 
@@ -1800,7 +2236,7 @@ namespace Kreoda.Session.Generated
             return;
         }
 
-        public static readonly FluffyDecodeArrayConverter Singleton = new FluffyDecodeArrayConverter();
+        public static readonly StickyDecodeArrayConverter Singleton = new StickyDecodeArrayConverter();
     }
 
     internal class FluffyMinMaxValueCheckConverter : JsonConverter<double>
@@ -1982,39 +2418,6 @@ namespace Kreoda.Session.Generated
         public static readonly DefinitionTypeConverter Singleton = new DefinitionTypeConverter();
     }
 
-    internal class TentacledDecodeArrayConverter : JsonConverter<string[]>
-    {
-        public override bool CanConvert(Type t) => t == typeof(string[]);
-
-        public override string[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            reader.Read();
-            var value = new List<string>();
-            while (reader.TokenType != JsonTokenType.EndArray)
-            {
-                var converter = PurpleMinMaxLengthCheckConverter.Singleton;
-                var arrayItem = (string)converter.Read(ref reader, typeof(string), options);
-                value.Add(arrayItem);
-                reader.Read();
-            }
-            return value.ToArray();
-        }
-
-        public override void Write(Utf8JsonWriter writer, string[] value, JsonSerializerOptions options)
-        {
-            writer.WriteStartArray();
-            foreach (var arrayItem in value)
-            {
-                var converter = PurpleMinMaxLengthCheckConverter.Singleton;
-                converter.Write(writer, arrayItem, options);
-            }
-            writer.WriteEndArray();
-            return;
-        }
-
-        public static readonly TentacledDecodeArrayConverter Singleton = new TentacledDecodeArrayConverter();
-    }
-
     internal class DatumDescriptorKindConverter : JsonConverter<DatumDescriptorKind>
     {
         public override bool CanConvert(Type t) => t == typeof(DatumDescriptorKind);
@@ -2054,43 +2457,43 @@ namespace Kreoda.Session.Generated
         public static readonly DatumDescriptorKindConverter Singleton = new DatumDescriptorKindConverter();
     }
 
-    internal class StatusConverter : JsonConverter<Status>
+    internal class DatumDescriptorStatusConverter : JsonConverter<DatumDescriptorStatus>
     {
-        public override bool CanConvert(Type t) => t == typeof(Status);
+        public override bool CanConvert(Type t) => t == typeof(DatumDescriptorStatus);
 
-        public override Status Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override DatumDescriptorStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var value = reader.GetString();
             switch (value)
             {
                 case "broken":
-                    return Status.Broken;
+                    return DatumDescriptorStatus.Broken;
                 case "error":
-                    return Status.Error;
+                    return DatumDescriptorStatus.Error;
                 case "ok":
-                    return Status.Ok;
+                    return DatumDescriptorStatus.Ok;
             }
-            throw new Exception("Cannot unmarshal type Status");
+            throw new Exception("Cannot unmarshal type DatumDescriptorStatus");
         }
 
-        public override void Write(Utf8JsonWriter writer, Status value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, DatumDescriptorStatus value, JsonSerializerOptions options)
         {
             switch (value)
             {
-                case Status.Broken:
+                case DatumDescriptorStatus.Broken:
                     JsonSerializer.Serialize(writer, "broken", options);
                     return;
-                case Status.Error:
+                case DatumDescriptorStatus.Error:
                     JsonSerializer.Serialize(writer, "error", options);
                     return;
-                case Status.Ok:
+                case DatumDescriptorStatus.Ok:
                     JsonSerializer.Serialize(writer, "ok", options);
                     return;
             }
-            throw new Exception("Cannot marshal type Status");
+            throw new Exception("Cannot marshal type DatumDescriptorStatus");
         }
 
-        public static readonly StatusConverter Singleton = new StatusConverter();
+        public static readonly DatumDescriptorStatusConverter Singleton = new DatumDescriptorStatusConverter();
     }
 
     internal class SessionEntityPatchKindConverter : JsonConverter<SessionEntityPatchKind>
@@ -2372,7 +2775,7 @@ namespace Kreoda.Session.Generated
         public static readonly IndecentMinMaxLengthCheckConverter Singleton = new IndecentMinMaxLengthCheckConverter();
     }
 
-    internal class StickyDecodeArrayConverter : JsonConverter<string[]>
+    internal class IndigoDecodeArrayConverter : JsonConverter<string[]>
     {
         public override bool CanConvert(Type t) => t == typeof(string[]);
 
@@ -2402,7 +2805,7 @@ namespace Kreoda.Session.Generated
             return;
         }
 
-        public static readonly StickyDecodeArrayConverter Singleton = new StickyDecodeArrayConverter();
+        public static readonly IndigoDecodeArrayConverter Singleton = new IndigoDecodeArrayConverter();
     }
 
     internal class DatumPlaneDefinitionTypeConverter : JsonConverter<DatumPlaneDefinitionType>

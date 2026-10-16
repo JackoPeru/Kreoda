@@ -17,6 +17,10 @@ std::string SerializeSketchProjectionGroups(
     const std::vector<SketchProjectionGroup>& groups);
 std::string SerializeSketchProjectionGroupsForInspection(
     const std::vector<SketchProjectionGroup>& groups);
+bool SerializeSketchProjectionQuery(const SketchFeature& sketch,
+                                    const std::string& groupId,
+                                    std::string* result,
+                                    std::string* error);
 bool ValidateSketchProjectionDefinition(const std::string& groupId,
                                        const std::string& definitionJson,
                                        std::string* canonicalJson,

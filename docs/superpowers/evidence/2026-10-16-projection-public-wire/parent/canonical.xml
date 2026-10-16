@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="14" failures="0" errors="0" time="0.0378041">
+    <testsuite name="src/native-command.test.ts" timestamp="2026-10-16T08:48:43.118Z" hostname="PC-Matteo" tests="12" failures="0" errors="0" skipped="0" time="0.030858">
+        <testcase classname="src/native-command.test.ts" name="runtime schemas expose the actual creation budget including multi-hole commands" time="0.0059338">
+        </testcase>
+        <testcase classname="src/native-command.test.ts" name="exports datum constructors with one creation and update/query with zero" time="0.0058959">
+        </testcase>
+        <testcase classname="src/native-command.test.ts" name="keeps generated session datum definitions identical to canonical command schemas" time="0.0033891">
+        </testcase>
+        <testcase classname="src/native-command.test.ts" name="exports strict projection commands with zero allocation and wire parity" time="0.0030074">
+        </testcase>
+        <testcase classname="src/native-command.test.ts" name="rejects projection private/unknown fields, duplicates, wrong source kinds and UTF-8 overflow" time="0.0052058">
+        </testcase>
+        <testcase classname="src/native-command.test.ts" name="validates datum variants, finite bounded input and stable source identities" time="0.0024558">
+        </testcase>
+        <testcase classname="src/native-command.test.ts" name="exports canonical stable ID constraints even though their runtime validator is opaque Zod custom" time="0.0003823">
+        </testcase>
+        <testcase classname="src/native-command.test.ts" name="validates named commands and legacy invokes with the same parameter registry" time="0.0010933">
+        </testcase>
+        <testcase classname="src/native-command.test.ts" name="requires a dimension value or expression and preserves valid zero or negative instance placement" time="0.0005059">
+        </testcase>
+        <testcase classname="src/native-command.test.ts" name="keeps canonical sketch content and translates pattern arrays after their shared validation" time="0.0008008">
+        </testcase>
+        <testcase classname="src/native-command.test.ts" name="rejects unsupported operations, binary mesh control calls and invalid creation identities" time="0.0004475">
+        </testcase>
+        <testcase classname="src/native-command.test.ts" name="exports actual parameter constraints from the registry through the standard converter" time="0.0002793">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/selection-kind.test.ts" timestamp="2026-10-16T08:48:43.125Z" hostname="PC-Matteo" tests="2" failures="0" errors="0" skipped="0" time="0.0069461">
+        <testcase classname="src/selection-kind.test.ts" name="accepts datum target kinds alongside the existing canonical selection kinds" time="0.0019596">
+        </testcase>
+        <testcase classname="src/selection-kind.test.ts" name="declares CreateSketch datum-plane support as optional registry metadata" time="0.0037065">
+        </testcase>
+    </testsuite>
+</testsuites>

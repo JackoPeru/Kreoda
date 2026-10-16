@@ -1,0 +1,9 @@
+
+> @kreoda/protocol@0.1.0 codegen C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol
+> node scripts/codegen.mjs
+
+flatc version 25.12.19
+flatc codegen ok:
+  C++ -> native/kreoda-core/src/protocol/generated/cad_protocol_generated.h
+  TS  -> packages/protocol/src/generated/
+  C#  -> packages/protocol/csharp/Generated/

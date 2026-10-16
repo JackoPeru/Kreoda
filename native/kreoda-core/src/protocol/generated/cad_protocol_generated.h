@@ -173,11 +173,14 @@ enum CommandType : uint16_t {
   CommandType_CreateDatumPoint = 33,
   CommandType_UpdateDatum = 34,
   CommandType_RequestDatum = 35,
+  CommandType_SetSketchProjection = 36,
+  CommandType_RemoveSketchProjection = 37,
+  CommandType_RequestSketchProjection = 38,
   CommandType_MIN = CommandType_None,
-  CommandType_MAX = CommandType_RequestDatum
+  CommandType_MAX = CommandType_RequestSketchProjection
 };
 
-inline const CommandType (&EnumValuesCommandType())[36] {
+inline const CommandType (&EnumValuesCommandType())[39] {
   static const CommandType values[] = {
     CommandType_None,
     CommandType_GetCoreInfo,
@@ -214,13 +217,16 @@ inline const CommandType (&EnumValuesCommandType())[36] {
     CommandType_CreateDatumAxis,
     CommandType_CreateDatumPoint,
     CommandType_UpdateDatum,
-    CommandType_RequestDatum
+    CommandType_RequestDatum,
+    CommandType_SetSketchProjection,
+    CommandType_RemoveSketchProjection,
+    CommandType_RequestSketchProjection
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandType() {
-  static const char * const names[37] = {
+  static const char * const names[40] = {
     "None",
     "GetCoreInfo",
     "CreateDocument",
@@ -257,13 +263,16 @@ inline const char * const *EnumNamesCommandType() {
     "CreateDatumPoint",
     "UpdateDatum",
     "RequestDatum",
+    "SetSketchProjection",
+    "RemoveSketchProjection",
+    "RequestSketchProjection",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandType(CommandType e) {
-  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_RequestDatum)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_RequestSketchProjection)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandType()[index];
 }

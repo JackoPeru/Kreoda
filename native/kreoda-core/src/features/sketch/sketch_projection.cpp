@@ -1,6 +1,7 @@
 #include "sketch_projection.h"
 
 #include <algorithm>
+#include <cmath>
 #include <regex>
 #include <set>
 #include <stdexcept>
@@ -17,7 +18,11 @@
 
 #if KREODA_WITH_OCCT
 #include "../../topology/face_roles.h"
+#include <BRepAdaptor_Curve.hxx>
 #include <BRepCheck_Analyzer.hxx>
+#include <GeomAbs_CurveType.hxx>
+#include <Precision.hxx>
+#include <Standard_Failure.hxx>
 #include <TopAbs_ShapeEnum.hxx>
 #include <TopoDS.hxx>
 #include <TopExp_Explorer.hxx>
@@ -265,6 +270,121 @@ std::string SerializeSketchProjectionGroupsForInspection(
                       {"generation", group.generation}});
   }
   return values.dump();
+}
+
+bool SerializeSketchProjectionQuery(const SketchFeature& sketch,
+                                    const std::string& groupId,
+                                    std::string* result,
+                                    std::string* error) {
+  if (!result) {
+    if (error) *error = "projection query output is required";
+    return false;
+  }
+#if KREODA_WITH_OCCT
+  try {
+    Json groups = Json::array();
+    const auto availability = GetGeometryAvailability(sketch.id);
+    size_t edgeTotal = 0;
+    if (availability.geometryCurrent) {
+      for (const auto& group : sketch.projectionGroups) {
+        if (group.status != "ok") continue;
+        if (group.evaluatedEdges.size() > 2000 - edgeTotal)
+          throw std::runtime_error("sketch projection output exceeds 2000 edges");
+        edgeTotal += group.evaluatedEdges.size();
+      }
+    }
+    for (const auto& group : sketch.projectionGroups) {
+      if (!groupId.empty() && group.groupId != groupId) continue;
+      Json summary = Json::parse(
+          SerializeSketchProjectionGroupsForInspection({group})).front();
+      Json edges = Json::array();
+      if (availability.geometryCurrent && group.status == "ok") {
+        for (size_t member = 0; member < group.evaluatedEdges.size(); ++member) {
+          const auto& edge = group.evaluatedEdges[member];
+          if (edge.IsNull()) throw std::runtime_error("projection display edge is null");
+          BRepAdaptor_Curve curve(edge);
+          const double first = curve.FirstParameter();
+          const double last = curve.LastParameter();
+          const double span = last - first;
+          if (!std::isfinite(first) || !std::isfinite(last) ||
+              Precision::IsInfinite(first) || Precision::IsInfinite(last) ||
+              !std::isfinite(span) || Precision::IsInfinite(span) || !(last > first))
+            throw std::runtime_error("projection display curve interval is not finite and nonempty");
+
+          const auto type = curve.GetType();
+          const bool line = type == GeomAbs_Line;
+          const size_t pointCount = line ? 2 : 129;
+          Json points = Json::array();
+          gp_Pnt firstPoint;
+          gp_Pnt lastPoint;
+          for (size_t sample = 0; sample < pointCount; ++sample) {
+            const double fraction = static_cast<double>(sample) /
+                                    static_cast<double>(pointCount - 1);
+            const double parameter = first + span * fraction;
+            if (!std::isfinite(parameter))
+              throw std::runtime_error("projection display parameter is nonfinite");
+            const gp_Pnt point = curve.Value(parameter);
+            if (!std::isfinite(point.X()) || !std::isfinite(point.Y()) ||
+                !std::isfinite(point.Z()))
+              throw std::runtime_error("projection display curve contains nonfinite points");
+            if (sample == 0) firstPoint = point;
+            if (sample + 1 == pointCount) lastPoint = point;
+            points.push_back(Json::array({point.X(), point.Y(), point.Z()}));
+          }
+
+          std::string curveType = "other";
+          switch (type) {
+            case GeomAbs_Line: curveType = "line"; break;
+            case GeomAbs_Circle: curveType = "circle"; break;
+            case GeomAbs_Ellipse: curveType = "ellipse"; break;
+            case GeomAbs_Hyperbola: curveType = "hyperbola"; break;
+            case GeomAbs_Parabola: curveType = "parabola"; break;
+            case GeomAbs_BezierCurve: curveType = "bezier"; break;
+            case GeomAbs_BSplineCurve: curveType = "bspline"; break;
+            case GeomAbs_OffsetCurve: curveType = "offset"; break;
+            default: break;
+          }
+          edges.push_back({{"memberIndex", member}, {"curveType", curveType},
+                           {"firstParameter", first}, {"lastParameter", last},
+                           {"closed", firstPoint.Distance(lastPoint) <= Precision::Confusion()},
+                           {"pointsMm", std::move(points)}});
+        }
+      }
+      summary["edges"] = std::move(edges);
+      groups.push_back(std::move(summary));
+    }
+    const auto vector = [](const double value[3]) {
+      return Json::array({value[0], value[1], value[2]});
+    };
+    *result = Json{{"featureId", sketch.id},
+                   {"plane", {{"origin", vector(sketch.plane.origin)},
+                               {"xAxis", vector(sketch.plane.xAxis)},
+                               {"yAxis", vector(sketch.plane.yAxis)},
+                               {"normal", vector(sketch.plane.normal)}}},
+                   {"geometryCurrent", availability.geometryCurrent},
+                   {"status", availability.status},
+                   {"error", availability.error},
+                   {"blockingSourceIds", availability.blockingSourceIds},
+                   {"groups", std::move(groups)}}.dump();
+    if (error) error->clear();
+    return true;
+  } catch (const Standard_Failure& failure) {
+    if (error) *error = std::string("projection display query failed: ") +
+        (failure.GetMessageString() ? failure.GetMessageString() : "native curve error");
+    result->clear();
+    return false;
+  } catch (const std::exception& failure) {
+    if (error) *error = std::string("projection display query failed: ") + failure.what();
+    result->clear();
+    return false;
+  }
+#else
+  (void)sketch;
+  (void)groupId;
+  if (error) *error = "projection display query requires OCCT";
+  result->clear();
+  return false;
+#endif
 }
 
 std::vector<std::string> SketchDependencies(const SketchFeature& sketch) {

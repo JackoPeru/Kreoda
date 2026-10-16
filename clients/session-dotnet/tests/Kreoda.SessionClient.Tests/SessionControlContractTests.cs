@@ -1,13 +1,28 @@
 // Slice 7: C# mirror of schemas/session-control-v1.json stays pinned to it,
 // and the typed DTOs send the contracted wire shape (errorCode/error kept).
 using System.Text.Json;
+using System.Reflection;
 using Kreoda.Session;
+using Kreoda.Session.Generated;
 using Xunit;
 
 namespace Kreoda.SessionClient.Tests;
 
 public sealed class SessionControlContractTests
 {
+    private static JsonSerializerOptions GeneratedDtoOptions
+    {
+        get
+        {
+            var converterType = typeof(SketchProjectionResult).Assembly.GetType(
+                "Kreoda.Session.Generated.Converter", throwOnError: true)!;
+            var settings = converterType.GetField(
+                "Settings", BindingFlags.Public | BindingFlags.Static);
+            Assert.NotNull(settings);
+            return Assert.IsType<JsonSerializerOptions>(settings!.GetValue(null));
+        }
+    }
+
     private static JsonDocument LoadContract()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -64,6 +79,68 @@ public sealed class SessionControlContractTests
         Assert.Equal(
             methods.Count,
             SessionMethods.RequiredParams.Count);
+    }
+
+    [Fact]
+    public void ProjectionDisplayDtosRoundTripTheContractedWireShape()
+    {
+        const string json = """
+            {
+              "featureId":"sketch-target",
+              "geometryCurrent":true,
+              "status":"ok",
+              "error":"",
+              "blockingSourceIds":[],
+              "plane":{"origin":[0,0,0],"xAxis":[1,0,0],"yAxis":[0,1,0],"normal":[0,0,1]},
+              "groups":[{
+                "groupId":"projected",
+                "status":"ok",
+                "sourceFeatureIds":["sketch-source"],
+                "definition":{"version":1,"operation":"projectEdges","sources":[{"type":"sketchEntities","featureId":"sketch-source","entityIds":["diagonal"]}]},
+                "generation":1,
+                "error":"",
+                "blockingSourceIds":[],
+                "edges":[{"memberIndex":0,"curveType":"line","firstParameter":0,"lastParameter":1,"closed":false,"pointsMm":[[1,2,0],[4,6,0]]}]
+              }]
+            }
+            """;
+
+        var result = JsonSerializer.Deserialize<SketchProjectionResult>(
+            json, GeneratedDtoOptions);
+        Assert.NotNull(result);
+        Assert.True(result!.GeometryCurrent);
+        Assert.Equal("ok", result.Status);
+        var group = Assert.Single(result.Groups);
+        Assert.Equal(SketchProjectionGroupSummaryStatus.Ok, group.Status);
+        var edge = Assert.Single(group.Edges);
+        Assert.Equal(CurveType.Line, edge.CurveType);
+        Assert.Equal(new[] { 1d, 2d, 0d }, edge.PointsMm[0]);
+        Assert.Equal(new[] { 4d, 6d, 0d }, edge.PointsMm[1]);
+
+        using var roundTrip = JsonDocument.Parse(
+            JsonSerializer.Serialize(result, GeneratedDtoOptions));
+        Assert.Equal("line", roundTrip.RootElement
+            .GetProperty("groups")[0].GetProperty("edges")[0]
+            .GetProperty("curveType").GetString());
+        Assert.Equal("projectEdges", roundTrip.RootElement
+            .GetProperty("groups")[0].GetProperty("definition")
+            .GetProperty("operation").GetString());
+
+        var legacySketch = JsonSerializer.Deserialize<SketchDescriptor>(
+            "{\"featureId\":\"legacy-sketch\",\"planeKind\":\"XY\"}",
+            GeneratedDtoOptions);
+        Assert.NotNull(legacySketch);
+        Assert.Null(legacySketch!.ProjectionGroups);
+        Assert.Null(legacySketch.GeometryCurrent);
+
+        var currentSketch = JsonSerializer.Deserialize<SketchDescriptor>(
+            "{\"featureId\":\"current-sketch\",\"planeKind\":\"XY\",\"geometryCurrent\":false,\"status\":\"unavailable\",\"error\":\"missing source\",\"blockingSourceIds\":[\"sketch-source\"],\"projectionGroups\":[]}",
+            GeneratedDtoOptions);
+        Assert.NotNull(currentSketch);
+        Assert.False(currentSketch!.GeometryCurrent);
+        Assert.Equal("unavailable", currentSketch.Status);
+        Assert.Equal(new[] { "sketch-source" }, currentSketch.BlockingSourceIds);
+        Assert.Empty(currentSketch.ProjectionGroups!);
     }
 
     [Fact]

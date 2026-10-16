@@ -28,6 +28,69 @@ it("keeps generated session datum definitions identical to canonical command sch
   }
 });
 
+it("exports strict projection commands with zero allocation and wire parity", () => {
+  const contract = JSON.parse(readFileSync(new URL("../../../schemas/session-control-v1.json", import.meta.url), "utf8")) as { definitions: Record<string, unknown> };
+  const expand = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(expand);
+    if (!value || typeof value !== "object") return value;
+    const object = value as Record<string, unknown>;
+    if (typeof object["$ref"] === "string")
+      return expand(contract.definitions[(object["$ref"] as string).split("/").at(-1)!]);
+    return Object.fromEntries(Object.entries(object).map(([key, child]) => [key, expand(child)]));
+  };
+  const definition = { version: 1, operation: "projectEdges", sources: [
+    { type: "edge", featureId: "source", persistentEdgeId: "source:edge.lin.box.+X~box.+Z" },
+  ] } as const;
+  for (const [id, type] of [["SetSketchProjection", 36], ["RemoveSketchProjection", 37], ["RequestSketchProjection", 38]] as const) {
+    expect(commandJsonSchema(id)).toMatchObject({ nativeType: type, creation: { fixedCount: 0 } });
+  }
+  const parameters = commandJsonSchema("SetSketchProjection")!.parameters as { properties: { definition: unknown } };
+  expect(parameters.properties.definition).toEqual(expand(contract.definitions["SketchProjectionDefinition"]));
+  const named = commandNativeRequest("SetSketchProjection", {
+    featureId: "target", groupId: "linked", definition,
+  });
+  expect(named).toEqual({ type: 36, fields: { featureId: "target", groupId: "linked", definition } });
+  expect(validateLegacyNativeCommand(36, named.fields)).toEqual(named);
+  expect(validateLegacyNativeCommand(37, { featureId: "target", groupId: "linked" })).toEqual({
+    type: 37, fields: { featureId: "target", groupId: "linked" },
+  });
+  expect(validateLegacyNativeCommand(38, { featureId: "target" })).toEqual({
+    type: 38, fields: { featureId: "target" },
+  });
+});
+
+it("rejects projection private/unknown fields, duplicates, wrong source kinds and UTF-8 overflow", () => {
+  const base = { version: 1, operation: "projectEdges", sources: [
+    { type: "sketchEntities", featureId: "source", entityIds: ["circle"] },
+  ] };
+  expect(() => commandNativeRequest("SetSketchProjection", {
+    featureId: "target", groupId: "linked", definition: { ...base, bindings: { version: 1, entries: [] } },
+  })).toThrow();
+  expect(() => commandNativeRequest("SetSketchProjection", {
+    featureId: "target", groupId: "linked", definition: { ...base, unknown: true },
+  })).toThrow();
+  expect(() => commandNativeRequest("SetSketchProjection", {
+    featureId: "target", groupId: "linked", definition: { ...base, sources: [...base.sources, ...base.sources] },
+  })).toThrow();
+  expect(() => commandNativeRequest("SetSketchProjection", {
+    featureId: "target", groupId: "linked", definition: { ...base, sources: [
+      { type: "shape", featureId: "source" },
+    ] },
+  })).toThrow();
+  expect(() => commandNativeRequest("RequestSketchProjection", {
+    featureId: "target", privateBinding: "1:2",
+  })).toThrow();
+
+  const unicodeSources = Array.from({ length: 128 }, (_, index) => ({ type: "edge",
+    featureId: "source", persistentEdgeId: `source:${"é".repeat(236)}:${index}` }));
+  expect(JSON.stringify({ version: 1, operation: "projectEdges", sources: unicodeSources }).length).toBeLessThan(65536);
+  expect(new TextEncoder().encode(JSON.stringify({ version: 1, operation: "projectEdges", sources: unicodeSources })).length).toBeGreaterThan(65536);
+  expect(() => commandNativeRequest("SetSketchProjection", {
+    featureId: "target", groupId: "linked",
+    definition: { version: 1, operation: "projectEdges", sources: unicodeSources },
+  })).toThrow(/UTF-8 bytes/);
+});
+
 it("validates datum variants, finite bounded input and stable source identities", () => {
   const point = (x: number, y: number, z: number) => ({ type: "coordinates", positionMm: [x, y, z] });
   const principal = { type: "principal", planeKind: "XY" };

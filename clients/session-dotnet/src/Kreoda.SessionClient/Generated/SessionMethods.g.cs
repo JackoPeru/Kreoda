@@ -1,11 +1,11 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: fc27989e6b39fd8d12cafa770f72ab89f26e7bb0f9d14b635f687b3ebbdfe6ce
+// Source SHA256: 729b9e136edc52106ac8bd5af4d790467274f647a1e156c1f16f9f96d6db56d1
 namespace Kreoda.Session;
 
 public static class SessionMethods
 {
     public const int ProtocolVersion = 1;
-    public const string ContractSchemaSha256 = "fc27989e6b39fd8d12cafa770f72ab89f26e7bb0f9d14b635f687b3ebbdfe6ce";
+    public const string ContractSchemaSha256 = "729b9e136edc52106ac8bd5af4d790467274f647a1e156c1f16f9f96d6db56d1";
     public const string OperationReplayCapability = "operation-replay";
     public const string IncrementalDeltasCapability = "incremental-deltas";
     public const string BinaryMeshV1Capability = "binary-mesh-v1";
@@ -139,6 +139,13 @@ public static class SessionContract
         ["HelloReply"] = ["requestId", "ok", "clientId", "sessionId", "documentId", "revision", "capabilities"],
         ["FeatureDescriptor"] = ["featureId", "type"],
         ["SketchDescriptor"] = ["featureId"],
+        ["SketchProjectionSource"] = [],
+        ["SketchProjectionDefinition"] = ["version", "operation", "sources"],
+        ["SketchProjectionGroupSummary"] = ["groupId", "definition", "sourceFeatureIds", "status", "error", "blockingSourceIds", "generation"],
+        ["SketchProjectionPointMm"] = [],
+        ["SketchProjectionDisplayEdge"] = ["memberIndex", "curveType", "firstParameter", "lastParameter", "closed", "pointsMm"],
+        ["SketchProjectionGroupResult"] = ["groupId", "definition", "sourceFeatureIds", "status", "error", "blockingSourceIds", "generation", "edges"],
+        ["SketchProjectionResult"] = ["featureId", "plane", "geometryCurrent", "status", "error", "blockingSourceIds", "groups"],
         ["BodyDescriptor"] = ["bodyId", "tip", "history"],
         ["SessionSnapshotPayload"] = ["sessionId", "documentId", "revision", "features", "sketches", "bodies"],
         ["SessionEntityPatch"] = ["kind", "id", "index", "value"],

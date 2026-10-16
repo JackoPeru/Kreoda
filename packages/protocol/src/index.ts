@@ -15,6 +15,7 @@ import { StableFeatureIdSchema } from "./session-control.js";
 export * from "./session-control.js";
 export * from "./session-model.js";
 export * from "./datum.js";
+export * from "./sketch-projection.js";
 
 export const PROTOCOL_VERSION = 1 as const;
 
@@ -55,6 +56,9 @@ export const CommandType = {
   CreateDatumPoint: 33,
   UpdateDatum: 34,
   RequestDatum: 35,
+  SetSketchProjection: 36,
+  RemoveSketchProjection: 37,
+  RequestSketchProjection: 38,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 

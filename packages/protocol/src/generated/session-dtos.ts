@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: fc27989e6b39fd8d12cafa770f72ab89f26e7bb0f9d14b635f687b3ebbdfe6ce
+// Source SHA256: 729b9e136edc52106ac8bd5af4d790467274f647a1e156c1f16f9f96d6db56d1
 type StableFeatureID = string;
 
 export interface RequestMetadata {
@@ -103,6 +103,64 @@ export interface HelloReply {
     [property: string]: unknown;
 }
 
+export interface SketchProjectionResult {
+    blockingSourceIds: string[];
+    error:             string;
+    featureId:         string;
+    geometryCurrent:   boolean;
+    groups:            SketchProjectionGroupResult[];
+    plane:             SketchPlaneFrame;
+    status:            string;
+}
+
+export interface SketchProjectionGroupResult {
+    blockingSourceIds: string[];
+    definition:        SketchProjectionDefinition;
+    edges:             SketchProjectionDisplayEdge[];
+    error:             string;
+    generation:        number;
+    groupId:           string;
+    sourceFeatureIds:  string[];
+    status:            SketchProjectionGroupSummaryStatus;
+}
+
+export interface SketchProjectionDefinition {
+    operation: Operation;
+    sources:   [SketchProjectionSource, ...SketchProjectionSource[]];
+    version:   number;
+}
+
+export type Operation = "projectEdges" | "silhouette" | "section";
+
+export interface SketchProjectionSource {
+    featureId:         string;
+    persistentEdgeId?: string;
+    type:              SketchProjectionSourceType;
+    entityIds?:        [string, ...string[]];
+}
+
+export type SketchProjectionSourceType = "edge" | "shape" | "sketchEntities";
+
+export interface SketchProjectionDisplayEdge {
+    closed:         boolean;
+    curveType:      CurveType;
+    firstParameter: number;
+    lastParameter:  number;
+    memberIndex:    number;
+    pointsMm:       [[number, number, number, ...number[]], [number, number, number, ...number[]], ...[number, number, number, ...number[]][]];
+}
+
+export type CurveType = "line" | "circle" | "ellipse" | "hyperbola" | "parabola" | "bezier" | "bspline" | "offset" | "other";
+
+export type SketchProjectionGroupSummaryStatus = "ok" | "broken";
+
+export interface SketchPlaneFrame {
+    normal: [number, number, number, ...number[]];
+    origin: [number, number, number, ...number[]];
+    xAxis:  [number, number, number, ...number[]];
+    yAxis:  [number, number, number, ...number[]];
+}
+
 export interface SessionSnapshotPayload {
     bodies:     BodyDescriptor[];
     datums?:    DatumDescriptor[];
@@ -129,7 +187,7 @@ export interface DatumDescriptor {
     featureId:  string;
     kind:       DatumDescriptorKind;
     resolved:   DatumGeometry;
-    status:     Status;
+    status:     DatumDescriptorStatus;
     type?:      DatumDescriptorKind;
     [property: string]: unknown;
 }
@@ -228,34 +286,46 @@ export interface DatumGeometry {
     positionMm?: [number, number, number, ...number[]];
 }
 
-export type Status = "ok" | "broken" | "error";
+export type DatumDescriptorStatus = "ok" | "broken" | "error";
 
 export interface FeatureDescriptor {
-    dependsOn?:   string[];
-    expressions?: { [key: string]: string };
-    featureId:    string;
-    paramsMm?:    number[];
-    refExtra?:    string;
-    type:         string;
-    volumeMm3?:   number;
+    blockingSourceIds?: string[];
+    dependsOn?:         string[];
+    error?:             string;
+    expressions?:       { [key: string]: string };
+    featureId:          string;
+    geometryCurrent?:   boolean;
+    paramsMm?:          number[];
+    refExtra?:          string;
+    status?:            string;
+    type:               string;
+    volumeMm3?:         number;
     [property: string]: unknown;
 }
 
 export interface SketchDescriptor {
-    featureId:   string;
-    id?:         string;
-    model?:      { [key: string]: unknown };
-    plane?:      SketchPlaneFrame;
-    planeKind?:  string;
-    supportRef?: string;
+    blockingSourceIds?: string[];
+    error?:             string;
+    featureId:          string;
+    geometryCurrent?:   boolean;
+    id?:                string;
+    model?:             { [key: string]: unknown };
+    plane?:             SketchPlaneFrame;
+    planeKind?:         string;
+    projectionGroups?:  SketchProjectionGroupSummary[];
+    status?:            string;
+    supportRef?:        string;
     [property: string]: unknown;
 }
 
-export interface SketchPlaneFrame {
-    normal: [number, number, number, ...number[]];
-    origin: [number, number, number, ...number[]];
-    xAxis:  [number, number, number, ...number[]];
-    yAxis:  [number, number, number, ...number[]];
+export interface SketchProjectionGroupSummary {
+    blockingSourceIds: string[];
+    definition:        SketchProjectionDefinition;
+    error:             string;
+    generation:        number;
+    groupId:           string;
+    sourceFeatureIds:  string[];
+    status:            SketchProjectionGroupSummaryStatus;
 }
 
 export interface SessionIncrementalEvent {
@@ -429,7 +499,7 @@ export interface DatumPlaneDescriptor {
     featureId:  string;
     kind:       DatumPlaneDescriptorKind;
     resolved:   DatumPlaneGeometry;
-    status:     Status;
+    status:     DatumDescriptorStatus;
     type?:      DatumPlaneDescriptorKind;
     [property: string]: unknown;
 }
@@ -482,7 +552,7 @@ export interface DatumAxisDescriptor {
     featureId:  string;
     kind:       DatumAxisDescriptorKind;
     resolved:   DatumAxisGeometry;
-    status:     Status;
+    status:     DatumDescriptorStatus;
     type?:      DatumAxisDescriptorKind;
     [property: string]: unknown;
 }
@@ -529,7 +599,7 @@ export interface DatumPointDescriptor {
     featureId:  string;
     kind:       DatumPointDescriptorKind;
     resolved:   DatumPointGeometry;
-    status:     Status;
+    status:     DatumDescriptorStatus;
     type?:      DatumPointDescriptorKind;
     [property: string]: unknown;
 }

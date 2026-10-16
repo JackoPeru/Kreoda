@@ -140,6 +140,14 @@ double ProjectionDeviation(const TopoDS_Edge& source,
   return maximum;
 }
 
+double ProjectionAreaTolerance(const TopoDS_Edge& edge) {
+  constexpr double kCadToleranceMm = 1e-6;
+  GProp_GProps edgeLength;
+  BRepGProp::LinearProperties(edge, edgeLength);
+  return edgeLength.Mass() * kCadToleranceMm +
+         std::acos(-1.0) * kCadToleranceMm * kCadToleranceMm;
+}
+
 }  // namespace
 
 TEST(SketchProjectionLifecycle, NativeEdgeFeedsGroupOnlyExtrudeAndRecomputes) {
@@ -530,6 +538,17 @@ TEST(SketchProjectionPersistence, IcadRoundTripBrokenBindingRepairUndoRedo) {
   EXPECT_NE(std::find(availability.blockingSourceIds.begin(),
                       availability.blockingSourceIds.end(), "persist-source"),
             availability.blockingSourceIds.end());
+  const auto brokenProjection = ProjectionRpc("projection-icad-lifecycle",
+      kreoda::kRequestSketchProjection, {{"featureId", "persist-target"}});
+  ASSERT_EQ(brokenProjection.value("status", ""), "ok")
+      << brokenProjection.dump();
+  EXPECT_FALSE(brokenProjection["projection"]["geometryCurrent"].get<bool>());
+  EXPECT_EQ(brokenProjection["projection"]["status"], "unavailable");
+  EXPECT_NE(brokenProjection["projection"]["error"].get<std::string>().find(
+                "persist-source"), std::string::npos);
+  ASSERT_EQ(brokenProjection["projection"]["groups"].size(), 1u);
+  EXPECT_EQ(brokenProjection["projection"]["groups"][0]["status"], "broken");
+  EXPECT_TRUE(brokenProjection["projection"]["groups"][0]["edges"].empty());
 #if KREODA_WITH_FLATBUFFERS
   const kreoda::Json cachedRequest = {
       {"protocolVersion", 1}, {"requestId", "projection-mesh-after-break"},
@@ -1665,4 +1684,376 @@ TEST(SketchProjectionPersistence, AllowsFullAggregateOfBoundedGroupDefinitions) 
   std::string error;
   EXPECT_TRUE(kreoda::ParseSketchProjectionGroups(serialized, &parsed, &error)) << error;
   EXPECT_EQ(parsed.size(), 40u);
+}
+
+TEST(SketchProjectionPublicWire, DispatchesAndSamplesCurvedGeometryReadOnly) {
+#if KREODA_WITH_OCCT
+  std::string error;
+  ASSERT_TRUE(StartProjectionDocument("projection-public-wire", &error)) << error;
+
+  kreoda::SketchPlane sourcePlane = kreoda::PrincipalPlane("XY");
+  sourcePlane.origin[0] = 14;
+  sourcePlane.origin[1] = -8;
+  sourcePlane.origin[2] = 12;
+  ASSERT_TRUE(kreoda::CreateSketchFeature(
+      "wire-source", "XY", CircleModel(2, 1), sourcePlane, &error)) << error;
+  const auto targetPlane = TiltedProjectionPlane();
+  ASSERT_TRUE(kreoda::CreateSketchFeature(
+      "wire-target", "XY", {}, targetPlane, &error)) << error;
+
+  const kreoda::Json definition =
+      SketchEntityProjection("wire-source", {"circle"});
+  const auto set = ProjectionRpc("projection-public-wire", 36,
+      {{"featureId", "wire-target"}, {"groupId", "wire-link"},
+       {"definition", definition}});
+  ASSERT_EQ(set.value("status", ""), "ok") << set.dump();
+  EXPECT_EQ(set["featureId"], "wire-target");
+  EXPECT_EQ(set["sketch"]["projectionGroups"][0]["groupId"], "wire-link");
+  EXPECT_EQ(set["sketch"]["projectionGroups"][0]["status"], "ok");
+
+  kreoda::SketchFeature sourceSketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("wire-source", &sourceSketch));
+  TopoDS_Shape sourceProfile;
+  ASSERT_TRUE(kreoda::BuildProfileFromSketch(sourceSketch, &sourceProfile, &error))
+      << error;
+  TopoDS_Edge sourceEdge;
+  for (TopExp_Explorer explorer(sourceProfile, TopAbs_EDGE); explorer.More();
+       explorer.Next()) {
+    sourceEdge = TopoDS::Edge(explorer.Current());
+    break;
+  }
+  ASSERT_FALSE(sourceEdge.IsNull());
+  kreoda::SketchFeature targetSketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("wire-target", &targetSketch));
+  ASSERT_EQ(targetSketch.projectionGroups.size(), 1u);
+  ASSERT_EQ(targetSketch.projectionGroups.front().evaluatedEdges.size(), 1u);
+  const auto& projectedEdge = targetSketch.projectionGroups.front().evaluatedEdges.front();
+  constexpr double kCadToleranceMm = 1e-6;
+  EXPECT_LE(ProjectionDeviation(sourceEdge, projectedEdge, targetPlane),
+            kCadToleranceMm);
+  const double initialVolumeTolerance = ProjectionAreaTolerance(projectedEdge) * 5;
+
+  ASSERT_TRUE(kreoda::CreateExtrudeFeature(
+      "wire-solid", "wire-target", 5, &error)) << error;
+  kreoda::ShapeRecord beforeEdit;
+  ASSERT_TRUE(kreoda::GetCurrentShapeRecord("wire-solid", &beforeEdit, &error))
+      << error;
+  const double planeCosine = 3.0 / std::sqrt(14.0);
+  const double initialVolume = std::acos(-1.0) * 4 * planeCosine * 5;
+  EXPECT_NEAR(beforeEdit.volumeMm3, initialVolume, initialVolumeTolerance);
+  const auto stableSolidId = beforeEdit.featureId;
+
+  const auto revisionBeforeQuery = kreoda::DocumentStore::instance().revision();
+  const auto query = ProjectionRpc("projection-public-wire", 38,
+      {{"featureId", "wire-target"}});
+  ASSERT_EQ(query.value("status", ""), "ok") << query.dump();
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revisionBeforeQuery);
+  ASSERT_EQ(query["projection"]["featureId"], "wire-target");
+  ASSERT_EQ(query["projection"]["plane"]["origin"],
+            (kreoda::Json{2, -3, 8}));
+  ASSERT_EQ(query["projection"]["groups"].size(), 1u);
+  const auto& group = query["projection"]["groups"][0];
+  EXPECT_EQ(group["groupId"], "wire-link");
+  EXPECT_EQ(group["sourceFeatureIds"], (kreoda::Json{"wire-source"}));
+  EXPECT_EQ(group["status"], "ok");
+  ASSERT_EQ(group["edges"].size(), 1u);
+  const auto& edge = group["edges"][0];
+  EXPECT_EQ(edge["memberIndex"], 0);
+  EXPECT_TRUE(edge["closed"].get<bool>());
+  ASSERT_EQ(edge["pointsMm"].size(), 129u);
+  const auto firstPoint = gp_Pnt(edge["pointsMm"][0][0].get<double>(),
+                                 edge["pointsMm"][0][1].get<double>(),
+                                 edge["pointsMm"][0][2].get<double>());
+  const auto lastPoint = gp_Pnt(edge["pointsMm"][128][0].get<double>(),
+                                edge["pointsMm"][128][1].get<double>(),
+                                edge["pointsMm"][128][2].get<double>());
+  EXPECT_LE(firstPoint.Distance(lastPoint), 1e-7);
+
+  kreoda::SketchFeature target;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("wire-target", &target));
+  ASSERT_EQ(target.projectionGroups.size(), 1u);
+  ASSERT_EQ(target.projectionGroups.front().evaluatedEdges.size(), 1u);
+  BRepAdaptor_Curve nativeCurve(target.projectionGroups.front().evaluatedEdges.front());
+  EXPECT_DOUBLE_EQ(edge["firstParameter"].get<double>(), nativeCurve.FirstParameter());
+  EXPECT_DOUBLE_EQ(edge["lastParameter"].get<double>(), nativeCurve.LastParameter());
+  const gp_Pnt sampledStart(edge["pointsMm"][0][0].get<double>(),
+                            edge["pointsMm"][0][1].get<double>(),
+                            edge["pointsMm"][0][2].get<double>());
+  EXPECT_LE(sampledStart.Distance(nativeCurve.Value(nativeCurve.FirstParameter())),
+            1e-9);
+  std::string nativeCurveType;
+  switch (nativeCurve.GetType()) {
+    case GeomAbs_Line: nativeCurveType = "line"; break;
+    case GeomAbs_Circle: nativeCurveType = "circle"; break;
+    case GeomAbs_Ellipse: nativeCurveType = "ellipse"; break;
+    case GeomAbs_Hyperbola: nativeCurveType = "hyperbola"; break;
+    case GeomAbs_Parabola: nativeCurveType = "parabola"; break;
+    case GeomAbs_BezierCurve: nativeCurveType = "bezier"; break;
+    case GeomAbs_BSplineCurve: nativeCurveType = "bspline"; break;
+    case GeomAbs_OffsetCurve: nativeCurveType = "offset"; break;
+    default: nativeCurveType = "other"; break;
+  }
+  EXPECT_EQ(edge["curveType"], nativeCurveType);
+
+  const gp_Pnt sourceCenter(15, -8, 12);
+  const gp_Pnt targetOrigin(targetPlane.origin[0], targetPlane.origin[1],
+                            targetPlane.origin[2]);
+  const gp_Vec normal(targetPlane.normal[0], targetPlane.normal[1],
+                      targetPlane.normal[2]);
+  const gp_Pnt projectedCenter = sourceCenter.Translated(
+      -gp_Vec(targetOrigin, sourceCenter).Dot(normal) * normal);
+  const auto projectDirection = [&](const gp_Vec& direction) {
+    return direction - normal.Dot(direction) * normal;
+  };
+  const gp_Vec projectedX = projectDirection(gp_Vec(1, 0, 0));
+  const gp_Vec projectedY = projectDirection(gp_Vec(0, 1, 0));
+  const double xx = projectedX.Dot(projectedX);
+  const double xy = projectedX.Dot(projectedY);
+  const double yy = projectedY.Dot(projectedY);
+  const double determinant = xx * yy - xy * xy;
+  ASSERT_GT(determinant, 0);
+  for (const auto& point : edge["pointsMm"]) {
+    ASSERT_EQ(point.size(), 3u);
+    const gp_Pnt worldPoint(point[0].get<double>(), point[1].get<double>(),
+                            point[2].get<double>());
+    const gp_Vec fromOrigin(targetOrigin, worldPoint);
+    EXPECT_NEAR(fromOrigin.Dot(normal), 0, 1e-7);
+    const gp_Vec offset(projectedCenter, worldPoint);
+    const double x = offset.Dot(projectedX);
+    const double y = offset.Dot(projectedY);
+    const double localX = (x * yy - y * xy) / determinant;
+    const double localY = (y * xx - x * xy) / determinant;
+    EXPECT_NEAR(localX * localX + localY * localY, 4, 1e-5);
+  }
+
+  const auto secondQuery = ProjectionRpc("projection-public-wire", 38,
+      {{"featureId", "wire-target"}});
+  ASSERT_EQ(secondQuery.value("status", ""), "ok") << secondQuery.dump();
+  EXPECT_EQ(secondQuery["projection"], query["projection"]);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revisionBeforeQuery);
+  const auto unexpectedRevision = ProjectionRpc("projection-public-wire", 38,
+      {{"featureId", "wire-target"}, {"expectedRevision", revisionBeforeQuery}});
+  EXPECT_EQ(unexpectedRevision["status"], "error");
+  EXPECT_EQ(unexpectedRevision["errorCode"], "BAD_PARAMS");
+
+  ASSERT_TRUE(kreoda::UpdateSketchFeature(
+      "wire-source", CircleModel(3, 1), &error)) << error;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("wire-target", &targetSketch));
+  ASSERT_EQ(targetSketch.projectionGroups.size(), 1u);
+  ASSERT_EQ(targetSketch.projectionGroups.front().evaluatedEdges.size(), 1u);
+  const double updatedVolumeTolerance =
+      ProjectionAreaTolerance(targetSketch.projectionGroups.front().evaluatedEdges.front()) * 5;
+  kreoda::ShapeRecord afterEdit;
+  ASSERT_TRUE(kreoda::GetCurrentShapeRecord("wire-solid", &afterEdit, &error))
+      << error;
+  EXPECT_EQ(afterEdit.featureId, stableSolidId);
+  EXPECT_NEAR(afterEdit.volumeMm3,
+              std::acos(-1.0) * 9 * planeCosine * 5, updatedVolumeTolerance);
+
+  const auto blockedRemove = ProjectionRpc("projection-public-wire", 37,
+      {{"featureId", "wire-target"}, {"groupId", "wire-link"}});
+  EXPECT_EQ(blockedRemove.value("status", ""), "error") << blockedRemove.dump();
+  EXPECT_EQ(blockedRemove.value("errorCode", ""), "PROJECTION_FAILED");
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("wire-target", &target));
+  ASSERT_EQ(target.projectionGroups.size(), 1u);
+  ASSERT_TRUE(kreoda::GetCurrentShapeRecord("wire-solid", &afterEdit, &error))
+      << error;
+  EXPECT_EQ(afterEdit.featureId, stableSolidId);
+  EXPECT_NEAR(afterEdit.volumeMm3,
+              std::acos(-1.0) * 9 * planeCosine * 5, updatedVolumeTolerance);
+
+  const auto deleted = ProjectionRpc("projection-public-wire",
+      kreoda::kDeleteFeature, {{"featureId", "wire-solid"}});
+  ASSERT_EQ(deleted.value("status", ""), "ok") << deleted.dump();
+  const auto remove = ProjectionRpc("projection-public-wire", 37,
+      {{"featureId", "wire-target"}, {"groupId", "wire-link"}});
+  ASSERT_EQ(remove.value("status", ""), "ok") << remove.dump();
+  EXPECT_EQ(remove["featureId"], "wire-target");
+  EXPECT_TRUE(remove["sketch"]["projectionGroups"].empty());
+  const auto afterRemove = ProjectionRpc("projection-public-wire", 38,
+      {{"featureId", "wire-target"}});
+  ASSERT_EQ(afterRemove.value("status", ""), "ok") << afterRemove.dump();
+  EXPECT_TRUE(afterRemove["projection"]["groups"].empty());
+#else
+  GTEST_SKIP() << "needs OCCT";
+#endif
+}
+
+TEST(SketchProjectionPublicWire, HidesCachedEdgesWhenSourceClosureIsUnavailable) {
+#if KREODA_WITH_OCCT
+  std::string error;
+  ASSERT_TRUE(StartProjectionDocument("projection-public-wire-unavailable", &error))
+      << error;
+  ASSERT_TRUE(kreoda::CreateSketchFeature(
+      "stale-source", "XY", CircleModel(2), &error)) << error;
+  ASSERT_TRUE(kreoda::CreateSketchFeature("stale-target", "XY", {}, &error))
+      << error;
+  const auto definition = SketchEntityProjection("stale-source", {"circle"});
+  const auto set = ProjectionRpc("projection-public-wire-unavailable", 36,
+      {{"featureId", "stale-target"}, {"groupId", "stale-link"},
+       {"definition", definition}});
+  ASSERT_EQ(set.value("status", ""), "ok") << set.dump();
+  kreoda::SketchFeature stored;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("stale-target", &stored));
+  ASSERT_EQ(stored.projectionGroups.size(), 1u);
+  ASSERT_EQ(stored.projectionGroups.front().evaluatedEdges.size(), 1u);
+
+  ASSERT_TRUE(kreoda::SketchStore::instance().remove("stale-source"));
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto query = ProjectionRpc("projection-public-wire-unavailable", 38,
+      {{"featureId", "stale-target"}});
+  ASSERT_EQ(query.value("status", ""), "ok") << query.dump();
+  const auto& result = query["projection"];
+  EXPECT_FALSE(result["geometryCurrent"].get<bool>());
+  EXPECT_EQ(result["status"], "unavailable");
+  EXPECT_NE(result["error"].get<std::string>().find("stale-source"),
+            std::string::npos);
+  EXPECT_EQ(result["blockingSourceIds"], (kreoda::Json{"stale-source"}));
+  ASSERT_EQ(result["groups"].size(), 1u);
+  EXPECT_EQ(result["groups"][0]["status"], "ok");
+  EXPECT_TRUE(result["groups"][0]["edges"].empty());
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("stale-target", &stored));
+  EXPECT_EQ(stored.projectionGroups.front().evaluatedEdges.size(), 1u);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+#else
+  GTEST_SKIP() << "needs OCCT";
+#endif
+}
+
+TEST(SketchProjectionPublicWire, SerializesLineEdgesWithTwoWorldSpaceEndpoints) {
+#if KREODA_WITH_OCCT
+  std::string error;
+  ASSERT_TRUE(StartProjectionDocument("projection-public-wire-line", &error))
+      << error;
+
+  kreoda::SketchModel sourceModel;
+  sourceModel.points = {{"start", 1, 2}, {"end", 4, 6}};
+  sourceModel.lines = {{"diagonal", "start", "end"}};
+  ASSERT_TRUE(kreoda::CreateSketchFeature(
+      "line-source", "XY", sourceModel, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateSketchFeature(
+      "line-target", "XY", {}, &error)) << error;
+  const auto definition = SketchEntityProjection("line-source", {"diagonal"});
+  const auto set = ProjectionRpc("projection-public-wire-line", 36,
+      {{"featureId", "line-target"}, {"groupId", "line-link"},
+       {"definition", definition}});
+  ASSERT_EQ(set.value("status", ""), "ok") << set.dump();
+
+  const auto query = ProjectionRpc("projection-public-wire-line", 38,
+      {{"featureId", "line-target"}});
+  ASSERT_EQ(query.value("status", ""), "ok") << query.dump();
+  const auto& edges = query["projection"]["groups"][0]["edges"];
+  ASSERT_EQ(edges.size(), 1u);
+  EXPECT_EQ(edges[0]["curveType"], "line");
+  EXPECT_FALSE(edges[0]["closed"].get<bool>());
+  ASSERT_EQ(edges[0]["pointsMm"].size(), 2u);
+  EXPECT_EQ(edges[0]["pointsMm"][0], (kreoda::Json{1, 2, 0}));
+  EXPECT_EQ(edges[0]["pointsMm"][1], (kreoda::Json{4, 6, 0}));
+#else
+  GTEST_SKIP() << "needs OCCT";
+#endif
+}
+
+TEST(SketchProjectionPublicWire, ValidatesErrorsAndJoinsOwnerTransaction) {
+#if KREODA_WITH_OCCT
+  std::string error;
+  ASSERT_TRUE(StartProjectionDocument("projection-public-wire-transaction", &error))
+      << error;
+  ASSERT_TRUE(kreoda::CreateSketchFeature(
+      "transaction-source", "XY", CircleModel(2), &error)) << error;
+  ASSERT_TRUE(kreoda::CreateSketchFeature(
+      "transaction-target", "XY", {}, &error)) << error;
+  const auto definition = SketchEntityProjection("transaction-source", {"circle"});
+  const auto revision = kreoda::DocumentStore::instance().revision();
+
+  auto response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kRequestSketchProjection, {{"featureId", "missing-sketch"}});
+  EXPECT_EQ(response["errorCode"], "NOT_FOUND");
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kRequestSketchProjection,
+      {{"featureId", "transaction-target"}, {"groupId", "missing-group"}});
+  EXPECT_EQ(response["errorCode"], "NOT_FOUND");
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kRemoveSketchProjection,
+      {{"featureId", "transaction-target"}, {"groupId", "missing-group"}});
+  EXPECT_EQ(response["errorCode"], "NOT_FOUND");
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kRequestSketchProjection,
+      {{"featureId", "transaction-target"}, {"unknown", true}});
+  EXPECT_EQ(response["errorCode"], "BAD_PARAMS");
+
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kSetSketchProjection,
+      {{"featureId", "transaction-target"}, {"groupId", "bad group"},
+       {"definition", definition}});
+  EXPECT_EQ(response["errorCode"], "BAD_PARAMS");
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kSetSketchProjection,
+      {{"featureId", "transaction-target"}, {"groupId", "private"},
+       {"definition", {{"version", 1}, {"operation", "projectEdges"},
+                       {"sources", kreoda::Json::array()}, {"bindings", {}}}}});
+  EXPECT_EQ(response["errorCode"], "BAD_PARAMS");
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kSetSketchProjection,
+      {{"featureId", "transaction-target"}, {"groupId", "missing-source"},
+       {"definition", SketchEntityProjection("missing-source", {"circle"})}});
+  EXPECT_EQ(response["errorCode"], "PROJECTION_FAILED") << response.dump();
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+
+  kreoda::Json oversizedSources = kreoda::Json::array();
+  std::string multibyte;
+  for (int index = 0; index < 236; ++index) multibyte += "\xC3\xA9";
+  for (int index = 0; index < 128; ++index)
+    oversizedSources.push_back({{"type", "edge"}, {"featureId", "source"},
+        {"persistentEdgeId", "source:" + multibyte + ":" +
+                                 std::to_string(index)}});
+  const auto oversized = kreoda::Json{{"version", 1}, {"operation", "projectEdges"},
+                                      {"sources", oversizedSources}};
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kSetSketchProjection,
+      {{"featureId", "transaction-target"}, {"groupId", "oversized"},
+       {"definition", oversized}});
+  EXPECT_EQ(response["errorCode"], "BAD_PARAMS") << response.dump();
+  EXPECT_NE(response["errorMessage"].get<std::string>().find("65536 UTF-8 bytes"),
+            std::string::npos);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kBeginTransaction, {{"transactionId", "projection-owner"}});
+  ASSERT_EQ(response["status"], "ok") << response.dump();
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kSetSketchProjection,
+      {{"featureId", "transaction-target"}, {"groupId", "owned"},
+       {"definition", definition}, {"transactionId", "other-owner"}});
+  EXPECT_EQ(response["errorCode"], "TRANSACTION_OPEN");
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kSetSketchProjection,
+      {{"featureId", "transaction-target"}, {"groupId", "owned"},
+       {"definition", definition}, {"transactionId", "projection-owner"}});
+  ASSERT_EQ(response["status"], "ok") << response.dump();
+  auto query = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kRequestSketchProjection, {{"featureId", "transaction-target"}});
+  ASSERT_EQ(query["status"], "ok") << query.dump();
+  ASSERT_EQ(query["projection"]["groups"].size(), 1u);
+  EXPECT_EQ(query["projection"]["groups"][0]["groupId"], "owned");
+
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kSetSketchProjection,
+      {{"featureId", "transaction-target"}, {"groupId", "failed"},
+       {"definition", SketchEntityProjection("missing-source", {"circle"})},
+       {"transactionId", "projection-owner"}});
+  EXPECT_EQ(response["errorCode"], "PROJECTION_FAILED");
+  response = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kRollbackTransaction, {{"transactionId", "projection-owner"}});
+  ASSERT_EQ(response["status"], "ok") << response.dump();
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  query = ProjectionRpc("projection-public-wire-transaction",
+      kreoda::kRequestSketchProjection, {{"featureId", "transaction-target"}});
+  ASSERT_EQ(query["status"], "ok") << query.dump();
+  EXPECT_TRUE(query["projection"]["groups"].empty());
+#else
+  GTEST_SKIP() << "needs OCCT";
+#endif
 }

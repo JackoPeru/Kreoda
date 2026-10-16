@@ -122,6 +122,22 @@ std::string error_body(const std::string& code, const std::string& msg) {
          "\",\"errorMessage\":\"" + escape(msg) + "\"";
 }
 
+bool projection_request_fields_valid(
+    const Json& request, std::initializer_list<const char*> arguments,
+    std::string* error) {
+  std::set<std::string> allowed = {
+      "protocolVersion", "requestId", "documentId", "type",
+      "transactionId"};
+  for (const auto* argument : arguments) allowed.insert(argument);
+  for (const auto& field : request.items()) {
+    if (!allowed.count(field.key())) {
+      if (error) *error = "unsupported projection argument: " + field.key();
+      return false;
+    }
+  }
+  return true;
+}
+
 std::string shape_body(const ShapeRecord& rec) {
   std::ostringstream os;
   os << std::setprecision(17);
@@ -636,7 +652,8 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
     const bool readOnly =
         type == kGetCoreInfo || type == kRequestMesh ||
         type == kRequestSketch || type == kPreviewSketch ||
-        type == kRequestFaceInfo || type == kRequestSnapshot || type == kRequestSessionQuery || type == kRequestDatum;
+        type == kRequestFaceInfo || type == kRequestSnapshot || type == kRequestSessionQuery || type == kRequestDatum ||
+        type == kRequestSketchProjection;
     const bool preview =
         (type == kSetFeatureParameter || type == kUpdateSketch) &&
         (json_bool_field(requestJson, "isPreview"));
@@ -681,6 +698,92 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       if(!ShapeStore::ValidFeatureId(id))return make_response(requestId,"error",error_body("BAD_PARAMS","invalid featureId"));
       if(!DatumStore::instance().get(id,&record))return make_response(requestId,"error",error_body("NOT_FOUND",id));
       return make_response(requestId,"ok","\"datum\":"+SerializeDatumRecord(record)+",\"revision\":"+std::to_string(DocumentStore::instance().revision()));
+    }
+    case kSetSketchProjection: {
+      std::string error;
+      if (!projection_request_fields_valid(requestJson,
+              {"featureId", "groupId", "definition"}, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      const auto featureId = json_string_field(requestJson, "featureId", "");
+      const auto groupId = json_string_field(requestJson, "groupId", "");
+      if (!ShapeStore::ValidFeatureId(featureId) ||
+          !ShapeStore::ValidFeatureId(groupId))
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "invalid sketch or projection group id"));
+      SketchFeature sketch;
+      if (!SketchStore::instance().get(featureId, &sketch))
+        return make_response(requestId, "error", error_body("NOT_FOUND", featureId));
+      if (!requestJson.contains("definition") ||
+          !requestJson.at("definition").is_object())
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "definition must be an object"));
+      std::string canonical;
+      std::vector<std::string> sourceIds;
+      if (!ValidateSketchProjectionDefinition(groupId,
+              requestJson.at("definition").dump(), &canonical, &sourceIds, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      if (!SetSketchProjectionGroup(featureId, groupId, canonical, &error))
+        return make_response(requestId, "error", error_body("PROJECTION_FAILED", error));
+      if (!SketchStore::instance().get(featureId, &sketch))
+        return make_response(requestId, "error",
+                             error_body("PROJECTION_FAILED", "updated sketch disappeared"));
+      return make_response(requestId, "ok", sketch_body(sketch));
+    }
+    case kRemoveSketchProjection: {
+      std::string error;
+      if (!projection_request_fields_valid(requestJson,
+              {"featureId", "groupId"}, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      const auto featureId = json_string_field(requestJson, "featureId", "");
+      const auto groupId = json_string_field(requestJson, "groupId", "");
+      if (!ShapeStore::ValidFeatureId(featureId) ||
+          !ShapeStore::ValidFeatureId(groupId))
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "invalid sketch or projection group id"));
+      SketchFeature sketch;
+      if (!SketchStore::instance().get(featureId, &sketch))
+        return make_response(requestId, "error", error_body("NOT_FOUND", featureId));
+      if (std::none_of(sketch.projectionGroups.begin(), sketch.projectionGroups.end(),
+              [&](const auto& group) { return group.groupId == groupId; }))
+        return make_response(requestId, "error", error_body("NOT_FOUND", groupId));
+      if (!RemoveSketchProjectionGroup(featureId, groupId, &error))
+        return make_response(requestId, "error", error_body("PROJECTION_FAILED", error));
+      if (!SketchStore::instance().get(featureId, &sketch))
+        return make_response(requestId, "error",
+                             error_body("PROJECTION_FAILED", "updated sketch disappeared"));
+      return make_response(requestId, "ok", sketch_body(sketch));
+    }
+    case kRequestSketchProjection: {
+      std::string error;
+      if (!projection_request_fields_valid(requestJson,
+              {"featureId", "groupId"}, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      const auto featureId = json_string_field(requestJson, "featureId", "");
+      if (!ShapeStore::ValidFeatureId(featureId))
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "invalid sketch featureId"));
+      const bool hasGroupId = requestJson.contains("groupId");
+      const auto groupId = json_string_field(requestJson, "groupId", "");
+      if (hasGroupId && !ShapeStore::ValidFeatureId(groupId))
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "invalid projection groupId"));
+      SketchFeature sketch;
+      if (!SketchStore::instance().get(featureId, &sketch))
+        return make_response(requestId, "error", error_body("NOT_FOUND", featureId));
+      if (hasGroupId && std::none_of(sketch.projectionGroups.begin(),
+              sketch.projectionGroups.end(), [&](const auto& group) {
+                return group.groupId == groupId;
+              }))
+        return make_response(requestId, "error", error_body("NOT_FOUND", groupId));
+      std::string projection;
+      if (!SerializeSketchProjectionQuery(sketch, groupId, &projection, &error))
+        return make_response(requestId, "error", error_body("QUERY_FAILED", error));
+      const Json body = {{"projection", Json::parse(projection)},
+                         {"documentId", DocumentStore::instance().snapshotDocumentId()},
+                         {"revision", DocumentStore::instance().revision()}};
+      const auto serialized = body.dump();
+      return make_response(requestId, "ok",
+                           serialized.substr(1, serialized.size() - 2));
     }
     case kRequestSessionQuery: {
       try {

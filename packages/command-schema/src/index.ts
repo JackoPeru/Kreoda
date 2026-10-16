@@ -53,6 +53,50 @@ export const CreateBoxParams = z.object({
 });
 
 const always: AvailabilityResult = { available: true };
+const utf8Bytes = (value: string) => new TextEncoder().encode(value).length;
+const ProjectionSourceSchema = z.union([
+  z.object({ type: z.literal("edge"), featureId: StableFeatureIdSchema,
+    persistentEdgeId: z.string().min(1).max(512) }).strict(),
+  z.object({ type: z.literal("shape"), featureId: StableFeatureIdSchema }).strict(),
+  z.object({ type: z.literal("sketchEntities"), featureId: StableFeatureIdSchema,
+    entityIds: z.array(z.string().min(1).max(512)).min(1).max(128) }).strict(),
+]);
+const ProjectionDefinitionSchema = z.object({
+  version: z.literal(1),
+  operation: z.enum(["projectEdges", "silhouette", "section"]),
+  sources: z.array(ProjectionSourceSchema).min(1).max(128),
+}).strict().superRefine((definition, ctx) => {
+  if (utf8Bytes(JSON.stringify(definition)) > 65536)
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "projection definition exceeds 65536 UTF-8 bytes" });
+  const identities = new Set<string>();
+  const shapes = definition.sources.filter(source => source.type === "shape");
+  for (const [index, source] of definition.sources.entries()) {
+    const identity = JSON.stringify(source);
+    if (identities.has(identity))
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index], message: "duplicate projection source" });
+    identities.add(identity);
+    if (source.type === "edge") {
+      if (utf8Bytes(source.persistentEdgeId) > 512)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index, "persistentEdgeId"], message: "persistentEdgeId exceeds 512 UTF-8 bytes" });
+      if (!source.persistentEdgeId.startsWith(`${source.featureId}:`))
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index, "persistentEdgeId"], message: "edge source id must be owner-qualified" });
+    } else if (source.type === "sketchEntities") {
+      const entityIds = new Set<string>();
+      for (const [entityIndex, entityId] of source.entityIds.entries()) {
+        if (utf8Bytes(entityId) > 512)
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index, "entityIds", entityIndex], message: "entity id exceeds 512 UTF-8 bytes" });
+        if (entityIds.has(entityId))
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources", index, "entityIds", entityIndex], message: "projection entityIds must be unique" });
+        entityIds.add(entityId);
+      }
+    }
+  }
+  if (definition.operation === "projectEdges" ? shapes.length > 0
+      : shapes.length !== 1 || definition.sources.length !== 1)
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sources"], message: definition.operation === "projectEdges"
+      ? "projectEdges accepts edge or sketchEntities sources"
+      : `${definition.operation} requires exactly one whole-shape source` });
+});
 
 export const COMMANDS: CadCommandDefinition[] = [
   {
@@ -401,6 +445,30 @@ export const COMMANDS: CadCommandDefinition[] = [
     supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
   },
   {
+    id: "SetSketchProjection", nativeType: CommandType.SetSketchProjection,
+    label: "Set sketch projection", beginnerLabel: "Set projection",
+    description: "Create or replace one sketch-owned associative projection group.",
+    icon: "link", parameterSchema: z.object({ featureId: StableFeatureIdSchema,
+      groupId: StableFeatureIdSchema, definition: ProjectionDefinitionSchema }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
+  },
+  {
+    id: "RemoveSketchProjection", nativeType: CommandType.RemoveSketchProjection,
+    label: "Remove sketch projection", beginnerLabel: "Remove projection",
+    description: "Remove one sketch-owned projection group and release its source references.",
+    icon: "unlink", parameterSchema: z.object({ featureId: StableFeatureIdSchema,
+      groupId: StableFeatureIdSchema }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
+  },
+  {
+    id: "RequestSketchProjection", nativeType: CommandType.RequestSketchProjection,
+    label: "Inspect sketch projection", beginnerLabel: "Inspect projection",
+    description: "Read current projection definitions, status and bounded display geometry.",
+    icon: "info", parameterSchema: z.object({ featureId: StableFeatureIdSchema,
+      groupId: StableFeatureIdSchema.optional() }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
+  },
+  {
     id: "DeleteFeature", nativeType: CommandType.DeleteFeature,
     label: "Delete feature", beginnerLabel: "Delete feature",
     description: "Delete a feature or sketch only when it has no dependent geometry or formulas.",
@@ -414,14 +482,31 @@ export const COMMANDS: CadCommandDefinition[] = [
 export function commandJsonSchema(id: string) {
   const definition = COMMANDS.find((command) => command.id === id);
   if (!definition) return null;
+  const parameters = zodToJsonSchema(definition.parameterSchema, { $refStrategy: "none", target: "jsonSchema7",
+    override: def => def === StableFeatureIdSchema._def ? { ...SESSION_STABLE_FEATURE_ID_SCHEMA } : ignoreOverride,
+  }) as Record<string, unknown>;
+  if (id === "SetSketchProjection") {
+    const record = (value: unknown) => value as Record<string, unknown>;
+    const properties = record(parameters["properties"]);
+    const projection = record(properties["definition"]);
+    const projectionProperties = record(projection["properties"]);
+    const sources = record(projectionProperties["sources"]);
+    sources["uniqueItems"] = true;
+    const variants = record(sources["items"])["anyOf"];
+    if (Array.isArray(variants)) {
+      for (const variant of variants) {
+        const sourceProperties = record(record(variant)["properties"]);
+        if (record(sourceProperties["type"])["const"] === "sketchEntities")
+          record(sourceProperties["entityIds"])["uniqueItems"] = true;
+      }
+    }
+  }
   return { id: definition.id, nativeType: definition.nativeType,
     creation: commandCreationRule(id),
     description: definition.description,
     supportsPreview: definition.supportsPreview,
     selectionBindings: definition.selectionBindings ?? {},
     optionalSelectionBindings: definition.optionalSelectionBindings ?? {},
-    parameters: zodToJsonSchema(definition.parameterSchema, { $refStrategy: "none", target: "jsonSchema7",
-      override: def => def === StableFeatureIdSchema._def ? { ...SESSION_STABLE_FEATURE_ID_SCHEMA } : ignoreOverride,
-    }),
+    parameters,
   };
 }

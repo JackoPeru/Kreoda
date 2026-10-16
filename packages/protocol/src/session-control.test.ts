@@ -20,6 +20,12 @@ import {
 } from "./session-control.js";
 import contract from "../../../schemas/session-control-v1.json" with { type: "json" };
 import * as ContractMirror from "./session-control.js";
+import {
+  FeatureDescriptorSchema,
+  SketchDescriptorSchema,
+  SketchProjectionDefinitionSchema,
+  SketchProjectionResultSchema,
+} from "./sketch-projection.js";
 
 const methods = contract.methods as { method: string; required: string[] }[];
 
@@ -148,5 +154,64 @@ describe("session control contract", () => {
     const instanceHeader = { ...header, instanceId: "instance-1", featureId: "instance-1", tipId: "instance-1" };
     expect(MeshHeaderSchema.parse(instanceHeader)).toEqual(instanceHeader);
     expect(RequestMeshLODParamsSchema.parse({ ...params, instanceId: "instance-1" })).toMatchObject({ instanceId: "instance-1" });
+  });
+});
+
+describe("projection DTO contract", () => {
+  const definition = {
+    version: 1,
+    operation: "projectEdges",
+    sources: [{ type: "sketchEntities", featureId: "source", entityIds: ["circle"] }],
+  };
+
+  it("accepts strict healthy and broken query results with bounded display points", () => {
+    const healthy = {
+      featureId: "target",
+      plane: { origin: [1, 2, 3], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] },
+      geometryCurrent: true,
+      status: "ok",
+      error: "",
+      blockingSourceIds: [],
+      groups: [{ groupId: "linked", definition,
+        sourceFeatureIds: ["source"], status: "ok", error: "",
+        blockingSourceIds: [], generation: 2,
+        edges: [{ memberIndex: 0, curveType: "circle", firstParameter: 0,
+          lastParameter: 6.28, closed: true,
+          pointsMm: Array.from({ length: 129 }, () => [0, 0, 0]) }] }],
+    };
+    expect(SketchProjectionResultSchema.parse(healthy)).toEqual(healthy);
+    expect(SketchProjectionResultSchema.parse({ ...healthy, geometryCurrent: false,
+      status: "unavailable", error: "missing geometry source source",
+      blockingSourceIds: ["source"], groups: [{ ...healthy.groups[0],
+        status: "broken", error: "source unavailable", edges: [] }] })).toBeTruthy();
+    expect(() => SketchProjectionResultSchema.parse({ ...healthy, privateBindings: [] })).toThrow();
+    expect(() => SketchProjectionResultSchema.parse({ ...healthy, groups: [{
+      ...healthy.groups[0], edges: [{ ...healthy.groups[0].edges[0],
+        pointsMm: Array.from({ length: 130 }, () => [0, 0, 0]) }],
+    }] })).toThrow();
+  });
+
+  it("keeps legacy descriptors valid and validates optional current-geometry state", () => {
+    expect(SketchDescriptorSchema.parse({ featureId: "legacy-sketch" })).toEqual({ featureId: "legacy-sketch" });
+    expect(SketchDescriptorSchema.parse({ featureId: "target", projectionGroups: [] })).toBeTruthy();
+    expect(FeatureDescriptorSchema.parse({ featureId: "solid", type: "Extrude",
+      geometryCurrent: false, status: "unavailable", error: "blocked by source",
+      blockingSourceIds: ["source"] })).toBeTruthy();
+  });
+
+  it("rejects private, unknown, duplicate and wrong-kind definitions plus UTF-8 overflow", () => {
+    expect(SketchProjectionDefinitionSchema.parse(definition)).toEqual(definition);
+    for (const invalid of [
+      { ...definition, bindings: { version: 1, entries: [] } },
+      { ...definition, sources: [definition.sources[0], definition.sources[0]] },
+      { ...definition, sources: [{ type: "shape", featureId: "source" }] },
+    ]) expect(() => SketchProjectionDefinitionSchema.parse(invalid)).toThrow();
+
+    const sources = Array.from({ length: 128 }, (_, index) => ({ type: "edge",
+      featureId: "source", persistentEdgeId: `source:${"é".repeat(236)}:${index}` }));
+    const large = { version: 1, operation: "projectEdges", sources };
+    expect(JSON.stringify(large).length).toBeLessThan(65536);
+    expect(new TextEncoder().encode(JSON.stringify(large)).length).toBeGreaterThan(65536);
+    expect(() => SketchProjectionDefinitionSchema.parse(large)).toThrow(/UTF-8 bytes/);
   });
 });

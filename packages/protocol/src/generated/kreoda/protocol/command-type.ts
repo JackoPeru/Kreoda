@@ -38,5 +38,8 @@ export enum CommandType {
   CreateDatumAxis = 32,
   CreateDatumPoint = 33,
   UpdateDatum = 34,
-  RequestDatum = 35
+  RequestDatum = 35,
+  SetSketchProjection = 36,
+  RemoveSketchProjection = 37,
+  RequestSketchProjection = 38
 }

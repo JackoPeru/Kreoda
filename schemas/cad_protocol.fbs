@@ -42,7 +42,10 @@ enum CommandType : ushort {
   CreateDatumAxis,
   CreateDatumPoint,
   UpdateDatum,
-  RequestDatum
+  RequestDatum,
+  SetSketchProjection,
+  RemoveSketchProjection,
+  RequestSketchProjection
 }
 
 enum StatusCode : byte {

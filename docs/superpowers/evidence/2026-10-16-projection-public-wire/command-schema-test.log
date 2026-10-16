@@ -1,0 +1,12 @@
+
+> @kreoda/command-schema@0.1.0 test C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\command-schema
+> vitest run src --passWithNoTests
+
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/packages/command-schema
+
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  10:39:13
+   Duration  2.24s (transform 2.34s, setup 0ms, import 3.88s, tests 38ms, environment 0ms)
