@@ -1,0 +1,20 @@
+{
+  "exitCode": 0,
+  "args": [
+    "-batchmode",
+    "-nographics",
+    "-buildTarget",
+    "Android",
+    "-projectPath",
+    "C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity",
+    "-runTests",
+    "-testPlatform",
+    "EditMode",
+    "-testResults",
+    "C:/Users/matte/Documents/Codex-tools/Native/quest-per-pc-parent-20261017/saved-scene.xml",
+    "-logFile",
+    "C:/Users/matte/Documents/Codex-tools/Native/quest-per-pc-parent-20261017/saved-scene.log",
+    "-testFilter",
+    "Kreoda.QuestRuntime.Tests.QuestSceneTests.SavedQuestSceneHasHomeWiringWithoutCallingPrepare;Kreoda.QuestRuntime.Tests.QuestSceneTests.UiShaderSupportsProductSinglePassStereoAndCompilesWithoutErrors;Kreoda.QuestRuntime.Tests.QuestHomeTests;Kreoda.QuestRuntime.Tests.QuestControlsTests;Kreoda.QuestRuntime.Tests.QuestEnvironmentTests"
+  ]
+}

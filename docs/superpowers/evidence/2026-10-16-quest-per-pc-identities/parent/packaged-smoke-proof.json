@@ -1,0 +1,18 @@
+{
+  "sourceHead": "c155d6d",
+  "executable": "C:\\Users\\matte\\Desktop\\Saas\\Kreoda-phase10-ci\\apps\\desktop\\out\\Kreoda-win32-x64\\Kreoda.exe",
+  "executableSha256": "611006b15a1ee4f890651c03fdf540762f821c0382f4367ee72706fd03892d2d",
+  "windows": {
+    "visible": false,
+    "count": 1,
+    "userData": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-per-pc-parent-20261017\\packaged-smoke-profile-och0TE"
+  },
+  "occtVersion": "8.0.1-native",
+  "scenario": "automatic-local-connection",
+  "status": "connected-and-reconnected",
+  "pcId": "e676bd7d-0b61-4466-a16f-2cf04c7f1506",
+  "manualInputs": 0,
+  "verifiedIdentity": true,
+  "features": 1,
+  "revision": 1
+}

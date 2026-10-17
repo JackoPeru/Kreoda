@@ -175,12 +175,13 @@ namespace Kreoda.QuestRuntime
         public void SelectPc(string pcId)
         {
             if (!AvailablePcs.Any(pc => pc.PcId == pcId)) return;
-            _chosenPcId = pcId;
+            lock (_gate) _chosenPcId = pcId;
             StartConnection(null, null);
         }
 
         public void Forget()
         {
+            bool forgotten = false;
             lock (_gate)
             {
                 _run?.Cancel();
@@ -189,15 +190,27 @@ namespace Kreoda.QuestRuntime
                 _client = null;
                 _latest = null;
                 _scene.InvalidateConnection();
-                _saved = null;
-                _chosenPcId = null;
+                try
+                {
+                    QuestPcCredentials.Remove(CredentialCachePath, _saved?.PcId);
+                    if (File.Exists(_credentialFile)) File.Delete(_credentialFile);
+                }
+                catch
+                {
+                    Status = "PC non dimenticato: archivio locale non disponibile";
+                }
+                if (!File.Exists(_credentialFile))
+                {
+                    _saved = null;
+                    _chosenPcId = null;
+                    forgotten = true;
+                }
             }
             CancelMeshes();
-            if (File.Exists(_credentialFile)) File.Delete(_credentialFile);
             Connected = false;
             AvailablePcs = Array.Empty<DiscoveredSessionPc>();
             RttMilliseconds = null;
-            Status = "PC dimenticato. Nuova associazione";
+            Status = forgotten ? "PC dimenticato. Nuova associazione" : "PC non dimenticato: archivio locale non disponibile";
         }
 
         void StartConnection(Uri pairingEndpoint, string code)
@@ -228,6 +241,10 @@ namespace Kreoda.QuestRuntime
             {
                 SessionClient client = null;
                 long generation;
+                SavedDevice saved = null, activeSaved = null, activeForCache = null;
+                Dictionary<string, QuestPcCredentialRecord> pcCredentials = null;
+                bool commitSaved = false, cachePerPc = false;
+                string requestedPcId = null;
                 lock (_gate)
                 {
                     if (!Current(run)) break;
@@ -235,8 +252,9 @@ namespace Kreoda.QuestRuntime
                 }
                 try
                 {
-                    SavedDevice saved;
-                    lock (_gate) saved = _saved?.Copy();
+                    lock (_gate) { saved = _saved?.Copy();requestedPcId = _chosenPcId; }
+                    activeSaved = saved?.Copy();
+                    activeForCache = activeSaved?.Copy();
                     using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct))
                     {
                         deadline.CancelAfter(TimeSpan.FromSeconds(15));
@@ -248,61 +266,82 @@ namespace Kreoda.QuestRuntime
                             client = paired.Client;
                             saved = new SavedDevice { Endpoint = pairingEndpoint.AbsoluteUri, DeviceId = paired.DeviceId,
                                 Credential = paired.Credential, LogicalId = logicalId };
-                            lock (_gate)
-                            {
-                                if (!Current(run)) throw new OperationCanceledException(ct);
-                                WriteDevice(saved);
-                                _saved = saved;
-                            }
+                            commitSaved = true;
                             code = null;
                         }
                         else
                         {
+                            pcCredentials = QuestPcCredentials.Read(CredentialCachePath);
                             var peers = await FindLocalPcsAsync(deadline.Token).ConfigureAwait(false);
-                            var selected = SessionDiscovery.Choose(peers, _chosenPcId ?? saved?.PcId);
+                            var selected = SessionDiscovery.Choose(peers, requestedPcId ?? saved?.PcId);
                             bool legacyIdentity = saved != null && !string.IsNullOrEmpty(saved.DeviceId) && string.IsNullOrEmpty(saved.PcId);
+                            DiscoveredSessionPc trustedLegacyPc = null;
                             if (legacyIdentity)
                             {
-                                selected = null;
                                 foreach (var peer in peers)
                                 {
                                     if (await VerifyKnownPcAsync(peer, saved, deadline.Token).ConfigureAwait(false))
-                                    { selected = peer;break; }
+                                    { trustedLegacyPc = peer;break; }
+                                }
+                                selected = string.IsNullOrEmpty(requestedPcId) || trustedLegacyPc?.PcId == requestedPcId
+                                    ? trustedLegacyPc : SessionDiscovery.Choose(peers, requestedPcId);
+                                if (!string.IsNullOrEmpty(requestedPcId) && selected != null && trustedLegacyPc == null)
+                                    throw new SessionException("CHOOSE_PC", "reconnect the saved PC before switching");
+                                if (trustedLegacyPc != null)
+                                {
+                                    activeForCache = saved.Copy();activeForCache.PcId = trustedLegacyPc.PcId;
+                                    activeForCache.Name = trustedLegacyPc.Name;
+                                    if (string.IsNullOrEmpty(activeForCache.InstallationId))
+                                        activeForCache.InstallationId = Guid.NewGuid().ToString("D");
                                 }
                             }
-                            else if (selected != null && saved != null && saved.DeviceId != "" && saved.PcId == selected.PcId &&
-                                !await VerifyKnownPcAsync(selected, saved, deadline.Token).ConfigureAwait(false))
-                                selected = null;
                             Post(run, () => AvailablePcs = peers);
-                            bool savedEndpointAvailable = saved != null && !string.IsNullOrEmpty(saved.DeviceId) &&
-                                QuestConnectionInput.TryEndpoint(saved.Endpoint, out _);
+                            if (selected == null && !string.IsNullOrEmpty(requestedPcId))
+                                throw new SessionException("CHOOSE_PC", "selected PC is not available");
+                            bool savedEndpointAvailable = activeSaved != null && !string.IsNullOrEmpty(activeSaved.DeviceId) &&
+                                QuestConnectionInput.TryEndpoint(activeSaved.Endpoint, out _);
                             // Discovery silence must not retire a still-working trusted session address.
                             // A peer claiming that exact address but failing identity proof cannot downgrade to credential auth.
                             bool savedAddressRejected = savedEndpointAvailable && selected == null &&
-                                peers.Any(peer => peer.Endpoint == new Uri(saved.Endpoint));
+                                peers.Any(peer => peer.Endpoint == new Uri(activeSaved.Endpoint));
                             if (selected == null && peers.Length != 0 && (!savedEndpointAvailable || savedAddressRejected))
                                 throw new SessionException("CHOOSE_PC", "select a local PC by name");
                             if (selected != null)
                             {
-                                if (saved == null) saved = new SavedDevice { Endpoint = "", DeviceId = "",
-                                    Credential = SessionDiscovery.CreateCredential(), LogicalId = "client-" + Guid.NewGuid().ToString("D"),
-                                    InstallationId = Guid.NewGuid().ToString("D"), PcId = "", Name = "" };
+                                pcCredentials.TryGetValue(selected.PcId, out var cached);
+                                if (cached != null)
+                                {
+                                    saved = FromPcCredential(cached);
+                                    if (!string.IsNullOrEmpty(saved.DeviceId) &&
+                                        !await VerifyKnownPcAsync(selected, saved, deadline.Token).ConfigureAwait(false))
+                                        throw new SessionException("UNAUTHORIZED", "saved PC identity rejected");
+                                }
+                                else if (activeSaved != null && activeSaved.PcId == selected.PcId &&
+                                    !string.IsNullOrEmpty(activeSaved.DeviceId))
+                                {
+                                    saved = activeSaved.Copy();
+                                    if (!await VerifyKnownPcAsync(selected, saved, deadline.Token).ConfigureAwait(false))
+                                        throw new SessionException("UNAUTHORIZED", "saved PC identity rejected");
+                                }
+                                else if (legacyIdentity && trustedLegacyPc?.PcId == selected.PcId)
+                                    saved = activeSaved.Copy();
+                                else
+                                    saved = new SavedDevice { Endpoint = "", DeviceId = "",
+                                        Credential = SessionDiscovery.CreateCredential(), LogicalId = "client-" + Guid.NewGuid().ToString("D"),
+                                        InstallationId = Guid.NewGuid().ToString("D") };
+                                saved.PcId = selected.PcId;saved.Name = selected.Name;
                                 if (string.IsNullOrEmpty(saved.InstallationId)) saved.InstallationId = Guid.NewGuid().ToString("D");
-                                // Persist the client secret before bootstrap, so a lost acknowledgement is idempotent.
-                                lock (_gate)
+                                if (string.IsNullOrEmpty(saved.DeviceId))
                                 {
-                                    if (!Current(run)) throw new OperationCanceledException(ct);
-                                    WriteDevice(saved);_saved = saved.Copy();
+                                    // Persist this PC's pending identity before bootstrap for lost-ack retries.
+                                    saved.Endpoint = "";
+                                    pcCredentials = PersistPendingPcCredential(run, generation, pcCredentials, activeForCache, saved);
+                                    saved.DeviceId = await PairPcAsync(selected, saved, deadline.Token).ConfigureAwait(false);
                                 }
-                                if (string.IsNullOrEmpty(saved.DeviceId) || (!string.IsNullOrEmpty(saved.PcId) && saved.PcId != selected.PcId))
-                                    saved.DeviceId = await SessionDiscovery.PairAsync(selected, saved.InstallationId, saved.Credential, deadline.Token).ConfigureAwait(false);
                                 saved.Endpoint = selected.Endpoint.AbsoluteUri;saved.PcId = selected.PcId;saved.Name = selected.Name;
-                                lock (_gate)
-                                {
-                                    if (!Current(run)) throw new OperationCanceledException(ct);
-                                    WriteDevice(saved);_saved = saved.Copy();
-                                }
+                                commitSaved = true;cachePerPc = true;
                             }
+                            if (selected == null) saved = activeSaved;
                             if (saved == null || string.IsNullOrEmpty(saved.Endpoint) || string.IsNullOrEmpty(saved.DeviceId))
                                 throw new SessionException("SEARCHING_PC", "no local PC available");
                             client = await SessionClient.ConnectDeviceAsync(new Uri(saved.Endpoint), saved.DeviceId,
@@ -318,13 +357,16 @@ namespace Kreoda.QuestRuntime
                     client.ModelChanged += changed;
                     try
                     {
-                        lock (_gate)
-                        {
-                            if (!Current(run)) throw new OperationCanceledException(ct);
-                            _client = client;
-                        }
                         if (client.Model == null) throw new SessionException("BAD_MODEL", "snapshot missing");
                         Capture(run, client, generation, client.Model, null);
+                        if (commitSaved)
+                            CommitSavedDevice(run, generation, saved, pcCredentials, cachePerPc, activeForCache);
+                        lock (_gate)
+                        {
+                            if (!Current(run) || generation != _scene.ConnectionGeneration)
+                                throw new OperationCanceledException(ct);
+                            _client = client;
+                        }
                         var connectedName = saved?.Name;
                         Post(run, () => { Connected = true; Status = string.IsNullOrEmpty(connectedName) ? "Connesso al PC" : "Connesso a " + connectedName; UnityEngine.Debug.Log("KREODA_CONNECTED"); });
                         attempt = 0;
@@ -371,6 +413,57 @@ namespace Kreoda.QuestRuntime
         }
 
         bool Current(CancellationTokenSource run) => !_destroyed && ReferenceEquals(_run, run);
+        string CredentialCachePath => _credentialFile + ".pcs";
+
+        static SavedDevice FromPcCredential(QuestPcCredentialRecord value) => new SavedDevice {
+            PcId = value.PcId, Name = value.Name, Endpoint = value.Endpoint, DeviceId = value.DeviceId,
+            Credential = value.Credential, LogicalId = value.LogicalId, InstallationId = value.InstallationId,
+        };
+
+        static QuestPcCredentialRecord ToPcCredential(SavedDevice value) => new QuestPcCredentialRecord {
+            PcId = value.PcId, Name = value.Name ?? "", Endpoint = value.Endpoint ?? "", DeviceId = value.DeviceId ?? "",
+            Credential = value.Credential, LogicalId = value.LogicalId, InstallationId = value.InstallationId,
+        };
+
+        Dictionary<string, QuestPcCredentialRecord> PersistPendingPcCredential(CancellationTokenSource run,
+            long generation, Dictionary<string, QuestPcCredentialRecord> records, SavedDevice active, SavedDevice pending)
+        {
+            lock (_gate)
+            {
+                EnsureCurrentConnection(run, generation);
+                var next = new Dictionary<string, QuestPcCredentialRecord>(records, StringComparer.Ordinal);
+                if (!string.IsNullOrEmpty(active?.PcId)) next[active.PcId] = ToPcCredential(active);
+                next[pending.PcId] = ToPcCredential(pending);
+                QuestPcCredentials.Write(CredentialCachePath, next.Values);
+                return next;
+            }
+        }
+
+        void CommitSavedDevice(CancellationTokenSource run, long generation, SavedDevice saved,
+            Dictionary<string, QuestPcCredentialRecord> records, bool cachePerPc, SavedDevice active)
+        {
+            lock (_gate)
+            {
+                EnsureCurrentConnection(run, generation);
+                if (cachePerPc)
+                {
+                    var next = new Dictionary<string, QuestPcCredentialRecord>(records, StringComparer.Ordinal);
+                    if (!string.IsNullOrEmpty(active?.PcId)) next[active.PcId] = ToPcCredential(active);
+                    next[saved.PcId] = ToPcCredential(saved);
+                    // Active file is the commit point. A cache/write failure leaves the prior PC active.
+                    QuestPcCredentials.Write(CredentialCachePath, next.Values);
+                }
+                WriteDevice(saved);
+                _saved = saved.Copy();
+            }
+        }
+
+        void EnsureCurrentConnection(CancellationTokenSource run, long generation)
+        {
+            if (!Current(run) || run.IsCancellationRequested || generation != _scene.ConnectionGeneration)
+                throw new OperationCanceledException();
+        }
+
         static Task<DiscoveredSessionPc[]> FindLocalPcsAsync(CancellationToken ct)
         {
 #if UNITY_EDITOR
@@ -382,6 +475,13 @@ namespace Kreoda.QuestRuntime
         }
         static Task<bool> VerifyKnownPcAsync(DiscoveredSessionPc pc, SavedDevice saved, CancellationToken ct) =>
             SessionDiscovery.VerifyKnownDeviceAsync(pc, saved.DeviceId, saved.Credential, ct,
+#if UNITY_EDITOR
+                true);
+#else
+                false);
+#endif
+        static Task<string> PairPcAsync(DiscoveredSessionPc pc, SavedDevice saved, CancellationToken ct) =>
+            SessionDiscovery.PairAsync(pc, saved.InstallationId, saved.Credential, ct,
 #if UNITY_EDITOR
                 true);
 #else

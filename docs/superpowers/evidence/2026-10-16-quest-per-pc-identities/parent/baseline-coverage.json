@@ -1,0 +1,28 @@
+{
+  "baseline": 104,
+  "current": 125,
+  "missing": [],
+  "added": [
+    "Kreoda.QuestRuntime.Tests.QuestConnectionTests.ActiveCredentialStorageFailurePreservesPriorPc",
+    "Kreoda.QuestRuntime.Tests.QuestConnectionTests.CorruptOptionalCachePreservesActivePcIdentity",
+    "Kreoda.QuestRuntime.Tests.QuestConnectionTests.InvalidPcSnapshotCannotReplaceActiveCredentials",
+    "Kreoda.QuestRuntime.Tests.QuestConnectionTests.LateCancelledPcCannotReplaceNewSelection",
+    "Kreoda.QuestRuntime.Tests.QuestConnectionTests.LegacyCredentialAutomaticallyUpgradesOnlyAfterPcProvesExistingTrust",
+    "Kreoda.QuestRuntime.Tests.QuestConnectionTests.LegacyCredentialReconnectNeverSendsSecretsToAnUnrelatedDiscoveredPc",
+    "Kreoda.QuestRuntime.Tests.QuestConnectionTests.LostBootstrapAcknowledgementReusesPendingIdentityAfterRestart",
+    "Kreoda.QuestRuntime.Tests.QuestConnectionTests.RejectedPcCannotReplaceActiveCredentials",
+    "Kreoda.QuestRuntime.Tests.QuestConnectionTests.SelectingAnotherPcUsesItsOwnIdentityAndKeepsFirstPcIdentity",
+    "Kreoda.QuestRuntime.Tests.QuestConnectionTests.Version2SavedEndpointReconnectsWhenOnlyAForeignPcAnswersDiscovery",
+    "Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.AtomicTemporaryWriteFailureKeepsExistingBytes",
+    "Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.DuplicateInvalidAndExcessRecordsCannotReplaceExistingBytes",
+    "Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(\"version\")",
+    "Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(\"count\")",
+    "Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(\"truncated\")",
+    "Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(\"trailing\")",
+    "Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(\"oversize\")",
+    "Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(\"length-overflow\")",
+    "Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(\"length-noncanonical\")",
+    "Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(\"utf8\")",
+    "Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.PendingAndTrustedRecordsRoundtripAndRemoveOnlyOnePc"
+  ]
+}

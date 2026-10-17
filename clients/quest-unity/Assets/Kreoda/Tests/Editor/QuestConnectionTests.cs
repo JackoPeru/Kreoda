@@ -3,6 +3,7 @@ using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Net;
 using System.Reflection;
 using System.Text.Json;
@@ -192,6 +193,174 @@ namespace Kreoda.QuestRuntime.Tests
 
         [UnityTest]
         public IEnumerator Version2SavedEndpointReconnectsWhenOnlyAForeignPcAnswersDiscovery() => ExerciseWireClient(false, false, false, "v2-wrong");
+
+        [UnityTest]
+        public IEnumerator SelectingAnotherPcUsesItsOwnIdentityAndKeepsFirstPcIdentity() => ExercisePcSwitch();
+        [UnityTest] public IEnumerator RejectedPcCannotReplaceActiveCredentials() => ExercisePcSwitch("reject");
+        [UnityTest] public IEnumerator InvalidPcSnapshotCannotReplaceActiveCredentials() => ExercisePcSwitch("bad-snapshot");
+        [UnityTest] public IEnumerator LateCancelledPcCannotReplaceNewSelection() => ExercisePcSwitch("late");
+        [UnityTest] public IEnumerator LostBootstrapAcknowledgementReusesPendingIdentityAfterRestart() => ExercisePcSwitch("lost-ack");
+        [UnityTest] public IEnumerator CorruptOptionalCachePreservesActivePcIdentity() => ExercisePcSwitch("corrupt");
+        [UnityTest] public IEnumerator ActiveCredentialStorageFailurePreservesPriorPc() => ExercisePcSwitch("active-storage");
+        IEnumerator ExercisePcSwitch(string mode = null)
+        {
+            var repository = Path.GetFullPath(Path.Combine(Application.dataPath, "../../.."));
+            var id = Guid.NewGuid().ToString("N");
+            var metadata = Path.Combine(Path.GetTempPath(), "kreoda-two-pc-" + id + ".json");
+            var credentials = Path.Combine(Path.GetTempPath(), "kreoda-two-pc-" + id + ".dat");
+            var mesh = Path.Combine(repository, "packages/protocol/fixtures/native-blind-hole.meshfb");
+            File.WriteAllText(metadata, JsonSerializer.Serialize(new { file = mesh, multiPc = true, switchMode = mode }));
+            var start = new ProcessStartInfo("node", "\"" + Path.Combine(Application.dataPath,
+                "Kreoda/Tests/Editor/QuestWireFixture.mjs") + "\" \"" + metadata + "\"")
+            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            using var server = Process.Start(start);
+            var root = new GameObject("Two PC identity test");
+            try
+            {
+                var ready = server.StandardOutput.ReadLineAsync();
+                var wait = Stopwatch.StartNew();
+                while (!ready.IsCompleted && wait.Elapsed.TotalSeconds < 10) yield return null;
+                Assert.That(ready.IsCompleted, Is.True, "two-PC fixture did not start");
+                var connection = root.AddComponent<QuestConnection>();
+                typeof(QuestConnection).GetField("_credentialFile", Private).SetValue(connection, credentials);
+                var update = typeof(QuestConnection).GetMethod("Update", Private);
+                connection.Reconnect();
+                wait.Restart();
+                while (connection.AvailablePcs.Length < 2 && wait.Elapsed.TotalSeconds < 12)
+                { update.Invoke(connection, null);yield return null; }
+                Assert.That(connection.AvailablePcs.Select(pc => pc.PcId), Does.Contain("11111111-1111-4111-8111-111111111111"));
+                Assert.That(connection.AvailablePcs.Select(pc => pc.PcId), Does.Contain("22222222-2222-4222-8222-222222222222"));
+
+                connection.SelectPc("11111111-1111-4111-8111-111111111111");
+                wait.Restart();
+                while (!connection.Connected && wait.Elapsed.TotalSeconds < 12)
+                { update.Invoke(connection, null);yield return null; }
+                if (!connection.Connected)
+                {
+                    var diagnosticTask = ReadFixtureAuditAsync(connection.AvailablePcs.Single(pc => pc.PcId == "11111111-1111-4111-8111-111111111111").Bootstrap);
+                    wait.Restart();
+                    while (!diagnosticTask.IsCompleted && wait.Elapsed.TotalSeconds < 5) yield return null;
+                    var diagnostic = diagnosticTask.IsCompletedSuccessfully ? diagnosticTask.Result.RootElement : default;
+                    var counts = diagnostic.ValueKind == JsonValueKind.Object
+                        ? " · bootstrap=" + diagnostic.GetProperty("bootstraps").GetArrayLength() +
+                          " auth=" + diagnostic.GetProperty("authentications").GetArrayLength() +
+                          " hello=" + diagnostic.GetProperty("hellos").GetInt32() +
+                          " snapshot=" + diagnostic.GetProperty("snapshots").GetInt32()
+                        : " · no fixture audit";
+                    Assert.That(connection.Connected, Is.True, connection.Status + counts);
+                }
+                var read = typeof(QuestConnection).GetMethod("ReadDevice", Private);
+                var first = read.Invoke(connection, null);
+                var firstType = first.GetType();
+                var firstCredential = (string)firstType.GetField("Credential").GetValue(first);
+                var firstInstallation = (string)firstType.GetField("InstallationId").GetValue(first);
+                var firstBytes = File.ReadAllBytes(credentials);
+                var pcB = connection.AvailablePcs.Single(pc => pc.PcId == "22222222-2222-4222-8222-222222222222");
+
+                if (mode == "corrupt") File.WriteAllBytes(credentials + ".pcs", new byte[] { 1, 2, 3 });
+                if (mode == "active-storage") Directory.CreateDirectory(credentials + ".tmp");
+
+                connection.SelectPc(pcB.PcId);
+                if (mode == "reject" || mode == "bad-snapshot" || mode == "late" || mode == "lost-ack" || mode == "active-storage")
+                {
+                    bool reached = false;wait.Restart();
+                    while (!reached && wait.Elapsed.TotalSeconds < 12)
+                    {
+                        update.Invoke(connection, null);
+                        var probe = ReadFixtureAuditAsync(pcB.Bootstrap);
+                        while (!probe.IsCompleted && wait.Elapsed.TotalSeconds < 12) { update.Invoke(connection, null);yield return null; }
+                        Assert.That(probe.IsCompletedSuccessfully, Is.True);
+                        using var audit = probe.Result;
+                        reached = mode == "lost-ack" ? audit.RootElement.GetProperty("bootstraps").GetArrayLength() > 0 :
+                            mode == "reject" ? connection.Status.Contains("revocato") :
+                            mode == "active-storage" ? connection.Status.StartsWith("Offline") && audit.RootElement.GetProperty("snapshots").GetInt32() > 0 :
+                            audit.RootElement.GetProperty("snapshots").GetInt32() > 0;
+                        if (!reached) yield return null;
+                    }
+                    Assert.That(reached, Is.True, connection.Status);
+                    Assert.That(File.ReadAllBytes(credentials), Is.EqualTo(firstBytes), "unaccepted PC must not replace the active credential file");
+                    Assert.That(connection.Connected, Is.False);
+                    if (mode == "lost-ack")
+                    {
+                        Object.DestroyImmediate(connection);
+                        connection = root.AddComponent<QuestConnection>();
+                        typeof(QuestConnection).GetField("_credentialFile", Private).SetValue(connection, credentials);
+                        var restored = read.Invoke(connection, null);
+                        Assert.That(restored, Is.Not.Null, "restart must load PC A's unchanged active file");
+                        typeof(QuestConnection).GetField("_saved", Private).SetValue(connection, restored);
+                        connection.Reconnect();wait.Restart();
+                        while (connection.AvailablePcs.Length < 2 && wait.Elapsed.TotalSeconds < 12) { update.Invoke(connection, null);yield return null; }
+                        Assert.That(connection.AvailablePcs.Select(pc => pc.PcId), Does.Contain(pcB.PcId),
+                            "restart discovery: " + connection.Status);
+                        connection.SelectPc(pcB.PcId);
+                    }
+                    else
+                    {
+                        if (mode == "active-storage") Directory.Delete(credentials + ".tmp");
+                        connection.SelectPc("11111111-1111-4111-8111-111111111111");wait.Restart();
+                        while (!connection.Connected && wait.Elapsed.TotalSeconds < 12) { update.Invoke(connection, null);yield return null; }
+                        Assert.That(connection.Connected, Is.True, connection.Status);
+                        var settle = Stopwatch.StartNew();
+                        while (mode == "late" && settle.Elapsed.TotalSeconds < 3) { update.Invoke(connection, null);yield return null; }
+                        var kept = read.Invoke(connection, null);
+                        Assert.That(kept.GetType().GetField("Credential").GetValue(kept), Is.EqualTo(firstCredential));
+                        Assert.That(kept.GetType().GetField("InstallationId").GetValue(kept), Is.EqualTo(firstInstallation));
+                        yield break;
+                    }
+                }
+                wait.Restart();
+                while (!connection.Connected && wait.Elapsed.TotalSeconds < 12)
+                { update.Invoke(connection, null);yield return null; }
+                Assert.That(connection.Connected, Is.True, connection.Status);
+                var auditTask = ReadFixtureAuditAsync(pcB.Bootstrap);
+                wait.Restart();
+                while (!auditTask.IsCompleted && wait.Elapsed.TotalSeconds < 5) yield return null;
+                Assert.That(auditTask.IsCompletedSuccessfully, Is.True);
+                using (var audit = auditTask.GetAwaiter().GetResult())
+                {
+                    var attempts = audit.RootElement.GetProperty("bootstraps").EnumerateArray().ToArray();
+                    var bootstrap = attempts.First();
+                    Assert.That(bootstrap.GetProperty("credential").GetString(), Is.Not.EqualTo(firstCredential),
+                        "PC B must not receive PC A's reusable credential");
+                    Assert.That(bootstrap.GetProperty("installationId").GetString(), Is.Not.EqualTo(firstInstallation),
+                        "PC B must not receive PC A's installation identity");
+                    Assert.That(attempts.Select(item => item.GetProperty("credential").GetString()).Distinct().Count(), Is.EqualTo(1));
+                    Assert.That(attempts.Select(item => item.GetProperty("installationId").GetString()).Distinct().Count(), Is.EqualTo(1));
+                    if (mode == "lost-ack") Assert.That(attempts.Length, Is.GreaterThanOrEqualTo(2));
+                }
+
+                var active = read.Invoke(connection, null);
+                Assert.That(active.GetType().GetField("PcId").GetValue(active), Is.EqualTo(pcB.PcId));
+                connection.SelectPc("11111111-1111-4111-8111-111111111111");
+                wait.Restart();
+                while (!connection.Connected && wait.Elapsed.TotalSeconds < 12)
+                { update.Invoke(connection, null);yield return null; }
+                Assert.That(connection.Connected, Is.True, connection.Status);
+                var returned = read.Invoke(connection, null);
+                Assert.That(returned.GetType().GetField("Credential").GetValue(returned), Is.EqualTo(firstCredential));
+                Assert.That(returned.GetType().GetField("InstallationId").GetValue(returned), Is.EqualTo(firstInstallation));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                if (!server.HasExited) server.Kill();
+                server.WaitForExit(5000);
+                if (File.Exists(metadata)) File.Delete(metadata);
+                foreach (var path in new[] { credentials, credentials + ".pcs", credentials + ".tmp", credentials + ".pcs.tmp" })
+                {
+                    if (File.Exists(path)) File.Delete(path);
+                    if (Directory.Exists(path)) Directory.Delete(path);
+                }
+            }
+        }
+
+        static async System.Threading.Tasks.Task<JsonDocument> ReadFixtureAuditAsync(Uri bootstrap)
+        {
+            using var client = new HttpClient();
+            using var response = await client.GetAsync(new Uri(bootstrap, "/audit"));
+            response.EnsureSuccessStatusCode();
+            return JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        }
 
         [UnityTest]
         public IEnumerator DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport() => ExerciseWireClient(true, true);
@@ -549,7 +718,9 @@ namespace Kreoda.QuestRuntime.Tests
                     var second = sent.Where(item => item.GetProperty("connection").GetInt32() == 2).ToArray();
                     Assert.That(System.Array.FindIndex(second, item => item.GetProperty("method").GetString() == "listCommands"),
                         Is.LessThan(System.Array.FindIndex(second, item => item.GetProperty("method").GetString() == "command")));
-                    var command = second.Single(item => item.GetProperty("method").GetString() == "command");
+                    var secondCommands = second.Where(item => item.GetProperty("method").GetString() == "command").ToArray();
+                    Assert.That(secondCommands.Length, Is.EqualTo(1), JsonSerializer.Serialize(secondCommands));
+                    var command = secondCommands.Single();
                     Assert.That(command.GetProperty("params").GetProperty("parameters").GetProperty("planeKind").GetString(), Is.EqualTo("XZ"));
                 }
                 connection.Forget();

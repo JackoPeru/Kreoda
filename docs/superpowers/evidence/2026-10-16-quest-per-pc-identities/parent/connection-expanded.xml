@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="31" result="Passed" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-17 08:26:53Z" end-time="2026-10-17 08:27:42Z" duration="49,1876571">
+  <test-suite type="TestSuite" id="1000" name="Kreoda Quest" fullname="Kreoda Quest" runstate="Runnable" testcasecount="125" result="Passed" start-time="2026-10-17 08:26:53Z" end-time="2026-10-17 08:27:42Z" duration="49.187657" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1152" name="Kreoda.QuestRuntime.Tests.dll" fullname="C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity/Library/ScriptAssemblies/Kreoda.QuestRuntime.Tests.dll" runstate="Runnable" testcasecount="125" result="Passed" start-time="2026-10-17 08:26:53Z" end-time="2026-10-17 08:27:42Z" duration="49.179553" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="26768" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1153" name="Kreoda" fullname="Kreoda" runstate="Runnable" testcasecount="125" result="Passed" start-time="2026-10-17 08:26:53Z" end-time="2026-10-17 08:27:42Z" duration="49.179190" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1154" name="QuestRuntime" fullname="Kreoda.QuestRuntime" runstate="Runnable" testcasecount="125" result="Passed" start-time="2026-10-17 08:26:53Z" end-time="2026-10-17 08:27:42Z" duration="49.179010" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1155" name="Tests" fullname="Kreoda.QuestRuntime.Tests" runstate="Runnable" testcasecount="125" result="Passed" start-time="2026-10-17 08:26:53Z" end-time="2026-10-17 08:27:42Z" duration="49.178805" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1004" name="QuestConnectionTests" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" testcasecount="20" result="Passed" start-time="2026-10-17 08:26:53Z" end-time="2026-10-17 08:27:42Z" duration="49.023774" total="20" passed="20" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1023" name="ActiveCredentialStorageFailurePreservesPriorPc" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.ActiveCredentialStorageFailurePreservesPriorPc" methodname="ActiveCredentialStorageFailurePreservesPriorPc" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1825081260" result="Passed" start-time="2026-10-17 08:26:53Z" end-time="2026-10-17 08:26:59Z" duration="5.484203" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTION_ERROR SessionException CHOOSE_PC
+KREODA_CONNECTED
+KREODA_CONNECTION_ERROR UnauthorizedAccessException
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+]]></output>
+              </test-case>
+              <test-case id="1022" name="CorruptOptionalCachePreservesActivePcIdentity" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.CorruptOptionalCachePreservesActivePcIdentity" methodname="CorruptOptionalCachePreservesActivePcIdentity" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1844542186" result="Passed" start-time="2026-10-17 08:26:59Z" end-time="2026-10-17 08:27:04Z" duration="5.088956" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTION_ERROR SessionException CHOOSE_PC
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+]]></output>
+              </test-case>
+              <test-case id="1006" name="DatumObservationsTrackCurrentRevisionRemovalDocumentAndConnectionWithoutMeshes" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.DatumObservationsTrackCurrentRevisionRemovalDocumentAndConnectionWithoutMeshes" methodname="DatumObservationsTrackCurrentRevisionRemovalDocumentAndConnectionWithoutMeshes" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1761416808" result="Passed" start-time="2026-10-17 08:27:04Z" end-time="2026-10-17 08:27:04Z" duration="0.022186" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+]]></output>
+              </test-case>
+              <test-case id="1024" name="DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport" methodname="DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1451192221" result="Passed" start-time="2026-10-17 08:27:04Z" end-time="2026-10-17 08:27:04Z" duration="0.305610" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1005" name="DeviceFileMigratesLegacyCredentialsAndAtomicallyRetainsAutomaticIdentity" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.DeviceFileMigratesLegacyCredentialsAndAtomicallyRetainsAutomaticIdentity" methodname="DeviceFileMigratesLegacyCredentialsAndAtomicallyRetainsAutomaticIdentity" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="2130257058" result="Passed" start-time="2026-10-17 08:27:04Z" end-time="2026-10-17 08:27:04Z" duration="0.026808" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1019" name="InvalidPcSnapshotCannotReplaceActiveCredentials" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.InvalidPcSnapshotCannotReplaceActiveCredentials" methodname="InvalidPcSnapshotCannotReplaceActiveCredentials" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1512713911" result="Passed" start-time="2026-10-17 08:27:04Z" end-time="2026-10-17 08:27:09Z" duration="5.090725" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTION_ERROR SessionException CHOOSE_PC
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_CONNECTION_ERROR SessionException BAD_MODEL
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+]]></output>
+              </test-case>
+              <test-case id="1020" name="LateCancelledPcCannotReplaceNewSelection" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.LateCancelledPcCannotReplaceNewSelection" methodname="LateCancelledPcCannotReplaceNewSelection" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="184651951" result="Passed" start-time="2026-10-17 08:27:09Z" end-time="2026-10-17 08:27:17Z" duration="8.111683" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTION_ERROR SessionException CHOOSE_PC
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+]]></output>
+              </test-case>
+              <test-case id="1025" name="LateReferenceReplyCannotRetargetSameUuidAfterDocumentReconnect" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.LateReferenceReplyCannotRetargetSameUuidAfterDocumentReconnect" methodname="LateReferenceReplyCannotRetargetSameUuidAfterDocumentReconnect" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1660598706" result="Passed" start-time="2026-10-17 08:27:17Z" end-time="2026-10-17 08:27:20Z" duration="2.653546" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1015" name="LegacyCredentialAutomaticallyUpgradesOnlyAfterPcProvesExistingTrust" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.LegacyCredentialAutomaticallyUpgradesOnlyAfterPcProvesExistingTrust" methodname="LegacyCredentialAutomaticallyUpgradesOnlyAfterPcProvesExistingTrust" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1427989512" result="Passed" start-time="2026-10-17 08:27:20Z" end-time="2026-10-17 08:27:21Z" duration="1.394040" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1014" name="LegacyCredentialReconnectNeverSendsSecretsToAnUnrelatedDiscoveredPc" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.LegacyCredentialReconnectNeverSendsSecretsToAnUnrelatedDiscoveredPc" methodname="LegacyCredentialReconnectNeverSendsSecretsToAnUnrelatedDiscoveredPc" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="59145624" result="Passed" start-time="2026-10-17 08:27:21Z" end-time="2026-10-17 08:27:23Z" duration="1.369831" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1021" name="LostBootstrapAcknowledgementReusesPendingIdentityAfterRestart" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.LostBootstrapAcknowledgementReusesPendingIdentityAfterRestart" methodname="LostBootstrapAcknowledgementReusesPendingIdentityAfterRestart" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="87849580" result="Passed" start-time="2026-10-17 08:27:23Z" end-time="2026-10-17 08:27:30Z" duration="7.610249" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTION_ERROR SessionException CHOOSE_PC
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_CONNECTION_ERROR HttpRequestException
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+]]></output>
+              </test-case>
+              <test-case id="1012" name="PairAndReconnectUploadAuthenticNativeMeshThroughActualUnityClient" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.PairAndReconnectUploadAuthenticNativeMeshThroughActualUnityClient" methodname="PairAndReconnectUploadAuthenticNativeMeshThroughActualUnityClient" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="198908761" result="Passed" start-time="2026-10-17 08:27:30Z" end-time="2026-10-17 08:27:30Z" duration="0.152363" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1011" name="ReferenceFailureDistinguishesNativeRejectionFromAcceptedCommandRefreshFailure" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.ReferenceFailureDistinguishesNativeRejectionFromAcceptedCommandRefreshFailure" methodname="ReferenceFailureDistinguishesNativeRejectionFromAcceptedCommandRefreshFailure" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="110717912" result="Passed" start-time="2026-10-17 08:27:30Z" end-time="2026-10-17 08:27:30Z" duration="0.000544" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1018" name="RejectedPcCannotReplaceActiveCredentials" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.RejectedPcCannotReplaceActiveCredentials" methodname="RejectedPcCannotReplaceActiveCredentials" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="824573820" result="Passed" start-time="2026-10-17 08:27:30Z" end-time="2026-10-17 08:27:35Z" duration="5.052118" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTION_ERROR SessionException CHOOSE_PC
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_CONNECTION_ERROR SessionException UNAUTHORIZED
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+]]></output>
+              </test-case>
+              <test-case id="1017" name="SelectingAnotherPcUsesItsOwnIdentityAndKeepsFirstPcIdentity" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.SelectingAnotherPcUsesItsOwnIdentityAndKeepsFirstPcIdentity" methodname="SelectingAnotherPcUsesItsOwnIdentityAndKeepsFirstPcIdentity" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1289866844" result="Passed" start-time="2026-10-17 08:27:35Z" end-time="2026-10-17 08:27:41Z" duration="5.124450" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTION_ERROR SessionException CHOOSE_PC
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+]]></output>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1010" name="UnconfirmedReferenceErrorsRemainUncertain" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-10-17 08:27:41Z" end-time="2026-10-17 08:27:41Z" duration="0.002596" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1007" name="UnconfirmedReferenceErrorsRemainUncertain(&quot;INVALID_JSON&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain(&quot;INVALID_JSON&quot;)" methodname="UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="42971559" result="Passed" start-time="2026-10-17 08:27:41Z" end-time="2026-10-17 08:27:41Z" duration="0.000499" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1008" name="UnconfirmedReferenceErrorsRemainUncertain(&quot;UNKNOWN_NATIVE_CODE&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain(&quot;UNKNOWN_NATIVE_CODE&quot;)" methodname="UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1437754178" result="Passed" start-time="2026-10-17 08:27:41Z" end-time="2026-10-17 08:27:41Z" duration="0.000117" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1009" name="UnconfirmedReferenceErrorsRemainUncertain(&quot;CANCELLED&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain(&quot;CANCELLED&quot;)" methodname="UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1191544036" result="Passed" start-time="2026-10-17 08:27:41Z" end-time="2026-10-17 08:27:41Z" duration="0.000092" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-case id="1013" name="UsbBootstrapPairsAndReconnectsOverLoopbackWithActualMesh" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UsbBootstrapPairsAndReconnectsOverLoopbackWithActualMesh" methodname="UsbBootstrapPairsAndReconnectsOverLoopbackWithActualMesh" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1069501882" result="Passed" start-time="2026-10-17 08:27:41Z" end-time="2026-10-17 08:27:41Z" duration="0.151121" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1016" name="Version2SavedEndpointReconnectsWhenOnlyAForeignPcAnswersDiscovery" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.Version2SavedEndpointReconnectsWhenOnlyAForeignPcAnswersDiscovery" methodname="Version2SavedEndpointReconnectsWhenOnlyAForeignPcAnswersDiscovery" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="2088471924" result="Passed" start-time="2026-10-17 08:27:41Z" end-time="2026-10-17 08:27:42Z" duration="1.367884" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1094" name="QuestPcCredentialsTests" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.148705" total="11" passed="11" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1097" name="AtomicTemporaryWriteFailureKeepsExistingBytes" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.AtomicTemporaryWriteFailureKeepsExistingBytes" methodname="AtomicTemporaryWriteFailureKeepsExistingBytes" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" seed="1535837296" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.015417" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1096" name="DuplicateInvalidAndExcessRecordsCannotReplaceExistingBytes" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.DuplicateInvalidAndExcessRecordsCannotReplaceExistingBytes" methodname="DuplicateInvalidAndExcessRecordsCannotReplaceExistingBytes" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" seed="1118793644" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.009189" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1106" name="MalformedOptionalCacheReturnsNoPartialIdentities" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.104403" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1098" name="MalformedOptionalCacheReturnsNoPartialIdentities(&quot;version&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(&quot;version&quot;)" methodname="MalformedOptionalCacheReturnsNoPartialIdentities" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" seed="35881466" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.013586" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1099" name="MalformedOptionalCacheReturnsNoPartialIdentities(&quot;count&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(&quot;count&quot;)" methodname="MalformedOptionalCacheReturnsNoPartialIdentities" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" seed="1822878932" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.013335" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1100" name="MalformedOptionalCacheReturnsNoPartialIdentities(&quot;truncated&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(&quot;truncated&quot;)" methodname="MalformedOptionalCacheReturnsNoPartialIdentities" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" seed="1020571766" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.012818" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1101" name="MalformedOptionalCacheReturnsNoPartialIdentities(&quot;trailing&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(&quot;trailing&quot;)" methodname="MalformedOptionalCacheReturnsNoPartialIdentities" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" seed="1568707578" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.012697" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1102" name="MalformedOptionalCacheReturnsNoPartialIdentities(&quot;oversize&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(&quot;oversize&quot;)" methodname="MalformedOptionalCacheReturnsNoPartialIdentities" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" seed="1546812068" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.008524" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1103" name="MalformedOptionalCacheReturnsNoPartialIdentities(&quot;length-overflow&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(&quot;length-overflow&quot;)" methodname="MalformedOptionalCacheReturnsNoPartialIdentities" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" seed="2016252579" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.014379" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1104" name="MalformedOptionalCacheReturnsNoPartialIdentities(&quot;length-noncanonical&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(&quot;length-noncanonical&quot;)" methodname="MalformedOptionalCacheReturnsNoPartialIdentities" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" seed="1349872164" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.012965" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1105" name="MalformedOptionalCacheReturnsNoPartialIdentities(&quot;utf8&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.MalformedOptionalCacheReturnsNoPartialIdentities(&quot;utf8&quot;)" methodname="MalformedOptionalCacheReturnsNoPartialIdentities" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" seed="1635826818" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.014480" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-case id="1095" name="PendingAndTrustedRecordsRoundtripAndRemoveOnlyOnePc" fullname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests.PendingAndTrustedRecordsRoundtripAndRemoveOnlyOnePc" methodname="PendingAndTrustedRecordsRoundtripAndRemoveOnlyOnePc" classname="Kreoda.QuestRuntime.Tests.QuestPcCredentialsTests" runstate="Runnable" seed="349413333" result="Passed" start-time="2026-10-17 08:27:42Z" end-time="2026-10-17 08:27:42Z" duration="0.017664" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/matte/Documents/Codex-tools/Native/quest-per-pc-parent-20261017/connection-expanded.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

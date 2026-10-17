@@ -1,0 +1,25 @@
+{
+  "apk": "C:/Users/matte/Documents/Codex-tools/Native/quest-per-pc-parent-20261017/arm64/KreodaQuest.apk",
+  "bytes": 43404485,
+  "sha256": "c2078c26ff596591a14e4bc445665b587ab355e9b2c54c2d9a3180ffc72e14cf",
+  "architectures": [
+    "arm64-v8a"
+  ],
+  "nativeEntries": [
+    "lib/arm64-v8a/LibRuntimeOptimizer.so",
+    "lib/arm64-v8a/libOVRMetricsTool.so",
+    "lib/arm64-v8a/libOVRPlugin.so",
+    "lib/arm64-v8a/libUnityOpenXR.so",
+    "lib/arm64-v8a/libUnityOpenXRHands.so",
+    "lib/arm64-v8a/libc++_shared.so",
+    "lib/arm64-v8a/libgame.so",
+    "lib/arm64-v8a/libil2cpp.so",
+    "lib/arm64-v8a/libloaderimpl.so",
+    "lib/arm64-v8a/libmain.so",
+    "lib/arm64-v8a/libopenxr_loader.so",
+    "lib/arm64-v8a/libswappywrapper.so",
+    "lib/arm64-v8a/libunity.so"
+  ],
+  "sourceChanges": [],
+  "directExitCode": 0
+}
