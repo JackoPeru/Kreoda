@@ -1,0 +1,8 @@
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop
+
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  10:19:13
+   Duration  1.39s (transform 111ms, setup 20ms, import 437ms, tests 47ms, environment 659ms)

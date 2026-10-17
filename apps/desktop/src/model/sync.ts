@@ -231,6 +231,11 @@ export async function syncFromCoreList(
   const visible = visibleFeatureIds(features).filter(id => !unavailable.has(id));
   const changed = changedMeshIds === null ? null : new Set(changedMeshIds);
   const hydrate = visible.filter((id) => changed === null || changed.has(id) || !s.meshes[id]);
+  // Only retained unchanged buffers are valid while changed geometry hydrates.
+  // Their native creation revision may precede this document revision.
+  const retained = changed === null ? {} : Object.fromEntries(
+    visible.filter(id => !changed.has(id) && s.meshes[id]).map(id => [id, s.meshes[id]!]));
+  s.replaceAllMeshes(retained, revision, epoch);
   const results: (
     | { ok: true; id: string; mesh: Awaited<ReturnType<typeof coreClient.requestMesh>> }
     | { ok: false; id: string; error: string }
@@ -249,8 +254,7 @@ export async function syncFromCoreList(
     }
   }
   await Promise.all(Array.from({ length: Math.min(LANES, hydrate.length) }, lane));
-  const meshes: Record<string, Parameters<typeof s.upsertMesh>[1]> = changed === null ? {} :
-    Object.fromEntries(visible.filter((id) => !changed.has(id) && s.meshes[id]).map((id) => [id, s.meshes[id]!]));
+  const meshes: Record<string, Parameters<typeof s.upsertMesh>[1]> = { ...retained };
   const failed: string[] = [];
   for (const r of results) {
     if (r.ok) meshes[r.id] = r.mesh;

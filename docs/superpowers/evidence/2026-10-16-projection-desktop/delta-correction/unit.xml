@@ -1,0 +1,1028 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="316" failures="0" errors="0" time="35.1228273">
+    <testsuite name="tests/app.test.tsx" timestamp="2026-10-17T08:20:55.862Z" hostname="PC-Matteo" tests="9" failures="0" errors="0" skipped="0" time="1.8635725">
+        <testcase classname="tests/app.test.tsx" name="beginner shell (§24) &gt; retains section during an empty mesh interval for a same-document Box to Hole tip swap" time="0.7976151">
+        </testcase>
+        <testcase classname="tests/app.test.tsx" name="beginner shell (§24) &gt; clears the section when a nonempty document switches while Home unmounts the viewport" time="0.1423351">
+        </testcase>
+        <testcase classname="tests/app.test.tsx" name="beginner shell (§24) &gt; closes a transient sketch editor when the core crashes" time="0.1393234">
+        </testcase>
+        <testcase classname="tests/app.test.tsx" name="beginner shell (§24) &gt; clears previous project references when a session switches documents" time="0.1247851">
+        </testcase>
+        <testcase classname="tests/app.test.tsx" name="beginner shell (§24) &gt; blocks saving during a remote switch and loads the new project references" time="0.1343959">
+        </testcase>
+        <testcase classname="tests/app.test.tsx" name="beginner shell (§24) &gt; applies CAD changes after a reference read fails and retries on the next delta" time="0.110779">
+        </testcase>
+        <testcase classname="tests/app.test.tsx" name="beginner shell (§24) &gt; serializes document reference reads and finishes with the newest document" time="0.1470047">
+        </testcase>
+        <testcase classname="tests/app.test.tsx" name="beginner shell (§24) &gt; boots to the home screen (riferimento UI/home.png)" time="0.0467815">
+        </testcase>
+        <testcase classname="tests/app.test.tsx" name="beginner shell (§24) &gt; shows toolbar, viewport, command bar after entering the workspace" time="0.2181993">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/autosave.test.ts" timestamp="2026-10-17T08:20:55.868Z" hostname="PC-Matteo" tests="2" failures="0" errors="0" skipped="0" time="0.6353533">
+        <testcase classname="tests/autosave.test.ts" name="crash autosave document versions &gt; saves reference-only edits without a CAD revision change" time="0.6264993">
+        </testcase>
+        <testcase classname="tests/autosave.test.ts" name="crash autosave document versions &gt; keys recovery by epoch and retries when a document changes during save" time="0.0070343">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/bodies-tree.test.tsx" timestamp="2026-10-17T08:20:55.868Z" hostname="PC-Matteo" tests="3" failures="0" errors="0" skipped="0" time="0.0584046">
+        <testcase classname="tests/bodies-tree.test.tsx" name="ObjectTree (Slice 4 bodies + history) &gt; history text follows inserted predecessors, not label creation order" time="0.0330707">
+        </testcase>
+        <testcase classname="tests/bodies-tree.test.tsx" name="ObjectTree (Slice 4 bodies + history) &gt; single-root body renders flat with the legacy label" time="0.0065283">
+        </testcase>
+        <testcase classname="tests/bodies-tree.test.tsx" name="ObjectTree (Slice 4 bodies + history) &gt; multi-feature body expands history and selects features" time="0.0172733">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/bodies.test.ts" timestamp="2026-10-17T08:20:55.869Z" hostname="PC-Matteo" tests="13" failures="0" errors="0" skipped="0" time="0.0173357">
+        <testcase classname="tests/bodies.test.ts" name="hydrates only changed visible meshes and preserves an untouched buffer and selection" time="0.0060645">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="stores the canonical changed sketch model instead of keeping stale coordinates" time="0.0007005">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="buildBodies (Slice 4 body projection) &gt; hydrates an inserted predecessor created after its successor with the original tip" time="0.0008694">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="buildBodies (Slice 4 body projection) &gt; groups Box→Hole→Fillet into one body with the fillet tip" time="0.0014384">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="buildBodies (Slice 4 body projection) &gt; opens a second body for an independent root" time="0.0007133">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="buildBodies (Slice 4 body projection) &gt; leaves Instance occurrences out of bodies but visible" time="0.0004624">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="buildBodies (Slice 4 body projection) &gt; visible ids are tips only (history stays out of the scene)" time="0.0003341">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="buildTreeItems (bodies + history) &gt; renders a single-root body as one flat row (no nesting noise)" time="0.0008171">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="buildTreeItems (bodies + history) &gt; renders a multi-feature body as Body N with history children" time="0.0007145">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="buildTreeItems (bodies + history) &gt; keeps sketches on top and instances as flat rows" time="0.0008808">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="syncFromCoreList (tip-only scene contents) &gt; hydrates only the tip mesh: Box→Hole→Fillet = 1 scene object" time="0.0007749">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="syncFromCoreList (tip-only scene contents) &gt; undo tip step swaps the rendered object with no ghosts" time="0.0006722">
+        </testcase>
+        <testcase classname="tests/bodies.test.ts" name="syncFromCoreList (tip-only scene contents) &gt; setFeatures prunes a superseded tip mesh on incremental append" time="0.0003218">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/camera.test.ts" timestamp="2026-10-17T08:20:55.873Z" hostname="PC-Matteo" tests="11" failures="0" errors="0" skipped="0" time="0.0186542">
+        <testcase classname="tests/camera.test.ts" name="CameraController &gt; frames the supplied model center at a useful distance" time="0.0045057">
+        </testcase>
+        <testcase classname="tests/camera.test.ts" name="CameraController &gt; Home preserves camera direction when framing far off-origin content" time="0.0016729">
+        </testcase>
+        <testcase classname="tests/camera.test.ts" name="CameraController &gt; frames selection bounds conservatively" time="0.0006987">
+        </testcase>
+        <testcase classname="tests/camera.test.ts" name="CameraController &gt; fits selection bounds inside a narrow viewport" time="0.0007512">
+        </testcase>
+        <testcase classname="tests/camera.test.ts" name="CameraController &gt; F preserves camera direction and fit distance for far off-origin selection bounds" time="0.0008291">
+        </testcase>
+        <testcase classname="tests/camera.test.ts" name="CameraController &gt; left-drag orbits with Z up and consumes synthesized clicks" time="0.0019718">
+        </testcase>
+        <testcase classname="tests/camera.test.ts" name="CameraController &gt; does not consume a left click after right-pan, but does after a primary drag" time="0.0014425">
+        </testcase>
+        <testcase classname="tests/camera.test.ts" name="CameraController &gt; right and Shift-left drags pan without changing view direction" time="0.001135">
+        </testcase>
+        <testcase classname="tests/camera.test.ts" name="CameraController &gt; ignores sub-threshold motion, respects input ownership, and cleans canceled pointers" time="0.0012928">
+        </testcase>
+        <testcase classname="tests/camera.test.ts" name="CameraController &gt; zooms, prevents the context menu, and routes F/Home to framing callbacks" time="0.0015778">
+        </testcase>
+        <testcase classname="tests/camera.test.ts" name="CameraController &gt; removes all input handlers on dispose" time="0.0007421">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/commands5.test.ts" timestamp="2026-10-17T08:20:55.875Z" hostname="PC-Matteo" tests="6" failures="0" errors="0" skipped="0" time="0.0138893">
+        <testcase classname="tests/commands5.test.ts" name="Phase 5 command registry (§19) &gt; freezes every command while the engine is down (M11)" time="0.0053539">
+        </testcase>
+        <testcase classname="tests/commands5.test.ts" name="Phase 5 command registry (§19) &gt; gates hole on face selection" time="0.0004733">
+        </testcase>
+        <testcase classname="tests/commands5.test.ts" name="Phase 5 command registry (§19) &gt; gates fillet/chamfer on edge selection" time="0.0006744">
+        </testcase>
+        <testcase classname="tests/commands5.test.ts" name="Phase 5 command registry (§19) &gt; gates boolean on two body selections" time="0.0005045">
+        </testcase>
+        <testcase classname="tests/commands5.test.ts" name="Phase 5 command registry (§19) &gt; exposes the new commands in the toolbar" time="0.001343">
+        </testcase>
+        <testcase classname="tests/commands5.test.ts" name="Phase 5 command registry (§19) &gt; validates boolean/hole/fillet payloads" time="0.0036509">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/context-toolbar.test.tsx" timestamp="2026-10-17T08:20:55.876Z" hostname="PC-Matteo" tests="2" failures="0" errors="0" skipped="0" time="0.2550112">
+        <testcase classname="tests/context-toolbar.test.tsx" name="offers Sketch here for one healthy datum plane and hides solid-only actions" time="0.2343363">
+        </testcase>
+        <testcase classname="tests/context-toolbar.test.tsx" name="offers no sketch or solid command for axes, points, broken planes, or multiple planes" time="0.0189166">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/datum-dimension-sync.test.ts" timestamp="2026-10-17T08:20:55.877Z" hostname="PC-Matteo" tests="1" failures="0" errors="0" skipped="0" time="0.0219091">
+        <testcase classname="tests/datum-dimension-sync.test.ts" name="syncs updated native datum frames from full-list shape dimension edits" time="0.020113">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/datum-sync.test.ts" timestamp="2026-10-17T08:20:55.878Z" hostname="PC-Matteo" tests="1" failures="0" errors="0" skipped="0" time="0.0148113">
+        <testcase classname="tests/datum-sync.test.ts" name="hydrates, selects and removes native datums independently from body meshes" time="0.0132738">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/datum-viewport.test.ts" timestamp="2026-10-17T08:20:55.878Z" hostname="PC-Matteo" tests="2" failures="0" errors="0" skipped="0" time="0.0313947">
+        <testcase classname="tests/datum-viewport.test.ts" name="displays and picks native reference identity at its resolved CAD position" time="0.0263208">
+        </testcase>
+        <testcase classname="tests/datum-viewport.test.ts" name="highlights a remote datum UUID on its native-position guide independently of solids" time="0.0033399">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/dialog.test.tsx" timestamp="2026-10-17T08:20:55.879Z" hostname="PC-Matteo" tests="2" failures="0" errors="0" skipped="0" time="0.4082762">
+        <testcase classname="tests/dialog.test.tsx" name="AddPrimitiveDialog (§62 Scenario A) &gt; creates an exact-size box through the typed core path" time="0.2933868">
+        </testcase>
+        <testcase classname="tests/dialog.test.tsx" name="AddPrimitiveDialog (§62 Scenario A) &gt; rejects non-positive dimensions without touching the core" time="0.1128704">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/dialogs5.test.tsx" timestamp="2026-10-17T08:20:55.879Z" hostname="PC-Matteo" tests="4" failures="0" errors="0" skipped="0" time="0.6800914">
+        <testcase classname="tests/dialogs5.test.tsx" name="HoleDialog (§62 Scenario A widgets) &gt; prevents position entry until the native frame and default center are ready" time="0.3376583">
+        </testcase>
+        <testcase classname="tests/dialogs5.test.tsx" name="HoleDialog (§62 Scenario A widgets) &gt; cuts a hole through the typed command with explicit position" time="0.1462049">
+        </testcase>
+        <testcase classname="tests/dialogs5.test.tsx" name="HoleDialog (§62 Scenario A widgets) &gt; keeps the visible preview Y label aligned with positive and negative input" time="0.1082777">
+        </testcase>
+        <testcase classname="tests/dialogs5.test.tsx" name="DressUpDialog (safe-range message, §41) &gt; surfaces the actionable oversize error instead of failing silently" time="0.0857835">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/execute-availability.test.ts" timestamp="2026-10-17T08:20:55.880Z" hostname="PC-Matteo" tests="10" failures="0" errors="0" skipped="0" time="0.0280228">
+        <testcase classname="tests/execute-availability.test.ts" name="skipAvailability equivalence (Fase 3) &gt; rejects an unavailable command without the flag and never reaches dispatch" time="0.0051772">
+        </testcase>
+        <testcase classname="tests/execute-availability.test.ts" name="skipAvailability equivalence (Fase 3) &gt; same call with the flag skips only the gate and reaches the same dispatch" time="0.0074406">
+        </testcase>
+        <testcase classname="tests/execute-availability.test.ts" name="skipAvailability equivalence (Fase 3) &gt; keeps zod validation with the flag (negative width still throws ZodError)" time="0.0011771">
+        </testcase>
+        <testcase classname="tests/execute-availability.test.ts" name="datum selection and optional CreateSketch binding &gt; keeps a datum plane a datum in Desktop selection context and binds its native UUID" time="0.0017131">
+        </testcase>
+        <testcase classname="tests/execute-availability.test.ts" name="datum selection and optional CreateSketch binding &gt; keeps principal sketch creation unbound with no datum plane selection" time="0.0006268">
+        </testcase>
+        <testcase classname="tests/execute-availability.test.ts" name="datum selection and optional CreateSketch binding &gt; clears local selection and hover when a datum UUID is removed" time="0.0007909">
+        </testcase>
+        <testcase classname="tests/execute-availability.test.ts" name="datum selection and optional CreateSketch binding &gt; never binds an axis as sketch support and preserves explicit supportRef" time="0.0060232">
+        </testcase>
+        <testcase classname="tests/execute-availability.test.ts" name="datum selection and optional CreateSketch binding &gt; does not infer support in a provider-resolved skipAvailability context" time="0.0009061">
+        </testcase>
+        <testcase classname="tests/execute-availability.test.ts" name="datum selection and optional CreateSketch binding &gt; rejects a selected broken datum plane instead of silently creating on a principal plane" time="0.0008313">
+        </testcase>
+        <testcase classname="tests/execute-availability.test.ts" name="datum selection and optional CreateSketch binding &gt; reports ambiguous selected datum planes and does not dispatch an implicit sketch" time="0.0011472">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/geometry-availability-sync.test.ts" timestamp="2026-10-17T08:20:55.882Z" hostname="PC-Matteo" tests="1" failures="0" errors="0" skipped="0" time="0.00839">
+        <testcase classname="tests/geometry-availability-sync.test.ts" name="retains unavailable body history and drops stale meshes for either unavailability marker" time="0.0066185">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/hole-placement.test.ts" timestamp="2026-10-17T08:20:55.882Z" hostname="PC-Matteo" tests="5" failures="0" errors="0" skipped="0" time="0.0112707">
+        <testcase classname="tests/hole-placement.test.ts" name="trimmed planar hole placement &gt; projects a transformed face frame into local X/Y coordinates" time="0.0043823">
+        </testcase>
+        <testcase classname="tests/hole-placement.test.ts" name="trimmed planar hole placement &gt; extracts outer and inner actual trim loops from face triangles" time="0.0024621">
+        </testcase>
+        <testcase classname="tests/hole-placement.test.ts" name="trimmed planar hole placement &gt; combines a manual point with one selected boundary distance" time="0.001166">
+        </testcase>
+        <testcase classname="tests/hole-placement.test.ts" name="trimmed planar hole placement &gt; solves two nonparallel distances and refuses parallel constraints" time="0.0007161">
+        </testcase>
+        <testcase classname="tests/hole-placement.test.ts" name="trimmed planar hole placement &gt; rejects outside points, nonpositive diameters, and insufficient radius clearance" time="0.0004882">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/home-media.test.tsx" timestamp="2026-10-17T08:20:55.884Z" hostname="PC-Matteo" tests="1" failures="0" errors="0" skipped="0" time="0.0831212">
+        <testcase classname="tests/home-media.test.tsx" name="resumes video after reduced motion cancels a pending play without reporting a media failure" time="0.0802844">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/i18n.test.tsx" timestamp="2026-10-17T08:20:55.884Z" hostname="PC-Matteo" tests="6" failures="0" errors="0" skipped="0" time="0.1216806">
+        <testcase classname="tests/i18n.test.tsx" name="i18n dictionaries (§i18n) &gt; italian covers every english key with a non-empty string" time="0.0031715">
+        </testcase>
+        <testcase classname="tests/i18n.test.tsx" name="i18n dictionaries (§i18n) &gt; interpolates {vars} and falls back to the key for unknowns" time="0.0006568">
+        </testcase>
+        <testcase classname="tests/i18n.test.tsx" name="i18n dictionaries (§i18n) &gt; switches to italian and back" time="0.0010966">
+        </testcase>
+        <testcase classname="tests/i18n.test.tsx" name="i18n dictionaries (§i18n) &gt; re-renders UI in italian and switches back live" time="0.1081312">
+            <system-err>
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+            </system-err>
+        </testcase>
+        <testcase classname="tests/i18n.test.tsx" name="i18n dictionaries (§i18n) &gt; translates feature type and constraint kind names" time="0.002179">
+        </testcase>
+        <testcase classname="tests/i18n.test.tsx" name="i18n dictionaries (§i18n) &gt; parses italian command aliases (english still works)" time="0.0043599">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/intent.test.ts" timestamp="2026-10-17T08:20:55.886Z" hostname="PC-Matteo" tests="7" failures="0" errors="0" skipped="0" time="0.0109844">
+        <testcase classname="tests/intent.test.ts" name="IntentEngine equal-holes (§27) &gt; stays silent with fewer than two holes" time="0.0025855">
+        </testcase>
+        <testcase classname="tests/intent.test.ts" name="IntentEngine equal-holes (§27) &gt; stays silent when holes already agree (no nagging)" time="0.000456">
+        </testcase>
+        <testcase classname="tests/intent.test.ts" name="IntentEngine equal-holes (§27) &gt; suggests unifying near-identical diameters" time="0.0018946">
+        </testcase>
+        <testcase classname="tests/intent.test.ts" name="IntentEngine equal-holes (§27) &gt; stays silent for wildly different diameters" time="0.0003176">
+        </testcase>
+        <testcase classname="tests/intent.test.ts" name="IntentEngine equal-holes (§27) &gt; ignores non-hole features" time="0.0002941">
+        </testcase>
+        <testcase classname="tests/intent.test.ts" name="IntentEngine equal-holes (§27) &gt; dismissal keys are stable and round-trip" time="0.0006408">
+        </testcase>
+        <testcase classname="tests/intent.test.ts" name="IntentEngine equal-holes (§27) &gt; keeps unavailable feature identity and diagnostics without stale volume in intent context" time="0.0025637">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/parse.test.ts" timestamp="2026-10-17T08:20:55.887Z" hostname="PC-Matteo" tests="9" failures="0" errors="0" skipped="0" time="0.0167276">
+        <testcase classname="tests/parse.test.ts" name="local command parser (§57) &gt; parses primitives with units" time="0.0047234">
+        </testcase>
+        <testcase classname="tests/parse.test.ts" name="local command parser (§57) &gt; rejects bad dimensions with usage help" time="0.0020153">
+        </testcase>
+        <testcase classname="tests/parse.test.ts" name="local command parser (§57) &gt; parses hole and corner-hole patterns" time="0.0008574">
+        </testcase>
+        <testcase classname="tests/parse.test.ts" name="local command parser (§57) &gt; rejects unsupported corner counts" time="0.0001931">
+        </testcase>
+        <testcase classname="tests/parse.test.ts" name="local command parser (§57) &gt; parses fillet/chamfer/set/undo/view" time="0.0008823">
+        </testcase>
+        <testcase classname="tests/parse.test.ts" name="local command parser (§57) &gt; routes prose to unparsed (provider layer)" time="0.0003214">
+        </testcase>
+        <testcase classname="tests/parse.test.ts" name="local command parser (§57) &gt; answers export honestly (toolbar, not silent)" time="0.0004161">
+        </testcase>
+        <testcase classname="tests/parse.test.ts" name="local command parser (§57) &gt; describes steps for preview" time="0.0010133">
+        </testcase>
+        <testcase classname="tests/parse.test.ts" name="local command parser (§57) &gt; validates plans (empty / too long / unknown command)" time="0.004003">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/preload-session.test.ts" timestamp="2026-10-17T08:20:55.889Z" hostname="PC-Matteo" tests="1" failures="0" errors="0" skipped="0" time="0.043237">
+        <testcase classname="tests/preload-session.test.ts" name="session recovery and preview cancellation use narrow IPC entries" time="0.0413048">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/projection-core-client.test.ts" timestamp="2026-10-17T08:20:55.889Z" hostname="PC-Matteo" tests="2" failures="0" errors="0" skipped="0" time="0.0186068">
+        <testcase classname="tests/projection-core-client.test.ts" name="uses canonical projection commands and validates query and mutation DTOs" time="0.0144076">
+        </testcase>
+        <testcase classname="tests/projection-core-client.test.ts" name="rejects a projection query that returns a different target sketch" time="0.0022313">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/projection-desktop-opening.test.tsx" timestamp="2026-10-17T08:20:55.890Z" hostname="PC-Matteo" tests="5" failures="0" errors="0" skipped="0" time="0.2077902">
+        <testcase classname="tests/projection-desktop-opening.test.tsx" name="opening healthy projection-only does not commit a starter rectangle" time="0.0681463">
+        </testcase>
+        <testcase classname="tests/projection-desktop-opening.test.tsx" name="opening broken projection-only does not commit a starter rectangle" time="0.0450787">
+        </testcase>
+        <testcase classname="tests/projection-desktop-opening.test.tsx" name="opening circle-only does not commit a starter rectangle" time="0.0296795">
+        </testcase>
+        <testcase classname="tests/projection-desktop-opening.test.tsx" name="opening arc-only does not commit a starter rectangle" time="0.0314282">
+        </testcase>
+        <testcase classname="tests/projection-desktop-opening.test.tsx" name="commits the first-run rectangle only after empty model and empty projections are confirmed" time="0.0315221">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/projection-desktop-sync.test.ts" timestamp="2026-10-17T08:20:55.891Z" hostname="PC-Matteo" tests="1" failures="0" errors="0" skipped="0" time="0.0049309">
+        <testcase classname="tests/projection-desktop-sync.test.ts" name="preserves projection definitions and repair status through renderer summary sync" time="0.0037584">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/projection-query-freshness.test.ts" timestamp="2026-10-17T08:20:55.892Z" hostname="PC-Matteo" tests="4" failures="0" errors="0" skipped="0" time="0.3843847">
+        <testcase classname="tests/projection-query-freshness.test.ts" name="drops projection replies when document or revision changes" time="0.1264227">
+        </testcase>
+        <testcase classname="tests/projection-query-freshness.test.ts" name="drops projection replies when session lineage or connection generation changes" time="0.1253121">
+        </testcase>
+        <testcase classname="tests/projection-query-freshness.test.ts" name="keeps newest target result when older reply or failure finishes last" time="0.1300183">
+        </testcase>
+        <testcase classname="tests/projection-query-freshness.test.ts" name="clears previously displayed lines when latest projection query fails" time="0.0007634">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/projection-source-delta.test.tsx" timestamp="2026-10-17T08:20:55.893Z" hostname="PC-Matteo" tests="3" failures="0" errors="0" skipped="0" time="0.0869741">
+        <testcase classname="tests/projection-source-delta.test.tsx" name="keeps semantic edge and shape sources after an unrelated delta retains the mesh" time="0.0606374">
+        </testcase>
+        <testcase classname="tests/projection-source-delta.test.tsx" name="withdraws changed sources while replacement mesh is pending, then restores them" time="0.0012042">
+        </testcase>
+        <testcase classname="tests/projection-source-delta.test.tsx" name="never offers unavailable geometry even when an older mesh existed" time="0.0231417">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/projection-viewport.test.ts" timestamp="2026-10-17T08:20:55.894Z" hostname="PC-Matteo" tests="2" failures="0" errors="0" skipped="0" time="0.0048738">
+        <testcase classname="tests/projection-viewport.test.ts" name="projects located world CAD points onto non-XY sketch axes exactly once" time="0.002369">
+        </testcase>
+        <testcase classname="tests/projection-viewport.test.ts" name="keeps viewport projection vertices in native world CAD coordinates" time="0.0005155">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/pull.test.ts" timestamp="2026-10-17T08:20:55.894Z" hostname="PC-Matteo" tests="3" failures="0" errors="0" skipped="0" time="0.0060006">
+        <testcase classname="tests/pull.test.ts" name="pull mapping (§17) &gt; maps free faces to source parameters" time="0.0036544">
+        </testcase>
+        <testcase classname="tests/pull.test.ts" name="pull mapping (§17) &gt; refuses anchored faces with a reason, never a wrong edit" time="0.0004">
+        </testcase>
+        <testcase classname="tests/pull.test.ts" name="pull mapping (§17) &gt; clamps dimensions to kernel range" time="0.0003277">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/reference-geometry-panel.test.tsx" timestamp="2026-10-17T08:20:55.895Z" hostname="PC-Matteo" tests="21" failures="0" errors="0" skipped="0" time="1.8009724">
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="reference geometry entry point &gt; opens native reference geometry without opening image references" time="0.3498684">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; creates &apos;principal plane&apos; through visible controls" time="0.1008043">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; creates &apos;offset plane&apos; through visible controls" time="0.0448692">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; creates &apos;mid plane&apos; through visible controls" time="0.0858103">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; creates &apos;angled plane&apos; through visible controls" time="0.0460129">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; creates &apos;three-point plane&apos; through visible controls" time="0.212373">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; creates &apos;two-point axis&apos; through visible controls" time="0.0576453">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; creates &apos;plane-normal axis&apos; through visible controls" time="0.0467165">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; creates &apos;intersecting-planes axis&apos; through visible controls" time="0.0378906">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; creates &apos;coordinate point&apos; through visible controls" time="0.0677057">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; creates &apos;midpoint&apos; through visible controls" time="0.0759957">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; retains native datum sources for plane, axis and point references" time="0.0720667">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; uses a selected persistent face as a real plane source" time="0.0799211">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; restores the prior viewport pick mode when closing before selecting a source" time="0.0491591">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; uses a selected persistent edge as a real axis source" time="0.119337">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; lets a plane-normal axis pass through a chosen XYZ point" time="0.0594894">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; edits the selected datum with UpdateDatum and shows its source and resolved frame" time="0.0612395">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; creates a sketch on the selected valid datum plane" time="0.0451824">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; surfaces canonical validation errors from an invalid numeric definition" time="0.0956091">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; surfaces native source errors instead of accepting an invalid edge" time="0.0725955">
+        </testcase>
+        <testcase classname="tests/reference-geometry-panel.test.tsx" name="native reference geometry workflows &gt; shows a broken source error and disables supported sketch creation" time="0.0162511">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/reference-persistence.test.ts" timestamp="2026-10-17T08:20:55.899Z" hostname="PC-Matteo" tests="5" failures="0" errors="0" skipped="0" time="0.014773">
+        <testcase classname="tests/reference-persistence.test.ts" name="restores the image and calibration after replacing the document" time="0.0064966">
+        </testcase>
+        <testcase classname="tests/reference-persistence.test.ts" name="blocks a lossy save when reference metadata is corrupt" time="0.0037639">
+        </testcase>
+        <testcase classname="tests/reference-persistence.test.ts" name="rejects duplicate identifiers and out of range calibration" time="0.0015031">
+        </testcase>
+        <testcase classname="tests/reference-persistence.test.ts" name="rejects an oversized image even when metadata claims small dimensions" time="0.0007427">
+        </testcase>
+        <testcase classname="tests/reference-persistence.test.ts" name="rejects dimensions that would change calibration for the image" time="0.0006684">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/reference.test.ts" timestamp="2026-10-17T08:20:55.900Z" hostname="PC-Matteo" tests="2" failures="0" errors="0" skipped="0" time="0.0036377">
+        <testcase classname="tests/reference.test.ts" name="calibrateSize &gt; maps pixel distance to real size" time="0.0014423">
+        </testcase>
+        <testcase classname="tests/reference.test.ts" name="calibrateSize &gt; rejects degenerate input honestly" time="0.0010047">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/renderer-recovery.test.ts" timestamp="2026-10-17T08:20:55.900Z" hostname="PC-Matteo" tests="1" failures="0" errors="0" skipped="0" time="0.011048">
+        <testcase classname="tests/renderer-recovery.test.ts" name="recovers a twice-confirmed missing PID without an exit event, coalesces events and bounds reloads" time="0.009323">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/section-panel.test.tsx" timestamp="2026-10-17T08:20:55.900Z" hostname="PC-Matteo" tests="5" failures="0" errors="0" skipped="0" time="0.0936892">
+        <testcase classname="tests/section-panel.test.tsx" name="section view controls &gt; preserves the accepted plane and enabled state when reset midpoint is invalid" time="0.0518745">
+        </testcase>
+        <testcase classname="tests/section-panel.test.tsx" name="section view controls &gt; does not enable an invalid midpoint beyond the quota limit" time="0.0049272">
+        </testcase>
+        <testcase classname="tests/section-panel.test.tsx" name="section view controls &gt; preserves an explicit zero quota across disable, remount and re-enable" time="0.0221198">
+        </testcase>
+        <testcase classname="tests/section-panel.test.tsx" name="section view controls &gt; keeps empty documents disabled" time="0.0064944">
+        </testcase>
+        <testcase classname="tests/section-panel.test.tsx" name="section view controls &gt; initializes quota from native bounds midpoint and rejects invalid edits" time="0.0068264">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/section-picking.test.ts" timestamp="2026-10-17T08:20:55.901Z" hostname="PC-Matteo" tests="7" failures="0" errors="0" skipped="0" time="0.0497244">
+        <testcase classname="tests/section-picking.test.ts" name="keeps a tangent native face selectable beside a crossing solid in the same mesh" time="0.0269621">
+        </testcase>
+        <testcase classname="tests/section-picking.test.ts" name="skips nearer hidden native face hits and selects nearest visible persistent face" time="0.0032172">
+        </testcase>
+        <testcase classname="tests/section-picking.test.ts" name="does not let a crossing edge pick from its clipped-away segment" time="0.002604">
+        </testcase>
+        <testcase classname="tests/section-picking.test.ts" name="skips an edge behind a retained wall and still picks an exposed boundary edge" time="0.0026643">
+        </testcase>
+        <testcase classname="tests/section-picking.test.ts" name="clips CAD surfaces, edges, preview, selection and shared-target overlays, then restores them" time="0.0040101">
+        </testcase>
+        <testcase classname="tests/section-picking.test.ts" name="disposes generated cap and contour resources on disable and native remesh" time="0.0060203">
+        </testcase>
+        <testcase classname="tests/section-picking.test.ts" name="treats render-only caps as opaque, nonselectable boundaries for face and edge picks" time="0.0023828">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/section-plane.test.ts" timestamp="2026-10-17T08:20:55.903Z" hostname="PC-Matteo" tests="6" failures="0" errors="0" skipped="0" time="0.0080823">
+        <testcase classname="tests/section-plane.test.ts" name="section plane CAD millimetre math &gt; uses &apos;X&apos; axis and signed quota" time="0.0029333">
+        </testcase>
+        <testcase classname="tests/section-plane.test.ts" name="section plane CAD millimetre math &gt; uses &apos;Y&apos; axis and signed quota" time="0.0003008">
+        </testcase>
+        <testcase classname="tests/section-plane.test.ts" name="section plane CAD millimetre math &gt; uses &apos;Z&apos; axis and signed quota" time="0.0003001">
+        </testcase>
+        <testcase classname="tests/section-plane.test.ts" name="section plane CAD millimetre math &gt; inverts the kept side without changing the plane quota" time="0.000259">
+        </testcase>
+        <testcase classname="tests/section-plane.test.ts" name="section plane CAD millimetre math &gt; keeps the plane boundary within the documented picking tolerance" time="0.0002898">
+        </testcase>
+        <testcase classname="tests/section-plane.test.ts" name="section plane CAD millimetre math &gt; accepts negative quotas and rejects malformed or out-of-range planes" time="0.0019071">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/section-presentation.test.ts" timestamp="2026-10-17T08:20:55.904Z" hostname="PC-Matteo" tests="11" failures="0" errors="0" skipped="0" time="0.0228654">
+        <testcase classname="tests/section-presentation.test.ts" name="render-only section cut presentation &gt; retains crossing contours along existing triangulation edges" time="0.0106693">
+        </testcase>
+        <testcase classname="tests/section-presentation.test.ts" name="render-only section cut presentation &gt; caps only the crossing solid beside a tangent solid (inverted false)" time="0.0011551">
+        </testcase>
+        <testcase classname="tests/section-presentation.test.ts" name="render-only section cut presentation &gt; caps only the crossing solid beside a tangent solid (inverted true)" time="0.0007351">
+        </testcase>
+        <testcase classname="tests/section-presentation.test.ts" name="render-only section cut presentation &gt; does not cover a tangent native face at quota -1" time="0.0012351">
+        </testcase>
+        <testcase classname="tests/section-presentation.test.ts" name="render-only section cut presentation &gt; does not cover a tangent native face at quota 1" time="0.0004144">
+        </testcase>
+        <testcase classname="tests/section-presentation.test.ts" name="render-only section cut presentation &gt; builds a closed contour and planar cap for a native triangulated solid" time="0.0011129">
+        </testcase>
+        <testcase classname="tests/section-presentation.test.ts" name="render-only section cut presentation &gt; does not turn a nested outward solid into a cavity" time="0.0006914">
+        </testcase>
+        <testcase classname="tests/section-presentation.test.ts" name="render-only section cut presentation &gt; uses native outward normals when cavity indices have reversed winding" time="0.0014117">
+        </testcase>
+        <testcase classname="tests/section-presentation.test.ts" name="render-only section cut presentation &gt; fills an outward island inside an inward cavity" time="0.0009168">
+        </testcase>
+        <testcase classname="tests/section-presentation.test.ts" name="render-only section cut presentation &gt; keeps an inward cavity shell open in a hollow section" time="0.0008169">
+        </testcase>
+        <testcase classname="tests/section-presentation.test.ts" name="render-only section cut presentation &gt; returns no synthetic cap when plane does not cross mesh" time="0.0008014">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/selectSimilar.test.ts" timestamp="2026-10-17T08:20:55.906Z" hostname="PC-Matteo" tests="4" failures="0" errors="0" skipped="0" time="0.0046231">
+        <testcase classname="tests/selectSimilar.test.ts" name="selection helpers (§16) &gt; strips axis signs for role classes" time="0.0015134">
+        </testcase>
+        <testcase classname="tests/selectSimilar.test.ts" name="selection helpers (§16) &gt; selects the opposite cap as similar" time="0.0007214">
+        </testcase>
+        <testcase classname="tests/selectSimilar.test.ts" name="selection helpers (§16) &gt; returns the seed when the body is unknown" time="0.0003648">
+        </testcase>
+        <testcase classname="tests/selectSimilar.test.ts" name="selection helpers (§16) &gt; flood-fills connected edges through shared endpoints" time="0.0004292">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/session-bodies.test.ts" timestamp="2026-10-17T08:20:55.907Z" hostname="PC-Matteo" tests="6" failures="0" errors="0" skipped="0" time="0.2765131">
+        <testcase classname="tests/session-bodies.test.ts" name="Slice 6 TEST G: session Body semantics &gt; compares canonical sketch coordinates despite equal counts and propagates to dependent meshes" time="0.105305">
+            <system-out>
+[session] relay listening on 127.0.0.1:61860 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-bodies.test.ts" name="Slice 6 TEST G: session Body semantics &gt; invalidates an unchanged body tip on parameter edit, Undo and Redo" time="0.0244799">
+            <system-out>
+[session] relay listening on 127.0.0.1:61863 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-bodies.test.ts" name="Slice 6 TEST G: session Body semantics &gt; seeds before first mutation and emits incremental wire without full arrays" time="0.0390647">
+            <system-out>
+[session] relay listening on 127.0.0.1:61866 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-bodies.test.ts" name="Slice 6 TEST G: session Body semantics &gt; one-body model stays 1 Body across history + remote param edit; snapshots agree" time="0.0644403">
+            <system-out>
+[session] relay listening on 127.0.0.1:61869 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-bodies.test.ts" name="Slice 6 TEST G: session Body semantics &gt; tip-change delta names the body (not N features) + undo names disappeared ids" time="0.0232999">
+            <system-out>
+[session] relay listening on 127.0.0.1:61872 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-bodies.test.ts" name="Slice 6 TEST G: session Body semantics &gt; stale client must not mutate silently (revision fencing preserved)" time="0.0177822">
+            <system-out>
+[session] relay listening on 127.0.0.1:61875 (protocol 1)
+
+            </system-out>
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/session-connection-panel.test.tsx" timestamp="2026-10-17T08:20:55.909Z" hostname="PC-Matteo" tests="1" failures="0" errors="0" skipped="0" time="0.3065357">
+        <testcase classname="tests/session-connection-panel.test.tsx" name="enables the selected interface, pairs explicitly and revokes a connected device" time="0.304934">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/session-context.test.ts" timestamp="2026-10-17T08:20:55.909Z" hostname="PC-Matteo" tests="13" failures="0" errors="0" skipped="0" time="0.0261595">
+        <testcase classname="tests/session-context.test.ts" name="queries authoritative native datums and retains support frames in semantic context" time="0.0155023">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="derives contextual fillet availability from validated native kinds and honest creation capability" time="0.0023246">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="accepts an unambiguous indexed edge when the exact revision is fenced" time="0.0006733">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="does not mutate shared registry availability when an owner binding is missing" time="0.0005681">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="reports actual invalid or ambiguous reference reasons instead of enabling selection commands" time="0.0006932">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="rejects stale context before native validation" time="0.0012669">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="rejects a session reset during native validation even when revision is reused" time="0.0005263">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="binds exactly one validated datum plane UUID to optional sketch support" time="0.0004946">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="keeps principal sketch creation unbound when no datum plane is selected" time="0.0004198">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="never binds datumAxis as sketch support" time="0.0005638">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="never binds datumPoint as sketch support" time="0.0003858">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="marks multiple selected datum planes unavailable with an explicit ambiguity reason" time="0.0004356">
+        </testcase>
+        <testcase classname="tests/session-context.test.ts" name="disables optional sketch support when an explicit native reference is invalid" time="0.0004222">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/session-devices.test.ts" timestamp="2026-10-17T08:20:55.912Z" hostname="PC-Matteo" tests="12" failures="0" errors="0" skipped="0" time="12.9124981">
+        <testcase classname="tests/session-devices.test.ts" name="private session device credentials &gt; persists only credential digests and rotates session tokens after restart" time="1.9480342">
+        </testcase>
+        <testcase classname="tests/session-devices.test.ts" name="private session device credentials &gt; consumes a pairing token once even for simultaneous exchanges" time="0.8098581">
+        </testcase>
+        <testcase classname="tests/session-devices.test.ts" name="private session device credentials &gt; replacing a pairing window retires both the previous code and token" time="0.9911987">
+        </testcase>
+        <testcase classname="tests/session-devices.test.ts" name="private session device credentials &gt; counts concurrent wrong code guesses against the same five-attempt window" time="1.1232849">
+        </testcase>
+        <testcase classname="tests/session-devices.test.ts" name="private session device credentials &gt; pairs with an eight digit code including leading zeroes and consumes both credentials" time="1.7751519">
+        </testcase>
+        <testcase classname="tests/session-devices.test.ts" name="private session device credentials &gt; locks both pairing values after five valid-shaped guesses" time="1.0700552">
+        </testcase>
+        <testcase classname="tests/session-devices.test.ts" name="private session device credentials &gt; does not count malformed shapes as pairing guesses" time="1.5584766">
+        </testcase>
+        <testcase classname="tests/session-devices.test.ts" name="private session device credentials &gt; expires/cancels pairing and revokes credentials durably" time="2.1144926">
+        </testcase>
+        <testcase classname="tests/session-devices.test.ts" name="private session device credentials &gt; failed atomic replacement never adopts a device or leaves a temporary file" time="0.6612437">
+        </testcase>
+        <testcase classname="tests/session-devices.test.ts" name="private session device credentials &gt; a corrupt store is rejected and its original bytes are preserved" time="0.8552197">
+        </testcase>
+        <testcase classname="tests/session-devices.test.ts" name="explicit private listener binding &gt; allows loopback or an explicitly selected assigned private IPv4" time="0.0010077">
+        </testcase>
+        <testcase classname="tests/session-devices.test.ts" name="explicit private listener binding &gt; rejects wildcard, unassigned, public, multicast, unresolved hosts and invalid ports" time="0.0012162">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/session-discovery.test.ts" timestamp="2026-10-17T08:20:55.914Z" hostname="PC-Matteo" tests="4" failures="0" errors="0" skipped="0" time="3.7695454">
+        <testcase classname="tests/session-discovery.test.ts" name="automatic local pairing &gt; owns interface changes and closes both services before disable completes" time="0.0068948">
+        </testcase>
+        <testcase classname="tests/session-discovery.test.ts" name="automatic local pairing &gt; limits production discovery to private IPv4 peers" time="0.0067384">
+        </testcase>
+        <testcase classname="tests/session-discovery.test.ts" name="automatic local pairing &gt; discovers and pairs without input, persists identity, and respects revocation" time="3.1147854">
+        </testcase>
+        <testcase classname="tests/session-discovery.test.ts" name="automatic local pairing &gt; rejects browser origins, oversized bodies and mismatched PC identity" time="0.6391541">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/session-pairing.test.ts" timestamp="2026-10-17T08:20:55.915Z" hostname="PC-Matteo" tests="6" failures="0" errors="0" skipped="0" time="6.8899674">
+        <testcase classname="tests/session-pairing.test.ts" name="trusted device WebSocket gate &gt; disabling transport preserves local lineage and rotates device tokens" time="1.8726826">
+            <system-out>
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-pairing.test.ts" name="trusted device WebSocket gate &gt; reports occupied ports and can enable a listener after failure" time="1.1386852">
+            <system-out>
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+[session] relay listening on 127.0.0.1:62000 (protocol 1)
+
+[session] relay listening on 127.0.0.1:62000 (protocol 1)
+
+            </system-out>
+            <system-err>
+[session] listener failed EADDRINUSE
+
+            </system-err>
+        </testcase>
+        <testcase classname="tests/session-pairing.test.ts" name="trusted device WebSocket gate &gt; exchanges one-use pairing, authenticates a device and requires hello before CAD access" time="1.4299147">
+            <system-out>
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-pairing.test.ts" name="trusted device WebSocket gate &gt; accepts an eight digit pairing code and counts valid-shaped schema failures toward shared lockout" time="0.9839377">
+            <system-out>
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-pairing.test.ts" name="trusted device WebSocket gate &gt; revocation closes connected sockets and rejects the stored credential" time="1.4478292">
+            <system-out>
+[session] relay listening on 127.0.0.1:0 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-pairing.test.ts" name="trusted device WebSocket gate &gt; rejects arbitrary public/wildcard listener hosts before binding" time="0.0138602">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/session-projection-runtime.test.ts" timestamp="2026-10-17T08:20:55.917Z" hostname="PC-Matteo" tests="4" failures="0" errors="0" skipped="0" time="0.0196854">
+        <testcase classname="tests/session-projection-runtime.test.ts" name="preserves unavailable geometry and projection groups without manufacturing a volume" time="0.0086078">
+        </testcase>
+        <testcase classname="tests/session-projection-runtime.test.ts" name="lists unavailable bodies without stale measurements and excludes them from volume filters" time="0.0030271">
+        </testcase>
+        <testcase classname="tests/session-projection-runtime.test.ts" name="runs getSketchProjection as a typed read and fences its exact native lineage" time="0.0040479">
+        </testcase>
+        <testcase classname="tests/session-projection-runtime.test.ts" name="rejects stale expected revisions and malformed native projection replies" time="0.0022035">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/session-relay.test.ts" timestamp="2026-10-17T08:20:55.918Z" hostname="PC-Matteo" tests="66" failures="0" errors="0" skipped="0" time="3.256791">
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; returns an explicit error when serialized control output exceeds 64 MiB" time="0.1974056">
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; keeps native projection type 38 ordered and read-only across local, integer, named, and semantic requests" time="0.1219599">
+            <system-out>
+[session] relay listening on 127.0.0.1:61878 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; routes Desktop commits through the authoritative delta queue without a listener" time="0.0617351">
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; rejects unsupported Desktop previews before dispatch or document changes" time="0.0014423">
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; serializes preview actions: update then commit" time="0.0742625">
+            <system-out>
+[session] relay listening on 127.0.0.1:61881 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; serializes preview actions: commit then cancel" time="0.0196038">
+            <system-out>
+[session] relay listening on 127.0.0.1:61883 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; rejects overlapping clients before queueing behind a slow native command" time="0.0210859">
+            <system-out>
+[session] relay listening on 127.0.0.1:61885 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; holds preview targets across calls and releases them on cancel for Desktop and network" time="0.0227339">
+            <system-out>
+[session] relay listening on 127.0.0.1:61888 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; fences foreign snapshot and geometry queries while allowing metadata and owner working state" time="0.0216169">
+            <system-out>
+[session] relay listening on 127.0.0.1:61893 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; rotates lineage for document replacement even with the same document identity" time="0.0013611">
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; reports engine health after renderer recovery queues behind document replacement" time="0.0007531">
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; keeps selection private unless explicitly published" time="0.1179039">
+            <system-out>
+[session] relay listening on 127.0.0.1:61897 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; rejects an overlapping logical connection without clearing the current shared target" time="0.0968162">
+            <system-out>
+[session] relay listening on 127.0.0.1:61900 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; releases failed previews and rejects malformed Desktop framing before native dispatch" time="0.067806">
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; rolls back Desktop transactions and releases its previews after renderer loss" time="0.0028377">
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; runs a named command once, replays its generated identity and exports its registry schema" time="0.0377602">
+            <system-out>
+[session] relay listening on 127.0.0.1:61904 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; rejects invalid named and legacy parameters or binary control calls before native dispatch" time="0.0156103">
+            <system-out>
+[session] relay listening on 127.0.0.1:61906 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; provides a canonical local snapshot without a network listener" time="0.0007537">
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; preserves native datum definitions and resolved frames in local recovery snapshots" time="0.0098862">
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; publishes datum create/edit/Undo patches without native mesh requests" time="0.0030059">
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; blocks local recovery while a remote transaction owns uncommitted state" time="0.0118923">
+            <system-out>
+[session] relay listening on 127.0.0.1:61908 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; strips unknown command fields and preserves the trusted native envelope prefix" time="0.0142162">
+            <system-out>
+[session] relay listening on 127.0.0.1:61910 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; replays by operationId across request IDs, key order, and changed payloads" time="0.0118433">
+            <system-out>
+[session] relay listening on 127.0.0.1:61912 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; treats distinct operation IDs as distinct when requestId is reused" time="0.011423">
+            <system-out>
+[session] relay listening on 127.0.0.1:61914 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; keeps requestId-only mutation replay scoped to one connection" time="0.0144475">
+            <system-out>
+[session] relay listening on 127.0.0.1:61916 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; advertises server-supported capabilities, not client offers" time="0.0091882">
+            <system-out>
+[session] relay listening on 127.0.0.1:61919 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; shares a pending operation between concurrent identical requests" time="0.0448868">
+            <system-out>
+[session] relay listening on 127.0.0.1:61921 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; replays after disconnect only for the same authenticated logical client" time="0.0215823">
+            <system-out>
+[session] relay listening on 127.0.0.1:61923 (protocol 1)
+
+            </system-out>
+            <system-err>
+[session] rejected client (bad pairing token)
+
+            </system-err>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; replays transaction begin and consumed preview commit before state guards" time="0.0221977">
+            <system-out>
+[session] relay listening on 127.0.0.1:61928 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; replays orphan force rollback without repeating its native control call" time="0.031321">
+            <system-out>
+[session] relay listening on 127.0.0.1:61930 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; retains replay entries beyond 200 without evicting the first result" time="1.2795652">
+            <system-out>
+[session] relay listening on 127.0.0.1:61934 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; invalidates old operation and document identities after lineage resets" time="0.0519852">
+            <system-out>
+[session] relay listening on 127.0.0.1:61949 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; validates operation metadata and rejects queries for another document" time="0.0120097">
+            <system-out>
+[session] relay listening on 127.0.0.1:61951 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; replays selection and preview begin, update, and cancel without repeating effects" time="0.0152125">
+            <system-out>
+[session] relay listening on 127.0.0.1:61953 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; rejects repeat hello and rolls back the real transaction on owner disconnect" time="0.0320275">
+            <system-out>
+[session] relay listening on 127.0.0.1:61955 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; rolls back when the owner disconnects while txnBegin is in flight" time="0.0242552">
+            <system-out>
+[session] relay listening on 127.0.0.1:61958 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; validates invoke fields and blocks native transaction commands" time="0.0163372">
+            <system-out>
+[session] relay listening on 127.0.0.1:61961 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; fences foreign transaction controls and mutations before native dispatch" time="0.0213625">
+            <system-out>
+[session] relay listening on 127.0.0.1:61963 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; rejects malformed frames before core dispatch and keeps valid frames working" time="0.0540119">
+            <system-out>
+[session] relay listening on 127.0.0.1:61966 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; hello pairing, snapshot, invoke, undo broadcast, rejects" time="0.0123848">
+            <system-out>
+[session] relay listening on 127.0.0.1:61978 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionRelay &gt; rejects bad pairing tokens" time="0.0120498">
+            <system-out>
+[session] relay listening on 127.0.0.1:61980 (protocol 1)
+
+            </system-out>
+            <system-err>
+[session] rejected client (bad pairing token)
+
+            </system-err>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; does not attach a preview to a new lineage when its initial snapshot crosses a restart" time="0.0194061">
+            <system-out>
+[session] relay listening on 127.0.0.1:61982 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; does not emit a cleared cached preview when revision lookup crosses a restart" time="0.0117584">
+            <system-out>
+[session] relay listening on 127.0.0.1:61985 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; rejects stale intent and unrelated tip before requesting candidate geometry" time="0.0114904">
+            <system-out>
+[session] relay listening on 127.0.0.1:61987 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; rejects a candidate over 64 MiB without retaining it" time="0.0108388">
+            <system-out>
+[session] relay listening on 127.0.0.1:61989 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; fences preview owner, generations, stale model and consumed state" time="0.0335388">
+            <system-out>
+[session] relay listening on 127.0.0.1:61991 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; retains at most four previews per client and 256 MiB across clients" time="0.0209002">
+            <system-out>
+[session] relay listening on 127.0.0.1:61994 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; delivers a separate cached preview mesh without changing the committed model" time="0.0460292">
+            <system-out>
+[session] relay listening on 127.0.0.1:61997 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; advertises binary-mesh-v1 on hello" time="0.0632799">
+            <system-out>
+[session] relay listening on 127.0.0.1:62001 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; returns a JSON identity header followed by the exact native MeshUpdate bytes" time="0.0131589">
+            <system-out>
+[session] relay listening on 127.0.0.1:62003 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; enqueues the mesh header and binary bytes before a following mutation starts in the core" time="0.0143364">
+            <system-out>
+[session] relay listening on 127.0.0.1:62005 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; keeps body roots semantic while requesting visible tips and correlates two sockets with the same outer id" time="0.0316808">
+            <system-out>
+[session] relay listening on 127.0.0.1:62007 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; requests one valid instance by its native owner while keeping the source body root" time="0.0142685">
+            <system-out>
+[session] relay listening on 127.0.0.1:62010 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; rejects missing capability, stale revision, missing or suppressed bodies before native dispatch" time="0.0216808">
+            <system-out>
+[session] relay listening on 127.0.0.1:62012 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="binary mesh session requests &gt; blocks a foreign transaction owner and allows owner reads" time="0.0202106">
+            <system-out>
+[session] relay listening on 127.0.0.1:62015 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionQueries (§11.7–§11.9, §11.11, §11.15) &gt; rejects invalid body search filters instead of returning an empty candidate set" time="0.0142218">
+            <system-out>
+[session] relay listening on 127.0.0.1:62018 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionQueries (§11.7–§11.9, §11.11, §11.15) &gt; forwards geometry scopes to native query 30 without mesh approximations" time="0.0185427">
+            <system-out>
+[session] relay listening on 127.0.0.1:62020 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionQueries (§11.7–§11.9, §11.11, §11.15) &gt; preserves native ambiguous-reference errors and rejects invalid selections" time="0.0104815">
+            <system-out>
+[session] relay listening on 127.0.0.1:62022 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionQueries (§11.7–§11.9, §11.11, §11.15) &gt; introspection, selection, find, manipulators, measures, validate" time="0.028607">
+            <system-out>
+[session] relay listening on 127.0.0.1:62024 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionQueries (§11.7–§11.9, §11.11, §11.15) &gt; rejects invalid preview values before native dispatch or state changes" time="0.0121714">
+            <system-out>
+[session] relay listening on 127.0.0.1:62026 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionQueries (§11.7–§11.9, §11.11, §11.15) &gt; spatial preview lifecycle: begin, update, commit in one undo" time="0.0113038">
+            <system-out>
+[session] relay listening on 127.0.0.1:62028 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionQueries (§11.7–§11.9, §11.11, §11.15) &gt; multi-command transaction: atomic delta, owner rules, recovery (incremental=false)" time="0.0165521">
+            <system-out>
+[session] relay listening on 127.0.0.1:62030 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionQueries (§11.7–§11.9, §11.11, §11.15) &gt; multi-command transaction: atomic delta, owner rules, recovery (incremental=true)" time="0.1473083">
+            <system-out>
+[session] relay listening on 127.0.0.1:62033 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionControlContract (Slice 7) &gt; relay query surface matches the control-plane contract" time="0.0036081">
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionControlContract (Slice 7) &gt; every query method yields a correlated reply (ok or coded error)" time="0.024019">
+            <system-out>
+[session] relay listening on 127.0.0.1:62036 (protocol 1)
+
+            </system-out>
+        </testcase>
+        <testcase classname="tests/session-relay.test.ts" name="SessionControlContract (Slice 7) &gt; missing required fields fail with errorCode + error (never hang)" time="0.0117263">
+            <system-out>
+[session] relay listening on 127.0.0.1:62038 (protocol 1)
+
+            </system-out>
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/session-sketch-preview.test.ts" timestamp="2026-10-17T08:20:55.936Z" hostname="PC-Matteo" tests="1" failures="0" errors="0" skipped="0" time="0.0101222">
+        <testcase classname="tests/session-sketch-preview.test.ts" name="checks sketch ownership and revision before a pure native solve and rejects a later epoch" time="0.0084349">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/session-update-queue.test.ts" timestamp="2026-10-17T08:20:55.937Z" hostname="PC-Matteo" tests="7" failures="0" errors="0" skipped="0" time="0.2003668">
+        <testcase classname="tests/session-update-queue.test.ts" name="serializes recovery and later deltas; ordinary updates carry only changed mesh ids" time="0.0732124">
+        </testcase>
+        <testcase classname="tests/session-update-queue.test.ts" name="recovers a gap and a lower revision in a new session, but drops same-session duplicates" time="0.0014657">
+        </testcase>
+        <testcase classname="tests/session-update-queue.test.ts" name="does not overwrite an opened document when an older snapshot reply arrives" time="0.0582652">
+        </testcase>
+        <testcase classname="tests/session-update-queue.test.ts" name="retries recovery after a failed hydration and ignores pending work after disposal" time="0.0008119">
+        </testcase>
+        <testcase classname="tests/session-update-queue.test.ts" name="Open waits for authoritative hydration and surfaces a failed refresh without poisoning later work" time="0.0026186">
+        </testcase>
+        <testcase classname="tests/session-update-queue.test.ts" name="remembers session lineage when local revision drift invalidates the cached model before Open" time="0.0005392">
+        </testcase>
+        <testcase classname="tests/session-update-queue.test.ts" name="learns native lineage from a snapshot discarded after a local edit wins the view race" time="0.0608683">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/shared-target-chip.test.tsx" timestamp="2026-10-17T08:20:55.938Z" hostname="PC-Matteo" tests="2" failures="0" errors="0" skipped="0" time="0.0522411">
+        <testcase classname="tests/shared-target-chip.test.tsx" name="renders only resolvable current remote refs and hides immediately when Desktop revision changes" time="0.0372074">
+        </testcase>
+        <testcase classname="tests/shared-target-chip.test.tsx" name="renders a remote native datum UUID from the current document" time="0.0132439">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/shared-targets.test.ts" timestamp="2026-10-17T08:20:55.939Z" hostname="PC-Matteo" tests="4" failures="0" errors="0" skipped="0" time="0.0161962">
+        <testcase classname="tests/shared-targets.test.ts" name="queues a target arriving before its snapshot and preserves the local selection" time="0.0052509">
+        </testcase>
+        <testcase classname="tests/shared-targets.test.ts" name="rejects missing identity, stale revisions and old lineages; clear affects one client" time="0.0008906">
+        </testcase>
+        <testcase classname="tests/shared-targets.test.ts" name="retains current native datum UUID targets without inventing body IDs" time="0.0076232">
+        </testcase>
+        <testcase classname="tests/shared-targets.test.ts" name="drops datum targets on stale view, removal, or ambiguous duplicate identities" time="0.0006775">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/sidecar-timeout.test.ts" timestamp="2026-10-17T08:20:55.940Z" hostname="PC-Matteo" tests="1" failures="0" errors="0" skipped="0" time="0.0094528">
+        <testcase classname="tests/sidecar-timeout.test.ts" name="keeps a measured 155 s mesh request alive, correlates its reply and honors explicit deadlines" time="0.0078893">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/sketch-sync-metadata.test.ts" timestamp="2026-10-17T08:20:55.940Z" hostname="PC-Matteo" tests="3" failures="0" errors="0" skipped="0" time="0.0066624">
+        <testcase classname="tests/sketch-sync-metadata.test.ts" name="keeps principal frame and empty supportRef in full model cache on canonical sync" time="0.0038974">
+        </testcase>
+        <testcase classname="tests/sketch-sync-metadata.test.ts" name="keeps native datum frame and exact supportRef in full model cache on canonical sync" time="0.000504">
+        </testcase>
+        <testcase classname="tests/sketch-sync-metadata.test.ts" name="routes summary-only Undo through the ordered canonical refresh before publishing sketch state" time="0.0008562">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/storage-migration.test.ts" timestamp="2026-10-17T08:20:55.941Z" hostname="PC-Matteo" tests="2" failures="0" errors="0" skipped="0" time="0.2646529">
+        <testcase classname="tests/storage-migration.test.ts" name="storage key migration &gt; carries legacy keys forward and drops them" time="0.2600511">
+        </testcase>
+        <testcase classname="tests/storage-migration.test.ts" name="storage key migration &gt; prefers new keys when both exist" time="0.0025902">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/updater-manifest.test.ts" timestamp="2026-10-17T08:20:55.941Z" hostname="PC-Matteo" tests="4" failures="0" errors="0" skipped="0" time="0.0087853">
+        <testcase classname="tests/updater-manifest.test.ts" name="update manifest &gt; accepts a well-formed manifest" time="0.0029448">
+        </testcase>
+        <testcase classname="tests/updater-manifest.test.ts" name="update manifest &gt; rejects garbage honestly" time="0.0024447">
+        </testcase>
+        <testcase classname="tests/updater-manifest.test.ts" name="update manifest &gt; compares versions numerically" time="0.0008639">
+        </testcase>
+        <testcase classname="tests/updater-manifest.test.ts" name="update manifest &gt; signs deterministic bytes" time="0.0003008">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/viewport-render.test.ts" timestamp="2026-10-17T08:20:55.942Z" hostname="PC-Matteo" tests="2" failures="0" errors="0" skipped="0" time="0.0315376">
+        <testcase classname="tests/viewport-render.test.ts" name="keeps unchanged geometry and disposes only replaced or removed meshes" time="0.0207271">
+        </testcase>
+        <testcase classname="tests/viewport-render.test.ts" name="redraws after camera zoom even when hovering empty space leaves selection unchanged" time="0.0085202">
+        </testcase>
+    </testsuite>
+</testsuites>

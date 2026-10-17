@@ -1,0 +1,6 @@
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="25.159281999999997">
+<testsuite name="projection-desktop.spec.ts" timestamp="2026-10-17T08:20:58.609Z" hostname="" tests="1" failures="0" skipped="0" time="24.562" errors="0">
+<testcase name="hidden Desktop opens, edits, repairs, undoes and reopens native sketch projections" classname="projection-desktop.spec.ts" time="24.562">
+</testcase>
+</testsuite>
+</testsuites>

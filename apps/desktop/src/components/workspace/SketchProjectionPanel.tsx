@@ -78,8 +78,8 @@ export function SketchProjectionPanel({ sketchId }: { sketchId: string }) {
   const options = useMemo<SourceOption[]>(() => {
     const available = features.filter(feature => feature.geometryCurrent !== false && feature.status !== "unavailable");
     if (operation === "projectEdges") return [
-      ...available.flatMap(feature => (meshes[feature.featureId]?.revision === revision
-      ? meshes[feature.featureId]!.edges : []).filter(edge => edge.persistentEdgeId.startsWith(`${feature.featureId}:`))
+      ...available.flatMap(feature => (meshes[feature.featureId]?.edges ?? [])
+      .filter(edge => edge.persistentEdgeId.startsWith(`${feature.featureId}:`))
       .map(edge => ({ key: `edge:${edge.persistentEdgeId}`, label: `${feature.type} · ${edge.persistentEdgeId}`,
         source: { type: "edge", featureId: feature.featureId, persistentEdgeId: edge.persistentEdgeId } as const }))),
       ...sketches.filter(source => source.featureId !== sketchId && source.model && source.geometryCurrent !== false)
@@ -89,7 +89,7 @@ export function SketchProjectionPanel({ sketchId }: { sketchId: string }) {
             entityIds: [...source.model!.lines, ...source.model!.circles, ...source.model!.arcs].map(entity => entity.id) } as SketchProjectionSource,
         })).filter(option => option.source.type === "sketchEntities" && (option.source.entityIds?.length ?? 0) > 0),
     ];
-    return available.filter(feature => meshes[feature.featureId]?.revision === revision)
+    return available.filter(feature => meshes[feature.featureId] !== undefined)
       .map(feature => ({ key: `shape:${feature.featureId}`, label: `${feature.type} · ${feature.featureId}`,
         source: { type: "shape", featureId: feature.featureId } as const }));
   }, [features, meshes, revision, operation, sketches, sketchId]);
