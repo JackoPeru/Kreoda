@@ -1,0 +1,36 @@
+{
+    "kind": "Unity Editor scene reconstruction; no XR device, live CAD session or passthrough",
+    "capturedUtc": "2026-10-18T16:22:04.1166195Z",
+    "width": 1600,
+    "height": 900,
+    "pages": [
+        "home.png",
+        "workspace.png",
+        "connection.png",
+        "pc-discovery.png",
+        "metrics.png",
+        "home-notice.png",
+        "section.png",
+        "edit.png",
+        "references.png",
+        "configurations.png",
+        "commands.png",
+        "sketch.png",
+        "voice.png"
+    ],
+    "sha256": [
+        "fa4cae0c57fcb9a1ca290e8d43ad89f05de7aa695567d24f8d863553a8e22748",
+        "973cefad9c21f472476dcada9ad3d5a1205a519b80b20f38b3b1d0c4d15970c6",
+        "44fbed2ca4aabfc95fe49292b275207a4efdbbcbe0fb49b74309dbe452370f55",
+        "bf58a67826e0fb685daf227e209a1d79df87d74dca7ef45ffa940f2c6ecbb679",
+        "cb4f146e0fa7e8956643b7628a724f714e5a9a3bbedae9d3d34cb75b967a8ec8",
+        "0789630cdb222b0fa61fedade411bb7dfc826ad7458c914169d6b4d60a4c8d67",
+        "22362747d4b3e54e56a7702c5901d91d9f903fc7373f3e4783fe3dc58e6312ff",
+        "44f2ed75bcb30c031a633f016abc8105e002ad92f989e87c8cd96650c5d7140c",
+        "e9178caad2520c67cdb9051a5e1fc9963243f278906af0ff1e6b13bbedc7308f",
+        "69ff495d45d8f216d222c08a37b0bab5feeb62900cfb0ff17df4015245cf5621",
+        "cf425931fe8734c219da50a403a7894e74177af007c62ab596e1d38757356d18",
+        "b689af632f6139122b6c42144c6a90ae1fd5ceefe9bd339944e188e18d40113c",
+        "95c1b77c2b22425ffb80c508dd057dc4754cd333a0f5bbee65434704cb04cd83"
+    ]
+}
