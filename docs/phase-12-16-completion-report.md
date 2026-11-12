@@ -27,6 +27,9 @@ and the open-work ledger in
 | Phase 14 deterministic native seven-fixture benchmark | **7/7 geometry, 7/7 fully checked, 0 failures** (1.9 min, real MCP → installed native) |
 | Installed runtime smoke | PASS — packaged `Kreoda.exe` + kernel `908b7d5b…`; box 40000 mm³ → 4-hole pattern 39434.51332235384 mm³ → Undo → Redo |
 | Installed Desktop payload | `app.asar` `a13b0345…` extracted and compared with the current build: **170/170 files byte-identical** (`src` 96/96, `electron` 15/15, `dist` 31/31, `.vite/build` 27/27, `package.json`). No Desktop redeploy was needed; only the native kernel was stale and has been replaced. |
+| Quest Unity EditMode suite | **274/274 passed**, 0 failed, 0 skipped (`Unity -batchmode -runTests -testPlatform EditMode` with the current managed plugins and `node` on PATH) |
+| Quest ARM64 APK + install | Built `5420c648…` (43,915,653 B, `arm64-v8a`, Unity `Succeeded`, 0 errors, 26 warnings, no source changed), installed with `adb install -r`: data retained (`firstInstallTime` 2026-10-10), `lastUpdateTime` 2026-11-13 00:09:49, signature accepted |
+| Quest 3 live session | `KREODA_DISCOVERY peers=1` → `KREODA_CONNECTED`; Desktop box `box-qa-1794525479622` (revision 1) delivered as `KREODA_MESH_APPLIED revision=1` and `KREODA_MODEL objects=1 triangles=12`; TCP `192.168.1.11:44414 → 192.168.1.7:63803` established. Evidence: [`superpowers/evidence/2026-11-13-quest-device`](superpowers/evidence/2026-11-13-quest-device/README.md) |
 
 The native kernel is built from exactly the committed worktree source (verified by hashing all 175 build
 inputs against the build tree used for the suite).
@@ -45,8 +48,8 @@ targets with revocation, and per-PC identities that survive port changes.
 `clients/quest-unity/Assets/Kreoda/Tests/Editor/QuestConnectionTests.cs`, `QuestWireFixture.mjs`.
 
 **Limits.** Physical headset pairing/discovery and on-device stereo/mesh cadence are hardware acceptance, not
-covered by the above. The installed APK (2026-11-06 19:25) is current with the Quest sources (newest source file
-2026-11-06 19:12).
+covered by the above. The APK installed on 2026-11-13 (built from the current sources and managed plugins) is the
+packet exercised by the live-session row above; the headset was not worn, so hand-driven UI flows remain open.
 
 ## Phase 13 — Quest spatial interaction and MR UX
 
@@ -79,11 +82,14 @@ durable recovery on `uncertain`, MCP server (`/mcp`) exposing `kreoda_project_co
 **Limits.** The deterministic native seven-fixture benchmark is not an external live Hermes LLM run. A live
 6/7 run with the real remote model remains open.
 
-**Unity Editor note.** `Unity.exe -batchmode -runTests` cannot run on this machine: the Editor reports
-"No valid Unity Editor license found" (exit 198) and produces no test results. Quest C# therefore remains
-verified by compilation (the managed assemblies are present and the Roslyn probe compiles all Runtime sources)
-plus the shared protocol/managed tests, not by a fresh Unity EditMode run or APK rebuild. The installed APK
-(2026-11-06 19:25) is consistent with the current Quest sources: no Quest source file is newer than that build.
+**Unity Editor / Quest packet (2026-11-13).** With the Editor licensed, the full Unity EditMode suite ran:
+**274/274 passed, 0 failed, 0 skipped** (after staging the current managed plugins, which were stale, and
+putting the Node LTS directory on PATH for the Quest wire fixtures). A fresh ARM64 APK was built from the
+current sources (`5420c648…`, 43,915,653 B, `arm64-v8a`, Unity `Succeeded`, 0 errors, 26 warnings, no source
+file changed during the build) and installed over the existing app with `adb install -r`, preserving app data.
+The installed packet then joined a real Desktop session and received a live delta
+(`KREODA_MESH_APPLIED revision=1`, `KREODA_MODEL objects=1 triangles=12`), recorded in
+[`superpowers/evidence/2026-11-13-quest-device`](superpowers/evidence/2026-11-13-quest-device/README.md).
 
 ## Phase 15 — Advanced CAD
 
@@ -144,8 +150,11 @@ fence. A live Hermes agent proposal accepted on the physical headset remains ope
 
 ## Remaining acceptance (not software)
 
-1. Physical Quest: hands-only 14-step Phase 13 flow, panel drag/recenter, numeric keyboard, two-hand scale,
-   microphone/voice stop/resume, passthrough/real-surface alignment.
+1. Physical Quest, with the headset worn: hands-only 14-step Phase 13 flow, panel drag/recenter, numeric
+   keyboard, two-hand scale, microphone/voice stop/resume, passthrough/real-surface alignment. The
+   "Individuazione della posizione" system dialog must be confirmed once by the user; while the headset was
+   off-head it stayed in front of the app and blocked visual capture of the synced box (the mesh delta itself is
+   proven by logcat in the 2026-11-13 evidence bundle).
 2. Live Hermes: one real remote-agent run of the seven frozen fixtures with ≥6/7 success and recorded
    commands/repairs/timing (the deterministic native baseline is not a substitute).
 3. Pristine LAN pairing on a factory-clean headset (no USB provisioning).
