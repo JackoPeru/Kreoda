@@ -30,7 +30,15 @@ First end-to-end Quest acceptance run with the Unity Editor licensed and the hea
    UI uses: revision 1. The Quest received it:
    `KREODA_MESH_APPLIED … revision=1 bodyId=body-…` then `KREODA_MODEL objects=1 triangles=12`;
    TCP `192.168.1.11:44414 → 192.168.1.7:63803 ESTABLISHED`.
-6. **Restore** — device back to `Asleep`, `stayon false`, proximity broadcast restored; the Desktop QA
+6. **On-device performance with heavy meshes** — proximity keep-alive broadcast every 8 s kept the app
+   rendering while the Desktop fed it a real OCCT sphere; VrApi samples captured per second:
+   - r = 600 mm → Quest LOD mesh **120,582 triangles**: 15 samples, FPS mean **71.73** (min 60, max 73),
+     1 sample below 72, tears 0, early 0, stale 12, app CPU mean 2.56 ms (max 2.90), GPU ≤ 0.49 %.
+   - r = 1100 mm → Quest LOD mesh **221,602 triangles**: 14 samples, FPS mean **71.21** (min 57, max 73),
+     2 samples below 72, tears 0, early 0, stale 21, app CPU mean 2.30 ms (max 2.71), GPU ≤ 0.49 %.
+   Raw lines: `perf-heavy-vrapi.txt`, `perf-large-vrapi.txt`. Short windows with the headset off-head, so
+   this is a bounded datapoint, not the full roadmap performance acceptance.
+7. **Restore** — device back to `Asleep`, `stayon false`, proximity broadcast restored; the Desktop QA
    instance was closed. The user's normal profile was only used as the paired identity; its autosave was
    redirected to a temp recovery directory and no project was opened from it.
 

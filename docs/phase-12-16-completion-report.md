@@ -30,6 +30,7 @@ and the open-work ledger in
 | Quest Unity EditMode suite | **274/274 passed**, 0 failed, 0 skipped (`Unity -batchmode -runTests -testPlatform EditMode` with the current managed plugins and `node` on PATH) |
 | Quest ARM64 APK + install | Built `5420c648…` (43,915,653 B, `arm64-v8a`, Unity `Succeeded`, 0 errors, 26 warnings, no source changed), installed with `adb install -r`: data retained (`firstInstallTime` 2026-10-10), `lastUpdateTime` 2026-11-13 00:09:49, signature accepted |
 | Quest 3 live session | `KREODA_DISCOVERY peers=1` → `KREODA_CONNECTED`; Desktop box `box-qa-1794525479622` (revision 1) delivered as `KREODA_MESH_APPLIED revision=1` and `KREODA_MODEL objects=1 triangles=12`; TCP `192.168.1.11:44414 → 192.168.1.7:63803` established. Evidence: [`superpowers/evidence/2026-11-13-quest-device`](superpowers/evidence/2026-11-13-quest-device/README.md) |
+| Quest 3 on-device performance (heavy meshes) | r=600 mm → 120,582-triangle LOD: **71.73 FPS mean** (min 60, 1 sample <72), tears 0; r=1100 mm → 221,602 triangles: **71.21 FPS mean** (min 57, 2 samples <72), tears 0; app CPU ≤ 2.90 ms, GPU ≤ 0.49 %. Short windows with the headset off-head (proximity keep-alive), a bounded datapoint rather than full roadmap perf acceptance |
 
 The native kernel is built from exactly the committed worktree source (verified by hashing all 175 build
 inputs against the build tree used for the suite).

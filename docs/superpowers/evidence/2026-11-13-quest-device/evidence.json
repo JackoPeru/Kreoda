@@ -63,5 +63,31 @@
                         "note":  "Home with one synced 12-triangle box behind the Meta tracking dialog; short sample, not a full LOD/perf acceptance."
                     },
     "resume":  "KREODA_RESUME preserved_connected after the app resumed with the session alive",
-    "trackingDialogNote":  "A 6.7 MB stereo capture showed only Meta\u0027s \u0027Individuazione della posizione\u0027 dialog; reviewed but not committed to keep the repo small."
+    "trackingDialogNote":  "A 6.7 MB stereo capture showed only Meta\u0027s \u0027Individuazione della posizione\u0027 dialog; reviewed but not committed to keep the repo small.",
+    "performanceHeavy":  {
+                             "samples":  15,
+                             "fpsMean":  71.73,
+                             "fpsMin":  60,
+                             "fpsMax":  73,
+                             "below72":  1,
+                             "tears":  0,
+                             "early":  0,
+                             "stale":  12,
+                             "appMsMean":  2.56,
+                             "appMsMax":  2.9,
+                             "gpuMax":  0.49
+                         },
+    "performanceLarge":  {
+                             "samples":  14,
+                             "fpsMean":  71.21,
+                             "fpsMin":  57,
+                             "fpsMax":  73,
+                             "below72":  2,
+                             "tears":  0,
+                             "early":  0,
+                             "stale":  21,
+                             "appMsMean":  2.3,
+                             "appMsMax":  2.71,
+                             "gpuMax":  0.49
+                         }
 }
