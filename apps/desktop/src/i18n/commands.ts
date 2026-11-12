@@ -29,6 +29,51 @@ const LABELS: Record<string, { label: EnKey; beginner: EnKey; desc: EnKey }> = {
     beginner: "cmd.extrudeBeginner",
     desc: "cmd.extrudeDesc",
   },
+  CreateSurfaceExtrude: {
+    label: "cmd.surfaceExtrude",
+    beginner: "cmd.surfaceExtrudeBeginner",
+    desc: "cmd.surfaceExtrudeDesc",
+  },
+  CreateSurfaceRevolve: {
+    label: "cmd.surfaceRevolve",
+    beginner: "cmd.surfaceRevolveBeginner",
+    desc: "cmd.surfaceRevolveDesc",
+  },
+  CreateSurfaceLoft: {
+    label: "cmd.surfaceLoft",
+    beginner: "cmd.surfaceLoftBeginner",
+    desc: "cmd.surfaceLoftDesc",
+  },
+  CreateSurfaceSew: {
+    label: "cmd.surfaceSew",
+    beginner: "cmd.surfaceSewBeginner",
+    desc: "cmd.surfaceSewDesc",
+  },
+  CreateSurfaceOffset: {
+    label: "cmd.surfaceOffset",
+    beginner: "cmd.surfaceOffsetBeginner",
+    desc: "cmd.surfaceOffsetDesc",
+  },
+  CreateSurfaceSweep: {
+    label: "cmd.surfaceSweep",
+    beginner: "cmd.surfaceSweepBeginner",
+    desc: "cmd.surfaceSweepDesc",
+  },
+  CreateSurfaceThicken: {
+    label: "cmd.surfaceThicken",
+    beginner: "cmd.surfaceThickenBeginner",
+    desc: "cmd.surfaceThickenDesc",
+  },
+  CreateSurfaceTrim: {
+    label: "cmd.surfaceTrim",
+    beginner: "cmd.surfaceTrimBeginner",
+    desc: "cmd.surfaceTrimDesc",
+  },
+  CreateSurfaceExtend: {
+    label: "cmd.surfaceExtend",
+    beginner: "cmd.surfaceExtendBeginner",
+    desc: "cmd.surfaceExtendDesc",
+  },
   CreateBoolean: {
     label: "cmd.boolean",
     beginner: "cmd.booleanBeginner",

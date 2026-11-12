@@ -13,6 +13,10 @@ import { CameraController } from "./CameraController";
 import type { ReferencePlane } from "../reference/store";
 import { buildSectionCut } from "../section/mesh-cut";
 import { isSectionPlane, isVisibleAtSection, SECTION_PICK_TOLERANCE_MM, type SectionPlane } from "../section/plane";
+import { validZebraSettings, type ZebraSettings } from "../analysis/zebra";
+import { attachZebraMaterial, createZebraUniforms, createCurvatureUniforms } from "./ZebraMaterial";
+import { validCurvatureSettings, type CurvatureSettings } from "../analysis/curvature";
+import type { SurfaceEdgePick, SurfacePointPick } from "./viewportHandle";
 
 (THREE.Mesh.prototype as unknown as { raycast: unknown }).raycast =
   acceleratedRaycast;
@@ -28,6 +32,7 @@ interface BodyEntry {
   coreMesh: CoreMeshData;
   mesh: THREE.Mesh;
   originalMaterialSides: THREE.Side[];
+  surface: boolean;
   faces: { persistentFaceId: string; triangleStart: number; triangleCount: number }[];
   edgeLines: THREE.LineSegments | null;
   segToEdge: string[];
@@ -56,6 +61,8 @@ export class CadViewport {
   private sharedEdgeLines: THREE.LineSegments | null = null;
   private pickMode: PickMode = "auto";
   private sectionPlane: SectionPlane | null = null;
+  private zebraUniforms = createZebraUniforms();
+  private curvatureUniforms = createCurvatureUniforms();
   private onResize = (): void => this.resize();
   private edgeSelectedLines: THREE.LineSegments | null = null;
   private previewMesh: THREE.Mesh | null = null;
@@ -70,11 +77,23 @@ export class CadViewport {
     resolve: (pts: [number, number][] | null) => void;
   } | null = null;
   private refMeasureTimer: ReturnType<typeof setTimeout> | null = null;
+  private surfacePick:
+    | { kind: "point"; targetId: string; resolve: (value: SurfacePointPick | null) => void }
+    | { kind: "edge"; targetId: string; resolve: (value: SurfaceEdgePick | null) => void }
+    | null = null;
+  private surfacePointMarker: THREE.Mesh | null = null;
+  private surfaceEdgeHighlightId: string | null = null;
+  private onCaptureEscape = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape" || !this.surfacePick) return;
+    event.preventDefault();
+    this.cancelSurfacePick();
+  };
   private onCanvasPointerMove = (event: PointerEvent): void => {
     if (!this.controls.isNavigating()) this.pick(event, false);
   };
   private onCanvasClick = (event: MouseEvent): void => {
     if (event.button !== 0 || this.controls.consumeClick()) return;
+    if (this.surfacePick && this.captureSurfaceClick(event)) return;
     // Calibration capture runs before normal picking (§29 Stage A).
     if (this.refMeasure && this.captureMeasureClick(event)) return;
     this.pick(event, true);
@@ -121,6 +140,7 @@ export class CadViewport {
     this.renderer.domElement.addEventListener("pointermove", this.onCanvasPointerMove);
     this.renderer.domElement.addEventListener("click", this.onCanvasClick);
     window.addEventListener("resize", this.onResize);
+    window.addEventListener("keydown", this.onCaptureEscape);
     this.loop();
   }
 
@@ -128,9 +148,9 @@ export class CadViewport {
    * Reconcile scene bodies with the canonical mesh map (§66 delta spirit):
    * upsert every entry, drop missing ids, rebuild BVH only per changed body.
    */
-  syncMeshes(meshes: Record<string, CoreMeshData>): void {
+  syncMeshes(meshes: Record<string, CoreMeshData>, surfaceIds: ReadonlySet<string> = new Set()): void {
     for (const [id, data] of Object.entries(meshes)) {
-      this.upsertBodyMesh(id, data);
+      this.upsertBodyMesh(id, data, surfaceIds.has(id));
     }
     for (const id of [...this.bodies.keys()]) {
       if (!(id in meshes)) this.removeBodyMesh(id);
@@ -143,17 +163,33 @@ export class CadViewport {
     this.pickMode = mode;
   }
 
+  /** Display-only reflection analysis; shared uniforms also reach newly hydrated bodies. */
+  setZebra(settings: ZebraSettings): void {
+    if (!validZebraSettings(settings)) return;
+    this.zebraUniforms.zebraEnabled.value = settings.enabled ? 1 : 0;
+    if (settings.enabled) this.curvatureUniforms.curvatureEnabled.value = 0;
+    this.zebraUniforms.zebraBands.value = settings.bands;
+    const angle = THREE.MathUtils.degToRad(settings.angleDeg);
+    this.zebraUniforms.zebraAxis.value.set(Math.cos(angle), Math.sin(angle), 0);
+    this.requestRender();
+  }
+
+  /** Native B-Rep samples, display only. Unknown/legacy vertices remain neutral. */
+  setCurvature(settings: CurvatureSettings): void {
+    if (!validCurvatureSettings(settings)) return;
+    this.curvatureUniforms.curvatureEnabled.value = settings.enabled ? 1 : 0;
+    this.curvatureUniforms.curvatureMaximumPerMm.value = settings.maximumPerMm;
+    if (settings.enabled) this.zebraUniforms.zebraEnabled.value = 0;
+    this.requestRender();
+  }
+
   /** Reversible display-only cut; native buffers and topology stay untouched. */
   setSection(plane: SectionPlane | null): void {
     if (plane !== null && !isSectionPlane(plane)) return;
     this.sectionPlane = plane ? { ...plane, normal: [...plane.normal] } : null;
     this.renderer.localClippingEnabled = this.sectionPlane !== null;
     for (const entry of this.bodies.values()) {
-      const materials = entry.mesh.material as THREE.MeshStandardMaterial[];
-      materials.forEach((material, index) => {
-        material.side = this.sectionPlane ? THREE.DoubleSide : entry.originalMaterialSides[index]!;
-        this.applySectionClip(material);
-      });
+      this.applyBodyMaterialSides(entry);
       if (entry.edgeLines) this.applySectionClip(entry.edgeLines.material as THREE.Material);
       this.updateSectionPresentation(entry);
     }
@@ -161,6 +197,16 @@ export class CadViewport {
     if (this.edgeSelectedLines) this.applySectionClip(this.edgeSelectedLines.material as THREE.Material);
     if (this.sharedEdgeLines) this.applySectionClip(this.sharedEdgeLines.material as THREE.Material);
     this.requestRender();
+  }
+
+  private applyBodyMaterialSides(entry: BodyEntry): void {
+    const materials = entry.mesh.material as THREE.MeshStandardMaterial[];
+    materials.forEach((material, index) => {
+      material.side = this.sectionPlane || entry.surface
+        ? THREE.DoubleSide
+        : entry.originalMaterialSides[index]!;
+      this.applySectionClip(material);
+    });
   }
 
   private applySectionClip(material: THREE.Material): void {
@@ -195,7 +241,7 @@ export class CadViewport {
     this.clearSectionPresentation(entry);
     if (!this.sectionPlane) return;
     const cut = buildSectionCut(entry.coreMesh.positions, entry.coreMesh.indices, this.sectionPlane, entry.coreMesh.normals);
-    if (cut.capIndices.length >= 3) {
+    if (!entry.surface && cut.capIndices.length >= 3) {
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.BufferAttribute(cut.capPositions, 3));
       geometry.setIndex(new THREE.BufferAttribute(cut.capIndices, 1));
@@ -502,6 +548,7 @@ export class CadViewport {
    * the viewport forever.
    */
   beginReferenceMeasure(id: string): Promise<[number, number][] | null> {
+    this.cancelSurfacePick();
     const mesh = this.refPlanes.get(id);
     if (!mesh) return Promise.resolve(null);
     if (this.refMeasure) this.refMeasure.resolve(null);
@@ -531,6 +578,81 @@ export class CadViewport {
       this.refMeasure.resolve(null);
       this.refMeasure = null;
     }
+  }
+
+  beginSurfacePointPick(targetId: string): Promise<SurfacePointPick | null> {
+    this.cancelReferenceMeasure();
+    this.cancelSurfacePick();
+    this.setSurfacePointMarker(null);
+    this.setSurfaceEdgeHighlight(null);
+    return new Promise(resolve => { this.surfacePick = { kind: "point", targetId, resolve }; });
+  }
+
+  beginSurfaceEdgePick(targetId: string): Promise<SurfaceEdgePick | null> {
+    this.cancelReferenceMeasure();
+    this.cancelSurfacePick();
+    this.setSurfacePointMarker(null);
+    this.setSurfaceEdgeHighlight(null);
+    return new Promise(resolve => { this.surfacePick = { kind: "edge", targetId, resolve }; });
+  }
+
+  cancelSurfacePick(): void {
+    const capture = this.surfacePick;
+    this.surfacePick = null;
+    capture?.resolve(null);
+  }
+
+  isSurfacePickPending(): boolean {
+    return this.surfacePick !== null;
+  }
+
+  setSurfacePointMarker(pointMm: [number, number, number] | null): void {
+    if (this.surfacePointMarker) {
+      this.scene.remove(this.surfacePointMarker);
+      this.surfacePointMarker.geometry.dispose();
+      (this.surfacePointMarker.material as THREE.Material).dispose();
+      this.surfacePointMarker = null;
+    }
+    if (pointMm) {
+      const marker = new THREE.Mesh(
+        new THREE.SphereGeometry(1.25, 12, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffc857, depthTest: true }),
+      );
+      marker.position.set(pointMm[0], pointMm[1], pointMm[2]);
+      marker.renderOrder = 5;
+      marker.userData.surfacePointMarker = true;
+      this.scene.add(marker);
+      this.surfacePointMarker = marker;
+    }
+    this.requestRender();
+  }
+
+  setSurfaceEdgeHighlight(persistentEdgeId: string | null): void {
+    this.surfaceEdgeHighlightId = persistentEdgeId;
+    this.rebuildSelectedEdgeOverlay();
+    this.requestRender();
+  }
+
+  private captureSurfaceClick(event: MouseEvent): boolean {
+    const capture = this.surfacePick;
+    if (!capture) return false;
+    if (capture.kind === "point") {
+      const hit = this.pickFaceAt(event.clientX, event.clientY);
+      if (!hit || hit.featureId !== capture.targetId) return true;
+      this.surfacePick = null;
+      capture.resolve({
+        featureId: hit.featureId,
+        persistentFaceId: hit.faceId,
+        pointMm: [hit.point.x, hit.point.y, hit.point.z],
+      });
+      return true;
+    }
+    const hit = this.pickEdgeAt(event.clientX, event.clientY);
+    if (!hit || hit.featureId !== capture.targetId) return true;
+    this.surfacePick = null;
+    this.setSurfaceEdgeHighlight(hit.persistentEdgeId);
+    capture.resolve(hit);
+    return true;
   }
 
   /** Calibration click capture; true when the click was consumed. */
@@ -866,13 +988,24 @@ export class CadViewport {
       THREE.MeshStandardMaterial,
       THREE.MeshStandardMaterial,
     ];
-    for (const material of materials) this.applySectionClip(material);
+    for (const material of materials) {
+      this.applySectionClip(material);
+      attachZebraMaterial(material, this.zebraUniforms, this.curvatureUniforms);
+    }
     return materials;
   }
 
-  upsertBodyMesh(persistentId: string, data: CoreMeshData): void {
+  upsertBodyMesh(persistentId: string, data: CoreMeshData, surface = false): void {
     const existing = this.bodies.get(persistentId);
-    if (existing?.coreMesh === data) return;
+    if (existing?.coreMesh === data) {
+      if (existing.surface !== surface) {
+        existing.surface = surface;
+        this.applyBodyMaterialSides(existing);
+        this.updateSectionPresentation(existing);
+        this.requestRender();
+      }
+      return;
+    }
     const geometry = this.geometryFromCore(data);
     // One group per persistent face → per-face highlight via material index.
     geometry.clearGroups();
@@ -886,24 +1019,27 @@ export class CadViewport {
       existing.mesh.geometry = geometry;
       existing.faces = data.faces;
       existing.coreMesh = data;
+      existing.surface = surface;
+      this.applyBodyMaterialSides(existing);
       this.refreshEdgeOverlay(persistentId, existing, data);
       this.updateSectionPresentation(existing);
     } else {
       const materials = this.makeBodyMaterials();
       const mesh = new THREE.Mesh(geometry, materials);
       const originalMaterialSides = materials.map((material) => material.side);
-      if (this.sectionPlane) materials.forEach((material) => { material.side = THREE.DoubleSide; });
       mesh.userData.persistentId = persistentId;
       const entry: BodyEntry = {
         coreMesh: data,
         mesh,
         originalMaterialSides,
+        surface,
         faces: data.faces,
         edgeLines: null,
         segToEdge: [],
         sectionCap: null,
         sectionContour: null,
       };
+      this.applyBodyMaterialSides(entry);
       this.refreshEdgeOverlay(persistentId, entry, data);
       this.scene.add(mesh);
       this.bodies.set(persistentId, entry);
@@ -1004,7 +1140,8 @@ export class CadViewport {
       if (!entry.edgeLines) continue;
       const pos = entry.edgeLines.geometry.getAttribute("position") as THREE.BufferAttribute;
       for (let s = 0; s < entry.segToEdge.length; s++) {
-        if (!this.selectedIds.has(entry.segToEdge[s]!) && entry.segToEdge[s] !== this.hoveredId) {
+        if (!this.selectedIds.has(entry.segToEdge[s]!) && entry.segToEdge[s] !== this.hoveredId &&
+            entry.segToEdge[s] !== this.surfaceEdgeHighlightId) {
           continue;
         }
         pts.push(
@@ -1272,10 +1409,14 @@ export class CadViewport {
   }
 
   dispose(): void {
+    this.cancelSurfacePick();
+    this.setSurfacePointMarker(null);
+    this.setSurfaceEdgeHighlight(null);
     this.datumView.dispose();
     this.disposed = true;
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.onResize);
+    window.removeEventListener("keydown", this.onCaptureEscape);
     this.renderer.domElement.removeEventListener("pointermove", this.onCanvasPointerMove);
     this.renderer.domElement.removeEventListener("click", this.onCanvasClick);
     this.controls.dispose();
@@ -1326,6 +1467,10 @@ export class CadViewport {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(data.positions, 3));
     g.setAttribute("normal", new THREE.BufferAttribute(data.normals, 3));
+    const vertexCount = data.positions.length / 3;
+    const curvature = data.curvatureMaxAbsPerMm?.length === vertexCount
+      ? data.curvatureMaxAbsPerMm : new Float32Array(vertexCount).fill(-1);
+    g.setAttribute("kreodaCurvature", new THREE.BufferAttribute(curvature, 1));
     g.setIndex(new THREE.BufferAttribute(data.indices, 1));
     g.computeBoundingSphere();
     return g;
@@ -1381,48 +1526,7 @@ export class CadViewport {
     this.raycaster.setFromCamera(ndc, this.camera);
     let id: string | null = null;
     if (this.pickMode === "edge") {
-      // Edge overlay picking (§16): Line raycast with a mm threshold.
-      this.raycaster.params.Line.threshold = 1.5;
-      const owners = new Map<THREE.Object3D, BodyEntry>();
-      const lines: THREE.Object3D[] = [];
-      for (const entry of this.bodies.values()) {
-        if (!entry.edgeLines) continue;
-        owners.set(entry.edgeLines, entry);
-        lines.push(entry.edgeLines);
-      }
-      const hits = this.raycaster.intersectObjects(lines, false);
-      const surfaces = [...this.bodies.values()].flatMap((entry) => [
-        ...(entry.sectionCap ? [entry.sectionCap] : []), entry.mesh,
-      ]);
-      const surfaceSet = new Set(surfaces);
-      const hit = hits.find((candidate) => {
-        if (!this.isHitVisible(candidate)) return false;
-        const entry = owners.get(candidate.object);
-        // Non-indexed LineSegments: three reports the segment's start VERTEX
-        // index (0, 2, 4…), so the segment number is index / 2.
-        const seg = Math.floor((candidate.index ?? 0) / 2);
-        if (!entry?.segToEdge[seg]) return false;
-        if (!this.sectionPlane) return true;
-        // Test visibility at the actual segment point, retaining line tolerance:
-        // the mouse ray may fall on the adjacent face rather than on the edge.
-        const savedRay = this.raycaster.ray.clone();
-        const edgeDistance = savedRay.origin.distanceTo(candidate.point);
-        try {
-          this.raycaster.ray.direction.copy(candidate.point).sub(savedRay.origin).normalize();
-          const obstruction = this.raycaster.intersectObjects(surfaces, false).find((surface) =>
-            surfaceSet.has(surface.object as THREE.Mesh) &&
-            (surface.object.userData.sectionCut || this.isHitVisible(surface)),
-          );
-          return !obstruction || obstruction.distance >= edgeDistance - SECTION_PICK_TOLERANCE_MM;
-        } finally {
-          this.raycaster.ray.copy(savedRay);
-        }
-      });
-      if (hit) {
-        const entry = owners.get(hit.object);
-        const seg = Math.floor((hit.index ?? 0) / 2);
-        id = entry?.segToEdge[seg] ?? null;
-      }
+      id = this.pickEdgeAt(e.clientX, e.clientY)?.persistentEdgeId ?? null;
     } else {
       const objects = [...this.bodies.values()].flatMap((entry) => [
         ...(entry.sectionCap ? [entry.sectionCap] : []),
@@ -1464,6 +1568,58 @@ export class CadViewport {
     }
     if (commit && id) this.events.onSelect(id, e.ctrlKey || e.metaKey);
     else this.events.onHover(id);
+  }
+
+  /** Semantic CAD edge hit using the same visibility and section gates as normal edge selection. */
+  pickEdgeAt(clientX: number, clientY: number): { featureId: string; persistentEdgeId: string } | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(ndc, this.camera);
+    this.raycaster.params.Line.threshold = 1.5;
+    const owners = new Map<THREE.Object3D, BodyEntry>();
+    const lines: THREE.Object3D[] = [];
+    for (const entry of this.bodies.values()) {
+      if (!entry.edgeLines) continue;
+      owners.set(entry.edgeLines, entry);
+      lines.push(entry.edgeLines);
+    }
+    const hits = this.raycaster.intersectObjects(lines, false);
+    const surfaces = [...this.bodies.values()].flatMap((entry) => [
+      ...(entry.sectionCap ? [entry.sectionCap] : []), entry.mesh,
+    ]);
+    const surfaceSet = new Set(surfaces);
+    const hit = hits.find((candidate) => {
+      if (!this.isHitVisible(candidate)) return false;
+      const entry = owners.get(candidate.object);
+      // Non-indexed LineSegments: three reports the segment's start VERTEX
+      // index (0, 2, 4…), so the segment number is index / 2.
+      const seg = Math.floor((candidate.index ?? 0) / 2);
+      if (!entry?.segToEdge[seg]) return false;
+      if (!this.sectionPlane) return true;
+      // Test visibility at the actual segment point, retaining line tolerance:
+      // the mouse ray may fall on the adjacent face rather than on the edge.
+      const savedRay = this.raycaster.ray.clone();
+      const edgeDistance = savedRay.origin.distanceTo(candidate.point);
+      try {
+        this.raycaster.ray.direction.copy(candidate.point).sub(savedRay.origin).normalize();
+        const obstruction = this.raycaster.intersectObjects(surfaces, false).find((surface) =>
+          surfaceSet.has(surface.object as THREE.Mesh) &&
+          (surface.object.userData.sectionCut || this.isHitVisible(surface)),
+        );
+        return !obstruction || obstruction.distance >= edgeDistance - SECTION_PICK_TOLERANCE_MM;
+      } finally {
+        this.raycaster.ray.copy(savedRay);
+      }
+    });
+    if (!hit) return null;
+    const entry = owners.get(hit.object);
+    const seg = Math.floor((hit.index ?? 0) / 2);
+    const persistentEdgeId = entry?.segToEdge[seg];
+    const featureId = hit.object.userData.persistentId as string | undefined;
+    return featureId && persistentEdgeId ? { featureId, persistentEdgeId } : null;
   }
 
   private resize(): void {

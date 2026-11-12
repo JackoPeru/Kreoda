@@ -9,6 +9,7 @@ import { syncOpenedDocument } from "../../model/sync";
 import { executeCommand } from "../../commands/execute";
 import { clearRecoveryAfterSave } from "../../recovery/autosave";
 import { t, useT } from "../../i18n";
+import { recordRecentProject } from "../../model/recent-projects";
 
 /** Shared Save path (top-right button and More → Save reuse this). */
 export async function saveDocument(): Promise<string | null> {
@@ -16,6 +17,7 @@ export async function saveDocument(): Promise<string | null> {
     const path = await window.kreoda.saveDialog("project.icad");
     if (!path) return null;
     await coreClient.saveDocument(path);
+    await recordRecentProject(path);
     // Explicit save supersedes the crash snapshot (Phase 8 recovery).
     await clearRecoveryAfterSave();
     return null;
@@ -29,9 +31,17 @@ export async function openDocument(): Promise<string | null> {
   try {
     const path = await window.kreoda.openDialog();
     if (!path) return null;
-    const { features: list, sketches, datums, revision } =
-      await coreClient.openDocument(path);
+    return await openDocumentAtPath(path);
+  } catch (e) {
+    return e instanceof Error ? e.message : t("actions.errOpenFailed");
+  }
+}
+
+export async function openDocumentAtPath(path: string): Promise<string | null> {
+  try {
+    const { features: list, sketches, datums, revision } = await coreClient.openDocument(path);
     await syncOpenedDocument(list, revision, sketches, datums);
+    await recordRecentProject(path);
     return null;
   } catch (e) {
     return e instanceof Error ? e.message : t("actions.errOpenFailed");

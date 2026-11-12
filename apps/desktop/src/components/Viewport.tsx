@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSharedTargetStore, visibleSharedTargets } from "../model/shared-targets";
 import { CadViewport } from "../viewport/CadViewport";
-import { useDocumentUiStore, useSelectionStore, useToolStore } from "../stores";
+import { surfaceFeatureIds, useDocumentUiStore, useSelectionStore, useToolStore } from "../stores";
 import { clampDimension, resolvePullTarget } from "../interaction/pull";
 import { coreClient } from "../ipc/coreClient";
 import { executeCommand } from "../commands/execute";
-import { setViewportHandle } from "../viewport/viewportHandle";
+import { setViewportHandle, viewportIsSurfacePickPending } from "../viewport/viewportHandle";
 import { markPullLearned } from "./Onboarding";
 import { useReferenceStore } from "../reference/store";
 import { t } from "../i18n";
 import { useSectionStore } from "../section/store";
 import { refreshSketchProjection } from "../model/sync";
+import { useZebraStore } from "../analysis/zebra";
 
 interface PullSession {
   pointerId: number;
@@ -38,6 +39,10 @@ export function Viewport() {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
   const mode = useSelectionStore((s) => s.mode);
   const activeTool = useToolStore((s) => s.activeTool);
+  const zebraEnabled = useZebraStore(s => s.enabled);
+  const zebraBands = useZebraStore(s => s.bands);
+  const zebraAngle = useZebraStore(s => s.angleDeg);
+  const curvature = useZebraStore(s => s.curvature);
   const meshes = useDocumentUiStore((s) => s.meshes);
   const bodies = useDocumentUiStore((s) => s.bodies);
   const features = useDocumentUiStore((s) => s.features);
@@ -86,6 +91,12 @@ export function Viewport() {
       beginReferenceMeasure: (id) =>
         vpRef.current?.beginReferenceMeasure(id) ?? Promise.resolve(null),
       cancelReferenceMeasure: () => vpRef.current?.cancelReferenceMeasure(),
+      beginSurfacePointPick: (targetId) => vpRef.current?.beginSurfacePointPick(targetId) ?? Promise.resolve(null),
+      beginSurfaceEdgePick: (targetId) => vpRef.current?.beginSurfaceEdgePick(targetId) ?? Promise.resolve(null),
+      cancelSurfacePick: () => vpRef.current?.cancelSurfacePick(),
+      isSurfacePickPending: () => vpRef.current?.isSurfacePickPending() ?? false,
+      setSurfacePointMarker: (pointMm) => vpRef.current?.setSurfacePointMarker(pointMm),
+      setSurfaceEdgeHighlight: (edgeId) => vpRef.current?.setSurfaceEdgeHighlight(edgeId),
       renderStats: () => vpRef.current?.renderStats() ?? null,
       meshIdentity: (featureId) => vpRef.current?.meshIdentity(featureId) ?? null,
       sketchProjectionSummary: (featureId) => vpRef.current?.sketchProjectionSummary(featureId) ?? null,
@@ -93,6 +104,7 @@ export function Viewport() {
     });
     return () => {
       try {
+        vpRef.current?.cancelSurfacePick();
         vpRef.current?.cancelReferenceMeasure();
       } catch {
         // Best-effort: unmount must never throw.
@@ -113,12 +125,17 @@ export function Viewport() {
     vpRef.current?.setSection(sectionEnabled ? sectionPlane : null);
   }, [sectionEnabled, sectionPlane, meshes, meshRevision, bodies, features]);
 
+  useEffect(() => {
+    vpRef.current?.setZebra({ enabled: zebraEnabled, bands: zebraBands, angleDeg: zebraAngle });
+  }, [zebraEnabled, zebraBands, zebraAngle]);
+  useEffect(() => { vpRef.current?.setCurvature(curvature); }, [curvature]);
+
   // Canonical → scene sync (§66): only on committed mesh updates, never on
   // pointer frequency. Slice 4: the meshes map holds VISIBLE tips only
   // (one entry per physical object) — syncMeshes reconciles the rest away.
   useEffect(() => {
-    vpRef.current?.syncMeshes(meshes);
-  }, [meshes, meshRevision]);
+    vpRef.current?.syncMeshes(meshes, surfaceFeatureIds(features));
+  }, [meshes, meshRevision, features]);
 
   // Reference planes (§29 Stage A): view aids, reconciled like meshes.
   useEffect(() => {
@@ -167,7 +184,7 @@ export function Viewport() {
 
     const onPointerDown = (e: PointerEvent): void => {
       const vp = vpRef.current;
-      if (!vp || activeTool !== "pull" || e.button !== 0) return;
+      if (!vp || viewportIsSurfacePickPending() || activeTool !== "pull" || e.button !== 0) return;
       const hit = vp.pickFaceAt(e.clientX, e.clientY);
       if (!hit) {
         setPullHint(t("viewport.pullFree"));

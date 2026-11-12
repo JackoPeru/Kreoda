@@ -109,6 +109,7 @@ test("native datum edit, supported extrude, save/open and undo stay coherent in 
     ).__kreoda_test.selectMany([id]), datumId);
     await panel.getByRole("button", { name: "Create sketch here" }).click();
     await expect(window.getByTestId("sketch-canvas")).toBeVisible();
+    await window.getByRole("button", { name: "Rectangle", exact: true }).click();
     const supportedSketch = async () => (await snapOf(window)).sketches.find((sketch) => sketch.supportRef === datumId);
     await expect.poll(supportedSketch, { timeout: 20000 }).toMatchObject({
       planeKind: "Datum",

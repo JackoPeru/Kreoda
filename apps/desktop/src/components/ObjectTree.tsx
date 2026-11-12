@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { buildTreeItems, useDocumentUiStore, useSelectionStore } from "../stores";
 import { useLocale, useT, featureTypeName } from "../i18n";
+import { coreClient } from "../ipc/coreClient";
+import { syncFromCoreList } from "../model/sync";
 
 /**
  * Object tree (nouns) + body history (Slice 4): one row per Body, with
@@ -27,6 +29,17 @@ export function ObjectTree({ onInsertHole }: { onInsertHole?: () => void } = {})
   const t = useT();
   // Collapsed parents by body id (default: history visible).
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [visibilityBusy, setVisibilityBusy] = useState<string | null>(null);
+  const [visibilityError, setVisibilityError] = useState("");
+  const toggleVisibility = async (bodyId: string, visible: boolean): Promise<void> => {
+    setVisibilityBusy(bodyId); setVisibilityError("");
+    try {
+      await coreClient.setBodyVisibility(bodyId, !visible);
+      const snapshot = await coreClient.requestSnapshot();
+      await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+    } catch (e) { setVisibilityError(e instanceof Error ? e.message : String(e)); }
+    finally { setVisibilityBusy(null); }
+  };
   const toggle = (id: string): void => {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -49,9 +62,17 @@ export function ObjectTree({ onInsertHole }: { onInsertHole?: () => void } = {})
           {t("tree.empty")}
         </div>
       )}
+      {visibilityError && <div role="alert" className="text-xs text-red-300">{visibilityError}</div>}
       {items.map((o) =>
         o.children ? (
           <div key={o.id}>
+            {bodies.some(b => b.bodyId === o.id) && <button
+              aria-label={`Toggle visibility ${o.id}`}
+              data-testid={`body-visibility-${o.id}`}
+              disabled={visibilityBusy !== null}
+              onClick={() => { const body = bodies.find(b => b.bodyId === o.id)!; void toggleVisibility(o.id, body.visible !== false); }}
+              className="rounded px-2 text-xs text-white/60 disabled:opacity-40"
+            >{bodies.find(b => b.bodyId === o.id)?.visible === false ? "Show" : "Hide"}</button>}
             <button
               onClick={() => toggle(o.id)}
               data-testid={`object-tree-${o.id}`}
@@ -83,14 +104,22 @@ export function ObjectTree({ onInsertHole }: { onInsertHole?: () => void } = {})
               ))}
           </div>
         ) : (
+          <div key={o.id} className="flex items-center">
+          {bodies.some(b => b.bodyId === o.id || b.tipFeatureId === o.id) && <button
+            aria-label={`Toggle visibility ${o.id}`}
+            data-testid={`body-visibility-${o.id}`}
+            disabled={visibilityBusy !== null}
+            onClick={() => { const body = bodies.find(b => b.bodyId === o.id || b.tipFeatureId === o.id)!; void toggleVisibility(body.bodyId, body.visible !== false); }}
+            className="rounded px-2 text-xs text-white/60 disabled:opacity-40"
+          >{bodies.find(b => b.bodyId === o.id || b.tipFeatureId === o.id)?.visible === false ? "Show" : "Hide"}</button>}
           <button
-            key={o.id}
             onClick={() => select(o.id, false)}
             data-testid={`object-tree-${o.id}`}
             className={rowClass(selectedIds.includes(o.id))}
           >
             {o.name}
           </button>
+          </div>
         ),
       )}
       <div className="mt-3 px-2 py-1 text-xs uppercase tracking-wide text-white/50">

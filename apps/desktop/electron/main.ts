@@ -4,10 +4,14 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 import { SidecarManager } from "./sidecar";
 import { installRendererRecovery } from "./renderer-recovery";
+import { RecentProjectStore } from "./recent-project-store";
 import { SessionRelay, type SessionDelta, type SessionSelection } from "./session";
+import { installSessionAgentIpc } from "./session-agent";
 import { SessionDevices } from "./session-devices";
+import { preparePrivateVoiceStartup, type PrivateVoiceStartup } from "./session-voice-config";
 import { AutomaticSessionHost } from "./session-discovery";
 import { hostname } from "node:os";
 import { sessionInterfaces } from "./session-listener";
@@ -24,16 +28,33 @@ let sidecar: SidecarManager | null = null;
 // Phase 11b: unified session relay (Quest/agent/second-client front for the
 // local authoritative core). Listener is optional; the service always exists.
 let sessionRelay: SessionRelay | null = null;
+let privateVoiceStartup: PrivateVoiceStartup | undefined;
 let automaticSession: AutomaticSessionHost | null = null;
 
 const isDev = !app.isPackaged;
+const devRendererUrl = isDev ? process.env["VITE_DEV_SERVER_URL"] : undefined;
+const rendererFile = path.join(__dirname, "../../dist/index.html");
+const rendererUrl = devRendererUrl || pathToFileURL(rendererFile).href;
 const backgroundTest = process.env["KREODA_BACKGROUND_TEST"] === "1";
+const startHidden = backgroundTest || process.argv.includes("--start-hidden");
+// Normal desktop sessions own one native core, relay and UDP discovery socket.
+// E2E test profiles retain independent lifecycle and isolated endpoints.
+if (!backgroundTest && !app.requestSingleInstanceLock()) {
+  app.quit();
+} else if (!backgroundTest) {
+  app.on("second-instance", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+}
 
 function createWindow(previous?: BrowserWindow): void {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
-    show: !backgroundTest,
+    show: !startHidden,
     title: "Kreoda",
     // Kreoda mark: .vite/build → apps/desktop/assets/icon.ico.
     icon: path.join(__dirname, "../../assets/icon.ico"),
@@ -42,7 +63,7 @@ function createWindow(previous?: BrowserWindow): void {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
-      backgroundThrottling: !backgroundTest,
+      backgroundThrottling: !startHidden,
     },
     backgroundColor: "#0b0e13",
   });
@@ -64,11 +85,11 @@ function createWindow(previous?: BrowserWindow): void {
   });
   createdWindow.webContents.on("did-finish-load", () => sessionRelay?.onRendererConnected());
 
-  if (isDev && process.env["VITE_DEV_SERVER_URL"]) {
-    void mainWindow.loadURL(process.env["VITE_DEV_SERVER_URL"]);
+  if (devRendererUrl) {
+    void mainWindow.loadURL(devRendererUrl);
   } else {
     // Production: renderer built by `vite build` into apps/desktop/dist.
-    void mainWindow.loadFile(path.join(__dirname, "../../dist/index.html"));
+    void mainWindow.loadFile(rendererFile);
   }
 
   createdWindow.on("closed", () => {
@@ -97,18 +118,50 @@ async function initSidecar(): Promise<void> {
   }
 }
 
-app.whenReady().then(async () => {
+if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async () => {
+  const recentProjectStore = new RecentProjectStore(app.getPath("userData"));
+  ipcMain.handle("kreoda:recent-projects", () => recentProjectStore.list());
+  ipcMain.handle("kreoda:record-recent-project", (_event, filePath: unknown) => {
+    if (typeof filePath !== "string") throw new Error("Invalid project path");
+    return recentProjectStore.record(filePath);
+  });
   let devices: SessionDevices | undefined;
   try {
     const storage = new SessionDevices(app.getPath("userData"));
     await storage.load();devices = storage;
   } catch { console.error("[session] trusted device storage unavailable"); }
+  if (!backgroundTest && devices) {
+    const setup = await preparePrivateVoiceStartup(app.getPath("userData"), devices.pcId)
+      .catch(() => ({ state: "invalid" as const }));
+    if (setup.state === "invalid") console.warn("[session] private voice setup rejected");
+    if (setup.state === "configured") privateVoiceStartup = setup.startup;
+  }
   void initSidecar();
   sessionRelay = new SessionRelay(() => sidecar, (delta: SessionDelta) => {
     mainWindow?.webContents.send("kreoda:session-delta", delta);
   }, devices, (selection: SessionSelection) => {
     mainWindow?.webContents.send("kreoda:session-selection", selection);
-  });
+  }, () => recentProjectStore.list().map(project => ({
+    name: path.basename(project.path),
+    openedAt: project.openedAt,
+  })), () => recentProjectStore.list().map(project => ({
+    path: project.path, name: path.basename(project.path), openedAt: project.openedAt,
+  })), async (name, requester) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return false;
+    const safeName = requester.name.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 64);
+    const identity = requester.deviceId ? `Device: ${safeName} (${requester.deviceId})` : `Unpaired development peer: ${safeName}`;
+    const decision = await Promise.race([
+      dialog.showMessageBox(mainWindow, {
+        type: "warning", title: "Kreoda remote project request",
+        message: `A connected device requests opening ${name}`,
+        detail: `${identity}\nOpening replaces the current CAD document. Approve only if you recognize the requesting device.`,
+        buttons: ["Deny", "Open project"], defaultId: 0, cancelId: 0, noLink: true,
+      }).then(result => result.response === 1),
+      new Promise<false>(resolve => setTimeout(() => resolve(false), 30_000)),
+    ]);
+    return decision;
+  }, privateVoiceStartup?.voiceOptions);
+  void privateVoiceStartup?.start();
   // The local session service exists without a listener. Environment settings
   // enable the development/test network endpoint; production pairing follows.
   const sessionPort = Number(process.env["KREODA_SESSION_PORT"] ?? "");
@@ -140,6 +193,7 @@ app.whenReady().then(async () => {
     if (!sessionRelay) throw new Error("session service not running");
     return sessionRelay.localSnapshot();
   });
+  installSessionAgentIpc(ipcMain, () => mainWindow, () => sessionRelay, rendererUrl);
   const connectionStatus = (): SessionConnectionStatus => ({
     ...sessionRelay!.connectionStatus(), interfaces: sessionInterfaces().map(item => ({ name: item.name, host: item.address })),
     devices: devices?.list() ?? [], pairingAvailable: !!devices,
@@ -484,6 +538,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   void automaticSession?.stop();
+  privateVoiceStartup?.stop();
   sessionRelay?.stop();
   sidecar?.stop();
 });

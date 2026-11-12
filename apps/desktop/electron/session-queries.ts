@@ -1,5 +1,6 @@
 import { QUERY_METHODS_CONTRACT, SESSION_SERVER_CAPABILITIES, DatumDescriptorSchema, SketchDescriptorSchema,
-  SketchProjectionResultSchema, type DatumDescriptor, type SketchPlaneFrame } from "@kreoda/protocol";
+  SketchProjectionResultSchema, SurfacePointResolveRequestSchema, SurfacePointResolveResultSchema,
+  type DatumDescriptor, type SketchPlaneFrame } from "@kreoda/protocol";
 // Session semantic query API (§11.7–§11.9, §11.11, §11.15): read-only
 // projections over authoritative snapshots and native OCCT geometry.
 // Transport-agnostic: the relay injects core access; unit tests inject
@@ -11,6 +12,9 @@ import { SketchModelSchema } from "@kreoda/protocol";
 
 export interface SnapFeature {
   featureId: string;
+  bodyId?: string;
+  bodyVisible?: boolean;
+  bodyTip?: boolean;
   type: string;
   paramsMm: number[];
   volumeMm3?: number;
@@ -51,6 +55,7 @@ export interface SessionBody {
   bodyId: string;
   tip: string;
   history: string[];
+  visible?: boolean;
 }
 
 /** Central feature→body semantics table (mirrors FeatureBodySemantics). */
@@ -104,6 +109,10 @@ export function buildSessionBodies(features: SnapFeature[]): SessionBody[] {
         history: [f.featureId],
       });
     }
+  }
+  for (const body of bodies) {
+    const native = features.find(f => f.bodyId === body.bodyId && f.bodyTip === true);
+    body.visible = native?.bodyVisible !== false;
   }
   return bodies;
 }
@@ -270,6 +279,9 @@ export function asFeature(raw: unknown): SnapFeature | null {
     ? o["volumeMm3"] : undefined;
   return {
     featureId: o["featureId"] as string,
+    bodyId: typeof o["bodyId"] === "string" ? o["bodyId"] : undefined,
+    bodyVisible: typeof o["bodyVisible"] === "boolean" ? o["bodyVisible"] : undefined,
+    bodyTip: typeof o["bodyTip"] === "boolean" ? o["bodyTip"] : undefined,
     type: o["type"] as string,
     paramsMm: params,
     ...(volumeMm3 === undefined ? {} : { volumeMm3 }),
@@ -299,7 +311,7 @@ export function normalizeSnapshot(
     revision,
     features: list,
     bodies,
-    tips: bodies.map((b) => b.tip),
+    tips: bodies.filter(b => b.visible !== false).map((b) => b.tip),
     datums: datums.map(value => DatumDescriptorSchema.parse(value)),
     sketches: sketches
       .map((raw) => {
@@ -397,6 +409,7 @@ export async function runSessionQuery(
             bodyId: b.bodyId,
             tip: b.tip,
             history: [...b.history],
+            visible: b.visible !== false,
             ...(byTip(s, b.tip) ? featureAvailability(byTip(s, b.tip)!) : {}),
           })),
           tips: s.tips,
@@ -428,6 +441,7 @@ export async function runSessionQuery(
             bodyId: b.bodyId,
             tip: b.tip,
             history: [...b.history],
+            visible: b.visible !== false,
             features: s.features.filter((f) => member.has(f.featureId)),
           },
         };
@@ -479,6 +493,41 @@ export async function runSessionQuery(
       if ((result as { featureId: string }).featureId !== featureId)
         throw coded("CORE_FAILED", "native projection feature identity differs from the request");
       return { result, lineage: { sessionId, documentId, revision: revision as number } };
+    }
+    case "resolveSurfacePoint": {
+      const expectedRevision = params["expectedRevision"];
+      if (expectedRevision !== undefined && (!Number.isSafeInteger(expectedRevision) || (expectedRevision as number) < 0))
+        throw coded("BAD_PARAMS", "expectedRevision must be a nonnegative safe integer");
+      if (params["documentId"] !== undefined && params["documentId"] !== documentId)
+        throw coded("NEED_FULL_SNAPSHOT", "surface point document identity changed");
+      const requestFields = { ...params };
+      delete requestFields["documentId"];
+      delete requestFields["expectedRevision"];
+      const request = SurfacePointResolveRequestSchema.safeParse(requestFields);
+      if (!request.success) throw coded("BAD_PARAMS", `invalid surface point request: ${request.error.message}`);
+      const sessionId = env.sessionId?.();
+      if (!sessionId) throw coded("NEED_FULL_SNAPSHOT", "surface point query has no session lineage");
+      const before = await snap();
+      if (before.documentId !== documentId || env.sessionId?.() !== sessionId ||
+          (expectedRevision !== undefined && before.revision !== expectedRevision))
+        throw coded("NEED_FULL_SNAPSHOT", "surface point request belongs to an older model lineage");
+      if (!before.features.some(candidate => candidate.featureId === request.data.targetId))
+        throw coded("NOT_FOUND", `unknown surface feature ${request.data.targetId}`);
+      const nativeValue = await env.geometry(documentId, "resolveSurfacePoint", request.data as unknown as Record<string, unknown>);
+      const after = await snap();
+      if (after.documentId !== documentId || after.revision !== before.revision || env.sessionId?.() !== sessionId)
+        throw coded("NEED_FULL_SNAPSHOT", "surface point lineage changed during native query");
+      let result: ReturnType<typeof SurfacePointResolveResultSchema.parse>;
+      try { result = SurfacePointResolveResultSchema.parse(nativeValue); }
+      catch (error) { throw coded("CORE_FAILED", `native surface point result is invalid: ${error instanceof Error ? error.message : String(error)}`); }
+      const qualifyFace = (featureId: string, persistentFaceId: string) =>
+        persistentFaceId.includes(":") ? persistentFaceId : `${featureId}:${persistentFaceId}`;
+      if (result.keepFace.featureId !== request.data.targetId ||
+          (request.data.persistentFaceId !== undefined &&
+            qualifyFace(request.data.targetId, result.keepFace.persistentFaceId) !== qualifyFace(request.data.targetId, request.data.persistentFaceId)) ||
+          result.projectionDistanceMm > request.data.maxDistanceMm)
+        throw coded("CORE_FAILED", "native surface point result does not match the requested owner, hint, or tolerance");
+      return { result, lineage: { sessionId, documentId, revision: before.revision } };
     }
     case "getDatum": {
       const result = await env.geometry(documentId, "getDatum", { featureId: needId(params["featureId"], "featureId") });
@@ -574,6 +623,9 @@ export async function runSessionQuery(
     case "findEdges":
     case "measureVolume":
     case "measureArea":
+    case "measureMassProperties":
+    case "measureInterferences":
+    case "measureMinimumThickness":
     case "getBoundingBox":
     case "measureDistance":
     case "measureAngle":
@@ -683,9 +735,19 @@ export async function runSessionQuery(
                 const owners = [...new Set(references.map(r => r.owner).filter((owner): owner is string => typeof owner === "string" && owner.length > 0))];
                 if (owners.length !== 1) { availability.available = false;availability.reason = "Selection must belong to one owner";break; }
                 boundParameters[name] = owners[0];
+              } else if (binding === "owners") {
+                const selectedOwners = references.map(reference => reference.owner);
+                if (!selectedOwners.length || selectedOwners.some(owner => typeof owner !== "string" || owner.length === 0)) {
+                  availability.available = false;
+                  availability.reason = "Selection must resolve to feature owners";
+                  break;
+                }
+                boundParameters[name] = [...new Set(selectedOwners)];
               } else if (binding === "edges") boundParameters[name] = references.filter(r => r.kind === "edge").map(r => r.id);
               else if (binding === "faceRole") boundParameters[name] = references.find(r => r.kind === "face")?.role;
               else if (binding === "sketch") boundParameters[name] = references.find(r => r.kind === "sketch")?.id;
+              else if (binding === "firstSketch") boundParameters[name] = references.find(r => r.kind === "sketch")?.id;
+              else if (binding === "secondSketch") boundParameters[name] = references.filter(r => r.kind === "sketch")[1]?.id;
               if (boundParameters[name] === undefined) { availability.available = false;availability.reason = "Selected reference has no command binding";break; }
             }
             if (availability.available) for (const [name, binding] of Object.entries(c.optionalSelectionBindings ?? {})) {

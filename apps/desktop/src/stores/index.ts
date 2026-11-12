@@ -3,10 +3,11 @@
 
 import { create } from "zustand";
 import type { CoreMeshData, SketchModel, DatumDescriptor, SketchPlaneFrame, SketchProjectionResult } from "@kreoda/protocol";
-import type { SelectionKind as CanonicalSelectionKind } from "@kreoda/command-schema";
+import { featureGeometryKind, type SelectionKind as CanonicalSelectionKind } from "@kreoda/command-schema";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 import { t, featureTypeName } from "../i18n";
 import { useSectionStore } from "../section/store";
+import { useZebraStore } from "../analysis/zebra";
 
 export interface SketchEntry extends SketchSummary {
   model?: SketchModel & { planeKind?: string; plane?: SketchPlaneFrame; supportRef?: string };
@@ -24,7 +25,7 @@ export interface SketchProjectionView {
 export interface ModelTreeItem {
   id: string;
   name: string;
-  kind: "body" | "feature" | "sketch" | "datum";
+  kind: "body" | "surface" | "feature" | "sketch" | "datum";
   children?: ModelTreeItem[];
 }
 
@@ -40,6 +41,25 @@ export interface BodyInfo {
   bodyId: string;
   history: string[];
   tipFeatureId: string;
+  geometryKind?: "solid" | "surface";
+  visible?: boolean;
+}
+
+function featureGeometryKindFor(featureId: string, known: Map<string, FeatureSummary>): "solid" | "surface" {
+  const feature = known.get(featureId);
+  if (!feature) return "solid";
+  if (featureGeometryKind(feature.type) === "surface") return "surface";
+  if (feature.type !== "Instance" || feature.dependsOn.length !== 1) return "solid";
+  const source = known.get(feature.dependsOn[0]!);
+  return source && featureGeometryKind(source.type) === "surface" ? "surface" : "solid";
+}
+
+/** Effective surface identities for this summary, including supported direct Instances. */
+export function surfaceFeatureIds(features: FeatureSummary[]): Set<string> {
+  const known = new Map(features.map(feature => [feature.featureId, feature]));
+  return new Set(features.filter(feature =>
+    featureGeometryKindFor(feature.featureId, known) === "surface",
+  ).map(feature => feature.featureId));
 }
 
 /** Central feature→body semantics table (mirrors FeatureBodySemantics). */
@@ -78,6 +98,7 @@ export function buildBodies(features: FeatureSummary[]): BodyInfo[] {
         bodyId: bodyIdForRoot(f.featureId),
         history: [f.featureId],
         tipFeatureId: f.featureId,
+        geometryKind: featureGeometryKind(f.type),
       });
       return;
     }
@@ -88,11 +109,13 @@ export function buildBodies(features: FeatureSummary[]): BodyInfo[] {
     if (owner) {
       owner.history.push(f.featureId);
       owner.tipFeatureId = f.featureId;
+      owner.geometryKind = featureGeometryKind(f.type);
     } else {
       bodies.push({
         bodyId: bodyIdForRoot(f.featureId),
         history: [f.featureId],
         tipFeatureId: f.featureId,
+        geometryKind: featureGeometryKind(f.type),
       });
     }
   };
@@ -112,6 +135,11 @@ export function buildBodies(features: FeatureSummary[]): BodyInfo[] {
     if (!progress) break;
   }
   for (const f of features) if (!adopted.has(f.featureId)) attach(f);
+  for (const body of bodies) {
+    const tip = features.find(f => f.featureId === body.tipFeatureId);
+    const nativeBody = features.find(f => f.bodyId === body.bodyId && f.bodyTip === true);
+    body.visible = (nativeBody ?? tip)?.bodyVisible !== false;
+  }
   return bodies;
 }
 
@@ -122,7 +150,7 @@ export function buildBodies(features: FeatureSummary[]): BodyInfo[] {
  * for history/recompute but never enter the scene map.
  */
 export function visibleFeatureIds(features: FeatureSummary[]): string[] {
-  const ids = buildBodies(features).map((b) => b.tipFeatureId);
+  const ids = buildBodies(features).filter(b => b.visible !== false).map((b) => b.tipFeatureId);
   for (const f of features) {
     if (f.type === "Instance") ids.push(f.featureId);
   }
@@ -214,13 +242,13 @@ function toTreeItems(
       return {
         id: b.history[0]!,
         name: f ? featureLabel(f) : b.history[0]!,
-        kind: "body" as const,
+        kind: b.geometryKind === "surface" ? "surface" as const : "body" as const,
       };
     }
     return {
       id: b.bodyId,
       name: t("tree.body", { n: i + 1 }),
-      kind: "body" as const,
+      kind: b.geometryKind === "surface" ? "surface" as const : "body" as const,
       children: b.history.map((id) => ({
         id,
         name: byId.get(id) ? featureLabel(byId.get(id)!) : id,
@@ -231,7 +259,8 @@ function toTreeItems(
   // NonBody solids outside any body (Instance occurrences) keep flat rows.
   const extraItems = features
     .filter((f) => !covered.has(f.featureId))
-    .map((f) => ({ id: f.featureId, name: featureLabel(f), kind: "body" as const }));
+    .map((f) => ({ id: f.featureId, name: featureLabel(f),
+      kind: featureGeometryKindFor(f.featureId, byId) === "surface" ? "surface" as const : "body" as const }));
   return [...datums.map(datum => ({ id: datum.featureId, name: `${featureTypeName(datum.kind)} · ${datum.featureId}`, kind: "datum" as const })), ...skItems, ...bodyItems, ...extraItems];
 }
 
@@ -284,7 +313,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       // the scene map the moment the model moves on (undo/redo tip steps
       // update the rendered object the same way). History summaries stay —
       // only render buffers are pruned.
-      const visible = new Set<string>(bodies.map((b) => b.tipFeatureId));
+      const visible = new Set<string>(bodies.filter(b => b.visible !== false).map((b) => b.tipFeatureId));
       for (const f of features) {
         if (f.type === "Instance") visible.add(f.featureId);
       }
@@ -357,6 +386,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
     // Document replacement must clear local presentation even while Home
     // has unmounted the viewport. Ordinary in-document updates never use this.
     useSectionStore.getState().reset();
+    useZebraStore.getState().reset();
     clearRemovedDatumSelections(new Set(useDocumentUiStore.getState().datums.map(datum => datum.featureId)));
     set((s) => ({
       documentId,

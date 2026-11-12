@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { SketchProjectionResult, SketchProjectionGroupSummary, SketchModel } from "@kreoda/protocol";
 
 const mockCore = vi.hoisted(() => ({
   documentId: "doc-projection",
+  captureSketchContext: vi.fn(),
   requestSketch: vi.fn(),
   requestSketchProjection: vi.fn(),
   updateSketch: vi.fn(),
@@ -58,6 +59,11 @@ beforeEach(() => {
   useDocumentUiStore.getState().resetDocument("doc-projection");
   useDocumentUiStore.setState({ revision: 7 });
   useDocumentUiStore.getState().upsertSketch({ featureId: "target-sketch", planeKind: "XY", points: 0, lines: 0, circles: 0, constraints: 0, projectionGroups: [] });
+  mockCore.captureSketchContext.mockReset().mockImplementation(async () => {
+    const state = useDocumentUiStore.getState();
+    return { documentId: state.documentId, revision: state.revision, epoch: state.epoch,
+      connectionGeneration: state.connectionGeneration, sessionId: "session-a" };
+  });
   mockCore.requestSketch.mockReset();
   mockCore.requestSketchProjection.mockReset();
   mockCore.updateSketch.mockReset().mockResolvedValue({ revision: 8 });
@@ -77,11 +83,16 @@ it.each([
   ["arc-only", arcModel, projection([])],
 ] as const)("opening %s does not commit a starter rectangle", async (_name, model, result) => {
   await open(model, result);
-  await waitFor(() => expect(mockCore.requestSketch).toHaveBeenCalledWith("target-sketch"));
+  await waitFor(() => expect(mockCore.requestSketch).toHaveBeenCalledWith("target-sketch",
+    expect.objectContaining({ documentId: "doc-projection", revision: 7, sessionId: "session-a" })));
   expect(mockCore.updateSketch).not.toHaveBeenCalled();
 });
 
-it("commits the first-run rectangle only after empty model and empty projections are confirmed", async () => {
+it("keeps canonical empty geometry empty on open and creates a rectangle only after explicit action", async () => {
   await open(emptyModel, projection([]));
-  await waitFor(() => expect(mockCore.updateSketch).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect((screen.getByRole("button", { name: "Rectangle" }) as HTMLButtonElement).disabled).toBe(false));
+  expect(mockCore.updateSketch).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Rectangle" }));
+  await waitFor(() => expect(mockCore.updateSketch).toHaveBeenCalledTimes(2));
+  expect(mockCore.updateSketch.mock.calls.filter(([params]) => !params.isPreview)).toHaveLength(1);
 });

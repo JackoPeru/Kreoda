@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
 import { HomeScreen } from "../components/home/HomeScreen";
+import { openDocumentAtPath } from "../components/workspace/WorkspaceActions";
 import { PluginsDialog } from "../components/PluginsDialog";
 import { ReferenceDialog } from "../components/ReferenceDialog";
 import { ReferenceGeometryPanel } from "../components/workspace/ReferenceGeometryPanel";
@@ -129,6 +130,7 @@ export function App() {
   // permanently docked.
   const [projectOpen, setProjectOpen] = useState(false);
   const [propsOpen, setPropsOpen] = useState(false);
+  const [surfaceOpen, setSurfaceOpen] = useState(false);
   // Home (§home): schermata principale all'avvio (vedi riferimento UI/home.png).
   // Il workspace CAD si apre da qui (Nuovo/Importa/recenti/orbit/nav).
   const [view, setView] = useState<"home" | "workspace">("home");
@@ -328,6 +330,72 @@ export function App() {
         return (
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
         ).__kreoda_test.snapshot();
+      },
+      // Native-only configuration diagnostics, same IPC authority as the UI.
+      configurationE2E: {
+        query: () => coreClient.queryConfigurations(),
+        define: (name: string, overrides: Record<string, Record<string, number>>) =>
+          coreClient.configurationCommand(40, { name, overrides }),
+        activate: async (name: string) => {
+          await coreClient.configurationCommand(41, { name });
+          const result = await coreClient.requestSnapshot();
+          await syncFromCoreList(result.features, result.revision, result.sketches, null, result.datums);
+        },
+        undo: async () => {
+          const result = await coreClient.undo();
+          await syncFromCoreList(result.features, result.revision, result.sketches, null, result.datums);
+        },
+        redo: async () => {
+          const result = await coreClient.redo();
+          await syncFromCoreList(result.features, result.revision, result.sketches, null, result.datums);
+        },
+      },
+      outwardFacePushE2E: async (owner: string, persistentFaceId: string, distanceMm: number) => {
+        const role = persistentFaceId.startsWith(`${owner}:`) ? persistentFaceId.slice(owner.length + 1) : "";
+        if (!role || /(?:^|[.:])(?:face|edge)\[\d+\]/.test(role)) throw Error("nonpersistent face selection");
+        const before = await coreClient.requestFaceInfo(owner, role);
+        if (!before.normal.every(Number.isFinite)) throw Error("face frame invalid");
+        await coreClient.createOutwardFacePush(owner, role, distanceMm);
+        const snapshot = await coreClient.requestSnapshot();
+        await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+      },
+      inwardFacePocketE2E: async (owner: string, persistentFaceId: string, distanceMm: number) => {
+        const role = persistentFaceId.startsWith(`${owner}:`) ? persistentFaceId.slice(owner.length + 1) : "";
+        if (!role || /(?:^|[.:])(?:face|edge)\[\d+\]/.test(role)) throw Error("nonpersistent face selection");
+        const before = await coreClient.requestFaceInfo(owner, role);
+        if (!before.normal.every(Number.isFinite)) throw Error("face frame invalid");
+        await coreClient.createInwardFacePocket(owner, role, distanceMm);
+        const snapshot = await coreClient.requestSnapshot();
+        await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+      },
+      surfaceFaceThickenE2E: async (owner: string, persistentFaceId: string, thicknessMm: number) => {
+        const role = persistentFaceId.startsWith(`${owner}:`) ? persistentFaceId.slice(owner.length + 1) : "";
+        if (!role || /(?:^|[.:])(?:face|edge)\[\d+\]/.test(role)) throw Error("nonpersistent face selection");
+        const frame = await coreClient.requestFaceInfo(owner, role);
+        if (!frame.normal.every(Number.isFinite)) throw Error("face frame invalid");
+        await coreClient.createSurfaceFaceThicken(owner, role, thicknessMm);
+        const snapshot = await coreClient.requestSnapshot();
+        await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+      },
+      draftAnalysisE2E: (featureId: string, pullDirection: [number, number, number]) =>
+        coreClient.measureDraftAngles({ featureId, pullDirection }),
+      assemblyMateE2E: {
+        instance: async (targetId: string, txMm: number, tyMm: number, tzMm: number) => {
+          const created = await coreClient.createInstance({ targetId, txMm, tyMm, tzMm });
+          const snapshot = await coreClient.requestSnapshot();
+          await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+          return created.featureId;
+        },
+        ground: async (movingId: string) => {
+          await coreClient.defineAssemblyConstraint({ constraintId: `test-ground-${movingId}`, kind: "ground", movingId });
+          const snapshot = await coreClient.requestSnapshot();
+          await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+        },
+        coincident: async (movingId: string, fixedId: string) => {
+          await coreClient.defineAssemblyConstraint({ constraintId: `test-coincident-${movingId}`, kind: "coincident", movingId, fixedId });
+          const snapshot = await coreClient.requestSnapshot();
+          await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+        },
       },
       openIcad: async (path: string) => {
         const { features: list, sketches, datums, revision } =
@@ -595,12 +663,19 @@ export function App() {
   return (
     <div className="h-full">
       {view === "home" ? (
-        <HomeScreen onEnterWorkspace={enterWorkspace} />
+        <HomeScreen onEnterWorkspace={enterWorkspace} onOpenRecent={async path => {
+          const error = await openDocumentAtPath(path);
+          if (!error) enterWorkspace();
+          return error;
+        }} />
       ) : (
       <>
       <button
         type="button"
-        onClick={() => setView("home")}
+        onClick={() => {
+          setSurfaceOpen(false);
+          setView("home");
+        }}
         data-testid="back-home"
         aria-label="Torna alla home"
         title="Torna alla home"
@@ -623,13 +698,27 @@ export function App() {
         onExtrude={() => setExtruding(true)}
         onPlugins={() => setShowPlugins(true)}
         onReference={() => setShowReference(true)}
-        onReferenceGeometry={() => setShowReferenceGeometry(true)}
-        onInstance={() => setShowInstance(true)}
+        onReferenceGeometry={() => {
+          setSurfaceOpen(false);
+          setShowReferenceGeometry(true);
+        }}
+        onInstance={() => {
+          setSurfaceOpen(false);
+          setShowInstance(true);
+        }}
         onEditSketch={openSketchEditor}
         projectOpen={projectOpen}
         onProjectOpenChange={setProjectOpen}
         propsOpen={propsOpen}
         onPropsOpenChange={setPropsOpen}
+        surfaceOpen={surfaceOpen}
+        onSurfaceOpenChange={(open) => {
+          if (open) {
+            setShowReferenceGeometry(false);
+            setShowInstance(false);
+          }
+          setSurfaceOpen(open);
+        }}
         showRecovery={showRecovery}
         onRestoreRecovery={() =>
           restoreRecovery()

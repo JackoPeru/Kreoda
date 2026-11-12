@@ -1,9 +1,36 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { MAIN } from "./helpers";
 
 const screenshots = path.join(import.meta.dirname, "..", "test-results", "home-visual-qa");
+
+test("saved project appears in real Home recent list and reopens", async () => {
+  const filename = path.join(os.tmpdir(), `kreoda-home-recent-${process.pid}.icad`);
+  const app = await electron.launch({ args: [MAIN, "--no-sandbox", "--lang=en-US"] });
+  try {
+    const window = await app.firstWindow({ timeout: 30000 });
+    await window.waitForLoadState("domcontentloaded");
+    await window.getByTestId("home-new-project").click();
+    await window.evaluate(async file => {
+      const api = window as unknown as {
+        __kreoda_test: { saveIcad: (path: string) => Promise<unknown> };
+        kreoda: { recentProjectsRecord: (path: string) => Promise<unknown> };
+      };
+      await api.__kreoda_test.saveIcad(file);
+      await api.kreoda.recentProjectsRecord(file);
+    }, filename);
+    await window.getByTestId("back-home").click();
+    const recent = window.getByRole("button", { name: `Apri progetto ${path.basename(filename)}` });
+    await expect(recent).toBeVisible();
+    await recent.click();
+    await expect(window.getByTestId("workspace-chrome")).toBeVisible();
+  } finally {
+    await app.close();
+    try { fs.unlinkSync(filename); } catch { /* no saved file on failure */ }
+  }
+});
 
 test("home uses the supplied video and keeps accessible responsive controls", async () => {
   test.slow();
@@ -86,12 +113,8 @@ test("home uses the supplied video and keeps accessible responsive controls", as
     await expect(window.getByTestId("home-new-project")).toBeVisible();
 
     await window.setViewportSize({ width: 1536, height: 1024 });
-    const recent = window.getByRole("button", { name: "Apri progetto Cucina Villa Costa" });
-    await recent.focus();
-    await window.keyboard.press("Enter");
-    await expect(window.getByTestId("home-screen")).toHaveCount(0);
-    await window.getByTestId("back-home").click();
-    await expect(window.getByTestId("home-screen")).toBeVisible();
+    // Recent projects contain persisted user paths, never demo fixtures.
+    await expect(window.getByRole("button", { name: "Apri progetto Cucina Villa Costa" })).toHaveCount(0);
     await window.getByTestId("home-new-project").click();
     await expect(window.getByTestId("home-screen")).toHaveCount(0);
     await window.getByTestId("back-home").click();

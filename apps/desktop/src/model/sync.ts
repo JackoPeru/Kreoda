@@ -174,15 +174,22 @@ export async function syncFromCoreList(
   sketches: SketchSummary[] = [],
   changedMeshIds: readonly string[] | null = null,
   datums: DatumDescriptor[] | null = null,
+  currentContextGuard?: () => boolean,
 ): Promise<void> {
+  const assertCurrentContext = (): void => {
+    if (currentContextGuard && !currentContextGuard()) throw new Error("stale surface sync");
+  };
+  assertCurrentContext();
   // Native Undo/Redo returns counts only. Use the session's ordered full-model
   // refresh instead of replacing a supported sketch cache with an empty model.
   if (refreshOpenedSession && sketches.some(sketch => !sketch.model)) {
+    if (currentContextGuard) throw new Error("surface refresh requires full canonical sketch models");
     await refreshOpenedSession();
     return;
   }
   const s = useDocumentUiStore.getState();
   const epoch = s.epoch;
+  assertCurrentContext();
   s.setFeatures(features, revision, epoch);
   if(datums !== null)s.setDatums(datums,revision,epoch);
   s.setSketches(
@@ -260,6 +267,7 @@ export async function syncFromCoreList(
     if (r.ok) meshes[r.id] = r.mesh;
     else failed.push(`${r.id}: ${r.error}`);
   }
+  assertCurrentContext();
   useDocumentUiStore.getState().replaceAllMeshes(meshes, revision, epoch);
   if (failed.length > 0) {
     throw new Error(
@@ -268,6 +276,7 @@ export async function syncFromCoreList(
   }
   // Drop selections pointing at features that no longer exist (solids AND
   // sketches — sketch nouns select by bare UUID too, §26).
+  assertCurrentContext();
   const current = useDocumentUiStore.getState();
   if (current.epoch !== epoch || current.revision !== revision) return;
   const alive = new Set([

@@ -114,13 +114,17 @@ export function SketchProjectionPanel({ sketchId }: { sketchId: string }) {
     finally { setBusy(false); }
   };
 
-  const apply = async (repair: boolean): Promise<void> => {
+  const apply = async (mode: "create" | "repair" | "replace"): Promise<void> => {
     const source = options.find(item => item.key === sourceKey)?.source;
-    const id = repair ? active?.groupId : `pg-${crypto.randomUUID()}`;
-    if (!source || !id || (repair && !active)) return;
+    const id = mode === "create" ? `pg-${crypto.randomUUID()}` : active?.groupId;
+    const definition: SketchProjectionDefinition | undefined = mode === "repair"
+      ? active?.definition
+      : source ? { version: 1, operation, sources: [source] } : undefined;
+    if (!id || !definition) return;
     const expectedDocument = documentId;
     const expectedEpoch = epoch;
-    const definition: SketchProjectionDefinition = { version: 1, operation, sources: [source] };
+    // Repair must retain the original associative binding, including unavailable
+    // sources and multi-source groups. Replacement explicitly uses the selection.
     setError(null);
     setBusy(true);
     useDocumentUiStore.getState().clearSketchProjection(sketchId);
@@ -190,8 +194,9 @@ export function SketchProjectionPanel({ sketchId }: { sketchId: string }) {
         {error && <div role="alert" className="text-red-300">{error}</div>}
         <div className="flex flex-wrap gap-1.5">
           <button type="button" disabled={busy} onClick={() => void inspect()} className="rounded bg-white/10 px-2 py-1">{tt("sketch.projection.inspect")}</button>
-          <button type="button" disabled={busy || !sourceKey} onClick={() => void apply(false)} className="rounded bg-white/10 px-2 py-1">{tt("sketch.projection.create")}</button>
-          <button type="button" disabled={busy || !active || !sourceKey} onClick={() => void apply(true)} className="rounded bg-white/10 px-2 py-1">{tt("sketch.projection.repair")}</button>
+          <button type="button" disabled={busy || !sourceKey} onClick={() => void apply("create")} className="rounded bg-white/10 px-2 py-1">{tt("sketch.projection.create")}</button>
+          <button type="button" disabled={busy || !active} onClick={() => void apply("repair")} className="rounded bg-white/10 px-2 py-1">{tt("sketch.projection.repair")}</button>
+          <button type="button" disabled={busy || !active || !sourceKey} onClick={() => void apply("replace")} className="rounded bg-white/10 px-2 py-1">{tt("sketch.projection.replace")}</button>
           <button type="button" disabled={busy || !active} onClick={() => void remove()} className="rounded bg-white/10 px-2 py-1">{tt("sketch.projection.remove")}</button>
         </div>
       </div>

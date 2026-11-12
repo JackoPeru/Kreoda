@@ -1,6 +1,7 @@
 // UX-1 workspace chrome: viewport-first shell. The 3D viewport fills the
 // window; all UI floats above it (top dock, drawers on demand, bottom
 // command dock, minimal status). No permanent sidebars or footers.
+import { useEffect, useRef } from "react";
 import { Viewport } from "../Viewport";
 import { SharedTargetChip } from "./SharedTargetChip";
 import { ViewCube } from "../ViewCube";
@@ -9,9 +10,21 @@ import { DimensionChips } from "../DimensionChips";
 import { CoachingHint, Onboarding } from "../Onboarding";
 import { ObjectTree } from "../ObjectTree";
 import { PropertiesPanel } from "../PropertiesPanel";
+import { MassAnalysisPanel } from "./MassAnalysisPanel";
+import { ConfigurationsPanel } from "./ConfigurationsPanel";
+import { OutwardFacePushPanel } from "./OutwardFacePushPanel";
+import { DirectFaceHistoryPanel } from "./DirectFaceHistoryPanel";
+import { GeometryValidationPanel } from "./GeometryValidationPanel";
+import { DraftAnalysisPanel } from "./DraftAnalysisPanel";
+import { InterferenceAnalysisPanel } from "./InterferenceAnalysisPanel";
+import { ThicknessAnalysisPanel } from "./ThicknessAnalysisPanel";
+import { ZebraAnalysisPanel } from "./ZebraAnalysisPanel";
+import { CurvatureAnalysisPanel } from "./CurvatureAnalysisPanel";
+import { AssemblyMatePanel } from "./AssemblyMatePanel";
 import { useSelectionStore } from "../../stores";
 import { useT } from "../../i18n";
 import { TopToolDock } from "./TopToolDock";
+import { SurfaceToolsPanel } from "./SurfaceToolsPanel";
 import { BottomCommandDock } from "./BottomCommandDock";
 import { WorkspaceHelp, WorkspaceStatus } from "./WorkspaceStatus";
 import type { PrimitiveKind } from "../AddPrimitiveDialog";
@@ -31,6 +44,8 @@ export function WorkspaceChrome({
   onProjectOpenChange,
   propsOpen,
   onPropsOpenChange,
+  surfaceOpen,
+  onSurfaceOpenChange,
   showRecovery,
   onRestoreRecovery,
   onDiscardRecovery,
@@ -61,6 +76,8 @@ export function WorkspaceChrome({
   onProjectOpenChange: (open: boolean) => void;
   propsOpen: boolean;
   onPropsOpenChange: (open: boolean) => void;
+  surfaceOpen: boolean;
+  onSurfaceOpenChange: (open: boolean) => void;
   showRecovery: boolean;
   onRestoreRecovery: () => void;
   onDiscardRecovery: () => void;
@@ -79,6 +96,11 @@ export function WorkspaceChrome({
 }) {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
   const t = useT();
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (surfaceOpen && (projectOpen || propsOpen)) onSurfaceOpenChange(false);
+  }, [projectOpen, propsOpen, surfaceOpen, onSurfaceOpenChange]);
 
   return (
     <div
@@ -146,14 +168,44 @@ export function WorkspaceChrome({
         <TopToolDock
           onAdd={onAdd}
           onSketch={onSketch}
-          onOpenProject={() => onProjectOpenChange(true)}
-          onToggleProps={() => onPropsOpenChange(!propsOpen)}
-          onPlugins={onPlugins}
-          onReference={onReference}
-          onReferenceGeometry={onReferenceGeometry}
-          onInstance={onInstance}
+          onOpenProject={() => {
+            onSurfaceOpenChange(false);
+            onProjectOpenChange(true);
+          }}
+          onToggleProps={() => {
+            if (!propsOpen) onSurfaceOpenChange(false);
+            onPropsOpenChange(!propsOpen);
+          }}
+          onPlugins={() => {
+            onSurfaceOpenChange(false);
+            onPlugins();
+          }}
+          onReference={() => {
+            onSurfaceOpenChange(false);
+            onReference();
+          }}
+          onReferenceGeometry={() => {
+            onSurfaceOpenChange(false);
+            onReferenceGeometry();
+          }}
+          onInstance={() => {
+            onSurfaceOpenChange(false);
+            onInstance();
+          }}
+          onSurfaces={() => {
+            onProjectOpenChange(false);
+            onPropsOpenChange(false);
+            onSurfaceOpenChange(true);
+          }}
+          moreButtonRef={moreButtonRef}
         />
       </div>
+
+      <SurfaceToolsPanel
+        open={surfaceOpen}
+        onClose={() => onSurfaceOpenChange(false)}
+        returnFocus={() => moreButtonRef.current?.focus()}
+      />
 
       {projectOpen && (
         <div
@@ -200,12 +252,28 @@ export function WorkspaceChrome({
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
             {selectedIds.length > 0 ? (
-              <PropertiesPanel onEditSketch={onEditSketch} />
+              <>
+                <PropertiesPanel onEditSketch={onEditSketch} />
+                <MassAnalysisPanel />
+                <DirectFaceHistoryPanel />
+                <details className="mt-2 rounded-md border border-white/10 p-2">
+                  <summary className="cursor-pointer text-xs text-white/55">{t("directFaceHistory.legacyTitle")}</summary>
+                  <OutwardFacePushPanel />
+                </details>
+              </>
             ) : (
               <div className="px-2 py-1.5 text-xs text-white/40">
                 {t("chrome.nothingSelected")}
               </div>
             )}
+            <ConfigurationsPanel />
+            <GeometryValidationPanel />
+            <DraftAnalysisPanel />
+            <ZebraAnalysisPanel />
+            <CurvatureAnalysisPanel />
+            <ThicknessAnalysisPanel />
+            <InterferenceAnalysisPanel />
+            <AssemblyMatePanel />
           </div>
         </div>
       )}
@@ -218,7 +286,10 @@ export function WorkspaceChrome({
         onExtrude={onExtrude}
         onEditSketch={onEditSketch}
         onInstance={onInstance}
-        onOpenProps={() => onPropsOpenChange(true)}
+        onOpenProps={() => {
+          onSurfaceOpenChange(false);
+          onPropsOpenChange(true);
+        }}
       />
       {/* No rAF overlay work behind the fullscreen sketch modal (M11). */}
       {!sketchOpen && <DimensionChips />}

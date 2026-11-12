@@ -209,7 +209,17 @@ test("hidden Desktop opens, edits, repairs, undoes and reopens native sketch pro
       (window as unknown as { __kreoda_test: ProjectionTestApi }).__kreoda_test.selectMany([id]), sourceId);
     await window.getByRole("button", { name: "Use selection" }).click();
     await expect.poll(() => sourceSelect.inputValue()).toBe(`sketch:${sourceId}`);
+    const brokenRevision = (await window.evaluate(() =>
+      (window as unknown as { __kreoda_test: ProjectionTestApi }).__kreoda_test.snapshot())).revision;
     await window.getByRole("button", { name: "Repair selected group" }).click();
+    await expect(panel.getByRole("alert")).toBeVisible();
+    const unchanged = await window.evaluate(() =>
+      (window as unknown as { __kreoda_test: ProjectionTestApi }).__kreoda_test.snapshot());
+    expect(unchanged.revision).toBe(brokenRevision);
+    expect(unchanged.sketches.find(sketch => sketch.id === targetId)?.projectionGroups?.[0]).toMatchObject({
+      groupId, status: "broken", definition: { sources: [{ entityIds: ["circle"] }] },
+    });
+    await window.getByRole("button", { name: "Replace group source" }).click();
     await expect.poll(async () => {
       const state = await window.evaluate(() => (window as unknown as { __kreoda_test: ProjectionTestApi }).__kreoda_test.snapshot());
       return state.sketches.find(sketch => sketch.id === targetId)?.projectionGroups?.[0]?.status;
@@ -259,7 +269,7 @@ test("hidden Desktop opens, edits, repairs, undoes and reopens native sketch pro
       projectionGroups: [expect.objectContaining({ groupId, status: "ok" })],
     });
 
-    const evidence = path.resolve(HERE, "../../../docs/superpowers/evidence/2026-10-16-projection-desktop");
+    const evidence = test.info().outputPath("projection-evidence");
     mkdirSync(evidence, { recursive: true });
     writeFileSync(path.join(evidence, "native-e2e-proof.json"), JSON.stringify({
       kernel: "hidden Electron Desktop with native CoreClient commands",

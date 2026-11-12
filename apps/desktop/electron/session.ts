@@ -16,9 +16,15 @@
 import { createHash, randomUUID } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { decodeMeshFrame, decodeMeshUpdateFb, frameMessage, FrameDecoder, InvokeParamsSchema, NamedCommandParamsSchema, PairParamsSchema, AuthenticateParamsSchema,
-  MeshHeaderSchema, RequestMeshLODParamsSchema, PreviewMeshHeaderSchema, RequestPreviewMeshParamsSchema, OPERATION_METHODS as OPERATION_METHOD_NAMES,
-  SESSION_CONTROL_MAX_PAYLOAD_BYTES, SESSION_CONTROL_VERSION, SESSION_SERVER_CAPABILITIES } from "@kreoda/protocol";
-import type { RequestMeshLODParams, RequestPreviewMeshParams, PreviewMeshHeader, SelectionEvent } from "@kreoda/protocol";
+  MeshHeaderSchema, RequestMeshLODParamsSchema, PreviewMeshHeaderSchema, RequestPreviewMeshParamsSchema, SurfacePointResolveRequestSchema,
+  SurfacePointResolveResultSchema, OPERATION_METHODS as OPERATION_METHOD_NAMES,
+  SESSION_CONTROL_MAX_PAYLOAD_BYTES, SESSION_CONTROL_VERSION, SESSION_SERVER_CAPABILITIES,
+  GetVoiceStatusParamsSchema, GetVoiceStatusPayloadSchema, TranscribeVoiceParamsSchema, TranscribeVoicePayloadSchema,
+  VoiceTurnParamsSchema, VoiceTurnAgentReplySchema, VoiceTurnPayloadSchema, SynthesizeVoiceParamsSchema,
+  SynthesizeVoicePayloadSchema, CancelVoiceParamsSchema, CancelVoicePayloadSchema } from "@kreoda/protocol";
+import type { RequestMeshLODParams, RequestPreviewMeshParams, PreviewMeshHeader, SelectionEvent,
+  GetVoiceStatusPayload, VoiceContext, TranscribeVoiceParams, VoiceTurnParams, VoiceTurnPayload,
+  SynthesizeVoiceParams, CancelVoiceParams, CancelVoicePayload } from "@kreoda/protocol";
 import { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "@kreoda/command-schema";
 import type {
   SessionEntityChange,
@@ -29,6 +35,7 @@ import type {
 import type { SidecarManager } from "./sidecar";
 import type { SessionDevices } from "./session-devices";
 import { validateSessionListener } from "./session-listener";
+import { SessionVoiceBridge, SessionVoiceError, type SessionVoiceOptions } from "./session-voice";
 import type { SessionConnectionStatus } from "./session-control-ui";
 import {
   normalizeSnapshot,
@@ -67,6 +74,24 @@ interface PreviewState {
   bodyId: string; targetTipId: string; previewId: string; generation: number;
   values: Record<string, number>; raw: Uint8Array; header?: PreviewMeshHeader;
   release: () => void; pending: Promise<void>;
+}
+
+interface ActiveVoice {
+  voiceRequestId: string;
+  sessionId: string;
+  documentId: string;
+  owner: VoiceOwner;
+  controller: AbortController;
+}
+
+type VoiceOwner =
+  | { kind: "websocket"; connectionId: string; ws: WebSocket }
+  | { kind: "local"; generation: number };
+
+const LOCAL_AGENT_OWNER_PREFIX = "\u0000kreoda-local-agent:";
+
+function voiceOwnerKey(owner: VoiceOwner): string {
+  return owner.kind === "websocket" ? owner.connectionId : `${LOCAL_AGENT_OWNER_PREFIX}${owner.generation}`;
 }
 
 /** Former full-list delta retained for legacy v1 network clients. */
@@ -183,6 +208,11 @@ function mutationFeatures(
   take(fields["featureId"]);
   take(fields["targetId"]);
   take(fields["sketchId"]);
+  if (type >= 57 && type <= 60) {
+    take(fields["sourceFeatureId"]);
+    take(asRecord(fields["sourceFace"])?.["featureId"]);
+    take(asRecord(fields["replacementFace"])?.["featureId"]);
+  }
   const list = fields["featureIds"];
   if (Array.isArray(list)) for (const v of list) take(v);
   const edges = fields["edgeIds"];
@@ -204,6 +234,7 @@ function mutationAffectedIds(fields: Record<string, unknown>): string[] {
     if (typeof value === "string" && value.length > 0) ids.add(value);
   };
   add(fields["featureId"]);
+  add(fields["sourceFeatureId"]);
   add(fields["sketchId"]);
   const values = fields["featureIds"];
   if (Array.isArray(values)) for (const value of values) add(value);
@@ -228,6 +259,8 @@ export class SessionRelay {
   private clients = new Map<string, ClientInfo>();
   private clientPrincipals = new Map<string, string>();
   private sessionId = randomUUID();
+  private openableProjectTokens = new Map<string, { peer: WebSocket; path: string; expiresAt: number; sessionId: string; documentId: string; revision: number }>();
+  private pendingProjectOpen = false;
   private documentId = "doc-phase1";
   private revisionCache: number | null = null;
   private revisionPending: Promise<number> | null = null;
@@ -253,6 +286,8 @@ export class SessionRelay {
   private publishedSelections = new Map<string, string[]>();
   // Spatial preview sessions (§11.11): visual-only until commit.
   private previews = new Map<string, PreviewState>();
+  private activeVoice = new Map<string, ActiveVoice>();
+  private readonly voice: SessionVoiceBridge;
 
   private selectionRegistry(): SelectionRegistry {
     return {
@@ -277,7 +312,11 @@ export class SessionRelay {
     private readonly onDelta?: (delta: SessionDelta) => void,
     private readonly devices?: SessionDevices,
     private readonly onSelection?: (event: SessionSelection) => void,
-  ) {}
+    private readonly recentProjects?: () => { name: string; openedAt: number }[],
+    private readonly openableProjects?: () => { path: string; name: string; openedAt: number }[],
+    private readonly approveProjectOpen?: (name: string, requester: { name: string; deviceId?: string }) => Promise<boolean>,
+    voiceOptions?: SessionVoiceOptions,
+  ) { this.voice = new SessionVoiceBridge(voiceOptions); }
 
   private selectionStamp(clientId: string, ids: string[]): SessionSelection {
     return { event: "selection", clientId, ids: [...ids],
@@ -301,6 +340,200 @@ export class SessionRelay {
 
   get clientCount(): number {
     return this.clients.size;
+  }
+
+  private abortVoice(connectionId?: string): void {
+    if (connectionId) this.activeVoice.get(connectionId)?.controller.abort();
+    else for (const active of this.activeVoice.values()) active.controller.abort();
+  }
+
+  private assertVoiceActive(active: ActiveVoice): void {
+    if (active.sessionId !== this.sessionId || active.documentId !== this.documentId)
+      throw coded("NEED_FULL_SNAPSHOT", "voice request crossed a model lineage change");
+    if (active.owner.kind === "websocket") {
+      const { connectionId, ws } = active.owner;
+      const client = this.clients.get(connectionId);
+      if (!client || client.ws !== ws || ws.readyState !== WebSocket.OPEN ||
+          (client.deviceId !== undefined && this.devices?.isTrusted(client.deviceId) !== true))
+        throw coded("CLIENT_DISCONNECTED", "voice request client disconnected or was revoked");
+    } else if (!this.localConnected || active.owner.generation !== this.localGeneration) {
+      throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed");
+    }
+    if (active.controller.signal.aborted) throw coded("CANCELLED", "voice request cancelled");
+  }
+
+  async localAgentStatus(sessionId: string): Promise<GetVoiceStatusPayload> {
+    if (!UUID_PATTERN.test(sessionId)) throw coded("BAD_PARAMS", "invalid getVoiceStatus session identity");
+    const parsed = GetVoiceStatusParamsSchema.safeParse({});
+    if (!parsed.success) throw coded("BAD_PARAMS", "invalid getVoiceStatus parameters");
+    return GetVoiceStatusPayloadSchema.parse(await this.runLocalAgentMethod("getVoiceStatus",
+      parsed.data as unknown as Record<string, unknown>, sessionId, this.documentId));
+  }
+
+  async localAgentTurn(request: VoiceTurnParams): Promise<VoiceTurnPayload> {
+    const parsed = VoiceTurnParamsSchema.safeParse(request);
+    if (!parsed.success) throw coded("BAD_PARAMS", "invalid voiceTurn parameters");
+    return VoiceTurnPayloadSchema.parse(await this.runLocalAgentMethod("voiceTurn", parsed.data as unknown as Record<string, unknown>,
+      parsed.data.context.sessionId, parsed.data.documentId));
+  }
+
+  async localAgentCancel(sessionId: string, request: CancelVoiceParams): Promise<CancelVoicePayload> {
+    if (!UUID_PATTERN.test(sessionId))
+      throw coded("BAD_PARAMS", "invalid cancelVoice session identity");
+    const parsed = CancelVoiceParamsSchema.safeParse(request);
+    if (!parsed.success) throw coded("BAD_PARAMS", "invalid cancelVoice parameters");
+    return CancelVoicePayloadSchema.parse(await this.runLocalAgentMethod("cancelVoice",
+      parsed.data as unknown as Record<string, unknown>, sessionId, parsed.data.documentId));
+  }
+
+  private async runVoiceMethod(
+    method: string,
+    params: Record<string, unknown>,
+    envelopeSessionId: unknown,
+    documentId: string,
+    connectionId: string,
+    clientInfo: ClientInfo,
+    ws: WebSocket,
+  ): Promise<Record<string, unknown>> {
+    if (typeof envelopeSessionId !== "string") throw coded("BAD_PARAMS", "voice methods require sessionId");
+    if (envelopeSessionId.toLowerCase() !== this.sessionId)
+      throw coded("NEED_FULL_SNAPSHOT", "session identity changed; fetch a full snapshot");
+    if (!clientInfo.capabilities.includes("voice-v1")) throw coded("NOT_IMPLEMENTED", "voice-v1 capability was not negotiated");
+
+    return this.executeVoiceMethod(method, params, envelopeSessionId, documentId, { kind: "websocket", connectionId, ws });
+  }
+
+  private runLocalAgentMethod(
+    method: string,
+    params: Record<string, unknown>,
+    sessionId: string,
+    documentId: string,
+  ): Promise<Record<string, unknown>> {
+    if (!this.localConnected) throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed");
+    const owner: VoiceOwner = { kind: "local", generation: this.localGeneration };
+    return this.executeVoiceMethod(method, params, sessionId, documentId, owner);
+  }
+
+  private async executeVoiceMethod(
+    method: string,
+    params: Record<string, unknown>,
+    envelopeSessionId: unknown,
+    documentId: string,
+    owner: VoiceOwner,
+  ): Promise<Record<string, unknown>> {
+    if (typeof envelopeSessionId !== "string") throw coded("BAD_PARAMS", "voice methods require sessionId");
+    if (envelopeSessionId.toLowerCase() !== this.sessionId)
+      throw coded("NEED_FULL_SNAPSHOT", "session identity changed; fetch a full snapshot");
+
+    if (method === "cancelVoice") {
+      const parsed = CancelVoiceParamsSchema.safeParse(params);
+      if (!parsed.success) throw coded("BAD_PARAMS", "invalid cancelVoice parameters");
+      const request = parsed.data as CancelVoiceParams;
+      const active = this.activeVoice.get(voiceOwnerKey(owner));
+      const sameOwner = active && (owner.kind === "websocket"
+        ? active.owner.kind === "websocket" && active.owner.connectionId === owner.connectionId && active.owner.ws === owner.ws
+        : active.owner.kind === "local" && active.owner.generation === owner.generation);
+      const sameFlow = active && sameOwner && active.sessionId === this.sessionId &&
+        active.documentId === request.documentId && active.voiceRequestId.toLowerCase() === request.voiceRequestId.toLowerCase();
+      if (sameFlow) active.controller.abort();
+      const revision = this.revisionCache ?? await this.currentRevision();
+      if (owner.kind === "local" && (!this.localConnected || owner.generation !== this.localGeneration))
+        throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed");
+      if (envelopeSessionId.toLowerCase() !== this.sessionId || documentId !== this.documentId)
+        throw coded("NEED_FULL_SNAPSHOT", "document lineage changed during voice cancellation");
+      return { ...CancelVoicePayloadSchema.parse({ sessionId: this.sessionId, documentId: this.documentId, revision,
+        voiceRequestId: request.voiceRequestId, status: sameFlow ? "cancelRequested" : "notActive" }) };
+    }
+
+    let voiceRequestId: string;
+    let expectedRevision: number | null = null;
+    let text = "";
+    let wavBase64 = "";
+    let context: VoiceContext | null = null;
+    if (method === "getVoiceStatus") {
+      if (!GetVoiceStatusParamsSchema.safeParse(params).success) throw coded("BAD_PARAMS", "invalid getVoiceStatus parameters");
+      voiceRequestId = randomUUID();
+    } else if (method === "transcribeVoice") {
+      const parsed = TranscribeVoiceParamsSchema.safeParse(params);
+      if (!parsed.success) throw coded("BAD_PARAMS", "invalid transcribeVoice parameters");
+      const request = parsed.data as TranscribeVoiceParams;
+      voiceRequestId = request.voiceRequestId;expectedRevision = request.expectedRevision;wavBase64 = request.wavBase64;
+    } else if (method === "voiceTurn") {
+      const parsed = VoiceTurnParamsSchema.safeParse(params);
+      if (!parsed.success) throw coded("BAD_PARAMS", "invalid voiceTurn parameters");
+      const request = parsed.data as VoiceTurnParams;
+      voiceRequestId = request.voiceRequestId;expectedRevision = request.expectedRevision;text = request.text;context = request.context;
+      if (context.voiceRequestId.toLowerCase() !== voiceRequestId.toLowerCase() ||
+          context.sessionId.toLowerCase() !== this.sessionId || context.documentId !== documentId ||
+          context.revision !== expectedRevision)
+        throw coded("BAD_PARAMS", "voice context must match this request and CAD lineage");
+    } else if (method === "synthesizeVoice") {
+      const parsed = SynthesizeVoiceParamsSchema.safeParse(params);
+      if (!parsed.success) throw coded("BAD_PARAMS", "invalid synthesizeVoice parameters");
+      const request = parsed.data as SynthesizeVoiceParams;
+      voiceRequestId = request.voiceRequestId;expectedRevision = request.expectedRevision;text = request.text;
+    } else {
+      throw coded("NOT_IMPLEMENTED", "unknown voice method");
+    }
+    if (documentId !== this.documentId) throw coded("NEED_FULL_SNAPSHOT", "document identity changed; fetch a full snapshot");
+    const ownerKey = voiceOwnerKey(owner);
+    if (this.activeVoice.has(ownerKey)) throw coded("BUSY", owner.kind === "local"
+      ? "Desktop already has an active voice request" : "this connection already has an active voice request");
+    const active: ActiveVoice = { voiceRequestId, sessionId: this.sessionId, documentId, owner, controller: new AbortController() };
+    this.activeVoice.set(ownerKey, active);
+    try {
+      const beforeRevision = await this.currentRevision();
+      this.assertVoiceActive(active);
+      if (expectedRevision !== null && expectedRevision !== beforeRevision)
+        throw coded("NEED_FULL_SNAPSHOT", "voice request revision is stale");
+      if (method === "getVoiceStatus") {
+        const reachable = await this.voice.reachable(active.controller.signal);
+        this.assertVoiceActive(active);
+        const revision = await this.currentRevision();
+        this.assertVoiceActive(active);
+        return { ...GetVoiceStatusPayloadSchema.parse({ sessionId: active.sessionId, documentId: active.documentId,
+          revision, configured: this.voice.configured, reachable }) };
+      }
+      if (method === "transcribeVoice") {
+        const resultText = await this.voice.transcribe(wavBase64, active.controller.signal);
+        this.assertVoiceActive(active);
+        const revision = await this.currentRevision();
+        this.assertVoiceActive(active);
+        if (revision !== beforeRevision) throw coded("NEED_FULL_SNAPSHOT", "model revision changed during transcription");
+        return { ...TranscribeVoicePayloadSchema.parse({ sessionId: active.sessionId, documentId: active.documentId,
+          revision, voiceRequestId, text: resultText }) };
+      }
+      if (method === "voiceTurn") {
+        const reply = await this.voice.turn(text, context!, active.controller.signal);
+        this.assertVoiceActive(active);
+        const revision = await this.currentRevision();
+        this.assertVoiceActive(active);
+        if (revision < beforeRevision) throw coded("NEED_FULL_SNAPSHOT", "model revision moved backwards during voice turn");
+        const checkedReply = VoiceTurnAgentReplySchema.safeParse(reply);
+        if (!checkedReply.success) throw new SessionVoiceError("Voice bridge returned invalid turn identity", "VOICE_FAILED", "turn");
+        return { ...VoiceTurnPayloadSchema.parse({ sessionId: active.sessionId, documentId: active.documentId,
+          revision, voiceRequestId, reply: checkedReply.data }) };
+      }
+      const wav = await this.voice.synthesize(text, active.controller.signal);
+      this.assertVoiceActive(active);
+      const revision = await this.currentRevision();
+      this.assertVoiceActive(active);
+      if (revision !== beforeRevision) throw coded("NEED_FULL_SNAPSHOT", "model revision changed during synthesis");
+      return { ...SynthesizeVoicePayloadSchema.parse({ sessionId: active.sessionId, documentId: active.documentId,
+        revision, voiceRequestId, wavBase64: wav }) };
+    } catch (error) {
+      if (error instanceof SessionVoiceError && error.code === "ROLLBACK_UNCONFIRMED") {
+        const recovery = error.recovery;
+        if (recovery && (recovery.sessionId.toLowerCase() !== active.sessionId || recovery.documentId !== active.documentId))
+          throw new SessionVoiceError(error.message, "ROLLBACK_UNCONFIRMED", error.stage, error.runId, "uncertain",
+            undefined, error.recoveryPersisted);
+        throw error;
+      }
+      this.assertVoiceActive(active);
+      throw error;
+    } finally {
+      if (this.activeVoice.get(ownerKey) === active) this.activeVoice.delete(ownerKey);
+    }
   }
 
   private scopeWithDependencies(scope: string[] | "*"): string[] | "*" {
@@ -362,13 +595,151 @@ export class SessionRelay {
       const type = request["type"];
       const documentId = request["documentId"] || this.documentId;
       const fields = Object.fromEntries(Object.entries(request).filter(([key]) => !["protocolVersion", "requestId", "documentId", "type"].includes(key)));
+      const hasExpectedRevision = Object.hasOwn(fields, "expectedRevision");
+      const hasExpectedSessionId = Object.hasOwn(fields, "expectedSessionId");
+      const assemblyGeometryQuery = type === 30 &&
+        (fields["method"] === "findFaces" || fields["method"] === "findEdges");
+      const directFaceCommand = type >= 57 && type <= 60;
+      const scopedDirectSnapshot = type === 26 && hasExpectedSessionId && !hasExpectedRevision;
+      const metadataSupported = (type >= 48 && type <= 60) || [14, 17, 18, 47].includes(type) ||
+        scopedDirectSnapshot ||
+        (type === 30 && (fields["method"] === "resolveSurfacePoint" || assemblyGeometryQuery));
+      if ((hasExpectedRevision || hasExpectedSessionId) && !metadataSupported)
+        throw coded("BAD_PARAMS", "revision/session controls are unsupported for this Desktop command");
+      if (hasExpectedRevision && (!Number.isSafeInteger(fields["expectedRevision"]) || (fields["expectedRevision"] as number) < 0))
+        throw coded("BAD_PARAMS", "expectedRevision must be a nonnegative safe integer");
+      if (hasExpectedSessionId && (typeof fields["expectedSessionId"] !== "string" || !UUID_PATTERN.test(fields["expectedSessionId"] as string)))
+        throw coded("BAD_PARAMS", "expectedSessionId must be a UUID");
+      const expectedRevision = hasExpectedRevision ? fields["expectedRevision"] as number : undefined;
+      const expectedSessionId = hasExpectedSessionId ? fields["expectedSessionId"] as string : undefined;
+      if ([14, 17, 18].includes(type) && (hasExpectedRevision !== hasExpectedSessionId))
+        throw coded("BAD_PARAMS", "sketch revision and session controls must be provided together");
+      if ((type === 47 || directFaceCommand || (type === 30 && assemblyGeometryQuery)) &&
+          hasExpectedRevision !== hasExpectedSessionId)
+        throw coded("BAD_PARAMS", "revision-fenced CAD command and geometry capture require paired revision and session controls");
+      if (type === 26 && hasExpectedRevision)
+        throw coded("BAD_PARAMS", "full snapshot reads use a session fence and accept the latest revision");
+      delete fields["expectedRevision"];
+      delete fields["expectedSessionId"];
+      if (expectedSessionId && expectedSessionId.toLowerCase() !== this.sessionId)
+        throw coded("NEED_FULL_SNAPSHOT", "session identity changed; fetch a full snapshot");
       if (fields["isPreview"] === true && ![6, 14].includes(type)) throw coded("BAD_PARAMS", "preview is unsupported for this command");
       const generation = this.localGeneration;
       const encode = (value: Record<string, unknown>): Uint8Array => new TextEncoder().encode(JSON.stringify({ ...value, protocolVersion: SESSION_PROTOCOL_VERSION, requestId }));
       if (![1, 2, 11].includes(type) && documentId !== this.documentId) throw coded("NEED_FULL_SNAPSHOT", "document identity changed");
       if ([1, 12, 17, 18, 23, 26, 30, 35, 38].includes(type) || fields["isPreview"] === true) {
         if (type !== 1) this.assertReadOwner("desktop");
+        if (type === 30 && fields["method"] === "resolveSurfacePoint") {
+          if (Object.keys(fields).some(key => key !== "method" && key !== "params"))
+            throw coded("BAD_PARAMS", "resolveSurfacePoint accepts only method and params fields");
+          const params = SurfacePointResolveRequestSchema.safeParse(fields["params"]);
+          if (!params.success) throw coded("BAD_PARAMS", `invalid surface point request: ${params.error.message}`);
+          const response = await this.orderedRead("desktop", documentId, async () => {
+            const lineage = this.sessionId;
+            const before = await this.coreSnapshot(documentId);
+            if (lineage !== this.sessionId || (expectedSessionId !== undefined && expectedSessionId.toLowerCase() !== lineage) ||
+                documentId !== this.documentId || before.documentId !== documentId ||
+                (expectedRevision !== undefined && before.revision !== expectedRevision))
+              throw coded("NEED_FULL_SNAPSHOT", "surface point request belongs to an older model lineage");
+            const owner = before.features.map(asRecord).find(feature => feature?.["featureId"] === params.data.targetId);
+            if (!owner) throw coded("NOT_FOUND", `unknown surface feature ${params.data.targetId}`);
+            const native = await this.coreInvoke(documentId, type, {
+              method: "resolveSurfacePoint",
+              params: params.data as unknown as Record<string, unknown>,
+            });
+            const after = await this.coreSnapshot(documentId);
+            if (lineage !== this.sessionId || documentId !== this.documentId || after.documentId !== documentId ||
+                before.revision !== after.revision ||
+                (native["revision"] !== undefined && native["revision"] !== before.revision))
+              throw coded("NEED_FULL_SNAPSHOT", "surface point lineage changed during native query");
+            let result: ReturnType<typeof SurfacePointResolveResultSchema.parse>;
+            try { result = SurfacePointResolveResultSchema.parse(native["result"]); }
+            catch (error) { throw coded("CORE_FAILED", `native surface point result is invalid: ${error instanceof Error ? error.message : String(error)}`); }
+            const qualifyFace = (featureId: string, persistentFaceId: string) =>
+              persistentFaceId.includes(":") ? persistentFaceId : `${featureId}:${persistentFaceId}`;
+            if (result.keepFace.featureId !== params.data.targetId ||
+                (params.data.persistentFaceId !== undefined &&
+                  qualifyFace(params.data.targetId, result.keepFace.persistentFaceId) !== qualifyFace(params.data.targetId, params.data.persistentFaceId)) ||
+                result.projectionDistanceMm > params.data.maxDistanceMm)
+              throw coded("CORE_FAILED", "native surface point result does not match the requested owner, hint, or tolerance");
+            return { status: "ok", result, sessionId: lineage, documentId, revision: before.revision };
+          }, generation);
+          return encode(response);
+        }
+        if (type === 30 && assemblyGeometryQuery && expectedRevision !== undefined) {
+          if (Object.keys(fields).some(key => key !== "method" && key !== "params"))
+            throw coded("BAD_PARAMS", "instance geometry capture accepts only method and params");
+          const params = asRecord(fields["params"]);
+          const featureId = params?.["featureId"];
+          if (!params || Object.keys(params).length !== 1 || typeof featureId !== "string" ||
+              !/^[A-Za-z0-9_-]{1,128}$/.test(featureId))
+            throw coded("BAD_PARAMS", "instance geometry capture needs one stable featureId");
+          const method = fields["method"] as string;
+          const response = await this.orderedRead("desktop", documentId, async () => {
+            const lineage = this.sessionId;
+            const before = await this.coreSnapshot(documentId);
+            if (generation !== this.localGeneration)
+              throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed");
+            if (lineage !== this.sessionId || expectedSessionId?.toLowerCase() !== lineage ||
+                documentId !== this.documentId || before.documentId !== documentId ||
+                before.revision !== expectedRevision)
+              throw coded("NEED_FULL_SNAPSHOT", "instance geometry capture belongs to an older model lineage");
+            const owner = before.features.map(asRecord).find(feature => feature?.["featureId"] === featureId);
+            const isInstance = owner?.["type"] === "Instance";
+            const isVisibleBodyTip = before.bodies.some(body => body.tip === featureId && body.visible !== false);
+            if (!owner || (method === "findEdges" && !isInstance) ||
+                (method === "findFaces" && !isInstance && !isVisibleBodyTip))
+              throw coded("BAD_PARAMS", method === "findEdges"
+                ? "assembly edge capture requires an instance owner"
+                : "face capture requires a current solid body tip or instance");
+            const native = await this.coreInvoke(documentId, type, { method, params: { featureId } });
+            const after = await this.coreSnapshot(documentId);
+            if (generation !== this.localGeneration)
+              throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed");
+            if (lineage !== this.sessionId || expectedSessionId?.toLowerCase() !== lineage ||
+                documentId !== this.documentId || after.documentId !== documentId ||
+                before.revision !== after.revision || after.revision !== expectedRevision ||
+                (native["revision"] !== undefined && native["revision"] !== before.revision))
+              throw coded("NEED_FULL_SNAPSHOT", "instance geometry lineage changed during native query");
+            const result = asRecord(native["result"]);
+            const key = method === "findFaces" ? "faces" : "edges";
+            if (!result || !Array.isArray(result[key]) || result[key].some(item =>
+              asRecord(item)?.["captureRevision"] !== before.revision))
+              throw coded("CORE_FAILED", "native instance geometry response has an invalid capture revision");
+            return { status: "ok", result, sessionId: lineage, documentId, revision: before.revision };
+          }, generation);
+          return encode(response);
+        }
+        if (scopedDirectSnapshot) {
+          if (Object.keys(fields).length !== 0)
+            throw coded("BAD_PARAMS", "scoped full snapshot accepts only a session fence");
+          const response = await this.orderedRead("desktop", documentId, async () => {
+            const lineage = this.sessionId;
+            if (generation !== this.localGeneration || expectedSessionId?.toLowerCase() !== lineage ||
+                documentId !== this.documentId)
+              throw coded("NEED_FULL_SNAPSHOT", "direct face snapshot belongs to an older session or document");
+            const snapshot = await this.coreSnapshot(documentId);
+            if (generation !== this.localGeneration)
+              throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed during direct face snapshot");
+            if (lineage !== this.sessionId || expectedSessionId?.toLowerCase() !== lineage ||
+                documentId !== this.documentId || snapshot.documentId !== documentId ||
+                !Number.isSafeInteger(snapshot.revision) || snapshot.revision < 0 ||
+                (this.revisionCache !== null && snapshot.revision < this.revisionCache))
+              throw coded("NEED_FULL_SNAPSHOT", "direct face snapshot changed lineage or moved backwards");
+            return encode({ status: "ok", sessionId: lineage, ...snapshot });
+          }, generation);
+          return response;
+        }
         const featureId = typeof fields["featureId"] === "string" ? fields["featureId"] : "";
+        const scopedSketchRead = expectedRevision !== undefined && [14, 17, 18].includes(type);
+        const nativeSketchRequest: Record<string, unknown> | null = scopedSketchRead ? { ...request, documentId } : null;
+        if (nativeSketchRequest) {
+          delete nativeSketchRequest["expectedRevision"];
+          delete nativeSketchRequest["expectedSessionId"];
+        }
+        const nativeSketchFrame = nativeSketchRequest
+          ? frameMessage(new TextEncoder().encode(JSON.stringify(nativeSketchRequest)))
+          : framed;
         let added = false;
         if (fields["isPreview"] === true && [6, 14].includes(type) && !this.localPreviews.has(featureId)) {
           this.localPreviews.set(featureId, this.reserve("desktop", mutationFeatures(type, fields)));added = true;
@@ -377,7 +748,32 @@ export class SessionRelay {
           // Engine metadata follows queue order but survives document replacement.
           const response = await this.orderedRead("desktop", type === 1 ? null : documentId, async () => {
             const sidecar = this.sidecar();if (!sidecar) throw coded("CORE_FAILED", "geometry engine not running");
-            return sidecar.invoke(framed);
+            if (!scopedSketchRead) return sidecar.invoke(framed);
+            const lineage = this.sessionId;
+            const before = await this.coreSnapshot(documentId);
+            if (generation !== this.localGeneration)
+              throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed");
+            if (lineage !== this.sessionId || expectedSessionId?.toLowerCase() !== lineage ||
+                documentId !== this.documentId || before.documentId !== documentId ||
+                before.revision !== expectedRevision)
+              throw coded("NEED_FULL_SNAPSHOT", "sketch request belongs to an older model lineage");
+            const native = await sidecar.invoke(nativeSketchFrame);
+            if (generation !== this.localGeneration)
+              throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed");
+            const after = await this.coreSnapshot(documentId);
+            if (lineage !== this.sessionId || expectedSessionId?.toLowerCase() !== lineage ||
+                documentId !== this.documentId || after.documentId !== documentId ||
+                before.revision !== after.revision)
+              throw coded("NEED_FULL_SNAPSHOT", "sketch lineage changed during native request");
+            if (native[0] === 0x7b) {
+              let parsed: Record<string, unknown>;
+              try { parsed = asRecord(JSON.parse(new TextDecoder().decode(native))) ?? {}; }
+              catch { throw coded("CORE_FAILED", "native sketch response is malformed"); }
+              if (parsed["status"] !== "error" && parsed["revision"] !== undefined &&
+                  parsed["revision"] !== before.revision)
+                throw coded("NEED_FULL_SNAPSHOT", "native sketch response revision is stale");
+            }
+            return native;
           }, generation);
           if (type === 38 && response[0] === 0x7b) {
             try {
@@ -396,10 +792,13 @@ export class SessionRelay {
       if (type === 27) result = await this.txnBegin("desktop", documentId, fields["transactionId"] as string, generation);
       else if (type === 28) result = await this.txnCommit("desktop", documentId, fields["transactionId"] as string, generation);
       else if (type === 29) result = await this.txnRollback("desktop", documentId, fields["transactionId"] as string, generation);
-      else result = await this.runMutation("desktop", documentId, type, fields, null, {
-        localGeneration: generation,
-        ...(typeof fields["transactionId"] === "string" && fields["transactionId"] ? { joinTxn: fields["transactionId"] } : {}),
-      });
+      else {
+        const mutation = await this.runMutation("desktop", documentId, type, fields, expectedRevision ?? null, {
+          localGeneration: generation,
+          ...(typeof fields["transactionId"] === "string" && fields["transactionId"] ? { joinTxn: fields["transactionId"] } : {}),
+        });
+        result = directFaceCommand ? { ...mutation, sessionId: this.sessionId, documentId } : mutation;
+      }
       return encode(result);
     } catch (error) {
       return new TextEncoder().encode(JSON.stringify({ protocolVersion: SESSION_PROTOCOL_VERSION, requestId, status: "error",
@@ -413,6 +812,7 @@ export class SessionRelay {
   }
 
   onRendererDisconnected(): void {
+    this.abortVoice();
     this.localGeneration++;this.localConnected = false;
     for (const release of this.localPreviews.values()) release();this.localPreviews.clear();
     this.autoRollback("desktop");
@@ -470,9 +870,6 @@ export class SessionRelay {
     this.server.on("error", (error: NodeJS.ErrnoException) => {
       console.error("[session] listener failed", error.code ?? "LISTENER_FAILED");
     });
-    console.log(
-      `[session] relay listening on ${opts.host}:${opts.port} (protocol ${SESSION_PROTOCOL_VERSION})`,
-    );
   }
 
   async enableListener(opts: { port: number; host: string; token?: string }): Promise<void> {
@@ -489,10 +886,15 @@ export class SessionRelay {
       this.devices?.rotateSessionTokens();
       throw coded("LISTENER_FAILED", "cannot start session listener");
     }
+    const address = server.address();
+    if (address && typeof address !== "string") {
+      console.log(`[session] relay listening on ${address.address}:${address.port} (protocol ${SESSION_PROTOCOL_VERSION})`);
+    }
   }
 
   /** Disable transport while preserving the authoritative CAD lineage. */
   async disableListener(): Promise<void> {
+    this.abortVoice();
     this.clearSharedTargets();
     const server = this.server;
     this.server = null;
@@ -517,6 +919,7 @@ export class SessionRelay {
   }
 
   stop(): void {
+    this.abortVoice();
     this.clearSharedTargets();
     this.devices?.rotateSessionTokens();
     for (const c of this.clients.values()) {
@@ -542,11 +945,14 @@ export class SessionRelay {
   }
   async revokeDevice(deviceId: string): Promise<void> {
     if (!this.devices) throw coded("NOT_IMPLEMENTED", "trusted device storage is unavailable");
+    for (const [connectionId, client] of this.clients)
+      if (client.deviceId === deviceId) this.abortVoice(connectionId);
     await this.devices.revoke(deviceId);
     for (const client of this.clients.values()) if (client.deviceId === deviceId) client.ws.close(4403, "device revoked");
   }
   /** Sidecar died/restarted: drop in-flight state; clients resync by revision. */
   onSidecarCrashed(): void {
+    this.abortVoice();
     this.clearSharedTargets();
     this.sessionId = randomUUID();
     this.committedBaseline = null;
@@ -585,7 +991,7 @@ export class SessionRelay {
   private lastSent: {
     documentId: string;
     ids: Set<string>;
-    bodies: Map<string, { tip: string; history: string[] }>;
+    bodies: Map<string, { tip: string; history: string[]; visible?: boolean }>;
   } | null = null;
 
   private handleConnection(ws: WebSocket, token: string): void {
@@ -612,6 +1018,7 @@ export class SessionRelay {
     const drop = (): void => {
       clearTimeout(timer);
       if (connectionId) {
+        this.abortVoice(connectionId);
         const client = this.clients.get(connectionId);
         this.clients.delete(connectionId);
         for (const key of this.requestReplay.keys()) {
@@ -887,6 +1294,10 @@ export class SessionRelay {
       typeof params["documentId"] === "string"
         ? (params["documentId"] as string)
         : this.documentId;
+    if (msg.method === "resolveSurfacePoint" && !hasSessionId) {
+      reply(false, { errorCode: "BAD_PARAMS", error: "resolveSurfacePoint requires sessionId" });
+      return;
+    }
     if (documentId !== this.documentId) {
       reply(false, {
         errorCode: "NEED_FULL_SNAPSHOT",
@@ -929,6 +1340,96 @@ export class SessionRelay {
     try {
       switch (msg.method) {
         case "getSessionInfo": { reply(true, { result: this.sessionInfo() });return; }
+        case "getVoiceStatus":
+        case "transcribeVoice":
+        case "voiceTurn":
+        case "synthesizeVoice":
+        case "cancelVoice": {
+          reply(true, { result: await this.runVoiceMethod(msg.method, params, msg.sessionId, documentId, connectionId, clientInfo, ws) });
+          return;
+        }
+        case "listRecentProjects": {
+          // Trusted peers may inspect real PC project names, never absolute host
+          // paths. Opening a file remains a local Desktop operation.
+          if (Object.keys(params).length !== 0)
+            throw coded("BAD_PARAMS", "listRecentProjects takes no parameters");
+          const projects = (this.recentProjects?.() ?? [])
+            .filter(item => typeof item.name === "string" && item.name.trim().length > 0 &&
+              item.name.length <= 256 && !/[/\\\x00-\x1f\x7f]/.test(item.name) &&
+              typeof item.openedAt === "number" && Number.isSafeInteger(item.openedAt) &&
+              item.openedAt > 0)
+            .slice(0, 20)
+            .map(item => ({ name: item.name, openedAt: item.openedAt }));
+          reply(true, { result: { projects } });
+          return;
+        }
+        case "listOpenableProjects": {
+          if (Object.keys(params).length) throw coded("BAD_PARAMS", "listOpenableProjects takes no parameters");
+          const snapshot = await this.orderedRead(clientId, this.documentId, () => this.coreSnapshot(this.documentId));
+          const now = Date.now();
+          for (const [key, token] of this.openableProjectTokens) if (token.expiresAt <= now) this.openableProjectTokens.delete(key);
+          const projects = (this.openableProjects?.() ?? []).filter(item =>
+            typeof item.path === "string" && item.path.toLowerCase().endsWith(".icad") &&
+            typeof item.name === "string" && item.name.length > 0 &&
+            !/[/\\\x00-\x1f\x7f]/.test(item.name) && Number.isSafeInteger(item.openedAt) && item.openedAt > 0)
+            .slice(0, 20).map(item => {
+              const projectId = randomUUID(), expiresAt = now + 60_000;
+              this.openableProjectTokens.set(projectId, { peer: ws, path: item.path, expiresAt,
+                sessionId: this.sessionId, documentId: snapshot.documentId, revision: snapshot.revision });
+              return { projectId, name: item.name, openedAt: item.openedAt, expiresAt };
+            });
+          reply(true, { result: { projects, sessionId: this.sessionId,
+            documentId: snapshot.documentId, revision: snapshot.revision } });
+          return;
+        }
+        case "requestOpenProject": {
+          if (!this.approveProjectOpen) throw coded("NOT_IMPLEMENTED", "Desktop consent is unavailable");
+          if (Object.keys(params).sort().join(",") !== "documentId,expectedRevision,projectId,sessionId")
+            throw coded("BAD_PARAMS", "invalid project opening request");
+          const key = params["projectId"];
+          if (typeof key !== "string") throw coded("BAD_PARAMS", "opaque project ID required");
+          const token = this.openableProjectTokens.get(key);
+          if (!token || token.peer !== ws || token.expiresAt <= Date.now()) throw coded("NOT_FOUND", "project offer expired");
+          this.openableProjectTokens.delete(key);
+          if (params["sessionId"] !== token.sessionId || token.sessionId !== this.sessionId ||
+              params["documentId"] !== token.documentId || token.documentId !== this.documentId ||
+              params["expectedRevision"] !== token.revision) throw coded("NEED_FULL_SNAPSHOT", "stale project offer");
+          await this.orderedRead(clientId, token.documentId, async () => {
+            const current = await this.coreSnapshot(token.documentId);
+            if (current.revision !== token.revision) throw coded("NEED_FULL_SNAPSHOT", "project offer revision changed");
+          });
+          this.assertReadOwner(clientId);
+          if (this.txn || this.pendingTxn) throw coded("BUSY", "complete the current transaction first");
+          if (this.pendingProjectOpen) throw coded("BUSY", "another project confirmation is pending");
+          // Recheck the persisted allowlist immediately before native open;
+          // a removed recent item cannot be opened by an old opaque token.
+          if (!(this.openableProjects?.() ?? []).some(p => p.path === token.path && p.path.toLowerCase().endsWith(".icad")))
+            throw coded("NOT_FOUND", "project is no longer approved for listing");
+          this.pendingProjectOpen = true;
+          try {
+            const approved = await this.approveProjectOpen(
+              (this.openableProjects?.() ?? []).find(p => p.path === token.path)?.name ?? "Project",
+              { name: clientInfo.name, ...(clientInfo.deviceId ? { deviceId: clientInfo.deviceId } : {}) },
+            );
+            if (!approved) throw coded("PERMISSION_DENIED", "Desktop declined project opening");
+            if (ws.readyState !== WebSocket.OPEN || !this.isLogicalClientConnected(clientId))
+              throw coded("CLIENT_DISCONNECTED", "requesting peer disconnected");
+            if (token.expiresAt <= Date.now() || token.sessionId !== this.sessionId || token.documentId !== this.documentId)
+              throw coded("NEED_FULL_SNAPSHOT", "project approval expired or session changed");
+            if (!(this.openableProjects?.() ?? []).some(p => p.path === token.path && p.path.toLowerCase().endsWith(".icad")))
+              throw coded("NOT_FOUND", "project removed from recent allowlist");
+            if (this.txn || this.pendingTxn) throw coded("BUSY", "transaction started during confirmation");
+            let result: Record<string, unknown>;
+            try { result = await this.runMutation(clientId, token.documentId, 11, { path: token.path }, token.revision); }
+            catch (error) {
+              if (error && typeof error === "object" && "code" in error &&
+                  ["NEED_FULL_SNAPSHOT", "BUSY", "CLIENT_DISCONNECTED"].includes(String(error.code))) throw error;
+              throw coded("OPEN_FAILED", "Desktop was unable to open the approved project");
+            }
+            reply(true, { result: { status: "opened", sessionId: this.sessionId, revision: result["revision"] } });
+          } finally { this.pendingProjectOpen = false; }
+          return;
+        }
         case "requestPreviewMesh": {
           if (!clientInfo.capabilities.includes("binary-preview-v1")) throw coded("NOT_IMPLEMENTED", "client did not negotiate binary-preview-v1");
           if (typeof msg.sessionId !== "string") throw coded("BAD_PARAMS", "requestPreviewMesh requires sessionId");
@@ -1011,6 +1512,7 @@ export class SessionRelay {
             });
             return;
           }
+          if (!named && (type === 11 || type === 2)) throw coded("PERMISSION_DENIED", "remote document replacement requires Desktop consent");
           const rawFields = named ? params["parameters"] : params["fields"];
           if (
             rawFields !== undefined &&
@@ -1036,6 +1538,8 @@ export class SessionRelay {
           const prepared = named ? commandNativeRequest(commandId as string, fields,
             params["featureId"] ?? (commandCreatesFeature(commandId as string) ? randomUUID() : undefined)) :
             validateLegacyNativeCommand(type as number, fields);
+          if (prepared.type === 2 || prepared.type === 11)
+            throw coded("PERMISSION_DENIED", "remote document replacement requires Desktop consent");
           const base =
             typeof params["baseRevision"] === "number"
               ? (params["baseRevision"] as number)
@@ -1049,7 +1553,10 @@ export class SessionRelay {
               : undefined;
           const commandDocumentId = typeof params["documentId"] === "string" && params["documentId"] !== ""
             ? params["documentId"] as string : this.documentId;
-          if (prepared.type === 35 || prepared.type === 38) {
+          // Native 42 reads named configuration metadata without opening a
+          // mutation/Undo transaction. Keep all three query types serialized
+          // against commits through the authoritative read queue.
+          if (prepared.type === 35 || prepared.type === 38 || prepared.type === 42) {
             const result = await this.orderedRead(clientId, commandDocumentId, async () => {
               const native = await this.coreInvoke(commandDocumentId, prepared.type, prepared.fields);
               const response = prepared.type === 38 && native["documentId"] === "doc-bootstrap"
@@ -1139,10 +1646,57 @@ export class SessionRelay {
             return;
           }
           const method = msg.method;
+          const assemblyGeometryMethod = method === "findFaces" || method === "findEdges";
+      const hasExpectedRevision = Object.prototype.hasOwnProperty.call(params, "expectedRevision");
+          let scopedAssemblyGeometry: { featureId: string; expectedRevision: number; sessionId: string } | null = null;
+      if (assemblyGeometryMethod && hasExpectedRevision) {
+        const expectedRevision = params["expectedRevision"];
+        const featureId = params["featureId"];
+        if (!hasDocumentId || !hasExpectedRevision || !hasSessionId ||
+            Object.keys(params).some(key => !["featureId", "documentId", "expectedRevision"].includes(key)) ||
+            typeof expectedRevision !== "number" || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 ||
+            typeof featureId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(featureId)) {
+          reply(false, { errorCode: "BAD_PARAMS", error: "scoped instance geometry needs featureId, documentId, expectedRevision, and sessionId" });
+          return;
+        }
+        scopedAssemblyGeometry = { featureId, expectedRevision, sessionId: (msg.sessionId as string).toLowerCase() };
+      }
           const query = async () => {
-            const response = await runSessionQuery(this.queryEnv(), this.selectionRegistry(), clientId, method, params, documentId);
-            return { ...response, selection: response.notify
-              ? this.selectionStamp(clientId, response.notify["ids"] as string[]) : undefined };
+            if (!scopedAssemblyGeometry) {
+              const queryParams = { ...params };
+              delete queryParams["documentId"];
+              const response = await runSessionQuery(this.queryEnv(), this.selectionRegistry(), clientId, method, queryParams, documentId);
+              return { ...response, selection: response.notify
+                ? this.selectionStamp(clientId, response.notify["ids"] as string[]) : undefined };
+            }
+            const lineage = this.sessionId;
+            const before = await this.coreSnapshot(documentId);
+            if (lineage !== scopedAssemblyGeometry.sessionId || lineage !== this.sessionId ||
+                documentId !== this.documentId || before.documentId !== documentId ||
+                before.revision !== scopedAssemblyGeometry.expectedRevision)
+              throw coded("NEED_FULL_SNAPSHOT", "instance geometry query belongs to an older model lineage");
+            const owner = before.features.map(asRecord).find(feature => feature?.["featureId"] === scopedAssemblyGeometry!.featureId);
+            const isInstance = owner?.["type"] === "Instance";
+            const isVisibleBodyTip = before.bodies.some(body =>
+              body.tip === scopedAssemblyGeometry!.featureId && body.visible !== false);
+            if (!owner || (method === "findEdges" && !isInstance) ||
+                (method === "findFaces" && !isInstance && !isVisibleBodyTip))
+              throw coded("BAD_PARAMS", method === "findEdges"
+                ? "assembly geometry query requires an instance owner"
+                : "face geometry query requires a current solid body tip or instance");
+            const response = await runSessionQuery(this.queryEnv(), this.selectionRegistry(), clientId, method,
+              { featureId: scopedAssemblyGeometry.featureId }, documentId);
+            const after = await this.coreSnapshot(documentId);
+            const key = method === "findFaces" ? "faces" : "edges";
+            const result = asRecord(response.result);
+            if (lineage !== this.sessionId || documentId !== this.documentId || after.documentId !== documentId ||
+                before.revision !== after.revision || after.revision !== scopedAssemblyGeometry.expectedRevision)
+              throw coded("NEED_FULL_SNAPSHOT", "instance geometry lineage changed during native query");
+            if (!result || !Array.isArray(result[key]) || result[key].some(item =>
+              asRecord(item)?.["captureRevision"] !== before.revision))
+              throw coded("CORE_FAILED", "native instance geometry response has an invalid capture revision");
+            return { ...response, selection: undefined,
+              lineage: { sessionId: lineage, documentId, revision: before.revision } };
           };
           const direct = ["previewBegin", "previewUpdate", "previewCommit", "previewCancel", "getSelection", "clearSelection", "listCommands", "getCommandSchema", "getCapabilities"].includes(method);
           const { result, selection, lineage } = await (direct ? query() : this.orderedRead(clientId, documentId, query));
@@ -1157,7 +1711,11 @@ export class SessionRelay {
         ((e as { code: string }).code.length > 0)
           ? (e as { code: string }).code
           : "SESSION_FAILED";
-      reply(false, { errorCode: code, error: this.errorMessage(e) });
+      const voiceError = e instanceof SessionVoiceError ? e : null;
+      reply(false, { errorCode: code, error: this.errorMessage(e),
+        ...(voiceError?.stage ? { stage: voiceError.stage } : {}), ...(voiceError?.runId ? { runId: voiceError.runId } : {}),
+        ...(voiceError?.status ? { status: voiceError.status } : {}), ...(voiceError?.recovery ? { recovery: voiceError.recovery } : {}),
+        ...(voiceError?.recoveryPersisted !== undefined ? { recoveryPersisted: voiceError.recoveryPersisted } : {}) });
     }
   }
 
@@ -1731,6 +2289,7 @@ export class SessionRelay {
     } catch (error) { return Promise.reject(error); }
     const run = this.queue.then(async () => {
       if (lineage !== this.sessionId) throw coded("NEED_FULL_SNAPSHOT", "session lineage changed before mutation");
+      if (type === 11 && this.txn) throw coded("BUSY", "cannot replace a document inside a transaction");
       if (opts.localGeneration !== undefined && opts.localGeneration !== this.localGeneration) throw coded("CLIENT_DISCONNECTED", "Desktop renderer changed");
       if (clientId !== "desktop" && type !== 29 && !this.isLogicalClientConnected(clientId)) {
         throw coded("CLIENT_DISCONNECTED", "mutation client disconnected or its device was revoked");
@@ -1850,6 +2409,7 @@ export class SessionRelay {
           ...(opts.joinTxn ? { transactionId: opts.joinTxn } : {}),
         });
         if (lineage !== this.sessionId) throw coded("NEED_FULL_SNAPSHOT", "core lineage changed during mutation");
+        if (type === 2 || type === 11) this.abortVoice();
         this.documentId = documentId;
         if (typeof parsed["revision"] === "number") {
           this.revisionCache = parsed["revision"] as number;
@@ -2386,7 +2946,7 @@ export class SessionRelay {
     for (const body of snap.bodies) {
       const prior = prev?.bodies.get(body.bodyId);
       if (
-        !prior || prior.tip !== body.tip ||
+        !prior || prior.tip !== body.tip || prior.visible !== body.visible ||
         prior.history.length !== body.history.length ||
         prior.history.some((id, i) => id !== body.history[i])
       ) changedBodyIds.push(body.bodyId);
@@ -2410,6 +2970,7 @@ export class SessionRelay {
         snap.bodies.map((body) => [body.bodyId, {
           tip: body.tip,
           history: [...body.history],
+          visible: body.visible,
         }]),
       ),
     };

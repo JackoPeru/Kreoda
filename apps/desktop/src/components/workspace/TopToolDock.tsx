@@ -1,7 +1,7 @@
 // UX-1 top dock: project chip | Add + Sketch + More | Undo/Redo/Save.
 // Only registry-backed actions appear; the Add popover lists primitives
 // from the command registry (same definitions as toolbar/palette/AI).
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import {
   Box,
   ChevronDown,
@@ -63,6 +63,8 @@ export function TopToolDock({
   onReference,
   onReferenceGeometry,
   onInstance,
+  onSurfaces,
+  moreButtonRef,
 }: {
   onAdd: (kind: PrimitiveKind) => void;
   onSketch: () => void;
@@ -72,6 +74,8 @@ export function TopToolDock({
   onReference: () => void;
   onReferenceGeometry: () => void;
   onInstance: () => void;
+  onSurfaces?: () => void;
+  moreButtonRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const [open, setOpen] = useState<"add" | "more" | null>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
@@ -187,6 +191,7 @@ export function TopToolDock({
 
       <div className="relative">
         <button
+          ref={moreButtonRef}
           onClick={() => {
             setMenuError(null);
             setOpen(open === "more" ? null : "more");
@@ -203,6 +208,9 @@ export function TopToolDock({
             className="kreoda-float-elevated absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-60 overflow-auto p-1.5"
           >
             <MenuHeader label={t("common.model")} />
+            <button role="button" onClick={() => { onSurfaces?.(); close(); }} data-testid="surface-tools-button" className={menuItemClass}>
+              {t("topdock.surfaces")}
+            </button>
             <button
               role="button"
               onClick={() => { onReferenceGeometry(); close(); }}

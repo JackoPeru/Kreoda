@@ -1,10 +1,21 @@
 // Preload — strict narrow typed API only (§48). No fs/child_process/shell.
 import { contextBridge, ipcRenderer } from "electron";
-import type { SessionModelSnapshot, SessionIncrementalDelta } from "@kreoda/protocol";
+import type {
+  CancelVoiceParams,
+  CancelVoicePayload,
+  GetVoiceStatusPayload,
+  SessionModelSnapshot,
+  SessionIncrementalDelta,
+  VoiceTurnParams,
+  VoiceTurnPayload,
+} from "@kreoda/protocol";
+import type { AgentResult } from "./session-agent";
 import type { SessionSnapshotRequired, SessionSelection } from "./session";
 import type { SessionConnectionStatus } from "./session-control-ui";
 
 export interface KreodaApi {
+  recentProjectsList: () => Promise<{ path: string; openedAt: number }[]>;
+  recentProjectsRecord: (filePath: string) => Promise<{ path: string; openedAt: number }[]>;
   invoke: (framedBase64: string) => Promise<string>;
   coreInfo: () => Promise<{ running: boolean; pid?: number }>;
   saveDialog: (filename: string) => Promise<string | null>;
@@ -39,9 +50,14 @@ export interface KreodaApi {
   sessionCancelPair: () => Promise<void>;
   sessionRevoke: (deviceId: string) => Promise<SessionConnectionStatus>;
   sessionCancelEdit: (featureId: string) => Promise<void>;
+  agentStatus: (sessionId: string) => Promise<AgentResult<GetVoiceStatusPayload>>;
+  agentTurn: (request: VoiceTurnParams) => Promise<AgentResult<VoiceTurnPayload>>;
+  agentCancel: (sessionId: string, request: CancelVoiceParams) => Promise<AgentResult<CancelVoicePayload>>;
 }
 
 const api: KreodaApi = {
+  recentProjectsList: () => ipcRenderer.invoke("kreoda:recent-projects") as Promise<{ path: string; openedAt: number }[]>,
+  recentProjectsRecord: (filePath) => ipcRenderer.invoke("kreoda:record-recent-project", filePath) as Promise<{ path: string; openedAt: number }[]>,
   onSessionSelection: (cb) => {
     const listener = (_event: unknown, selection: SessionSelection): void => cb(selection);
     ipcRenderer.on("kreoda:session-selection", listener);
@@ -54,6 +70,9 @@ const api: KreodaApi = {
   sessionCancelPair: () => ipcRenderer.invoke("kreoda:session-cancel-pair") as Promise<void>,
   sessionRevoke: (deviceId) => ipcRenderer.invoke("kreoda:session-revoke", deviceId) as Promise<SessionConnectionStatus>,
   sessionSnapshot: () => ipcRenderer.invoke("kreoda:session-snapshot") as Promise<SessionModelSnapshot>,
+  agentStatus: (sessionId) => ipcRenderer.invoke("kreoda:agent-status", sessionId) as Promise<AgentResult<GetVoiceStatusPayload>>,
+  agentTurn: (request) => ipcRenderer.invoke("kreoda:agent-turn", request) as Promise<AgentResult<VoiceTurnPayload>>,
+  agentCancel: (sessionId, request) => ipcRenderer.invoke("kreoda:agent-cancel", sessionId, request) as Promise<AgentResult<CancelVoicePayload>>,
   invoke: (framedBase64: string) =>
     ipcRenderer.invoke("kreoda:invoke", framedBase64) as Promise<string>,
   coreInfo: () =>

@@ -95,10 +95,13 @@ export class SessionDiscovery {
         const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
         if (request.url === "/identify") {
           if (!body || body.version !== 1 || body.pcId !== this.devices.pcId || typeof body.deviceId !== "string" ||
-              typeof body.nonce !== "string" || !UUID.test(body.nonce)) { send(400, { error: "BAD_PARAMS" });return; }
-          const proof = this.devices.proveDevice(body.deviceId, body.nonce);
+              typeof body.nonce !== "string" || !UUID.test(body.nonce) ||
+              (body.proofVersion !== undefined && body.proofVersion !== 1 && body.proofVersion !== 2)) { send(400, { error: "BAD_PARAMS" });return; }
+          const proof = this.devices.proveDevice(body.deviceId, body.nonce, body.proofVersion === 2
+            ? { host: this.options.host, sessionPort: this.options.sessionPort, bootstrapPort: this.bootstrapPort } : undefined);
           if (!proof) { send(404, { error: "UNKNOWN_DEVICE" });return; }
-          send(200, { version: 1, pcId: this.devices.pcId, nonce: body.nonce, proof });return;
+          send(200, { version: 1, pcId: this.devices.pcId, nonce: body.nonce,
+            ...(body.proofVersion === 2 ? { proofVersion: 2 } : {}), proof });return;
         }
         if (!body || body.version !== 1 || body.pcId !== this.devices.pcId ||
             typeof body.installationId !== "string" || typeof body.credential !== "string" || typeof body.name !== "string") {

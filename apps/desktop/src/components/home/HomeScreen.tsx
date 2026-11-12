@@ -7,14 +7,14 @@ import { QuickStart } from "./QuickStart";
 import { RecentProjects } from "./RecentProjects";
 import { RunningTasks } from "./RunningTasks";
 
-export function HomeScreen({ onEnterWorkspace }: { onEnterWorkspace: () => void }) {
+export function HomeScreen({ onEnterWorkspace, onOpenRecent }: { onEnterWorkspace: () => void; onOpenRecent?: (path: string) => Promise<string | null> }) {
   return (
     <Home header={<HomeTopBar onNavigate={(key) => {
         if (key !== "home") onEnterWorkspace();
       }} />}>
       <main className="home-layout">
         <div className="home-recent-slot">
-          <RecentProjects onOpen={onEnterWorkspace} onSeeAll={onEnterWorkspace} />
+          <RecentProjects onOpen={onOpenRecent} />
         </div>
         <div className="home-hero-slot"><HomeHero /></div>
         <div className="home-quick-slot">

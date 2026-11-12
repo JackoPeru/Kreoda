@@ -4,6 +4,7 @@ import type { FeatureSummary } from "../src/ipc/coreClient";
 import {
   buildBodies,
   buildTreeItems,
+  surfaceFeatureIds,
   useDocumentUiStore,
   visibleFeatureIds,
 } from "../src/stores";
@@ -90,6 +91,7 @@ describe("buildBodies (Slice 4 body projection)", () => {
     expect(bodies[0]!.bodyId).toBe("body-box-1");
     expect(bodies[0]!.history).toEqual(["box-1", "ho-1", "fi-1"]);
     expect(bodies[0]!.tipFeatureId).toBe("fi-1");
+    expect(bodies[0]!.geometryKind).toBe("solid");
   });
 
   it("opens a second body for an independent root", () => {
@@ -103,6 +105,41 @@ describe("buildBodies (Slice 4 body projection)", () => {
     const features = [box(), feat("in-1", "Instance", ["box-1"])];
     expect(buildBodies(features)).toHaveLength(1);
     expect(visibleFeatureIds(features).sort()).toEqual(["box-1", "in-1"]);
+  });
+
+  it("keeps canonical surface bodies and direct instances identified as surfaces", () => {
+    const surface = feat("surface-1", "SurfaceExtrude", ["sketch-1"], [5]);
+    const instance = feat("surface-instance", "Instance", ["surface-1"]);
+    expect(buildBodies([surface])).toMatchObject([
+      { bodyId: "body-surface-1", history: ["surface-1"], tipFeatureId: "surface-1", geometryKind: "surface" },
+    ]);
+    expect(surfaceFeatureIds([surface, instance])).toEqual(new Set(["surface-1", "surface-instance"]));
+    expect(buildTreeItems([surface, instance], []).map(item => item.kind)).toEqual(["surface", "surface"]);
+    expect(buildTreeItems([surface], [])[0]!.name).toContain("Surface extrude");
+  });
+
+  it("classifies SurfaceSweep bodies and direct instances as surfaces", () => {
+    const sweep = feat("sweep-1", "SurfaceSweep", ["profile-sketch", "path-sketch"], [1e-6]);
+    const instance = feat("sweep-instance", "Instance", ["sweep-1"]);
+    expect(buildBodies([sweep])).toMatchObject([
+      { bodyId: "body-sweep-1", history: ["sweep-1"], tipFeatureId: "sweep-1", geometryKind: "surface" },
+    ]);
+    expect(surfaceFeatureIds([sweep, instance])).toEqual(new Set(["sweep-1", "sweep-instance"]));
+    expect(buildTreeItems([sweep, instance], []).map(item => item.kind)).toEqual(["surface", "surface"]);
+    expect(buildTreeItems([sweep], [])[0]!.name).toContain("Surface sweep");
+  });
+
+  it("classifies sewn and offset surface bodies while retaining sewn-solid volume semantics", () => {
+    const sewnSurface = feat("sew-1", "SurfaceSew", ["surface-a", "surface-b"], [0.01]);
+    const offset = feat("offset-1", "SurfaceOffset", ["sew-1"], [2, 1e-6]);
+    const instance = feat("offset-instance", "Instance", ["offset-1"]);
+    const sewnSolid = feat("solid-1", "SurfaceSewnSolid", ["sew-1", "cap-1"], [0.01]);
+    const features = [sewnSurface, offset, instance, sewnSolid];
+    expect(surfaceFeatureIds(features)).toEqual(new Set(["sew-1", "offset-1", "offset-instance"]));
+    expect(buildBodies(features).map(body => [body.tipFeatureId, body.geometryKind])).toEqual([
+      ["sew-1", "surface"], ["offset-1", "surface"], ["solid-1", "solid"],
+    ]);
+    expect(buildTreeItems(features, []).map(item => item.kind)).toEqual(["surface", "surface", "body", "surface"]);
   });
 
   it("visible ids are tips only (history stays out of the scene)", () => {

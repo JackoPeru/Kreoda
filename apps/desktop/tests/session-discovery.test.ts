@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { createSocket } from "node:dgram";
 import { SessionDevices } from "../electron/session-devices";
 import { SessionDiscovery, AutomaticSessionHost, privatePeer } from "../electron/session-discovery";
@@ -63,6 +63,20 @@ describe("automatic local pairing", () => {
       expect(response.ok).toBe(true);
       const paired = await response.json() as { deviceId: string };
       expect(devices.authenticate(paired.deviceId, credential).deviceId).toBe(paired.deviceId);
+      const identify = async (proofVersion?: number) => {
+        const response = await fetch(`http://127.0.0.1:${reply.bootstrapPort}/identify`, {
+          method: "POST", body: JSON.stringify({ version: 1, pcId: reply.pcId, deviceId: paired.deviceId, nonce, proofVersion }),
+        });
+        return { status: response.status, value: await response.json() as Record<string, unknown> };
+      };
+      const signed = (parts: string[]) => createHmac("sha256", createHash("sha256").update(credential).digest())
+        .update(JSON.stringify(parts)).digest("hex");
+      const legacy = await identify();
+      expect(legacy.value.proof).toBe(signed([reply.pcId, paired.deviceId, nonce]));
+      const bound = await identify(2);
+      expect(bound.value.proofVersion).toBe(2);
+      expect(bound.value.proof).toBe(signed([reply.pcId, paired.deviceId, nonce, "127.0.0.1", "9876", String(reply.bootstrapPort)]));
+      expect((await identify(99)).status).toBe(400);
       expect((await request()).ok).toBe(true);
       expect(devices.list()).toHaveLength(1);
       const restarted = new SessionDevices(root);

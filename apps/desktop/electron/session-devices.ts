@@ -211,11 +211,13 @@ export class SessionDevices {
     if (!record || !sameSecret(credential, record.credentialDigest)) throw unauthorized();
     return { deviceId, sessionToken: this.token(deviceId) };
   }
-  proveDevice(deviceId: string, nonce: string): string | null {
+  proveDevice(deviceId: string, nonce: string, endpoint?: { host: string; sessionPort: number; bootstrapPort: number }): string | null {
     this.ready();const record = this.records.get(deviceId);
     if (!record || !/^[a-f0-9-]{36}$/.test(nonce)) return null;
+    const identity = [this.pcId, deviceId, nonce];
+    if (endpoint) identity.push(endpoint.host, String(endpoint.sessionPort), String(endpoint.bootstrapPort));
     return createHmac("sha256", Buffer.from(record.credentialDigest, "hex"))
-      .update(JSON.stringify([this.pcId, deviceId, nonce])).digest("hex");
+      .update(JSON.stringify(identity)).digest("hex");
   }
   authorize(deviceId: string, token: string): boolean {
     if (!this.loaded || !this.records.has(deviceId)) return false;

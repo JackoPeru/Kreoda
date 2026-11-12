@@ -16,6 +16,14 @@ vi.mock("../src/viewport/CadViewport", () => ({
     setSelected = vi.fn();
     setSharedTargets = vi.fn();
     setSection = vi.fn();
+    setZebra = vi.fn();
+    setCurvature = vi.fn();
+    beginSurfacePointPick = vi.fn(() => Promise.resolve(null));
+    beginSurfaceEdgePick = vi.fn(() => Promise.resolve(null));
+    cancelSurfacePick = vi.fn();
+    isSurfacePickPending = vi.fn(() => false);
+    setSurfacePointMarker = vi.fn();
+    setSurfaceEdgeHighlight = vi.fn();
     sectionGeometryDiagnostics = vi.fn(() => null);
     sharedTargetSummary = () => ({ ids: [], faceGroups: 0, edgeSegments: 0 });
     setPickMode = vi.fn();
@@ -99,7 +107,9 @@ describe("beginner shell (§24)", () => {
       useDocumentUiStore.getState().upsertMesh(box.featureId, mesh, 1);
       render(<App />);
       fireEvent.click(screen.getByTestId("home-new-project"));
-      await screen.findByTestId("workspace-chrome");
+      // This checks section lifecycle after lazy workspace readiness. Parallel
+      // Vite transforms can exceed Testing Library's default one-second window.
+      await screen.findByTestId("workspace-chrome", {}, { timeout: 5000 });
       await act(async () => {
         useSectionStore.getState().setPlane(createSectionPlane([0, 0, 1], 0.5)!);
         useSectionStore.getState().setEnabled(true);

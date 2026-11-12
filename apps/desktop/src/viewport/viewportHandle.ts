@@ -50,6 +50,17 @@ export interface ViewportRenderStats {
   };
 }
 
+export interface SurfacePointPick {
+  featureId: string;
+  persistentFaceId: string;
+  pointMm: [number, number, number];
+}
+
+export interface SurfaceEdgePick {
+  featureId: string;
+  persistentEdgeId: string;
+}
+
 interface ViewportHandle {
   faceScreenPoint: (featureId: string, role: string) => FaceAnchor | null;
   sectionGeometryDiagnostics: (
@@ -65,6 +76,12 @@ interface ViewportHandle {
   /** Next two clicks on a reference plane as image pixels (§29 Stage A). */
   beginReferenceMeasure: (id: string) => Promise<[number, number][] | null>;
   cancelReferenceMeasure: () => void;
+  beginSurfacePointPick: (targetId: string) => Promise<SurfacePointPick | null>;
+  beginSurfaceEdgePick: (targetId: string) => Promise<SurfaceEdgePick | null>;
+  cancelSurfacePick: () => void;
+  isSurfacePickPending: () => boolean;
+  setSurfacePointMarker: (pointMm: [number, number, number] | null) => void;
+  setSurfaceEdgeHighlight: (persistentEdgeId: string | null) => void;
   renderStats: () => ViewportRenderStats | null;
   meshIdentity: (featureId: string) => { geometryId: string; revision: number } | null;
   sketchProjectionSummary: (featureId: string) => { lineCount: number; pointsMm: [number, number, number][] } | null;
@@ -117,6 +134,30 @@ export function viewportBeginReferenceMeasure(
 
 export function viewportCancelReferenceMeasure(): void {
   handle?.cancelReferenceMeasure();
+}
+
+export function viewportBeginSurfacePointPick(targetId: string): Promise<SurfacePointPick | null> {
+  return handle?.beginSurfacePointPick(targetId) ?? Promise.resolve(null);
+}
+
+export function viewportBeginSurfaceEdgePick(targetId: string): Promise<SurfaceEdgePick | null> {
+  return handle?.beginSurfaceEdgePick(targetId) ?? Promise.resolve(null);
+}
+
+export function viewportCancelSurfacePick(): void {
+  handle?.cancelSurfacePick();
+}
+
+export function viewportIsSurfacePickPending(): boolean {
+  return handle?.isSurfacePickPending() ?? false;
+}
+
+export function viewportSetSurfacePointMarker(pointMm: [number, number, number] | null): void {
+  handle?.setSurfacePointMarker(pointMm);
+}
+
+export function viewportSetSurfaceEdgeHighlight(persistentEdgeId: string | null): void {
+  handle?.setSurfaceEdgeHighlight(persistentEdgeId);
 }
 
 export function viewportRenderStats(): ViewportRenderStats | null {

@@ -70,9 +70,12 @@ function fakeSidecar(options: {
   geometryReply?: Record<string, unknown>;
   projectionReply?: Record<string, unknown>;
   previewPaddingBytes?: number;
+  visibilityFixture?: boolean;
 } = {}) {
   const features = new Map<string, StoredFeature>();
+  const sketches = new Map<string, Record<string, unknown>>();
   let revision = 0;
+  let visibilityBefore: boolean | null = null;
   // Minimal transaction fence mirror (the real one lives in the dispatcher):
   // mutating calls outside the open unit are rejected as TRANSACTION_OPEN.
   let openTxn: string | null = null;
@@ -143,7 +146,7 @@ function fakeSidecar(options: {
     const bbox = MeshUpdate.createBboxMmVector(builder, [0, 0, 0, w, h, z]);
     const update = MeshUpdate.createMeshUpdate(
       builder, fid, fid, lod, rid, positions.length, normals.length, indices.length,
-      pos, nrm, idx, edgeVertices, faces, edges, w * h * z, bbox, BigInt(revision),
+      pos, nrm, idx, edgeVertices, faces, edges, w * h * z, bbox, BigInt(revision), 0,
     );
     builder.finish(update);
     return builder.asUint8Array();
@@ -156,6 +159,8 @@ function fakeSidecar(options: {
       documentId: string;
       type: number;
     featureId?: string;
+      planeKind?: string;
+      model?: Record<string, unknown>;
       faceRole?: string;
       widthMm?: number;
       heightMm?: number;
@@ -208,13 +213,49 @@ function fakeSidecar(options: {
       return respond({
         status: "ok",
         features: [...features.values()],
-        sketches: [],
+        sketches: [...sketches.values()],
         revision,
       });
     }
     if (envelope.type === 2) {
-      features.clear();revision = 0;
+      features.clear();sketches.clear();revision = 0;
       return respond({ status: "ok", documentId: envelope.documentId, revision });
+    }
+    if (envelope.type === 11) {
+      const path = (envelope as typeof envelope & { path?: string }).path;
+      if (path !== "C:\\private\\design.icad")
+        return respond({ status: "error", errorCode: "BAD_PATH", errorMessage: "bad path" });
+      features.clear(); revision = 0;
+      features.set("loaded-box", { featureId: "loaded-box", type: "Box", paramsMm: [12, 12, 12],
+        volumeMm3: 1728, dependsOn: [], refExtra: "", expressions: {} });
+      sketches.clear();
+      return respond({ status: "ok", features: [...features.values()], sketches: [], revision, path });
+    }
+    if (envelope.type === 13) {
+      const fence = fenced();
+      if (fence) return respond(fence);
+      const featureId = String(envelope.featureId ?? "sketch-x");
+      const model = (envelope.model as Record<string, unknown> | undefined) ?? { points: [], lines: [], circles: [], arcs: [], constraints: [] };
+      const sketch = { featureId, type: "Sketch", planeKind: String(envelope.planeKind ?? "XY"), revision,
+        sketch: { model, projectionGroups: [] } };
+      sketches.set(featureId, sketch);
+      revision++;
+      sketch.revision = revision;
+      return respond(sketch);
+    }
+    if ([14, 17, 18].includes(envelope.type)) {
+      const featureId = String(envelope.featureId ?? "");
+      const existing = sketches.get(featureId);
+      if (!existing) return respond({ status: "error", errorCode: "NOT_FOUND", errorMessage: "unknown sketch" });
+      if (envelope.type === 14 && envelope.isPreview !== true) {
+        const fence = fenced();
+        if (fence) return respond(fence);
+        const model = (envelope.model as Record<string, unknown> | undefined) ?? {};
+        existing.sketch = { ...(existing.sketch as Record<string, unknown>), model };
+        revision++;
+        existing.revision = revision;
+      }
+      return respond({ ...existing, status: "ok", revision });
     }
     if (envelope.type === 38) {
       return respond(options.projectionReply ?? {
@@ -253,6 +294,12 @@ function fakeSidecar(options: {
         ] },
         measureVolume: { volumeMm3: 1 },
         measureArea: { areaMm2: 200 },
+        measureInterferences: { basis: "occt-common-volume", componentCount: 1, candidatePairCount: 0,
+          volumeToleranceMm3: 0.000001, skippedNonSolidFeatureIds: [], interferences: [] },
+        measureMinimumThickness: { basis: "occt-sampled-normal-rays", isGlobalMinimum: false, featureId: id,
+          requestedSamples: 512, solidCount: 1, totalFaces: 6, sampledFaces: 6, attemptedSamples: 512, validSamples: 512,
+          missedSamples: 0, timeBudgetExceeded: false, minimumThicknessMm: 2,
+          witness: { pointAMm: [0,0,0], pointBMm: [0,0,2] } },
         getBoundingBox: { bboxMm: [0, 0, 0, 10, 10, 10] },
         measureDistance: { distanceMm: 10 },
         measureAngle: { angleDeg: 180 },
@@ -332,6 +379,7 @@ function fakeSidecar(options: {
         refExtra: "",
         expressions: {},
       };
+      if (options.visibilityFixture) Object.assign(rec, { bodyId: `body-${rec.featureId}`, bodyTip: true, bodyVisible: true });
       features.set(rec.featureId, rec);
       return respond({ status: "ok", ...rec, revision });
     }
@@ -355,6 +403,42 @@ function fakeSidecar(options: {
         features: [...features.values()],
         sketches: [],
       });
+    }
+    if (envelope.type === 55) {
+      const fence = fenced();
+      if (fence) return respond(fence);
+      revision += 1;
+      const rec: StoredFeature = {
+        featureId: envelope.featureId ?? "trimmed-surface",
+        type: "SurfaceTrim",
+        paramsMm: [],
+        volumeMm3: 0,
+        dependsOn: [String((envelope as { targetId?: string }).targetId ?? ""), String((envelope as { toolId?: string }).toolId ?? "")],
+        refExtra: "",
+        expressions: {},
+      };
+      features.set(rec.featureId, rec);
+      return respond({ status: "ok", ...rec, bboxMm: [0, 0, 0, 1, 1, 0], revision });
+    }
+    if (envelope.type === 47) {
+      const fence = fenced();
+      if (fence) return respond(fence);
+      revision += 1;
+      return respond({ status: "ok", constraintId: (envelope as { constraintId?: string }).constraintId, revision });
+    }
+    if ([57, 58, 59, 60].includes(envelope.type)) {
+      const fence = fenced();
+      if (fence) return respond(fence);
+      const direct = envelope as typeof envelope & { sourceFeatureId?: string };
+      revision += 1;
+      const rec: StoredFeature = {
+        featureId: direct.featureId ?? `direct-face-${revision}`,
+        type: ({ 57: "MoveFace", 58: "OffsetFace", 59: "DeleteFace", 60: "ReplaceFace" } as Record<number, string>)[envelope.type]!,
+        paramsMm: [], volumeMm3: 0, dependsOn: direct.sourceFeatureId ? [direct.sourceFeatureId] : [],
+        refExtra: "", expressions: {},
+      };
+      features.set(rec.featureId, rec);
+      return respond({ status: "ok", ...rec, bboxMm: [0, 0, 0, 10, 10, 10], revision });
     }
     if (envelope.type === 27) {
       openTxn = envelope.transactionId ?? null;
@@ -427,6 +511,11 @@ function fakeSidecar(options: {
       const fence = fenced();
       if (fence) return respond(fence);
       revision += 1;
+      if (options.visibilityFixture && visibilityBefore !== null) {
+        for (const rec of features.values()) Object.assign(rec, { bodyVisible: visibilityBefore });
+        visibilityBefore = null;
+        return respond({ status: "ok", features: [...features.values()], sketches: [], revision });
+      }
       const last = [...features.keys()].pop();
       if (last) features.delete(last);
       return respond({
@@ -435,6 +524,15 @@ function fakeSidecar(options: {
         sketches: [],
         revision,
       });
+    }
+    if (envelope.type === 44 && options.visibilityFixture) {
+      const request = envelope as typeof envelope & { bodyId?: string; visible?: boolean };
+      const rec = [...features.values()].find(f => (f as StoredFeature & { bodyId?: string }).bodyId === request.bodyId);
+      if (!rec || typeof request.visible !== "boolean") return respond({ status: "error", errorCode: "BAD_PARAMS", errorMessage: "unknown body" });
+      visibilityBefore = (rec as StoredFeature & { bodyVisible: boolean }).bodyVisible;
+      Object.assign(rec, { bodyVisible: request.visible });
+      revision++;
+      return respond({ status: "ok", bodyId: request.bodyId, visible: request.visible, revision });
     }
     if (envelope.type === 36 || envelope.type === 37) {
       const fence = fenced();
@@ -459,6 +557,13 @@ function fakeSidecar(options: {
       for (const record of records) features.set(record.featureId, { ...record });
       revision = nextRevision;
     },
+    seedSketch: (featureId: string, model: Record<string, unknown>, nextRevision: number) => {
+      sketches.clear();
+      sketches.set(featureId, { featureId, type: "Sketch", planeKind: "XY", revision: nextRevision,
+        sketch: { model, projectionGroups: [] } });
+      revision = nextRevision;
+    },
+    sketches: () => [...sketches.values()],
   };
 }
 
@@ -1038,6 +1143,7 @@ describe("SessionRelay", () => {
         "binary-preview-v1",
         "context-commands-v1",
         "sketch-preview-v1",
+        "voice-v1",
       ]);
     } finally {
       client.closeRaw();
@@ -2374,6 +2480,526 @@ describe("binary mesh session requests", () => {
 });
 
 describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
+  const local = async (relay: SessionRelay, type: number, fields: Record<string, unknown> = {}, documentId = "doc-phase1") => {
+    const raw = await relay.invokeLocal(frameMessage(new TextEncoder().encode(JSON.stringify({
+      protocolVersion: 1, requestId: "surface-query-local", documentId, type, ...fields,
+    }))));
+    return raw[0] === 0x7b ? JSON.parse(new TextDecoder().decode(raw)) as Record<string, unknown>
+      : { status: "ok", ...decodeMeshUpdateFb(raw) };
+  };
+
+  it("propagates body visibility mutation to a second authenticated client and restores it on Undo without deleting history", async () => {
+    const fake = fakeSidecar({ visibilityFixture: true });
+    const relay = new SessionRelay(() => fake.manager);
+    const owner = new SessionClient(); const observer = new SessionClient();
+    const desktop = (type: number, fields: Record<string, unknown> = {}) => relay.invokeLocal(frameMessage(new TextEncoder().encode(
+      JSON.stringify({ protocolVersion: 1, requestId: `desktop-${type}`, documentId: "doc-phase1", type, ...fields }))));
+    const port = await freePort(); relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      const hello = await owner.connect(TOKEN, port);
+      await observer.connect(TOKEN, port);
+      await desktop(3, { featureId: "box-v", widthMm: 10, heightMm: 10, depthMm: 10 });
+      const original = await observer.call("getModelTree", {});
+      expect(original["result"]).toMatchObject({ tips: ["box-v"], bodies: [{ bodyId: "body-box-v", visible: true }] });
+      await owner.call("command", { commandId: "SetBodyVisibility", parameters: { bodyId: "body-box-v", visible: false } }, { sessionId: hello["sessionId"] });
+      await vi.waitFor(() => expect(observer.events.some(e => e["event"] === "delta" && JSON.stringify(e).includes('"visible":false'))).toBe(true));
+      const hidden = await observer.call("getModelTree", {});
+      expect(hidden["result"]).toMatchObject({ tips: [], bodies: [{ bodyId: "body-box-v", tip: "box-v", visible: false, history: ["box-v"] }] });
+      expect((await relay.localSnapshot()).features).toHaveLength(1);
+      await desktop(8);
+      await vi.waitFor(() => expect(observer.events.some(e => e["event"] === "delta" && JSON.stringify(e).includes('"visible":true'))).toBe(true));
+      expect((await observer.call("getModelTree", {}))["result"]).toMatchObject({ tips: ["box-v"], bodies: [{ visible: true, history: ["box-v"] }] });
+      expect((await relay.localSnapshot()).features).toHaveLength(1);
+    } finally { owner.closeRaw(); observer.closeRaw(); relay.stop(); }
+  });
+  it("opens a peer-scoped opaque project only after local consent, rotates lineage and blocks replay", async () => {
+    const fake = fakeSidecar();
+    const approve = vi.fn(async () => true);
+    const relay = new SessionRelay(() => fake.manager, undefined, undefined, undefined, undefined,
+      () => [{ path: "C:\\private\\design.icad", name: "design.icad", openedAt: 12345 }], approve);
+    const client = new SessionClient(); const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await client.connect(TOKEN, port);
+      const response = await client.call("listOpenableProjects", {});
+      const payload = response["result"] as { projects: { projectId: string; name: string; openedAt: number; expiresAt: number }[]; sessionId: string; documentId: string; revision: number };
+      expect(payload.projects).toHaveLength(1);
+      expect(payload.projects[0]!.name).toBe("design.icad");
+      expect(payload.projects[0]!.projectId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(JSON.stringify(response)).not.toContain("private");
+      const request = { projectId: payload.projects[0]!.projectId, sessionId: payload.sessionId,
+        documentId: payload.documentId, expectedRevision: payload.revision };
+      const opened = await client.call("requestOpenProject", request);
+      expect(opened["result"]).toMatchObject({ status: "opened", sessionId: expect.any(String) });
+      expect(approve).toHaveBeenCalledWith("design.icad", expect.objectContaining({ name: expect.any(String) }));
+      expect(fake.calls.filter(type => type === 11)).toHaveLength(1);
+      expect((await relay.localSnapshot()).features).toEqual([expect.objectContaining({ featureId: "loaded-box" })]);
+      expect((await client.call("getModelTree", {}))["result"]).toMatchObject({ tips: ["loaded-box"] });
+      expect(JSON.stringify(opened)).not.toContain("private");
+      await expect(client.call("requestOpenProject", request)).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(client.call("invoke", { type: 11, fields: { path: "C:\\private\\design.icad" } }))
+        .rejects.toMatchObject({ code: "PERMISSION_DENIED" });
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+  it("rejects a declined project request without any native OpenDocument", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager, undefined, undefined, undefined, undefined,
+      () => [{ path: "C:\\private\\design.icad", name: "design.icad", openedAt: 12345 }], async () => false);
+    const port = await freePort();const peer = new SessionClient();relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await peer.connect(TOKEN, port);
+      const listed = (await peer.call("listOpenableProjects", {}))["result"] as {
+        projects: { projectId: string }[];sessionId:string;documentId:string;revision:number };
+      await expect(peer.call("requestOpenProject", { projectId: listed.projects[0]!.projectId,
+        sessionId: listed.sessionId, documentId: listed.documentId, expectedRevision: listed.revision }))
+        .rejects.toMatchObject({ code: "PERMISSION_DENIED" });
+      expect(fake.calls.filter(type => type === 11)).toHaveLength(0);
+    } finally { peer.closeRaw();relay.stop(); }
+  });
+  it("rejects cross-peer project IDs and stale revisions without opening or prompting Desktop", async () => {
+    const fake = fakeSidecar();const approval = vi.fn(async () => true);
+    const relay = new SessionRelay(() => fake.manager, undefined, undefined, undefined, undefined,
+      () => [{ path: "C:\\private\\design.icad", name: "design.icad", openedAt: 12345 }], approval);
+    const port = await freePort();const owner = new SessionClient();const other = new SessionClient();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await owner.connect(TOKEN, port);await other.connect(TOKEN, port);
+      const listed = (await owner.call("listOpenableProjects", {}))["result"] as {
+        projects: { projectId: string }[]; sessionId: string; documentId: string; revision: number };
+      const request = { projectId: listed.projects[0]!.projectId, sessionId: listed.sessionId,
+        documentId: listed.documentId, expectedRevision: listed.revision };
+      await expect(other.call("requestOpenProject", request)).rejects.toMatchObject({ code: "NOT_FOUND" });
+      const frame = frameMessage(new TextEncoder().encode(JSON.stringify({ protocolVersion: 1,
+        requestId: "desktop-change", documentId: "doc-phase1", type: 3,
+        featureId: "different", widthMm: 10, heightMm: 10, depthMm: 10 })));
+      await relay.invokeLocal(frame);
+      await expect(owner.call("requestOpenProject", request)).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      expect(approval).not.toHaveBeenCalled();
+      expect(fake.calls).not.toContain(11);
+    } finally { owner.closeRaw();other.closeRaw();relay.stop(); }
+  });
+  it("does not open after the authenticated requester disconnects during Desktop consent", async () => {
+    const fake = fakeSidecar();let allow!: (value: boolean) => void;
+    const waiting = new Promise<boolean>(resolve => { allow = resolve; });
+    const approval = vi.fn(() => waiting);
+    const relay = new SessionRelay(() => fake.manager, undefined, undefined, undefined, undefined,
+      () => [{ path: "C:\\private\\design.icad", name: "design.icad", openedAt: 12345 }], approval);
+    const port = await freePort();const peer = new SessionClient();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await peer.connect(TOKEN, port);
+      const listed = (await peer.call("listOpenableProjects", {}))["result"] as {
+        projects: { projectId: string }[];sessionId:string;documentId:string;revision:number };
+      const pending = peer.call("requestOpenProject", { projectId: listed.projects[0]!.projectId,
+        sessionId: listed.sessionId, documentId: listed.documentId, expectedRevision: listed.revision });
+      const closed = expect(pending).rejects.toThrow(/socket closed/i);
+      await vi.waitFor(() => expect(approval).toHaveBeenCalledOnce());
+      peer.closeRaw();await closed;allow(true);
+      await vi.waitFor(() => expect(fake.calls.filter(type => type === 11)).toHaveLength(0));
+    } finally { allow(false);peer.closeRaw();relay.stop(); }
+  });
+  it("rejects remote project opening while a transaction owns the model", async () => {
+    const fake = fakeSidecar();const approval = vi.fn(async () => true);
+    const relay = new SessionRelay(() => fake.manager, undefined, undefined, undefined, undefined,
+      () => [{ path: "C:\\private\\design.icad", name: "design.icad", openedAt: 12345 }], approval);
+    const port = await freePort();const peer = new SessionClient();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await peer.connect(TOKEN, port);
+      const listed = (await peer.call("listOpenableProjects", {}))["result"] as {
+        projects: { projectId: string }[];sessionId:string;documentId:string;revision:number };
+      await peer.call("txnBegin", { transactionId: "project-open-txn" });
+      await expect(peer.call("requestOpenProject", { projectId: listed.projects[0]!.projectId,
+        sessionId: listed.sessionId, documentId: listed.documentId, expectedRevision: listed.revision }))
+        .rejects.toMatchObject({ code: "BUSY" });
+      expect(approval).not.toHaveBeenCalled();
+      expect(fake.calls).not.toContain(11);
+      await peer.call("txnRollback", { transactionId: "project-open-txn" });
+    } finally { peer.closeRaw();relay.stop(); }
+  });
+  it("returns authenticated recent project names without leaking host paths", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager, undefined, undefined, undefined,
+      () => [{ name: "design.icad", openedAt: 123456 }, { name: "C:\\secret\\name.icad", openedAt: 123 },
+        { name: "../traversal.icad", openedAt: 123 }, { name: "bad\u0001.icad", openedAt: 123 },
+        { name: "negative.icad", openedAt: -10 }, { name: "other.icad", openedAt: 987654 }]);
+    const client = new SessionClient(); const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await client.connect(TOKEN, port);
+      const reply = await client.call("listRecentProjects", {});
+      expect(reply["result"]).toEqual({ projects: [{ name: "design.icad", openedAt: 123456 }, { name: "other.icad", openedAt: 987654 }] });
+      expect(JSON.stringify(reply)).not.toContain("C:\\");
+      expect(fake.calls).not.toContain(30);
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
+  it("forwards a fenced Desktop surface-point query with sanitized native fields and authoritative lineage", async () => {
+    const resolved = {
+      keepFace: { type: "face", featureId: "surface-a", persistentFaceId: "surface-a:face.0" },
+      keepUv: [0.25, 0.75], pointMm: [1, 2, 3], projectionDistanceMm: 0.04,
+    };
+    const geometry = { geometryReply: { status: "ok", result: resolved } as Record<string, unknown> };
+    const fake = fakeSidecar(geometry);
+    fake.seedFeatures([{ featureId: "surface-a", type: "SurfaceExtrude", paramsMm: [], volumeMm3: 0,
+      dependsOn: [], refExtra: "", expressions: {} }], 7);
+    const relay = new SessionRelay(() => fake.manager);
+    const sessionId = relay.sessionInfo().sessionId;
+
+    const response = await local(relay, 30, { method: "resolveSurfacePoint", params: {
+      targetId: "surface-a", pointMm: [1, 2, 3], persistentFaceId: "face.0", maxDistanceMm: 0.05,
+    }, expectedRevision: 7, expectedSessionId: sessionId });
+
+    expect(response).toMatchObject({ status: "ok", requestId: "surface-query-local", sessionId,
+      documentId: "doc-phase1", revision: 7, result: resolved });
+    const nativeQuery = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+      .filter(envelope => envelope.type === 30).at(-1)!;
+    expect(nativeQuery).toMatchObject({ type: 30, method: "resolveSurfacePoint", params: {
+      targetId: "surface-a", pointMm: [1, 2, 3], persistentFaceId: "face.0", maxDistanceMm: 0.05,
+    } });
+    expect(nativeQuery).not.toHaveProperty("expectedRevision");
+    expect(nativeQuery).not.toHaveProperty("expectedSessionId");
+    expect(fake.calls.filter(type => type === 30)).toEqual([30]);
+    expect(await local(relay, 26)).toMatchObject({ revision: 7, features: [{ featureId: "surface-a" }] });
+  });
+
+  it("passes current surface creation controls only to the relay and strips them before native dispatch", async () => {
+    const fake = fakeSidecar();
+    fake.seedFeatures([{ featureId: "surface-a", type: "SurfaceExtrude", paramsMm: [], volumeMm3: 0,
+      dependsOn: [], refExtra: "", expressions: {} }], 7);
+    const relay = new SessionRelay(() => fake.manager);
+    const response = await local(relay, 55, { featureId: "trimmed-surface", targetId: "surface-a", toolId: "cutter",
+      keepFace: { type: "face", featureId: "surface-a", persistentFaceId: "surface-a:face.0" }, keepUv: [0.25, 0.75],
+      toleranceMm: 0.000001, expectedRevision: 7, expectedSessionId: relay.sessionInfo().sessionId });
+
+    expect(response).toMatchObject({ status: "ok", featureId: "trimmed-surface", revision: 8 });
+    const nativeCreate = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+      .filter(envelope => envelope.type === 55).at(-1)!;
+    expect(nativeCreate).toMatchObject({ type: 55, featureId: "trimmed-surface", targetId: "surface-a", toolId: "cutter",
+      keepFace: { persistentFaceId: "surface-a:face.0" }, keepUv: [0.25, 0.75], toleranceMm: 0.000001 });
+    expect(nativeCreate).not.toHaveProperty("expectedRevision");
+    expect(nativeCreate).not.toHaveProperty("expectedSessionId");
+    expect(fake.calls.filter(type => type === 55)).toEqual([55]);
+    expect(fake.features().map(feature => feature.featureId).sort()).toEqual(["surface-a", "trimmed-surface"]);
+  });
+
+  it("keeps legacy local native geometry queries working without control metadata", async () => {
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result: { areaMm2: 12.5 } } });
+    const relay = new SessionRelay(() => fake.manager);
+    const response = await local(relay, 30, { method: "measureArea", params: { referenceId: "surface-a:face.0" } });
+    expect(response).toMatchObject({ status: "ok", result: { areaMm2: 12.5 } });
+    expect(response).not.toHaveProperty("sessionId");
+    expect(fake.calls.filter(type => type === 30)).toEqual([30]);
+  });
+
+  it("forwards remote surface-point controls only to the relay and returns the actual query lineage", async () => {
+    const resolved = {
+      keepFace: { type: "face", featureId: "surface-a", persistentFaceId: "surface-a:face.0" },
+      keepUv: [0.25, 0.75], pointMm: [1, 2, 3], projectionDistanceMm: 0.04,
+    };
+    const geometry = { geometryReply: { status: "ok", result: resolved } as Record<string, unknown> };
+    const fake = fakeSidecar(geometry);
+    fake.seedFeatures([{ featureId: "surface-a", type: "SurfaceExtrude", paramsMm: [], volumeMm3: 0,
+      dependsOn: [], refExtra: "", expressions: {} }], 7);
+    const relay = new SessionRelay(() => fake.manager); const client = new SessionClient(); const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      const hello = await client.connect(TOKEN, port);
+      const sessionId = hello.sessionId as string;
+      const reply = await client.call("resolveSurfacePoint", { documentId: "doc-phase1", expectedRevision: 7,
+        targetId: "surface-a", pointMm: [1, 2, 3], persistentFaceId: "face.0", maxDistanceMm: 0.05 }, { sessionId });
+      expect(reply).toMatchObject({ ok: true, sessionId, documentId: "doc-phase1", revision: 7, result: resolved });
+      const nativeQuery = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+        .filter(envelope => envelope.type === 30).at(-1)!;
+      expect(nativeQuery).toMatchObject({ type: 30, method: "resolveSurfacePoint", params: {
+        targetId: "surface-a", pointMm: [1, 2, 3], persistentFaceId: "face.0", maxDistanceMm: 0.05,
+      } });
+      expect(nativeQuery.params).not.toHaveProperty("documentId");
+      expect(nativeQuery.params).not.toHaveProperty("expectedRevision");
+      const legacyControls = await client.call("resolveSurfacePoint", { targetId: "surface-a", pointMm: [1, 2, 3] }, { sessionId });
+      expect(legacyControls).toMatchObject({ ok: true, sessionId, documentId: "doc-phase1", revision: 7, result: resolved });
+      geometry.geometryReply = { status: "ok", result: { ...resolved,
+        keepFace: { type: "face", featureId: "other", persistentFaceId: "other:face.0" } } };
+      await expect(client.call("resolveSurfacePoint", { documentId: "doc-phase1", expectedRevision: 7,
+        targetId: "surface-a", pointMm: [1, 2, 3], persistentFaceId: "face.0", maxDistanceMm: 0.05 }, { sessionId }))
+        .rejects.toMatchObject({ code: "CORE_FAILED" });
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
+  it("rejects remote stale surface-point revisions before native geometry dispatch", async () => {
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result: {
+      keepFace: { type: "face", featureId: "surface-a", persistentFaceId: "surface-a:face.0" },
+      keepUv: [0.25, 0.75], pointMm: [1, 2, 3], projectionDistanceMm: 0.04,
+    } } });
+    fake.seedFeatures([{ featureId: "surface-a", type: "SurfaceExtrude", paramsMm: [], volumeMm3: 0,
+      dependsOn: [], refExtra: "", expressions: {} }], 7);
+    const relay = new SessionRelay(() => fake.manager); const client = new SessionClient(); const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      const hello = await client.connect(TOKEN, port);
+      await expect(client.call("resolveSurfacePoint", { documentId: "doc-phase1", expectedRevision: 7,
+        targetId: "surface-a", pointMm: [1, 2, 3] })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await expect(client.call("resolveSurfacePoint", { documentId: "", targetId: "surface-a", pointMm: [1, 2, 3] },
+        { sessionId: hello.sessionId })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await expect(client.call("resolveSurfacePoint", { documentId: "other-doc", targetId: "surface-a", pointMm: [1, 2, 3] },
+        { sessionId: hello.sessionId })).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      await expect(client.call("resolveSurfacePoint", { documentId: "doc-phase1", expectedRevision: -1,
+        targetId: "surface-a", pointMm: [1, 2, 3] }, { sessionId: hello.sessionId })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await expect(client.call("resolveSurfacePoint", { documentId: "doc-phase1", targetId: "surface-a",
+        pointMm: [1, 2, 3], extraNativeField: true }, { sessionId: hello.sessionId })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      await expect(client.call("resolveSurfacePoint", { documentId: "doc-phase1", expectedRevision: 6,
+        targetId: "surface-a", pointMm: [1, 2, 3] }, { sessionId: hello.sessionId })).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      expect(fake.calls).not.toContain(30);
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
+  it("rejects a remote point query queued before document replacement changes session lineage", async () => {
+    let entered!: () => void; let release!: () => void;
+    const arrived = new Promise<void>(resolve => { entered = resolve; });
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const fake = fakeSidecar({ beforeInvoke: async type => { if (type === 11) { entered(); await held; } } });
+    fake.seedFeatures([{ featureId: "surface-a", type: "SurfaceExtrude", paramsMm: [], volumeMm3: 0,
+      dependsOn: [], refExtra: "", expressions: {} }], 7);
+    const relay = new SessionRelay(() => fake.manager); const client = new SessionClient(); const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    let replacement: Promise<Record<string, unknown>> | undefined;
+    try {
+      const hello = await client.connect(TOKEN, port);
+      replacement = local(relay, 11, { path: "C:\\private\\design.icad" });
+      await arrived;
+      const pending = client.call("resolveSurfacePoint", { documentId: "doc-phase1", expectedRevision: 7,
+        targetId: "surface-a", pointMm: [1, 2, 3] }, { sessionId: hello.sessionId });
+      const rejected = expect(pending).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      await client.call("getSessionInfo");
+      release();
+      await replacement;
+      await rejected;
+      expect(fake.calls).not.toContain(30);
+      expect(relay.sessionInfo().sessionId).not.toBe(hello.sessionId);
+    } finally { release(); await replacement; client.closeRaw(); relay.stop(); }
+  });
+
+  it("drops a local surface point result when the core revision changes during the native query", async () => {
+    let entered!: () => void; let release!: () => void;
+    const arrived = new Promise<void>(resolve => { entered = resolve; });
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const resolved = {
+      keepFace: { type: "face", featureId: "surface-a", persistentFaceId: "surface-a:face.0" },
+      keepUv: [0.25, 0.75], pointMm: [1, 2, 3], projectionDistanceMm: 0.04,
+    };
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result: resolved },
+      beforeInvoke: async type => { if (type === 30) { entered(); await held; } } });
+    const feature = { featureId: "surface-a", type: "SurfaceExtrude", paramsMm: [], volumeMm3: 0,
+      dependsOn: [], refExtra: "", expressions: {} };
+    fake.seedFeatures([feature], 7);
+    const relay = new SessionRelay(() => fake.manager);
+    const pending = local(relay, 30, { method: "resolveSurfacePoint", params: {
+      targetId: "surface-a", pointMm: [1, 2, 3],
+    }, expectedRevision: 7, expectedSessionId: relay.sessionInfo().sessionId });
+    try {
+      await arrived;
+      fake.seedFeatures([feature], 8);
+      release();
+      await expect(pending).resolves.toMatchObject({ status: "error", errorCode: "NEED_FULL_SNAPSHOT" });
+      expect(fake.calls.filter(type => type === 30)).toEqual([30]);
+    } finally { release(); relay.stop(); }
+  });
+
+  it("rejects a point query queued before the Desktop renderer disconnects", async () => {
+    let entered!: () => void; let release!: () => void;
+    const arrived = new Promise<void>(resolve => { entered = resolve; });
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const fake = fakeSidecar({ beforeInvoke: async type => { if (type === 12) { entered(); await held; } } });
+    fake.seedFeatures([{ featureId: "surface-a", type: "SurfaceExtrude", paramsMm: [], volumeMm3: 0,
+      dependsOn: [], refExtra: "", expressions: {} },
+      { featureId: "box", type: "Box", paramsMm: [1, 1, 1], volumeMm3: 1,
+        dependsOn: [], refExtra: "", expressions: {} }], 7);
+    const relay = new SessionRelay(() => fake.manager);
+    let mesh: Promise<Record<string, unknown>> | undefined;
+    let query: Promise<Record<string, unknown>> | undefined;
+    try {
+      mesh = local(relay, 12, { featureId: "box", lod: 1 });
+      await arrived;
+      query = local(relay, 30, { method: "resolveSurfacePoint", params: {
+        targetId: "surface-a", pointMm: [1, 2, 3],
+      }, expectedRevision: 7, expectedSessionId: relay.sessionInfo().sessionId });
+      relay.onRendererDisconnected();
+      release();
+      await mesh;
+      await expect(query).resolves.toMatchObject({ status: "error", errorCode: "CLIENT_DISCONNECTED" });
+      expect(fake.calls).not.toContain(30);
+    } finally { release(); await Promise.all([mesh, query].filter((value): value is Promise<Record<string, unknown>> => !!value)); relay.stop(); }
+  });
+
+  it("rejects a queued stale surface query and create before either native operation", async () => {
+    let entered!: () => void; let release!: () => void;
+    const arrived = new Promise<void>(resolve => { entered = resolve; });
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const fake = fakeSidecar({ beforeInvoke: async type => { if (type === 3) { entered(); await held; } } });
+    fake.seedFeatures([{ featureId: "surface-a", type: "SurfaceExtrude", paramsMm: [], volumeMm3: 0,
+      dependsOn: [], refExtra: "", expressions: {} }], 7);
+    const relay = new SessionRelay(() => fake.manager);
+    const sessionId = relay.sessionInfo().sessionId;
+    let queuedMutation: Promise<Record<string, unknown>> | undefined;
+    let stalePoint: Promise<Record<string, unknown>> | undefined;
+    let staleCreate: Promise<Record<string, unknown>> | undefined;
+    try {
+      queuedMutation = local(relay, 3, { featureId: "queued-box", widthMm: 1, heightMm: 1, depthMm: 1 });
+      await arrived;
+      stalePoint = local(relay, 30, { method: "resolveSurfacePoint", params: {
+        targetId: "surface-a", pointMm: [1, 2, 3],
+      }, expectedRevision: 7, expectedSessionId: sessionId });
+      staleCreate = local(relay, 55, { targetId: "surface-a", toolId: "cutter", featureId: "stale-trim",
+        keepFace: { type: "face", featureId: "surface-a", persistentFaceId: "surface-a:face.0" }, keepUv: [0.25, 0.75],
+        expectedRevision: 7, expectedSessionId: sessionId });
+      release();
+      await queuedMutation;
+      const [point, create] = await Promise.all([stalePoint, staleCreate]);
+      expect(point).toMatchObject({ status: "error", errorCode: "NEED_FULL_SNAPSHOT" });
+      expect(create).toMatchObject({ status: "error", errorCode: "NEED_FULL_SNAPSHOT" });
+      expect(fake.calls).not.toContain(30);
+      expect(fake.calls).not.toContain(55);
+      expect(await local(relay, 26)).toMatchObject({ revision: 8,
+        features: expect.arrayContaining([expect.objectContaining({ featureId: "surface-a" }),
+          expect.objectContaining({ featureId: "queued-box" })]) });
+      expect(fake.features().map(feature => feature.featureId).sort()).toEqual(["queued-box", "surface-a"]);
+    } finally {
+      release();
+      await Promise.all([queuedMutation, stalePoint, staleCreate].filter((value): value is Promise<Record<string, unknown>> => !!value));
+      relay.stop();
+    }
+  });
+
+  it("rejects malformed and unsupported Desktop revision/session controls before dispatch", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    const invalidRevision = await local(relay, 30, { method: "resolveSurfacePoint", params: {
+      targetId: "surface-a", pointMm: [1, 2, 3],
+    }, expectedRevision: -1 });
+    const invalidSession = await local(relay, 30, { method: "resolveSurfacePoint", params: {
+      targetId: "surface-a", pointMm: [1, 2, 3],
+    }, expectedSessionId: "not-a-uuid" });
+    const unsupported = await local(relay, 3, { featureId: "box", widthMm: 1, heightMm: 1, depthMm: 1,
+      expectedRevision: 0 });
+    const staleSession = await local(relay, 30, { method: "resolveSurfacePoint", params: {
+      targetId: "surface-a", pointMm: [1, 2, 3],
+    }, expectedSessionId: "00000000-0000-4000-8000-000000000000" });
+    const wrongQuery = await local(relay, 30, { method: "measureArea", params: { featureId: "box" }, expectedRevision: 0 });
+    const unexpectedField = await local(relay, 30, { method: "resolveSurfacePoint", params: {
+      targetId: "surface-a", pointMm: [1, 2, 3],
+    }, extraNativeField: true });
+    expect([invalidRevision, invalidSession, unsupported, wrongQuery, unexpectedField].map(value => value.errorCode))
+      .toEqual(["BAD_PARAMS", "BAD_PARAMS", "BAD_PARAMS", "BAD_PARAMS", "BAD_PARAMS"]);
+    expect(staleSession.errorCode).toBe("NEED_FULL_SNAPSHOT");
+    expect(fake.calls).toEqual([]);
+  });
+
+  it("fences sketch reads and both preview routes, strips controls, and keeps preview state uncommitted", async () => {
+    const fake = fakeSidecar();
+    const initialModel = { points: [], lines: [], circles: [], arcs: [], constraints: [] };
+    const previewModel = { ...initialModel, points: [{ id: "p", x: 1, y: 2, fixed: false }] };
+    fake.seedSketch("sketch-cas", initialModel, 7);
+    const relay = new SessionRelay(() => fake.manager);
+    const sessionId = relay.sessionInfo().sessionId;
+    try {
+      const read = await local(relay, 17, { featureId: "sketch-cas", expectedRevision: 7, expectedSessionId: sessionId });
+      const updatePreview = await local(relay, 14, { featureId: "sketch-cas", model: previewModel, isPreview: true,
+        expectedRevision: 7, expectedSessionId: sessionId });
+      const explicitPreview = await local(relay, 18, { featureId: "sketch-cas", model: previewModel,
+        expectedRevision: 7, expectedSessionId: sessionId });
+      expect(read).toMatchObject({ status: "ok", revision: 7, sketch: { model: initialModel } });
+      expect(updatePreview).toMatchObject({ status: "ok", revision: 7, sketch: { model: initialModel } });
+      expect(explicitPreview).toMatchObject({ status: "ok", revision: 7, sketch: { model: initialModel } });
+      expect((await relay.localSnapshot()).revision).toBe(7);
+      expect(fake.sketches()[0]?.["sketch"]).toMatchObject({ model: initialModel });
+      const native = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+        .filter(envelope => !String(envelope.requestId).startsWith("relay-") && [14, 17, 18].includes(Number(envelope.type)));
+      expect(native.map(envelope => envelope.type)).toEqual([17, 14, 18]);
+      for (const envelope of native) {
+        expect(envelope).not.toHaveProperty("expectedRevision");
+        expect(envelope).not.toHaveProperty("expectedSessionId");
+      }
+      await relay.cancelLocalEdit("sketch-cas");
+      const committed = await local(relay, 14, { featureId: "sketch-cas", model: previewModel,
+        expectedRevision: 7, expectedSessionId: sessionId });
+      expect(committed).toMatchObject({ status: "ok", revision: 8, sketch: { model: previewModel } });
+      expect((await relay.localSnapshot()).revision).toBe(8);
+    } finally { relay.stop(); }
+  });
+
+  it("rejects queued stale sketch edits and previews before native dispatch or history mutation", async () => {
+    let arrivedResolve!: () => void;
+    let releaseResolve!: () => void;
+    const arrived = new Promise<void>(resolve => { arrivedResolve = resolve; });
+    let blocked = false;
+    const gate = new Promise<void>(resolve => { releaseResolve = resolve; });
+    const fake = fakeSidecar({ beforeInvoke: async type => {
+      if (type === 3 && !blocked) { blocked = true;arrivedResolve();await gate; }
+    } });
+    const initialModel = { points: [], lines: [], circles: [], arcs: [], constraints: [] };
+    const candidate = { ...initialModel, points: [{ id: "stale-point", x: 4, y: 5, fixed: false }] };
+    fake.seedSketch("sketch-queued", initialModel, 7);
+    const relay = new SessionRelay(() => fake.manager);
+    const sessionId = relay.sessionInfo().sessionId;
+    let queuedMutation: Promise<Record<string, unknown>> | undefined;
+    let staleCommit: Promise<Record<string, unknown>> | undefined;
+    let staleUpdatePreview: Promise<Record<string, unknown>> | undefined;
+    let staleRead: Promise<Record<string, unknown>> | undefined;
+    let staleExplicitPreview: Promise<Record<string, unknown>> | undefined;
+    try {
+      queuedMutation = local(relay, 3, { featureId: "queued-box", widthMm: 2, heightMm: 3, depthMm: 4 });
+      await arrived;
+      staleUpdatePreview = local(relay, 14, { featureId: "sketch-queued", model: candidate, isPreview: true,
+        expectedRevision: 7, expectedSessionId: sessionId });
+      staleCommit = local(relay, 14, { featureId: "sketch-queued", model: candidate,
+        expectedRevision: 7, expectedSessionId: sessionId });
+      staleRead = local(relay, 17, { featureId: "sketch-queued", expectedRevision: 7, expectedSessionId: sessionId });
+      staleExplicitPreview = local(relay, 18, { featureId: "sketch-queued", model: candidate,
+        expectedRevision: 7, expectedSessionId: sessionId });
+      releaseResolve();
+      await queuedMutation;
+      const results = await Promise.all([staleUpdatePreview, staleCommit, staleRead, staleExplicitPreview]);
+      expect(results.map(result => result.errorCode)).toEqual([
+        "NEED_FULL_SNAPSHOT", "NEED_FULL_SNAPSHOT", "NEED_FULL_SNAPSHOT", "NEED_FULL_SNAPSHOT",
+      ]);
+      const nativeSketchRequests = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+        .filter(envelope => !String(envelope.requestId).startsWith("relay-") && [14, 17, 18].includes(Number(envelope.type)));
+      expect(nativeSketchRequests).toEqual([]);
+      expect((await relay.localSnapshot()).revision).toBe(8);
+      expect(fake.sketches()[0]?.["sketch"]).toMatchObject({ model: initialModel });
+      expect(relay.sessionInfo().documentRevision).toBe(8);
+    } finally {
+      releaseResolve();
+      await Promise.all([queuedMutation, staleCommit, staleUpdatePreview, staleRead, staleExplicitPreview]
+        .filter((value): value is Promise<Record<string, unknown>> => !!value));
+      relay.stop();
+    }
+  });
+
+  it("accepts bare surface face hints and rejects foreign or mismatched hints", async () => {
+    const resolved = {
+      keepFace: { type: "face", featureId: "surface-a", persistentFaceId: "surface-a:face.0" },
+      keepUv: [0.25, 0.75], pointMm: [1, 2, 3], projectionDistanceMm: 0.04,
+    };
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result: resolved } });
+    fake.seedFeatures([{ featureId: "surface-a", type: "SurfaceExtrude", paramsMm: [], volumeMm3: 0,
+      dependsOn: [], refExtra: "", expressions: {} }], 7);
+    const relay = new SessionRelay(() => fake.manager);
+    const accepted = await local(relay, 30, { method: "resolveSurfacePoint", params: {
+      targetId: "surface-a", pointMm: [1, 2, 3], persistentFaceId: "face.0",
+    } });
+    expect(accepted).toMatchObject({ status: "ok", result: resolved });
+
+    const mismatched = await local(relay, 30, { method: "resolveSurfacePoint", params: {
+      targetId: "surface-a", pointMm: [1, 2, 3], persistentFaceId: "face.1",
+    } });
+    expect(mismatched).toMatchObject({ status: "error", errorCode: "CORE_FAILED" });
+    const foreign = await local(relay, 30, { method: "resolveSurfacePoint", params: {
+      targetId: "surface-a", pointMm: [1, 2, 3], persistentFaceId: "other:face.0",
+    } });
+    expect(foreign).toMatchObject({ status: "error", errorCode: "BAD_PARAMS" });
+    expect(fake.calls.filter(type => type === 30)).toHaveLength(2);
+  });
   it("rejects invalid body search filters instead of returning an empty candidate set", async () => {
     const fake = fakeSidecar(); const relay = new SessionRelay(() => fake.manager);
     const client = new SessionClient(); const port = await freePort();
@@ -2399,6 +3025,262 @@ describe("SessionQueries (§11.7–§11.9, §11.11, §11.15)", () => {
       expect(reply["result"]).toEqual({ areaMm2: 1234.56789, basis: "brep" });
       expect(fake.calls.slice(before)).toEqual([30]);
       expect(JSON.parse(fake.envelopeTexts.at(-1)!)).toMatchObject({ type: 30, method: "measureArea", params: { referenceId: "shape:face.role" } });
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
+  it("captures instance geometry through a revision-fenced native query and strips relay metadata", async () => {
+    const sourceBinding = { type: "face", featureId: "source-box", persistentFaceId: "box.+Z", geometryKind: "plane" };
+    const result = { faces: [{ persistentId: "instance-a:box.+Z", captureRevision: 0, sourceBinding }] };
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result, revision: 0 } });
+    fake.seedFeatures([
+      { featureId: "source-box", type: "Box", paramsMm: [], volumeMm3: 0, dependsOn: [], refExtra: "", expressions: {} },
+      { featureId: "instance-a", type: "Instance", paramsMm: [], volumeMm3: 0, dependsOn: ["source-box"], refExtra: "", expressions: {} },
+    ], 0);
+    const relay = new SessionRelay(() => fake.manager);
+    const sessionId = relay.sessionInfo().sessionId;
+    const response = await local(relay, 30, {
+      method: "findFaces", params: { featureId: "instance-a" },
+      expectedRevision: 0, expectedSessionId: sessionId,
+    });
+    expect(response).toMatchObject({ status: "ok", result, sessionId, documentId: "doc-phase1", revision: 0 });
+    expect(fake.calls.filter(type => type === 30)).toEqual([30]);
+    const native = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+      .filter(envelope => envelope.type === 30).at(-1)!;
+    expect(native).toMatchObject({ type: 30, method: "findFaces", params: { featureId: "instance-a" } });
+    expect(native).not.toHaveProperty("expectedRevision");
+    expect(native).not.toHaveProperty("expectedSessionId");
+
+    await expect(local(relay, 30, {
+      method: "findFaces", params: { featureId: "instance-a" },
+      expectedRevision: 1, expectedSessionId: sessionId,
+    })).resolves.toMatchObject({ status: "error", errorCode: "NEED_FULL_SNAPSHOT" });
+    expect(fake.calls.filter(type => type === 30)).toEqual([30]);
+  });
+
+  it("captures direct faces from a current solid body tip without changing instance edge rules", async () => {
+    const featureId = "direct-source";
+    const result = { faces: [{ persistentId: `${featureId}:box.+Z`, featureId, ambiguous: false,
+      captureRevision: 5, sourceFace: { type: "face", featureId, persistentFaceId: "box.+Z" },
+      surfaceType: "plane", centroidMm: [5, 5, 10] }] };
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result, revision: 5 } });
+    fake.seedFeatures([{ featureId, type: "Box", paramsMm: [10, 10, 10], volumeMm3: 1000,
+      dependsOn: [], refExtra: "", expressions: {} }], 5);
+    const relay = new SessionRelay(() => fake.manager);
+    const sessionId = relay.sessionInfo().sessionId;
+    const direct = await local(relay, 30, { method: "findFaces", params: { featureId },
+      expectedRevision: 5, expectedSessionId: sessionId });
+    expect(direct).toMatchObject({ status: "ok", result, sessionId, documentId: "doc-phase1", revision: 5 });
+    const nativeFace = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, any>)
+      .find(envelope => envelope.type === 30)!;
+    expect(nativeFace).toMatchObject({ method: "findFaces", params: { featureId } });
+    expect(nativeFace).not.toHaveProperty("expectedRevision");
+    expect(nativeFace).not.toHaveProperty("expectedSessionId");
+    expect(direct).toHaveProperty("result.faces.0.sourceFace", result.faces[0].sourceFace);
+    expect(direct).not.toHaveProperty("result.faces.0.sourceBinding");
+
+    const edge = await local(relay, 30, { method: "findEdges", params: { featureId },
+      expectedRevision: 5, expectedSessionId: sessionId });
+    expect(edge).toMatchObject({ status: "error", errorCode: "BAD_PARAMS" });
+    expect(fake.calls.filter(type => type === 30)).toHaveLength(1);
+  });
+
+  it("fences public direct face reads for solid tips and retains instance-only edge reads", async () => {
+    const featureId = "public-direct-source";
+    const result = { faces: [{ persistentId: `${featureId}:box.+Z`, featureId, ambiguous: false,
+      captureRevision: 4, sourceFace: { type: "face", featureId, persistentFaceId: "box.+Z" },
+      surfaceType: "plane", centroidMm: [5, 5, 10] }] };
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result, revision: 4 } });
+    fake.seedFeatures([{ featureId, type: "Box", paramsMm: [10, 10, 10], volumeMm3: 1000,
+      dependsOn: [], refExtra: "", expressions: {} }], 4);
+    const relay = new SessionRelay(() => fake.manager);
+    const client = new SessionClient();
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      const hello = await client.connect(TOKEN, port);
+      const sessionId = hello["sessionId"] as string;
+      const response = await client.call("findFaces", {
+        featureId, documentId: "doc-phase1", expectedRevision: 4,
+      }, { sessionId });
+      expect(response).toMatchObject({ ok: true, result, sessionId, documentId: "doc-phase1", revision: 4 });
+      const native = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, any>)
+        .find(envelope => envelope.type === 30)!;
+      expect(native).toMatchObject({ method: "findFaces", params: { featureId } });
+      expect(native.params).not.toHaveProperty("documentId");
+      expect(native.params).not.toHaveProperty("expectedRevision");
+
+      await expect(client.call("findEdges", {
+        featureId, documentId: "doc-phase1", expectedRevision: 4,
+      }, { sessionId })).rejects.toMatchObject({ code: "BAD_PARAMS" });
+      expect(fake.calls.filter(type => type === 30)).toHaveLength(1);
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
+  it.each([57, 58, 59, 60])("uses paired session/revision CAS and strips controls for direct face command %i", async type => {
+    const fake = fakeSidecar();
+    fake.seedFeatures([{ featureId: "direct-source", type: "Box", paramsMm: [10, 10, 10],
+      volumeMm3: 1000, dependsOn: [], refExtra: "", expressions: {} }], 3);
+    const relay = new SessionRelay(() => fake.manager);
+    const sessionId = relay.sessionInfo().sessionId;
+    const common = { featureId: `direct-result-${type}`, sourceFeatureId: "direct-source",
+      sourceFace: { type: "face", featureId: "direct-source", persistentFaceId: "box.+Z" }, captureRevision: 3 };
+    const command = type === 57 ? { ...common, translationMm: [1, 0, 0], rotationDeg: [0, 0, 0], pivotMm: [5, 5, 10] }
+      : type === 58 ? { ...common, distanceMm: -1 }
+      : type === 60 ? { ...common, replacementFace: { type: "face", featureId: "direct-source", persistentFaceId: "box.-Z" } }
+      : common;
+    expect(await local(relay, type, { ...command, expectedRevision: 3, expectedSessionId: sessionId }))
+      .toMatchObject({ status: "ok", revision: 4, sessionId });
+    const native = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, any>)
+      .find(envelope => envelope.type === type)!;
+    expect(native).toMatchObject(command);
+    expect(native).not.toHaveProperty("expectedRevision");
+    expect(native).not.toHaveProperty("expectedSessionId");
+    expect(fake.calls.filter(value => value === type)).toHaveLength(1);
+    expect(await local(relay, type, { ...command, expectedRevision: 3, expectedSessionId: sessionId }))
+      .toMatchObject({ status: "error", errorCode: "NEED_FULL_SNAPSHOT" });
+    expect(fake.calls.filter(value => value === type)).toHaveLength(1);
+  });
+
+  it("returns a stamped scoped full snapshot at a newer revision and rejects stale session or renderer generations", async () => {
+    let relay: SessionRelay;
+    let fake: ReturnType<typeof fakeSidecar>;
+    let advance = false;
+    let disconnect = false;
+    const source = { featureId: "direct-snapshot-source", type: "Box", paramsMm: [10, 10, 10],
+      volumeMm3: 1000, dependsOn: [], refExtra: "", expressions: {} };
+    fake = fakeSidecar({ beforeInvoke: type => {
+      if (type === 26 && advance) { advance = false;fake.seedFeatures([source], 6); }
+      if (type === 26 && disconnect) { disconnect = false;relay.onRendererDisconnected(); }
+    } });
+    fake.seedFeatures([source], 4);
+    relay = new SessionRelay(() => fake.manager);
+    const sessionId = relay.sessionInfo().sessionId;
+
+    const staleSession = await local(relay, 26, { expectedSessionId: "00000000-0000-4000-8000-000000000000" });
+    expect(staleSession).toMatchObject({ status: "error", errorCode: "NEED_FULL_SNAPSHOT" });
+    expect(fake.calls.filter(type => type === 26)).toHaveLength(0);
+
+    advance = true;
+    const snapshot = await local(relay, 26, { expectedSessionId: sessionId });
+    expect(snapshot).toMatchObject({ status: "ok", sessionId, documentId: "doc-phase1", revision: 6,
+      features: expect.arrayContaining([expect.objectContaining({ featureId: source.featureId })]) });
+    const nativeSnapshots = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, any>)
+      .filter(envelope => envelope.type === 26);
+    expect(nativeSnapshots.length).toBeGreaterThan(0);
+    expect(nativeSnapshots.every(envelope => !Object.hasOwn(envelope, "expectedSessionId") &&
+      !Object.hasOwn(envelope, "expectedRevision"))).toBe(true);
+
+    disconnect = true;
+    const staleGeneration = await local(relay, 26, { expectedSessionId: sessionId });
+    expect(staleGeneration).toMatchObject({ status: "error", errorCode: "CLIENT_DISCONNECTED" });
+  });
+
+  it("fences public findEdges queries by session, document, and revision", async () => {
+    const sourceBinding = { type: "edge", featureId: "source-box", persistentEdgeId: "box.edge.0", geometryKind: "line" };
+    const result = { edges: [{ persistentId: "instance-a:box.edge.0", captureRevision: 0, sourceBinding }] };
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result, revision: 0 } });
+    fake.seedFeatures([
+      { featureId: "source-box", type: "Box", paramsMm: [], volumeMm3: 0, dependsOn: [], refExtra: "", expressions: {} },
+      { featureId: "instance-a", type: "Instance", paramsMm: [], volumeMm3: 0, dependsOn: ["source-box"], refExtra: "", expressions: {} },
+    ], 0);
+    const relay = new SessionRelay(() => fake.manager);
+    const client = new SessionClient();
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      const hello = await client.connect(TOKEN, port);
+      const sessionId = hello["sessionId"] as string;
+      const response = await client.call("findEdges", {
+        featureId: "instance-a", documentId: "doc-phase1", expectedRevision: 0,
+      }, { sessionId });
+      expect(response).toMatchObject({ ok: true, result, sessionId, documentId: "doc-phase1", revision: 0 });
+      const native = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+        .filter(envelope => envelope.type === 30).at(-1)!;
+      expect(native).toMatchObject({ type: 30, method: "findEdges", params: { featureId: "instance-a" } });
+      expect(native.params).not.toHaveProperty("documentId");
+      expect(native.params).not.toHaveProperty("expectedRevision");
+
+      await expect(client.call("findEdges", {
+        featureId: "instance-a", documentId: "doc-phase1", expectedRevision: 1,
+      }, { sessionId })).rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
+      expect(fake.calls.filter(type => type === 30)).toHaveLength(1);
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
+  it("uses expectedRevision as the actual queued CAS for local command 47", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    const expectedSessionId = relay.sessionInfo().sessionId;
+    const fields = { constraintId: "mate-1", kind: "ground", movingId: "instance-a" };
+    expect(await local(relay, 47, { ...fields, expectedRevision: 0, expectedSessionId }))
+      .toMatchObject({ status: "ok", revision: 1 });
+    const native = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+      .filter(envelope => envelope.type === 47).at(-1)!;
+    expect(native).toMatchObject({ type: 47, ...fields });
+    expect(native).not.toHaveProperty("expectedRevision");
+    expect(native).not.toHaveProperty("expectedSessionId");
+
+    expect(await local(relay, 47, { ...fields, constraintId: "mate-stale", expectedRevision: 0, expectedSessionId }))
+      .toMatchObject({ status: "error", errorCode: "NEED_FULL_SNAPSHOT" });
+    expect(fake.calls.filter(type => type === 47)).toHaveLength(1);
+  });
+
+  it("preserves legacy unscoped command 47 and document-scoped geometry filters", async () => {
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result: { faces: [] }, revision: 0 } });
+    fake.seedFeatures([
+      { featureId: "source-box", type: "Box", paramsMm: [], volumeMm3: 0, dependsOn: [], refExtra: "", expressions: {} },
+      { featureId: "instance-a", type: "Instance", paramsMm: [], volumeMm3: 0, dependsOn: ["source-box"], refExtra: "", expressions: {} },
+    ], 0);
+    const relay = new SessionRelay(() => fake.manager);
+    const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    const client = new SessionClient();
+    try {
+      const hello = await client.connect(TOKEN, port);
+      const sessionId = hello["sessionId"] as string;
+      expect(await local(relay, 47, { constraintId: "legacy-mate", kind: "ground", movingId: "instance-a" }))
+        .toMatchObject({ status: "ok", revision: 1 });
+      const legacy = await client.call("findFaces", {
+        featureId: "instance-a", documentId: "doc-phase1", includeConstruction: true,
+      }, { sessionId });
+      expect(legacy).toMatchObject({ ok: true, result: { faces: [] } });
+      const native = fake.envelopeTexts.map(text => JSON.parse(text) as Record<string, unknown>)
+        .filter(envelope => envelope.type === 30).at(-1)!;
+      expect(native).toMatchObject({ method: "findFaces", params: { featureId: "instance-a", includeConstruction: true } });
+      expect(native.params).not.toHaveProperty("documentId");
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
+  it.each(["measureInterferences", "measureMinimumThickness"])("forwards %s as one read-only native query", async method => {
+    const result = { basis: "occt-common-volume", componentCount: 2, candidatePairCount: 1, interferences: [] };
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result } });
+    const relay = new SessionRelay(() => fake.manager);
+    const client = new SessionClient(); const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await client.connect(TOKEN, port);
+      const before = fake.calls.length;
+      const parameters = method === "measureInterferences" ? { featureIds: ["box", "part"], volumeToleranceMm3: 0.001 } : { featureId: "box", maxSamples: 512 };
+      const response = await client.call(method, parameters);
+      expect(response["result"]).toEqual(result);
+      expect(fake.calls.slice(before)).toEqual([30]);
+      expect(JSON.parse(fake.envelopeTexts.at(-1)!)).toMatchObject({ type: 30, method, params: parameters });
+    } finally { client.closeRaw(); relay.stop(); }
+  });
+
+  it("forwards mass properties and density to authoritative B-Rep query 30", async () => {
+    const result = { basis: "brep", volumeMm3: 6000, areaMm2: 2200, centroidMm: [10, 15, 5], densityKgPerM3: 7850, massKg: 0.0471 };
+    const fake = fakeSidecar({ geometryReply: { status: "ok", result } });
+    const relay = new SessionRelay(() => fake.manager);
+    const client = new SessionClient(); const port = await freePort();
+    relay.start({ port, host: "127.0.0.1", token: TOKEN });
+    try {
+      await client.connect(TOKEN, port);
+      const before = fake.calls.length;
+      const response = await client.call("measureMassProperties", { featureId: "box", densityKgPerM3: 7850 });
+      expect(response["result"]).toEqual(result);
+      expect(fake.calls.slice(before)).toEqual([30]);
+      expect(JSON.parse(fake.envelopeTexts.at(-1)!)).toMatchObject({ type: 30, method: "measureMassProperties", params: { featureId: "box", densityKgPerM3: 7850 } });
     } finally { client.closeRaw(); relay.stop(); }
   });
 
@@ -2772,7 +3654,9 @@ describe("SessionControlContract (Slice 7)", () => {
           const code = (e as Error & { code?: string }).code;
           expect(typeof code).toBe("string");
           // Box has no radius: the call is valid wire, core says no.
-          expect(["BAD_PARAMS", "NOT_FOUND", "NOT_IMPLEMENTED"]).toContain(code);
+          expect(m === "measureMassProperties"
+            ? ["BAD_PARAMS", "NOT_FOUND", "NOT_IMPLEMENTED", "CORE_FAILED"]
+            : ["BAD_PARAMS", "NOT_FOUND", "NOT_IMPLEMENTED"]).toContain(code);
         }
       }
     } finally {

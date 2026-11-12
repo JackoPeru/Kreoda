@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { CoreMeshData } from "@kreoda/protocol";
-const mockCore = vi.hoisted(() => ({ documentId: "doc", requestMesh: vi.fn() }));
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { CoreMeshData, SketchProjectionDefinition } from "@kreoda/protocol";
+const mockCore = vi.hoisted(() => ({ documentId: "doc", requestMesh: vi.fn(), setSketchProjection: vi.fn() }));
 vi.mock("../src/ipc/coreClient", () => ({ coreClient: mockCore }));
 import { syncFromCoreList } from "../src/model/sync";
 import { useDocumentUiStore } from "../src/stores";
@@ -19,6 +19,7 @@ beforeEach(() => {
   useDocumentUiStore.getState().setSketches([target], 1);
   useDocumentUiStore.getState().replaceAllMeshes({ solid: mesh }, 1);
   mockCore.requestMesh.mockReset();
+  mockCore.setSketchProjection.mockReset().mockRejectedValue(new Error("offline"));
 });
 afterEach(cleanup);
 
@@ -47,4 +48,46 @@ it("never offers unavailable geometry even when an older mesh existed", async ()
   await syncFromCoreList([{ ...feature, geometryCurrent: false, status: "unavailable" }], 2, [target], []);
   render(<SketchProjectionPanel sketchId="target" />);
   expect(screen.getByLabelText("Projection source").querySelectorAll("option")).toHaveLength(1);
+});
+
+it("repairs a broken multi-source group without replacing its original bindings", async () => {
+  const definition: SketchProjectionDefinition = { version: 1, operation: "projectEdges", sources: [
+    { type: "edge" as const, featureId: "missing", persistentEdgeId: "missing:edge-1" },
+    { type: "shape" as const, featureId: "other" },
+  ] };
+  useDocumentUiStore.getState().setSketches([{ ...target, projectionGroups: [{
+    groupId: "group-broken", definition, sourceFeatureIds: ["missing", "other"],
+    status: "broken" as const, error: "source unavailable", blockingSourceIds: ["missing"], generation: 1,
+  }] }], 1);
+  render(<SketchProjectionPanel sketchId="target" />);
+  fireEvent.change(screen.getByLabelText("Projection group"), { target: { value: "group-broken" } });
+  expect(screen.getByLabelText("Projection source").querySelector('option[value="edge:missing:edge-1"]')).toBeNull();
+  fireEvent.click(screen.getByText("Repair selected group"));
+  await waitFor(() => expect(mockCore.setSketchProjection).toHaveBeenCalledWith("target", "group-broken", definition));
+});
+
+it("replaces a group source only through the explicit replacement action", async () => {
+  const definition: SketchProjectionDefinition = { version: 1, operation: "projectEdges", sources: [
+    { type: "edge", featureId: "missing", persistentEdgeId: "missing:edge-1" },
+    { type: "shape", featureId: "other" },
+  ] };
+  useDocumentUiStore.getState().setSketches([{ ...target, projectionGroups: [{
+    groupId: "group-broken", definition, sourceFeatureIds: ["missing", "other"],
+    status: "broken" as const, error: "source unavailable", blockingSourceIds: ["missing"], generation: 1,
+  }] }], 1);
+  render(<SketchProjectionPanel sketchId="target" />);
+  const replace = screen.getByText("Replace group source") as HTMLButtonElement;
+  expect(replace.disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText("Projection group"), { target: { value: "group-broken" } });
+  expect(replace.disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText("Projection source"), { target: { value: "edge:solid:edge-a" } });
+  fireEvent.click(screen.getByText("Repair selected group"));
+  await waitFor(() => expect(mockCore.setSketchProjection).toHaveBeenCalledWith("target", "group-broken", definition));
+  await waitFor(() => expect(replace.disabled).toBe(false));
+  mockCore.setSketchProjection.mockClear();
+  fireEvent.click(replace);
+  await waitFor(() => expect(mockCore.setSketchProjection).toHaveBeenCalledExactlyOnceWith("target", "group-broken", {
+    version: 1, operation: "projectEdges", sources: [{ type: "edge", featureId: "solid", persistentEdgeId: "solid:edge-a" }],
+  }));
+  expect(definition.sources).toHaveLength(2);
 });

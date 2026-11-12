@@ -104,6 +104,24 @@ describe("local command parser (§57)", () => {
     else throw new Error("expected unparsed");
   });
 
+  it("routes coordinate prose with decimal commas to unparsed unchanged", () => {
+    const prompts = [
+      "Crea una piastra100×80×5 lungo XYZ con foro passanteØ10 al centroXY(50,40). Un solido editabile.",
+      "Sketch a 30×20 plate with a through hole at XY(15,10).",
+    ];
+
+    for (const text of prompts) {
+      expect(parseCommand(text)).toEqual({ ok: false, reason: "unparsed", message: text });
+    }
+  });
+
+  it("still rejects decimal commas in recognized local syntax", () => {
+    expect(parseCommand("box 100,5 80 5")).toMatchObject({
+      ok: false,
+      reason: "invalid",
+    });
+  });
+
   it("answers export honestly (toolbar, not silent)", () => {
     const r = parseCommand("export step");
     expect(r.ok).toBe(false);

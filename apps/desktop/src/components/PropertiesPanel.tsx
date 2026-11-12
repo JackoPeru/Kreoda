@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { parseAngleToDeg, parseLengthToMm } from "@kreoda/units";
+import { featureGeometryKind } from "@kreoda/command-schema";
 import { executeCommand } from "../commands/execute";
 import { selectionKindOf, useDocumentUiStore, useSelectionStore } from "../stores";
 import { t, useT, featureTypeName, type EnKey } from "../i18n";
@@ -19,6 +20,36 @@ const SLOTS: Record<string, { param: string; label: EnKey }[]> = {
   Sphere: [{ param: "radiusMm", label: "props.slotRadius" }],
   Extrude: [{ param: "distanceMm", label: "props.slotDistance" }],
   Revolve: [{ param: "angleDeg", label: "props.slotAngle" }],
+  SurfaceExtrude: [{ param: "distanceMm", label: "props.slotDistance" }],
+  SurfaceSweep: [{ param: "toleranceMm", label: "props.slotTolerance" }],
+  SurfaceThicken: [
+    { param: "thicknessMm", label: "props.slotThickness" },
+    { param: "toleranceMm", label: "props.slotTolerance" },
+  ],
+  SurfaceSew: [{ param: "toleranceMm", label: "props.slotTolerance" }],
+  SurfaceSewnSolid: [{ param: "toleranceMm", label: "props.slotTolerance" }],
+  SurfaceOffset: [
+    { param: "distanceMm", label: "props.slotDistance" },
+    { param: "toleranceMm", label: "props.slotTolerance" },
+  ],
+  SurfaceTrim: [
+    { param: "keepU", label: "props.slotKeepU" },
+    { param: "keepV", label: "props.slotKeepV" },
+    { param: "toleranceMm", label: "props.slotTolerance" },
+  ],
+  SurfaceExtend: [
+    { param: "distanceMm", label: "props.slotDistance" },
+    { param: "toleranceMm", label: "props.slotTolerance" },
+  ],
+  SurfaceRevolve: [
+    { param: "angleDeg", label: "props.slotAngle" },
+    { param: "axisOriginXMm", label: "props.slotAxisOriginX" },
+    { param: "axisOriginYMm", label: "props.slotAxisOriginY" },
+    { param: "axisOriginZMm", label: "props.slotAxisOriginZ" },
+    { param: "axisX", label: "props.slotAxisDirectionX" },
+    { param: "axisY", label: "props.slotAxisDirectionY" },
+    { param: "axisZ", label: "props.slotAxisDirectionZ" },
+  ],
   Hole: [
     { param: "diameterMm", label: "props.slotDiameter" },
     { param: "depthMm", label: "props.slotDepthBlind" },
@@ -40,9 +71,23 @@ const SLOTS: Record<string, { param: string; label: EnKey }[]> = {
     { param: "ryDeg", label: "props.slotRy" },
     { param: "rzDeg", label: "props.slotRz" },
   ],
+  MoveFace: [
+    { param: "txMm", label: "props.slotTx" },
+    { param: "tyMm", label: "props.slotTy" },
+    { param: "tzMm", label: "props.slotTz" },
+    { param: "rxDeg", label: "props.slotRx" },
+    { param: "ryDeg", label: "props.slotRy" },
+    { param: "rzDeg", label: "props.slotRz" },
+    { param: "pxMm", label: "props.slotPivotX" },
+    { param: "pyMm", label: "props.slotPivotY" },
+    { param: "pzMm", label: "props.slotPivotZ" },
+  ],
+  OffsetFace: [{ param: "distanceMm", label: "props.slotDistance" }],
 };
 
 const ANGLE_PARAMS = new Set(["angleDeg", "rxDeg", "ryDeg", "rzDeg"]);
+const DIMENSIONLESS_PARAMS = new Set(["axisX", "axisY", "axisZ", "keepU", "keepV"]);
+const NORMALIZED_DIMENSIONLESS_PARAMS = new Set(["axisX", "axisY", "axisZ"]);
 
 /** Dimension editing (§22): exact values, one Undo step per commit (§12). */
 export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) => void }) {
@@ -111,7 +156,12 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
       // Revolve/instance angles are degrees (accept "90", "90 deg", "1.57 rad",
       // including 0/negatives for placement); translations are signed mm.
       // M4: zero/negative placement must reach the core (not a v>0 gate).
+      const parseNumber = (): number => {
+        if (!text.trim()) throw new Error(tt("props.errNotNumber"));
+        return Number(text);
+      };
       const valueMm = paramName === "count" ? Number(text)
+        : DIMENSIONLESS_PARAMS.has(paramName) ? parseNumber()
         : ANGLE_PARAMS.has(paramName)
         ? parseAngleToDeg(text)
         : parseLengthToMm(text);
@@ -136,11 +186,30 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
     Sphere: { radiusMm: 0 },
     Extrude: { distanceMm: 0 },
     Revolve: { angleDeg: 0 },
+    SurfaceExtrude: { distanceMm: 0 },
+    SurfaceSweep: { toleranceMm: 0 },
+    SurfaceThicken: { thicknessMm: 0, toleranceMm: 1 },
+    SurfaceSew: { toleranceMm: 0 },
+    SurfaceSewnSolid: { toleranceMm: 0 },
+    SurfaceOffset: { distanceMm: 0, toleranceMm: 1 },
+    SurfaceTrim: { keepU: 0, keepV: 1, toleranceMm: 2 },
+    SurfaceExtend: { distanceMm: 0, toleranceMm: 1 },
+    SurfaceRevolve: {
+      angleDeg: 0,
+      axisOriginXMm: 1,
+      axisOriginYMm: 2,
+      axisOriginZMm: 3,
+      axisX: 4,
+      axisY: 5,
+      axisZ: 6,
+    },
     Hole: { diameterMm: 0, depthMm: 1 },
     HolePattern: { diameterMm: 0, depthMm: 1, count: 2 },
     Fillet: { radiusMm: 0 },
     Chamfer: { distanceMm: 0 },
     Instance: { txMm: 0, tyMm: 1, tzMm: 2, rxDeg: 3, ryDeg: 4, rzDeg: 5 },
+    MoveFace: { txMm: 0, tyMm: 1, tzMm: 2, rxDeg: 3, ryDeg: 4, rzDeg: 5, pxMm: 6, pyMm: 7, pzMm: 8 },
+    OffsetFace: { distanceMm: 0 },
   };
   const paramIndex = (param: string): number =>
     SLOT_INDEX[feature.type]?.[param] ?? -1;
@@ -158,9 +227,15 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
         const current = i >= 0 ? feature.paramsMm[i] : undefined;
         return (
         <label key={s.param} className="mb-2 block text-xs text-white/70">
-          {tt(s.label)} {s.param === "count" ? "" : ANGLE_PARAMS.has(s.param) ? tt("common.unitDeg") : tt("common.unitMm")}
+          {tt(s.label)}{s.param === "count" || DIMENSIONLESS_PARAMS.has(s.param)
+            ? ""
+            : ` ${ANGLE_PARAMS.has(s.param) ? tt("common.unitDeg") : tt("common.unitMm")}`}
           <input
             key={`${feature.featureId}:${s.param}:${current ?? ""}`}
+            type={DIMENSIONLESS_PARAMS.has(s.param) ? "number" : "text"}
+            step={DIMENSIONLESS_PARAMS.has(s.param) ? "any" : undefined}
+            min={NORMALIZED_DIMENSIONLESS_PARAMS.has(s.param) ? -1 : undefined}
+            max={NORMALIZED_DIMENSIONLESS_PARAMS.has(s.param) ? 1 : undefined}
             defaultValue={String(current ?? "")}
             disabled={busyParam !== null}
             onKeyDown={(e) => {
@@ -180,7 +255,7 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
       })}
       {feature.geometryCurrent === false || feature.status === "unavailable" ? (
         <div className="pt-1 text-xs text-red-300">{tt("props.geometryUnavailable")}</div>
-      ) : typeof feature.volumeMm3 === "number" ? (
+      ) : featureGeometryKind(feature.type) === "solid" && typeof feature.volumeMm3 === "number" ? (
         <div className="pt-1 text-xs text-white/55">
           {tt("props.volume", { v: (feature.volumeMm3 / 1000).toFixed(1) })}
         </div>

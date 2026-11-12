@@ -177,11 +177,27 @@ const VIEW_NAMES = ["top", "front", "right", "iso", "bottom", "back", "left"];
 /** Italian view names shown in usage (same order as VIEW_NAMES). */
 const VIEW_NAMES_IT = ["alto", "fronte", "destra", "iso", "basso", "retro", "sinistra"];
 
+const KNOWN = new Set([
+  "help", "?", "box", "plate", "cylinder", "tube", "sphere", "ball",
+  "holes", "hole", "fillet", "round", "chamfer", "corner", "set",
+  "dimension", "undo", "redo", "view", ...VIEW_NAMES, "export", "save", "open",
+]);
+
 /**
  * Parse one line of short syntax. Returns unparsed (not invalid) for
  * genuine prose so the caller can route to the LLM provider.
  */
 export function parseCommand(input: string): ParseResult {
+  const tks = tokens(input);
+  if (tks.length === 0) return { ok: false, reason: "empty", message: t("parse.empty") };
+  const rawHead = tks[0]!;
+  const head = HEAD_ALIASES[rawHead] ?? VIEW_ALIASES[rawHead] ?? rawHead;
+
+  // Prose belongs to the provider even when coordinates contain commas.
+  if (!KNOWN.has(head)) {
+    return { ok: false, reason: "unparsed", message: input.trim() };
+  }
+
   // EU decimal comma ("2,5") is never valid — point at "." explicitly.
   if (/(\d),(\d)/.test(input.trim())) {
     return {
@@ -190,10 +206,6 @@ export function parseCommand(input: string): ParseResult {
       message: t("parse.decimals"),
     };
   }
-  const tks = tokens(input);
-  if (tks.length === 0) return { ok: false, reason: "empty", message: t("parse.empty") };
-  const rawHead = tks[0]!;
-  const head = HEAD_ALIASES[rawHead] ?? VIEW_ALIASES[rawHead] ?? rawHead;
 
   if (head === "help" || head === "?") {
     return {
@@ -544,17 +556,8 @@ export function parseCommand(input: string): ParseResult {
     };
   }
 
-  // Genuine prose → provider layer (or honest no-provider message).
-  // Unknown heads route to unparsed regardless of length ("bracket" is NL,
-  // not a typo to scold); known verbs with bad arity already returned invalid.
-  const KNOWN = new Set([
-    "help", "?", "box", "plate", "cylinder", "tube", "sphere", "ball",
-    "holes", "hole", "fillet", "round", "chamfer", "corner", "set",
-    "dimension", "undo", "redo", "view", ...VIEW_NAMES, "export", "save", "open",
-  ]);
-  if (!KNOWN.has(head)) {
-    return { ok: false, reason: "unparsed", message: input.trim() };
-  }
+  // Known heads without a local form may still be natural language; malformed
+  // local forms were returned as invalid above.
   if (/[a-z]{3,}/.test(head) && tks.length >= 2) {
     return { ok: false, reason: "unparsed", message: input.trim() };
   }
