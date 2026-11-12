@@ -13,6 +13,7 @@ import {
   runBar,
   snapOf,
   type Snapshot,
+  shot,
 } from "./helpers";
 
 async function docksDisjoint(window: Page): Promise<boolean> {
@@ -40,7 +41,7 @@ async function noHorizontalOverflow(window: Page): Promise<boolean> {
 test("workspace visual states", async () => {
   const { app, window } = await boot();
   try {
-    await window.screenshot({ path: path.join(HERE, "ui-empty.png") });
+    await shot(window, app, path.join(HERE, "ui-empty.png"));
 
     await runBar(window, "box 100 50 20");
     await runBar(window, "box 30 30 30");
@@ -69,7 +70,7 @@ test("workspace visual states", async () => {
         .getByTestId("context-toolbar")
         .getByRole("button", { name: "Copy placed" }),
     ).toBeVisible({ timeout: 5000 });
-    await window.screenshot({ path: path.join(HERE, "ui-body.png") });
+    await shot(window, app, path.join(HERE, "ui-body.png"));
 
     // Face selected: hole + sketch actions near the face.
     await window.evaluate(
@@ -88,7 +89,7 @@ test("workspace visual states", async () => {
         .getByTestId("context-toolbar")
         .getByRole("button", { name: "Hole" }),
     ).toBeVisible({ timeout: 5000 });
-    await window.screenshot({ path: path.join(HERE, "ui-face.png") });
+    await shot(window, app, path.join(HERE, "ui-face.png"));
 
     // Edge selected: dress-up actions.
     await window.evaluate(
@@ -107,7 +108,7 @@ test("workspace visual states", async () => {
         .getByTestId("context-toolbar")
         .getByRole("button", { name: "Round" }),
     ).toBeVisible({ timeout: 5000 });
-    await window.screenshot({ path: path.join(HERE, "ui-edge.png") });
+    await shot(window, app, path.join(HERE, "ui-edge.png"));
 
     // Two bodies: boolean trio.
     await selectMany([idA, idB]);
@@ -116,7 +117,7 @@ test("workspace visual states", async () => {
         .getByTestId("context-toolbar")
         .getByRole("button", { name: "Subtract" }),
     ).toBeVisible({ timeout: 5000 });
-    await window.screenshot({ path: path.join(HERE, "ui-twobodies.png") });
+    await shot(window, app, path.join(HERE, "ui-twobodies.png"));
   } finally {
     await app.close();
   }
@@ -155,7 +156,7 @@ test("sketch mode, plan preview, drawers", async () => {
       timeout: 10000,
     });
     await expect(window.getByTestId("workspace-topdock")).toBeVisible();
-    await window.screenshot({ path: path.join(HERE, "ui-sketch.png") });
+    await shot(window, app, path.join(HERE, "ui-sketch.png"));
     await window.getByRole("button", { name: "Done" }).click();
     await expect(window.getByTestId("sketch-canvas")).not.toBeVisible({
       timeout: 5000,
@@ -167,7 +168,7 @@ test("sketch mode, plan preview, drawers", async () => {
     await input.press("Enter");
     const preview = window.getByTestId("plan-preview");
     await expect(preview).toBeVisible({ timeout: 5000 });
-    await window.screenshot({ path: path.join(HERE, "ui-plan.png") });
+    await shot(window, app, path.join(HERE, "ui-plan.png"));
     await preview.getByRole("button", { name: /Run 1 step/ }).click();
     await expect
       .poll(async () => (await snapOf(window)).bodies.length, {
@@ -177,13 +178,13 @@ test("sketch mode, plan preview, drawers", async () => {
 
     // Drawers open on demand.
     await openProject(window);
-    await window.screenshot({ path: path.join(HERE, "ui-project.png") });
+    await shot(window, app, path.join(HERE, "ui-project.png"));
     await window.getByText(/Box 100×50×20/).first().click();
     await openProperties(window);
     await expect(
       window.getByTestId("properties-drawer").getByLabel(/Width/),
     ).toBeVisible({ timeout: 5000 });
-    await window.screenshot({ path: path.join(HERE, "ui-properties.png") });
+    await shot(window, app, path.join(HERE, "ui-properties.png"));
   } finally {
     await app.close();
   }
@@ -229,7 +230,7 @@ test("recovery banner keeps full width above the viewport", async () => {
       return b.y < t.y + t.height && t.y < b.y + b.height;
     });
     expect(covers).toBe(false);
-    await window.screenshot({ path: path.join(HERE, "ui-recovery.png") });
+    await shot(window, app, path.join(HERE, "ui-recovery.png"));
   } finally {
     await app.close();
     fs.rmSync(RECOVERY_DIR, { recursive: true, force: true });
@@ -260,7 +261,7 @@ test("responsive layout at desktop breakpoints", async () => {
       await expect(window.getByTestId("viewport")).toBeVisible();
       expect(await noHorizontalOverflow(window)).toBe(true);
       expect(await docksDisjoint(window)).toBe(true);
-      await window.screenshot({ path: path.join(HERE, `ui-${w}x${h}.png`) });
+      await shot(window, app, path.join(HERE, `ui-${w}x${h}.png`));
     }
     // Layout must hold at the default size no matter what; breakpoints
     // apply only where the harness honors resizing (logged when skipped).

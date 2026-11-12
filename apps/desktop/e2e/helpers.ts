@@ -4,6 +4,8 @@
 import { expect, _electron as electron, type Page } from "@playwright/test";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { writeFile } from "node:fs/promises";
+import type { ElectronApplication } from "@playwright/test";
 import type { DatumDescriptor, SketchPlaneFrame } from "@kreoda/protocol";
 
 export const HERE = import.meta.dirname;
@@ -169,4 +171,27 @@ export async function openProperties(window: Page): Promise<void> {
 export async function addBox(window: Page): Promise<void> {
   await window.getByRole("button", { name: "Add", exact: true }).click();
   await window.getByRole("button", { name: /Add box/ }).click();
+}
+
+/**
+ * Screenshot that also works for background (hidden) Electron windows.
+ * page.screenshot waits for a compositor frame and can hang when the window is
+ * never shown; webContents.capturePage renders the same surface directly.
+ */
+export async function shot(
+  window: Page,
+  app: ElectronApplication,
+  file: string,
+): Promise<void> {
+  try {
+    await window.screenshot({ path: file, timeout: 8000 });
+    return;
+  } catch {
+    const png = await app.evaluate(async ({ BrowserWindow }) => {
+      const target = BrowserWindow.getAllWindows()[0];
+      if (!target) throw new Error("no BrowserWindow to capture");
+      return (await target.webContents.capturePage()).toPNG().toString("base64");
+    });
+    await writeFile(file, Buffer.from(png, "base64"));
+  }
 }

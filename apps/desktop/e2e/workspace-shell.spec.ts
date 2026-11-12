@@ -11,6 +11,7 @@ import {
   openProperties,
   runBar,
   snapOf,
+  shot,
 } from "./helpers";
 
 test("minimal shell: viewport dominates, docks float, drawers on demand", async () => {
@@ -57,7 +58,7 @@ test("minimal shell: viewport dominates, docks float, drawers on demand", async 
     });
     expect(disjoint).toBe(true);
 
-    await window.screenshot({ path: path.join(HERE, "shell-empty.png") });
+    await shot(window, app, path.join(HERE, "shell-empty.png"));
 
     // Command path intact through the floating bar.
     await runBar(window, "box 100 50 20");
@@ -72,14 +73,14 @@ test("minimal shell: viewport dominates, docks float, drawers on demand", async 
     const boxText = window.getByText(/Box 100×50×20/);
     await expect(boxText).toBeVisible({ timeout: 10000 });
     await boxText.click();
-    await window.screenshot({ path: path.join(HERE, "shell-model.png") });
+    await shot(window, app, path.join(HERE, "shell-model.png"));
 
     // Properties drawer opens on demand with the dimension fields.
     await openProperties(window);
     await expect(
       window.getByTestId("properties-drawer").getByLabel(/Width/),
     ).toBeVisible({ timeout: 5000 });
-    await window.screenshot({ path: path.join(HERE, "shell-drawers.png") });
+    await shot(window, app, path.join(HERE, "shell-drawers.png"));
 
     // Face selection still raises the contextual tools (unchanged UX-2 target).
     const boxId = (await snapOf(window)).bodies[0]!.id;
@@ -133,7 +134,7 @@ test("progressive disclosure: drawers, mode toggle, diagnostics", async () => {
     await expect(diag).toBeVisible({ timeout: 5000 });
     await expect(diag).toContainText(/rev 0/);
     await expect(diag).toContainText(/core 0\.1\.0/);
-    await window.screenshot({ path: path.join(HERE, "shell-disclosure.png") });
+    await shot(window, app, path.join(HERE, "shell-disclosure.png"));
   } finally {
     await app.close();
   }

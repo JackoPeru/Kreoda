@@ -2,7 +2,7 @@
 // the solver paths still work (live drag solve, Escape cancel, Done).
 import { test, expect } from "@playwright/test";
 import path from "node:path";
-import { HERE, boot, type Snapshot } from "./helpers";
+import { HERE, boot, type Snapshot, shot} from "./helpers";
 
 test("sketch workspace: disclosure, live drag, escape cancel", async () => {
   const { app, window } = await boot();
@@ -42,31 +42,33 @@ test("sketch workspace: disclosure, live drag, escape cancel", async () => {
     await expect(window.getByText(/horizontal l0/)).not.toBeVisible();
     await window.getByRole("button", { name: "Details" }).click();
     await expect(window.getByText(/horizontal l0/)).toBeVisible();
-    await window.screenshot({ path: path.join(HERE, "sketch-details.png") });
+    await shot(window, app, path.join(HERE, "sketch-details.png"));
     await window.getByRole("button", { name: "Hide details" }).click();
     await expect(window.getByText(/horizontal l0/)).not.toBeVisible();
 
     // Live drag: the point label follows the pointer (solver preview).
+    // Labels are hover/drag-only in the current editor, so hover first.
     const point = window.getByTestId("sk-point-p0");
     const label = window.locator("g", { has: point }).locator("text");
-    const before = await label.textContent();
     const at = (await point.boundingBox())!;
     const cx = at.x + at.width / 2;
     const cy = at.y + at.height / 2;
     await window.mouse.move(cx, cy);
+    await expect(label).toBeVisible({ timeout: 5000 });
+    const before = await label.textContent();
     await window.mouse.down();
     await window.mouse.move(cx + 40, cy + 12, { steps: 5 });
     await expect
       .poll(async () => label.textContent(), { timeout: 10000 })
       .not.toBe(before);
-    await window.screenshot({ path: path.join(HERE, "sketch-drag.png") });
+    await shot(window, app, path.join(HERE, "sketch-drag.png"));
 
     // Escape mid-drag restores the pre-drag state (no commit).
     await window.keyboard.press("Escape");
-    await expect
-      .poll(async () => label.textContent(), { timeout: 5000 })
-      .toBe(before);
     await window.mouse.up();
+    const restored = (await point.boundingBox())!;
+    expect(Math.abs(restored.x - at.x)).toBeLessThan(2);
+    expect(Math.abs(restored.y - at.y)).toBeLessThan(2);
 
     // Release-with-move commits without errors; Done closes the workspace.
     await window.mouse.move(cx, cy);
