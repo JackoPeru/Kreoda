@@ -27,21 +27,65 @@ namespace Kreoda.QuestRuntime.Tests
             Assert.That(target.NodesAfterSelf().Contains(alias), Is.True);
         }
         [Test]
-        public void PublicLaunchCannotReplaceSavedVoiceConfiguration()
+        public void SavedLegacyCandidateIsNotActivatedAndUntrustedLaunchCannotReplaceIt()
         {
             var root = new GameObject("voice provisioning test");
             try {
                 var voice = root.AddComponent<QuestVoice>();
                 Assert.That(voice.Configure("http://127.0.0.1:9843", "original-private-token", false), Is.True);
-                var original = typeof(QuestVoice).GetField("_client", Private).GetValue(voice);
+                Assert.That(voice.Configured, Is.False);
+                Assert.That(typeof(QuestVoice).GetField("_provider", Private).GetValue(voice), Is.Null);
+                Assert.That(typeof(QuestVoice).GetField("_legacyToken", Private).GetValue(voice), Is.EqualTo("original-private-token"));
                 var startup = typeof(QuestVoice).GetMethod("ApplyStartupConfiguration", Private);
                 Assert.That(startup, Is.Not.Null);
                 Assert.That(startup.Invoke(voice, new object[] { "com.unity3d.player.UnityPlayerActivity", "http://127.0.0.1:9999", "replacement-private-token" }), Is.EqualTo(false));
-                Assert.That(typeof(QuestVoice).GetField("_client", Private).GetValue(voice), Is.SameAs(original));
+                Assert.That(typeof(QuestVoice).GetField("_client", Private).GetValue(voice), Is.Null);
+                Assert.That(typeof(QuestVoice).GetField("_legacyEndpoint", Private).GetValue(voice), Is.EqualTo("http://127.0.0.1:9843"));
+                Assert.That(typeof(QuestVoice).GetField("_legacyToken", Private).GetValue(voice), Is.EqualTo("original-private-token"));
             } finally { UnityEngine.Object.DestroyImmediate(root); }
         }
+
         [Test]
-        public void FocusLossDiscardsQueuedReplyAndDestroysOnlyOwnedPlayback()
+        public void VoiceReadinessRetryBackoffIsBounded()
+        {
+            var delay = typeof(QuestVoice).GetMethod("ProbeDelaySeconds", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(delay, Is.Not.Null);
+            Assert.That(new[] { 0, 1, 2, 3, 4, 99 }.Select(value => (int)delay.Invoke(null, new object[] { value })),
+                Is.EqualTo(new[] { 1, 2, 5, 10, 10, 10 }));
+        }
+
+        [Test]
+        public void BeforeSendSourceStampRejectsClientOrGenerationChangeBeforeUpdate()
+        {
+            var guard = typeof(QuestVoice).GetMethod("SourceStampMatches", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(guard, Is.Not.Null);
+            var connectionA = new object();var clientA = new object();var clientB = new object();
+            var stamp = new object[] { 5L, 5L, connectionA, connectionA, clientA, clientA,
+                true, 17L, 17L, true, "session-a", "doc-a", "session-a", "doc-a" };
+            var oldActions = 0;
+            TestDelegate beforeSend = () =>
+            {
+                if (!(bool)guard.Invoke(null, stamp)) throw new OperationCanceledException();
+                oldActions++;
+            };
+
+            stamp[2] = new object();
+            Assert.Throws<OperationCanceledException>(beforeSend);
+            Assert.That(oldActions, Is.Zero);
+
+            stamp[2] = connectionA;
+            stamp[4] = clientB;
+            Assert.Throws<OperationCanceledException>(beforeSend);
+            Assert.That(oldActions, Is.Zero);
+
+            stamp[4] = clientA;
+            stamp[7] = 18L;
+            Assert.Throws<OperationCanceledException>(beforeSend);
+            Assert.That(oldActions, Is.Zero);
+        }
+
+        [Test]
+        public void FocusLossCancelsRunAndDestroysOnlyOwnedPlayback()
         {
             var root = new GameObject("voice test");
             try {
@@ -50,11 +94,9 @@ namespace Kreoda.QuestRuntime.Tests
                 typeof(QuestVoice).GetField("_ownedClip", Private).SetValue(voice, clip);voice.Audio.clip = clip;
                 var run = new CancellationTokenSource();var token = run.Token;
                 typeof(QuestVoice).GetField("_run", Private).SetValue(voice, run);
-                var ticket = (long)typeof(QuestVoice).GetField("_ticket", Private).GetValue(voice);var callbacks = 0;
-                typeof(QuestVoice).GetMethod("Post", Private).Invoke(voice, new object[] { ticket, (Action)(() => callbacks++) });
                 typeof(QuestVoice).GetMethod("OnApplicationFocus", Private).Invoke(voice, new object[] { false });
                 typeof(QuestVoice).GetMethod("Update", Private).Invoke(voice, null);
-                Assert.That(token.IsCancellationRequested, Is.True);Assert.That(callbacks, Is.Zero);
+                Assert.That(token.IsCancellationRequested, Is.True);
                 Assert.That(clip == null, Is.True);Assert.That(voice.Audio.clip, Is.Null);
                 Assert.That(voice.Recording, Is.False);Assert.That(voice.Busy, Is.False);
             } finally { UnityEngine.Object.DestroyImmediate(root); }

@@ -5,13 +5,16 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using Google.FlatBuffers;
 using Kreoda.Protocol;
 using Kreoda.QuestFoundation;
 using Kreoda.Session;
+using Kreoda.Session.Generated;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -21,7 +24,162 @@ namespace Kreoda.QuestRuntime.Tests
 {
     public class QuestConnectionTests
     {
+        [Test]
+        public void AuthoritativeBodyVisibilityExcludesHiddenTipsButKeepsLegacyVisible()
+        {
+            Assert.That(QuestConnection.ShouldRenderBody(new BodyDescriptor { BodyId = "a", Tip = "tip-a", Visible = false }), Is.False);
+            Assert.That(QuestConnection.ShouldRenderBody(new BodyDescriptor { BodyId = "b", Tip = "tip-b", Visible = true }), Is.True);
+            Assert.That(QuestConnection.ShouldRenderBody(new BodyDescriptor { BodyId = "c", Tip = "tip-c", Visible = null }), Is.True);
+        }
+
+        [Test]
+        public void SurfacePresentationUsesCanonicalKindsAndDirectInstanceSourceOnly()
+        {
+            var features = new[]
+            {
+                new FeatureDescriptor { FeatureId = "surface", Type = "SurfaceExtrude" },
+                new FeatureDescriptor { FeatureId = "sewn-surface", Type = "SurfaceSew" },
+                new FeatureDescriptor { FeatureId = "offset-surface", Type = "SurfaceOffset" },
+                new FeatureDescriptor { FeatureId = "sweep-surface", Type = "SurfaceSweep" },
+                new FeatureDescriptor { FeatureId = "trim-surface", Type = "SurfaceTrim" },
+                new FeatureDescriptor { FeatureId = "extend-surface", Type = "SurfaceExtend" },
+                new FeatureDescriptor { FeatureId = "sweep-instance", Type = "Instance", DependsOn = new[] { "sweep-surface" } },
+                new FeatureDescriptor { FeatureId = "offset-instance", Type = "Instance", DependsOn = new[] { "offset-surface" } },
+                new FeatureDescriptor { FeatureId = "trim-instance", Type = "Instance", DependsOn = new[] { "trim-surface" } },
+                new FeatureDescriptor { FeatureId = "extend-instance", Type = "Instance", DependsOn = new[] { "extend-surface" } },
+                new FeatureDescriptor { FeatureId = "instance", Type = "Instance", DependsOn = new[] { "surface" } },
+                new FeatureDescriptor { FeatureId = "nested", Type = "Instance", DependsOn = new[] { "instance" } },
+                new FeatureDescriptor { FeatureId = "sewn", Type = "SurfaceLoftSewnSolid" },
+                new FeatureDescriptor { FeatureId = "sewn-solid", Type = "SurfaceSewnSolid" },
+                new FeatureDescriptor { FeatureId = "thickened", Type = "SurfaceFaceThicken" },
+                new FeatureDescriptor { FeatureId = "thickened-body", Type = "SurfaceThicken" },
+                new FeatureDescriptor { FeatureId = "thickened-instance", Type = "Instance", DependsOn = new[] { "thickened-body" } },
+                new FeatureDescriptor { FeatureId = "sewn-solid-instance", Type = "Instance", DependsOn = new[] { "sewn-solid" } },
+                new FeatureDescriptor { FeatureId = "trim-lookalike", Type = "SurfaceTrimPreview" },
+                new FeatureDescriptor { FeatureId = "extend-lookalike", Type = "SurfaceExtendSewnSolid" },
+                new FeatureDescriptor { FeatureId = "empty-instance", Type = "Instance", DependsOn = Array.Empty<string>() },
+                new FeatureDescriptor { FeatureId = "null-owner-instance", Type = "Instance", DependsOn = new string[] { null } },
+                new FeatureDescriptor { FeatureId = "multiple-owner-instance", Type = "Instance", DependsOn = new[] { "trim-surface", "extend-surface" } },
+                new FeatureDescriptor { FeatureId = "missing-owner-instance", Type = "Instance", DependsOn = new[] { "missing-owner" } },
+                new FeatureDescriptor { FeatureId = "cycle", Type = "Instance", DependsOn = new[] { "cycle" } },
+            };
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "surface"), Is.True);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "sewn-surface"), Is.True);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "offset-surface"), Is.True);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "sweep-surface"), Is.True);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "trim-surface"), Is.True);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "extend-surface"), Is.True);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "sweep-instance"), Is.True);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "offset-instance"), Is.True);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "trim-instance"), Is.True);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "extend-instance"), Is.True);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "instance"), Is.True);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "nested"), Is.False,
+                "nested instances remain unsupported by the CAD contract");
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "sewn"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "sewn-solid"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "thickened"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "thickened-body"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "thickened-instance"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "sewn-solid-instance"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "trim-lookalike"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "extend-lookalike"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "empty-instance"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "null-owner-instance"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "multiple-owner-instance"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "missing-owner-instance"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "cycle"), Is.False);
+            Assert.That(QuestConnection.IsSurfaceFeature(features, "missing"), Is.False);
+        }
         const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+        static void DestroyRoot(GameObject root)
+        {
+            // EditMode fixtures call Reconnect without Awake. Explicitly stop
+            // those workers before Unity removes the native component; otherwise
+            // their reconnect loops can reach the next fixture's UDP listener.
+            foreach (var connection in root.GetComponentsInChildren<QuestConnection>(true))
+                typeof(QuestConnection).GetMethod("OnDestroy", Private).Invoke(connection, null);
+            Object.DestroyImmediate(root);
+        }
+
+        [Test]
+        public void ExplicitEditorShutdownIsIdempotent()
+        {
+            var root = new GameObject("Explicit shutdown fixture");
+            var connection = root.AddComponent<QuestConnection>();
+            typeof(QuestConnection).GetField("_run", Private).SetValue(connection, new CancellationTokenSource());
+            var shutdown = typeof(QuestConnection).GetMethod("OnDestroy", Private);
+            try
+            {
+                Assert.DoesNotThrow(() => shutdown.Invoke(connection, null));
+                Assert.DoesNotThrow(() => shutdown.Invoke(connection, null));
+            }
+            finally { DestroyRoot(root); }
+        }
+
+        [Test]
+        public void StartingNewDiscoveryClearsStalePeersButRetainsSelectedStablePcIdentity()
+        {
+            var root = new GameObject("Discovery generation fixture");
+            try
+            {
+                var connection = root.AddComponent<QuestConnection>();
+                var selected = new DiscoveredSessionPc(Guid.NewGuid().ToString("D"), "Duplicate studio",
+                    new Uri("ws://127.0.0.1:44101"), new Uri("http://127.0.0.1:44102/pair"));
+                var other = new DiscoveredSessionPc(Guid.NewGuid().ToString("D"), "Duplicate studio",
+                    new Uri("ws://127.0.0.1:44103"), new Uri("http://127.0.0.1:44104/pair"));
+                typeof(QuestConnection).GetProperty("AvailablePcs").SetValue(connection,
+                    new[] { other, selected });
+                connection.SelectPc(selected.PcId);
+                Assert.That(connection.AvailablePcs, Is.Empty,
+                    "A new scan must not display stale peers from the prior generation");
+                Assert.That(typeof(QuestConnection).GetField("_chosenPcId", Private).GetValue(connection),
+                    Is.EqualTo(selected.PcId), "same-name devices must retain exact selected identity");
+            }
+            finally { DestroyRoot(root); }
+        }
+
+        [Test]
+        public void ForgetDoesNotClearActiveIdentityWhenCacheRemovalFailsAndDeviceFileIsMissing()
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "kreoda-forget-failure-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            var file = Path.Combine(directory, "device.dat");
+            var root = new GameObject("Forget storage failure fixture");
+            try
+            {
+                var connection = root.AddComponent<QuestConnection>();
+                typeof(QuestConnection).GetField("_credentialFile", Private).SetValue(connection, file);
+                var savedType = typeof(QuestConnection).GetNestedType("SavedDevice", BindingFlags.NonPublic);
+                var saved = Activator.CreateInstance(savedType, true);
+                var pcId = Guid.NewGuid().ToString("D");
+                savedType.GetField("PcId").SetValue(saved, pcId);
+                typeof(QuestConnection).GetField("_saved", Private).SetValue(connection, saved);
+
+                var assembly = typeof(QuestConnection).Assembly;
+                var recordType = assembly.GetType("Kreoda.QuestRuntime.QuestPcCredentialRecord");
+                var store = assembly.GetType("Kreoda.QuestRuntime.QuestPcCredentials");
+                var record = Activator.CreateInstance(recordType, true);
+                var fields = new[] { "PcId", "Name", "Endpoint", "DeviceId", "Credential", "LogicalId", "InstallationId" };
+                var values = new[] { pcId, "Studio", "ws://127.0.0.1:9842/", "device-a", new string('a', 43),
+                    "client-" + Guid.NewGuid().ToString("D"), Guid.NewGuid().ToString("D") };
+                for (var i = 0; i < fields.Length; i++)
+                    recordType.GetField(fields[i], BindingFlags.Instance | BindingFlags.NonPublic).SetValue(record, values[i]);
+                var records = Array.CreateInstance(recordType, 1);records.SetValue(record, 0);
+                var cache = file + ".pcs";
+                store.GetMethod("Write", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { cache, records });
+                Directory.CreateDirectory(cache + ".tmp"); // File.Replace cannot write the replacement.
+                Assert.That(File.Exists(file), Is.False, "exercise missing active device file");
+
+                connection.Forget();
+
+                Assert.That(typeof(QuestConnection).GetField("_saved", Private).GetValue(connection), Is.SameAs(saved));
+                Assert.That(connection.Status, Does.Contain("non dimenticato"));
+                Assert.That(((IDictionary)store.GetMethod("Read", BindingFlags.Static | BindingFlags.NonPublic)
+                    .Invoke(null, new object[] { cache })).Contains(pcId), Is.True);
+            }
+            finally { DestroyRoot(root);Directory.Delete(directory, true); }
+        }
 
         [Test]
         public void DeviceFileMigratesLegacyCredentialsAndAtomicallyRetainsAutomaticIdentity()
@@ -56,7 +214,7 @@ namespace Kreoda.QuestRuntime.Tests
                 Assert.That(Guid.TryParse((string)type.GetField("InstallationId").GetValue(current), out _), Is.True);
                 Assert.That(File.Exists(file + ".tmp"), Is.False);
             }
-            finally { Object.DestroyImmediate(root);Directory.Delete(directory, true); }
+            finally { DestroyRoot(root);Directory.Delete(directory, true); }
         }
 
         [Test]
@@ -130,7 +288,7 @@ namespace Kreoda.QuestRuntime.Tests
                 Assert.That(connection.DatumViews.Count, Is.EqualTo(1), "offline guide may stay visible");
                 Assert.That(connection.IsCurrentDatum(replacementView), Is.False, "offline guide cannot publish or feed voice");
             }
-            finally { run.Dispose();Object.DestroyImmediate(root); }
+            finally { DestroyRoot(root);run.Dispose(); }
         }
 
         [TestCase("INVALID_JSON")]
@@ -202,6 +360,7 @@ namespace Kreoda.QuestRuntime.Tests
         [UnityTest] public IEnumerator LostBootstrapAcknowledgementReusesPendingIdentityAfterRestart() => ExercisePcSwitch("lost-ack");
         [UnityTest] public IEnumerator CorruptOptionalCachePreservesActivePcIdentity() => ExercisePcSwitch("corrupt");
         [UnityTest] public IEnumerator ActiveCredentialStorageFailurePreservesPriorPc() => ExercisePcSwitch("active-storage");
+        [UnityTest] public IEnumerator UnreachableLegacySetupAutomaticallyEnrollsUniquePcWithFreshSecret() => ExercisePcSwitch("legacy-offline");
         IEnumerator ExercisePcSwitch(string mode = null)
         {
             var repository = Path.GetFullPath(Path.Combine(Application.dataPath, "../../.."));
@@ -223,9 +382,46 @@ namespace Kreoda.QuestRuntime.Tests
                 Assert.That(ready.IsCompleted, Is.True, "two-PC fixture did not start");
                 var connection = root.AddComponent<QuestConnection>();
                 typeof(QuestConnection).GetField("_credentialFile", Private).SetValue(connection, credentials);
+                if (mode == "legacy-offline")
+                {
+                    var unused = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+                    unused.Start();var port = ((IPEndPoint)unused.LocalEndpoint).Port;unused.Stop();
+                    using (var writer = new BinaryWriter(File.Create(credentials)))
+                    {
+                        writer.Write(1);writer.Write("ws://127.0.0.1:" + port);writer.Write("device-old");
+                        writer.Write(new string('L', 43));writer.Write("client-" + Guid.NewGuid().ToString("D"));
+                    }
+                    typeof(QuestConnection).GetField("_saved", Private).SetValue(connection,
+                        typeof(QuestConnection).GetMethod("ReadDevice", Private).Invoke(connection, null));
+                }
                 var update = typeof(QuestConnection).GetMethod("Update", Private);
                 connection.Reconnect();
                 wait.Restart();
+                if (mode == "legacy-offline")
+                {
+                    while (!connection.Connected && wait.Elapsed.TotalSeconds < 15)
+                    { update.Invoke(connection, null);yield return null; }
+                    Assert.That(connection.Connected, Is.True, connection.Status);
+                    Assert.That(connection.AvailablePcs.Single().PcId, Is.EqualTo(pcAIdForTest));
+                    var saved = typeof(QuestConnection).GetMethod("ReadDevice", Private).Invoke(connection, null);
+                    Assert.That(saved.GetType().GetField("Credential").GetValue(saved), Is.Not.EqualTo(new string('L', 43)));
+                    Assert.That(saved.GetType().GetField("PcId").GetValue(saved), Is.EqualTo(pcAIdForTest));
+                    var legacyAuditTask = ReadFixtureAuditAsync(connection.AvailablePcs.Single().Bootstrap);
+                    wait.Restart();
+                    while (!legacyAuditTask.IsCompleted && wait.Elapsed.TotalSeconds < 5) yield return null;
+                    Assert.That(legacyAuditTask.IsCompletedSuccessfully, Is.True);
+                    using var audit = legacyAuditTask.GetAwaiter().GetResult();
+                    var bootstraps = audit.RootElement.GetProperty("bootstraps").EnumerateArray().ToArray();
+                    Assert.That(bootstraps.Length, Is.GreaterThanOrEqualTo(1));
+                    Assert.That(bootstraps.Select(item => item.GetProperty("credential").GetString()).Distinct().Count(), Is.EqualTo(1),
+                        "Bootstrap installations: " + string.Join(",", bootstraps.Select(item => item.GetProperty("installationId").GetString())) +
+                        "; saved installation: " + saved.GetType().GetField("InstallationId").GetValue(saved) +
+                        "; live connections: " + string.Join(",", Object.FindObjectsByType<QuestConnection>(FindObjectsSortMode.None).Select(item => item.name)));
+                    Assert.That(bootstraps.Select(item => item.GetProperty("installationId").GetString()).Distinct().Count(), Is.EqualTo(1));
+                    Assert.That(bootstraps[0].GetProperty("credential").GetString(),
+                        Is.EqualTo(saved.GetType().GetField("Credential").GetValue(saved)).And.Not.EqualTo(new string('L', 43)));
+                    yield break;
+                }
                 while (connection.AvailablePcs.Length < 2 && wait.Elapsed.TotalSeconds < 12)
                 { update.Invoke(connection, null);yield return null; }
                 Assert.That(connection.AvailablePcs.Select(pc => pc.PcId), Does.Contain("11111111-1111-4111-8111-111111111111"));
@@ -282,6 +478,7 @@ namespace Kreoda.QuestRuntime.Tests
                     Assert.That(connection.Connected, Is.False);
                     if (mode == "lost-ack")
                     {
+                        typeof(QuestConnection).GetMethod("OnDestroy", Private).Invoke(connection, null);
                         Object.DestroyImmediate(connection);
                         connection = root.AddComponent<QuestConnection>();
                         typeof(QuestConnection).GetField("_credentialFile", Private).SetValue(connection, credentials);
@@ -342,7 +539,7 @@ namespace Kreoda.QuestRuntime.Tests
             }
             finally
             {
-                Object.DestroyImmediate(root);
+                DestroyRoot(root);
                 if (!server.HasExited) server.Kill();
                 server.WaitForExit(5000);
                 if (File.Exists(metadata)) File.Delete(metadata);
@@ -353,6 +550,8 @@ namespace Kreoda.QuestRuntime.Tests
                 }
             }
         }
+
+        const string pcAIdForTest = "11111111-1111-4111-8111-111111111111";
 
         static async System.Threading.Tasks.Task<JsonDocument> ReadFixtureAuditAsync(Uri bootstrap)
         {
@@ -368,14 +567,21 @@ namespace Kreoda.QuestRuntime.Tests
         [UnityTest]
         public IEnumerator LateReferenceReplyCannotRetargetSameUuidAfterDocumentReconnect() => ExerciseWireClient(false, true, true);
 
-        IEnumerator ExerciseWireClient(bool usbBootstrap, bool datumMode = false, bool lateLineageMode = false, string legacyDiscoveryMode = null)
+        [UnityTest]
+        public IEnumerator HealthyPauseFocusCallbacksPreserveLiveWireClient() => ExerciseWireClient(true, false, false, null, true);
+
+        IEnumerator ExerciseWireClient(bool usbBootstrap, bool datumMode = false, bool lateLineageMode = false,
+            string legacyDiscoveryMode = null, bool lifecycleResumeMode = false)
         {
             var repository = Path.GetFullPath(Path.Combine(Application.dataPath, "../../.."));
             var file = Path.Combine(repository, "packages/protocol/fixtures/native-blind-hole.meshfb");
             var raw = MeshUpdate.GetRootAsMeshUpdate(new ByteBuffer(File.ReadAllBytes(file)));
             var id = Guid.NewGuid().ToString("N");
-            var metadata = Path.Combine(Path.GetTempPath(), "kreoda-unity-wire-" + id + ".json");
-            var credentials = Path.Combine(Path.GetTempPath(), "kreoda-unity-device-" + id + ".dat");
+            var temporaryDirectory = Path.GetTempPath();
+            var profile = lifecycleResumeMode ? Path.Combine(temporaryDirectory, "quest-resume-profile-" + id) : null;
+            if (lifecycleResumeMode) Directory.CreateDirectory(profile);
+            var metadata = Path.Combine(temporaryDirectory, "kreoda-unity-wire-" + id + ".json");
+            var credentials = Path.Combine(temporaryDirectory, "kreoda-unity-device-" + id + ".dat");
             File.WriteAllText(metadata, JsonSerializer.Serialize(new { file, nativeId = raw.RequestId,
                 featureId = raw.FeatureId, revision = raw.Revision, quality = raw.Lod, datumMode,
                 rejectCommandId = datumMode && !lateLineageMode ? "CreateDatumPoint" : null,
@@ -389,6 +595,11 @@ namespace Kreoda.QuestRuntime.Tests
             var display = new GameObject("Owned CAD display");
             QuestCommands datumCommands = null;
             QuestReferences referenceForm = null;
+            FieldInfo discoveryTargetField = null;
+            object priorDiscoveryTarget = null;
+            UdpClient discoveryProbe = null;
+            Task<UdpReceiveResult> noDiscoveryRequest = null;
+            var priorEditorDataDirectory = Environment.GetEnvironmentVariable("KREODA_EDITOR_DATA_DIR");
             display.transform.SetParent(root.transform);
             try
             {
@@ -401,7 +612,17 @@ namespace Kreoda.QuestRuntime.Tests
                 var ip = Dns.GetHostAddresses(Dns.GetHostName()).FirstOrDefault(candidate =>
                     QuestConnectionInput.TryEndpoint("ws://" + candidate + ":" + port, out _));
                 Assert.That(ip, Is.Not.Null, "test PC has no assigned private IPv4");
+                if (lifecycleResumeMode) Environment.SetEnvironmentVariable("KREODA_EDITOR_DATA_DIR", profile);
                 var connection = root.AddComponent<QuestConnection>();
+                if (lifecycleResumeMode)
+                {
+                    Environment.SetEnvironmentVariable("KREODA_EDITOR_DATA_DIR", priorEditorDataDirectory);
+                    discoveryTargetField = typeof(QuestConnection).GetField("_editorDiscoveryTestTarget", C2PrivateStatic);
+                    Assert.That(discoveryTargetField, Is.Not.Null, "Editor-only local discovery target must exist");
+                    priorDiscoveryTarget = discoveryTargetField.GetValue(null);
+                    discoveryProbe = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+                    discoveryTargetField.SetValue(null, discoveryProbe.Client.LocalEndPoint);
+                }
                 connection.DisplayRoot = display.transform;
                 typeof(QuestConnection).GetField("_credentialFile", BindingFlags.Instance | BindingFlags.NonPublic)
                     .SetValue(connection, credentials);
@@ -425,6 +646,33 @@ namespace Kreoda.QuestRuntime.Tests
                 var firstMesh = view.GetComponent<MeshFilter>().sharedMesh;
                 Assert.That(firstMesh.triangles.Length / 3, Is.EqualTo(264));
                 Assert.That(view.ResolveFace(203).ReferenceAmbiguous, Is.True);
+                if (lifecycleResumeMode)
+                {
+                    var runField = typeof(QuestConnection).GetField("_run", Private);
+                    var run = runField.GetValue(connection);
+                    var client = connection.Client;
+                    var generation = connection.ConnectionGeneration;
+                    Assert.That(client, Is.Not.Null);
+                    Assert.That(client.IsConnected, Is.True, "fixture must hold a real live SessionClient transport");
+                    noDiscoveryRequest = discoveryProbe.ReceiveAsync();
+                    var pause = typeof(QuestConnection).GetMethod("OnApplicationPause", Private);
+                    var focus = typeof(QuestConnection).GetMethod("OnApplicationFocus", Private);
+                    pause.Invoke(connection, new object[] { true });
+                    focus.Invoke(connection, new object[] { false });
+                    focus.Invoke(connection, new object[] { true });
+                    pause.Invoke(connection, new object[] { false });
+                    focus.Invoke(connection, new object[] { true });
+                    Assert.That(runField.GetValue(connection), Is.SameAs(run), "healthy resume must retain the active run");
+                    Assert.That(connection.Client, Is.SameAs(client), "healthy resume must keep the real client");
+                    Assert.That(connection.ConnectionGeneration, Is.EqualTo(generation));
+                    Assert.That(connection.Connected, Is.True);
+                    wait.Restart();
+                    while (!noDiscoveryRequest.IsCompleted && wait.Elapsed.TotalMilliseconds < 500) yield return null;
+                    Assert.That(noDiscoveryRequest.IsCompleted, Is.False,
+                        "healthy resume must not start discovery or interrupt the live transport");
+                    ObserveUdpReceive(noDiscoveryRequest);
+                    yield break;
+                }
                 var editIntents = connection.EditIntentsAsync(view);
                 wait.Restart();
                 while (!editIntents.IsCompleted && wait.Elapsed.TotalSeconds < 10) yield return null;
@@ -529,6 +777,8 @@ namespace Kreoda.QuestRuntime.Tests
                         Assert.That(wait.Elapsed.TotalSeconds, Is.LessThan(10), commands.Status);
                         yield return null;
                     }
+                    commands.Confirm();
+                    Assert.That(commands.Status, Does.Contain("Conferma di nuovo"));
                     commands.Confirm();
                     yield return WaitFor(() => !commands.Busy, () => { commandUpdate.Invoke(commands, null);update.Invoke(connection, null); }, wait,
                         "CreateSketch did not finish through the PC-bound support path");
@@ -707,6 +957,8 @@ namespace Kreoda.QuestRuntime.Tests
                     while (!values.TryGetValue("planeKind", out var rebound) || rebound.ToString() != "XZ")
                     { commandUpdate.Invoke(datumCommands, null);Assert.That(wait.Elapsed.TotalSeconds, Is.LessThan(10), "new connection must reload PC bindings");yield return null; }
                     datumCommands.Confirm();
+                    Assert.That(datumCommands.Status, Does.Contain("Conferma di nuovo"));
+                    datumCommands.Confirm();
                     wait.Restart();
                     while (datumCommands.Busy && wait.Elapsed.TotalSeconds < 10)
                     { commandUpdate.Invoke(datumCommands, null);update.Invoke(connection, null);yield return null; }
@@ -730,12 +982,158 @@ namespace Kreoda.QuestRuntime.Tests
             }
             finally
             {
-                Object.DestroyImmediate(root);
+                DestroyRoot(root);
+                if (discoveryTargetField != null) discoveryTargetField.SetValue(null, priorDiscoveryTarget);
+                if (discoveryProbe != null)
+                {
+                    if (noDiscoveryRequest != null) ObserveUdpReceive(noDiscoveryRequest);
+                    discoveryProbe.Dispose();
+                }
                 if (!server.HasExited) server.Kill();
                 server.WaitForExit(5000);
                 if (File.Exists(metadata)) File.Delete(metadata);
                 if (File.Exists(credentials)) File.Delete(credentials);
+                foreach (var path in new[] { credentials + ".pcs", credentials + ".pcs.tmp", credentials + ".tmp" })
+                    if (File.Exists(path)) File.Delete(path);
+                if (profile != null)
+                {
+                    var saved = Path.Combine(profile, "kreoda-device.dat");
+                    if (File.Exists(saved)) File.Delete(saved);
+                    if (File.Exists(saved + ".tmp")) File.Delete(saved + ".tmp");
+                    if (Directory.Exists(profile) && !Directory.EnumerateFileSystemEntries(profile).Any()) Directory.Delete(profile);
+                }
+                Environment.SetEnvironmentVariable("KREODA_EDITOR_DATA_DIR", priorEditorDataDirectory);
             }
+        }
+
+        const BindingFlags C2PrivateStatic = BindingFlags.Static | BindingFlags.NonPublic;
+        const BindingFlags C2AllInstance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+        static object SavedDevice(string pcId, string endpoint)
+        {
+            var type = typeof(QuestConnection).GetNestedType("SavedDevice", BindingFlags.NonPublic);
+            var value = Activator.CreateInstance(type, true);
+            type.GetField("PcId", C2AllInstance).SetValue(value, pcId);
+            type.GetField("Endpoint", C2AllInstance).SetValue(value, endpoint);
+            return value;
+        }
+
+        static object PcCredentialRecord(string pcId, string endpoint)
+        {
+            var type = typeof(QuestConnection).Assembly.GetType("Kreoda.QuestRuntime.QuestPcCredentialRecord");
+            var value = Activator.CreateInstance(type, true);
+            type.GetField("PcId", C2AllInstance).SetValue(value, pcId);
+            type.GetField("Endpoint", C2AllInstance).SetValue(value, endpoint);
+            return value;
+        }
+
+        static System.Collections.IDictionary PcCredentialRecords(params object[] records)
+        {
+            var recordType = typeof(QuestConnection).Assembly.GetType("Kreoda.QuestRuntime.QuestPcCredentialRecord");
+            var dictionaryType = typeof(System.Collections.Generic.Dictionary<,>).MakeGenericType(typeof(string), recordType);
+            var values = (System.Collections.IDictionary)Activator.CreateInstance(dictionaryType);
+            foreach (var record in records)
+                values.Add(recordType.GetField("PcId", C2AllInstance).GetValue(record), record);
+            return values;
+        }
+
+        static System.Net.IPAddress KnownHostHint(string requestedPcId, object saved, System.Collections.IDictionary records)
+        {
+            var method = typeof(QuestConnection).GetMethod("KnownHostHint", C2PrivateStatic);
+            return (System.Net.IPAddress)method.Invoke(null, new[] { requestedPcId, saved, records });
+        }
+
+        static void ObserveUdpReceive(Task task) => task.ContinueWith(completed =>
+            completed.Exception?.Handle(_ => true), TaskContinuationOptions.OnlyOnFaulted);
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void PauseFocusCallbackOrdersCoalesceAndRetainRequestedPc(bool focusReturnsFirst)
+        {
+            var root = new GameObject("Resume callback fixture");
+            using var discovery = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+            var discoveryTarget = typeof(QuestConnection).GetField("_editorDiscoveryTestTarget", C2PrivateStatic);
+            var priorDiscoveryTarget = discoveryTarget.GetValue(null);
+            using var previousRun = new CancellationTokenSource();
+            var previousToken = previousRun.Token;
+            var retryBackoff = Task.Delay(TimeSpan.FromSeconds(30), previousToken);
+            try
+            {
+                discoveryTarget.SetValue(null, discovery.Client.LocalEndPoint);
+                var connection = root.AddComponent<QuestConnection>();
+                const string requestedPc = "22222222-2222-4222-8222-222222222222";
+                typeof(QuestConnection).GetField("_chosenPcId", Private).SetValue(connection, requestedPc);
+                typeof(QuestConnection).GetField("_credentialFile", Private).SetValue(connection,
+                    Path.Combine(Path.GetTempPath(), "kreoda-resume-" + Guid.NewGuid().ToString("N") + ".dat"));
+                var runField = typeof(QuestConnection).GetField("_run", Private);
+                runField.SetValue(connection, previousRun);
+                var generation = connection.ConnectionGeneration;
+                var pause = typeof(QuestConnection).GetMethod("OnApplicationPause", Private);
+                var focus = typeof(QuestConnection).GetMethod("OnApplicationFocus", Private);
+
+                pause.Invoke(connection, new object[] { true });
+                focus.Invoke(connection, new object[] { false });
+                Assert.That(previousToken.IsCancellationRequested, Is.False, "pause alone keeps the pending attempt");
+                (focusReturnsFirst ? focus : pause).Invoke(connection, new object[] { focusReturnsFirst });
+                var resumedRun = (CancellationTokenSource)runField.GetValue(connection);
+                Assert.That(previousToken.IsCancellationRequested, Is.True, "real return callback must cancel old retry backoff");
+                Assert.That(retryBackoff.IsCanceled, Is.True);
+                Assert.That(resumedRun, Is.Not.Null.And.Not.SameAs(previousRun));
+                Assert.That(connection.ConnectionGeneration, Is.GreaterThan(generation), "invalidate the old scene generation");
+                Assert.That(typeof(QuestConnection).GetField("_chosenPcId", Private).GetValue(connection), Is.EqualTo(requestedPc));
+
+                focus.Invoke(connection, new object[] { true });
+                pause.Invoke(connection, new object[] { false });
+                focus.Invoke(connection, new object[] { true });
+                Assert.That(runField.GetValue(connection), Is.SameAs(resumedRun), "callback duplicates must retain the one fresh run");
+                Assert.That(resumedRun.IsCancellationRequested, Is.False);
+            }
+            finally
+            {
+                DestroyRoot(root);
+                discoveryTarget.SetValue(null, priorDiscoveryTarget);
+                try { previousRun.Cancel(); } catch (ObjectDisposedException) { }
+            }
+        }
+
+        [Test]
+        public void InitialAndFocusOnlyCallbacksDoNotStartAnAttempt()
+        {
+            var root = new GameObject("Initial focus fixture");
+            try
+            {
+                var connection = root.AddComponent<QuestConnection>();
+                var pause = typeof(QuestConnection).GetMethod("OnApplicationPause", Private);
+                var focus = typeof(QuestConnection).GetMethod("OnApplicationFocus", Private);
+                pause.Invoke(connection, new object[] { false });
+                focus.Invoke(connection, new object[] { false });
+                focus.Invoke(connection, new object[] { true });
+                Assert.That(typeof(QuestConnection).GetField("_run", Private).GetValue(connection), Is.Null);
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void DiscoveryHintFollowsRequestedPcAndNeverFallsBackToAnotherPcHost()
+        {
+            const string pcA = "11111111-1111-4111-8111-111111111111";
+            const string pcB = "22222222-2222-4222-8222-222222222222";
+            var savedA = SavedDevice(pcA, "ws://127.0.0.1:9842/");
+            var records = PcCredentialRecords(PcCredentialRecord(pcA, "ws://127.0.0.1:9842/"),
+                PcCredentialRecord(pcB, "ws://127.0.0.2:9922/"));
+            Assert.That(KnownHostHint(pcB, savedA, records).ToString(), Is.EqualTo("127.0.0.2"));
+            Assert.That(KnownHostHint(pcB, savedA, PcCredentialRecords(PcCredentialRecord(pcA, "ws://127.0.0.1:9842/"))), Is.Null,
+                "a requested PC without its own cached endpoint must not inherit the active PC host");
+        }
+
+        [Test]
+        public void DiscoveryHintSupportsSavedPcAndLegacyEndpointButFiltersPublicHosts()
+        {
+            const string pcId = "22222222-2222-4222-8222-222222222222";
+            var saved = SavedDevice(pcId, "ws://127.0.0.1:9842/");
+            Assert.That(KnownHostHint(null, saved, PcCredentialRecords()).ToString(), Is.EqualTo("127.0.0.1"));
+            Assert.That(KnownHostHint(null, SavedDevice("", "ws://127.0.0.2:9842/"), PcCredentialRecords()).ToString(), Is.EqualTo("127.0.0.2"));
+            Assert.That(KnownHostHint(null, SavedDevice(pcId, "ws://8.8.8.8:9842/"), PcCredentialRecords()), Is.Null);
         }
     }
 }

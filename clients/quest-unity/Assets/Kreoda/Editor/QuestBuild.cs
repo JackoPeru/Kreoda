@@ -95,6 +95,8 @@ namespace Kreoda.QuestEditor
             var controls = new GameObject("Compact Quest controls").AddComponent<QuestControls>();
             controls.Connection = connection;
             controls.Home = controls.gameObject.AddComponent<QuestHome>();
+            controls.AssemblyMates = controls.gameObject.AddComponent<QuestAssemblyMates>();
+            controls.AssemblyMates.Connection = connection;
             controls.Rig = rig;
             controls.LeftHand = left;
             controls.RightHand = right;
@@ -260,6 +262,22 @@ namespace Kreoda.QuestEditor
             AssetDatabase.SaveAssets();
         }
 
+        public static void WireAssemblyMates()
+        {
+            if (!File.Exists(ScenePath)) throw new InvalidOperationException("Saved Quest scene is missing; prepare it first");
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var controls = UnityEngine.Object.FindFirstObjectByType<QuestControls>();
+            if (controls == null || controls.Connection == null) throw new InvalidOperationException("Saved Quest scene has no connected QuestControls");
+            var mates = controls.GetComponent<QuestAssemblyMates>() ?? controls.gameObject.AddComponent<QuestAssemblyMates>();
+            controls.AssemblyMates = mates;
+            mates.Connection = controls.Connection;
+            EditorUtility.SetDirty(controls);
+            EditorUtility.SetDirty(mates);
+            EditorSceneManager.MarkSceneDirty(scene);
+            if (!EditorSceneManager.SaveScene(scene, ScenePath)) throw new IOException("Could not save Quest assembly mate wiring");
+            AssetDatabase.SaveAssets();
+        }
+
         static void ValidatePrepared()
         {
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
@@ -270,6 +288,8 @@ namespace Kreoda.QuestEditor
             var centralCamera = controls != null && controls.Rig != null && controls.Rig.centerEyeAnchor != null
                 ? controls.Rig.centerEyeAnchor.GetComponent<Camera>() : null;
             if (connection == null || controls == null || controls.Connection != connection || controls.Home == null ||
+                controls.AssemblyMates == null || controls.AssemblyMates != controls.GetComponent<QuestAssemblyMates>() ||
+                controls.AssemblyMates.Connection != connection ||
                 controls.Home != controls.GetComponent<QuestHome>() || controls.PanelMaterial == null || controls.ButtonMaterial == null ||
                 controls.PanelMaterial.shader == null || controls.PanelMaterial.shader.name != "Kreoda/QuestUi" ||
                 controls.ButtonMaterial.shader == null || controls.ButtonMaterial.shader.name != "Kreoda/QuestUi" || controls.Rig == null ||

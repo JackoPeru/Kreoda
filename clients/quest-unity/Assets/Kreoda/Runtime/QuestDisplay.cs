@@ -24,6 +24,12 @@ namespace Kreoda.QuestRuntime
         float _oldCalibration;
         bool _hasAnchor, _oldHasAnchor, _candidateTracked, _preferencesReady, _firstModel;
         GameObject _marker;
+        readonly Transform[] _footprintEdges = new Transform[4];
+        // Direction arrows distinguish the two real CAD horizontal axes while
+        // the user rotates the footprint. They are a non-interactive placement
+        // instrument, not additional targets or a fabricated compass bearing.
+        readonly Transform[] _footprintAxes = new Transform[6];
+        Material _footprintGlass;
 
         void Start()
         {
@@ -48,6 +54,14 @@ namespace Kreoda.QuestRuntime
             {
                 if (view == null || view.BboxMetres == null) continue;
                 var box = view.BboxMetres;
+                // A malformed or stale CAD bounding box must not become a
+                // physical contact guide or throw during a Quest gesture.
+                if (box.Length != 6 ||
+                    double.IsNaN(box[0]) || double.IsNaN(box[1]) || double.IsNaN(box[2]) ||
+                    double.IsNaN(box[3]) || double.IsNaN(box[4]) || double.IsNaN(box[5]) ||
+                    double.IsInfinity(box[0]) || double.IsInfinity(box[1]) || double.IsInfinity(box[2]) ||
+                    double.IsInfinity(box[3]) || double.IsInfinity(box[4]) || double.IsInfinity(box[5]) ||
+                    box[3] < box[0] || box[4] < box[1] || box[5] < box[2]) continue;
                 min = Vector3.Min(min, new Vector3((float)box[0], (float)box[1], (float)box[2]));
                 max = Vector3.Max(max, new Vector3((float)box[3], (float)box[4], (float)box[5]));
                 found = true;
@@ -69,7 +83,7 @@ namespace Kreoda.QuestRuntime
         void ApplyContact()
         {
             Root.position = _anchor - Root.rotation * Vector3.Scale(_localContact, Root.localScale);
-            if (_marker != null) _marker.transform.position = _anchor;
+            UpdatePlacementFootprint();
         }
 
         public bool SetScale(string name)
@@ -107,31 +121,138 @@ namespace Kreoda.QuestRuntime
             PlacementActive = FollowPointer = true;
             SetPreviewStyle(true);
             _candidateTracked = false;
-            Status = "Controller sul tavolo → trigger ferma\nRuota controller per orientare · poi Conferma";
-            if (MarkerMaterial != null)
-            {
-                _marker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                _marker.name = "Physical placement contact";
-                _marker.transform.localScale = Vector3.one * .012f;
-                _marker.GetComponent<Collider>().enabled = false;
-                _marker.GetComponent<MeshRenderer>().sharedMaterial = MarkerMaterial;
-            }
+            Status = "Punta sul tavolo → seleziona per fermare\nOrienta il raggio · poi Conferma";
+            CreatePlacementFootprint();
             return true;
+        }
+
+        // The footprint is the actual transformed CAD bounding rectangle at the
+        // physical contact plane, not a fabricated guide or screen overlay.
+        // Its four translucent rails and anchor dot cannot consume hand rays.
+        void CreatePlacementFootprint()
+        {
+            if (MarkerMaterial == null || !Bounds(out _, out _)) return;
+            _marker = new GameObject("Physical CAD footprint");
+            _footprintGlass = QuestUi.GlassMaterial(MarkerMaterial);
+            _footprintGlass.color = new Color(.13f, .56f, .80f, .55f);
+            var contact = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            contact.name = "Real CAD contact anchor";
+            contact.transform.SetParent(_marker.transform, false);
+            contact.transform.localScale = Vector3.one * .010f;
+            contact.GetComponent<Collider>().enabled = false;
+            contact.GetComponent<MeshRenderer>().sharedMaterial = _footprintGlass;
+            for (var index = 0; index < _footprintEdges.Length; index++)
+            {
+                var edge = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                edge.name = "CAD footprint edge " + index;
+                edge.transform.SetParent(_marker.transform, false);
+                edge.GetComponent<Collider>().enabled = false;
+                edge.GetComponent<MeshRenderer>().sharedMaterial = _footprintGlass;
+                _footprintEdges[index] = edge.transform;
+            }
+            for (var index = 0; index < _footprintAxes.Length; index++)
+            {
+                var guide = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                guide.name = "CAD local " + (index < 3 ? "X" : "Z") + " direction " + (index % 3);
+                guide.transform.SetParent(_marker.transform, false);
+                guide.GetComponent<Collider>().enabled = false;
+                guide.GetComponent<MeshRenderer>().sharedMaterial = _footprintGlass;
+                _footprintAxes[index] = guide.transform;
+            }
+            UpdatePlacementFootprint();
+        }
+
+        static void SetFootprintSegment(Transform target, Vector3 from, Vector3 to, float thickness)
+        {
+            if (target == null) return;
+            var displacement = to - from;
+            target.localPosition = (from + to) * .5f;
+            target.localRotation = Quaternion.FromToRotation(Vector3.right, displacement);
+            target.localScale = new Vector3(displacement.magnitude, thickness, thickness);
+        }
+
+        void UpdatePlacementFootprint()
+        {
+            if (_marker == null) return;
+            // Cyan means the controller is still moving the actual placement;
+            // amber means the contact is frozen awaiting user confirmation.
+            if (_footprintGlass != null)
+            {
+                var tint = FollowPointer ? new Color(.13f, .56f, .80f, .55f) :
+                    new Color(.94f, .61f, .18f, .65f);
+                if (_footprintGlass.color != tint) _footprintGlass.color = tint;
+            }
+            _marker.transform.SetPositionAndRotation(_anchor, Root.rotation);
+            if (!Bounds(out var min, out var max)) { _marker.SetActive(false); return; }
+            var width = (max.x - min.x) * Root.localScale.x;
+            var depth = (max.z - min.z) * Root.localScale.z;
+            // Never display an unbounded/degenerate preview as a plausible CAD
+            // footprint; all values originate from the current mesh bounds.
+            var valid = Finite(width) && Finite(depth) && width > .001f && depth > .001f &&
+                width < 10f && depth < 10f;
+            _marker.SetActive(valid && _candidateTracked);
+            if (!valid) return;
+            var thickness = .0018f;
+            for (var i = 0; i < _footprintEdges.Length; i++)
+            {
+                var edge = _footprintEdges[i];
+                if (edge == null) continue;
+                var horizontal = i < 2;
+                edge.localPosition = horizontal ?
+                    new Vector3(0, .001f, (i == 0 ? -1f : 1f) * depth * .5f) :
+                    new Vector3((i == 2 ? -1f : 1f) * width * .5f, .001f, 0);
+                edge.localScale = horizontal ?
+                    new Vector3(width, thickness, thickness) :
+                    new Vector3(thickness, thickness, depth);
+            }
+            // The arrowheads point along the transformed CAD +X and +Z axes.
+            // They scale with actual model bounds and disappear when too small
+            // to distinguish, instead of clipping through a narrow footprint.
+            var xLength = Mathf.Min(width * .26f, .09f);
+            var zLength = Mathf.Min(depth * .26f, .09f);
+            var xVisible = xLength >= .015f;
+            var zVisible = zLength >= .015f;
+            for (var i = 0; i < _footprintAxes.Length; i++)
+                if (_footprintAxes[i] != null) _footprintAxes[i].gameObject.SetActive(i < 3 ? xVisible : zVisible);
+            const float guideY = .0025f;
+            if (xVisible)
+            {
+                var tip = new Vector3(xLength, guideY, 0);
+                var wing = Mathf.Min(.010f, xLength * .22f);
+                SetFootprintSegment(_footprintAxes[0], new Vector3(0, guideY, 0), tip, .0015f);
+                SetFootprintSegment(_footprintAxes[1], new Vector3(xLength - wing, guideY, -wing * .55f), tip, .0015f);
+                SetFootprintSegment(_footprintAxes[2], new Vector3(xLength - wing, guideY, wing * .55f), tip, .0015f);
+            }
+            if (zVisible)
+            {
+                var tip = new Vector3(0, guideY, zLength);
+                var wing = Mathf.Min(.010f, zLength * .22f);
+                SetFootprintSegment(_footprintAxes[3], new Vector3(0, guideY, 0), tip, .0015f);
+                SetFootprintSegment(_footprintAxes[4], new Vector3(-wing * .55f, guideY, zLength - wing), tip, .0015f);
+                SetFootprintSegment(_footprintAxes[5], new Vector3(wing * .55f, guideY, zLength - wing), tip, .0015f);
+            }
         }
 
         public void UpdatePlacement(Vector3 point, float yaw, bool tracked)
         {
             if (!PlacementActive) return;
             _candidateTracked = tracked && Finite(point) && Finite(yaw);
-            if (!_candidateTracked) { Status = "Tracking perso: conferma disabilitata"; return; }
+            if (!_candidateTracked)
+            {
+                if (_marker != null) _marker.SetActive(false);
+                Status = "Tracking perso: conferma disabilitata";
+                return;
+            }
             if (FollowPointer) Place(point + Vector3.up * HeightCalibration, yaw);
+            else UpdatePlacementFootprint();
         }
 
         public void FreezePlacement()
         {
             if (!PlacementActive || !_candidateTracked) return;
             FollowPointer = !FollowPointer;
-            Status = FollowPointer ? "Muovi/ruota controller · trigger ferma" : "Punto fermato · regola quota, Conferma o Annulla";
+            UpdatePlacementFootprint();
+            Status = FollowPointer ? "Muovi/orienta il raggio · seleziona per fermare" : "Punto fermato · regola quota, Conferma o Annulla";
         }
 
         public bool ConfirmPlacement(bool tracked)
@@ -152,7 +273,7 @@ namespace Kreoda.QuestRuntime
             var prior = HeightCalibration;
             HeightCalibration = Mathf.Clamp(HeightCalibration + deltaMetres, -.1f, .1f);
             if (_hasAnchor) { _anchor.y += HeightCalibration - prior; ApplyContact(); }
-            Status = "Quota controller: " + (HeightCalibration * 1000).ToString("0") + " mm · Conferma o Annulla";
+            Status = "Quota modello: " + (HeightCalibration * 1000).ToString("0") + " mm · Conferma o Annulla";
         }
 
         public void CancelPlacement()
@@ -175,7 +296,7 @@ namespace Kreoda.QuestRuntime
             if (head == null) return;
             var forward = Vector3.ProjectOnPlane(head.forward, Vector3.up).normalized;
             if (forward.sqrMagnitude < .01f) forward = Vector3.forward;
-            Place(head.position + forward * .8f - Vector3.up * .3f, Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg);
+            Place(head.position + forward * .8f - Vector3.up * .3f, Mathf.Atan2(forward.x, forward.z) * (180f / (float)Math.PI));
             Status = "Vista centrata davanti a te";
             if (_preferencesReady) { PlayerPrefs.SetString("kreoda-placement-mode", "head"); SavePreferences(); }
         }
@@ -209,6 +330,13 @@ namespace Kreoda.QuestRuntime
             if (_marker == null) return;
             if (Application.isPlaying) Destroy(_marker); else DestroyImmediate(_marker);
             _marker = null;
+            for (var i = 0; i < _footprintEdges.Length; i++) _footprintEdges[i] = null;
+            for (var i = 0; i < _footprintAxes.Length; i++) _footprintAxes[i] = null;
+            if (_footprintGlass != null)
+            {
+                if (Application.isPlaying) Destroy(_footprintGlass); else DestroyImmediate(_footprintGlass);
+                _footprintGlass = null;
+            }
         }
         static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
         static bool Finite(Vector3 value) => Finite(value.x) && Finite(value.y) && Finite(value.z);

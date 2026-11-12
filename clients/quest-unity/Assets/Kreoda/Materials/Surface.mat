@@ -63,6 +63,8 @@ Material:
     m_Floats:
     - _BumpScale: 1
     - _Cull: 2
+    - _CurvatureEnabled: 0
+    - _CurvatureMaximumPerMm: 0.1
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
@@ -81,9 +83,12 @@ Material:
     - _SrcBlend: 1
     - _UVSec: 0
     - _ZWrite: 1
+    - _ZebraBands: 16
+    - _ZebraEnabled: 0
     m_Colors:
     - _Color: {r: 0.63, g: 0.71, b: 0.78, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SectionNormalLocal: {r: 0, g: 1, b: 0, a: 0}
+    - _ZebraAxisWorld: {r: 1, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

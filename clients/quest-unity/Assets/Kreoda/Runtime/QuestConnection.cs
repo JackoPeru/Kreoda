@@ -102,7 +102,11 @@ namespace Kreoda.QuestRuntime
         SavedDevice _saved;
         string _credentialFile;
         bool _destroyed;
+        bool _applicationPaused;
         string _chosenPcId;
+#if UNITY_EDITOR
+        static System.Net.IPEndPoint _editorDiscoveryTestTarget;
+#endif
 
         sealed class SavedDevice
         {
@@ -113,14 +117,35 @@ namespace Kreoda.QuestRuntime
         {
             public SceneObservationStamp Stamp;
             public SessionModelState Model;
+            public FeatureDescriptor[] Features;
             public SceneMeshTarget[] Targets;
             public JsonElement[] Datums;
             public bool Snapshot;
         }
 
+#if UNITY_EDITOR
+        internal static string ResolveEditorStorageDirectory(string fallback)
+        {
+            const string variable = "KREODA_EDITOR_DATA_DIR";
+            var configured = Environment.GetEnvironmentVariable(variable);
+            if (configured == null) return fallback;
+            if (string.IsNullOrWhiteSpace(configured) || !Path.IsPathFullyQualified(configured))
+                throw new ArgumentException(variable + " must name an existing absolute directory");
+            var directory = Path.GetFullPath(configured);
+            if (!Directory.Exists(directory))
+                throw new ArgumentException(variable + " must name an existing absolute directory");
+            return directory;
+        }
+#endif
+
         void Awake()
         {
-            string directory = Application.persistentDataPath;
+            string directory;
+#if UNITY_EDITOR
+            directory = ResolveEditorStorageDirectory(Application.persistentDataPath);
+#else
+            directory = Application.persistentDataPath;
+#endif
 #if UNITY_ANDROID && !UNITY_EDITOR
             using (var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
             using (var activity = player.GetStatic<AndroidJavaObject>("currentActivity"))
@@ -149,6 +174,36 @@ namespace Kreoda.QuestRuntime
 #else
             if (_saved != null) StartConnection(null, null);
 #endif
+        }
+
+        void OnApplicationPause(bool paused)
+        {
+            if (paused) { _applicationPaused = true;return; }
+            ResumeFromPause("pause");
+        }
+
+        void OnApplicationFocus(bool focused)
+        {
+            if (focused) ResumeFromPause("focus");
+        }
+
+        void ResumeFromPause(string source)
+        {
+            if (!TryConsumeApplicationResume()) return;
+            if (Connected && Client?.IsConnected == true)
+            {
+                UnityEngine.Debug.Log("KREODA_RESUME preserved_connected");
+                return;
+            }
+            UnityEngine.Debug.Log("KREODA_RESUME kick source=" + source);
+            StartConnection(null, null);
+        }
+
+        bool TryConsumeApplicationResume()
+        {
+            if (!_applicationPaused) return false;
+            _applicationPaused = false;
+            return true;
         }
 
         bool ApplyStartupConfiguration(string component, string endpoint, string code)
@@ -182,6 +237,7 @@ namespace Kreoda.QuestRuntime
         public void Forget()
         {
             bool forgotten = false;
+            bool storageUpdated = true;
             lock (_gate)
             {
                 _run?.Cancel();
@@ -197,9 +253,13 @@ namespace Kreoda.QuestRuntime
                 }
                 catch
                 {
+                    storageUpdated = false;
                     Status = "PC non dimenticato: archivio locale non disponibile";
                 }
-                if (!File.Exists(_credentialFile))
+                // A failed cache mutation must not report successful forgetting.
+                if (storageUpdated && !File.Exists(_credentialFile) &&
+                    (string.IsNullOrEmpty(_saved?.PcId) ||
+                     !QuestPcCredentials.Read(CredentialCachePath).ContainsKey(_saved.PcId)))
                 {
                     _saved = null;
                     _chosenPcId = null;
@@ -227,8 +287,14 @@ namespace Kreoda.QuestRuntime
             }
             CancelMeshes();
             Connected = false;
+            // Discovery belongs to the previous connection generation. A new
+            // scan must not present obsolete peers as currently reachable, or
+            // allow a one-tap selection of a PC that is no longer advertised.
+            // SelectPc captures the requested stable PcId before this reset.
+            AvailablePcs = Array.Empty<DiscoveredSessionPc>();
             RttMilliseconds = null;
             Status = "Ricerca del PC locale…";
+            UnityEngine.Debug.Log("KREODA_ATTEMPT start");
             // All socket work, timeouts and reconnect delays stay off the frame loop.
             var ct = run.Token;
             _ = Task.Run(() => ConnectionLoop(run, ct, pairingEndpoint, code));
@@ -237,13 +303,15 @@ namespace Kreoda.QuestRuntime
         async Task ConnectionLoop(CancellationTokenSource run, CancellationToken ct, Uri pairingEndpoint, string code)
         {
             int attempt = 0;
+            bool legacyEndpointUnavailable = false;
             while (!ct.IsCancellationRequested)
             {
                 SessionClient client = null;
                 long generation;
                 SavedDevice saved = null, activeSaved = null, activeForCache = null;
                 Dictionary<string, QuestPcCredentialRecord> pcCredentials = null;
-                bool commitSaved = false, cachePerPc = false;
+                bool commitSaved = false, cachePerPc = false, legacyIdentity = false;
+                DiscoveredSessionPc[] offeredPcs = null;
                 string requestedPcId = null;
                 lock (_gate)
                 {
@@ -272,9 +340,17 @@ namespace Kreoda.QuestRuntime
                         else
                         {
                             pcCredentials = QuestPcCredentials.Read(CredentialCachePath);
-                            var peers = await FindLocalPcsAsync(deadline.Token).ConfigureAwait(false);
+                            var knownHost = KnownHostHint(requestedPcId, saved, pcCredentials);
+                            var discoveryWatch = Stopwatch.StartNew();
+                            var peers = await FindLocalPcsAsync(deadline.Token, knownHost).ConfigureAwait(false);
+                            discoveryWatch.Stop();
+                            offeredPcs = peers;
                             var selected = SessionDiscovery.Choose(peers, requestedPcId ?? saved?.PcId);
-                            bool legacyIdentity = saved != null && !string.IsNullOrEmpty(saved.DeviceId) && string.IsNullOrEmpty(saved.PcId);
+                            legacyIdentity = saved != null && !string.IsNullOrEmpty(saved.DeviceId) && string.IsNullOrEmpty(saved.PcId);
+                            var discoveryMs = discoveryWatch.ElapsedMilliseconds;
+                            Post(run, () => UnityEngine.Debug.Log("KREODA_DISCOVERY hint=" + (knownHost != null) +
+                                " peers=" + peers.Length + " ms=" + discoveryMs +
+                                " known=" + !string.IsNullOrEmpty(saved?.PcId) + " legacy=" + legacyIdentity));
                             DiscoveredSessionPc trustedLegacyPc = null;
                             if (legacyIdentity)
                             {
@@ -284,7 +360,8 @@ namespace Kreoda.QuestRuntime
                                     { trustedLegacyPc = peer;break; }
                                 }
                                 selected = string.IsNullOrEmpty(requestedPcId) || trustedLegacyPc?.PcId == requestedPcId
-                                    ? trustedLegacyPc : SessionDiscovery.Choose(peers, requestedPcId);
+                                    ? trustedLegacyPc ?? (legacyEndpointUnavailable ? SessionDiscovery.Choose(peers, null) : null)
+                                    : SessionDiscovery.Choose(peers, requestedPcId);
                                 if (!string.IsNullOrEmpty(requestedPcId) && selected != null && trustedLegacyPc == null)
                                     throw new SessionException("CHOOSE_PC", "reconnect the saved PC before switching");
                                 if (trustedLegacyPc != null)
@@ -295,7 +372,12 @@ namespace Kreoda.QuestRuntime
                                         activeForCache.InstallationId = Guid.NewGuid().ToString("D");
                                 }
                             }
-                            Post(run, () => AvailablePcs = peers);
+                            // One reconnect attempt may finish posting discovery
+                            // after a later attempt has already invalidated the
+                            // scene generation. Do not repopulate the list with
+                            // peers from the superseded discovery attempt.
+                            Post(run, () => { if (_scene.ConnectionGeneration == generation)
+                                AvailablePcs = peers; });
                             if (selected == null && !string.IsNullOrEmpty(requestedPcId))
                                 throw new SessionException("CHOOSE_PC", "selected PC is not available");
                             bool savedEndpointAvailable = activeSaved != null && !string.IsNullOrEmpty(activeSaved.DeviceId) &&
@@ -358,7 +440,6 @@ namespace Kreoda.QuestRuntime
                     try
                     {
                         if (client.Model == null) throw new SessionException("BAD_MODEL", "snapshot missing");
-                        Capture(run, client, generation, client.Model, null);
                         if (commitSaved)
                             CommitSavedDevice(run, generation, saved, pcCredentials, cachePerPc, activeForCache);
                         lock (_gate)
@@ -367,9 +448,15 @@ namespace Kreoda.QuestRuntime
                                 throw new OperationCanceledException(ct);
                             _client = client;
                         }
+                        // Publish the initial snapshot only after Update can observe
+                        // the authenticated client; otherwise it can consume and drop
+                        // this observation while _client is still null during disk commit.
+                        Capture(run, client, generation, client.Model, null);
                         var connectedName = saved?.Name;
-                        Post(run, () => { Connected = true; Status = string.IsNullOrEmpty(connectedName) ? "Connesso al PC" : "Connesso a " + connectedName; UnityEngine.Debug.Log("KREODA_CONNECTED"); });
-                        attempt = 0;
+                        Post(run, () => { if (_scene.ConnectionGeneration != generation ||
+                            !ReferenceEquals(_client, connectedClient)) return;
+                            Connected = true; Status = string.IsNullOrEmpty(connectedName) ? "Connesso al PC" : "Connesso a " + connectedName; UnityEngine.Debug.Log("KREODA_CONNECTED"); });
+                        attempt = 0;legacyEndpointUnavailable = false;
                         while (!ct.IsCancellationRequested)
                         {
                             await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
@@ -378,7 +465,8 @@ namespace Kreoda.QuestRuntime
                             var watch = Stopwatch.StartNew();
                             await connectedClient.SessionInfoAsync(deadline.Token).ConfigureAwait(false);
                             var elapsed = watch.Elapsed.TotalMilliseconds;
-                            Post(run, () => RttMilliseconds = elapsed);
+                            Post(run, () => { if (_scene.ConnectionGeneration == generation &&
+                                ReferenceEquals(_client, connectedClient)) RttMilliseconds = elapsed; });
                         }
                     }
                     finally { client.ModelChanged -= changed; }
@@ -386,16 +474,37 @@ namespace Kreoda.QuestRuntime
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
                 catch (Exception error)
                 {
+                    if (legacyIdentity && error is System.Net.WebSockets.WebSocketException)
+                        legacyEndpointUnavailable = true;
                     var unauthorized = error is SessionException session && session.Code == "UNAUTHORIZED";
+                    long failureGeneration = -1;
                     lock (_gate)
                     {
-                        if (Current(run)) { _client = null; _latest = null; _scene.InvalidateConnection(); }
+                        if (Current(run))
+                        {
+                            _client = null;
+                            _latest = null;
+                            _scene.InvalidateConnection();
+                            failureGeneration = _scene.ConnectionGeneration;
+                        }
                     }
                     Post(run, () =>
                     {
+                        // This error belongs to the attempt invalidated above.
+                        // A newer retry may have started in the same _run; its
+                        // connection and status must not be cleared by this
+                        // older, queued failure notification.
+                        if (failureGeneration < 0 ||
+                            _scene.ConnectionGeneration != failureGeneration) return;
                         Connected = false;
                         RttMilliseconds = null;
                         CancelMeshes();
+                        // CHOOSE_PC invalidates the authentication attempt before
+                        // its queued discovery result is consumed. Publish those
+                        // candidates with THIS failure generation so the picker
+                        // stays usable, while stale failures remain fenced above.
+                        if (error is SessionException choice && choice.Code == "CHOOSE_PC" && offeredPcs != null)
+                            AvailablePcs = offeredPcs;
                         Status = error is SessionException state && state.Code == "CHOOSE_PC" ? "Scegli il PC dal nome" :
                             error is SessionException searching && searching.Code == "SEARCHING_PC" ? "Ricerca del PC locale…" :
                             unauthorized ? "Accesso revocato dal PC" :
@@ -464,15 +573,45 @@ namespace Kreoda.QuestRuntime
                 throw new OperationCanceledException();
         }
 
-        static Task<DiscoveredSessionPc[]> FindLocalPcsAsync(CancellationToken ct)
+        static System.Net.IPAddress KnownHostHint(string requestedPcId, SavedDevice saved,
+            Dictionary<string, QuestPcCredentialRecord> records)
+        {
+            var targetPcId = requestedPcId ?? saved?.PcId;
+            System.Net.IPAddress hint = null;
+            if (!string.IsNullOrEmpty(targetPcId))
+            {
+                if (records != null && records.TryGetValue(targetPcId, out var record))
+                    hint = ParseKnownHost(record.Endpoint);
+                if (hint == null && saved?.PcId == targetPcId) hint = ParseKnownHost(saved.Endpoint);
+            }
+            else if (string.IsNullOrEmpty(saved?.PcId)) hint = ParseKnownHost(saved?.Endpoint);
+            return hint;
+        }
+
+        static System.Net.IPAddress ParseKnownHost(string endpoint)
+        {
+            if (!QuestConnectionInput.TryEndpoint(endpoint, out var uri) || uri == null ||
+                !System.Net.IPAddress.TryParse(uri.Host, out var host)) return null;
+#if UNITY_EDITOR
+            return System.Net.IPAddress.IsLoopback(host) && SessionDiscovery.IsPrivate(host, true) ? host : null;
+#else
+            return SessionDiscovery.IsPrivate(host) ? host : null;
+#endif
+        }
+
+        static Task<DiscoveredSessionPc[]> FindLocalPcsAsync(CancellationToken ct, System.Net.IPAddress knownHost)
         {
 #if UNITY_EDITOR
             // Editor verification is local-only. Normal Android startup searches assigned LANs.
-            return SessionDiscovery.FindAsync(ct, new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, SessionDiscovery.Port));
+            if (knownHost != null && !System.Net.IPAddress.IsLoopback(knownHost)) knownHost = null;
+            var target = _editorDiscoveryTestTarget ??
+                new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, SessionDiscovery.Port);
+            return SessionDiscovery.FindAsync(ct, target, knownHost);
 #else
-            return SessionDiscovery.FindAsync(ct);
+            return SessionDiscovery.FindAsync(ct, null, knownHost);
 #endif
         }
+
         static Task<bool> VerifyKnownPcAsync(DiscoveredSessionPc pc, SavedDevice saved, CancellationToken ct) =>
             SessionDiscovery.VerifyKnownDeviceAsync(pc, saved.DeviceId, saved.Credential, ct,
 #if UNITY_EDITOR
@@ -498,13 +637,14 @@ namespace Kreoda.QuestRuntime
             var bodies = model.Bodies.Select(b => JsonSerializer.Deserialize<BodyDescriptor>(b.GetRawText())).ToArray();
             var features = model.Features.Select(f => JsonSerializer.Deserialize<FeatureDescriptor>(f.GetRawText())).ToArray();
             var changed = new HashSet<string>(delta?.ChangedMeshIds ?? Array.Empty<string>(), StringComparer.Ordinal);
-            var targets = bodies.Select(b => new SceneMeshTarget(b.BodyId, null, b.Tip, model.SessionId,
+            var targets = bodies.Where(ShouldRenderBody).Select(b => new SceneMeshTarget(b.BodyId, null, b.Tip, model.SessionId,
                 model.DocumentId, model.Revision)).ToList();
             foreach (var instance in features.Where(f => f.Type == "Instance"))
             {
                 if (instance.DependsOn?.Length != 1) throw new SessionException("BAD_MODEL", "invalid instance source");
                 var body = bodies.SingleOrDefault(b => b.History.Contains(instance.DependsOn[0]));
                 if (body == null) throw new SessionException("BAD_MODEL", "instance source body missing");
+                if (!ShouldRenderBody(body)) continue;
                 targets.Add(new SceneMeshTarget(body.BodyId, instance.FeatureId, instance.FeatureId,
                     model.SessionId, model.DocumentId, model.Revision));
             }
@@ -513,13 +653,47 @@ namespace Kreoda.QuestRuntime
                 if (!Current(run)) return;
                 if (!ReferenceEquals(model, client.Model)) return;
                 var stamp = _scene.CaptureObservation(generation, model.SessionId, model.DocumentId, model.Revision,
-                    bodies.Where(b => b.History.Any(changed.Contains)).Select(b => b.BodyId),
+                    bodies.Where(b => ChangedBodyMatches(b, changed)).Select(b => b.BodyId),
                     features.Where(f => f.Type == "Instance" && changed.Contains(f.FeatureId)).Select(f => f.FeatureId));
                 if (stamp.Sequence == 0) return;
-                _latest = new Observation { Stamp = stamp, Model = model, Targets = targets.ToArray(),
+                _latest = new Observation { Stamp = stamp, Model = model, Features = features, Targets = targets.ToArray(),
                     Datums = model.Datums.Select(datum => datum.Clone()).ToArray(), Snapshot = delta == null };
             }
         }
+
+        internal static bool IsSurfaceFeature(FeatureDescriptor[] features, string featureId)
+        {
+            var byId = (features ?? Array.Empty<FeatureDescriptor>())
+                .Where(feature => feature != null && !string.IsNullOrEmpty(feature.FeatureId))
+                .GroupBy(feature => feature.FeatureId, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            if (string.IsNullOrEmpty(featureId) || !byId.TryGetValue(featureId, out var feature)) return false;
+            if (feature.Type == "SurfaceExtrude" || feature.Type == "SurfaceRevolve" ||
+                feature.Type == "SurfaceLoft" || feature.Type == "SurfaceSew" ||
+                feature.Type == "SurfaceOffset" || feature.Type == "SurfaceSweep" ||
+                feature.Type == "SurfaceTrim" || feature.Type == "SurfaceExtend")
+                return true;
+            if (feature.Type != "Instance" || feature.DependsOn?.Length != 1 ||
+                string.IsNullOrEmpty(feature.DependsOn[0]) ||
+                !byId.TryGetValue(feature.DependsOn[0], out var source)) return false;
+            return source.Type == "SurfaceExtrude" || source.Type == "SurfaceRevolve" ||
+                source.Type == "SurfaceLoft" || source.Type == "SurfaceSew" ||
+                source.Type == "SurfaceOffset" || source.Type == "SurfaceSweep" ||
+                source.Type == "SurfaceTrim" || source.Type == "SurfaceExtend";
+        }
+
+        static FeatureDescriptor[] FeatureSnapshot(SessionModelState model) => model?.Features == null
+            ? Array.Empty<FeatureDescriptor>()
+            : model.Features.Select(feature => JsonSerializer.Deserialize<FeatureDescriptor>(feature.GetRawText()))
+                .Where(feature => feature != null).ToArray();
+
+        internal static bool ShouldRenderBody(BodyDescriptor body) => body != null && body.Visible != false;
+        // The canonical delta may name the body directly or the feature whose
+        // B-Rep was rebuilt. Both identities refer to the same rendered body.
+        internal static bool ChangedBodyMatches(BodyDescriptor body, ISet<string> changed) =>
+            body != null && changed != null &&
+            (changed.Contains(body.BodyId) || body.History?.Any(changed.Contains) == true ||
+             (!string.IsNullOrEmpty(body.Tip) && changed.Contains(body.Tip)));
 
         void Update()
         {
@@ -545,7 +719,7 @@ namespace Kreoda.QuestRuntime
             {
                 var wanted = _wantedQuality.TryGetValue(ticket.Key, out var preference) ? preference : MeshLod.Interactive;
                 var count = _views.TryGetValue(ticket.Key, out var previous) ? previous.TriangleCount : 0;
-                StartMesh(run, client, ticket, (int)LodPolicy.ForBody(count, TriangleBudget, wanted));
+                StartMesh(run, client, ticket, (int)LodPolicy.ForBody(count, TriangleBudget, wanted), observation.Features);
             }
             if (plan.Removed.Count > 0 || datumChanged) NotifySceneChanged();
         }
@@ -603,12 +777,14 @@ namespace Kreoda.QuestRuntime
             SceneChanged?.Invoke();
         }
 
-        void StartMesh(CancellationTokenSource run, SessionClient client, SceneMeshRequestTicket ticket, int quality)
+        void StartMesh(CancellationTokenSource run, SessionClient client, SceneMeshRequestTicket ticket, int quality,
+            FeatureDescriptor[] featureSnapshot = null)
         {
             if (_jobs.TryGetValue(ticket.Key, out var prior)) prior.Cancel();
             var job = CancellationTokenSource.CreateLinkedTokenSource(run.Token);
             _jobs[ticket.Key] = job;
-            _ = Task.Run(() => Download(run, client, ticket, job, quality));
+            _ = Task.Run(() => Download(run, client, ticket, job, quality,
+                featureSnapshot ?? Array.Empty<FeatureDescriptor>()));
         }
 
         public bool RequestQuality(QuestMeshView view, MeshLod wanted)
@@ -617,18 +793,22 @@ namespace Kreoda.QuestRuntime
             lock (_gate)
             {
                 if (_client == null || _run == null) { Status = "PC non connesso"; return false; }
+                // A retained selection from a previous session can have the same
+                // body/instance key as the current scene. Never let that stale
+                // view request a refresh of a different CAD object.
+                if (!IsCurrentView(view)) { Status = "Selezione CAD non corrente"; return false; }
                 var key = new SceneObjectKey(view.BodyId, view.InstanceId);
                 var ticket = _scene.RequestRefresh(key);
                 if (ticket == null) { Status = "Attendi la mesh aggiornata prima di cambiare dettaglio"; return false; }
                 _wantedQuality[key] = wanted;
-                StartMesh(_run, _client, ticket, (int)wanted);
+                StartMesh(_run, _client, ticket, (int)wanted, FeatureSnapshot(_client.Model));
                 Status = wanted == MeshLod.Inspection ? "Richiesta dettaglio ispezione" : "Richiesta dettaglio interattivo";
                 return true;
             }
         }
 
         async Task Download(CancellationTokenSource run, SessionClient client, SceneMeshRequestTicket ticket,
-            CancellationTokenSource job, int quality)
+            CancellationTokenSource job, int quality, FeatureDescriptor[] featureSnapshot)
         {
             var watch = Stopwatch.StartNew();
             bool queued = false;
@@ -669,11 +849,23 @@ namespace Kreoda.QuestRuntime
                                                     view.PreviewMaterial = PreviewMaterial;
                                                     view.SectionCapMaterial = SectionCapMaterial;
                                                     view.SectionContourMaterial = SectionContourMaterial;
-                                                    try { view.Upload(mesh); _views.Add(ticket.Key, view); }
+                                                    try { view.SetSurfaceGeometry(IsSurfaceFeature(featureSnapshot, ticket.Target.FeatureId));
+                                                        view.Upload(mesh); _views.Add(ticket.Key, view); }
                                                     catch { Destroy(body); throw; }
                                                 }
-                                                else view.Upload(mesh);
+                                                else
+                                                {
+                                                    view.SetSurfaceGeometry(IsSurfaceFeature(featureSnapshot, ticket.Target.FeatureId));
+                                                    view.Upload(mesh);
+                                                }
                                                 MeshMilliseconds = watch.Elapsed.TotalMilliseconds;
+                                                UnityEngine.Debug.Log(
+                                                    $"KREODA_MESH_APPLIED nativeRequestId={mesh.Header.NativeRequestId} " +
+                                                    $"sessionId={mesh.Header.SessionId} documentId={mesh.Header.DocumentId} revision={mesh.Header.Revision} " +
+                                                    $"bodyId={mesh.Header.BodyId} featureId={mesh.Header.FeatureId} tipId={mesh.Header.TipId} " +
+                                                    $"instanceId={mesh.Header.InstanceId ?? "<null>"} quality={mesh.Header.Quality} " +
+                                                    $"rawPayloadSha256={mesh.RawPayloadSha256} rawByteLength={mesh.RawByteLength} " +
+                                                    $"triangleCount={view.TriangleCount} uploadVersion={view.UploadVersion}");
                                             });
                                             if (disposition == MeshCompletionDisposition.IgnoreStale) Interlocked.Increment(ref _discardedMeshes);
                                             else
@@ -693,7 +885,20 @@ namespace Kreoda.QuestRuntime
                                             }
                                         }
                                     }
-                                    catch { Status = "Caricamento CAD fallito: riconnetti per riprovare"; }
+                                    // Complete removes its pending ticket even
+                                    // when Upload throws, so IsCurrent(ticket)
+                                    // alone would incorrectly hide a REAL upload
+                                    // failure. Check accepted model lineage and
+                                    // generation instead, rejecting stale jobs.
+                                    catch
+                                    {
+                                        var currentModel = client.Model;
+                                        if (Current(run) && _scene.ConnectionGeneration == ticket.ConnectionGeneration &&
+                                            currentModel != null && currentModel.SessionId == ticket.Target.SessionId &&
+                                            currentModel.DocumentId == ticket.Target.DocumentId &&
+                                            currentModel.Revision == ticket.Target.Revision)
+                                            Status = "Caricamento CAD fallito: riconnetti per riprovare";
+                                    }
                                     finally { CleanupJob(ticket, job); }
                                 });
                                 queued = true;
@@ -707,7 +912,11 @@ namespace Kreoda.QuestRuntime
                 finally { _meshSlots.Release(); }
             }
             catch (Exception)
-            { if (!job.IsCancellationRequested) Post(run, () => Status = "Mesh non disponibile: riconnetti per riprovare"); }
+            {
+                if (!job.IsCancellationRequested && _scene.IsCurrent(ticket))
+                    Post(run, () => { if (_scene.IsCurrent(ticket))
+                        Status = "Mesh non disponibile: riconnetti per riprovare"; });
+            }
             finally
             {
                 if (!queued)
@@ -730,6 +939,9 @@ namespace Kreoda.QuestRuntime
         public void PublishTarget(QuestMeshView view, MeshSemanticHit hit)
         {
             if (hit != null && hit.ReferenceAmbiguous) { Status = "Riferimento ambiguo: selezione solo locale"; return; }
+            // A prior-session view may reuse the new model's body and feature ids.
+            // Match the currently displayed view object, not just its identifiers.
+            if (!IsCurrentView(view)) { Status = "Selezione CAD non corrente"; return; }
             SessionClient client;
             CancellationTokenSource run;
             lock (_gate) { client = _client; run = _run; }
@@ -748,10 +960,14 @@ namespace Kreoda.QuestRuntime
                     deadline.CancelAfter(TimeSpan.FromSeconds(5));
                     await client.CallAsync(SessionMethods.SetSelection,
                         new Dictionary<string, object> { ["ids"] = new[] { id }, ["publish"] = true,
-                            ["documentId"] = model.DocumentId, ["baseRevision"] = target.Revision }, deadline.Token).ConfigureAwait(false);
-                    Post(run, () => Status = "Target inviato al PC");
+                            ["documentId"] = model.DocumentId, ["baseRevision"] = target.Revision }, deadline.Token,
+                        expectedSessionId: model.SessionId).ConfigureAwait(false);
+                    // A successful response for an older revision must not
+                    // announce a selected target on the new document/session.
+                    Post(run, () => { if (ReferenceEquals(client.Model, model)) Status = "Target inviato al PC"; });
                 }
-                catch { Post(run, () => Status = "Target non inviato: selezione o connessione cambiata"); }
+                catch { Post(run, () => { if (ReferenceEquals(client.Model, model))
+                    Status = "Target non inviato: selezione o connessione cambiata"; }); }
             });
         }
 
@@ -777,9 +993,10 @@ namespace Kreoda.QuestRuntime
                     deadline.CancelAfter(TimeSpan.FromSeconds(5));
                     await client.CallAsync(SessionMethods.SetSelection, payload, deadline.Token,
                         expectedSessionId: model.SessionId).ConfigureAwait(false);
-                    Post(run, () => Status = "Target datum inviato al PC");
+                    Post(run, () => { if (ReferenceEquals(client.Model, model)) Status = "Target datum inviato al PC"; });
                 }
-                catch { Post(run, () => Status = "Target non inviato: datum o connessione cambiata"); }
+                catch { Post(run, () => { if (ReferenceEquals(client.Model, model))
+                    Status = "Target non inviato: datum o connessione cambiata"; }); }
             });
         }
 
@@ -840,9 +1057,16 @@ namespace Kreoda.QuestRuntime
 
         void OnDestroy()
         {
-            lock (_gate) { _destroyed = true; _run?.Cancel(); _run?.Dispose(); _client = null; _scene.InvalidateConnection(); }
+            lock (_gate)
+            {
+                if (_destroyed) return;
+                _destroyed = true; _run?.Cancel(); _run?.Dispose(); _client = null; _scene.InvalidateConnection();
+            }
             CancelMeshes();
-            foreach (var view in _views.Values) if (view != null) Destroy(view.gameObject);
+            foreach (var view in _views.Values) if (view != null)
+            {
+                if (Application.isPlaying) Destroy(view.gameObject);else DestroyImmediate(view.gameObject);
+            }
             _views.Clear();
             ClearDatumViews();
             while (_main.TryDequeue(out var action)) action();

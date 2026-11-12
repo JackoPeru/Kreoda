@@ -26,15 +26,59 @@ namespace Kreoda.QuestRuntime
         CancellationTokenSource _run;
         int _sketch, _dimension;
         long _ticket;
+        bool _inspectConstraints;
+        string _inspectedSession, _inspectedDocument;
+        long _inspectedRevision;
         bool _previewValid, _destroyed;
         public void NextSketch() { if (!Busy) { _sketch++;_dimension = 0;Select(); } }
         public void NextDimension() { if (!Busy) { _dimension++;Select(); } }
+        public void ToggleConstraintInspection()
+        {
+            if (Busy) return;
+            _inspectConstraints = !_inspectConstraints;
+            _dimension = 0;Select();
+        }
+        internal static string DescribeConstraint(JsonElement constraint, JsonElement sketchModel = default)
+        {
+            if (constraint.ValueKind != JsonValueKind.Object ||
+                !constraint.TryGetProperty("kind", out var kind) || kind.ValueKind != JsonValueKind.String ||
+                !constraint.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.String) return null;
+            var label = kind.GetString();
+            if (label != "symmetric") return null;
+            if (!constraint.TryGetProperty("refs", out var refs) || refs.ValueKind != JsonValueKind.Array || refs.GetArrayLength() != 3 ||
+                refs.EnumerateArray().Any(r => r.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(r.GetString()))) return null;
+            var ids = refs.EnumerateArray().Select(r => r.GetString()).ToArray();
+            if (ids.Distinct(StringComparer.Ordinal).Count() != 3) return null;
+            if (ids.Any(value => value.Length > 128) || id.GetString()?.Length > 128) return null;
+            if (sketchModel.ValueKind == JsonValueKind.Object)
+            {
+                if (!sketchModel.TryGetProperty("points", out var points) || points.ValueKind != JsonValueKind.Array ||
+                    !sketchModel.TryGetProperty("lines", out var lines) || lines.ValueKind != JsonValueKind.Array) return null;
+                var pointIds = points.EnumerateArray().Where(p => p.ValueKind == JsonValueKind.Object && p.TryGetProperty("id", out var key) && key.ValueKind == JsonValueKind.String)
+                    .Select(p => p.GetProperty("id").GetString()).ToHashSet(StringComparer.Ordinal);
+                var lineIds = lines.EnumerateArray().Where(l => l.ValueKind == JsonValueKind.Object && l.TryGetProperty("id", out var key) && key.ValueKind == JsonValueKind.String)
+                    .Select(l => l.GetProperty("id").GetString()).ToHashSet(StringComparer.Ordinal);
+                if (!pointIds.Contains(ids[0]) || !pointIds.Contains(ids[1]) || !lineIds.Contains(ids[2])) return null;
+            }
+            return "Simmetria " + id.GetString() + " · punti " + ids[0] + ", " + ids[1] + " · asse " + ids[2];
+        }
         public void Select()
         {
             Cancel();Selected = null;ClearDrawing();
             var model = Connection.Client?.Model;
             if (model == null || model.Sketches.Count == 0) { Status = "Nessuno sketch nel documento";return; }
+            _inspectedSession = model.SessionId;_inspectedDocument = model.DocumentId;_inspectedRevision = model.Revision;
             var sketch = model.Sketches[_sketch % model.Sketches.Count];
+            if (_inspectConstraints)
+            {
+                ShowSketch(sketch);
+                var sketchModel = sketch.GetProperty("model");
+                var constraints = sketchModel.GetProperty("constraints").EnumerateArray()
+                    .Select(c => DescribeConstraint(c, sketchModel)).Where(description => description != null).ToArray();
+                Status = constraints.Length == 0 ? "Nessun vincolo simmetrico nello sketch" :
+                    constraints[_dimension % constraints.Length] + " · sola lettura";
+                return;
+            }
             var dimensions = sketch.GetProperty("model").GetProperty("constraints").EnumerateArray()
                 .Where(c => c.GetProperty("kind").GetString() is "distance" or "radius" or "diameter" or "angle").ToArray();
             ShowSketch(sketch);
@@ -118,6 +162,9 @@ namespace Kreoda.QuestRuntime
         void Update()
         {
             for (var i = 0; i < 2 && _main.TryDequeue(out var action); i++) if (!_destroyed) action();
+            if (!Busy && _inspectConstraints && Connection.Client?.Model is { } inspected &&
+                (_inspectedSession != inspected.SessionId || _inspectedDocument != inspected.DocumentId ||
+                 _inspectedRevision != inspected.Revision)) { Select();return; }
             if (!Busy && Selected != null && Connection.Client?.Model is { } model &&
                 (model.SessionId != Selected.SessionId || model.DocumentId != Selected.DocumentId || model.Revision != Selected.BaseRevision)) Select();
         }

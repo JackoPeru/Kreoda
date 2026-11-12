@@ -13,6 +13,7 @@ namespace Kreoda.QuestRuntime
         public string BodyId { get; private set; }
         public string FeatureId { get; private set; }
         public string InstanceId { get; private set; }
+        public bool IsSurfaceGeometry { get; private set; }
         public int UploadVersion { get; private set; }
         public int Quality { get; private set; }
         public int TriangleCount => _semantic?.TriangleCount ?? 0;
@@ -29,6 +30,8 @@ namespace Kreoda.QuestRuntime
         MeshRenderer _surfaceRenderer, _edgeRenderer, _selectionRenderer, _sectionCapRenderer, _sectionContourRenderer;
         MeshCollider _sectionCapCollider;
         MaterialPropertyBlock _sectionProperties;
+        Material _surfaceTwoSided, _previewTwoSided, _surfaceTwoSidedSource, _previewTwoSidedSource;
+        Material _selectionTwoSided, _selectionTwoSidedSource;
         SectionPlane? _sectionPlane;
         Transform _sectionRoot;
         SectionPlane? _appliedPlane;
@@ -38,6 +41,13 @@ namespace Kreoda.QuestRuntime
         Matrix4x4 _sectionToRoot;
         bool _hasSectionTransform;
         bool _preview;
+        bool _zebraEnabled;
+        int _zebraBands = 16;
+        float _zebraAngle;
+        bool _curvatureEnabled;
+        float _curvatureMaximumPerMm = .1f;
+        public bool HasCurvatureData { get; private set; }
+        public float MaximumCurvaturePerMm { get; private set; }
 
         // Called by the connection adapter on Unity's main thread, inside the
         // scene freshness gate. Native coordinates include instance placement.
@@ -52,11 +62,28 @@ namespace Kreoda.QuestRuntime
                 source.EdgeVertices, faces, edges, source.BboxMm);
             var semantic = new BodyMesh(source.Header.BodyId, data.Positions, data.Normals,
                 data.Indices, data.Faces, data.Edges, data.EdgeVertices, source.Header.InstanceId);
+            // Curvature remains in inverse CAD millimetres even though positions
+            // are presented in Unity metres. UV3 is a scalar presentation lane.
+            var curvatureUv = new Vector2[data.Positions.Length / 3];
+            var values = source.CurvatureMaxAbsPerMm;
+            var hasCurvature = false;
+            var maximumCurvature = 0f;
+            if (values != null && values.Length > 0 && values.Length != curvatureUv.Length)
+                throw new ArgumentException("Curvature sample count does not match mesh vertices", nameof(source));
+            for (var i = 0; i < curvatureUv.Length; i++)
+            {
+                var value = values != null && values.Length > 0 ? values[i] : -1;
+                if (float.IsNaN(value) || float.IsInfinity(value) || (value < 0 && value != -1))
+                    throw new ArgumentException("Invalid native curvature sample", nameof(source));
+                curvatureUv[i] = new Vector2(value, 0);
+                if (value >= 0) { hasCurvature = true; maximumCurvature = Mathf.Max(maximumCurvature, value); }
+            }
             Mesh surface = null, lines = null;
             try
             {
                 surface = NewMesh("CAD surface", data.Positions);
                 surface.normals = Vectors(data.Normals);
+                surface.uv3 = curvatureUv;
                 surface.triangles = data.Indices.Select(i => checked((int)i)).ToArray();
                 surface.RecalculateBounds();
                 lines = NewMesh("CAD edges", data.EdgeVertices);
@@ -82,10 +109,9 @@ namespace Kreoda.QuestRuntime
                 try { collider.sharedMesh = surface; }
                 catch { collider.sharedMesh = _surface; throw; }
                 filter.sharedMesh = surface;
-                _surfaceRenderer.sharedMaterial = _preview && PreviewMaterial != null ? PreviewMaterial : SurfaceMaterial;
+                ApplySurfaceMaterial();
                 _edgeFilter.sharedMesh = lines;
                 _edgeRenderer.sharedMaterial = EdgeMaterial;
-                _selectionRenderer.sharedMaterial = SelectionMaterial;
                 DisposeMesh(_surface);
                 DisposeMesh(_edges);
                 ClearSelection();
@@ -99,12 +125,52 @@ namespace Kreoda.QuestRuntime
                 BboxMetres = data.BboxMetres;
                 UploadVersion++;
                 Quality = source.Header.Quality;
+                HasCurvatureData = hasCurvature;
+                MaximumCurvaturePerMm = maximumCurvature;
                 ApplySection(_sectionPlane, _sectionRoot, SectionCapMaterial, SectionContourMaterial);
+                ApplyZebra(_zebraEnabled, _zebraBands, _zebraAngle);
+                ApplyCurvature(_curvatureEnabled, _curvatureMaximumPerMm);
             }
             finally { DisposeMesh(surface); DisposeMesh(lines); }
         }
 
         public MeshSemanticHit ResolveFace(int triangle) => _semantic?.ResolveFaceHit(triangle);
+
+        public void SetSurfaceGeometry(bool surface)
+        {
+            if (IsSurfaceGeometry == surface) return;
+            IsSurfaceGeometry = surface;
+            ApplySurfaceMaterial();
+            if (_sectionPlane.HasValue) ApplySection(_sectionPlane, _sectionRoot, SectionCapMaterial, SectionContourMaterial);
+        }
+
+        Material TwoSided(Material source, ref Material owned, ref Material original)
+        {
+            if (!IsSurfaceGeometry || source == null) return source;
+            if (!source.HasProperty("_Cull"))
+                throw new InvalidOperationException("Surface rendering requires a material with a _Cull property");
+            if (owned == null || original != source)
+            {
+                DisposeMaterial(owned);
+                owned = new Material(source) { name = source.name + " (surface two-sided)" };
+                original = source;
+            }
+            owned.SetFloat("_Cull", (float)CullMode.Off);
+            return owned;
+        }
+
+        void ApplySurfaceMaterial()
+        {
+            if (_surfaceRenderer == null) _surfaceRenderer = GetComponent<MeshRenderer>();
+            if (_surfaceRenderer == null) return;
+            var preview = _preview && PreviewMaterial != null;
+            _surfaceRenderer.sharedMaterial = preview
+                ? TwoSided(PreviewMaterial, ref _previewTwoSided, ref _previewTwoSidedSource)
+                : TwoSided(SurfaceMaterial, ref _surfaceTwoSided, ref _surfaceTwoSidedSource);
+            if (_selectionRenderer != null)
+                _selectionRenderer.sharedMaterial = TwoSided(SelectionMaterial,
+                    ref _selectionTwoSided, ref _selectionTwoSidedSource);
+        }
 
         // Client-local placement preview uses the same immutable geometry and
         // semantic map. Shared referenced materials are never owned/disposed here.
@@ -112,7 +178,39 @@ namespace Kreoda.QuestRuntime
         {
             _preview = active;
             if (_surfaceRenderer == null) _surfaceRenderer = GetComponent<MeshRenderer>();
-            if (_surfaceRenderer != null) _surfaceRenderer.sharedMaterial = active && PreviewMaterial != null ? PreviewMaterial : SurfaceMaterial;
+            ApplySurfaceMaterial();
+            ApplyZebra(_zebraEnabled, _zebraBands, _zebraAngle);
+            ApplyCurvature(_curvatureEnabled, _curvatureMaximumPerMm);
+        }
+
+        public void ApplyZebra(bool enabled, int bands, float angleDeg)
+        {
+            if (bands < 4 || bands > 48 || float.IsNaN(angleDeg) || float.IsInfinity(angleDeg) || angleDeg < 0 || angleDeg > 180) return;
+            _zebraEnabled = enabled; _zebraBands = bands; _zebraAngle = angleDeg;
+            if (enabled) _curvatureEnabled = false;
+            if (_surfaceRenderer == null) return;
+            if (_sectionProperties == null) _sectionProperties = new MaterialPropertyBlock();
+            _surfaceRenderer.GetPropertyBlock(_sectionProperties);
+            _sectionProperties.SetFloat("_ZebraEnabled", enabled && !_preview ? 1 : 0);
+            _sectionProperties.SetFloat("_CurvatureEnabled", _curvatureEnabled && !_preview ? 1 : 0);
+            _sectionProperties.SetFloat("_ZebraBands", bands);
+            var angle = angleDeg * Mathf.Deg2Rad;
+            _sectionProperties.SetVector("_ZebraAxisWorld", new Vector4(Mathf.Cos(angle), 0, Mathf.Sin(angle), 0));
+            _surfaceRenderer.SetPropertyBlock(_sectionProperties);
+        }
+
+        public void ApplyCurvature(bool enabled, float maximumPerMm)
+        {
+            if (float.IsNaN(maximumPerMm) || float.IsInfinity(maximumPerMm) || maximumPerMm <= 0) return;
+            _curvatureEnabled = enabled; _curvatureMaximumPerMm = maximumPerMm;
+            if (enabled) _zebraEnabled = false;
+            if (_surfaceRenderer == null) return;
+            if (_sectionProperties == null) _sectionProperties = new MaterialPropertyBlock();
+            _surfaceRenderer.GetPropertyBlock(_sectionProperties);
+            _sectionProperties.SetFloat("_CurvatureEnabled", enabled && !_preview ? 1 : 0);
+            _sectionProperties.SetFloat("_CurvatureMaximumPerMm", maximumPerMm);
+            _sectionProperties.SetFloat("_ZebraEnabled", _zebraEnabled && !_preview ? 1 : 0);
+            _surfaceRenderer.SetPropertyBlock(_sectionProperties);
         }
 
         public void ApplySection(SectionPlane? plane, Transform sectionRoot, Material capMaterial, Material contourMaterial)
@@ -168,7 +266,7 @@ namespace Kreoda.QuestRuntime
 
         void ApplyCut(SectionCutPresentation cut)
         {
-            if (cut.CapIndices.Length > 0)
+            if (!IsSurfaceGeometry && cut.CapIndices.Length > 0)
             {
                 if (_sectionCapFilter == null)
                 {
@@ -398,12 +496,21 @@ namespace Kreoda.QuestRuntime
             if (Application.isPlaying) Destroy(mesh); else DestroyImmediate(mesh);
         }
 
+        static void DisposeMaterial(Material material)
+        {
+            if (material == null) return;
+            if (Application.isPlaying) Destroy(material); else DestroyImmediate(material);
+        }
+
         void OnDestroy()
         {
             ClearSelection();
             ClearCut();
             DisposeMesh(_surface);
             DisposeMesh(_edges);
+            DisposeMaterial(_surfaceTwoSided);
+            DisposeMaterial(_previewTwoSided);
+            DisposeMaterial(_selectionTwoSided);
         }
     }
 }

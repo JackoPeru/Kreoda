@@ -3,6 +3,7 @@ Shader "Kreoda/Selection"
     Properties
     {
         _Color ("Color", Color) = (0, 0.8, 1, 0.45)
+        _Cull ("Cull", Float) = 2
         _SectionEnabled ("Section Enabled", Float) = 0
         _SectionInverted ("Section Inverted", Float) = 0
         _SectionNormalLocal ("Section Normal (Local)", Vector) = (0, 1, 0, 0)
@@ -11,6 +12,7 @@ Shader "Kreoda/Selection"
     SubShader
     {
         Tags { "Queue"="Transparent" "RenderType"="Transparent" }
+        Cull [_Cull]
         Blend SrcAlpha OneMinusSrcAlpha
         ZWrite Off
         Offset -1, -1

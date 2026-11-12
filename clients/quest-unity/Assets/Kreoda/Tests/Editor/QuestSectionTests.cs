@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Kreoda.QuestFoundation;
+using Kreoda.Session.Generated;
 using NUnit.Framework;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -65,6 +66,214 @@ namespace Kreoda.QuestRuntime.Tests
                 .GetField("_views", Private).GetValue(_connection);
             views[new SceneObjectKey(view.BodyId, view.InstanceId)] = view;
             return view;
+        }
+
+        [Test]
+        public void CurvaturePreservesNativeGeometryClippingAndPreviewAndExcludesZebra()
+        {
+            var view = AddNativeView();
+            var source = QuestMeshViewTests.NativeFixture();
+            var samples = Enumerable.Repeat(.125f, source.Positions.Length / 3).ToArray();
+            samples[0] = -1;
+            var field = new Kreoda.Session.SessionMeshResult(source.Header, source.Positions, source.Normals,
+                source.Indices, source.EdgeVertices, source.Faces, source.Edges, source.VolumeMm3,
+                source.BboxMm, source.RawByteLength, source.RawPayloadSha256, samples);
+            view.Upload(field);
+            var mesh = view.GetComponent<MeshFilter>().sharedMesh;
+            var upload = view.UploadVersion;
+            var toggle = typeof(QuestSection).GetMethod("ToggleCurvature");
+            Assert.That(toggle, Is.Not.Null, "Quest needs a real curvature action");
+            Assert.That(toggle.Invoke(_section, null), Is.True);
+            var block = new MaterialPropertyBlock();
+            void Read() => view.GetComponent<MeshRenderer>().GetPropertyBlock(block);
+            Read();Assert.That(block.GetFloat("_CurvatureEnabled"), Is.EqualTo(1));
+            Assert.That(block.GetFloat("_CurvatureMaximumPerMm"), Is.EqualTo(.1f).Within(1e-7));
+            var uv = new List<Vector2>();mesh.GetUVs(2, uv);
+            Assert.That(uv.Count, Is.EqualTo(samples.Length));
+            Assert.That(uv.Select(value => value.x).ToArray(), Is.EqualTo(samples), "curvature stays in 1/mm despite mm-to-metre geometry conversion");
+            Assert.That(_section.TryEnable(), Is.True);Read();
+            Assert.That(block.GetFloat("_SectionEnabled"), Is.EqualTo(1));
+            Assert.That(block.GetFloat("_CurvatureEnabled"), Is.EqualTo(1));
+            view.SetPreview(true);Read();Assert.That(block.GetFloat("_CurvatureEnabled"), Is.Zero);
+            view.SetPreview(false);Read();Assert.That(block.GetFloat("_CurvatureEnabled"), Is.EqualTo(1));
+            Assert.That(_section.ToggleZebra(), Is.True);Read();
+            Assert.That(block.GetFloat("_CurvatureEnabled"), Is.Zero);
+            Assert.That(toggle.Invoke(_section, null), Is.True);Read();
+            Assert.That(block.GetFloat("_ZebraEnabled"), Is.Zero);
+            Assert.That(view.GetComponent<MeshFilter>().sharedMesh, Is.SameAs(mesh));
+            Assert.That(view.GetComponent<MeshCollider>().sharedMesh, Is.SameAs(mesh));
+            Assert.That(view.UploadVersion, Is.EqualTo(upload));
+            Assert.That(view.SurfaceMaterial.GetFloat("_CurvatureEnabled"), Is.Zero);
+            typeof(QuestSection).GetMethod("ObserveModelIdentity", Private).Invoke(_section, new object[] { "session", "first" });
+            typeof(QuestSection).GetMethod("ObserveModelIdentity", Private).Invoke(_section, new object[] { "session", "second" });
+            Read();Assert.That(block.GetFloat("_CurvatureEnabled"), Is.Zero);
+        }
+
+        [TestCase("SurfaceTrim")]
+        [TestCase("SurfaceExtend")]
+        public void SurfaceTrimAndExtendStayTwoSidedThroughSectionAnalysisAndPreviewWithoutGeometryChanges(string featureType)
+        {
+            var view = AddNativeView();
+            var feature = new FeatureDescriptor { FeatureId = "surface", Type = featureType };
+            view.SetSurfaceGeometry(QuestConnection.IsSurfaceFeature(new[] { feature }, feature.FeatureId));
+            var mesh = view.GetComponent<MeshFilter>().sharedMesh;
+            var collider = view.GetComponent<MeshCollider>().sharedMesh;
+            var upload = view.UploadVersion;
+            var indices = mesh.triangles;
+            var renderer = view.GetComponent<MeshRenderer>();
+            var surfaceMaterial = renderer.sharedMaterial;
+            Assert.That(view.IsSurfaceGeometry, Is.True);
+            Assert.That(surfaceMaterial, Is.Not.SameAs(view.SurfaceMaterial));
+            Assert.That(surfaceMaterial.GetFloat("_Cull"), Is.Zero);
+            Assert.That(view.SurfaceMaterial.GetFloat("_Cull"), Is.EqualTo(2), "shared solid material remains front-face culled");
+            view.SelectFace(view.ResolveFace(0));
+            var selectionRenderer = view.transform.Find("Selection").GetComponent<MeshRenderer>();
+            Assert.That(selectionRenderer.sharedMaterial.GetFloat("_Cull"), Is.Zero,
+                "a surface picked from behind must show its face highlight");
+            Assert.That(view.SelectionMaterial.GetFloat("_Cull"), Is.EqualTo(2));
+
+            var triangleIndices = mesh.triangles;
+            var first = triangleIndices[0];
+            var triangleCentre = (mesh.vertices[first] + mesh.vertices[triangleIndices[1]] +
+                mesh.vertices[triangleIndices[2]]) / 3;
+            var faceNormal = mesh.normals[first].normalized;
+            foreach (var side in new[] { faceNormal, -faceNormal })
+            {
+                var ray = new Ray(view.transform.TransformPoint(triangleCentre + side * .001f),
+                    view.transform.TransformDirection(-side));
+                Assert.That(view.TryRaycast(ray, null, null, 1,
+                    out var hitTriangle, out _, out _), Is.True, "semantic face ray missed from " + side);
+                var hit = view.ResolveFace(hitTriangle);
+                Assert.That(hit, Is.Not.Null);
+                Assert.That(hit.PersistentId, Is.Not.Empty);
+                view.SelectFace(hit);
+                var selected = view.transform.Find("Selection");
+                Assert.That(selected, Is.Not.Null, "real native face selection should render from either side");
+                Assert.That(selected.GetComponent<MeshRenderer>().sharedMaterial.GetFloat("_Cull"), Is.Zero);
+                view.ClearSelection();
+            }
+            view.ClearSelection();
+
+            Assert.That(_section.TryEnable(), Is.True);
+            Assert.That(_section.TrySetOffsetMm(7), Is.True);
+            _section.SetInverted(true);
+            Assert.That(view.transform.Find("Section cap"), Is.Null,
+                "open surfaces never receive filled section caps");
+            var contour = view.transform.Find("Section contour");
+            Assert.That(contour, Is.Not.Null);
+            Assert.That(contour.GetComponent<MeshFilter>().sharedMesh.GetIndexCount(0), Is.GreaterThan(0));
+            Assert.That(renderer.sharedMaterial.GetFloat("_Cull"), Is.Zero);
+
+            Assert.That(_section.ToggleZebra(), Is.True);
+            var block = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(block);
+            Assert.That(block.GetFloat("_ZebraEnabled"), Is.EqualTo(1));
+            Assert.That(renderer.sharedMaterial.GetFloat("_Cull"), Is.Zero);
+            view.ApplyCurvature(true, .1f);
+            renderer.GetPropertyBlock(block);
+            Assert.That(block.GetFloat("_CurvatureEnabled"), Is.EqualTo(1));
+            Assert.That(renderer.sharedMaterial.GetFloat("_Cull"), Is.Zero);
+
+            view.SetPreview(true);
+            Assert.That(renderer.sharedMaterial.GetFloat("_Cull"), Is.Zero);
+            view.SetPreview(false);
+            Assert.That(renderer.sharedMaterial, Is.SameAs(surfaceMaterial));
+            _section.Disable();
+            Assert.That(renderer.sharedMaterial.GetFloat("_Cull"), Is.Zero,
+                "restoring section state does not restore solid culling on a surface");
+            Assert.That(view.GetComponent<MeshFilter>().sharedMesh, Is.SameAs(mesh));
+            Assert.That(view.GetComponent<MeshCollider>().sharedMesh, Is.SameAs(collider));
+            Assert.That(mesh.triangles, Is.EqualTo(indices));
+            Assert.That(view.UploadVersion, Is.EqualTo(upload));
+        }
+
+        [Test]
+        public void LegacyMeshCannotEnableCurvatureAndAutomaticScaleUsesNativeValues()
+        {
+            var toggle = typeof(QuestSection).GetMethod("ToggleCurvature");
+            Assert.That(toggle, Is.Not.Null);
+            Assert.That(toggle.Invoke(_section, null), Is.False);
+            var view = AddNativeView();
+            Assert.That(toggle.Invoke(_section, null), Is.False, "legacy mesh is unknown, not flat");
+            var source = QuestMeshViewTests.NativeFixture();
+            view.Upload(new Kreoda.Session.SessionMeshResult(source.Header, source.Positions, source.Normals,
+                source.Indices, source.EdgeVertices, source.Faces, source.Edges, source.VolumeMm3,
+                source.BboxMm, source.RawByteLength, source.RawPayloadSha256,
+                Enumerable.Repeat(.125f, source.Positions.Length / 3).ToArray()));
+            Assert.That(toggle.Invoke(_section, null), Is.True);
+            typeof(QuestSection).GetMethod("AutoCurvatureScale").Invoke(_section, null);
+            var block = new MaterialPropertyBlock();view.GetComponent<MeshRenderer>().GetPropertyBlock(block);
+            Assert.That(block.GetFloat("_CurvatureMaximumPerMm"), Is.EqualTo(.125f));
+        }
+
+        [Test]
+        public void ZebraCoexistsWithClippingWithoutReplacingNativeMeshOrCollider()
+        {
+            var view = AddNativeView();
+            var mesh = view.GetComponent<MeshFilter>().sharedMesh;
+            var colliderMesh = view.GetComponent<MeshCollider>().sharedMesh;
+            var upload = view.UploadVersion;
+            Assert.That(_section.TryEnable(), Is.True);
+            Assert.That(_section.ToggleZebra(), Is.True);
+            var block = new MaterialPropertyBlock();
+            view.GetComponent<MeshRenderer>().GetPropertyBlock(block);
+            Assert.That(block.GetFloat("_ZebraEnabled"), Is.EqualTo(1));
+            Assert.That(block.GetFloat("_SectionEnabled"), Is.EqualTo(1));
+            Assert.That(block.GetFloat("_ZebraBands"), Is.EqualTo(16));
+            Assert.That(_section.ToggleZebra(), Is.True);
+            view.GetComponent<MeshRenderer>().GetPropertyBlock(block);
+            Assert.That(block.GetFloat("_ZebraEnabled"), Is.Zero);
+            Assert.That(block.GetFloat("_SectionEnabled"), Is.EqualTo(1));
+            Assert.That(view.GetComponent<MeshFilter>().sharedMesh, Is.SameAs(mesh));
+            Assert.That(view.GetComponent<MeshCollider>().sharedMesh, Is.SameAs(colliderMesh));
+            Assert.That(view.UploadVersion, Is.EqualTo(upload));
+        }
+
+        [Test]
+        public void ZebraSurvivesReuploadAndPreviewThenResetsForAnotherDocument()
+        {
+            var view = AddNativeView();
+            var identity = typeof(QuestSection).GetMethod("ObserveModelIdentity", Private);
+            identity.Invoke(_section, new object[] { "session-a", "document-a" });
+            Assert.That(_section.ToggleZebra(), Is.True);
+            _section.NextZebraDensity();
+            _section.RotateZebra();
+            var block = new MaterialPropertyBlock();
+            void Read() => view.GetComponent<MeshRenderer>().GetPropertyBlock(block);
+            Read();
+            Assert.That(block.GetFloat("_ZebraBands"), Is.EqualTo(20));
+            Assert.That(block.GetVector("_ZebraAxisWorld").z, Is.EqualTo(Mathf.Sin(15 * Mathf.Deg2Rad)).Within(.00001));
+            Assert.That(view.SurfaceMaterial.GetFloat("_ZebraEnabled"), Is.Zero, "shared material must stay untouched");
+            view.SetPreview(true); Read();
+            Assert.That(block.GetFloat("_ZebraEnabled"), Is.Zero, "placement preview keeps its own tint");
+            view.SetPreview(false); Read();
+            Assert.That(block.GetFloat("_ZebraEnabled"), Is.EqualTo(1));
+            view.Upload(QuestMeshViewTests.NativeFixture()); Read();
+            Assert.That(block.GetFloat("_ZebraEnabled"), Is.EqualTo(1));
+            Assert.That(block.GetFloat("_ZebraBands"), Is.EqualTo(20));
+            view.ApplyZebra(true, 49, 0); Read();
+            Assert.That(block.GetFloat("_ZebraBands"), Is.EqualTo(20));
+            view.ApplyZebra(true, 16, float.NaN); Read();
+            Assert.That(block.GetFloat("_ZebraBands"), Is.EqualTo(20));
+            _section.Disable(); Read();
+            Assert.That(block.GetFloat("_ZebraEnabled"), Is.EqualTo(1), "zebra is independent of section state");
+            identity.Invoke(_section, new object[] { "session-a", "document-b" }); Read();
+            Assert.That(block.GetFloat("_ZebraEnabled"), Is.Zero);
+            Assert.That(_section.ZebraEnabled, Is.False);
+            Assert.That(_section.ZebraBands, Is.EqualTo(16));
+            Assert.That(_section.ZebraAngleDeg, Is.Zero);
+        }
+
+        [Test]
+        public void EmptySceneCannotEnableZebraAndDensityOrientationStayBounded()
+        {
+            Assert.That(_section.ToggleZebra(), Is.False);
+            for (var i = 0; i < 100; i++)
+            {
+                _section.NextZebraDensity(); _section.RotateZebra();
+                Assert.That(_section.ZebraBands, Is.InRange(4, 48));
+                Assert.That(_section.ZebraAngleDeg, Is.InRange(0, 179));
+            }
         }
 
         static string NativeDetails()

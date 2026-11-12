@@ -18,6 +18,7 @@ namespace Kreoda.QuestRuntime
     {
         public QuestConnection Connection;
         public QuestSpatialEdit Spatial;
+        public QuestDirectFaceHistory DirectFaceHistory;
         public string Status { get; private set; } = "Seleziona geometria per le azioni";
         public string CommandLabel => _command?.Label ?? "Nessuna azione";
         public string FieldLabel => _fields.Count == 0 ? "Nessun valore richiesto" : _fields[_field];
@@ -25,6 +26,12 @@ namespace Kreoda.QuestRuntime
         public bool Busy { get; private set; }
         public long FormTicket => _ticket;
         public string SelectedField => _fields.Count == 0 ? null : _fields[_field];
+        // Commands with no editable properties are still valid operations.
+        // Confirm() performs the final required-value validation and two-tap
+        // review; UI availability must not depend on SelectedField != null.
+        public bool CanConfirm => Connection != null && !Busy && Spatial?.Busy != true && DirectFaceHistory?.Busy != true &&
+            _schema.ValueKind == JsonValueKind.Object && _context != null &&
+            _command?.Available == true && CurrentSelection();
         readonly ConcurrentQueue<Action> _main = new ConcurrentQueue<Action>();
         ContextCommandsPayload _context;
         ContextCommandInfo _command;
@@ -42,6 +49,8 @@ namespace Kreoda.QuestRuntime
         CancellationTokenSource _commandRun;
         bool _destroyed;
         string _requestedCommand;
+        string _reviewFingerprint;
+        long _reviewTicket;
 
         public void Select(QuestMeshView view, MeshSemanticHit hit)
         {
@@ -75,6 +84,7 @@ namespace Kreoda.QuestRuntime
         }
         void CaptureSelection(SessionClient client)
         {
+            _reviewFingerprint = null;
             _selectionClient = client;_selectionModel = client.Model;
             _selectionGeneration = Connection.ConnectionGeneration;
         }
@@ -117,6 +127,7 @@ namespace Kreoda.QuestRuntime
         }
         void Choose()
         {
+            _reviewFingerprint = null;
             _schema = default;
             _fields.Clear();_values.Clear();_field = 0;
             _command = _context.Commands[_index];
@@ -167,20 +178,69 @@ namespace Kreoda.QuestRuntime
                 }
                 else if (type == "string") value = text;
                 else { using var parsed = JsonDocument.Parse(text);value = parsed.RootElement.Clone(); }
-                _values[name] = value;return true;
+                if (!ValidateFieldValue(specification, value)) return false;
+                _reviewFingerprint = null;_values[name] = value;return true;
             }
             catch (JsonException) { return false; }
         }
+        internal static bool ValidateFieldValue(JsonElement specification, object value)
+        {
+            if (specification.ValueKind != JsonValueKind.Object || value == null) return false;
+            var type = specification.TryGetProperty("type", out var declared) && declared.ValueKind == JsonValueKind.String
+                ? declared.GetString() : null;
+            if (type is "number" or "integer")
+            {
+                if (value is not double number || double.IsNaN(number) || double.IsInfinity(number) ||
+                    type == "integer" && Math.Truncate(number) != number) return false;
+                if (specification.TryGetProperty("minimum", out var min) && min.ValueKind == JsonValueKind.Number && number < min.GetDouble()) return false;
+                if (specification.TryGetProperty("maximum", out var max) && max.ValueKind == JsonValueKind.Number && number > max.GetDouble()) return false;
+                if (specification.TryGetProperty("exclusiveMinimum", out var exclusiveMin) && exclusiveMin.ValueKind == JsonValueKind.Number && number <= exclusiveMin.GetDouble()) return false;
+                if (specification.TryGetProperty("exclusiveMaximum", out var exclusiveMax) && exclusiveMax.ValueKind == JsonValueKind.Number && number >= exclusiveMax.GetDouble()) return false;
+            }
+            if (type == "string")
+            {
+                if (value is not string str) return false;
+                if (specification.TryGetProperty("minLength", out var minLength) && minLength.TryGetInt32(out var least) && str.Length < least) return false;
+                if (specification.TryGetProperty("maxLength", out var maxLength) && maxLength.TryGetInt32(out var most) && str.Length > most) return false;
+            }
+            if (specification.TryGetProperty("enum", out var options) && options.ValueKind == JsonValueKind.Array)
+            {
+                var serialized = JsonSerializer.Serialize(value);
+                if (!options.EnumerateArray().Any(option => option.GetRawText() == serialized)) return false;
+            }
+            return true;
+        }
         public void Confirm()
         {
-            if (Busy || Spatial?.Busy == true || _schema.ValueKind != JsonValueKind.Object || _context == null || _command?.Available != true || !CurrentSelection()) return;
+            if (!CanConfirm)
+            { _reviewFingerprint = null;return; }
             var required = _schema.TryGetProperty("required", out var names) ? names.EnumerateArray().Select(p => p.GetString()) : Enumerable.Empty<string>();
             if (required.Any(name => !_values.ContainsKey(name))) { Status = "Completa tutti i valori richiesti";return; }
+            if (_schema.TryGetProperty("properties", out var specifications) && specifications.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var field in _fields)
+                    if (_values.TryGetValue(field, out var value) && specifications.TryGetProperty(field, out var spec) &&
+                        !ValidateFieldValue(spec, value))
+                    { Status = "Valore non valido: " + field;return; }
+            }
+            var fingerprint = ReviewFingerprint(_command.Id, _context.SessionId, _context.DocumentId,
+                _context.Revision, _selectionGeneration, _values);
+            if (_reviewFingerprint != fingerprint || _reviewTicket != _ticket)
+            {
+                _reviewFingerprint = fingerprint;_reviewTicket = _ticket;
+                Status = "Rivedi " + _command.Label + " (" + _values.Count + " parametri) - premi Conferma di nuovo";
+                return;
+            }
+            _reviewFingerprint = null;
             Execute(_command.Id, new Dictionary<string, object>(_values), _context.SessionId, _context.DocumentId, _context.Revision, _selectionClient, _selectionGeneration);
         }
+        internal static string ReviewFingerprint(string commandId, string session, string document, long revision,
+            long generation, IReadOnlyDictionary<string, object> parameters) =>
+            JsonSerializer.Serialize(new object[] { commandId, session, document, revision, generation,
+                parameters.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => new object[] { p.Key, p.Value }).ToArray() });
         public void History(bool redo)
         {
-            if (Busy || Spatial?.Busy == true) return;
+            if (Busy || Spatial?.Busy == true || DirectFaceHistory?.Busy == true) return;
             var client = Connection.Client;var model = client?.Model;if (model == null) return;
             Execute(redo ? "Redo" : "Undo", new Dictionary<string, object>(), model.SessionId, model.DocumentId, model.Revision, client, Connection.ConnectionGeneration);
         }

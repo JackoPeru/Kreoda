@@ -12,6 +12,7 @@ namespace Kreoda.QuestRuntime
     public sealed class QuestSpatialEdit : MonoBehaviour
     {
         public QuestConnection Connection;
+        public QuestDirectFaceHistory DirectFaceHistory;
         public QuestDimensions Dimensions;
         public QuestPreviewView Preview;
         public bool EditMode { get; private set; }
@@ -29,6 +30,7 @@ namespace Kreoda.QuestRuntime
         Quaternion _startRotation;
         float _distance;
         long _load, _previewTicket;
+        SessionModelState _previewModel;
         bool _held, _destroyed;
         string _owner;
 
@@ -50,21 +52,28 @@ namespace Kreoda.QuestRuntime
         {
             Cancel();_view = view;_owner = owner;SelectedIntent = null;Dimensions.Clear();
             var ticket = ++_load;
-            if (EditMode && view != null) _ = Load(view, owner, ticket);
+            if (EditMode && view != null) _ = Load(view, owner, ticket, Connection.Client?.Model);
         }
-        async Task Load(QuestMeshView view, string owner, long ticket)
+        internal static bool IsIntentLoadCurrent(SessionModelState initial, SessionModelState current, long requestedTicket,
+            long activeTicket, bool editMode, bool sameView) =>
+            editMode && sameView && requestedTicket == activeTicket && initial != null && current != null &&
+            initial.SessionId == current.SessionId && initial.DocumentId == current.DocumentId &&
+            initial.Revision == current.Revision;
+
+        async Task Load(QuestMeshView view, string owner, long ticket, SessionModelState captured)
         {
             try
             {
                 var intents = await Connection.EditIntentsAsync(view, owner).ConfigureAwait(false);
                 _main.Enqueue(() => {
-                    if (ticket != _load || !EditMode || !Connection.IsCurrentView(view)) return;
+                    if (!IsIntentLoadCurrent(captured, Connection.Client?.Model, ticket, _load, EditMode,
+                        Connection.IsCurrentView(view))) return;
                     Dimensions.SetIntents(intents, view.BboxMetres);SelectedIntent = intents.FirstOrDefault();
                     DraftValues = SelectedIntent?.InitialValues;Dimensions.Select(SelectedIntent);
                     Status = intents.Length == 0 ? "Nessuna quota modificabile per questa feature" : "Trascina una quota · oppure Valore esatto";
                 });
             }
-            catch (Exception error) { _main.Enqueue(() => { if (ticket == _load) Status = "Quote non disponibili · " + Code(error); }); }
+            catch (Exception error) { _main.Enqueue(() => { if (IsIntentLoadCurrent(captured, Connection.Client?.Model, ticket, _load, EditMode, Connection.IsCurrentView(view))) Status = "Quote non disponibili · " + Code(error); }); }
         }
         public void NextOwner()
         {
@@ -80,7 +89,7 @@ namespace Kreoda.QuestRuntime
         }
         public bool Begin(QuestEditHandle handle, Ray ray, Vector3 hit, Quaternion orientation)
         {
-            if (!EditMode || Busy || handle == null || !Connection.IsCurrentView(_view)) return false;
+            if (DirectFaceHistory?.Busy == true || !EditMode || Busy || handle == null || !Connection.IsCurrentView(_view)) return false;
             SelectedIntent = handle.Intent;DraftValues = SelectedIntent.InitialValues;Dimensions.Select(SelectedIntent);
             _frame = CaptureFrame(Connection.DisplayRoot);_distance = Mathf.Clamp(Vector3.Distance(ray.origin, hit), .1f, 5);
             _start = ToCad(ray.GetPoint(_distance));_startRotation = orientation;
@@ -90,23 +99,30 @@ namespace Kreoda.QuestRuntime
         {
             try
             {
+                if (!Connection.IsCurrentView(_view) || Connection.Client?.Model == null)
+                    throw new SessionException("NEED_FULL_SNAPSHOT", "CAD selection changed before preview");
+                _previewModel = Connection.Client.Model;
                 _worker = new SpatialEditWorker(Connection.Client, SelectedIntent);
                 var worker = _worker;_previewTicket = Preview.Begin(SelectedIntent, _view.GetComponent<MeshFilter>().sharedMesh);var ticket = _previewTicket;
                 worker.PreviewReady += mesh => _main.Enqueue(() => {
-                    if (ReferenceEquals(_worker, worker) && Preview.TryUpload(ticket, mesh, () => worker.IsPreviewCurrent(mesh)))
+                    if (ReferenceEquals(_worker, worker) && PreviewLineageCurrent(_previewModel, Connection.Client?.Model,
+                        Connection.IsCurrentView(_view)) && Preview.TryUpload(ticket, mesh, () => worker.IsPreviewCurrent(mesh)))
                         Status = "Anteprima aggiornata";
                 });
                 _ = Observe(worker, worker.BeginAsync());Status = "Anteprima · rilascia per confermare";return true;
             }
             catch (Exception error) { _worker = null;Status = "Modifica non avviata · " + Code(error);return false; }
         }
+        internal static bool PreviewLineageCurrent(SessionModelState captured, SessionModelState current, bool sameView) =>
+            sameView && captured != null && current != null && captured.SessionId == current.SessionId &&
+            captured.DocumentId == current.DocumentId && captured.Revision == current.Revision;
         async Task Observe(SpatialEditWorker worker, Task ready)
         {
             try { await ready.ConfigureAwait(false); } catch { /* Completion carries the authoritative failure. */ }
             var result = await worker.Completion.ConfigureAwait(false);
             _main.Enqueue(() => {
                 if (!ReferenceEquals(_worker, worker)) return;
-                _worker = null;_held = false;Preview.Clear();
+                _worker = null;_held = false;_previewModel = null;Preview.Clear();
                 Status = result.Status == SpatialEditStatus.Committed ? "Modifica salvata sul PC" :
                     result.Status == SpatialEditStatus.Cancelled ? "Modifica annullata" : "Modifica non confermata · " + result.ErrorCode;
                 if (EditMode && Connection.IsCurrentView(_view)) Select(_view, _owner);
@@ -117,7 +133,8 @@ namespace Kreoda.QuestRuntime
         public void Drag(Ray ray, Quaternion orientation, bool pressed, bool tracked)
         {
             if (!_held || _worker == null) return;
-            if (!tracked || !Connection.IsCurrentView(_view)) { Cancel();return; }
+            if (!tracked || !PreviewLineageCurrent(_previewModel, Connection.Client?.Model,
+                Connection.IsCurrentView(_view))) { Cancel();return; }
             try
             {
                 var point = ray.GetPoint(_distance);
@@ -145,15 +162,28 @@ namespace Kreoda.QuestRuntime
         }
         public bool Exact(IReadOnlyDictionary<string, double> values)
         {
-            if (!EditMode || Busy || SelectedIntent == null || !Connection.IsCurrentView(_view)) return false;
-            var draft = SelectedIntent.Exact(values);
-            if (!StartWorker()) return false;
-            DraftValues = draft;Dimensions.Draft(SelectedIntent, draft);_worker.Submit(draft);_ = _worker.ReleaseAsync();return true;
+            if (DirectFaceHistory?.Busy == true || !EditMode || Busy || SelectedIntent == null || !Connection.IsCurrentView(_view)) return false;
+            try
+            {
+                var draft = SelectedIntent.Exact(values);
+                if (!StartWorker()) return false;
+                DraftValues = draft;Dimensions.Draft(SelectedIntent, draft);_worker.Submit(draft);_ = _worker.ReleaseAsync();return true;
+            }
+            catch (Exception error)
+            {
+                Status = "Quota non valida · " + Code(error);
+                Cancel();return false;
+            }
         }
         public void Cancel() { _held = false;if (_worker != null) _ = _worker.CancelAsync();if (Preview != null) Preview.Clear(); }
         static string Code(Exception error) => error is SessionException session ? session.Code : "INVALID_EDIT";
         void Start() { Connection.SceneChanged += SceneChanged; }
-        void SceneChanged() { if (!Busy && EditMode && _view != null) Select(_view, _owner); }
+        void SceneChanged()
+        {
+            if (Busy && !PreviewLineageCurrent(_previewModel, Connection.Client?.Model,
+                Connection.IsCurrentView(_view))) { Cancel();return; }
+            if (!Busy && EditMode && _view != null) Select(_view, _owner);
+        }
         void Update() { for (var i = 0; i < 2 && _main.TryDequeue(out var action); i++) if (!_destroyed) action(); }
         void OnApplicationFocus(bool focus) { if (!focus) Cancel(); }
         void OnApplicationPause(bool pause) { if (pause) Cancel(); }

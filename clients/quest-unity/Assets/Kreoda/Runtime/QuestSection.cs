@@ -12,6 +12,12 @@ namespace Kreoda.QuestRuntime
         public QuestConnection Connection;
         public bool Enabled { get; private set; }
         public SectionPlane? Plane { get; private set; }
+        public bool ZebraEnabled { get; private set; }
+        public int ZebraBands { get; private set; } = 16;
+        public float ZebraAngleDeg { get; private set; }
+        public bool CurvatureEnabled { get; private set; }
+        public float CurvatureMaximumPerMm { get; private set; } = .1f;
+        public bool CurvatureAvailable => Connection != null && Connection.Views.Any(view => view != null && view.HasCurvatureData);
         public string Status { get; private set; } = "Sezione spenta";
 
         string _sessionId, _documentId;
@@ -30,7 +36,11 @@ namespace Kreoda.QuestRuntime
             if (Connection != null) Connection.SceneChanged -= Refresh;
             if (Connection != null && Connection.DisplayRoot != null)
                 foreach (var view in Connection.Views)
+                {
                     view.ApplySection(null, Connection.DisplayRoot, Connection.SectionCapMaterial, Connection.SectionContourMaterial);
+                    view.ApplyZebra(false, 16, 0);
+                    view.ApplyCurvature(false, .1f);
+                }
         }
 
         void ObserveCurrentIdentity()
@@ -92,6 +102,45 @@ namespace Kreoda.QuestRuntime
         }
 
         public bool Toggle() => Enabled ? DisableAndSucceed() : TryEnable();
+
+        public bool ToggleZebra()
+        {
+            ObserveCurrentIdentity();
+            if (!ZebraEnabled && (Connection == null || !Connection.Views.Any(view => view != null && view.TriangleCount > 0))) return false;
+            ZebraEnabled = !ZebraEnabled;
+            if (ZebraEnabled) CurvatureEnabled = false;
+            Apply();
+            return true;
+        }
+
+        public void NextZebraDensity() { ZebraBands = ZebraBands >= 48 ? 4 : ZebraBands + 4; Apply(); }
+        public void RotateZebra() { ZebraAngleDeg = (ZebraAngleDeg + 15) % 180; Apply(); }
+
+        public bool ToggleCurvature()
+        {
+            ObserveCurrentIdentity();
+            if (!CurvatureEnabled && !CurvatureAvailable) return false;
+            CurvatureEnabled = !CurvatureEnabled;
+            if (CurvatureEnabled) ZebraEnabled = false;
+            Apply();
+            return true;
+        }
+
+        public void NextCurvatureScale()
+        {
+            var scales = new[] { .01f, .025f, .05f, .1f, .25f, .5f, 1f };
+            CurvatureMaximumPerMm = scales.FirstOrDefault(value => value > CurvatureMaximumPerMm * 1.001f);
+            if (CurvatureMaximumPerMm <= 0) CurvatureMaximumPerMm = scales[0];
+            Apply();
+        }
+
+        public void AutoCurvatureScale()
+        {
+            if (!CurvatureAvailable) return;
+            var maximum = Connection.Views.Where(view => view != null && view.HasCurvatureData).Max(view => view.MaximumCurvaturePerMm);
+            CurvatureMaximumPerMm = maximum > 0 ? maximum : .1f;
+            Apply();
+        }
 
         bool DisableAndSucceed()
         {
@@ -179,6 +228,11 @@ namespace Kreoda.QuestRuntime
         {
             Enabled = false;
             Plane = null;
+            ZebraEnabled = false;
+            ZebraBands = 16;
+            ZebraAngleDeg = 0;
+            CurvatureEnabled = false;
+            CurvatureMaximumPerMm = .1f;
             Status = reason;
         }
 
@@ -187,8 +241,13 @@ namespace Kreoda.QuestRuntime
             if (Connection == null || Connection.DisplayRoot == null) return;
             var activePlane = Enabled ? Plane : null;
             foreach (var view in Connection.Views)
-                if (view != null) view.ApplySection(activePlane, Connection.DisplayRoot,
-                    Connection.SectionCapMaterial, Connection.SectionContourMaterial);
+                if (view != null)
+                {
+                    view.ApplySection(activePlane, Connection.DisplayRoot,
+                        Connection.SectionCapMaterial, Connection.SectionContourMaterial);
+                    view.ApplyZebra(ZebraEnabled, ZebraBands, ZebraAngleDeg);
+                    view.ApplyCurvature(CurvatureEnabled, CurvatureMaximumPerMm);
+                }
             foreach (var preview in Connection.DisplayRoot.GetComponentsInChildren<QuestPreviewView>(true))
                 preview.ApplySection(activePlane, Connection.DisplayRoot,
                     Connection.SectionCapMaterial, Connection.SectionContourMaterial);

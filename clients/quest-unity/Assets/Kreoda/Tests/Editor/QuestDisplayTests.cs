@@ -42,6 +42,44 @@ namespace Kreoda.QuestRuntime.Tests
             return new Vector3((float)(box[0] + box[3]) / 2, (float)box[1], (float)(box[2] + box[5]) / 2);
         }
 
+        [Test]
+        public void MalformedCadBoundsCannotCreatePlacementGuidesOrMoveDisplay()
+        {
+            var property = typeof(QuestMeshView).GetProperty("BboxMetres",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Assert.That(property, Is.Not.Null);
+            var original = _view.BboxMetres;
+            var invalid = new[]
+            {
+                new double[] { 0, 0, 0 },
+                new double[] { 0, 0, 0, double.NaN, 1, 1 },
+                new double[] { 0, 0, 0, double.PositiveInfinity, 1, 1 },
+                new double[] { 2, 0, 0, 1, 1, 1 }
+            };
+            try
+            {
+                foreach (var bounds in invalid)
+                {
+                    property.SetValue(_view, bounds);
+                    var position = Root.position;
+                    var rotation = Root.rotation;
+                    var scale = Root.localScale;
+                    Assert.That(_display.BeginPlacement(), Is.False,
+                        "invalid bounds must not create a physical placement preview");
+                    Assert.That(_display.Place(new Vector3(.4f, .8f, 1.2f), 60), Is.False,
+                        "invalid bounds must not be accepted as a physical contact");
+                    Assert.That(_display.PlacementActive, Is.False);
+                    Assert.That(Root.position, Is.EqualTo(position));
+                    Assert.That(Root.rotation, Is.EqualTo(rotation));
+                    Assert.That(Root.localScale, Is.EqualTo(scale));
+                    Assert.That(typeof(QuestDisplay).GetField("_marker",
+                        BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_display), Is.Null,
+                        "invalid CAD bounds must not leave a ray-interfering preview");
+                }
+            }
+            finally { property.SetValue(_view, original); }
+        }
+
         [TestCase("1:10", .1f)]
         [TestCase("1:5", .2f)]
         [TestCase("1:1", 1f)]
@@ -78,6 +116,75 @@ namespace Kreoda.QuestRuntime.Tests
             Assert.That(Root.rotation, Is.EqualTo(rotation));
             Assert.That(Root.localScale, Is.EqualTo(scale));
             Assert.That(_display.PlacementActive, Is.False);
+        }
+
+        [Test]
+        public void PlacementFootprintTracksTrueCadBoundsScaleAndTrackingWithoutStealingRaycasts()
+        {
+            var shader = Shader.Find("Kreoda/QuestUi") ?? Shader.Find("Standard");
+            Assert.That(shader, Is.Not.Null);
+            var source = new Material(shader);
+            _display.MarkerMaterial = source;
+            try
+            {
+                Assert.That(_display.BeginPlacement(), Is.True);
+                var marker = (GameObject)typeof(QuestDisplay)
+                    .GetField("_marker", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_display);
+                Assert.That(marker, Is.Not.Null);
+                Assert.That(marker.transform.childCount, Is.EqualTo(11),
+                    "one contact point, four authentic CAD edges and six local X/Z direction segments");
+                _display.UpdatePlacement(new Vector3(.4f, .75f, 1.3f), 45, true);
+                Assert.That(marker.activeSelf, Is.True);
+                Assert.That(marker.transform.position, Is.EqualTo(new Vector3(.4f, .75f, 1.3f)));
+                Assert.That(Quaternion.Angle(marker.transform.rotation, Root.rotation), Is.LessThan(.001f));
+                var bounds = _view.BboxMetres;
+                var expectedWidth = (float)(bounds[3] - bounds[0]);
+                var expectedDepth = (float)(bounds[5] - bounds[2]);
+                var horizontal = marker.transform.Find("CAD footprint edge 0");
+                var vertical = marker.transform.Find("CAD footprint edge 2");
+                Assert.That(horizontal, Is.Not.Null);
+                Assert.That(vertical, Is.Not.Null);
+                Assert.That(horizontal.localScale.x, Is.EqualTo(expectedWidth).Within(.00001f));
+                Assert.That(vertical.localScale.z, Is.EqualTo(expectedDepth).Within(.00001f));
+                var xLength = Mathf.Min(expectedWidth * .26f, .09f);
+                var zLength = Mathf.Min(expectedDepth * .26f, .09f);
+                for (var axis = 0; axis < 6; axis++)
+                {
+                    var guide = marker.transform.Find("CAD local " + (axis < 3 ? "X" : "Z") +
+                        " direction " + (axis % 3));
+                    Assert.That(guide, Is.Not.Null);
+                    var visible = axis < 3 ? xLength >= .015f : zLength >= .015f;
+                    Assert.That(guide.gameObject.activeSelf, Is.EqualTo(visible));
+                    if (visible)
+                        Assert.That(guide.localScale.magnitude, Is.GreaterThan(.001f),
+                            "visible direction guides require nondegenerate geometry");
+                }
+                var x = marker.transform.Find("CAD local X direction 0");
+                var z = marker.transform.Find("CAD local Z direction 0");
+                if (xLength >= .015f && zLength >= .015f)
+                {
+                    Assert.That(x.localScale.x, Is.EqualTo(xLength).Within(.0001f));
+                    Assert.That(z.localScale.x, Is.EqualTo(zLength).Within(.0001f));
+                    Assert.That(Vector3.Dot(x.TransformDirection(Vector3.right),
+                        z.TransformDirection(Vector3.right)), Is.EqualTo(0f).Within(.01f),
+                        "local X/Z direction strokes must remain perpendicular under yaw");
+                }
+                for (var i = 0; i < marker.transform.childCount; i++)
+                    Assert.That(marker.transform.GetChild(i).GetComponent<Collider>().enabled, Is.False,
+                        "placement preview must never intercept CAD selection or pinch raycasts");
+                Assert.That(_display.SetScale("2:1"), Is.True);
+                Assert.That(horizontal.localScale.x, Is.EqualTo(expectedWidth * 2f).Within(.00001f));
+                Assert.That(vertical.localScale.z, Is.EqualTo(expectedDepth * 2f).Within(.00001f));
+                _display.UpdatePlacement(default, 45, false);
+                Assert.That(marker.activeSelf, Is.False, "lost tracking cannot show a false valid contact");
+                _display.CancelPlacement();
+                Assert.That(marker == null, Is.True, "preview is removed after cancellation");
+            }
+            finally
+            {
+                _display.MarkerMaterial = null;
+                Object.DestroyImmediate(source);
+            }
         }
 
         [Test]

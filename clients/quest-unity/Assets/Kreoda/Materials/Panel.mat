@@ -19,14 +19,17 @@ Material:
   m_CustomRenderQueue: 3000
   stringTagMap: {}
   disabledShaderPasses: []
-  m_LockedProperties:
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
+    - _BorderSize: 0.012
     - _Radius: 0.08
+    - _Sheen: 0.24
     m_Colors:
+    - _BorderColor: {r: 0.12999997, g: 0.53999996, b: 0.95, a: 0.65}
     - _Color: {r: 0.94, g: 0.96, b: 0.985, a: 0.78}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

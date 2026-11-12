@@ -115,12 +115,14 @@ namespace Kreoda.QuestRuntime.Tests
                 typeof(QuestControls).GetMethod("Start", System.Reflection.BindingFlags.Instance |
                     System.Reflection.BindingFlags.NonPublic).Invoke(controls, null);
                 var panel = controls.transform.Find("Compact panel (0.42 m)");
-                Assert.That(panel.Find("Panel background").localScale.x, Is.EqualTo(.42f).Within(.001f));
+                Assert.That(controls.Home.Background, Is.Null, "spatial Home leaves the real world visible");
+                Assert.That(panel.localScale.x, Is.GreaterThanOrEqualTo(1.4f));
                 var menu = controls.transform.Find("Menu control");
                 Assert.That(menu, Is.Not.Null);
-                var referenceButton = controls.transform.Find("Compact panel (0.42 m)/Display controls/Riferimenti control");
+                var referenceButton = panel.Find("Display controls").GetComponentsInChildren<QuestButton>(true)
+                    .Single(button => button.ActionId == "Riferimenti");
                 Assert.That(referenceButton, Is.Not.Null, "hand-reachable display page must open reference controls");
-                referenceButton.GetComponentInChildren<QuestButton>(true).Click.Invoke();
+                referenceButton.Click.Invoke();
                 Assert.That(controls.transform.Find("Compact panel (0.42 m)/Riferimenti CAD").gameObject.activeSelf, Is.True);
                 panel.gameObject.SetActive(false);
                 Assert.That(menu.gameObject.activeInHierarchy, Is.True);

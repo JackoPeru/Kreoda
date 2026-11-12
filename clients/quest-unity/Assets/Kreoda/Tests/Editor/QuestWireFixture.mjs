@@ -91,9 +91,12 @@ async function startMultiPcFixture() {
         const identity = pc.identities.get(body.deviceId);
         if (!identity) { response.writeHead(403);response.end();return; }
         const key = createHash("sha256").update(identity.credential).digest();
-        const proof = createHmac("sha256", key).update(JSON.stringify([pc.id, body.deviceId, body.nonce])).digest("hex");
+        const parts = [pc.id, body.deviceId, body.nonce];
+        if (body.proofVersion === 2) parts.push("127.0.0.1", String(pc.ws.address().port), String(pc.http.address().port));
+        const proof = createHmac("sha256", key).update(JSON.stringify(parts)).digest("hex");
         response.writeHead(200, { "Content-Type": "application/json" });
-        response.end(JSON.stringify({ version: 1, pcId: pc.id, nonce: body.nonce, proof }));
+        response.end(JSON.stringify({ version: 1, pcId: pc.id, nonce: body.nonce, proof,
+          ...(body.proofVersion === 2 ? { proofVersion: 2 } : {}) }));
         return;
       }
       if (request.url === "/pair" && request.method === "POST") {
@@ -122,7 +125,7 @@ async function startMultiPcFixture() {
   udp.on("message", (data, peer) => {
     try {
       const body = JSON.parse(data.toString("utf8"));
-      multiPcs.forEach(pc => udp.send(JSON.stringify({ protocol: "kreoda-discovery", version: 1,
+      multiPcs.filter(pc => fixture.switchMode !== "legacy-offline" || pc.id === pcAId).forEach(pc => udp.send(JSON.stringify({ protocol: "kreoda-discovery", version: 1,
         nonce: body.nonce, pcId: pc.id, name: pc.name, sessionPort: pc.ws.address().port,
         bootstrapPort: pc.http.address().port }), peer.port, peer.address));
     } catch { }
@@ -160,9 +163,12 @@ server.on("listening", async () => {
       if (text.includes('"credential"') || text.includes("A".repeat(43))) discoveryAudit.credentialInIdentityProbe = true;
       const body = JSON.parse(text);
       const key = createHash("sha256").update((known ? "A" : "C").repeat(43)).digest();
-      const proof = createHmac("sha256", key).update(JSON.stringify([pcId, body.deviceId, body.nonce])).digest("hex");
+      const parts = [pcId, body.deviceId, body.nonce];
+      if (body.proofVersion === 2) parts.push("127.0.0.1", String(sessionPort), String(http.address().port));
+      const proof = createHmac("sha256", key).update(JSON.stringify(parts)).digest("hex");
       response.writeHead(200, { "Content-Type": "application/json" });
-      response.end(JSON.stringify({ version: 1, pcId, nonce: body.nonce, proof }));
+      response.end(JSON.stringify({ version: 1, pcId, nonce: body.nonce, proof,
+        ...(body.proofVersion === 2 ? { proofVersion: 2 } : {}) }));
     });
     http.listen(0, "127.0.0.1");await once(http, "listening");
     const udp = createSocket("udp4");
