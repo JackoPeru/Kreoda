@@ -16,7 +16,10 @@
                     "firstInstallTime":  "2026-10-10 15:22:40",
                     "dataRetained":  true,
                     "lastUpdateTime":  "2026-11-13 00:09:49",
-                    "signatures":  "f2c96763"
+                    "signatures":  "f2c96763",
+                    "installedBaseApkSha256":  "5420c6480b84d1f8c7b817f5dab10e2fb418b7f7cb085fb14f8a2fa2f516e12b",
+                    "installedMatchesBuiltApk":  true,
+                    "installedBaseApkBytes":  43915653
                 },
     "unityEditMode":  {
                           "passed":  274,
