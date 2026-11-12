@@ -34,13 +34,13 @@ test("automatic MCP agent preserves its identity across Desktop port changes", a
     const raw = await first.window.evaluate(payload => window.kreoda.invoke(payload), Buffer.from(frame).toString("base64"));
     expect(JSON.parse(Buffer.from(raw, "base64").toString()).status).toBe("ok");
     const before = await probe();
-    expect(before).toMatchObject({ status: "automatic-agent-ready", manualInputs: 0, features: 1, tools: 7 });
+    expect(before).toMatchObject({ status: "automatic-agent-ready", manualInputs: 0, features: 1, tools: 8 });
     const identity = JSON.parse(readFileSync(deviceFile, "utf8"));
     await app.close();app = undefined;
     const second = await launch();app = second.app;
     const after = await probe();
     expect(after).toMatchObject({ status: "automatic-agent-ready", pcId: before.pcId, deviceId: before.deviceId,
-      installationId: before.installationId, manualInputs: 0, features: 0, tools: 7 });
+      installationId: before.installationId, manualInputs: 0, features: 0, tools: 8 });
     expect(after.sessionUrl).not.toBe(before.sessionUrl);
     expect(after.sessionId).not.toBe(before.sessionId);
     const saved = JSON.parse(readFileSync(deviceFile, "utf8"));

@@ -7,6 +7,13 @@ using Kreoda.ModelingAgent.Benchmark;
 using System.Diagnostics;
 
 void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
+void CheckToolCatalog(IEnumerable<string> names, string message) {
+    string[] expected = ["kreoda_project_context", "kreoda_describe_model", "kreoda_propose_intent", "kreoda_query",
+        "kreoda_begin_request", "kreoda_command", "kreoda_commit_request", "kreoda_cancel_request"];
+    var actual = names.OrderBy(name => name, StringComparer.Ordinal).ToArray();
+    Check(actual.SequenceEqual(expected.OrderBy(name => name, StringComparer.Ordinal)),
+        message + ": [" + string.Join(", ", actual) + "]");
+}
 var scenario = Environment.GetEnvironmentVariable("KREODA_MCP_PROBE_SCENARIO");
 if (scenario == "automatic-agent-local-connection")
 {
@@ -14,6 +21,7 @@ if (scenario == "automatic-agent-local-connection")
     var connector = new PrivateCadConnection(deviceFile, null, null,
         new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, Kreoda.Session.SessionDiscovery.Port));
     JsonElement model;
+    var toolCount = 0;
     await using (var cad = new CadBridge(connector.ConnectAsync))
     await using (var app = BridgeHost.Build(cad, "http://127.0.0.1:0"))
     {
@@ -22,7 +30,8 @@ if (scenario == "automatic-agent-local-connection")
             await using var localTransport = new HttpClientTransport(new() { Endpoint = new Uri(app.Urls.Single() + "/mcp") });
             await using var localMcp = await McpClient.CreateAsync(localTransport);
             var available = await localMcp.ListToolsAsync();
-            Check(available.Count == 7, "Automatic agent MCP tool catalog missing");
+            CheckToolCatalog(available.Select(tool => tool.Name), "Automatic agent MCP tool catalog missing");
+            toolCount = available.Count;
             var agentResource = await localMcp.ReadResourceAsync("kreoda://project");
             Check(agentResource.Contents.OfType<TextResourceContents>().Single().Text.Contains("Hermes owns"), "Agent project context missing");
             var description = await localMcp.CallToolAsync("kreoda_describe_model", new Dictionary<string, object?>());
@@ -41,7 +50,7 @@ if (scenario == "automatic-agent-local-connection")
     Console.WriteLine(JsonSerializer.Serialize(new { scenario, status = "automatic-agent-ready", manualInputs = 0,
         pcId = config.PcId, deviceId = config.DeviceId, installationId = config.InstallationId, sessionUrl = config.SessionUrl,
         sessionId = model.GetProperty("sessionId").GetString(), documentId = model.GetProperty("documentId").GetString(),
-        features = model.GetProperty("features").GetArrayLength(), revision = model.GetProperty("revision").GetInt64(), tools = 7 }));
+        features = model.GetProperty("features").GetArrayLength(), revision = model.GetProperty("revision").GetInt64(), tools = toolCount }));
     return;
 }
 if(scenario=="native-reference-reconstruction")
@@ -216,7 +225,7 @@ async Task<JsonElement> Tool(string name, Dictionary<string, object?> arguments)
         string.Join(" ", response.Content.OfType<TextContentBlock>().Select(c => c.Text)));
     using var json = JsonDocument.Parse(response.Content.OfType<TextContentBlock>().Single().Text);return json.RootElement.Clone();
 }
-var tools = await client.ListToolsAsync();Check(tools.Count == 7, "MCP discovery did not expose the actual CAD tools");
+var tools = await client.ListToolsAsync();CheckToolCatalog(tools.Select(tool => tool.Name), "MCP discovery did not expose the actual CAD tools");
 var resource = await client.ReadResourceAsync("kreoda://project");Check(resource.Contents.OfType<TextResourceContents>().Single().Text.Contains("Hermes owns"), "project resource missing");
 var schemas = await Tool("kreoda_query", new() { ["method"] = "getCommandSchema", ["parameters"] = new Dictionary<string, object?>() });
 Check(schemas.GetProperty("commands").EnumerateArray().Single(c => c.GetProperty("id").GetString() == "CreateBox").GetProperty("creation").GetProperty("fixedCount").GetInt32() == 1, "runtime creation metadata missing");

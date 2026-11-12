@@ -213,7 +213,7 @@ test("native projection, repair and lost-ack replay stay coherent through hidden
       KREODA_MCP_PROBE_URL: `${bridgeUrl}/mcp`,
       KREODA_MCP_PROBE_SCENARIO: "mcp-preflight",
     } as Record<string, string>);
-    expect(preflight).toMatchObject({ scenario: "mcp-preflight", status: "ready", tools: 7 });
+    expect(preflight).toMatchObject({ scenario: "mcp-preflight", status: "ready", tools: 8 });
     const firstPeerPair = await window.evaluate(() => globalThis.window.kreoda.sessionPair());
     secrets.push(firstPeerPair.token);
     proxy = new LostCommitAckProxy(directSessionUrl, droppedAck);
