@@ -244,6 +244,28 @@ public sealed class QuestSceneStateTests
     }
 
     [Fact]
+    public void ApprovedOpenNewSessionSameDocumentAndRevisionRetiresOldMeshTickets()
+    {
+        const string nextSession = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        var scene = new QuestSceneState();
+        var generation = scene.BeginConnection();
+        var oldStamp = scene.CaptureObservation(generation, SessionId, DocumentId, 0);
+        var oldTicket = Assert.Single(scene.Reconcile(oldStamp,
+            [Target("body-a", null, "same-tip", 0)], snapshot: true).Requests);
+
+        // Approved open may replace the session while retaining identical model identifiers.
+        var nextStamp = scene.CaptureObservation(generation, nextSession, DocumentId, 0);
+        var replacement = scene.Reconcile(nextStamp,
+            [Target("body-a", null, "same-tip", 0, sessionId: nextSession)], snapshot: true);
+        var nextTicket = Assert.Single(replacement.Requests);
+        Assert.Equal(nextSession, nextTicket.Target.SessionId);
+        Assert.Equal(MeshCompletionDisposition.IgnoreStale, scene.Complete(oldTicket));
+        Assert.Equal(MeshCompletionDisposition.Apply, scene.Complete(nextTicket));
+        Assert.True(scene.Reconcile(oldStamp,
+            [Target("body-a", null, "same-tip", 0)], snapshot: true).IgnoredStaleObservation);
+    }
+
+    [Fact]
     public void RemovedObjectAndOldConnectionCallbacksCannotResurrectGeometry()
     {
         var scene = new QuestSceneState();

@@ -51,7 +51,22 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
     static TimeSpan ValidTimeout(TimeSpan timeout) => timeout > TimeSpan.Zero && timeout <= TimeSpan.FromMinutes(2)
         ? timeout : throw new ArgumentOutOfRangeException(nameof(timeout));
     static JsonElement Json(object value) => JsonSerializer.SerializeToElement(value);
-    async Task<SessionClient> Client(CancellationToken ct) => _client ??= await connect(ct);
+    async Task<SessionClient> Client(CancellationToken ct)
+    {
+        if (_client is { } previous && (!previous.IsConnected || previous.Model is null)) {
+            // A live owner must not follow a replacement session/document.
+            // Rollback failure uses the existing durable uncertain-state fence.
+            if (_request is { } request) {
+                await Rollback(request);
+                throw new SessionException("NEED_FULL_SNAPSHOT", "CAD session changed during the owned request");
+            }
+            if (_voice is not null)
+                throw new SessionException("CLOSED", "CAD session changed during the voice turn");
+            _client = null;
+            await previous.DisposeAsync();
+        }
+        return _client ??= await connect(ct);
+    }
     static void RequireCurrent(SessionClient client, Request request)
     {
         var model = client.Model;
@@ -59,6 +74,13 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
             model.DocumentId != request.Model.DocumentId || model.Revision != request.Model.Revision)
             throw new SessionException("NEED_FULL_SNAPSHOT", "CAD document changed during this request");
         request.Budget.RequireTime();
+    }
+    static void RequireContext(SessionClient client, GeneratedCadSelectionFence expected)
+    {
+        var model = client.Model;
+        if (client.SessionId != expected.SessionId || model?.SessionId != expected.SessionId ||
+            model.DocumentId != expected.DocumentId || model.Revision != expected.Revision)
+            throw new SessionException("NEED_FULL_SNAPSHOT", "CAD document changed from the expected proposal context");
     }
     Request Owned(string? id) => _request is not null && id == _request.Id ? _request
         : throw new SessionException("NOT_OWNER", "No matching active CAD request");
@@ -71,8 +93,9 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
         return deadline;
     }
 
-    public async Task<string> BeginAsync(string goal, IReadOnlyList<CadCheck> checks, AgentLimits? limits = null, CancellationToken ct = default, string? originRequestId = null)
+    public async Task<string> BeginAsync(string goal, IReadOnlyList<CadCheck> checks, AgentLimits? limits = null, CancellationToken ct = default, string? originRequestId = null, CadIntentContext? expectedContext = null)
     {
+        var expectedFence = expectedContext?.ToSelectionFence();
         if (string.IsNullOrWhiteSpace(goal) || goal.Length > 4096 || checks.Count is < 1 or > 32 || checks.Any(c =>
             !AgentCommandCatalog.IsReadOnlyQuery(c.Method) || c.Parameters.ValueKind != JsonValueKind.Object ||
             string.IsNullOrWhiteSpace(c.Path) || c.Path.Length > 128 || !double.IsFinite(c.Expected) ||
@@ -85,6 +108,7 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
             var client = await Client(ct);
             await client.SnapshotAsync(client.Model?.DocumentId ?? "doc-phase1", ct);
             var model = client.Model ?? throw new SessionException("NEED_FULL_SNAPSHOT", "CAD snapshot unavailable");
+            if (expectedFence is not null) RequireContext(client, expectedFence);
             if (_voice is not null && (originRequestId != _voice.Id || _voice.Committed))
                 throw new SessionException("LOCKED", "Voice CAD request requires its originating voiceRequestId and one Undo group");
             if (_voice is null && originRequestId is not null) throw new SessionException("NOT_OWNER", "Voice request has ended");
@@ -97,6 +121,11 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
                 _voice.Checks = expectedChecks;_voice.Attempts++;
             }
             var catalog = await AgentCommandCatalog.LoadAsync(client, ct);
+            if (expectedFence is not null) {
+                await client.SnapshotAsync(expectedFence.DocumentId, ct);
+                RequireContext(client, expectedFence);
+                model = client.Model!;
+            }
             var request = new Request(Guid.NewGuid().ToString("D"), model, catalog, limits ?? new(),
                 checks.Select(c => c with { Parameters = c.Parameters.Clone() }).ToArray(), _voice?.Budget);
             CancellationTokenSource deadline;
@@ -105,13 +134,127 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
             using var ownedDeadline = deadline;
             _request = request;
             request.Origin = originRequestId;
+            var preSendValidated = false;
             try {
                 await client.CallAsync(SessionMethods.TxnBegin, new Dictionary<string, object?> {
                     ["transactionId"] = request.Transaction, ["documentId"] = model.DocumentId,
-                }, deadline.Token, expectedSessionId: model.SessionId, beforeSend: () => RequireCurrent(client, request));
-            } catch { await Rollback(request);throw; }
+                }, deadline.Token, expectedSessionId: model.SessionId, beforeSend: () => {
+                    RequireCurrent(client, request);
+                    if (expectedFence is not null) RequireContext(client, expectedFence);
+                    preSendValidated = true;
+                });
+            } catch {
+                if (preSendValidated) await Rollback(request);
+                else { StopExpiry(request);_request = null; }
+                throw;
+            }
             _ = ExpireAsync(request);
             return request.Id;
+        } finally { _gate.Release(); }
+    }
+
+    public async Task<JsonElement> ProposeIntentAsync(CadIntentRequest input, CancellationToken ct = default)
+    {
+        if (input is null) throw new ArgumentNullException(nameof(input));
+        var fence = input.Validate();
+        var kind = input.IntentKind;
+        await _gate.WaitAsync(ct);
+        try {
+            RequireRecovered();
+            if (_request is not null) throw new SessionException("LOCKED", "Another CAD request is active");
+            if (_voice is { Committed: true }) throw new SessionException("LOCKED", "Voice CAD request already committed");
+            if (_voice is not null && (_voice.Model.SessionId != fence.SessionId ||
+                _voice.Model.DocumentId != fence.DocumentId || _voice.Model.Revision != fence.Revision))
+                throw new SessionException("NEED_FULL_SNAPSHOT", "Intent context is outside the active voice turn");
+            _voice?.Budget.Action();
+
+            var duration = _operationTimeout;
+            if (_voice is not null && _voice.Budget.Remaining < duration) {
+                _voice.Budget.RequireTime();
+                duration = _voice.Budget.Remaining;
+            }
+            using var timeout = new CancellationTokenSource(duration);
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
+            var token = deadline.Token;
+            var client = await Client(token);
+            await client.SnapshotAsync(client.Model?.DocumentId ?? fence.DocumentId, token);
+            RequireContext(client, fence);
+            var catalog = await AgentCommandCatalog.LoadAsync(client, token);
+            await client.SnapshotAsync(fence.DocumentId, token);
+            RequireContext(client, fence);
+            var model = client.Model!;
+            var suggestions = Array.Empty<object>();
+            IReadOnlyList<GeneratedCadOption> options;
+
+            switch (kind) {
+                case CadIntentKind.MountingBlank:
+                    options = [GenerativeIntent.MountingBlank(input.Dimensions!.WidthMm!.Value,
+                        input.Dimensions.DepthMm!.Value, input.Dimensions.ThicknessMm!.Value, catalog)];
+                    break;
+                case CadIntentKind.LBracket:
+                case CadIntentKind.UBracket:
+                    options = [GenerativeIntent.Bracket(kind == CadIntentKind.LBracket ? "L" : "U",
+                        input.Dimensions!.WidthMm!.Value, input.Dimensions.DepthMm!.Value,
+                        input.Dimensions.HeightMm!.Value, input.Dimensions.ThicknessMm!.Value, catalog)];
+                    break;
+                case CadIntentKind.OpenEnclosure:
+                    options = [GenerativeIntent.OpenEnclosure(input.Dimensions!.WidthMm!.Value,
+                        input.Dimensions.DepthMm!.Value, input.Dimensions.HeightMm!.Value,
+                        input.Dimensions.WallMm!.Value, catalog)];
+                    break;
+                case CadIntentKind.ConnectParallelPlates:
+                    options = GenerativeIntent.ConnectParallelPlates(input.Dimensions!.SeparationMm!.Value,
+                        input.Dimensions.SupportWidthMm!.Value, input.Dimensions.SupportThicknessMm!.Value, catalog);
+                    break;
+                case CadIntentKind.InferHoles: {
+                    var targetCount = model.Features.Count(feature => feature.TryGetProperty("featureId", out var id) &&
+                        id.ValueKind == JsonValueKind.String && id.GetString() == input.TargetId);
+                    if (targetCount != 1) throw new ArgumentException("Hole inference target is absent or ambiguous in the current snapshot");
+                    var native = JsonSerializer.SerializeToElement(new { features = model.Features, sketches = model.Sketches, datums = model.Datums });
+                    var inferred = SemanticInference.AnalyzeNativeHistory(model.SessionId, model.DocumentId, model.Revision,
+                        input.TargetId!, input.FaceRole!, native, catalog).ToArray();
+                    if (inferred.Length > 128) throw new ArgumentException("Hole inference exceeds the bounded suggestion limit");
+                    suggestions = inferred.Cast<object>().ToArray();
+                    options = inferred.Where(item => item.ProposedCommand is not null)
+                        .Select(item => item.ProposedCommand!).ToArray();
+                    break;
+                }
+                case CadIntentKind.InferSketchConstraints: {
+                    var sketches = model.Sketches.Where(sketch => sketch.TryGetProperty("featureId", out var id) &&
+                        id.ValueKind == JsonValueKind.String && id.GetString() == input.SketchId).ToArray();
+                    if (sketches.Length != 1) throw new ArgumentException("Sketch identity is absent or ambiguous in the current snapshot");
+                    if (!sketches[0].TryGetProperty("model", out var sketchModel) || sketchModel.ValueKind != JsonValueKind.Object)
+                        throw new ArgumentException("Committed sketch is missing semantic model object");
+                    foreach (var name in new[] { "points", "lines", "circles", "arcs", "ellipses", "splines", "constructionIds", "constraints" }) {
+                        if (!sketchModel.TryGetProperty(name, out var values) || values.ValueKind != JsonValueKind.Array)
+                            throw new ArgumentException("Committed sketch is missing semantic array " + name);
+                        if (values.GetArrayLength() > 64) throw new ArgumentException("Committed sketch exceeds the bounded inference limit");
+                    }
+                    var inferred = SketchConstraintSuggestions.Infer(input.SketchId!, sketchModel, catalog,
+                        selectionFence: fence).ToArray();
+                    if (inferred.Length > 128) throw new ArgumentException("Sketch inference exceeds the bounded suggestion limit");
+                    suggestions = inferred.Cast<object>().ToArray();
+                    options = inferred.Where(item => item.AcceptedCommand is not null)
+                        .Select(item => item.AcceptedCommand!).ToArray();
+                    break;
+                }
+                default:
+                    throw new ArgumentException("Unknown intent kind");
+            }
+
+            if (options.Count > 128) throw new ArgumentException("Intent exceeds the bounded option limit");
+            token.ThrowIfCancellationRequested();
+            RequireContext(client, fence);
+            var fenced = options.Select(option => option with { SelectionFence = fence }).ToArray();
+            return JsonSerializer.SerializeToElement(new {
+                status = "proposed",
+                kind = input.Kind,
+                units = "mm",
+                selectionFence = fence,
+                options = fenced,
+                suggestions,
+                requiresExplicitChoice = fenced.Length > 1 || kind == CadIntentKind.InferHoles && fenced.Length > 0,
+            }, ProjectionJsonOptions);
         } finally { _gate.Release(); }
     }
 
@@ -127,6 +270,16 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
             return Json(new { project = "Kreoda", units = "mm; explicit degrees/radians per parameter", sessionId = model.SessionId,
                 documentId = model.DocumentId, revision = model.Revision, features = model.Features, sketches = model.Sketches, datums = model.Datums,
                 bodies = model.Bodies, requestActive = _request is not null, snapshotScope = "committed baseline" });
+        } finally { _gate.Release(); }
+    }
+
+    public async Task<AgentCommandCatalog> CatalogAsync(CancellationToken ct = default)
+    {
+        await _gate.WaitAsync(ct);
+        try {
+            RequireRecovered();
+            var client=await Client(ct);
+            return await AgentCommandCatalog.LoadAsync(client,ct);
         } finally { _gate.Release(); }
     }
 
@@ -204,6 +357,54 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
         } finally { _gate.Release(); }
     }
 
+    /// <summary>Run one explicitly selected native-feature proposal with the normal validation and Undo boundary.</summary>
+    public Task<JsonElement> AcceptAlternativeAsync(IReadOnlyList<GeneratedCadOption> alternatives,
+        string selectedId, IReadOnlyList<CadCheck> checks, CancellationToken ct = default)
+    {
+        if (alternatives is null || alternatives.Count is < 2 or > 8 ||
+            string.IsNullOrWhiteSpace(selectedId) ||
+            alternatives.Any(a => a is null || string.IsNullOrWhiteSpace(a.Id) || a.Steps.Count is < 1 or > 16) ||
+            alternatives.Select(a => a.Id).Distinct(StringComparer.Ordinal).Count() != alternatives.Count)
+            throw new ArgumentException("Two to eight uniquely identified canonical design alternatives are required");
+        var selected=alternatives.SingleOrDefault(a => a.Id == selectedId) ??
+            throw new ArgumentException("Explicit selected alternative must match a presented option");
+        // No feature generation occurs until the caller supplies a unique reviewed ID.
+        return ExecuteGeneratedAsync(selected,checks,ct);
+    }
+
+    public async Task<JsonElement> ExecuteGeneratedAsync(GeneratedCadOption selected, IReadOnlyList<CadCheck> checks,
+        CancellationToken ct = default)
+    {
+        if (selected is null || selected.Steps.Count is < 1 or > 16 ||
+            selected.Steps.Any(step => string.IsNullOrWhiteSpace(step.CommandId) ||
+                step.Parameters.ValueKind != JsonValueKind.Object))
+            throw new ArgumentException("A bounded explicit native-command option is required", nameof(selected));
+        var requestId = await BeginAsync(selected.Description, checks, ct: ct,
+            expectedContext: selected.SelectionFence is null ? null : CadIntentContext.From(selected.SelectionFence));
+        try {
+            if (selected.SelectionFence is { } fence &&
+                (_request?.Model.SessionId != fence.SessionId ||
+                 _request.Model.DocumentId != fence.DocumentId || _request.Model.Revision != fence.Revision))
+                throw new SessionException("NEED_FULL_SNAPSHOT", "Selected semantic pattern changed before explicit acceptance");
+            for (var index = 0; index < selected.Steps.Count; index++) {
+                ct.ThrowIfCancellationRequested();
+                var step = selected.Steps[index];
+                // CreateHolePattern with multiple supplied stable featureIds creates one
+                // persisted pattern record, but its catalog count is >1: never attach
+                // the single-new-feature alias to a multi-ID command.
+                var alias = step.Alias ?? (selected.Steps.Count == 1 &&
+                    _request!.Catalog.Require(step.CommandId).CreatedFeatureCount(step.Parameters) == 1 ? "generated" : null);
+                await CommandAsync(requestId, step.CommandId, step.Parameters,
+                    alias, ct);
+            }
+            return await CommitAsync(requestId, ct);
+        } catch {
+            // A failed proposal must not leave a live transaction. Recovery remains fenced if rollback fails.
+            if (_request?.Id == requestId) await CancelAsync(requestId);
+            throw;
+        }
+    }
+
     public async Task<JsonElement> CommitAsync(string requestId, CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct);
@@ -275,6 +476,7 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
     }
     public async Task<string> BeginVoiceAsync(JsonElement context, CancellationToken ct = default, AgentLimits? limits = null)
     {
+        VoiceSelectionContext.Validate(context);
         if (context.ValueKind != JsonValueKind.Object || !context.TryGetProperty("voiceRequestId", out var origin) || origin.ValueKind != JsonValueKind.String ||
             origin.GetString()!.Length is < 1 or > 128) throw new ArgumentException("Missing voice request identity");
         await _gate.WaitAsync(ct);

@@ -43,6 +43,10 @@ internal sealed class LoopbackWsServer : IAsyncDisposable
     }
 
     public void Start() => _acceptLoop = Task.Run(AcceptLoopAsync);
+    public void DisconnectLastClient()
+    {
+        lock (_streamGate) _lastStream?.Dispose();
+    }
 
     private async Task AcceptLoopAsync()
     {

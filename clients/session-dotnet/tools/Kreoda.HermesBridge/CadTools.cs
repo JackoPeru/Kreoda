@@ -20,7 +20,7 @@ public sealed class CadTools(CadBridge cad)
                 recoveryPersisted = error.RecoveryPersisted,
             }) }] };
         }
-        catch (Exception error) when (error is SessionException or ArgumentException or Kreoda.ModelingAgent.AgentBudgetExceededException) {
+        catch (Exception error) when (error is SessionException or ArgumentException or JsonException or Kreoda.ModelingAgent.AgentBudgetExceededException) {
             var code = error is SessionException session ? session.Code : error is Kreoda.ModelingAgent.AgentBudgetExceededException ? "BUDGET_EXHAUSTED" : "BAD_PARAMS";
             return new() { IsError = true, Content = [new TextContentBlock { Text = JsonSerializer.Serialize(new { status = "error", errorCode = code, message = error.Message }) }] };
         }
@@ -28,13 +28,19 @@ public sealed class CadTools(CadBridge cad)
     [McpServerTool(Name = "kreoda_describe_model", ReadOnly = true), Description("Describe the current committed Kreoda CAD document. Units are mm; do not invent persistent face/edge IDs.")]
     public Task<CallToolResult> Describe(CancellationToken ct) => Reply(() => cad.DescribeAsync(ct));
 
+    [McpServerTool(Name = "kreoda_propose_intent", ReadOnly = true), Description("Propose bounded editable native CAD options from a typed intent and the exact expected session/document/revision. Returns canonical commands, rationales and freshness fences without changing the document.")]
+    public Task<CallToolResult> ProposeIntent(CadIntentRequest request, CancellationToken ct) =>
+        Reply(() => cad.ProposeIntentAsync(request, ct));
+
     [McpServerTool(Name = "kreoda_query", ReadOnly = true), Description("Read canonical CAD metadata/measurements/references. Discover commands with method getCommandSchema; inspect real faces/edges before mutation. Include requestId while your transaction is active.")]
     public Task<CallToolResult> Query(string method, Dictionary<string, JsonElement> parameters, string? requestId = null, CancellationToken ct = default) =>
         Reply(() => cad.QueryAsync(requestId, method, JsonSerializer.SerializeToElement(parameters), ct));
 
     [McpServerTool(Name = "kreoda_begin_request", Destructive = false), Description("Begin one bounded CAD request and one Undo group. Supply immutable numeric goal checks (query method, parameters, dot path, expected, tolerance). New feature references may use $alias; later command newFeatureAlias assigns that alias. Do not guess ambiguous goals.")]
-    public Task<CallToolResult> Begin(string goal, CadCheck[] checks, string? originRequestId = null, CancellationToken ct = default) => Reply(async () =>
-        JsonSerializer.SerializeToElement(new { requestId = await cad.BeginAsync(goal, checks, ct: ct, originRequestId: originRequestId), status = "open" }));
+    public Task<CallToolResult> Begin(string goal, CadCheck[] checks, string? originRequestId = null,
+        CadIntentContext? expectedContext = null, CancellationToken ct = default) => Reply(async () =>
+        JsonSerializer.SerializeToElement(new { requestId = await cad.BeginAsync(goal, checks, ct: ct,
+            originRequestId: originRequestId, expectedContext: expectedContext), status = "open" }));
 
     [McpServerTool(Name = "kreoda_command", Destructive = true), Description("Execute a command from getCommandSchema inside your owned request, using its actual parameter schema and semantic references. Set newFeatureAlias for one new feature; $alias resolves to its real allocated UUID. Raw invoke, Undo and Redo are unavailable.")]
     public Task<CallToolResult> Command(string requestId, string commandId, Dictionary<string, JsonElement> parameters, string? newFeatureAlias = null, CancellationToken ct = default) =>
@@ -62,6 +68,12 @@ public sealed class ProjectResources
         without B-Rep validation and measured goal conditions. Numeric dimensions use millimetres;
         each angle parameter declares degrees or radians. Use one bounded request per user intent,
         preserve the document and original goal checks, and cancel/roll back on failure.
+        Use kreoda_propose_intent for a typed, read-only proposal tied to the current session,
+        document and revision. Review every option and rationale; proposal tools never execute CAD.
+        To apply an accepted option, begin a normal request with its expectedContext fence, then
+        send only the reviewed canonical commands and commit after validation.
+        Existing-hole conversion requires explicit choice even for one option. It replaces only a proven
+        terminal chain in one reversible request; native dependency rejection must roll back the whole request.
         For a voice turn, pass its context voiceRequestId as originRequestId when beginning CAD.
         Never repeat a cancelled voice origin or create a second Undo group for that turn.
         The same tools are available from Hermes outside the Quest app while the PC session is running.

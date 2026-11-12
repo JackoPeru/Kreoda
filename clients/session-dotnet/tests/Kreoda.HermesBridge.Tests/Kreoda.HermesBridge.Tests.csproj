@@ -11,5 +11,6 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <ProjectReference Include="../../tools/Kreoda.HermesBridge/Kreoda.HermesBridge.csproj" />
     <Compile Include="../Kreoda.SessionClient.Tests/LoopbackWsServer.cs" Link="Support/LoopbackWsServer.cs" />
+    <Compile Include="../Kreoda.SessionClient.Tests/LoopbackDiscoveryServer.cs" Link="Support/LoopbackDiscoveryServer.cs" />
   </ItemGroup>
 </Project>

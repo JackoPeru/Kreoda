@@ -127,6 +127,65 @@ public sealed class SessionClientTests
         Assert.Equal(1, client.Model!.Features[0].GetProperty("width").GetInt32());
     }
 
+    [Fact]
+    public async Task ApprovedProjectOpenRotatesLineageAndResynchronizesQuestClient()
+    {
+        const string initial = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        const string replacement = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        var session = initial;
+        var document = "doc-phase1";
+        var snapshots = 0;
+        await using var server = new LoopbackWsServer(req =>
+        {
+            var method = req.GetProperty("method").GetString();
+            if (method == "hello") return Reply(req, new Dictionary<string, object?> {
+                ["clientId"] = "client-1", ["sessionId"] = session, ["documentId"] = document,
+                ["capabilities"] = new[] { "operation-replay", "incremental-deltas" }, ["revision"] = 0 });
+            if (method == "snapshot")
+            {
+                Interlocked.Increment(ref snapshots);
+                return Reply(req, new Dictionary<string, object?> {
+                    ["sessionId"] = session, ["documentId"] = document, ["revision"] = 0,
+                    ["features"] = new[] { new { featureId = document } },
+                    ["sketches"] = Array.Empty<object>(), ["bodies"] = Array.Empty<object>() });
+            }
+            if (method == SessionMethods.RequestOpenProject)
+            {
+                Assert.Equal(initial, req.GetProperty("params").GetProperty("sessionId").GetString());
+                Assert.Equal("doc-phase1", req.GetProperty("params").GetProperty("documentId").GetString());
+                Assert.Equal(0, req.GetProperty("params").GetProperty("expectedRevision").GetInt32());
+                session = replacement;document = "doc-opened";
+                return Reply(req, new Dictionary<string, object?> { ["result"] = new { status = "opened", sessionId = replacement, revision = 0 } });
+            }
+            return Reply(req, new Dictionary<string, object?>());
+        });
+        server.Start();
+        await using var client = await BootAsync(server);
+        Assert.Equal(initial, client.Model?.SessionId);
+        var opened = await client.CallAsync(SessionMethods.RequestOpenProject,
+            new Dictionary<string, object?> { ["projectId"] = "opaque-project", ["sessionId"] = initial,
+                ["documentId"] = "doc-phase1", ["expectedRevision"] = 0 }, expectedSessionId: initial);
+        Assert.Equal("opened", opened.GetProperty("result").GetProperty("status").GetString());
+        var updated = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Changed(SessionModelUpdate update)
+        {
+            if (update.Model.SessionId == replacement && update.Model.DocumentId == "doc-opened") updated.TrySetResult();
+        }
+        client.ModelChanged += Changed;
+        try
+        {
+            await server.PushAsync(JsonSerializer.Serialize(new { @event = "core-restarted", sessionId = replacement,
+                documentId = "doc-opened", revision = 0 }));
+            await server.PushAsync(JsonSerializer.Serialize(new { @event = "snapshot-required", sessionId = replacement,
+                documentId = "doc-opened", revision = 0 }));
+            await updated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(replacement, client.SessionId);
+            Assert.Equal("doc-opened", client.Model?.DocumentId);
+            Assert.True(snapshots >= 2, "replacement document requires a fresh snapshot");
+        }
+        finally { client.ModelChanged -= Changed; }
+    }
+
     private static string Reply(JsonElement req, object payload)
     {
         var id = req.TryGetProperty("requestId", out var r) ? r.GetString() : "?";

@@ -93,6 +93,8 @@ public sealed class SessionClient : IAsyncDisposable
 
     public event Action<JsonElement>? Delta;
     public SessionModelState? Model => Volatile.Read(ref _model);
+    /// <summary>Local transport readiness only; this does not assert model freshness.</summary>
+    public bool IsConnected => Volatile.Read(ref _disposed) == 0 && _ws.State == WebSocketState.Open && _loop?.IsCompleted != true;
     public event Action<SessionModelUpdate>? ModelChanged;
     public event Action<SessionException>? ModelError;
     public event Action<JsonElement>? Selection;
@@ -179,6 +181,7 @@ public sealed class SessionClient : IAsyncDisposable
                 SessionMethods.IncrementalDeltasCapability,
                 SessionMethods.BinaryMeshV1Capability,
                 SessionMethods.BinaryPreviewV1Capability,
+                SessionMethods.VoiceV1Capability,
             },
         }), ct).ConfigureAwait(false);
         ClientId = hello.TryGetProperty("clientId", out var id) ? id.GetString() : null;
@@ -681,7 +684,7 @@ public sealed class SessionClient : IAsyncDisposable
                         ? m.GetString()!
                         : "session call failed";
                     if (_pending.TryRemove(pending.Mesh?.RequestId ?? idProp.GetString()!, out var removed))
-                        FailPending(removed, new SessionException(code, message));
+                        FailPending(removed, new SessionException(code, message, root));
                 }
                 else if (pending.Mesh is { } mesh)
                     RouteMeshHeader(root, pending, mesh);
@@ -874,6 +877,8 @@ public sealed class SessionClient : IAsyncDisposable
             throw new SessionException("INVALID_MESH", "native mesh vector sizes or counts are inconsistent");
 
         var vertexCount = positionsCount / 3;
+        if (update.CurvatureMaxAbsPerMmLength != 0 && (ulong)update.CurvatureMaxAbsPerMmLength != vertexCount * 4)
+            throw new SessionException("INVALID_MESH", "native curvature sample count does not match vertices");
         var triangleCount = indicesCount / 3;
         var edgeVertexCount = (ulong)update.EdgeVerticesLength / 12;
         var volume = update.VolumeMm3;
@@ -893,6 +898,7 @@ public sealed class SessionClient : IAsyncDisposable
         var normalsSegment = update.GetNormalsBytes();
         var indicesSegment = update.GetIndicesBytes();
         var edgeVerticesSegment = update.GetEdgeVerticesBytes();
+        var curvatureSegment = update.GetCurvatureMaxAbsPerMmBytes();
         if (!positionsSegment.HasValue || !normalsSegment.HasValue || !indicesSegment.HasValue)
             throw new SessionException("INVALID_MESH", "native mesh data vector is missing");
         var positionsBytes = positionsSegment.Value.AsSpan();
@@ -904,6 +910,15 @@ public sealed class SessionClient : IAsyncDisposable
         ValidateFloatVector(positionsBytes);
         ValidateFloatVector(normalsBytes);
         ValidateFloatVector(edgeVerticesBytes);
+        ReadOnlySpan<byte> curvatureBytes = curvatureSegment.HasValue
+            ? curvatureSegment.Value.AsSpan() : ReadOnlySpan<byte>.Empty;
+        ValidateFloatVector(curvatureBytes);
+        for (var offset = 0; offset < curvatureBytes.Length; offset += 4)
+        {
+            var value = BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(curvatureBytes.Slice(offset, 4)));
+            if (value < 0 && value != -1)
+                throw new SessionException("INVALID_MESH", "native curvature sample is invalid");
+        }
         ValidateIndices(indicesBytes, vertexCount);
 
         var faces = new List<SessionMeshFaceRange>(update.FacesLength);
@@ -940,7 +955,7 @@ public sealed class SessionClient : IAsyncDisposable
             header.Revision, header.BodyId, header.FeatureId, header.TipId, checked((int)header.Quality),
             checked((int)header.ByteLength), header.InstanceId),
             positions, normals, indices, edgeVertices, faces.AsReadOnly(), edges.AsReadOnly(), volume, bbox, raw.Length,
-            Sha256Hex(raw));
+            Sha256Hex(raw), curvatureBytes.Length == 0 ? null : DecodeFloatVector(curvatureBytes));
     }
 
     private static void ValidateFloatVector(ReadOnlySpan<byte> bytes)

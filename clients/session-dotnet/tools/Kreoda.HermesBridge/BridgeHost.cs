@@ -83,7 +83,9 @@ public static class BridgeHost
     {
         using var content = new StreamContent(context.Request.Body);content.Headers.ContentLength = context.Request.ContentLength;
         var bytes = await HermesGatewayClient.Bytes(content, 65536, context.RequestAborted);
-        return JsonSerializer.Deserialize<VoiceTurn>(bytes, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+        var turn = JsonSerializer.Deserialize<VoiceTurn>(bytes, new JsonSerializerOptions(JsonSerializerDefaults.Web))
             ?? throw new ArgumentException("Missing voice turn");
+        VoiceSelectionContext.Validate(turn.Context);
+        return turn;
     }
 }

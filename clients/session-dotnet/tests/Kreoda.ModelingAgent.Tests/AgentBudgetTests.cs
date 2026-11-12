@@ -20,8 +20,24 @@ public sealed class AgentBudgetTests
     [InlineData(1, 1, 0, 1)]
     [InlineData(1, 1, 1, -1)]
     [InlineData(1000000, 1, 1, 1)]
+    [InlineData(65, 1, 1, 1)]
+    [InlineData(1, 33, 1, 1)]
+    [InlineData(1, 1, 17, 1)]
+    [InlineData(1, 1, 1, 4)]
     public void InvalidLimitsFailBeforeStarting(int actions, int features, int iterations, int corrections) =>
         Assert.Throws<ArgumentOutOfRangeException>(() => new AgentLimits(actions, features, iterations, corrections));
+
+    [Fact]
+    public void HardCeilingsAllowOnlyBoundedOverrides()
+    {
+        var limits = new AgentLimits(64, 32, 16, 3, TimeSpan.FromSeconds(180));
+        Assert.Equal(64, limits.MaxActions);
+        Assert.Equal(32, limits.MaxFeatures);
+        Assert.Equal(16, limits.MaxIterations);
+        Assert.Equal(3, limits.MaxCorrections);
+        Assert.Equal(TimeSpan.FromSeconds(180), limits.MaxDuration);
+        Assert.Throws<ArgumentOutOfRangeException>(() => new AgentLimits(maxDuration: TimeSpan.FromSeconds(181)));
+    }
 
     [Fact]
     public void EveryActionCountsIncludingQueriesAndRejectionsAreAtomic()

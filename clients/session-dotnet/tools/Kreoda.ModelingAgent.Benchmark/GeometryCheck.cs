@@ -10,7 +10,21 @@ public static class GeometryCheck
         Check(Bool(validation,"valid") && Array(validation,"checks").Length>0 && Array(validation,"checks").All(c=>Bool(c,"ok")),"native-validation");
         Check(model.TryGetProperty("requestActive",out var active) && active.ValueKind==JsonValueKind.False,"committed");
         var bodies=Array(model,"bodies");var features=Array(model,"features");
-        Check(bodies.Length==1 && features.Length>0 && !features.Any(f=>Text(f,"type")=="Instance"),"one-visible-body");
+        // Native BodyStore retains editable cutter bodies as hidden history after
+        // a Boolean. Only a body carrying an explicit authoritative visible=false
+        // flag and a matching persisted tip feature may be excluded from the
+        // displayed-body count. Unknown/missing visibility is conservatively visible.
+        var visibleBodies=bodies.Where(b=>!(b.TryGetProperty("visible",out var v)&&v.ValueKind==JsonValueKind.False)).ToArray();
+        var hiddenBodies=bodies.Except(visibleBodies).ToArray();
+        var hiddenVerified=hiddenBodies.All(b=>{
+            var id=Text(b,"bodyId");var tip=Text(b,"tip");
+            return !string.IsNullOrWhiteSpace(id)&&!string.IsNullOrWhiteSpace(tip)&&
+                Array(b,"history").Any(h=>h.ValueKind==JsonValueKind.String&&h.GetString()==tip)&&
+                features.Any(f=>Text(f,"featureId")==tip&&Text(f,"bodyId")==id&&
+                    f.TryGetProperty("bodyVisible",out var flag)&&flag.ValueKind==JsonValueKind.False);
+        });
+        Check(visibleBodies.Length==1 && hiddenVerified && features.Length>0 &&
+            !features.Any(f=>Text(f,"type")=="Instance"),"one-visible-body");
         Check(bounds.ValueKind==JsonValueKind.Object && bounds.TryGetProperty("solidCount",out var solids) && solids.ValueKind==JsonValueKind.Number && solids.TryGetInt32(out var solidCount) && solidCount==1,"one-brep-solid");
         var bbox=Numbers(bounds,"bboxMm",6);var sizes=Numbers(fixture,"bboxSizeMm",3);
         Check(bbox.Length==6 && sizes.Length==3 && Enumerable.Range(0,3).All(i=>Near(bbox[i+3]-bbox[i],sizes[i])),"bbox");

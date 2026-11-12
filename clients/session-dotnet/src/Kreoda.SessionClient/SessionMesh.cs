@@ -28,7 +28,8 @@ public sealed record SessionMeshResult(
     double VolumeMm3,
     double[] BboxMm,
     int RawByteLength,
-    string RawPayloadSha256);
+    string RawPayloadSha256,
+    float[]? CurvatureMaxAbsPerMm = null);
 
 /// <summary>Identity of a transient candidate, distinct from committed CAD mesh headers.</summary>
 public sealed record SessionPreviewMeshHeader(string NativeRequestId, string SessionId, string DocumentId,

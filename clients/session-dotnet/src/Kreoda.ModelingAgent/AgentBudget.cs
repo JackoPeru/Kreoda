@@ -11,11 +11,11 @@ public sealed record AgentLimits
     public AgentLimits(int maxActions = 64, int maxFeatures = 32, int maxIterations = 16,
         int maxCorrections = 3, TimeSpan? maxDuration = null)
     {
-        if (maxActions is < 1 or > 256 || maxFeatures is < 1 or > 128 ||
-            maxIterations is < 1 or > 64 || maxCorrections is < 0 or > 16)
+        if (maxActions is < 1 or > 64 || maxFeatures is < 1 or > 32 ||
+            maxIterations is < 1 or > 16 || maxCorrections is < 0 or > 3)
             throw new ArgumentOutOfRangeException(nameof(maxActions), "Agent limits must be finite and bounded");
         var duration = maxDuration ?? TimeSpan.FromSeconds(180);
-        if (duration <= TimeSpan.Zero || duration > TimeSpan.FromMinutes(10))
+        if (duration <= TimeSpan.Zero || duration > TimeSpan.FromSeconds(180))
             throw new ArgumentOutOfRangeException(nameof(maxDuration));
         MaxActions = maxActions;MaxFeatures = maxFeatures;MaxIterations = maxIterations;
         MaxCorrections = maxCorrections;MaxDuration = duration;

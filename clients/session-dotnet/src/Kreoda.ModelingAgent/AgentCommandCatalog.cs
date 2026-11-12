@@ -21,13 +21,13 @@ public sealed record AgentCreationRule(int? FixedCount, string? IdArrayParameter
         var unique = new HashSet<string>(StringComparer.Ordinal);
         foreach (var element in ids.EnumerateArray())
         {
-            if (element.ValueKind != JsonValueKind.String || !ValidFeatureId(element.GetString()!) || !unique.Add(element.GetString()!))
+            if (element.ValueKind != JsonValueKind.String || !ValidFeatureId(element.GetString()) || !unique.Add(element.GetString()!))
                 throw new ArgumentException("Creation IDs must be unique stable feature IDs");
         }
         return ids.GetArrayLength();
     }
 
-    static bool ValidFeatureId(string id) => id.Length is >= 1 and <= 128 &&
+    internal static bool ValidFeatureId(string? id) => id is { Length: >= 1 and <= 128 } &&
         id.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-');
 }
 
@@ -59,8 +59,7 @@ public sealed class AgentCommandCatalog
             if (definition.ValueKind != JsonValueKind.Object || !definition.TryGetProperty("id", out var name) ||
                 name.ValueKind != JsonValueKind.String || !definition.TryGetProperty("nativeType", out var native) ||
                 native.ValueKind != JsonValueKind.Number || !native.TryGetInt32(out var type) || type is < 1 or > 65535 ||
-                !definition.TryGetProperty("parameters", out var schema) || schema.ValueKind != JsonValueKind.Object ||
-                !schema.TryGetProperty("type", out var schemaType) || schemaType.ValueKind != JsonValueKind.String || schemaType.GetString() != "object")
+                !definition.TryGetProperty("parameters", out var schema) || !ObjectParameters(schema))
                 throw new ArgumentException("Invalid PC command definition");
             var id = name.GetString()!;
             if (id.Length is < 1 or > 128 || id.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '_'))
@@ -75,6 +74,18 @@ public sealed class AgentCommandCatalog
         }
         if (commands.Count == 0) throw new ArgumentException("No modeling commands available");
         return new(commands);
+    }
+
+    static bool ObjectParameters(JsonElement schema, int depth = 0)
+    {
+        if (depth > 8 || schema.ValueKind != JsonValueKind.Object) return false;
+        if (schema.TryGetProperty("type", out var type))
+            return type.ValueKind == JsonValueKind.String && type.GetString() == "object";
+        foreach (var union in new[] { "anyOf", "oneOf" })
+            if (schema.TryGetProperty(union, out var branches))
+                return branches.ValueKind == JsonValueKind.Array && branches.GetArrayLength() is >= 1 and <= 32 &&
+                    branches.EnumerateArray().All(branch => ObjectParameters(branch, depth + 1));
+        return false;
     }
 
     static AgentCreationRule ReadCreation(JsonElement definition, JsonElement parameters)
@@ -106,10 +117,11 @@ public sealed class AgentCommandCatalog
         SessionMethods.DescribeModel or SessionMethods.GetDocumentInfo or SessionMethods.GetBodies or
         SessionMethods.GetFeatures or SessionMethods.GetFeature or SessionMethods.GetDatum or SessionMethods.GetParameters or
         SessionMethods.GetSketchProjection or SessionMethods.GetDependencies or SessionMethods.GetModelTree or SessionMethods.GetSelection or
+        SessionMethods.ResolveSurfacePoint or
         SessionMethods.ListCommands or SessionMethods.GetCommandSchema or SessionMethods.GetManipulators or
         SessionMethods.FindFaces or SessionMethods.FindEdges or SessionMethods.FindBodies or
-        SessionMethods.GetBoundingBox or SessionMethods.MeasureVolume or SessionMethods.MeasureArea or
-        SessionMethods.MeasureDistance or SessionMethods.MeasureAngle or SessionMethods.MeasureRadius or
+        SessionMethods.GetBoundingBox or SessionMethods.MeasureVolume or SessionMethods.MeasureArea or SessionMethods.MeasureInterferences or
+        SessionMethods.MeasureMinimumThickness or SessionMethods.MeasureDistance or SessionMethods.MeasureAngle or SessionMethods.MeasureRadius or
         SessionMethods.MeasureDiameter or SessionMethods.ValidateDocument or SessionMethods.ValidateBody or
         SessionMethods.ValidateFeature or SessionMethods.ValidateReferences;
 }

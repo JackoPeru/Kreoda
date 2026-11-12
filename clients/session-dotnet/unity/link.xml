@@ -1,5 +1,5 @@
 <linker>
-  <assembly fullname="Kreoda.SessionClient">
-    <namespace fullname="Kreoda.Session.Generated" preserve="all" />
-  </assembly>
+  <!-- Discovery/bootstrap and voice payloads include reflection-serialized anonymous types. -->
+  <assembly fullname="Kreoda.SessionClient" preserve="all" />
+  <assembly fullname="Kreoda.QuestFoundation" preserve="all" />
 </linker>

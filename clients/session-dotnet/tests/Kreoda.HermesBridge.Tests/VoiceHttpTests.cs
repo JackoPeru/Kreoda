@@ -125,4 +125,43 @@ public sealed class VoiceHttpTests
             Assert.DoesNotContain("gateway-fixture-secret", body);Assert.Equal(1, handler.Calls);
         } finally { await app.StopAsync(); }
     }
+
+    [Fact]
+    public async Task VersionTwoContextIsValidatedAndGroundedBeforeHermesInference()
+    {
+        var inputs = new List<string>();
+        using var upstream = new HttpClient(new GatewayHandler(async (request, ct) => {
+            if (request.Method == HttpMethod.Post) {
+                using var payload = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
+                inputs.Add(payload.RootElement.GetProperty("input").GetString()!);
+                return Json(HttpStatusCode.OK, "{\"run_id\":\"run-v2\",\"status\":\"queued\"}");
+            }
+            return Json(HttpStatusCode.OK, "{\"run_id\":\"run-v2\",\"status\":\"completed\",\"output\":\"Pronto\"}");
+        }));
+        await using var wire = new CadBridgeTests.Wire();await using var session = await wire.Connect();
+        await using var cad = new CadBridge(_ => Task.FromResult(session));
+        var hermes = new HermesGatewayClient(upstream,
+            new(new Uri("http://127.0.0.1:8642/v1/"), "gateway-fixture-secret", "kreoda-project"),
+            pollInterval: TimeSpan.FromMilliseconds(1));
+        await using var app = BridgeHost.Build(cad, "http://127.0.0.1:0", hermes, "quest-device-fixture-token");
+        await app.StartAsync();
+        try {
+            using var context = JsonDocument.Parse("""
+                {"voiceRequestId":"voice-v2","sessionId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","documentId":"doc-phase1","revision":7,
+                 "selectionIds":["face-17","edge-23"],"selectionContext":{"version":2,"selections":[
+                  {"kind":"face","persistentId":"face-17","bodyId":"body-1","featureId":"feature-1"},
+                  {"kind":"edge","persistentId":"edge-23","bodyId":"body-1","featureId":"feature-1"}],
+                  "referencePoint":{"positionMm":[12.5,-3,44],"coordinateSystem":"cad","source":"quest-mr"}}}
+                """);
+            var body = JsonSerializer.Serialize(new { text = "Forare tra i riferimenti", context = context.RootElement });
+            using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "quest-device-fixture-token");
+            using var response = await client.PostAsync("/voice/turn", new StringContent(body, Encoding.UTF8, "application/json"));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var input = Assert.Single(inputs);
+            Assert.Contains("face-17", input);Assert.Contains("edge-23", input);
+            Assert.Contains("12.5", input);Assert.Contains("44", input);Assert.Contains("quest-mr", input);
+            Assert.Equal(0, wire.Commands);Assert.Equal(0, wire.Commits);
+        } finally { await app.StopAsync(); }
+    }
 }

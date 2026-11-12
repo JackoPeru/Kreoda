@@ -8,17 +8,26 @@ namespace Kreoda.QuestFoundation;
 public sealed record VoiceReply(string Text, string? SessionId, string RunId);
 public sealed class VoiceServiceException : Exception
 {
-    public VoiceServiceException(int statusCode, string message) : this(statusCode, message, null) { }
-    internal VoiceServiceException(int statusCode, string message, string? runId) : base(message)
+    public VoiceServiceException(int statusCode, string message)
+        : this(statusCode, message, null, null, null, null, null, null) { }
+
+    internal VoiceServiceException(int statusCode, string message, string? runId = null, string? errorCode = null,
+        string? status = null, string? stage = null, VoiceRecoveryIdentity? recovery = null, bool? recoveryPersisted = null) : base(message)
     {
-        StatusCode = statusCode;RunId = runId;
+        StatusCode = statusCode;RunId = runId;ErrorCode = errorCode;Status = status;Stage = stage;
+        Recovery = recovery;RecoveryPersisted = recoveryPersisted;
     }
     public int StatusCode { get; }
     public string? RunId { get; }
+    public string? ErrorCode { get; }
+    public string? Status { get; }
+    public string? Stage { get; }
+    public VoiceRecoveryIdentity? Recovery { get; }
+    public bool? RecoveryPersisted { get; }
 }
 
 /// <summary>Quest talks to its configured private PC voice proxy; Hermes credentials remain on the PC.</summary>
-public sealed class HermesVoiceClient : IDisposable
+public sealed class HermesVoiceClient : IVoiceClient
 {
     readonly Uri _endpoint;
     readonly string _token;
@@ -40,6 +49,7 @@ public sealed class HermesVoiceClient : IDisposable
         var result = await JsonPost("transcribe", content, TimeSpan.FromSeconds(60), ct);
         return Text(result, "text");
     }
+    Task<string> IVoiceClient.TranscribeAsync(byte[] wav, JsonElement context, CancellationToken ct) => TranscribeAsync(wav, ct);
     public async Task<VoiceReply> TalkAsync(string text, JsonElement context, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length > 8000 || context.ValueKind != JsonValueKind.Object || context.GetRawText().Length > 65536)
@@ -56,6 +66,7 @@ public sealed class HermesVoiceClient : IDisposable
         var bytes = await Post("speech", content, 4194304, TimeSpan.FromSeconds(60), ct);
         return VoiceWave.Decode(bytes);
     }
+    Task<VoiceAudio> IVoiceClient.SpeechAsync(string text, JsonElement context, CancellationToken ct) => SpeechAsync(text, ct);
     static string Text(JsonElement result, string name) => result.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String &&
         !string.IsNullOrWhiteSpace(value.GetString()) ? value.GetString()! : throw new VoiceServiceException(502, "Risposta vocale incompleta");
     async Task<JsonElement> JsonPost(string route, HttpContent content, TimeSpan timeout, CancellationToken ct)

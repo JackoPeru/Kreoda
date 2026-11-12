@@ -27,6 +27,36 @@ public sealed class HermesVoiceClientTests
         var reply = await voice.TalkAsync("Ciao", context.RootElement);
         Assert.Equal("Ciao", reply.Text);Assert.Equal("r1", reply.RunId);
     }
+
+    [Fact]
+    public async Task LegacyHermesKeepsPublicOverloadsAndImplementsContextVoiceInterface()
+    {
+        var speechWav = VoiceWave.EncodeMono(new[] { 0f, 0.25f }, 16000);
+        var routes = new List<string>();
+        using var http = new HttpClient(new Handler((request, _) => {
+            routes.Add(request.RequestUri!.AbsolutePath);
+            return request.RequestUri.AbsolutePath switch
+            {
+                "/voice/transcribe" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                    { Content = new StringContent("{\"text\":\"Ciao\"}", Encoding.UTF8, "application/json") }),
+                "/voice/turn" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                    { Content = new StringContent("{\"text\":\"Risposta\",\"sessionId\":\"hermes-inner\",\"runId\":\"run-1\"}", Encoding.UTF8, "application/json") }),
+                "/voice/speech" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                    { Content = new ByteArrayContent(speechWav) }),
+                _ => throw new InvalidOperationException("unexpected voice route"),
+            };
+        }));
+        using var legacy = new HermesVoiceClient(new Uri("http://127.0.0.1:9843"), "quest-fixture-private-token", http);
+        IVoiceClient voice = legacy;
+        using var context = JsonDocument.Parse("{\"voiceRequestId\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"sessionId\":\"cad-session\",\"documentId\":\"doc\",\"revision\":4,\"selectionContext\":{\"kind\":\"box\"}}");
+
+        Assert.Equal("Ciao", await voice.TranscribeAsync(VoiceWave.EncodeMono(new float[160], 16000), context.RootElement));
+        Assert.Equal("hermes-inner", (await voice.TalkAsync("Ciao", context.RootElement)).SessionId);
+        Assert.Equal(2, (await voice.SpeechAsync("Risposta", context.RootElement)).Samples.Length);
+        Assert.Equal(new[] { "/voice/transcribe", "/voice/turn", "/voice/speech" }, routes);
+        Assert.NotNull(typeof(HermesVoiceClient).GetMethod(nameof(HermesVoiceClient.TranscribeAsync), new[] { typeof(byte[]), typeof(CancellationToken) }));
+        Assert.NotNull(typeof(HermesVoiceClient).GetMethod(nameof(HermesVoiceClient.SpeechAsync), new[] { typeof(string), typeof(CancellationToken) }));
+    }
     [Fact]
     public async Task StopCancelsAnInFlightVoiceRequest()
     {

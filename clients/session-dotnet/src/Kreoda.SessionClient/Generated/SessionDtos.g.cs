@@ -1,5 +1,5 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f
+// Source SHA256: 70dbfd2eb9ed09ccf73066d955ce0cb3024547663b9690950a173a2c80948328
 #nullable enable annotations
 #nullable disable warnings
 namespace Kreoda.Session.Generated
@@ -206,9 +206,252 @@ namespace Kreoda.Session.Generated
         [JsonPropertyName("ok")]
         public bool Ok { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("recovery")]
+        public SessionRecoveryIdentity? Recovery { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("recoveryPersisted")]
+        public bool? RecoveryPersisted { get; set; }
+
         [JsonPropertyName("requestId")]
         [JsonConverter(typeof(FluffyMinMaxLengthCheckConverter))]
         public string RequestId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("runId")]
+        public string? RunId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("stage")]
+        [JsonConverter(typeof(IndecentMinMaxLengthCheckConverter))]
+        public string? Stage { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("status")]
+        public ErrorReplyStatus? Status { get; set; }
+    }
+
+    public partial class SessionRecoveryIdentity
+    {
+        [JsonPropertyName("baseRevision")]
+        public long BaseRevision { get; set; }
+
+        [JsonPropertyName("causeCode")]
+        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        public string CauseCode { get; set; }
+
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("ownerClientId")]
+        [JsonConverter(typeof(IndigoMinMaxLengthCheckConverter))]
+        public string? OwnerClientId { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public string RequestId { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+
+        [JsonPropertyName("transactionId")]
+        public string TransactionId { get; set; }
+    }
+
+    public partial class GetVoiceStatusParams
+    {
+    }
+
+    public partial class GetVoiceStatusPayload
+    {
+        [JsonPropertyName("configured")]
+        public bool Configured { get; set; }
+
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("reachable")]
+        public bool Reachable { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+    }
+
+    public partial class TranscribeVoiceParams
+    {
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("voiceRequestId")]
+        public string VoiceRequestId { get; set; }
+
+        [JsonPropertyName("wavBase64")]
+        [JsonConverter(typeof(AmbitiousMinMaxLengthCheckConverter))]
+        public string WavBase64 { get; set; }
+    }
+
+    public partial class TranscribeVoicePayload
+    {
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+
+        [JsonPropertyName("text")]
+        [JsonConverter(typeof(CunningMinMaxLengthCheckConverter))]
+        public string Text { get; set; }
+
+        [JsonPropertyName("voiceRequestId")]
+        public string VoiceRequestId { get; set; }
+    }
+
+    public partial class VoiceTurnParams
+    {
+        [JsonPropertyName("context")]
+        public VoiceContext Context { get; set; }
+
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("text")]
+        [JsonConverter(typeof(HilariousMinMaxLengthCheckConverter))]
+        public string Text { get; set; }
+
+        [JsonPropertyName("voiceRequestId")]
+        public string VoiceRequestId { get; set; }
+    }
+
+    public partial class VoiceContext
+    {
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+
+        [JsonPropertyName("voiceRequestId")]
+        public string VoiceRequestId { get; set; }
+    }
+
+    public partial class VoiceTurnPayload
+    {
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("reply")]
+        public VoiceTurnAgentReply Reply { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+
+        [JsonPropertyName("voiceRequestId")]
+        public string VoiceRequestId { get; set; }
+    }
+
+    public partial class VoiceTurnAgentReply
+    {
+        [JsonPropertyName("runId")]
+        public string RunId { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        [JsonConverter(typeof(MagentaMinMaxLengthCheckConverter))]
+        public string? SessionId { get; set; }
+
+        [JsonPropertyName("text")]
+        [JsonConverter(typeof(CunningMinMaxLengthCheckConverter))]
+        public string Text { get; set; }
+    }
+
+    public partial class SynthesizeVoiceParams
+    {
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("text")]
+        [JsonConverter(typeof(HilariousMinMaxLengthCheckConverter))]
+        public string Text { get; set; }
+
+        [JsonPropertyName("voiceRequestId")]
+        public string VoiceRequestId { get; set; }
+    }
+
+    public partial class SynthesizeVoicePayload
+    {
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+
+        [JsonPropertyName("voiceRequestId")]
+        public string VoiceRequestId { get; set; }
+
+        [JsonPropertyName("wavBase64")]
+        [JsonConverter(typeof(FriskyMinMaxLengthCheckConverter))]
+        public string WavBase64 { get; set; }
+    }
+
+    public partial class CancelVoiceParams
+    {
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("voiceRequestId")]
+        public string VoiceRequestId { get; set; }
+    }
+
+    public partial class CancelVoicePayload
+    {
+        [JsonPropertyName("documentId")]
+        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        public string DocumentId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; }
+
+        [JsonPropertyName("status")]
+        public CancelVoicePayloadStatus Status { get; set; }
+
+        [JsonPropertyName("voiceRequestId")]
+        public string VoiceRequestId { get; set; }
     }
 
     public partial class SessionRequestEnvelope
@@ -380,7 +623,7 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("persistentEdgeId")]
-        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MischievousMinMaxLengthCheckConverter))]
         public string? PersistentEdgeId { get; set; }
 
         [JsonPropertyName("type")]
@@ -472,6 +715,10 @@ namespace Kreoda.Session.Generated
         [JsonPropertyName("tip")]
         [JsonConverter(typeof(PurpleMinMaxLengthCheckConverter))]
         public string Tip { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("visible")]
+        public bool? Visible { get; set; }
     }
 
     public partial class DatumDescriptor
@@ -574,12 +821,12 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("persistentEdgeId")]
-        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MischievousMinMaxLengthCheckConverter))]
         public string? PersistentEdgeId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("selectionEntry")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(BraggadociousMinMaxLengthCheckConverter))]
         public string? SelectionEntry { get; set; }
     }
 
@@ -599,12 +846,12 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("persistentFaceId")]
-        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MischievousMinMaxLengthCheckConverter))]
         public string? PersistentFaceId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("selectionEntry")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(BraggadociousMinMaxLengthCheckConverter))]
         public string? SelectionEntry { get; set; }
     }
 
@@ -624,12 +871,12 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("persistentFaceId")]
-        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MischievousMinMaxLengthCheckConverter))]
         public string? PersistentFaceId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("selectionEntry")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(BraggadociousMinMaxLengthCheckConverter))]
         public string? SelectionEntry { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -654,12 +901,12 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("persistentFaceId")]
-        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MischievousMinMaxLengthCheckConverter))]
         public string? PersistentFaceId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("selectionEntry")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(BraggadociousMinMaxLengthCheckConverter))]
         public string? SelectionEntry { get; set; }
     }
 
@@ -679,12 +926,12 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("persistentFaceId")]
-        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MischievousMinMaxLengthCheckConverter))]
         public string? PersistentFaceId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("selectionEntry")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(BraggadociousMinMaxLengthCheckConverter))]
         public string? SelectionEntry { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -1002,7 +1249,7 @@ namespace Kreoda.Session.Generated
     public partial class PairParams
     {
         [JsonPropertyName("deviceName")]
-        [JsonConverter(typeof(IndigoMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MinMaxLengthCheckConverter1))]
         public string DeviceName { get; set; }
 
         [JsonPropertyName("pairingToken")]
@@ -1114,7 +1361,7 @@ namespace Kreoda.Session.Generated
         public long Generation { get; set; }
 
         [JsonPropertyName("previewId")]
-        [JsonConverter(typeof(IndecentMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MinMaxLengthCheckConverter2))]
         public string PreviewId { get; set; }
     }
 
@@ -1146,11 +1393,11 @@ namespace Kreoda.Session.Generated
         public string NativeRequestId { get; set; }
 
         [JsonPropertyName("paramName")]
-        [JsonConverter(typeof(IndecentMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MinMaxLengthCheckConverter2))]
         public string ParamName { get; set; }
 
         [JsonPropertyName("previewId")]
-        [JsonConverter(typeof(IndecentMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MinMaxLengthCheckConverter2))]
         public string PreviewId { get; set; }
 
         [JsonPropertyName("quality")]
@@ -1314,12 +1561,12 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("persistentFaceId")]
-        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MischievousMinMaxLengthCheckConverter))]
         public string? PersistentFaceId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("selectionEntry")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(BraggadociousMinMaxLengthCheckConverter))]
         public string? SelectionEntry { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -1344,12 +1591,12 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("persistentFaceId")]
-        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MischievousMinMaxLengthCheckConverter))]
         public string? PersistentFaceId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("selectionEntry")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(BraggadociousMinMaxLengthCheckConverter))]
         public string? SelectionEntry { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -1447,12 +1694,12 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("persistentFaceId")]
-        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MischievousMinMaxLengthCheckConverter))]
         public string? PersistentFaceId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("selectionEntry")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(BraggadociousMinMaxLengthCheckConverter))]
         public string? SelectionEntry { get; set; }
     }
 
@@ -1477,12 +1724,12 @@ namespace Kreoda.Session.Generated
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("persistentFaceId")]
-        [JsonConverter(typeof(TentacledMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(MischievousMinMaxLengthCheckConverter))]
         public string? PersistentFaceId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("selectionEntry")]
-        [JsonConverter(typeof(StickyMinMaxLengthCheckConverter))]
+        [JsonConverter(typeof(BraggadociousMinMaxLengthCheckConverter))]
         public string? SelectionEntry { get; set; }
     }
 
@@ -1583,6 +1830,10 @@ namespace Kreoda.Session.Generated
         public double[] PositionMm { get; set; }
     }
 
+    public enum ErrorReplyStatus { Uncertain };
+
+    public enum CancelVoicePayloadStatus { CancelRequested, NotActive };
+
     public enum Operation { ProjectEdges, Section, Silhouette };
 
     public enum SketchProjectionSourceType { Edge, Shape, SketchEntities };
@@ -1641,6 +1892,8 @@ namespace Kreoda.Session.Generated
         {
             Converters =
             {
+                ErrorReplyStatusConverter.Singleton,
+                CancelVoicePayloadStatusConverter.Singleton,
                 OperationConverter.Singleton,
                 SketchProjectionSourceTypeConverter.Singleton,
                 SketchProjectionGroupSummaryStatusConverter.Singleton,
@@ -1759,6 +2012,310 @@ namespace Kreoda.Session.Generated
         public static readonly FluffyMinMaxLengthCheckConverter Singleton = new FluffyMinMaxLengthCheckConverter();
     }
 
+    internal class TentacledMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length >= 1 && value.Length <= 128)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length >= 1 && value.Length <= 128)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly TentacledMinMaxLengthCheckConverter Singleton = new TentacledMinMaxLengthCheckConverter();
+    }
+
+    internal class StickyMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length >= 1 && value.Length <= 256)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length >= 1 && value.Length <= 256)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly StickyMinMaxLengthCheckConverter Singleton = new StickyMinMaxLengthCheckConverter();
+    }
+
+    internal class IndigoMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length <= 128)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length <= 128)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly IndigoMinMaxLengthCheckConverter Singleton = new IndigoMinMaxLengthCheckConverter();
+    }
+
+    internal class IndecentMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length <= 32)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length <= 32)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly IndecentMinMaxLengthCheckConverter Singleton = new IndecentMinMaxLengthCheckConverter();
+    }
+
+    internal class ErrorReplyStatusConverter : JsonConverter<ErrorReplyStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ErrorReplyStatus);
+
+        public override ErrorReplyStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value == "uncertain")
+            {
+                return ErrorReplyStatus.Uncertain;
+            }
+            throw new Exception("Cannot unmarshal type ErrorReplyStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ErrorReplyStatus value, JsonSerializerOptions options)
+        {
+            if (value == ErrorReplyStatus.Uncertain)
+            {
+                JsonSerializer.Serialize(writer, "uncertain", options);
+                return;
+            }
+            throw new Exception("Cannot marshal type ErrorReplyStatus");
+        }
+
+        public static readonly ErrorReplyStatusConverter Singleton = new ErrorReplyStatusConverter();
+    }
+
+    internal class HilariousMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length >= 1 && value.Length <= 8000)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length >= 1 && value.Length <= 8000)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly HilariousMinMaxLengthCheckConverter Singleton = new HilariousMinMaxLengthCheckConverter();
+    }
+
+    internal class AmbitiousMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length >= 4 && value.Length <= 1398104)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length >= 4 && value.Length <= 1398104)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly AmbitiousMinMaxLengthCheckConverter Singleton = new AmbitiousMinMaxLengthCheckConverter();
+    }
+
+    internal class CunningMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length <= 8000)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length <= 8000)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly CunningMinMaxLengthCheckConverter Singleton = new CunningMinMaxLengthCheckConverter();
+    }
+
+    internal class MagentaMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length <= 256)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length <= 256)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly MagentaMinMaxLengthCheckConverter Singleton = new MagentaMinMaxLengthCheckConverter();
+    }
+
+    internal class FriskyMinMaxLengthCheckConverter : JsonConverter<string>
+    {
+        public override bool CanConvert(Type t) => t == typeof(string);
+
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value.Length >= 4 && value.Length <= 5592408)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type string");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            if (value.Length >= 4 && value.Length <= 5592408)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type string");
+        }
+
+        public static readonly FriskyMinMaxLengthCheckConverter Singleton = new FriskyMinMaxLengthCheckConverter();
+    }
+
+    internal class CancelVoicePayloadStatusConverter : JsonConverter<CancelVoicePayloadStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(CancelVoicePayloadStatus);
+
+        public override CancelVoicePayloadStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "cancelRequested":
+                    return CancelVoicePayloadStatus.CancelRequested;
+                case "notActive":
+                    return CancelVoicePayloadStatus.NotActive;
+            }
+            throw new Exception("Cannot unmarshal type CancelVoicePayloadStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, CancelVoicePayloadStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case CancelVoicePayloadStatus.CancelRequested:
+                    JsonSerializer.Serialize(writer, "cancelRequested", options);
+                    return;
+                case CancelVoicePayloadStatus.NotActive:
+                    JsonSerializer.Serialize(writer, "notActive", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type CancelVoicePayloadStatus");
+        }
+
+        public static readonly CancelVoicePayloadStatusConverter Singleton = new CancelVoicePayloadStatusConverter();
+    }
+
     internal class FluffyDecodeArrayConverter : JsonConverter<string[]>
     {
         public override bool CanConvert(Type t) => t == typeof(string[]);
@@ -1841,7 +2398,7 @@ namespace Kreoda.Session.Generated
             var value = new List<string>();
             while (reader.TokenType != JsonTokenType.EndArray)
             {
-                var converter = TentacledMinMaxLengthCheckConverter.Singleton;
+                var converter = MischievousMinMaxLengthCheckConverter.Singleton;
                 var arrayItem = (string)converter.Read(ref reader, typeof(string), options);
                 value.Add(arrayItem);
                 reader.Read();
@@ -1854,7 +2411,7 @@ namespace Kreoda.Session.Generated
             writer.WriteStartArray();
             foreach (var arrayItem in value)
             {
-                var converter = TentacledMinMaxLengthCheckConverter.Singleton;
+                var converter = MischievousMinMaxLengthCheckConverter.Singleton;
                 converter.Write(writer, arrayItem, options);
             }
             writer.WriteEndArray();
@@ -1864,7 +2421,7 @@ namespace Kreoda.Session.Generated
         public static readonly TentacledDecodeArrayConverter Singleton = new TentacledDecodeArrayConverter();
     }
 
-    internal class TentacledMinMaxLengthCheckConverter : JsonConverter<string>
+    internal class MischievousMinMaxLengthCheckConverter : JsonConverter<string>
     {
         public override bool CanConvert(Type t) => t == typeof(string);
 
@@ -1888,7 +2445,7 @@ namespace Kreoda.Session.Generated
             throw new Exception("Cannot marshal type string");
         }
 
-        public static readonly TentacledMinMaxLengthCheckConverter Singleton = new TentacledMinMaxLengthCheckConverter();
+        public static readonly MischievousMinMaxLengthCheckConverter Singleton = new MischievousMinMaxLengthCheckConverter();
     }
 
     internal class SketchProjectionSourceTypeConverter : JsonConverter<SketchProjectionSourceType>
@@ -2099,7 +2656,7 @@ namespace Kreoda.Session.Generated
         public static readonly AxisEnumConverter Singleton = new AxisEnumConverter();
     }
 
-    internal class StickyMinMaxLengthCheckConverter : JsonConverter<string>
+    internal class BraggadociousMinMaxLengthCheckConverter : JsonConverter<string>
     {
         public override bool CanConvert(Type t) => t == typeof(string);
 
@@ -2123,7 +2680,7 @@ namespace Kreoda.Session.Generated
             throw new Exception("Cannot marshal type string");
         }
 
-        public static readonly StickyMinMaxLengthCheckConverter Singleton = new StickyMinMaxLengthCheckConverter();
+        public static readonly BraggadociousMinMaxLengthCheckConverter Singleton = new BraggadociousMinMaxLengthCheckConverter();
     }
 
     internal class AxisTypeConverter : JsonConverter<AxisType>
@@ -2685,7 +3242,7 @@ namespace Kreoda.Session.Generated
         public static readonly CoreRestartedEventEventConverter Singleton = new CoreRestartedEventEventConverter();
     }
 
-    internal class IndigoMinMaxLengthCheckConverter : JsonConverter<string>
+    internal class MinMaxLengthCheckConverter1 : JsonConverter<string>
     {
         public override bool CanConvert(Type t) => t == typeof(string);
 
@@ -2709,7 +3266,7 @@ namespace Kreoda.Session.Generated
             throw new Exception("Cannot marshal type string");
         }
 
-        public static readonly IndigoMinMaxLengthCheckConverter Singleton = new IndigoMinMaxLengthCheckConverter();
+        public static readonly MinMaxLengthCheckConverter1 Singleton = new MinMaxLengthCheckConverter1();
     }
 
     internal class ConnectionStateConverter : JsonConverter<ConnectionState>
@@ -2785,7 +3342,7 @@ namespace Kreoda.Session.Generated
         public static readonly StateConverter Singleton = new StateConverter();
     }
 
-    internal class IndecentMinMaxLengthCheckConverter : JsonConverter<string>
+    internal class MinMaxLengthCheckConverter2 : JsonConverter<string>
     {
         public override bool CanConvert(Type t) => t == typeof(string);
 
@@ -2809,7 +3366,7 @@ namespace Kreoda.Session.Generated
             throw new Exception("Cannot marshal type string");
         }
 
-        public static readonly IndecentMinMaxLengthCheckConverter Singleton = new IndecentMinMaxLengthCheckConverter();
+        public static readonly MinMaxLengthCheckConverter2 Singleton = new MinMaxLengthCheckConverter2();
     }
 
     internal class IndigoDecodeArrayConverter : JsonConverter<string[]>
@@ -2822,7 +3379,7 @@ namespace Kreoda.Session.Generated
             var value = new List<string>();
             while (reader.TokenType != JsonTokenType.EndArray)
             {
-                var converter = TentacledMinMaxLengthCheckConverter.Singleton;
+                var converter = MischievousMinMaxLengthCheckConverter.Singleton;
                 var arrayItem = (string)converter.Read(ref reader, typeof(string), options);
                 value.Add(arrayItem);
                 reader.Read();
@@ -2835,7 +3392,7 @@ namespace Kreoda.Session.Generated
             writer.WriteStartArray();
             foreach (var arrayItem in value)
             {
-                var converter = TentacledMinMaxLengthCheckConverter.Singleton;
+                var converter = MischievousMinMaxLengthCheckConverter.Singleton;
                 converter.Write(writer, arrayItem, options);
             }
             writer.WriteEndArray();

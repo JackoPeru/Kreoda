@@ -44,7 +44,8 @@ public sealed class SessionMeshTests
     private static byte[] FloatBytes(float[] values) => MemoryMarshal.AsBytes(values.AsSpan()).ToArray();
     private static byte[] UintBytes(uint[] values) => MemoryMarshal.AsBytes(values.AsSpan()).ToArray();
 
-    internal static byte[] MeshFrame(string requestId, int quality, long revision = 7, uint[]? indices = null, string tipId = "tip-1", bool includeEdges = true)
+    internal static byte[] MeshFrame(string requestId, int quality, long revision = 7, uint[]? indices = null, string tipId = "tip-1", bool includeEdges = true,
+        float[]? curvature = null, byte[]? curvatureBytes = null)
     {
         var positions = new[] { 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f };
         var normals = new[] { 0f, 0f, 1f, 0f, 0f, 1f, 0f, 0f, 1f };
@@ -66,12 +67,41 @@ public sealed class SessionMeshTests
             edgeRangesOffset = MeshUpdate.CreateEdgesVector(builder, [edge]);
         }
         var bboxOffset = MeshUpdate.CreateBboxMmVector(builder, [0, 0, 0, 1, 1, 1]);
+        var curvatureOffset = curvature is not null || curvatureBytes is not null
+            ? MeshUpdate.CreateCurvatureMaxAbsPerMmVector(builder, curvatureBytes ?? FloatBytes(curvature!)) : default;
         var mesh = MeshUpdate.CreateMeshUpdate(builder, featureId, featureId, (sbyte)quality, nativeId,
             (uint)positions.Length, (uint)normals.Length, (uint)triangleIndices.Length,
             positionsOffset, normalsOffset, indicesOffset, edgesOffset, facesOffset, edgeRangesOffset,
-            1, bboxOffset, revision);
+            1, bboxOffset, revision, curvatureOffset);
         builder.Finish(mesh.Value);
         return builder.SizedByteArray();
+    }
+
+    [Theory]
+    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)]
+    [InlineData(4)] [InlineData(5)] [InlineData(6)] [InlineData(7)]
+    public async Task NativeCurvatureIsValidatedWithoutBreakingLegacyMeshes(int kind)
+    {
+        float[]? samples = kind switch {
+            1 => [0, .125f, -1], 2 => [.1f], 3 => [float.NaN, 0, 0],
+            4 => [float.PositiveInfinity, 0, 0], 5 => [-.5f, 0, 0], 6 => [-2, 0, 0], _ => null };
+        await using var server = new LoopbackWsServer(_ => null);
+        server.ExtendedHandler = request => {
+            if(request.GetProperty("method").GetString() == SessionMethods.Hello)
+                return Task.FromResult<LoopbackWsResponse?>(new(HelloReply(request)));
+            var raw = MeshFrame("native-curvature", 1, curvature: samples, curvatureBytes: kind == 7 ? [1] : null);
+            return Task.FromResult<LoopbackWsResponse?>(new(MeshHeader(request, "native-curvature", 1, raw.Length), raw));
+        };
+        server.Start();
+        await using var client = await Kreoda.Session.SessionClient.ConnectAsync(new Uri($"ws://127.0.0.1:{server.Port}/"), "t", "xunit");
+        if(kind >= 2) {
+            var error = await Assert.ThrowsAsync<SessionException>(() => client.RequestMeshLodAsync("body-root", 1, "doc-phase1", 7));
+            Assert.Equal("INVALID_MESH", error.Code);
+        } else {
+            var mesh = await client.RequestMeshLodAsync("body-root", 1, "doc-phase1", 7);
+            if(kind == 0) Assert.Null(mesh.CurvatureMaxAbsPerMm);
+            else Assert.Equal(samples, mesh.CurvatureMaxAbsPerMm);
+        }
     }
 
     [Fact]

@@ -1,21 +1,27 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f
+// Source SHA256: 70dbfd2eb9ed09ccf73066d955ce0cb3024547663b9690950a173a2c80948328
 namespace Kreoda.Session;
 
 public static class SessionMethods
 {
     public const int ProtocolVersion = 1;
-    public const string ContractSchemaSha256 = "b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f";
+    public const string ContractSchemaSha256 = "70dbfd2eb9ed09ccf73066d955ce0cb3024547663b9690950a173a2c80948328";
     public const string OperationReplayCapability = "operation-replay";
     public const string IncrementalDeltasCapability = "incremental-deltas";
     public const string BinaryMeshV1Capability = "binary-mesh-v1";
     public const string BinaryPreviewV1Capability = "binary-preview-v1";
     public const string ContextCommandsV1Capability = "context-commands-v1";
     public const string SketchPreviewV1Capability = "sketch-preview-v1";
+    public const string VoiceV1Capability = "voice-v1";
     public const string Pair = "pair";
     public const string Authenticate = "authenticate";
     public const string Hello = "hello";
     public const string GetSessionInfo = "getSessionInfo";
+    public const string GetVoiceStatus = "getVoiceStatus";
+    public const string TranscribeVoice = "transcribeVoice";
+    public const string VoiceTurn = "voiceTurn";
+    public const string SynthesizeVoice = "synthesizeVoice";
+    public const string CancelVoice = "cancelVoice";
     public const string Snapshot = "snapshot";
     public const string Invoke = "invoke";
     public const string Command = "command";
@@ -33,6 +39,9 @@ public static class SessionMethods
     public const string GetDependencies = "getDependencies";
     public const string GetModelTree = "getModelTree";
     public const string DescribeModel = "describeModel";
+    public const string ListRecentProjects = "listRecentProjects";
+    public const string ListOpenableProjects = "listOpenableProjects";
+    public const string RequestOpenProject = "requestOpenProject";
     public const string GetSelection = "getSelection";
     public const string SetSelection = "setSelection";
     public const string ClearSelection = "clearSelection";
@@ -42,6 +51,9 @@ public static class SessionMethods
     public const string GetManipulators = "getManipulators";
     public const string MeasureVolume = "measureVolume";
     public const string MeasureArea = "measureArea";
+    public const string MeasureMassProperties = "measureMassProperties";
+    public const string MeasureInterferences = "measureInterferences";
+    public const string MeasureMinimumThickness = "measureMinimumThickness";
     public const string GetBoundingBox = "getBoundingBox";
     public const string MeasureDistance = "measureDistance";
     public const string MeasureAngle = "measureAngle";
@@ -62,8 +74,9 @@ public static class SessionMethods
     public const string PreviewSketch = "previewSketch";
     public const string GetDatum = "getDatum";
     public const string GetSketchProjection = "getSketchProjection";
-    public static readonly string[] All = ["pair", "authenticate", "hello", "getSessionInfo", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "requestMeshLOD", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "validateReferences", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel", "requestPreviewMesh", "previewSketch", "getDatum", "getSketchProjection"];
-    public static readonly string[] ServerCapabilities = ["operation-replay", "incremental-deltas", "binary-mesh-v1", "binary-preview-v1", "context-commands-v1", "sketch-preview-v1"];
+    public const string ResolveSurfacePoint = "resolveSurfacePoint";
+    public static readonly string[] All = ["pair", "authenticate", "hello", "getSessionInfo", "getVoiceStatus", "transcribeVoice", "voiceTurn", "synthesizeVoice", "cancelVoice", "snapshot", "invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "txnStatus", "getDocumentInfo", "getBodies", "requestMeshLOD", "getFeatures", "getFeature", "getParameters", "getDependencies", "getModelTree", "describeModel", "listRecentProjects", "listOpenableProjects", "requestOpenProject", "getSelection", "setSelection", "clearSelection", "findFaces", "findEdges", "findBodies", "getManipulators", "measureVolume", "measureArea", "measureMassProperties", "measureInterferences", "measureMinimumThickness", "getBoundingBox", "measureDistance", "measureAngle", "measureRadius", "measureDiameter", "validateDocument", "validateBody", "validateFeature", "validateReferences", "listCommands", "getCommandSchema", "getCapabilities", "previewBegin", "previewUpdate", "previewCommit", "previewCancel", "requestPreviewMesh", "previewSketch", "getDatum", "getSketchProjection", "resolveSurfacePoint"];
+    public static readonly string[] ServerCapabilities = ["operation-replay", "incremental-deltas", "binary-mesh-v1", "binary-preview-v1", "context-commands-v1", "sketch-preview-v1", "voice-v1"];
     public static readonly string[] OperationReplayMethods = ["invoke", "command", "txnBegin", "txnCommit", "txnRollback", "txnForceRollback", "setSelection", "clearSelection", "previewBegin", "previewUpdate", "previewCommit", "previewCancel"];
     public static bool SupportsOperationReplay(string method) => Array.IndexOf(OperationReplayMethods, method) >= 0;
     public static readonly IReadOnlyDictionary<string, string[]> RequiredParams = new Dictionary<string, string[]>
@@ -72,6 +85,11 @@ public static class SessionMethods
         ["authenticate"] = ["deviceId", "credential"],
         ["hello"] = ["token", "protocolVersion"],
         ["getSessionInfo"] = [],
+        ["getVoiceStatus"] = [],
+        ["transcribeVoice"] = ["voiceRequestId", "documentId", "expectedRevision", "wavBase64"],
+        ["voiceTurn"] = ["voiceRequestId", "documentId", "expectedRevision", "text", "context"],
+        ["synthesizeVoice"] = ["voiceRequestId", "documentId", "expectedRevision", "text"],
+        ["cancelVoice"] = ["voiceRequestId", "documentId"],
         ["snapshot"] = [],
         ["invoke"] = ["type"],
         ["command"] = ["commandId"],
@@ -89,6 +107,9 @@ public static class SessionMethods
         ["getDependencies"] = ["featureId"],
         ["getModelTree"] = [],
         ["describeModel"] = [],
+        ["listRecentProjects"] = [],
+        ["listOpenableProjects"] = [],
+        ["requestOpenProject"] = ["projectId", "sessionId", "documentId", "expectedRevision"],
         ["getSelection"] = [],
         ["setSelection"] = ["ids"],
         ["clearSelection"] = [],
@@ -98,6 +119,9 @@ public static class SessionMethods
         ["getManipulators"] = ["featureId"],
         ["measureVolume"] = [],
         ["measureArea"] = [],
+        ["measureMassProperties"] = [],
+        ["measureInterferences"] = [],
+        ["measureMinimumThickness"] = [],
         ["getBoundingBox"] = [],
         ["measureDistance"] = ["a", "b"],
         ["measureAngle"] = ["a", "b"],
@@ -118,6 +142,7 @@ public static class SessionMethods
         ["previewSketch"] = ["featureId", "model", "expectedRevision"],
         ["getDatum"] = ["featureId"],
         ["getSketchProjection"] = ["featureId"],
+        ["resolveSurfacePoint"] = ["targetId", "pointMm"],
     };
 }
 
@@ -138,6 +163,23 @@ public static class SessionContract
         ["NamedCommandParams"] = ["commandId"],
         ["TxnParams"] = ["transactionId"],
         ["ErrorReply"] = ["requestId", "ok", "errorCode", "error"],
+        ["VoiceRequestId"] = [],
+        ["VoiceDocumentId"] = [],
+        ["VoiceRevision"] = [],
+        ["VoiceText"] = [],
+        ["VoiceContext"] = ["voiceRequestId", "sessionId", "documentId", "revision"],
+        ["GetVoiceStatusParams"] = [],
+        ["GetVoiceStatusPayload"] = ["sessionId", "documentId", "revision", "configured", "reachable"],
+        ["TranscribeVoiceParams"] = ["voiceRequestId", "documentId", "expectedRevision", "wavBase64"],
+        ["TranscribeVoicePayload"] = ["sessionId", "documentId", "revision", "voiceRequestId", "text"],
+        ["VoiceTurnParams"] = ["voiceRequestId", "documentId", "expectedRevision", "text", "context"],
+        ["VoiceTurnAgentReply"] = ["text", "runId"],
+        ["VoiceTurnPayload"] = ["sessionId", "documentId", "revision", "voiceRequestId", "reply"],
+        ["SynthesizeVoiceParams"] = ["voiceRequestId", "documentId", "expectedRevision", "text"],
+        ["SynthesizeVoicePayload"] = ["sessionId", "documentId", "revision", "voiceRequestId", "wavBase64"],
+        ["CancelVoiceParams"] = ["voiceRequestId", "documentId"],
+        ["CancelVoicePayload"] = ["sessionId", "documentId", "revision", "voiceRequestId", "status"],
+        ["SessionRecoveryIdentity"] = ["requestId", "transactionId", "sessionId", "documentId", "baseRevision", "ownerClientId", "causeCode"],
         ["SessionRequestEnvelope"] = ["requestId", "method"],
         ["HelloReply"] = ["requestId", "ok", "clientId", "sessionId", "documentId", "revision", "capabilities"],
         ["FeatureDescriptor"] = ["featureId", "type"],

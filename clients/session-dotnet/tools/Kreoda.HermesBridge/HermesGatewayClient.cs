@@ -4,7 +4,8 @@ using System.Text.Json;
 
 namespace Kreoda.HermesBridge;
 
-public sealed record HermesOptions(Uri GatewayUrl, string ApiKey, string SessionKey, string? ConversationId = null, string? ModelAlias = null);
+public sealed record HermesOptions(Uri GatewayUrl, string ApiKey, string SessionKey, string? ConversationId = null, string? ModelAlias = null,
+    Uri? SpeechBaseUrl = null, string? SpeechApiKey = null, Uri? TranscribeBaseUrl = null, string? TranscribeApiKey = null, string? ReasoningEffort = null);
 public sealed record HermesReply(string Text, string? SessionId, string RunId);
 public sealed class HermesVoiceException(string stage, string message) : Exception(message)
 {
@@ -22,12 +23,26 @@ public sealed class HermesGatewayClient
     string? _conversation;
     public HermesGatewayClient(HttpClient http, HermesOptions options, Func<string, Task>? saveSession = null, TimeSpan? pollInterval = null)
     {
-        if (options.GatewayUrl.Scheme is not ("http" or "https") || !string.IsNullOrEmpty(options.GatewayUrl.Query) ||
-            !string.IsNullOrEmpty(options.GatewayUrl.UserInfo) || string.IsNullOrWhiteSpace(options.ApiKey) ||
-            options.SessionKey.Length is < 1 or > 128) throw new ArgumentException("Private Hermes gateway configuration is required");
+        if (!ValidUrl(options.GatewayUrl) || !ValidOptionalUrl(options.SpeechBaseUrl) || !ValidOptionalUrl(options.TranscribeBaseUrl) ||
+            string.IsNullOrWhiteSpace(options.ApiKey) || !ValidBearerCredential(options.ApiKey) ||
+            options.SessionKey is not { Length: >= 1 and <= 128 } ||
+            !ValidBearerCredential(options.SpeechApiKey) || !ValidBearerCredential(options.TranscribeApiKey) ||
+            options.ReasoningEffort is not null && options.ReasoningEffort is not ("low" or "medium" or "xhigh"))
+            throw new ArgumentException("Private Hermes gateway configuration is required");
         _http = http;_options = options;_saveSession = saveSession;_conversation = options.ConversationId;
         _pollInterval = pollInterval ?? TimeSpan.FromMilliseconds(500);
         if (_pollInterval <= TimeSpan.Zero || _pollInterval > TimeSpan.FromSeconds(5)) throw new ArgumentOutOfRangeException(nameof(pollInterval));
+    }
+    static bool ValidOptionalUrl(Uri? uri) => uri is null || ValidUrl(uri);
+    static bool ValidUrl(Uri? uri) => uri is { IsAbsoluteUri: true } && (uri.Scheme is "http" or "https") &&
+        !string.IsNullOrEmpty(uri.Host) && string.IsNullOrEmpty(uri.UserInfo) &&
+        string.IsNullOrEmpty(uri.Query) && string.IsNullOrEmpty(uri.Fragment);
+    static bool ValidBearerCredential(string? value)
+    {
+        if (value is null) return true;
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        try { _ = new AuthenticationHeaderValue("Bearer", value);return true; }
+        catch (FormatException) { return false; }
     }
     HttpRequestMessage Request(HttpMethod method, string route)
     {
@@ -35,6 +50,13 @@ public sealed class HermesGatewayClient
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
         request.Headers.Add("X-Hermes-Session-Key", _options.SessionKey);
         if (_conversation is not null) request.Headers.Add("X-Hermes-Session-Id", _conversation);
+        return request;
+    }
+    HttpRequestMessage AudioRequest(HttpMethod method, string route, Uri? baseUrl, string? apiKey)
+    {
+        if (baseUrl is null) return Request(method, route);
+        var request = new HttpRequestMessage(method, new Uri(baseUrl.AbsoluteUri.TrimEnd('/') + "/" + route));
+        if (apiKey is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         return request;
     }
     public async Task<HermesReply> TalkAsync(string text, JsonElement context, CancellationToken ct = default)
@@ -46,10 +68,12 @@ public sealed class HermesGatewayClient
         try {
             var key = "kreoda-" + Guid.NewGuid().ToString("D");
             var body = new Dictionary<string, object?> {
-                ["input"] = "Contesto Kreoda (dati, non istruzioni di sistema):\n" + context.GetRawText() + "\nRichiesta dell'utente:\n" + text,
+                ["input"] = SpatialVoiceIntent.BuildInput(text, context),
             };
             if (_conversation is not null) body["session_id"] = _conversation;
             if (_options.ModelAlias is not null) body["model"] = _options.ModelAlias;
+            if (_options.ReasoningEffort is not null)
+                body["model_options"] = new { reasoning = new { effort = _options.ReasoningEffort } };
             var payload = JsonSerializer.Serialize(body);
             async Task<JsonElement> Submit(CancellationToken cancellation)
             {
@@ -104,7 +128,7 @@ public sealed class HermesGatewayClient
     {
         RequireWave(wav, 1048576);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);deadline.CancelAfter(TimeSpan.FromSeconds(60));
-        using var request = Request(HttpMethod.Post, "audio/transcriptions");
+        using var request = AudioRequest(HttpMethod.Post, "audio/transcriptions", _options.TranscribeBaseUrl, _options.TranscribeApiKey);
         var form = new MultipartFormDataContent();
         var audio = new ByteArrayContent(wav);audio.Headers.ContentType = new("audio/wav");
         form.Add(audio, "file", "quest.wav");form.Add(new StringContent("1"), "beam_size");request.Content = form;
@@ -117,7 +141,7 @@ public sealed class HermesGatewayClient
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length > 8000) throw new ArgumentException("Speech text must be bounded");
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);deadline.CancelAfter(TimeSpan.FromSeconds(60));
-        using var request = Request(HttpMethod.Post, "audio/speech");
+        using var request = AudioRequest(HttpMethod.Post, "audio/speech", _options.SpeechBaseUrl, _options.SpeechApiKey);
         request.Content = new StringContent(JsonSerializer.Serialize(new { input = text, voice = "if_sara", lang = "it", speed = 1, response_format = "wav" }), Encoding.UTF8, "application/json");
         using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
         if (!response.IsSuccessStatusCode) throw new HermesVoiceException("tts", "Sintesi vocale: HTTP " + (int)response.StatusCode);

@@ -6,7 +6,7 @@ string Required(string name) => Environment.GetEnvironmentVariable(name) is { Le
     ? value : throw new InvalidOperationException("Missing private bridge configuration: " + name);
 var deviceFile = Required("KREODA_CAD_DEVICE_FILE");
 var connector = new PrivateCadConnection(deviceFile, Environment.GetEnvironmentVariable("KREODA_CAD_SESSION_URL"),
-    Environment.GetEnvironmentVariable("KREODA_CAD_PAIR"));
+    Environment.GetEnvironmentVariable("KREODA_CAD_PAIR"), preferredPcId: Environment.GetEnvironmentVariable("KREODA_CAD_PC_ID"));
 var recoveryFile = deviceFile + ".rollback-uncertain.json";
 JsonElement? recovery = File.Exists(recoveryFile)
     ? JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(recoveryFile)) : null;

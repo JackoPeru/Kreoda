@@ -5,6 +5,33 @@ namespace Kreoda.ModelingAgent.Tests;
 
 public sealed class AgentCatalogTests
 {
+    [Theory]
+    [InlineData("anyOf")]
+    [InlineData("oneOf")]
+    public void ObjectParameterUnionsFromThePcRemainExecutableAndUnchanged(string union)
+    {
+        using var schema=JsonDocument.Parse("{\""+union+"\":[{\"type\":\"object\",\"properties\":{\"kind\":{\"const\":\"ground\"}},\"required\":[\"kind\"]},{\"type\":\"object\",\"properties\":{\"kind\":{\"const\":\"distance\"},\"distanceMm\":{\"type\":\"number\"}},\"required\":[\"kind\",\"distanceMm\"]}]}");
+        var definition=JsonSerializer.SerializeToElement(new {commands=new[] {new {id="DefineAssemblyConstraint",nativeType=123,
+            creation=new {fixedCount=0},parameters=schema.RootElement}}});
+        var command=AgentCommandCatalog.FromReply(definition).Require("DefineAssemblyConstraint");
+        Assert.Equal(schema.RootElement.GetRawText(),command.Parameters.GetRawText());
+        Assert.Equal(0,command.CreatedFeatureCount(JsonSerializer.SerializeToElement(new {kind="ground"})));
+    }
+
+    [Theory]
+    [InlineData("{\"anyOf\":[]}")]
+    [InlineData("{\"anyOf\":[{\"type\":\"string\"}]}")]
+    [InlineData("{\"oneOf\":[{\"type\":\"object\"},{\"type\":\"array\"}]}")]
+    [InlineData("{\"anyOf\":{\"type\":\"object\"}}")]
+    [InlineData("{\"anyOf\":[true]}")]
+    public void InvalidObjectParameterUnionsRemainRejected(string input)
+    {
+        using var schema=JsonDocument.Parse(input);
+        var definition=JsonSerializer.SerializeToElement(new {commands=new[] {new {id="BadUnion",nativeType=123,
+            creation=new {fixedCount=0},parameters=schema.RootElement}}});
+        Assert.Throws<ArgumentException>(()=>AgentCommandCatalog.FromReply(definition));
+    }
+
     [Fact]
     public void CommandsComeOnlyFromRuntimeSchemasAndHistoryIsExcluded()
     {
@@ -29,12 +56,15 @@ public sealed class AgentCatalogTests
     [InlineData("findFaces")]
     [InlineData("validateReferences")]
     [InlineData("measureVolume")]
+    [InlineData("measureInterferences")]
+    [InlineData("measureMinimumThickness")]
     [InlineData("getParameters")]
     [InlineData("describeModel")]
     [InlineData("listCommands")]
     [InlineData("getCommandSchema")]
     [InlineData("getManipulators")]
     [InlineData("getSketchProjection")]
+    [InlineData("resolveSurfacePoint")]
     public void RequiredIntrospectionMethodsAreAllowed(string method) =>
         Assert.True(AgentCommandCatalog.IsReadOnlyQuery(method));
 

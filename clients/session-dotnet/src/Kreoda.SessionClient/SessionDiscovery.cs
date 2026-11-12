@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Globalization;
 
 namespace Kreoda.Session;
 
@@ -53,7 +54,13 @@ public static class SessionDiscovery
         if (!string.IsNullOrEmpty(preferredPcId)) return unique.FirstOrDefault(peer => peer.PcId == preferredPcId);
         return unique.Length == 1 ? unique[0] : null;
     }
-    public static async Task<DiscoveredSessionPc[]> FindAsync(CancellationToken ct, IPEndPoint? testTarget = null)
+    public static Task<DiscoveredSessionPc[]> FindAsync(CancellationToken ct, IPEndPoint? testTarget = null) =>
+        FindAsync(ct, testTarget, null);
+
+    static bool IsTransientReceiveError(SocketException error) =>
+        error.SocketErrorCode == SocketError.ConnectionReset || error.SocketErrorCode == SocketError.ConnectionRefused;
+
+    public static async Task<DiscoveredSessionPc[]> FindAsync(CancellationToken ct, IPEndPoint? testTarget, IPAddress? knownHost)
     {
         using var udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
         udp.EnableBroadcast = true;
@@ -71,6 +78,7 @@ public static class SessionDiscovery
                     }
         }
         else { targets.Clear();targets.Add(testTarget.Address); }
+        if (knownHost != null && IsPrivate(knownHost, testTarget != null)) targets.Add(knownHost);
         ct.ThrowIfCancellationRequested();
         foreach (var target in targets)
         {
@@ -85,7 +93,16 @@ public static class SessionDiscovery
         {
             while (!window.IsCancellationRequested)
             {
-                var message = await udp.ReceiveAsync().ConfigureAwait(false);
+                UdpReceiveResult message;
+                try { message = await udp.ReceiveAsync().ConfigureAwait(false); }
+                catch (SocketException error) when (IsTransientReceiveError(error))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (window.IsCancellationRequested) break;
+                    try { await Task.Delay(TimeSpan.FromMilliseconds(25), window.Token).ConfigureAwait(false); }
+                    catch (OperationCanceledException) when (window.IsCancellationRequested) { break; }
+                    continue;
+                }
                 var peer = Decode(message.Buffer, message.RemoteEndPoint, nonce, testTarget != null);
                 if (peer != null && peers.Count < 32) peers[peer.PcId] = peer;
             }
@@ -98,15 +115,17 @@ public static class SessionDiscovery
         return peers.Values.OrderBy(peer => peer.Name, StringComparer.Ordinal).ThenBy(peer => peer.PcId, StringComparer.Ordinal).ToArray();
     }
     public static async Task<string> PairAsync(DiscoveredSessionPc pc, string installationId, string credential,
-        CancellationToken ct, bool allowLoopback = false)
+        CancellationToken ct, bool allowLoopback = false, string deviceName = "Quest 3")
     {
+        if (string.IsNullOrWhiteSpace(deviceName) || deviceName.Length > 80 || deviceName.Any(char.IsControl))
+            throw new SessionException("BAD_PARAMS", "invalid automatic device name");
         if (!IPAddress.TryParse(pc.Bootstrap.Host, out var address) || !IsPrivate(address, allowLoopback) ||
             pc.Bootstrap.Scheme != "http" || pc.Bootstrap.AbsolutePath != "/pair" || pc.Endpoint.Host != pc.Bootstrap.Host)
             throw new SessionException("BAD_PARAMS", "invalid discovered endpoint");
         using var handler = new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false };
         using var client = new HttpClient(handler);
         using var content = new StringContent(JsonSerializer.Serialize(new { version = 1, pcId = pc.PcId,
-            installationId, credential, name = "Quest 3" }), Encoding.UTF8, "application/json");
+            installationId, credential, name = deviceName.Trim() }), Encoding.UTF8, "application/json");
         using var request = new HttpRequestMessage(HttpMethod.Post, pc.Bootstrap) { Content = content };
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         if ((int)response.StatusCode == 403) throw new SessionException("UNAUTHORIZED", "automatic device revoked");
@@ -134,12 +153,15 @@ public static class SessionDiscovery
         CancellationToken ct, bool allowLoopback = false)
     {
         if (!IPAddress.TryParse(pc.Bootstrap.Host, out var address) || !IsPrivate(address, allowLoopback) ||
-            pc.Bootstrap.Scheme != "http" || pc.Bootstrap.AbsolutePath != "/pair") return false;
+            pc.Bootstrap.Scheme != "http" || pc.Bootstrap.AbsolutePath != "/pair" ||
+            pc.Endpoint.Host != pc.Bootstrap.Host || (pc.Endpoint.Scheme != "ws" && pc.Endpoint.Scheme != "wss") ||
+            pc.Endpoint.AbsolutePath != "/" || pc.Endpoint.Query.Length != 0 || pc.Endpoint.UserInfo.Length != 0 ||
+            pc.Bootstrap.Query.Length != 0 || pc.Bootstrap.UserInfo.Length != 0) return false;
         var nonce = Guid.NewGuid().ToString("D");
         using var handler = new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false };
         using var client = new HttpClient(handler);
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(pc.Bootstrap, "/identify"))
-        { Content = new StringContent(JsonSerializer.Serialize(new { version = 1, pcId = pc.PcId, deviceId, nonce }), Encoding.UTF8, "application/json") };
+        { Content = new StringContent(JsonSerializer.Serialize(new { version = 1, proofVersion = 2, pcId = pc.PcId, deviceId, nonce }), Encoding.UTF8, "application/json") };
         try
         {
             using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
@@ -154,11 +176,13 @@ public static class SessionDiscovery
             if (length > 8192) return false;
             using var json = JsonDocument.Parse(new ReadOnlyMemory<byte>(buffer, 0, length));
             var value = json.RootElement;
-            if (value.GetProperty("version").GetInt32() != 1 || value.GetProperty("pcId").GetString() != pc.PcId ||
+            if (value.GetProperty("version").GetInt32() != 1 || value.GetProperty("proofVersion").GetInt32() != 2 || value.GetProperty("pcId").GetString() != pc.PcId ||
                 value.GetProperty("nonce").GetString() != nonce) return false;
             using var hash = SHA256.Create();
             using var hmac = new HMACSHA256(hash.ComputeHash(Encoding.UTF8.GetBytes(credential)));
-            var proof = hmac.ComputeHash(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { pc.PcId, deviceId, nonce })));
+            var proof = hmac.ComputeHash(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] {
+                pc.PcId, deviceId, nonce, pc.Endpoint.Host,
+                pc.Endpoint.Port.ToString(CultureInfo.InvariantCulture), pc.Bootstrap.Port.ToString(CultureInfo.InvariantCulture) })));
             var expected = BitConverter.ToString(proof).Replace("-", "").ToLowerInvariant();
             return value.GetProperty("proof").GetString() == expected;
         }
