@@ -32,6 +32,27 @@ async function sketchModel(window: TestWindow, id: string): Promise<SketchModel>
   }).__kreoda_test.sketchModel(featureId), id);
 }
 
+/** Compare sketch content across a crash/reopen; the document revision is
+ *  legitimately renumbered when the recovered document is reopened. */
+function stableSketchModel(model: SketchModel) {
+  const { revision: _revision, ...rest } = model as SketchModel & { revision?: number };
+  return rest;
+}
+
+async function expectSameSketchModel(window: TestWindow, id: string, expected: SketchModel) {
+  expect(stableSketchModel(await sketchModel(window, id))).toEqual(stableSketchModel(expected));
+}
+
+/** Snapshot sketch rows differ only by live status flags after recovery. */
+function stableSketchEntries(sketches: Snapshot["sketches"]) {
+  return sketches.map((sketch) => ({
+    ...sketch,
+    status: undefined,
+    error: undefined,
+    geometryCurrent: undefined,
+  }));
+}
+
 async function modelAndSave(window: TestWindow) {
   await runBar(window, "box 100 60 10");
   const before = await snapOf(window);
@@ -67,7 +88,10 @@ async function restore(window: TestWindow, before: Snapshot) {
     }
     expect(after.bodies[i]!.volumeMm3).toBeCloseTo(body.volumeMm3, 3);
   }
-  expect(after.sketches).toEqual(before.sketches);
+  // Post-recovery snapshots carry the live status/geometry flags the pre-crash
+  // store had not populated yet; compare the authoritative sketch content.
+  for (const sketch of after.sketches) expect([undefined, "ok"]).toContain(sketch.status);
+  expect(stableSketchEntries(after.sketches)).toEqual(stableSketchEntries(before.sketches));
 }
 
 async function crashRendererAndRestore(
@@ -404,12 +428,13 @@ test(`${target} crash with an uncommitted solved sketch drag restores committed 
     const point = window.getByTestId("sk-point-p0");
     const label = window.locator("g", { has: point }).locator("text");
     await expect(point).toBeVisible();
+    // Point labels are hover/drag-only in the current editor.
+    await point.hover();
     await expect(label).toHaveCount(1);
     const beforeLabel = await label.textContent();
     const bounds = (await point.boundingBox())!;
     const x = bounds.x + bounds.width / 2;
     const y = bounds.y + bounds.height / 2;
-    await window.mouse.move(x, y);
     await window.mouse.down();
     await window.mouse.move(x + 40, y + 12, { steps: 5 });
     await expect.poll(() => label.textContent(), { timeout: 10000 }).not.toBe(beforeLabel);
@@ -418,7 +443,7 @@ test(`${target} crash with an uncommitted solved sketch drag restores committed 
     ({ app, window } = await terminateAndRestore(app, window, before, target, undefined, true));
     // Counts alone cannot detect an accidentally committed drag. Read the
     // authoritative native coordinates and constraints after recovery.
-    expect(await sketchModel(window, sketch.id)).toEqual(committedModel);
+    await expectSameSketchModel(window, sketch.id, committedModel);
   } finally {
     await app.close();
   }
@@ -452,7 +477,9 @@ test(`${target} crash restores native datum sketch frame, support and geometry b
     ).__kreoda_test.selectMany([id]), datumId);
     await panel.getByRole("button", { name: "Create sketch here" }).click();
     await expect(window.getByTestId("sketch-canvas")).toBeVisible();
-    // Opening an empty sketch commits the editor's initial rectangle asynchronously.
+    // A datum sketch opens empty; the explicit Rectangle tool commits the
+    // 100x50 default profile that this crash test needs.
+    await window.getByRole("button", { name: "Rectangle", exact: true }).click();
     await expect.poll(async () => (await snapOf(window)).sketches.find(item => item.supportRef === datumId)?.points).toBe(4);
 
     const before = await snapOf(window);
@@ -483,29 +510,30 @@ test(`${target} crash restores native datum sketch frame, support and geometry b
     const point = window.getByTestId("sk-point-p0");
     const label = window.locator("g", { has: point }).locator("text");
     await expect(point).toBeVisible();
+    // Point labels are hover/drag-only in the current editor.
+    await point.hover();
     const beforeLabel = await label.textContent();
     const bounds = (await point.boundingBox())!;
     const x = bounds.x + bounds.width / 2;
     const y = bounds.y + bounds.height / 2;
-    await window.mouse.move(x, y);
     await window.mouse.down();
     await window.mouse.move(x + 40, y + 12, { steps: 5 });
     await expect.poll(() => label.textContent(), { timeout: 10000 }).not.toBe(beforeLabel);
 
     ({ app, window } = await terminateAndRestore(app, window, before, target, undefined, true));
-    expect(await sketchModel(window, sketch.id)).toEqual(committedModel);
+    await expectSameSketchModel(window, sketch.id, committedModel);
     // Recovery opens a saved document; exercise a new ordinary edit and Undo/Redo.
     await runBar(window, "box 20 30 40");
     await expect.poll(async () => (await snapOf(window)).bodies).toHaveLength(before.bodies.length + 1);
     await window.getByRole("button", { name: "Undo" }).click();
     await expect.poll(async () => (await snapOf(window)).bodies).toHaveLength(before.bodies.length);
-    expect((await snapOf(window)).sketches).toEqual(before.sketches);
+    expect(stableSketchEntries((await snapOf(window)).sketches)).toEqual(stableSketchEntries(before.sketches));
     await expect.poll(async () => (await snapOf(window)).datums?.map((item) => item.featureId) ?? []).toEqual([datumId]);
     await window.getByRole("button", { name: "Redo" }).click();
     await expect.poll(async () => (await snapOf(window)).bodies).toHaveLength(before.bodies.length + 1);
     const redone = await snapOf(window);
-    expect(redone.sketches).toEqual(before.sketches);
-    expect(await sketchModel(window, sketch.id)).toEqual(committedModel);
+    expect(stableSketchEntries(redone.sketches)).toEqual(stableSketchEntries(before.sketches));
+    await expectSameSketchModel(window, sketch.id, committedModel);
   } finally {
     await app.close();
   }
@@ -544,7 +572,7 @@ test(`${target} kill inside the native sketch solver restores committed coordina
     await expect.poll(() => fs.existsSync(stage + ".ready"), { timeout: 15000 }).toBe(true);
     ({ app, window } = await terminateAndRestore(app, window, before, target,
       () => fs.writeFileSync(stage + ".release", "1"), true));
-    expect(await sketchModel(window, sketch.id)).toEqual(committedModel);
+    await expectSameSketchModel(window, sketch.id, committedModel);
   } finally {
     if (fs.existsSync(barrierDir)) fs.writeFileSync(stage + ".release", "1");
     await app.close();

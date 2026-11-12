@@ -23,8 +23,10 @@ and the open-work ledger in
 | Desktop production build | `tsc --noEmit` + renderer/main/preload Vite builds exit 0 |
 | Desktop E2E (real Electron + real native kernel) | **93 passed / 0 failed / 2 skipped** (`KREODA_BACKGROUND_TEST=1`, serial, 26.8 min). Skips: `phase10-installed` (disposable-CI-runner only) and `phase10-file-picker` (needs native OS dialogs). |
 | [solo] native configurations flow | PASS (17.0 s) — two solids, B-Rep, Undo/Redo, persistence and Desktop requery |
+| Crash/recovery gate (`test:e2e:crash:full`, hidden) | **32/32 passed** (6.5 min); `SolverCrashBarrierControl` passed; `PHASE10_CRASH_GATE {"passed":true,"production_core_restored":true}` and the worktree core restored with barriers OFF |
 | Phase 14 deterministic native seven-fixture benchmark | **7/7 geometry, 7/7 fully checked, 0 failures** (1.9 min, real MCP → installed native) |
 | Installed runtime smoke | PASS — packaged `Kreoda.exe` + kernel `908b7d5b…`; box 40000 mm³ → 4-hole pattern 39434.51332235384 mm³ → Undo → Redo |
+| Installed Desktop payload | `app.asar` `a13b0345…` extracted and compared with the current build: **170/170 files byte-identical** (`src` 96/96, `electron` 15/15, `dist` 31/31, `.vite/build` 27/27, `package.json`). No Desktop redeploy was needed; only the native kernel was stale and has been replaced. |
 
 The native kernel is built from exactly the committed worktree source (verified by hashing all 175 build
 inputs against the build tree used for the suite).
