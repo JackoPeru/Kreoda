@@ -17,22 +17,32 @@
 #include "topology/face_roles.h"
 #include "features/sketch/sketch_store.h"
 #include "features/fillet/fillet.h"
+#include "features/assembly/assembly_constraints.h"
 #include "features/primitives/primitives.h"
 
 #if KREODA_WITH_OCCT
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepBndLib.hxx>
+#include <BRepBuilderAPI_Copy.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepClass_FaceClassifier.hxx>
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepGProp.hxx>
+#include <BRepTools.hxx>
+#include <BRep_Tool.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
 #include <Geom_Plane.hxx>
+#include <Precision.hxx>
 #include <Standard_Failure.hxx>
 #include <TopAbs_ShapeEnum.hxx>
+#include <TopAbs_State.hxx>
+#include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
+#include <TopoDS_Wire.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Dir.hxx>
 #include <gp_Pln.hxx>
@@ -246,40 +256,77 @@ bool BuildHoleShape(const TopoDS_Shape& target, const std::string& targetId,
     if (error) *error = "hole needs a planar face";
     return false;
   }
-  const gp_Pln pln = adapt.Plane();
-  const gp_Pnt loc = pln.Location();
-  const gp_Dir nx = pln.XAxis().Direction();
-  const gp_Dir ny = pln.YAxis().Direction();
-  gp_Dir normal = pln.Axis().Direction();
-  if (face.Orientation() == TopAbs_REVERSED) normal.Reverse();
-  // Face-local point: location + x*nx + y*ny.
-  const gp_Pnt center(loc.XYZ() + nx.XYZ() * xMm + ny.XYZ() * yMm);
-  const double radius = diameterMm / 2.0;
-  Bnd_Box bbox;
-  BRepBndLib::Add(target, bbox);
-  double xmin, ymin, zmin, xmax, ymax, zmax;
-  bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
-  const double diag =
-      std::sqrt((xmax - xmin) * (xmax - xmin) + (ymax - ymin) * (ymax - ymin) +
-                (zmax - zmin) * (zmax - zmin));
-  gp_Pnt base;
-  double height = 0;
-  if (mode == "throughAll") {
-    // Start outside on the +normal side, drill past the far side.
-    base = gp_Pnt(center.XYZ() + normal.XYZ() * (diag + 1.0));
-    height = 2.0 * (diag + 1.0);
-  } else if (mode == "blind") {
-    if (!(depthMm > 0 && depthMm <= 100000)) {
-      if (error) *error = "blind depth must be in (0, 100000] mm";
+  try {
+    const gp_Pln pln = adapt.Plane();
+    const gp_Pnt loc = pln.Location();
+    const gp_Dir nx = pln.XAxis().Direction();
+    const gp_Dir ny = pln.YAxis().Direction();
+    gp_Dir normal = pln.Axis().Direction();
+    if (face.Orientation() == TopAbs_REVERSED) normal.Reverse();
+    // Face-local point: location + x*nx + y*ny.
+    const gp_Pnt center(loc.XYZ() + nx.XYZ() * xMm + ny.XYZ() * yMm);
+    const TopoDS_Wire outerWire = BRepTools::OuterWire(face);
+    if (outerWire.IsNull()) {
+      if (error) *error = "Hole: selected face has no valid outer boundary";
       return false;
     }
-    base = gp_Pnt(center.XYZ() + normal.XYZ() * 0.5);
-    height = depthMm + 0.5;
-  } else {
-    if (error) *error = "depthMode must be throughAll|blind";
-    return false;
-  }
-  try {
+    // MakeFace may add pcurves to wire edges. Work on copied topology so this
+    // validation-only face cannot modify the target B-Rep.
+    BRepBuilderAPI_Copy wireCopy(outerWire);
+    if (wireCopy.Shape().IsNull()) {
+      if (error) *error = "Hole: selected face outer boundary is invalid";
+      return false;
+    }
+    const TopoDS_Wire copiedOuterWire = TopoDS::Wire(wireCopy.Shape());
+    BRepBuilderAPI_MakeFace outerFaceBuilder(pln, copiedOuterWire);
+    if (!outerFaceBuilder.IsDone()) {
+      if (error) *error = "Hole: selected face outer boundary is invalid";
+      return false;
+    }
+    const TopoDS_Face outerBoundaryFace = outerFaceBuilder.Face();
+    if (outerBoundaryFace.IsNull() ||
+        !BRepCheck_Analyzer(outerBoundaryFace).IsValid(outerBoundaryFace)) {
+      if (error) *error = "Hole: selected face outer boundary is invalid";
+      return false;
+    }
+    const double faceTolerance =
+        std::max(Precision::Confusion(), BRep_Tool::Tolerance(face));
+    BRepClass_FaceClassifier centerClassifier(outerBoundaryFace, center,
+                                              faceTolerance);
+    const TopAbs_State centerState = centerClassifier.State();
+    if (centerState != TopAbs_IN && centerState != TopAbs_ON) {
+      if (error) {
+        *error = centerState == TopAbs_OUT
+                     ? "Hole: center lies outside selected face"
+                     : "Hole: center could not be classified on selected face";
+      }
+      return false;
+    }
+    const double radius = diameterMm / 2.0;
+    Bnd_Box bbox;
+    BRepBndLib::Add(target, bbox);
+    double xmin, ymin, zmin, xmax, ymax, zmax;
+    bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+    const double diag =
+        std::sqrt((xmax - xmin) * (xmax - xmin) + (ymax - ymin) * (ymax - ymin) +
+                  (zmax - zmin) * (zmax - zmin));
+    gp_Pnt base;
+    double height = 0;
+    if (mode == "throughAll") {
+      // Start outside on the +normal side, drill past the far side.
+      base = gp_Pnt(center.XYZ() + normal.XYZ() * (diag + 1.0));
+      height = 2.0 * (diag + 1.0);
+    } else if (mode == "blind") {
+      if (!(depthMm > 0 && depthMm <= 100000)) {
+        if (error) *error = "blind depth must be in (0, 100000] mm";
+        return false;
+      }
+      base = gp_Pnt(center.XYZ() + normal.XYZ() * 0.5);
+      height = depthMm + 0.5;
+    } else {
+      if (error) *error = "depthMode must be throughAll|blind";
+      return false;
+    }
     // Cylinder axis points INTO the solid (-normal), base above the face.
     const gp_Dir inward = normal.Reversed();
     BRepPrimAPI_MakeCylinder mk(gp_Ax2(base, inward), radius, height);
@@ -495,6 +542,12 @@ bool CreateHoleFeature(const std::string& featureId,
       if (error) *error = "persistent face selection needs repair after insertion";
       rollback(); return false;
     }
+    std::vector<AssemblyConstraintIssue> assemblyIssues;
+    std::string assemblyError;
+    if(!ReadAssemblyConstraintIssues(&assemblyIssues,&assemblyError)) {
+      if(error)*error=assemblyError;
+      rollback();return false;
+    }
     BodyStore::instance().rebuildFromRecords(ShapeStore::instance().listInOrder());
     bool delta = false;
     if (!OcafLive::instance().CommitCommand(&delta, error)) { rollback(); return false; }
@@ -613,7 +666,7 @@ bool CreateHolePatternFeature(
   }
   bool hadDelta = false;
   OcafLive::instance().CommitCommand(&hadDelta, nullptr);
-  DocumentStore::instance().commit();
+  if (hadDelta) DocumentStore::instance().commit();
   if (createdIds) *createdIds = {featureIds[0]};
   return true;
 #else

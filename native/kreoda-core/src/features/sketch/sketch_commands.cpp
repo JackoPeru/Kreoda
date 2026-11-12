@@ -2,8 +2,10 @@
 
 #include <cmath>
 #include <map>
+#include <set>
 
 #include "document/document_store.h"
+#include "features/assembly/assembly_constraints.h"
 #include "features/evaluate.h"
 #include "features/sketch/sketch_json.h"
 #include "features/sketch/sketch_projection.h"
@@ -43,7 +45,7 @@ bool ValidateSketchRefs(const SketchModel& model, std::string* error) {
   // Entity-count cap: shared 256 MB frame + O(n²) wire chaining (§8, §41).
   constexpr size_t kMaxEntities = 2000;
   if (model.points.size() + model.lines.size() + model.circles.size() +
-          model.arcs.size() + model.constraints.size() >
+          model.arcs.size() + model.ellipses.size() + model.splines.size() + model.constraints.size() >
       kMaxEntities) {
     if (error) *error = "sketch too large (max 2000 entities)";
     return false;
@@ -98,6 +100,35 @@ bool ValidateSketchRefs(const SketchModel& model, std::string* error) {
       return false;
     }
     arcs[a.id] = true;
+  }
+  for (const auto& e : model.ellipses) {
+    if (e.id.empty() || !points.count(e.center) || lines.count(e.id) || circles.count(e.id) || arcs.count(e.id) ||
+        !(e.majorRadius>e.minorRadius && e.minorRadius>1e-9) ||
+        !std::isfinite(e.majorRadius) || !std::isfinite(e.minorRadius) ||
+        !std::isfinite(e.rotationRad) || !std::isfinite(e.startAngleRad) || !std::isfinite(e.endAngleRad) ||
+        (e.arc && !(e.endAngleRad>e.startAngleRad && e.endAngleRad-e.startAngleRad<6.283185307179586))) {
+      if (error) *error="invalid ellipse or elliptical arc"; return false;
+    }
+    arcs[e.id]=true;
+  }
+  for (const auto& s : model.splines) {
+    if (s.id.empty() || lines.count(s.id) || circles.count(s.id) || arcs.count(s.id) ||
+        s.pointIds.size()<3 || s.pointIds.size()>256 ||
+        (s.closed && s.pointIds.size()<4)) {
+      if (error) *error="invalid spline entity"; return false;
+    }
+    for (const auto& id : s.pointIds) if (!points.count(id)) {
+      if (error) *error="spline references unknown point"; return false;
+    }
+    arcs[s.id]=true;
+  }
+  std::set<std::string> constructionSeen;
+  for (const auto& id:model.constructionIds) {
+    if (!constructionSeen.insert(id).second ||
+        !(lines.count(id) || circles.count(id) || arcs.count(id))) {
+      if (error) *error="construction ID must reference one unique sketch entity";
+      return false;
+    }
   }
   for (const auto& p : model.points) {
     if (std::fabs(p.x) > kMaxCoordMm || std::fabs(p.y) > kMaxCoordMm) {
@@ -187,6 +218,7 @@ static bool CreateSketchFeatureImpl(const std::string& sketchId,
     const auto it = r.radii.find(a.id);
     if (it != r.radii.end()) a.r = it->second;
   }
+  if (!ApplySolvedEllipseAxes(r, &sketch.model, error)) return false;
 #if KREODA_WITH_OCCT
   if (!OcafLive::instance().BeginCommand(error)) return false;
   SketchStore::instance().put(sketch);
@@ -254,6 +286,7 @@ bool UpdateSketchFeature(const std::string& sketchId,
     const auto it = r.radii.find(a.id);
     if (it != r.radii.end()) a.r = it->second;
   }
+  if (!ApplySolvedEllipseAxes(r, &next.model, error)) return false;
 #if KREODA_WITH_OCCT
   const ModelSnapshot before;
   TheFeatureGraph().addFeature(sketchId, SketchDependencies(next));
@@ -277,6 +310,14 @@ bool UpdateSketchFeature(const std::string& sketchId,
     OcafLive::instance().AbortCommand();
     before.restore();
     if (error) *error = report.firstError;
+    return false;
+  }
+  std::vector<AssemblyConstraintIssue> assemblyIssues;
+  std::string assemblyError;
+  if(!ReadAssemblyConstraintIssues(&assemblyIssues,&assemblyError)) {
+    OcafLive::instance().AbortCommand();
+    before.restore();
+    if(error)*error=assemblyError;
     return false;
   }
   bool hadDelta = false;

@@ -4,6 +4,7 @@
 #include "protocol/json_fields.h"
 
 #include <cctype>
+#include <cmath>
 #include <iomanip>
 #include <sstream>
 #include <vector>
@@ -29,6 +30,9 @@ bool ConstraintKindFromString(const std::string& s,
   else if (s == "angle") *out = SketchConstraintKind::Angle;
   else if (s == "pointOnLine") *out = SketchConstraintKind::PointOnLine;
   else if (s == "fixed") *out = SketchConstraintKind::Fixed;
+  else if (s == "ellipseMajorRadius") *out = SketchConstraintKind::EllipseMajorRadius;
+  else if (s == "ellipseMinorRadius") *out = SketchConstraintKind::EllipseMinorRadius;
+  else if (s == "symmetric") *out = SketchConstraintKind::Symmetric;
   else return false;
   return true;
 }
@@ -48,6 +52,9 @@ std::string ConstraintKindToString(SketchConstraintKind kind) {
     case SketchConstraintKind::Angle: return "angle";
     case SketchConstraintKind::PointOnLine: return "pointOnLine";
     case SketchConstraintKind::Fixed: return "fixed";
+    case SketchConstraintKind::EllipseMajorRadius: return "ellipseMajorRadius";
+    case SketchConstraintKind::EllipseMinorRadius: return "ellipseMinorRadius";
+    case SketchConstraintKind::Symmetric: return "symmetric";
   }
   return "fixed";
 }
@@ -119,6 +126,35 @@ bool ParseSketchModel(const std::string& text, SketchModel* out, std::string* er
       arc.endAngleRad = json_double_field(row, "endAngleRad", arc.endAngleRad);
       model.arcs.push_back(std::move(arc));
     }
+    for (const auto& row : ArrayItems(value, "ellipses")) {
+      SketchEllipse ellipse;
+      ellipse.id=RequiredString(row,"id"); ellipse.center=RequiredString(row,"center");
+      ellipse.majorRadius=RequiredNumber(row,"majorRadius");
+      ellipse.minorRadius=RequiredNumber(row,"minorRadius");
+      ellipse.rotationRad=json_double_field(row,"rotationRad",0);
+      ellipse.arc=json_bool_field(row,"arc",false);
+      ellipse.startAngleRad=json_double_field(row,"startAngleRad",0);
+      ellipse.endAngleRad=json_double_field(row,"endAngleRad",6.283185307179586);
+      if (!(ellipse.majorRadius>ellipse.minorRadius && ellipse.minorRadius>1e-9) ||
+          !std::isfinite(ellipse.majorRadius) || !std::isfinite(ellipse.minorRadius) ||
+          !std::isfinite(ellipse.rotationRad) || !std::isfinite(ellipse.startAngleRad) ||
+          !std::isfinite(ellipse.endAngleRad) ||
+          (ellipse.arc && !(ellipse.endAngleRad>ellipse.startAngleRad &&
+                            ellipse.endAngleRad-ellipse.startAngleRad<6.283185307179586)))
+        throw JsonFieldError("invalid ellipse radii or angular interval");
+      model.ellipses.push_back(std::move(ellipse));
+    }
+    for (const auto& row : ArrayItems(value, "splines")) {
+      SketchSpline spline;
+      spline.id=RequiredString(row,"id");
+      spline.pointIds=json_string_array(row,"pointIds");
+      spline.controlPoints=json_bool_field(row,"controlPoints",true);
+      spline.closed=json_bool_field(row,"closed",false);
+      if (spline.pointIds.size()<3 || spline.pointIds.size()>256)
+        throw JsonFieldError("spline requires 3..256 points");
+      model.splines.push_back(std::move(spline));
+    }
+    model.constructionIds=json_string_array(value,"constructionIds");
     for (const auto& row : ArrayItems(value, "constraints")) {
       SketchConstraint constraint;
       constraint.id = RequiredString(row, "id");
@@ -173,6 +209,32 @@ std::string SerializeSketchModel(const SketchModel& model) {
     os << "{\"id\":\"" << Esc(a.id) << "\",\"center\":\"" << Esc(a.center)
        << "\",\"r\":" << a.r << ",\"startAngleRad\":" << a.startAngleRad
        << ",\"endAngleRad\":" << a.endAngleRad << "}";
+  }
+  os << "],\"ellipses\":[";
+  for (size_t i=0;i<model.ellipses.size();++i) {
+    const auto& e=model.ellipses[i];
+    if (i) os << ",";
+    os << "{\"id\":\"" << Esc(e.id) << "\",\"center\":\"" << Esc(e.center)
+       << "\",\"majorRadius\":" << e.majorRadius << ",\"minorRadius\":" << e.minorRadius
+       << ",\"rotationRad\":" << e.rotationRad << ",\"arc\":" << (e.arc?"true":"false")
+       << ",\"startAngleRad\":" << e.startAngleRad << ",\"endAngleRad\":" << e.endAngleRad << "}";
+  }
+  os << "],\"splines\":[";
+  for (size_t i=0;i<model.splines.size();++i) {
+    const auto& s=model.splines[i];
+    if (i) os << ",";
+    os << "{\"id\":\"" << Esc(s.id) << "\",\"pointIds\":[";
+    for (size_t j=0;j<s.pointIds.size();++j) {
+      if (j) os << ",";
+      os << "\"" << Esc(s.pointIds[j]) << "\"";
+    }
+    os << "],\"controlPoints\":" << (s.controlPoints?"true":"false")
+       << ",\"closed\":" << (s.closed?"true":"false") << "}";
+  }
+  os << "],\"constructionIds\":[";
+  for (size_t i=0;i<model.constructionIds.size();++i) {
+    if (i) os << ",";
+    os << "\"" << Esc(model.constructionIds[i]) << "\"";
   }
   os << "],\"constraints\":[";
   for (size_t i = 0; i < model.constraints.size(); ++i) {

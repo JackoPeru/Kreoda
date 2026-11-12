@@ -10,6 +10,7 @@
 #include "../src/features/hole/hole.h"
 #include "../src/features/primitives/primitives.h"
 #include "../src/model/shapes.h"
+#include "../src/model/geometry_delta.h"
 #include "../src/persistence/ocaf_live.h"
 
 #include "rpc_text.h"
@@ -83,6 +84,55 @@ TEST(Session11, SnapshotListsFeaturesWithoutMutating) {
   EXPECT_TRUE(has(res, "\"revision\":" + std::to_string(revBefore)));
   // Read-only: revision unchanged, undo stack untouched (2 deltas).
   EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revBefore);
+}
+
+TEST(Session11, Phase12SnapshotDocumentIdAuthoritativeWithOrWithoutReferencePlanes) {
+  kreoda::DocumentStore::instance().create("phase12-snapshot");
+  const auto rev=kreoda::DocumentStore::instance().revision();
+  for(const bool references:{false,true}) {
+    const auto response=rpc(std::string(R"({"protocolVersion":1,"requestId":"p12-snapshot","documentId":"phase12-snapshot","type":26,"includeReferencePlanes":)")+(references?"true":"false")+"}");
+    EXPECT_TRUE(ok(response))<<response;
+    EXPECT_TRUE(has(response,"\"documentId\":\"phase12-snapshot\""))<<response;
+    EXPECT_TRUE(has(response,"\"revision\":"+std::to_string(rev)))<<response;
+    EXPECT_EQ(has(response,"referencePlanesJson"),references);
+    EXPECT_EQ(kreoda::DocumentStore::instance().revision(),rev);
+  }
+}
+
+TEST(Session11, Phase12NativeGeometryDeltaOnlyChangedFeatures) {
+  kreoda::DocumentStore::instance().create("phase12-delta");
+  const auto empty=kreoda::CaptureGeometryRevision();
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("delta-a",10,10,10,&error))<<error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("delta-b",20,20,20,&error))<<error;
+  const auto baseline=kreoda::CaptureGeometryRevision();
+  kreoda::GeometryDelta delta;
+  ASSERT_TRUE(kreoda::DiffGeometryRevisions(empty,baseline,&delta,&error))<<error;
+  EXPECT_EQ(delta.added,(std::vector<std::string>{"delta-a","delta-b"}));
+  EXPECT_EQ(delta.changedMeshes,delta.added);
+  EXPECT_TRUE(delta.updated.empty());
+  ASSERT_TRUE(kreoda::DiffGeometryRevisions(baseline,baseline,&delta,&error))<<error;
+  EXPECT_TRUE(delta.changedMeshes.empty());
+  EXPECT_TRUE(delta.added.empty());
+  ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"delta-update","documentId":"phase12-delta","type":6,"featureId":"delta-a","paramName":"widthMm","valueMm":30})")));
+  const auto updated=kreoda::CaptureGeometryRevision();
+  ASSERT_TRUE(kreoda::DiffGeometryRevisions(baseline,updated,&delta,&error))<<error;
+  EXPECT_TRUE(delta.added.empty());
+  EXPECT_EQ(delta.updated,(std::vector<std::string>{"delta-a"}));
+  EXPECT_EQ(delta.changedMeshes,delta.updated);
+  EXPECT_TRUE(delta.removed.empty());
+  auto removed=updated;
+  removed.revision++;
+  removed.features.erase("delta-b");
+  ASSERT_TRUE(kreoda::DiffGeometryRevisions(updated,removed,&delta,&error))<<error;
+  EXPECT_EQ(delta.removed,(std::vector<std::string>{"delta-b"}));
+  EXPECT_TRUE(delta.changedMeshes.empty());
+  auto provisional=updated;
+  provisional.features.erase("delta-b");
+  EXPECT_FALSE(kreoda::DiffGeometryRevisions(updated,provisional,&delta,&error));
+  auto different=updated;
+  different.documentId="other-document";
+  EXPECT_FALSE(kreoda::DiffGeometryRevisions(updated,different,&delta,&error));
 }
 
 // §11.12: N joined commands commit as exactly one Undo delta.

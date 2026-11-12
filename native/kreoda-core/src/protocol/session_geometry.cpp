@@ -1,15 +1,22 @@
 #include "protocol/session_geometry.h"
+#include "features/assembly/assembly_geometry.h"
+#include "features/assembly/assembly_constraints.h"
 #include "features/datum/datum_json.h"
 #include "persistence/ocaf_live.h"
 #include "document/document_store.h"
 #include "exchange/sew.h"
 #include "features/sketch/sketch_store.h"
 #include "features/hole/hole.h"
+#include "features/surface/surface_trim_extend.h"
 #include "model/body.h"
 #include "model/shapes.h"
 #include "model/geometry_availability.h"
+#include "model/geometry_kind.h"
+#include "analysis/mass_properties.h"
+#include "analysis/minimum_thickness.h"
 #include "topology/face_roles.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iterator>
 #include <set>
@@ -18,16 +25,19 @@
 #if KREODA_WITH_OCCT
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
+#include <BRepAlgoAPI_Common.hxx>
 #include <BRepBndLib.hxx>
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepExtrema_DistShapeShape.hxx>
 #include <BRepGProp.hxx>
+#include <BRep_Builder.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
 #include <Precision.hxx>
 #include <Standard_Failure.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
+#include <NCollection_List.hxx>
 #endif
 
 namespace kreoda {
@@ -167,6 +177,21 @@ std::vector<ShapeRecord> scope(const Json& p) {
   if(!id.empty())return {record(id)};
   std::vector<ShapeRecord> records; std::string error;
   if(ShapeStore::instance().listInOrder().empty())return records;
+  if(p.contains("includeHidden")) {
+    if(!p["includeHidden"].is_boolean())fail("BAD_PARAMS","includeHidden must be boolean");
+    if(p["includeHidden"].get<bool>()) {
+      for(const auto& b:BodyStore::instance().bodies())records.push_back(record(b.tipFeatureId));
+      for(const auto& rec:ShapeStore::instance().listInOrder())
+        if(rec.type=="Instance")records.push_back(record(rec.featureId));
+      return records;
+    }
+  }
+  const auto bodies=BodyStore::instance().bodies();
+  const auto allRecords=ShapeStore::instance().listInOrder();
+  if(std::none_of(bodies.begin(),bodies.end(),
+      [](const BodyRecord& b){return b.visible;}) &&
+      std::none_of(allRecords.begin(),allRecords.end(),
+          [](const ShapeRecord& r){return r.type=="Instance";}))return records;
   if(!CollectExportRecords(&records,&error))fail("QUERY_FAILED",error);
   return records;
 }
@@ -181,13 +206,105 @@ TopoDS_Shape scopedShape(const Json& p, bool allowEmpty, bool* empty) {
     fail("NOT_FOUND","document has no displayed solids");
   }
   if(recs.size()==1)return recs.front().shape;
+  if(p.value("includeHidden",false)) {
+    TopoDS_Compound all; BRep_Builder builder; builder.MakeCompound(all);
+    for(const auto& rec:recs)builder.Add(all,rec.shape);
+    return all;
+  }
   TopoDS_Compound compound; std::string error;
   if(!CollectSolidsCompound(&compound,&error))fail("QUERY_FAILED",error);
+  return compound;
+}
+TopoDS_Shape displayedSolidShape(const Json& p, bool allowEmpty = false,
+                                 bool* empty = nullptr) {
+  const auto records = scope(p);
+  BRep_Builder builder;
+  TopoDS_Compound compound;
+  builder.MakeCompound(compound);
+  size_t count = 0;
+  for (const auto& rec : records) {
+    for (TopExp_Explorer solid(rec.shape, TopAbs_SOLID); solid.More(); solid.Next()) {
+      builder.Add(compound, solid.Current());
+      ++count;
+    }
+  }
+  if (count == 0) {
+    if (empty) *empty = true;
+    if (allowEmpty) return {};
+    if (records.empty()) fail("NOT_FOUND", "document has no displayed solids");
+    fail("QUERY_FAILED", "document contains no solid bodies with enclosed volume");
+  }
+  if (empty) *empty = false;
+  if (count == 1) {
+    for (const auto& rec : records)
+      if (HasSolidTopology(rec.shape)) return rec.shape;
+  }
   return compound;
 }
 double tolerance(const Json& p, const char* key, double fallback) {
   const auto v=json_double_field(p,key,fallback);
   if(v<0)fail("BAD_PARAMS",std::string(key)+" must be non-negative"); return v;
+}
+Json interferences(const Json& p) {
+  for(const auto key:{"referenceId","featureId","bodyId","ownerBody"})
+    if(p.contains(key))fail("BAD_PARAMS","use featureIds to select interference components");
+  const double threshold=tolerance(p,"volumeToleranceMm3",1e-6);
+  std::vector<ShapeRecord> records;
+  if(p.contains("featureIds")) {
+    const auto& ids=p["featureIds"];
+    if(!ids.is_array()||ids.size()<2||ids.size()>128)
+      fail("BAD_PARAMS","featureIds must contain 2 to 128 distinct component IDs");
+    if(p.contains("includeHidden"))fail("BAD_PARAMS","includeHidden is only available for document scope");
+    std::set<std::string> seen;
+    for(const auto& id:ids) {
+      if(!id.is_string()||!ShapeStore::ValidFeatureId(id.get<std::string>()))fail("BAD_PARAMS","invalid component ID");
+      auto rec=record(id.get<std::string>());
+      if(!seen.insert(rec.featureId).second)fail("BAD_PARAMS","duplicate resolved component");
+      records.push_back(std::move(rec));
+    }
+  } else records=scope(p);
+  if(records.size()>128)fail("LIMIT_EXCEEDED","select at most 128 components for interference analysis");
+  struct Component { ShapeRecord record; Bnd_Box box; };
+  std::vector<Component> components;
+  Json skipped=Json::array();
+  for(const auto& rec:records) {
+    if(!TopExp_Explorer(rec.shape,TopAbs_SOLID).More()) {skipped.push_back(rec.featureId);continue;}
+    if(!BRepCheck_Analyzer(rec.shape,true).IsValid())fail("QUERY_FAILED","invalid solid: "+rec.featureId);
+    Bnd_Box box;BRepBndLib::AddOptimal(rec.shape,box,false,false);
+    if(box.IsVoid()||box.IsOpen())fail("QUERY_FAILED","component has no finite bounds: "+rec.featureId);
+    components.push_back({rec,box});
+  }
+  std::vector<std::pair<size_t,size_t>> candidates;
+  for(size_t a=0;a<components.size();++a)for(size_t b=a+1;b<components.size();++b)
+    if(!components[a].box.IsOut(components[b].box)) {
+      if(candidates.size()>=256)fail("LIMIT_EXCEEDED","too many overlapping bounds; select fewer components");
+      candidates.emplace_back(a,b);
+    }
+  Json pairs=Json::array();
+  for(const auto& candidate:candidates) {
+    const auto& a=components[candidate.first].record;
+    const auto& b=components[candidate.second].record;
+    NCollection_List<TopoDS_Shape> arguments,tools;arguments.Append(a.shape);tools.Append(b.shape);
+    BRepAlgoAPI_Common common;
+    common.SetArguments(arguments);common.SetTools(tools);
+    common.SetNonDestructive(true);common.SetRunParallel(false);common.Build();
+    if(!common.IsDone()||common.HasErrors())fail("QUERY_FAILED","intersection failed: "+a.featureId+" / "+b.featureId);
+    const auto shape=common.Shape();
+    if(shape.IsNull()||!TopExp_Explorer(shape,TopAbs_SOLID).More())continue;
+    if(!BRepCheck_Analyzer(shape,true).IsValid())fail("QUERY_FAILED","invalid intersection result");
+    GProp_GProps props;BRepGProp::VolumeProperties(shape,props,true);
+    const double volume=std::abs(props.Mass());
+    const auto center=props.CentreOfMass();
+    if(!std::isfinite(volume)||!std::isfinite(center.X())||!std::isfinite(center.Y())||!std::isfinite(center.Z()))
+      fail("QUERY_FAILED","intersection measurement is not finite");
+    if(volume<=threshold)continue;
+    pairs.push_back({{"featureA",a.featureId},{"featureB",b.featureId},
+        {"bodyA",bodyId(a)},{"bodyB",bodyId(b)},{"volumeMm3",volume},
+        {"centroidMm",xyz(center.XYZ())},{"bboxMm",bounds(shape)}});
+  }
+  return {{"basis","occt-common-volume"},{"componentCount",components.size()},
+      {"candidatePairCount",candidates.size()},{"volumeToleranceMm3",threshold},
+      {"skippedNonSolidFeatureIds",skipped},{"interferences",pairs}};
 }
 bool directionMatches(const Json& p,const Json& summary,const char* key,double angularTolerance) {
   if(!p.contains(key))return true;
@@ -235,10 +352,30 @@ Json find(const std::string& method,const Json& p) {
   Json out=Json::array();
   for(const auto& rec:scope(p)) {
     auto candidates=method=="findFaces"?faces(rec):edges(rec);
+    AssemblySourceBindingMap sourceBindings;
+    AssemblySourceBindingErrors sourceBindingErrors;
+    std::string sourceBindingError;
+    if(rec.type=="Instance"&&!BuildAssemblyInstanceSourceBindings(rec,&sourceBindings,&sourceBindingErrors,&sourceBindingError)) {
+      for(const auto& candidate:candidates)sourceBindingErrors[candidate.id]=sourceBindingError.empty()?"source binding is unavailable":sourceBindingError;
+    }
     for(auto& e:candidates) {
       const auto duplicate=std::count_if(candidates.begin(),candidates.end(),[&](const Entity& other){return other.id==e.id;})>1;
       e.summary["ambiguous"]=duplicate;
       if(duplicate)e.summary["confidence"]=0.25;
+      e.summary["captureRevision"]=DocumentStore::instance().snapshotRevision();
+      if(e.kind=="face")
+        e.summary["sourceFace"]={{"type","face"},{"featureId",rec.featureId},
+                                 {"persistentFaceId",e.id}};
+      if(rec.type=="Instance") {
+        const auto binding=sourceBindings.find(e.id);
+        if(binding!=sourceBindings.end()&&!duplicate)e.summary["sourceBinding"]=binding->second;
+        else {
+          const auto unavailable=sourceBindingErrors.find(e.id);
+          e.summary["sourceBindingUnavailableReason"]=unavailable==sourceBindingErrors.end()
+              ?(duplicate?"world pick ID is ambiguous":"source binding is unavailable")
+              :unavailable->second;
+        }
+      }
       if(matches(p,e,tol,angleTol))out.push_back(e.summary);
     }
   }
@@ -321,7 +458,8 @@ Json referenceCheck(const std::string& id) {
       return {{"id",id},{"ok",true},{"kind",kind},{"owner",datum.featureId}};
     }
     const auto e=resolve(id);
-    return {{"id",id},{"ok",true},{"kind",e.kind},{"confidence",e.summary.value("confidence",1.0)},
+    const auto kind=e.kind=="shape"?"body":e.kind;
+    return {{"id",id},{"ok",true},{"kind",kind},{"confidence",e.summary.value("confidence",1.0)},
             {"owner",e.owner.featureId},{"ownerBody",bodyId(e.owner)},{"role",e.role}};
   } catch(const SessionQueryError& e) {return {{"id",id},{"ok",false},{"errorCode",e.code},{"detail",e.what()}};}
 }
@@ -417,6 +555,13 @@ Json validate(const std::string& method,const Json& p) {
   }
   Json checks=Json::array();bool valid=true;
   auto check=[&](std::string code,std::string detail,bool ok) {checks.push_back({{"code",code},{"detail",detail},{"ok",ok}});valid=valid&&ok;};
+  if(method=="validateDocument") {
+    std::vector<AssemblyConstraintIssue> issues;
+    ReadAssemblyConstraintIssues(&issues);
+    if(issues.empty())check("assembly-constraint-valid","assembly constraints",true);
+    else for(const auto& issue:issues)
+      check("assembly-constraint-valid",issue.id+": "+issue.reason,false);
+  }
   if(!datums.empty()) {
     std::vector<DatumRecord> validated;std::string error;
     const bool datumRecordsValid=validateDatumRecords(datums,ShapeStore::instance().listInOrder(),
@@ -430,9 +575,16 @@ Json validate(const std::string& method,const Json& p) {
   }
   for(const auto& rec:recs) {
     check("brep-valid",rec.featureId,!rec.shape.IsNull()&&BRepCheck_Analyzer(rec.shape,true).IsValid());
-    check("solid-present",rec.featureId,!rec.shape.IsNull()&&TopExp_Explorer(rec.shape,TopAbs_SOLID).More());
+    if (IsSurfaceGeometry(rec))
+      check("surface-present",rec.featureId,HasSurfaceTopology(rec.shape));
+    else
+      check("solid-present",rec.featureId,HasSolidTopology(rec.shape));
     check("params-finite",rec.featureId,std::all_of(rec.paramsMm.begin(),rec.paramsMm.end(),[](double v){return std::isfinite(v);}));
-    for(const auto& dep:rec.dependsOn)check("dependency-resolves",rec.featureId+" -> "+dep,ShapeStore::instance().contains(dep)||SketchStore::instance().contains(dep));
+    for(const auto& dep:rec.dependsOn) {
+      const bool resolves=ShapeStore::instance().contains(dep)||SketchStore::instance().contains(dep)||
+          (DatumStore::instance().contains(dep)&&referenceCheck(dep)["ok"].get<bool>());
+      check("dependency-resolves",rec.featureId+" -> "+dep,resolves);
+    }
     if((rec.type=="Hole"||rec.type=="HolePattern")&&!rec.dependsOn.empty()) {
       const auto start=rec.refExtra.find("face=");
       if(start==std::string::npos)check("reference-resolves",rec.featureId,false);
@@ -472,6 +624,47 @@ Json RunSessionGeometryQuery(const std::string& method,const Json& p) {
 #endif
 #if KREODA_WITH_OCCT
   try {
+    if (method == "resolveSurfacePoint") {
+      for (const auto& field : p.items())
+        if (field.key() != "targetId" && field.key() != "pointMm" &&
+            field.key() != "persistentFaceId" && field.key() != "maxDistanceMm")
+          fail("BAD_PARAMS", "unsupported resolveSurfacePoint parameter: " + field.key());
+      const auto targetId = string(p, "targetId", true);
+      if (!ShapeStore::ValidFeatureId(targetId))
+        fail("BAD_PARAMS", "targetId is invalid");
+      if (!p.contains("pointMm") || !p.at("pointMm").is_array() ||
+          p.at("pointMm").size() != 3)
+        fail("BAD_PARAMS", "pointMm must contain three finite coordinates");
+      std::array<double, 3> coordinates{};
+      for (size_t i = 0; i < coordinates.size(); ++i) {
+        const auto& value = p.at("pointMm").at(i);
+        if (!value.is_number() || !std::isfinite(value.get<double>()))
+          fail("BAD_PARAMS", "pointMm must contain three finite coordinates");
+        coordinates[i] = value.get<double>();
+      }
+      std::string persistentFaceId;
+      if (p.contains("persistentFaceId")) {
+        if (!p.at("persistentFaceId").is_string() ||
+            p.at("persistentFaceId").get<std::string>().empty() ||
+            p.at("persistentFaceId").get<std::string>().size() > 512)
+          fail("BAD_PARAMS", "persistentFaceId must be a non-empty persistent face ID");
+        persistentFaceId = p.at("persistentFaceId").get<std::string>();
+      }
+      double maxDistanceMm = 0.5;
+      if (p.contains("maxDistanceMm")) {
+        if (!p.at("maxDistanceMm").is_number() ||
+            !std::isfinite(p.at("maxDistanceMm").get<double>()))
+          fail("BAD_PARAMS", "maxDistanceMm must be a finite number");
+        maxDistanceMm = p.at("maxDistanceMm").get<double>();
+      }
+      SurfaceTrimExtendJson result;
+      std::string error;
+      if (!surface_trim_extend_detail::ResolveSurfacePoint(record(targetId),
+              gp_Pnt(coordinates[0], coordinates[1], coordinates[2]),
+              persistentFaceId, maxDistanceMm, &result, &error))
+        fail("QUERY_FAILED", error);
+      return result;
+    }
     if(method=="getDatum") {
       const auto id=string(p,"featureId",true);DatumRecord datum;
       if(!ShapeStore::ValidFeatureId(id))fail("BAD_PARAMS","invalid featureId");
@@ -479,6 +672,56 @@ Json RunSessionGeometryQuery(const std::string& method,const Json& p) {
       return Json::parse(SerializeDatumRecord(datum));
     }
     if(method=="findFaces"||method=="findEdges")return find(method,p);
+    if(method=="measureInterferences")return interferences(p);
+    if(method=="measureMinimumThickness") {
+      if(p.contains("referenceId"))fail("BAD_PARAMS","select a complete feature or body for thickness analysis");
+      int budget=512;
+      if(p.contains("maxSamples")) {
+        if(!p["maxSamples"].is_number_integer() || p["maxSamples"].get<double>()<32 || p["maxSamples"].get<double>()>4096)
+          fail("BAD_PARAMS","maxSamples must be an integer from 32 to 4096");
+        budget=p["maxSamples"].get<int>();
+      }
+      const auto selected=scope(p);
+      if(selected.size()!=1)fail("BAD_PARAMS","select one feature or body for thickness analysis");
+      MinimumThicknessAnalysis analysis;std::string error;
+      if(!MeasureMinimumThickness(selected.front(),budget,&analysis,&error))fail("QUERY_FAILED",error);
+      Json result={{"basis","occt-sampled-normal-rays"},{"isGlobalMinimum",false},
+        {"featureId",selected.front().featureId},{"requestedSamples",budget},{"solidCount",analysis.solidCount},
+        {"totalFaces",analysis.totalFaces},{"sampledFaces",analysis.sampledFaces},
+        {"attemptedSamples",analysis.attemptedSamples},{"validSamples",analysis.validSamples},
+        {"missedSamples",analysis.attemptedSamples-analysis.validSamples},
+        {"timeBudgetExceeded",analysis.timeBudgetExceeded},{"minimumThicknessMm",nullptr},{"witness",nullptr}};
+      if(analysis.minimumThicknessMm) {
+        result["minimumThicknessMm"]=*analysis.minimumThicknessMm;
+        result["witness"]={{"pointAMm",analysis.pointAMm},{"pointBMm",analysis.pointBMm}};
+      }
+      return result;
+    }
+    if(method=="measureDraftAngles") {
+      if(!p.contains("pullDirection"))fail("BAD_PARAMS","pullDirection is required");
+      const auto components=json_number_array(p,"pullDirection");
+      if(components.size()!=3)fail("BAD_PARAMS","pullDirection must contain three numbers");
+      gp_Vec pull(components[0],components[1],components[2]);
+      if(pull.SquareMagnitude()<=1e-24)fail("BAD_PARAMS","pullDirection cannot be zero");
+      pull.Normalize();
+      const double threshold=tolerance(p,"neutralToleranceDeg",1e-6);
+      if(threshold>=90)fail("BAD_PARAMS","neutralToleranceDeg must be below 90");
+      Json entries=Json::array();
+      for(const auto& rec:scope(p))for(const auto& face:faces(rec)) {
+        if(face.summary.value("surfaceType",std::string())!="plane")
+          fail("NOT_IMPLEMENTED","draft analysis currently supports planar faces only; "+face.id+" is curved");
+        const auto& normal=face.summary["normal"];
+        gp_Vec n(normal[0].get<double>(),normal[1].get<double>(),normal[2].get<double>());
+        const double signedAngle=std::asin(std::clamp(n.Dot(pull),-1.0,1.0))*180/std::acos(-1.0);
+        entries.push_back({{"referenceId",face.id},{"featureId",rec.featureId},
+          {"draftAngleDeg",signedAngle},{"classification",signedAngle>threshold?"positive":
+            signedAngle< -threshold?"negative":"neutral"},
+          {"normal",normal}});
+      }
+      return {{"faces",entries},{"pullDirection",xyz(pull.XYZ())},
+              {"neutralToleranceDeg",threshold},{"basis","occt-planar-face-normal"},
+              {"angleConvention","signed angle between face plane and pull direction; positive when outward normal points along pull"}};
+    }
     if(method=="getManipulators")return manipulators(p);
     if(method=="validateDocument"||method=="validateBody"||method=="validateFeature"||method=="validateReferences")return validate(method,p);
     if(method=="measureDistance"||method=="measureAngle") {
@@ -509,19 +752,68 @@ Json RunSessionGeometryQuery(const std::string& method,const Json& p) {
       if(!ref.empty())result["referenceId"]=ref;else result["featureId"]=string(p,"featureId",true);
       return result;
     }
+    if(method=="measureMassProperties") {
+      // Explicit density is kg/m³; native geometry remains in millimetres.
+      // No default material is assumed for an unassigned CAD body.
+      double density = 0;
+      if(p.contains("densityKgPerM3")) {
+        if(!p.at("densityKgPerM3").is_number())
+          fail("BAD_PARAMS","densityKgPerM3 must be a nonnegative finite number");
+        density=p.at("densityKgPerM3").get<double>();
+        if(!std::isfinite(density)||density<0)
+          fail("BAD_PARAMS","densityKgPerM3 must be a nonnegative finite number");
+      }
+      bool empty=false;
+      const bool hasExplicitScope = p.contains("featureId") || p.contains("bodyId") ||
+                                    p.contains("ownerBody") || p.contains("referenceId");
+      const auto shape=hasExplicitScope ? scopedShape(p,false,&empty) : displayedSolidShape(p);
+      if (!HasSolidTopology(shape))
+        fail("QUERY_FAILED", "selected surface geometry has no enclosed volume or mass");
+      if (HasMixedSolidSurfaceTopology(shape))
+        fail("QUERY_FAILED", "selected geometry mixes solid and free surface faces");
+      ShapeRecord rec;rec.shape=shape;
+      MassProperties properties;
+      std::string error;
+      if(!MeasureMassProperties(rec,density/1e9,&properties,&error))
+        fail("QUERY_FAILED",error);
+      Json result={{"volumeMm3",properties.volumeMm3},
+                   {"areaMm2",properties.surfaceAreaMm2},
+                   {"centroidMm",Json::array({properties.centroidMm[0],properties.centroidMm[1],properties.centroidMm[2]})},
+                   {"densityKgPerM3",density},{"massKg",properties.massKg},{"basis","brep"}};
+      bool selected=false;
+      for(const auto key:{"featureId","bodyId","referenceId","ownerBody"})
+        if(p.contains(key)){result[key]=p[key];selected=true;}
+      result["modelScope"]=selected?"selected-entity":"current-body-tips-and-displayed-instances";
+      return result;
+    }
     if(method=="measureVolume"||method=="measureArea"||method=="getBoundingBox") {
-      bool empty=false;const auto shape=scopedShape(p,method!="getBoundingBox",&empty);
+      bool empty=false;
+      const bool hasExplicitScope = p.contains("featureId") || p.contains("bodyId") ||
+                                    p.contains("ownerBody") || p.contains("referenceId");
+      const auto shape = method=="measureVolume" && !hasExplicitScope
+          ? displayedSolidShape(p, true, &empty)
+          : scopedShape(p,method!="getBoundingBox",&empty);
+      const bool surface = HasSurfaceTopology(shape);
+      if (method=="measureVolume" && HasMixedSolidSurfaceTopology(shape))
+        fail("QUERY_FAILED", "selected geometry mixes solid and free surface faces");
+      if (method=="measureVolume" && !HasSolidTopology(shape))
+        if (!empty) fail("QUERY_FAILED", "selected surface geometry has no enclosed volume");
       GProp_GProps props;
       if(!empty) {
-        if(method=="measureVolume"||method=="getBoundingBox")BRepGProp::VolumeProperties(shape,props,false,false,false);
+        if((method=="measureVolume"||method=="getBoundingBox")&&!surface)BRepGProp::VolumeProperties(shape,props,false,false,false);
         else BRepGProp::SurfaceProperties(shape,props,false,false);
       }
-      Json result={{method=="measureArea"?"areaMm2":"volumeMm3",empty?0:props.Mass()},{"basis","brep"}};
+      const Json measured = method=="measureArea"
+          ? Json(empty?0:props.Mass())
+          : (surface ? Json(nullptr) : Json(empty?0:props.Mass()));
+      Json result={{method=="measureArea"?"areaMm2":"volumeMm3",measured},
+                   {"basis","brep"}};
       if(method=="getBoundingBox") {
         result["bboxMm"]=bounds(shape);
         int solidCount=0;
         for(TopExp_Explorer ex(shape,TopAbs_SOLID);ex.More();ex.Next())++solidCount;
         result["solidCount"]=solidCount;
+        if (surface) result["geometryKind"]="surface";
       }
       bool selected=false;
       for(const auto key:{"featureId","bodyId","referenceId","ownerBody"})if(p.contains(key)){result[key]=p[key];selected=true;}

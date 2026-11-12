@@ -1,6 +1,7 @@
 #include "datum_commands.h"
 #include "datum_json.h"
 #include "../../protocol/json_fields.h"
+#include "../../features/assembly/assembly_constraints.h"
 #include <cmath>
 #include "../../document/document_store.h"
 #include "../../model/body.h"
@@ -77,6 +78,13 @@ bool mutate(const std::string& id,DatumKind kind,const std::string& definition,b
       OcafLive::instance().AbortCommand();if(create)OcafLive::instance().ForgetFeatures({id});
 #endif
       before->restore();if(error)*error=report.firstError;return false;
+    }
+    std::vector<AssemblyConstraintIssue> assemblyIssues;std::string assemblyError;
+    if(!ReadAssemblyConstraintIssues(&assemblyIssues,&assemblyError)) {
+#if KREODA_WITH_OCCT
+      OcafLive::instance().AbortCommand();if(create)OcafLive::instance().ForgetFeatures({id});
+#endif
+      before->restore();if(error)*error=assemblyError;return false;
     }
 #if KREODA_WITH_OCCT
     if(OcafLive::instance().InTransaction())DocumentStore::instance().noteFeature(id,DatumTypeName(kind));

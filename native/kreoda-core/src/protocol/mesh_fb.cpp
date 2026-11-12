@@ -1,6 +1,8 @@
 // FlatBuffers mesh responses (§61): binary MeshUpdate instead of base64 JSON.
 
 #include "protocol/mesh_fb.h"
+#include <cmath>
+#include <stdexcept>
 
 #if KREODA_WITH_FLATBUFFERS
 #include <flatbuffers/flatbuffers.h>
@@ -16,6 +18,11 @@ std::vector<uint8_t> BuildMeshUpdateFb(const std::string& featureId, int lod,
                                        const std::string& requestId,
                                        std::string* error) {
   try {
+    if (!mesh.curvatureMaxAbsPerMm.empty() && mesh.curvatureMaxAbsPerMm.size() != mesh.positions.size() / 3)
+      throw std::invalid_argument("curvature sample count does not match surface vertices");
+    for (const auto value : mesh.curvatureMaxAbsPerMm)
+      if (!std::isfinite(value) || (value < 0 && value != -1))
+        throw std::invalid_argument("invalid curvature sample");
     flatbuffers::FlatBufferBuilder fbb(1 << 20);
     const auto fid = fbb.CreateString(featureId);
     const auto bid = fbb.CreateString(featureId);  // bodies are 1:1 features
@@ -36,6 +43,9 @@ std::vector<uint8_t> BuildMeshUpdateFb(const std::string& featureId, int lod,
                              mesh.indices.size() * sizeof(uint32_t));
     const auto edges = bytesOf(mesh.edgeVertices.data(),
                                mesh.edgeVertices.size() * sizeof(float));
+    const auto curvature = mesh.curvatureMaxAbsPerMm.empty()
+        ? flatbuffers::Offset<flatbuffers::Vector<uint8_t>>{}
+        : bytesOf(mesh.curvatureMaxAbsPerMm.data(), mesh.curvatureMaxAbsPerMm.size() * sizeof(float));
     std::vector<flatbuffers::Offset<Kreoda::Protocol::FaceRange>> faces;
     faces.reserve(mesh.faces.size());
     for (const auto& f : mesh.faces) {
@@ -58,7 +68,7 @@ std::vector<uint8_t> BuildMeshUpdateFb(const std::string& featureId, int lod,
         static_cast<uint32_t>(mesh.normals.size()),
         static_cast<uint32_t>(mesh.indices.size()), pos, nrm, idx, edges,
         fbb.CreateVector(faces), fbb.CreateVector(eranges), mesh.volumeMm3,
-        fbb.CreateVector(bbox, 6), revision);
+        fbb.CreateVector(bbox, 6), revision, curvature);
     fbb.Finish(update);
     return std::vector<uint8_t>(fbb.GetBufferPointer(),
                                 fbb.GetBufferPointer() + fbb.GetSize());

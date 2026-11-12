@@ -43,6 +43,10 @@ static_assert(CommandType_CreateInstance == kreoda::kCreateInstance, "codegen dr
 static_assert(CommandType_SetSketchProjection == kreoda::kSetSketchProjection, "codegen drift");
 static_assert(CommandType_RemoveSketchProjection == kreoda::kRemoveSketchProjection, "codegen drift");
 static_assert(CommandType_RequestSketchProjection == kreoda::kRequestSketchProjection, "codegen drift");
+static_assert(CommandType_CreateMoveFace == kreoda::kCreateMoveFace, "codegen drift");
+static_assert(CommandType_CreateOffsetFace == kreoda::kCreateOffsetFace, "codegen drift");
+static_assert(CommandType_CreateDeleteFace == kreoda::kCreateDeleteFace, "codegen drift");
+static_assert(CommandType_CreateReplaceFace == kreoda::kCreateReplaceFace, "codegen drift");
 
 TEST(Codegen, CreateBoxEnvelopeRoundTrips) {
   flatbuffers::FlatBufferBuilder fbb(256);

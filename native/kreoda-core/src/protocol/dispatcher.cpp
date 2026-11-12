@@ -11,12 +11,21 @@
 #include <atomic>
 #include <cctype>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <iomanip>
 #include <map>
 #include <set>
 #include <sstream>
 #include <thread>
+
+#if KREODA_WITH_OCCT
+#include <BRepAdaptor_Curve.hxx>
+#include <Precision.hxx>
+#include <Standard_Failure.hxx>
+#include <TopoDS_Edge.hxx>
+#include <gp_Pnt.hxx>
+#endif
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -43,15 +52,29 @@
 #include "features/fillet/fillet.h"
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
+#include "features/assembly/assembly_constraints.h"
 #include "features/primitives/primitives.h"
 #include "features/revolve/revolve.h"
+#include "features/surface/loft_sew.h"
+#include "features/surface/surface_modeling.h"
+#include "features/surface/surface_sew_offset.h"
+#include "features/surface/surface_thicken.h"
+#include "features/surface/surface_sweep.h"
+#include "features/surface/surface_trim_extend.h"
+#include "features/surface/face_thicken.h"
+#include "features/configurations/configurations.h"
+#include "features/direct/offset_face.h"
+#include "features/direct/face_history.h"
 #include "features/sketch/sketch_commands.h"
+#include "features/sketch/sketch_face.h"
 #include "features/sketch/sketch_json.h"
 #include "features/sketch/sketch_projection.h"
 #include "features/sketch/sketch_store.h"
 #include "model/feature_graph.h"
 #include "model/body.h"
+#include "model/body_visibility.h"
 #include "model/shapes.h"
+#include "model/geometry_kind.h"
 #include "model/geometry_availability.h"
 #include "protocol/mesh_fb.h"
 #include "topology/face_roles.h"
@@ -138,6 +161,67 @@ bool projection_request_fields_valid(
   return true;
 }
 
+bool surface_command_fields_valid(const Json& request,
+                                  std::initializer_list<const char*> arguments,
+                                  std::string* error) {
+  std::set<std::string> allowed = {"protocolVersion", "requestId", "documentId",
+                                   "type", "transactionId"};
+  for (const auto* argument : arguments) allowed.insert(argument);
+  for (const auto& field : request.items()) {
+    if (!allowed.count(field.key())) {
+      if (error) *error = "unsupported surface command argument: " + field.key();
+      return false;
+    }
+  }
+  return true;
+}
+
+bool surface_topology_reference_valid(const Json& reference,
+                                      const std::string& expectedType,
+                                      const std::string& roleKey,
+                                      const std::string& ownerId,
+                                      std::string* error) {
+  if (!reference.is_object()) {
+    if (error) *error = "topology reference must be an object";
+    return false;
+  }
+  const std::set<std::string> allowed = {"type", "featureId", roleKey};
+  for (const auto& field : reference.items()) {
+    if (!allowed.count(field.key())) {
+      if (error) *error = "unsupported topology reference field: " + field.key();
+      return false;
+    }
+  }
+  if (!reference.contains("type") || !reference.at("type").is_string() ||
+      reference.at("type").get<std::string>() != expectedType ||
+      !reference.contains("featureId") || !reference.at("featureId").is_string() ||
+      reference.at("featureId").get<std::string>() != ownerId ||
+      !reference.contains(roleKey) || !reference.at(roleKey).is_string() ||
+      reference.at(roleKey).get<std::string>().empty() ||
+      reference.at(roleKey).get<std::string>().size() > 512) {
+    if (error) *error = "topology reference has an invalid type, owner, or persistent ID";
+    return false;
+  }
+  const auto& role = reference.at(roleKey).get_ref<const std::string&>();
+  const auto colon = role.find(':');
+  if (colon != std::string::npos && role.substr(0, colon) != ownerId) {
+    if (error) *error = "persistent topology ID belongs to a different feature";
+    return false;
+  }
+  return true;
+}
+
+bool finite_number(const Json& request, const char* key, double* output,
+                   double fallback = 0.0) {
+  if (!request.contains(key)) {
+    *output = fallback;
+    return true;
+  }
+  if (!request.at(key).is_number()) return false;
+  *output = request.at(key).get<double>();
+  return std::isfinite(*output);
+}
+
 std::string shape_body(const ShapeRecord& rec) {
   std::ostringstream os;
   os << std::setprecision(17);
@@ -165,12 +249,93 @@ std::string shape_body(const ShapeRecord& rec) {
   os << "}";
   os << ",\"refExtra\":\"" << escape(rec.refExtra) << "\""
      << ",\"revision\":" << DocumentStore::instance().revision() << ","
-     << undo_counts_body() << ",\"volumeMm3\":" << rec.volumeMm3
-     << ",\"bboxMm\":[" << rec.bboxMm[0] << "," << rec.bboxMm[1] << ","
+     << undo_counts_body();
+  if (!IsSurfaceGeometry(rec)) os << ",\"volumeMm3\":" << rec.volumeMm3;
+  os << ",\"bboxMm\":[" << rec.bboxMm[0] << "," << rec.bboxMm[1] << ","
      << rec.bboxMm[2] << "," << rec.bboxMm[3] << "," << rec.bboxMm[4] << ","
      << rec.bboxMm[5] << "]";
   return os.str();
 }
+
+#if KREODA_WITH_OCCT
+Json sketch_curve_display(const SketchFeature& sketch) {
+  Json result={{"space","sketch-local"},{"curves",Json::array()},
+               {"errors",Json::array()}};
+  const auto displayOne=[&](const std::string& id,const char* kind) {
+    const auto addError=[&](const std::string& message) {
+      result["errors"].push_back({{"entityId",id},
+                                  {"message",message.empty()?"native display failed":message}});
+    };
+    try {
+      std::vector<TopoDS_Edge> edges;
+      std::string error;
+      if(!BuildSketchEntityEdges(sketch,{id},&edges,&error)) {
+        addError(error);
+        return;
+      }
+      if(edges.size()!=1 || edges.front().IsNull()) {
+        addError("native curve builder returned no unique edge");
+        return;
+      }
+      BRepAdaptor_Curve curve(edges.front());
+      const double first=curve.FirstParameter();
+      const double last=curve.LastParameter();
+      const double span=last-first;
+      if(!std::isfinite(first) || !std::isfinite(last) ||
+         Precision::IsInfinite(first) || Precision::IsInfinite(last) ||
+         !std::isfinite(span) || Precision::IsInfinite(span) || !(last>first)) {
+        addError("native curve display interval is not finite and nonempty");
+        return;
+      }
+      Json points=Json::array();
+      points.get_ref<Json::array_t&>().reserve(129);
+      for(size_t i=0;i<129;++i) {
+        const double fraction=static_cast<double>(i)/128.0;
+        const double parameter=first+span*fraction;
+        if(!std::isfinite(parameter)) {
+          addError("native curve display parameter is nonfinite");
+          return;
+        }
+        const gp_Pnt point=curve.Value(parameter);
+        const double dx=point.X()-sketch.plane.origin[0];
+        const double dy=point.Y()-sketch.plane.origin[1];
+        const double dz=point.Z()-sketch.plane.origin[2];
+        const double x=dx*sketch.plane.xAxis[0]+dy*sketch.plane.xAxis[1]+
+                       dz*sketch.plane.xAxis[2];
+        const double y=dx*sketch.plane.yAxis[0]+dy*sketch.plane.yAxis[1]+
+                       dz*sketch.plane.yAxis[2];
+        if(!std::isfinite(point.X()) || !std::isfinite(point.Y()) ||
+           !std::isfinite(point.Z()) || !std::isfinite(x) || !std::isfinite(y)) {
+          addError("native curve display contains nonfinite points");
+          return;
+        }
+        points.push_back(Json::array({x,y}));
+      }
+      result["curves"].push_back({{"entityId",id},{"kind",kind},
+          {"closed",curve.IsClosed()},{"pointsMm",std::move(points)}});
+    } catch(const Standard_Failure& failure) {
+      addError(failure.what());
+    } catch(const std::exception& failure) {
+      addError(failure.what());
+    } catch(...) {
+      addError("native curve display failed");
+    }
+  };
+  for(const auto& ellipse:sketch.model.ellipses)
+    displayOne(ellipse.id,ellipse.arc?"ellipticalArc":"ellipse");
+  for(const auto& spline:sketch.model.splines)
+    displayOne(spline.id,"spline");
+  return result;
+}
+#else
+Json sketch_curve_display(const SketchFeature& sketch) {
+  Json result{{"space","sketch-local"},{"curves",Json::array()},
+              {"errors",Json::array()}};
+  if (!sketch.model.ellipses.empty() || !sketch.model.splines.empty())
+    result["errors"].push_back({{"message","native curve display unavailable"}});
+  return result;
+}
+#endif
 
 std::string sketch_body(const SketchFeature& sketch,
                         const SolveResult* solve = nullptr) {
@@ -181,6 +346,15 @@ std::string sketch_body(const SketchFeature& sketch,
      << ",\"revision\":" << DocumentStore::instance().revision() << ","
      << undo_counts_body() << ",\"sketch\":"
       << SerializeSketchFeatureForInspection(sketch);
+  std::string curve_display_json;
+  try {
+    curve_display_json = sketch_curve_display(sketch).dump();
+  } catch(...) {
+    // A display failure is metadata only: never undo or misreport a committed sketch.
+    curve_display_json =
+        R"({"space":"sketch-local","curves":[],"errors":[{"message":"native curve display failed"}]})";
+  }
+  os << ",\"curveDisplay\":" << curve_display_json;
   const auto availability = GetGeometryAvailability(sketch.id);
   os << ",\"geometryCurrent\":" << (availability.geometryCurrent ? "true" : "false")
      << ",\"geometryStatus\":\"" << escape(availability.status) << "\"";
@@ -241,10 +415,16 @@ std::string feature_list_body() {
     }
     os << "}";
     os << ",\"refExtra\":\"" << escape(rec.refExtra) << "\"";
+    BodyRecord owningBody;
+    if (BodyStore::instance().bodyForFeature(rec.featureId,&owningBody)) {
+      os << ",\"bodyId\":\"" << escape(owningBody.bodyId) << "\""
+         << ",\"bodyVisible\":" << (owningBody.visible?"true":"false")
+         << ",\"bodyTip\":" << (owningBody.tipFeatureId==rec.featureId?"true":"false");
+    }
     const auto availability = GetGeometryAvailability(rec.featureId);
     os << ",\"geometryCurrent\":" << (availability.geometryCurrent ? "true" : "false")
        << ",\"status\":\"" << escape(availability.status) << "\"";
-    if (availability.geometryCurrent) {
+    if (availability.geometryCurrent && !IsSurfaceGeometry(rec)) {
       os << ",\"volumeMm3\":" << rec.volumeMm3;
     } else {
       os << ",\"error\":\"" << escape(availability.error)
@@ -652,7 +832,7 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
     const bool readOnly =
         type == kGetCoreInfo || type == kRequestMesh ||
         type == kRequestSketch || type == kPreviewSketch ||
-        type == kRequestFaceInfo || type == kRequestSnapshot || type == kRequestSessionQuery || type == kRequestDatum ||
+        type == kRequestFaceInfo || type == kRequestSnapshot || type == kRequestSessionQuery || type == kRequestDatum || type == kQueryConfigurations ||
         type == kRequestSketchProjection;
     const bool preview =
         (type == kSetFeatureParameter || type == kUpdateSketch) &&
@@ -868,6 +1048,13 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
     case kRequestMesh: {
       const std::string featureId =
           json_string_field(requestJson, "featureId", "");
+      if (!requestJson.contains("featureId") || !requestJson["featureId"].is_string() ||
+          !ShapeStore::ValidFeatureId(featureId) ||
+          (requestJson.contains("lod") &&
+           (!requestJson["lod"].is_number_integer() ||
+            requestJson["lod"].get<int>() < 0 || requestJson["lod"].get<int>() > 2)))
+        return make_response(requestId,"error",error_body("BAD_PARAMS",
+          "RequestMesh needs valid featureId and lod 0, 1 or 2"));
       const int lod = json_int_field(requestJson, "lod", 1);
       std::string availabilityError;
       if (!EnsureGeometryAvailable(featureId, &availabilityError))
@@ -1504,6 +1691,11 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
           const auto it = r.radii.find(arc.id);
           if (it != r.radii.end()) arc.r = it->second;
         }
+        std::string ellipseError;
+        if (!ApplySolvedEllipseAxes(r, &tmp.model, &ellipseError)) {
+          return make_response(requestId, "error",
+                               error_body("PREVIEW_FAILED", ellipseError));
+        }
         std::ostringstream b;
         b << "\"preview\":true," << sketch_body(tmp, &r);
         return make_response(requestId, "ok", b.str());
@@ -1519,6 +1711,437 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       SolveOptions opts;
       SolveResult r = solver->solve(sketch.model, opts);
       return make_response(requestId, "ok", sketch_body(sketch, &r));
+    }
+    case kSetBodyVisibility: {
+      const std::string bodyId=json_string_field(requestJson,"bodyId","");
+      if (bodyId.empty() || !requestJson.contains("visible") ||
+          !requestJson.at("visible").is_boolean())
+        return make_response(requestId,"error",error_body("BAD_PARAMS","bodyId and boolean visible required"));
+      const bool visible=requestJson.at("visible").get<bool>();
+      std::string error;
+      if (!SetBodyVisibility(bodyId,visible,&error))
+        return make_response(requestId,"error",error_body("BODY_VISIBILITY_FAILED",error));
+      if (!OcafLive::instance().InTransaction()) DocumentStore::instance().commit();
+      return make_response(requestId,"ok","\"bodyId\":\""+escape(bodyId)+"\",\"visible\":"+(visible?"true":"false"));
+    }
+    case kQueryConfigurations: {
+      nlohmann::json doc;
+      std::string error;
+      if (!ReadConfigurationDocument(&doc,&error))
+        return make_response(requestId,"error",error_body("CONFIGURATION_FAILED",error));
+      doc["revision"]=DocumentStore::instance().revision();
+      return make_response(requestId,"ok",doc.dump().substr(1,doc.dump().size()-2));
+    }
+    case kDefineConfiguration: {
+      if (!requestJson.contains("name") || !requestJson["name"].is_string() ||
+          !requestJson.contains("overrides") || !requestJson["overrides"].is_object())
+        return make_response(requestId,"error",error_body("BAD_PARAMS","name and overrides required"));
+      try {
+        const auto overrides=requestJson["overrides"].get<ConfigurationOverrides>();
+        std::string error;
+        if (!DefineConfiguration(requestJson["name"].get<std::string>(),overrides,&error))
+          return make_response(requestId,"error",error_body("CONFIGURATION_FAILED",error));
+        nlohmann::json doc;
+        ReadConfigurationDocument(&doc,&error);
+        doc["revision"]=DocumentStore::instance().revision();
+        const auto payload=doc.dump();
+        return make_response(requestId,"ok",payload.substr(1,payload.size()-2));
+      } catch (const std::exception& ex) {
+        return make_response(requestId,"error",error_body("BAD_PARAMS",ex.what()));
+      }
+    }
+    case kActivateConfiguration: {
+      if (!requestJson.contains("name") || !requestJson["name"].is_string())
+        return make_response(requestId,"error",error_body("BAD_PARAMS","name required"));
+      std::string error;
+      if (!ActivateConfiguration(requestJson["name"].get<std::string>(),&error))
+        return make_response(requestId,"error",error_body("CONFIGURATION_FAILED",error));
+      nlohmann::json doc;
+      ReadConfigurationDocument(&doc,&error);
+      doc["revision"]=DocumentStore::instance().revision();
+      const auto payload=doc.dump();
+      return make_response(requestId,"ok",payload.substr(1,payload.size()-2));
+    }
+    case kCreateInwardFacePocket:
+    case kCreateOutwardFacePush: {
+      if (!requestJson.contains("featureId") || !requestJson["featureId"].is_string() ||
+          !requestJson.contains("sourceFeatureId") || !requestJson["sourceFeatureId"].is_string() ||
+          !requestJson.contains("faceRole") || !requestJson["faceRole"].is_string() ||
+          !requestJson.contains("distanceMm") || !requestJson["distanceMm"].is_number())
+        return make_response(requestId,"error",error_body("BAD_PARAMS",
+          "featureId, sourceFeatureId, faceRole, distanceMm required"));
+      const auto featureId=requestJson["featureId"].get<std::string>();
+      const auto sourceId=requestJson["sourceFeatureId"].get<std::string>();
+      std::string role=requestJson["faceRole"].get<std::string>();
+      const double distance=requestJson["distanceMm"].get<double>();
+      // UI tessellation returns qualified persistent ids; accept the bare
+      // semantic role too, but never silently accept another feature owner.
+      const auto colon=role.find(':');
+      if (colon!=std::string::npos) {
+        if (role.substr(0,colon)!=sourceId)
+          return make_response(requestId,"error",error_body("BAD_PARAMS","faceRole belongs to another feature"));
+        role=role.substr(colon+1);
+      }
+      if (!std::isfinite(distance) || distance<=0 || distance>100000 ||
+          !ShapeStore::ValidFeatureId(featureId) ||
+          !ShapeStore::ValidFeatureId(sourceId) || role.empty() ||
+          HasIndexedTopologyRole(role))
+        return make_response(requestId,"error",error_body("BAD_PARAMS","invalid feature ID, semantic face role or positive distance"));
+      std::string error;
+      const bool inward=type==kCreateInwardFacePocket;
+      if (!(inward?CreateInwardFacePocketFeature(featureId,sourceId,role,distance,&error):
+                   CreateOutwardFacePushFeature(featureId,sourceId,role,distance,&error)))
+        return make_response(requestId,"error",error_body(inward?"INWARD_FACE_POCKET_FAILED":"OUTWARD_FACE_PUSH_FAILED",error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId,&rec);
+      return make_response(requestId,"ok",shape_body(rec));
+    }
+    case kCreateSurfaceFaceThicken: {
+      if(!requestJson.contains("featureId")||!requestJson["featureId"].is_string()||
+         !requestJson.contains("sourceFeatureId")||!requestJson["sourceFeatureId"].is_string()||
+         !requestJson.contains("faceRole")||!requestJson["faceRole"].is_string()||
+         !requestJson.contains("thicknessMm")||!requestJson["thicknessMm"].is_number())
+        return make_response(requestId,"error",error_body("BAD_PARAMS",
+          "featureId, sourceFeatureId, faceRole and thicknessMm required"));
+      const auto featureId=requestJson["featureId"].get<std::string>();
+      const auto sourceId=requestJson["sourceFeatureId"].get<std::string>();
+      std::string role=requestJson["faceRole"].get<std::string>();
+      const auto colon=role.find(':');
+      if(colon!=std::string::npos) {
+        if(role.substr(0,colon)!=sourceId)
+          return make_response(requestId,"error",error_body("BAD_PARAMS","faceRole belongs to another feature"));
+        role=role.substr(colon+1);
+      }
+      const double thickness=requestJson["thicknessMm"].get<double>();
+      if(!ShapeStore::ValidFeatureId(featureId)||!ShapeStore::ValidFeatureId(sourceId)||
+         role.empty()||HasIndexedTopologyRole(role)||!std::isfinite(thickness)||
+         thickness<=0||thickness>100000)
+        return make_response(requestId,"error",error_body("BAD_PARAMS","invalid thicken feature, role or thickness"));
+      std::string error;
+      if(!CreateSurfaceFaceThickenFeature(featureId,sourceId,role,thickness,&error))
+        return make_response(requestId,"error",error_body("SURFACE_THICKEN_FAILED",error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId,&rec);
+      return make_response(requestId,"ok",shape_body(rec));
+    }
+    case kCreateMoveFace:
+    case kCreateOffsetFace:
+    case kCreateDeleteFace:
+    case kCreateReplaceFace: {
+      std::string error;
+      bool created = false;
+      if (type == kCreateMoveFace)
+        created = CreateMoveFaceFeature(requestJson, &error);
+      else if (type == kCreateOffsetFace)
+        created = CreateOffsetFaceFeature(requestJson, &error);
+      else if (type == kCreateDeleteFace)
+        created = CreateDeleteFaceFeature(requestJson, &error);
+      else
+        created = CreateReplaceFaceFeature(requestJson, &error);
+      if (!created)
+        return make_response(requestId, "error",
+                             error_body("DIRECT_FACE_HISTORY_FAILED", error));
+      ShapeRecord rec;
+      if (!ShapeStore::instance().get(
+              requestJson.value("featureId", std::string{}), &rec))
+        return make_response(requestId, "error", error_body(
+            "DIRECT_FACE_HISTORY_FAILED", "created face-history record is missing"));
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateSurfaceLoftSewnSolid: {
+      if (!requestJson.contains("featureId") ||
+          !requestJson.at("featureId").is_string() ||
+          !requestJson.contains("sketchIds") ||
+          !requestJson.at("sketchIds").is_array() ||
+          requestJson.at("sketchIds").size() < 2)
+        return make_response(requestId,"error",error_body("BAD_PARAMS",
+          "featureId and sketchIds array (at least two) are required"));
+      std::vector<std::string> sketchIds;
+      for (const auto& id : requestJson.at("sketchIds")) {
+        if (!id.is_string() || !ShapeStore::ValidFeatureId(id.get<std::string>()))
+          return make_response(requestId,"error",error_body("BAD_PARAMS","invalid sketchIds entry"));
+        sketchIds.push_back(id.get<std::string>());
+      }
+      if (std::set<std::string>(sketchIds.begin(),sketchIds.end()).size()!=sketchIds.size())
+        return make_response(requestId,"error",error_body("BAD_PARAMS","duplicate sketchIds"));
+      const auto featureId=requestJson.at("featureId").get<std::string>();
+      std::string error;
+      if (!CreateSurfaceLoftSewnSolidFeature(featureId,sketchIds,&error))
+        return make_response(requestId,"error",error_body("SURFACE_LOFT_FAILED",error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId,&rec);
+      return make_response(requestId,"ok",shape_body(rec));
+    }
+    case kCreateSurfaceExtrude: {
+      std::string error;
+      if (!surface_command_fields_valid(requestJson,
+              {"featureId", "sketchId", "distanceMm"}, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      double distance = 0;
+      if (!requestJson.contains("featureId") || !requestJson["featureId"].is_string() ||
+          !requestJson.contains("sketchId") || !requestJson["sketchId"].is_string() ||
+          !requestJson.contains("distanceMm") ||
+          !finite_number(requestJson, "distanceMm", &distance))
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "featureId, sketchId and finite distanceMm are required"));
+      const auto featureId = requestJson["featureId"].get<std::string>();
+      const auto sketchId = requestJson["sketchId"].get<std::string>();
+      if (!CreateSurfaceExtrudeFeature(featureId, sketchId, distance, &error))
+        return make_response(requestId, "error", error_body("SURFACE_EXTRUDE_FAILED", error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateSurfaceRevolve: {
+      std::string error;
+      if (!surface_command_fields_valid(requestJson,
+              {"featureId", "sketchId", "angleDeg", "axisOriginXMm",
+               "axisOriginYMm", "axisOriginZMm", "axisX", "axisY", "axisZ"},
+              &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      if (!requestJson.contains("featureId") || !requestJson["featureId"].is_string() ||
+          !requestJson.contains("sketchId") || !requestJson["sketchId"].is_string())
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "featureId and sketchId are required"));
+      std::vector<double> params(7);
+      const char* names[] = {"angleDeg", "axisOriginXMm", "axisOriginYMm",
+                             "axisOriginZMm", "axisX", "axisY", "axisZ"};
+      const double defaults[] = {0, 0, 0, 0, 1, 0, 0};
+      for (size_t i = 0; i < params.size(); ++i) {
+        if ((i == 0 && !requestJson.contains(names[i])) ||
+            !finite_number(requestJson, names[i], &params[i], defaults[i]))
+          return make_response(requestId, "error", error_body("BAD_PARAMS",
+              std::string(names[i]) + " must be a finite JSON number"));
+      }
+      const auto featureId = requestJson["featureId"].get<std::string>();
+      const auto sketchId = requestJson["sketchId"].get<std::string>();
+      if (!CreateSurfaceRevolveFeature(featureId, sketchId, params, &error))
+        return make_response(requestId, "error", error_body("SURFACE_REVOLVE_FAILED", error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateSurfaceLoft: {
+      std::string error;
+      if (!surface_command_fields_valid(requestJson,
+              {"featureId", "sketchIds"}, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      if (!requestJson.contains("featureId") || !requestJson["featureId"].is_string() ||
+          !requestJson.contains("sketchIds") || !requestJson["sketchIds"].is_array() ||
+          requestJson["sketchIds"].size() < 2 || requestJson["sketchIds"].size() > 128)
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "featureId and sketchIds array of 2 to 128 IDs are required"));
+      std::vector<std::string> sketchIds;
+      for (const auto& id : requestJson["sketchIds"]) {
+        if (!id.is_string() || !ShapeStore::ValidFeatureId(id.get<std::string>()))
+          return make_response(requestId, "error", error_body("BAD_PARAMS", "invalid sketchIds entry"));
+        sketchIds.push_back(id.get<std::string>());
+      }
+      if (std::set<std::string>(sketchIds.begin(), sketchIds.end()).size() != sketchIds.size())
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "duplicate sketchIds"));
+      const auto featureId = requestJson["featureId"].get<std::string>();
+      if (!CreateSurfaceLoftFeature(featureId, sketchIds, &error))
+        return make_response(requestId, "error", error_body("SURFACE_LOFT_FAILED", error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateSurfaceSew: {
+      std::string error;
+      if (!surface_command_fields_valid(requestJson,
+              {"featureId", "featureIds", "toleranceMm", "makeSolid"},
+              &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      if (!requestJson.contains("featureId") || !requestJson["featureId"].is_string() ||
+          !requestJson.contains("featureIds") || !requestJson["featureIds"].is_array() ||
+          requestJson["featureIds"].empty() || requestJson["featureIds"].size() > 128)
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "featureId and featureIds array of 1 to 128 IDs are required"));
+      const auto featureId = requestJson["featureId"].get<std::string>();
+      std::vector<std::string> featureIds;
+      featureIds.reserve(requestJson["featureIds"].size());
+      for (const auto& id : requestJson["featureIds"]) {
+        if (!id.is_string() || !ShapeStore::ValidFeatureId(id.get<std::string>()))
+          return make_response(requestId, "error", error_body("BAD_PARAMS", "invalid featureIds entry"));
+        featureIds.push_back(id.get<std::string>());
+      }
+      if (std::set<std::string>(featureIds.begin(), featureIds.end()).size() != featureIds.size())
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "duplicate featureIds"));
+      double tolerance = 0.01;
+      if (!finite_number(requestJson, "toleranceMm", &tolerance, 0.01))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "toleranceMm must be a finite JSON number"));
+      bool makeSolid = false;
+      if (requestJson.contains("makeSolid")) {
+        if (!requestJson["makeSolid"].is_boolean())
+          return make_response(requestId, "error", error_body("BAD_PARAMS", "makeSolid must be a boolean"));
+        makeSolid = requestJson["makeSolid"].get<bool>();
+      }
+      if (!CreateSurfaceSewFeature(featureId, featureIds, tolerance, makeSolid, &error))
+        return make_response(requestId, "error", error_body("SURFACE_SEW_FAILED", error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateSurfaceOffset: {
+      std::string error;
+      if (!surface_command_fields_valid(requestJson,
+              {"featureId", "targetId", "distanceMm", "toleranceMm"},
+              &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      if (!requestJson.contains("featureId") || !requestJson["featureId"].is_string() ||
+          !requestJson.contains("targetId") || !requestJson["targetId"].is_string() ||
+          !requestJson.contains("distanceMm"))
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "featureId, targetId and distanceMm are required"));
+      double distance = 0;
+      double tolerance = 1e-6;
+      if (!finite_number(requestJson, "distanceMm", &distance) ||
+          !finite_number(requestJson, "toleranceMm", &tolerance, 1e-6))
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "distanceMm and toleranceMm must be finite JSON numbers"));
+      const auto featureId = requestJson["featureId"].get<std::string>();
+      const auto targetId = requestJson["targetId"].get<std::string>();
+      if (!ShapeStore::ValidFeatureId(featureId) || !ShapeStore::ValidFeatureId(targetId))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "invalid featureId or targetId"));
+      if (!CreateSurfaceOffsetFeature(featureId, targetId, distance, tolerance, &error))
+        return make_response(requestId, "error", error_body("SURFACE_OFFSET_FAILED", error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateSurfaceSweep: {
+      std::string error;
+      if (!surface_command_fields_valid(
+              requestJson,
+              {"featureId", "profileSketchId", "pathSketchId", "toleranceMm"},
+              &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      if (!requestJson.contains("featureId") || !requestJson["featureId"].is_string() ||
+          !requestJson.contains("profileSketchId") || !requestJson["profileSketchId"].is_string() ||
+          !requestJson.contains("pathSketchId") || !requestJson["pathSketchId"].is_string())
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "featureId, profileSketchId and pathSketchId are required"));
+      const auto featureId = requestJson["featureId"].get<std::string>();
+      const auto profileSketchId = requestJson["profileSketchId"].get<std::string>();
+      const auto pathSketchId = requestJson["pathSketchId"].get<std::string>();
+      if (!ShapeStore::ValidFeatureId(featureId) ||
+          !ShapeStore::ValidFeatureId(profileSketchId) ||
+          !ShapeStore::ValidFeatureId(pathSketchId) ||
+          profileSketchId == pathSketchId)
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "feature and sketch IDs must be valid; profile and path IDs must differ"));
+      double tolerance = 1e-6;
+      if (!finite_number(requestJson, "toleranceMm", &tolerance, 1e-6))
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "toleranceMm must be a finite JSON number"));
+      if (!CreateSurfaceSweepFeature(featureId, profileSketchId, pathSketchId,
+                                     tolerance, &error))
+        return make_response(requestId, "error", error_body("SURFACE_SWEEP_FAILED", error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateSurfaceThicken: {
+      std::string error;
+      if (!surface_command_fields_valid(requestJson,
+              {"featureId", "targetId", "thicknessMm", "toleranceMm"},
+              &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      if (!requestJson.contains("featureId") || !requestJson["featureId"].is_string() ||
+          !requestJson.contains("targetId") || !requestJson["targetId"].is_string() ||
+          !requestJson.contains("thicknessMm"))
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "featureId, targetId and thicknessMm are required"));
+      double thickness = 0;
+      double tolerance = 1e-6;
+      if (!finite_number(requestJson, "thicknessMm", &thickness) ||
+          !finite_number(requestJson, "toleranceMm", &tolerance, 1e-6))
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "thicknessMm and toleranceMm must be finite JSON numbers"));
+      const auto featureId = requestJson["featureId"].get<std::string>();
+      const auto targetId = requestJson["targetId"].get<std::string>();
+      if (!ShapeStore::ValidFeatureId(featureId) || !ShapeStore::ValidFeatureId(targetId))
+        return make_response(requestId, "error", error_body("BAD_PARAMS",
+            "invalid featureId or targetId"));
+      if (!CreateSurfaceThickenFeature(featureId, targetId, thickness,
+                                       tolerance, &error))
+        return make_response(requestId, "error",
+            error_body("SURFACE_THICKEN_FAILED", error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateSurfaceTrim: {
+      std::string error;
+      if (!surface_command_fields_valid(requestJson,
+              {"featureId", "targetId", "toolId", "keepFace", "keepUv", "toleranceMm"},
+              &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      for (const auto* key : {"featureId", "targetId", "toolId"})
+        if (!requestJson.contains(key) || !requestJson.at(key).is_string() ||
+            !ShapeStore::ValidFeatureId(requestJson.at(key).get<std::string>()))
+          return make_response(requestId, "error",
+              error_body("BAD_PARAMS", std::string(key) + " must be a valid feature ID"));
+      const auto featureId = requestJson.at("featureId").get<std::string>();
+      const auto targetId = requestJson.at("targetId").get<std::string>();
+      const auto toolId = requestJson.at("toolId").get<std::string>();
+      if (targetId == toolId)
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "targetId and toolId must differ"));
+      if (!requestJson.contains("keepFace"))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "keepFace is required"));
+      if (!surface_topology_reference_valid(requestJson.at("keepFace"), "face",
+              "persistentFaceId", targetId, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      if (!requestJson.contains("keepUv") || !requestJson.at("keepUv").is_array() ||
+          requestJson.at("keepUv").size() != 2 ||
+          !requestJson.at("keepUv").at(0).is_number() ||
+          !requestJson.at("keepUv").at(1).is_number() ||
+          !std::isfinite(requestJson.at("keepUv").at(0).get<double>()) ||
+          !std::isfinite(requestJson.at("keepUv").at(1).get<double>()))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "keepUv must contain two finite coordinates"));
+      double tolerance = 1e-6;
+      if (!finite_number(requestJson, "toleranceMm", &tolerance, 1e-6) ||
+          tolerance < 1e-7 || tolerance > 1.0)
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "toleranceMm must be in [1e-7, 1]"));
+      if (!CreateSurfaceTrimFeature(featureId, targetId, toolId,
+              requestJson.at("keepFace"), requestJson.at("keepUv").at(0).get<double>(),
+              requestJson.at("keepUv").at(1).get<double>(), tolerance, &error))
+        return make_response(requestId, "error", error_body("SURFACE_TRIM_FAILED", error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateSurfaceExtend: {
+      std::string error;
+      if (!surface_command_fields_valid(requestJson,
+              {"featureId", "targetId", "boundaryEdge", "distanceMm", "toleranceMm"},
+              &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      if (!requestJson.contains("featureId") || !requestJson.at("featureId").is_string() ||
+          !requestJson.contains("targetId") || !requestJson.at("targetId").is_string() ||
+          !ShapeStore::ValidFeatureId(requestJson.at("featureId").get<std::string>()) ||
+          !ShapeStore::ValidFeatureId(requestJson.at("targetId").get<std::string>()))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "featureId and targetId must be valid feature IDs"));
+      const auto featureId = requestJson.at("featureId").get<std::string>();
+      const auto targetId = requestJson.at("targetId").get<std::string>();
+      if (!requestJson.contains("boundaryEdge"))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "boundaryEdge is required"));
+      if (!surface_topology_reference_valid(requestJson.at("boundaryEdge"), "edge",
+              "persistentEdgeId", targetId, &error))
+        return make_response(requestId, "error", error_body("BAD_PARAMS", error));
+      double distance = 0;
+      double tolerance = 1e-6;
+      if (!finite_number(requestJson, "distanceMm", &distance) ||
+          distance < 1e-6 || distance > 100000.0 ||
+          !finite_number(requestJson, "toleranceMm", &tolerance, 1e-6) ||
+          tolerance < 1e-7 || tolerance > 1.0)
+        return make_response(requestId, "error", error_body("BAD_PARAMS", "distanceMm must be in [1e-6, 100000] and toleranceMm in [1e-7, 1]"));
+      if (!CreateSurfaceExtendFeature(featureId, targetId,
+              requestJson.at("boundaryEdge"), distance, tolerance, &error))
+        return make_response(requestId, "error", error_body("SURFACE_EXTEND_FAILED", error));
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
     }
     case kCreateExtrude: {
       const std::string featureId =
@@ -1702,7 +2325,7 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
         body << "\"referencePlanesJson\":\""
              << escape(DocumentStore::instance().referencePlanesJson()) << "\",";
       }
-      body << "\"documentId\":\"" << escape(includeReferences ? DocumentStore::instance().snapshotDocumentId() : documentId) << "\","
+      body << "\"documentId\":\"" << escape(DocumentStore::instance().snapshotDocumentId()) << "\","
            << feature_list_body();
       return make_response(requestId, "ok", body.str());
     }
@@ -1859,6 +2482,106 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       ShapeStore::instance().get(featureId, &rec);
       return make_response(requestId, "ok", shape_body(rec));
     }
+    case kDefineAssemblyConstraint: {
+      const auto validId=[](const Json& value) {
+        return value.is_string() && ShapeStore::ValidFeatureId(value.get<std::string>());
+      };
+      if(!requestJson.contains("constraintId")||!validId(requestJson["constraintId"])||
+         !requestJson.contains("movingId")||!validId(requestJson["movingId"])||
+         !requestJson.contains("kind")||!requestJson["kind"].is_string())
+        return make_response(requestId,"error",error_body("BAD_PARAMS","constraintId, movingId and kind are required"));
+      const auto kind=requestJson["kind"].get<std::string>();
+      const auto moving=requestJson["movingId"].get<std::string>();
+      const auto constraintId=requestJson["constraintId"].get<std::string>();
+      const bool geometric=kind=="concentric"||kind=="parallel"||kind=="perpendicular"||kind=="angle";
+      if(geometric) {
+        std::uint64_t captureRevision=0;
+        if(!requestJson.contains("captureRevision")||!requestJson["captureRevision"].is_number_integer())
+          return make_response(requestId,"error",error_body("BAD_PARAMS","captureRevision must be a non-negative integer"));
+        if(requestJson["captureRevision"].is_number_unsigned())captureRevision=requestJson["captureRevision"].get<std::uint64_t>();
+        else {
+          const auto signedRevision=requestJson["captureRevision"].get<std::int64_t>();
+          if(signedRevision<0)return make_response(requestId,"error",error_body("BAD_PARAMS","captureRevision must be a non-negative integer"));
+          captureRevision=static_cast<std::uint64_t>(signedRevision);
+        }
+        if(captureRevision!=static_cast<std::uint64_t>(DocumentStore::instance().revision()))
+          return make_response(requestId,"error",error_body("STALE_CAPTURE","captureRevision does not match the current model revision"));
+        auto validSourceBinding=[](const Json& value) {
+          if(!value.is_object()||!value.contains("type")||!value["type"].is_string()||
+             !value.contains("featureId")||!value["featureId"].is_string()||
+             !ShapeStore::ValidFeatureId(value["featureId"].get<std::string>())||
+             !value.contains("geometryKind")||!value["geometryKind"].is_string())return false;
+          const auto type=value["type"].get<std::string>();
+          const auto key=type=="face"?"persistentFaceId":type=="edge"?"persistentEdgeId":"";
+          if(!*key||!value.contains(key)||!value[key].is_string())return false;
+          const auto role=value[key].get<std::string>();
+          if(role.empty()||role.size()>512||role.find(':')!=std::string::npos||value[key].is_null())return false;
+          if(value["geometryKind"].get<std::string>().empty()||value["geometryKind"].get<std::string>().size()>24)return false;
+          const std::set<std::string> allowed={"type","featureId","geometryKind",key};
+          for(auto it=value.begin();it!=value.end();++it)if(!allowed.count(it.key()))return false;
+          return value.size()==allowed.size();
+        };
+        const std::set<std::string> common={"protocolVersion","requestId","documentId","type","transactionId",
+          "constraintId","kind","movingId","fixedId","captureRevision","movingPickId","fixedPickId",
+          "movingSourceBinding","fixedSourceBinding"};
+        auto allowed=common;
+        if(kind=="angle")allowed.insert("angleDeg");
+        for(auto it=requestJson.begin();it!=requestJson.end();++it)
+          if(!allowed.count(it.key()))return make_response(requestId,"error",error_body("BAD_PARAMS","unexpected geometric mate field: "+it.key()));
+        if(!requestJson.contains("fixedId")||!validId(requestJson["fixedId"])||
+           !requestJson.contains("movingPickId")||!requestJson["movingPickId"].is_string()||requestJson["movingPickId"].get<std::string>().empty()||
+           !requestJson.contains("fixedPickId")||!requestJson["fixedPickId"].is_string()||requestJson["fixedPickId"].get<std::string>().empty()||
+           !requestJson.contains("movingSourceBinding")||!validSourceBinding(requestJson["movingSourceBinding"])||
+           !requestJson.contains("fixedSourceBinding")||!validSourceBinding(requestJson["fixedSourceBinding"]))
+          return make_response(requestId,"error",error_body("BAD_PARAMS","geometric mate needs fixed instance, world picks and strict source bindings"));
+        if(kind=="angle"&&(!requestJson.contains("angleDeg")||!requestJson["angleDeg"].is_number()||
+           !std::isfinite(requestJson["angleDeg"].get<double>())||requestJson["angleDeg"].get<double>()<0||requestJson["angleDeg"].get<double>()>180))
+          return make_response(requestId,"error",error_body("BAD_PARAMS","angleDeg must be finite and between 0 and 180 degrees"));
+        std::string error;
+        if(!DefineGeometricAssemblyConstraint(requestJson,&error))
+          return make_response(requestId,"error",error_body("ASSEMBLY_CONSTRAINT_FAILED",error));
+        if(!OcafLive::instance().InTransaction())DocumentStore::instance().commit();
+        const Json result={{"constraintId",constraintId},{"kind",kind},{"movingId",moving},
+                           {"fixedId",requestJson["fixedId"]}};
+        const auto serialized=result.dump();
+        return make_response(requestId,"ok",serialized.substr(1,serialized.size()-2));
+      }
+      if(kind!="ground"&&kind!="coincident"&&kind!="distance")
+        return make_response(requestId,"error",error_body("BAD_PARAMS","unknown assembly mate kind"));
+      std::string fixed;
+      int axis=0;
+      double distance=0;
+      if(kind!="ground") {
+        if(!requestJson.contains("fixedId")||!validId(requestJson["fixedId"]))
+          return make_response(requestId,"error",error_body("BAD_PARAMS","fixedId is required for a mate"));
+        fixed=requestJson["fixedId"].get<std::string>();
+      }
+      if(kind=="distance") {
+        if(!requestJson.contains("axis")||!requestJson["axis"].is_number_integer()||
+           !requestJson.contains("distanceMm")||!requestJson["distanceMm"].is_number())
+          return make_response(requestId,"error",error_body("BAD_PARAMS","distance mate needs integer axis and distanceMm"));
+        axis=requestJson["axis"].get<int>();
+        distance=requestJson["distanceMm"].get<double>();
+        if(axis<0||axis>2||!std::isfinite(distance))
+          return make_response(requestId,"error",error_body("BAD_PARAMS","invalid assembly distance or axis"));
+      }
+      const std::set<std::string> common={"protocolVersion","requestId","documentId","type","transactionId",
+        "constraintId","kind","movingId"};
+      auto allowed=common;
+      if(kind!="ground")allowed.insert("fixedId");
+      if(kind=="distance") {allowed.insert("axis");allowed.insert("distanceMm");}
+      for(auto it=requestJson.begin();it!=requestJson.end();++it)
+        if(!allowed.count(it.key()))
+          return make_response(requestId,"error",error_body("BAD_PARAMS","unexpected assembly mate field: "+it.key()));
+      std::string error;
+      if(!DefineAssemblyConstraint(constraintId,kind,moving,fixed,axis,distance,&error))
+        return make_response(requestId,"error",error_body("ASSEMBLY_CONSTRAINT_FAILED",error));
+      if(!OcafLive::instance().InTransaction())DocumentStore::instance().commit();
+      const Json result={{"constraintId",constraintId},{"kind",kind},
+                         {"movingId",moving},{"fixedId",fixed}};
+      const auto serialized=result.dump();
+      return make_response(requestId,"ok",serialized.substr(1,serialized.size()-2));
+    }
     case kRequestSketch: {
       const std::string featureId =
           json_string_field(requestJson, "featureId", "");
@@ -1910,6 +2633,11 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
           p.x = it->second.first;
           p.y = it->second.second;
         }
+      }
+      std::string ellipseError;
+      if (!ApplySolvedEllipseAxes(r, &tmp.model, &ellipseError)) {
+        return make_response(requestId, "error",
+                             error_body("PREVIEW_FAILED", ellipseError));
       }
       std::ostringstream b;
       b << "\"preview\":true," << sketch_body(tmp, &r);

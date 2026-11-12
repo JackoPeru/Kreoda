@@ -75,6 +75,15 @@ bool PlacementTrsf(const std::vector<double>& p, gp_Trsf* out,
 #endif
 
 #if KREODA_WITH_OCCT
+bool BuildInstanceTransform(const std::vector<double>& placement,
+                            gp_Trsf* out, std::string* error) {
+  if (!out) {
+    if (error) *error = "placement transform output is required";
+    return false;
+  }
+  return PlacementTrsf(placement, out, error);
+}
+
 bool BuildInstanceShape(const TopoDS_Shape& target,
                         const std::vector<double>& placement,
                         TopoDS_Shape* out, std::string* error) {
@@ -83,7 +92,7 @@ bool BuildInstanceShape(const TopoDS_Shape& target,
     return false;
   }
   gp_Trsf trsf;
-  if (!PlacementTrsf(placement, &trsf, error)) return false;
+  if (!BuildInstanceTransform(placement, &trsf, error)) return false;
   try {
     BRepBuilderAPI_Transform mk(target, trsf, true);
     mk.Build();

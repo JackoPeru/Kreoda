@@ -1,6 +1,6 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f
-export const CONTRACT_SCHEMA_SHA256 = "b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f" as const;
+// Source SHA256: 70dbfd2eb9ed09ccf73066d955ce0cb3024547663b9690950a173a2c80948328
+export const CONTRACT_SCHEMA_SHA256 = "70dbfd2eb9ed09ccf73066d955ce0cb3024547663b9690950a173a2c80948328" as const;
 export const SESSION_STABLE_FEATURE_ID_SCHEMA = {
   "type": "string",
   "minLength": 1,
@@ -19,6 +19,23 @@ export const SESSION_DTO_NAMES = [
   "NamedCommandParams",
   "TxnParams",
   "ErrorReply",
+  "VoiceRequestId",
+  "VoiceDocumentId",
+  "VoiceRevision",
+  "VoiceText",
+  "VoiceContext",
+  "GetVoiceStatusParams",
+  "GetVoiceStatusPayload",
+  "TranscribeVoiceParams",
+  "TranscribeVoicePayload",
+  "VoiceTurnParams",
+  "VoiceTurnAgentReply",
+  "VoiceTurnPayload",
+  "SynthesizeVoiceParams",
+  "SynthesizeVoicePayload",
+  "CancelVoiceParams",
+  "CancelVoicePayload",
+  "SessionRecoveryIdentity",
   "SessionRequestEnvelope",
   "HelloReply",
   "FeatureDescriptor",
@@ -68,6 +85,11 @@ export const CONTROL_METHODS = [
   "authenticate",
   "hello",
   "getSessionInfo",
+  "getVoiceStatus",
+  "transcribeVoice",
+  "voiceTurn",
+  "synthesizeVoice",
+  "cancelVoice",
   "snapshot",
   "invoke",
   "command",
@@ -87,6 +109,8 @@ export const QUERY_METHODS_CONTRACT = [
   "getDependencies",
   "getModelTree",
   "describeModel",
+  "listRecentProjects",
+  "listOpenableProjects",
   "getSelection",
   "setSelection",
   "clearSelection",
@@ -96,6 +120,9 @@ export const QUERY_METHODS_CONTRACT = [
   "getManipulators",
   "measureVolume",
   "measureArea",
+  "measureMassProperties",
+  "measureInterferences",
+  "measureMinimumThickness",
   "getBoundingBox",
   "measureDistance",
   "measureAngle",
@@ -115,13 +142,19 @@ export const QUERY_METHODS_CONTRACT = [
   "requestPreviewMesh",
   "previewSketch",
   "getDatum",
-  "getSketchProjection"
+  "getSketchProjection",
+  "resolveSurfacePoint"
 ] as const;
 export const SESSION_CONTROL_METHODS = [
   "pair",
   "authenticate",
   "hello",
   "getSessionInfo",
+  "getVoiceStatus",
+  "transcribeVoice",
+  "voiceTurn",
+  "synthesizeVoice",
+  "cancelVoice",
   "snapshot",
   "invoke",
   "command",
@@ -139,6 +172,9 @@ export const SESSION_CONTROL_METHODS = [
   "getDependencies",
   "getModelTree",
   "describeModel",
+  "listRecentProjects",
+  "listOpenableProjects",
+  "requestOpenProject",
   "getSelection",
   "setSelection",
   "clearSelection",
@@ -148,6 +184,9 @@ export const SESSION_CONTROL_METHODS = [
   "getManipulators",
   "measureVolume",
   "measureArea",
+  "measureMassProperties",
+  "measureInterferences",
+  "measureMinimumThickness",
   "getBoundingBox",
   "measureDistance",
   "measureAngle",
@@ -167,7 +206,8 @@ export const SESSION_CONTROL_METHODS = [
   "requestPreviewMesh",
   "previewSketch",
   "getDatum",
-  "getSketchProjection"
+  "getSketchProjection",
+  "resolveSurfacePoint"
 ] as const;
 export const OPERATION_METHODS = [
   "invoke",
@@ -189,7 +229,8 @@ export const SESSION_SERVER_CAPABILITIES = [
   "binary-mesh-v1",
   "binary-preview-v1",
   "context-commands-v1",
-  "sketch-preview-v1"
+  "sketch-preview-v1",
+  "voice-v1"
 ] as const;
 export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
   "pair": [
@@ -205,6 +246,30 @@ export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
     "protocolVersion"
   ],
   "getSessionInfo": [],
+  "getVoiceStatus": [],
+  "transcribeVoice": [
+    "voiceRequestId",
+    "documentId",
+    "expectedRevision",
+    "wavBase64"
+  ],
+  "voiceTurn": [
+    "voiceRequestId",
+    "documentId",
+    "expectedRevision",
+    "text",
+    "context"
+  ],
+  "synthesizeVoice": [
+    "voiceRequestId",
+    "documentId",
+    "expectedRevision",
+    "text"
+  ],
+  "cancelVoice": [
+    "voiceRequestId",
+    "documentId"
+  ],
   "snapshot": [],
   "invoke": [
     "type"
@@ -245,6 +310,14 @@ export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
   ],
   "getModelTree": [],
   "describeModel": [],
+  "listRecentProjects": [],
+  "listOpenableProjects": [],
+  "requestOpenProject": [
+    "projectId",
+    "sessionId",
+    "documentId",
+    "expectedRevision"
+  ],
   "getSelection": [],
   "setSelection": [
     "ids"
@@ -258,6 +331,9 @@ export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
   ],
   "measureVolume": [],
   "measureArea": [],
+  "measureMassProperties": [],
+  "measureInterferences": [],
+  "measureMinimumThickness": [],
   "getBoundingBox": [],
   "measureDistance": [
     "a",
@@ -311,6 +387,10 @@ export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = {
   ],
   "getSketchProjection": [
     "featureId"
+  ],
+  "resolveSurfacePoint": [
+    "targetId",
+    "pointMm"
   ]
 };
 export const SERVER_EVENTS = [

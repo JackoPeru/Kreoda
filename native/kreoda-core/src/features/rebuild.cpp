@@ -10,6 +10,15 @@
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
 #include "features/revolve/revolve.h"
+#include "features/surface/loft_sew.h"
+#include "features/surface/face_thicken.h"
+#include "features/surface/surface_modeling.h"
+#include "features/surface/surface_sew_offset.h"
+#include "features/surface/surface_thicken.h"
+#include "features/surface/surface_sweep.h"
+#include "features/surface/surface_trim_extend.h"
+#include "features/direct/offset_face.h"
+#include "features/direct/face_history.h"
 #include "features/sketch/sketch_store.h"
 #include "features/sketch/sketch_json.h"
 #include "features/sketch/sketch_projection.h"
@@ -60,6 +69,30 @@ bool RebuildNodeFromStore(const std::string& featureId, std::string* error) {
   if (rec.type == "Revolve") {
     return RebuildRevolveFromStore(featureId, error);
   }
+  if (rec.type == "SurfaceLoftSewnSolid") {
+    return RebuildSurfaceLoftSewnSolidFromStore(featureId,error);
+  }
+  if (rec.type == "SurfaceExtrude" || rec.type == "SurfaceRevolve" ||
+      rec.type == "SurfaceLoft")
+    return RebuildSurfaceFeatureFromStore(featureId,error);
+  if (rec.type == "SurfaceFaceThicken") return RebuildSurfaceFaceThickenFromStore(featureId,error);
+  if (rec.type == "SurfaceSew" || rec.type == "SurfaceSewnSolid" ||
+      rec.type == "SurfaceOffset")
+    return RebuildSurfaceSewOffsetFromStore(featureId, error);
+  if (rec.type == "SurfaceSweep")
+    return RebuildSurfaceSweepFromStore(featureId, error);
+  if (rec.type == "SurfaceThicken")
+    return RebuildSurfaceThickenFromStore(featureId, error);
+  if (rec.type == "SurfaceTrim")
+    return RebuildSurfaceTrimFromStore(featureId, error);
+  if (rec.type == "SurfaceExtend")
+    return RebuildSurfaceExtendFromStore(featureId, error);
+  if (rec.type == "OutwardFacePush") return RebuildOutwardFacePushFromStore(featureId,error);
+  if (rec.type == "InwardFacePocket") return RebuildInwardFacePocketFromStore(featureId,error);
+  if (rec.type == "MoveFace") return RebuildMoveFaceFromStore(featureId,error);
+  if (rec.type == "OffsetFace") return RebuildOffsetFaceFromStore(featureId,error);
+  if (rec.type == "DeleteFace") return RebuildDeleteFaceFromStore(featureId,error);
+  if (rec.type == "ReplaceFace") return RebuildReplaceFaceFromStore(featureId,error);
   if (rec.type == "Union" || rec.type == "Subtract" ||
       rec.type == "Intersect") {
     return RebuildBooleanFromStore(featureId, error);

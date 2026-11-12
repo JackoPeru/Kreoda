@@ -360,6 +360,53 @@ TEST(Sketch, FixedConstraintPinsPoint) {
       std::hypot(sk.model.points[1].x, sk.model.points[1].y), 50.0, 1e-3);
 }
 
+TEST(Sketch, SymmetricPointsDrivenAcrossFixedConstructionAxisPersistUndoRedo) {
+  NewDoc("sk-symmetric");
+  std::string error;
+  kreoda::SketchModel m;
+  m.points={{"axis0",0,-20},{"axis1",0,20},{"a",-8,3},{"b",7,4}};
+  m.lines={{"axis","axis0","axis1"}};
+  m.constructionIds={"axis"};
+  m.constraints={{"fix0",kreoda::SketchConstraintKind::Fixed,{"axis0"},0},
+                 {"fix1",kreoda::SketchConstraintKind::Fixed,{"axis1"},0},
+                 {"fixa",kreoda::SketchConstraintKind::Fixed,{"a"},0},
+                 {"mirror",kreoda::SketchConstraintKind::Symmetric,{"a","b","axis"},0}};
+  ASSERT_TRUE(kreoda::CreateSketchFeature("sym-sketch","XY",m,&error))<<error;
+  kreoda::SketchFeature sketch;
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("sym-sketch",&sketch));
+  EXPECT_NEAR(sketch.model.points[3].x,8,1e-4);
+  EXPECT_NEAR(sketch.model.points[3].y,3,1e-4);
+  EXPECT_NE(sketch.model.constraints.end(),std::find_if(sketch.model.constraints.begin(),
+      sketch.model.constraints.end(),[](const auto& c){return c.kind==kreoda::SketchConstraintKind::Symmetric;}));
+  const auto json=kreoda::SerializeSketchModel(sketch.model);
+  EXPECT_NE(json.find("\"symmetric\""),std::string::npos);
+  kreoda::SketchModel parsed;
+  ASSERT_TRUE(kreoda::ParseSketchModel(json,&parsed,&error))<<error;
+  EXPECT_EQ(parsed.constraints.back().kind,kreoda::SketchConstraintKind::Symmetric);
+  auto rpc=[](int type,const std::string& id,const std::string& path="") {
+    kreoda::Json packet={{"protocolVersion",1},{"requestId",id},
+      {"documentId","sk-symmetric"},{"type",type}};
+    if(!path.empty())packet["path"]=path;
+    const auto bytes=kreoda::handle_command(packet.dump());
+    return kreoda::Json::parse(bytes.begin(),bytes.end());
+  };
+  ASSERT_EQ(rpc(8,"sym-undo")["status"],"ok");
+  EXPECT_FALSE(kreoda::SketchStore::instance().get("sym-sketch",&sketch));
+  ASSERT_EQ(rpc(9,"sym-redo")["status"],"ok");
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("sym-sketch",&sketch));
+  EXPECT_NEAR(sketch.model.points[3].x,8,1e-4);
+  const auto path=(std::filesystem::temp_directory_path()/"kreoda-symmetric-sketch.icad").string();
+  ASSERT_EQ(rpc(10,"sym-save",path)["status"],"ok");
+  ASSERT_EQ(rpc(2,"sym-new")["status"],"ok");
+  ASSERT_EQ(rpc(11,"sym-open",path)["status"],"ok");
+  ASSERT_TRUE(kreoda::SketchStore::instance().get("sym-sketch",&sketch));
+  EXPECT_NEAR(sketch.model.points[3].x,8,1e-4);
+  EXPECT_EQ(sketch.model.constraints.back().kind,kreoda::SketchConstraintKind::Symmetric);
+  std::filesystem::remove(path);
+  m.constraints.back().refs={"a","b","missing-axis"};
+  EXPECT_FALSE(kreoda::CreateSketchFeature("sym-bad","XY",m,&error));
+}
+
 TEST(Sketch, UnknownDragPointRejected) {
   using namespace kreoda;
   auto solver = CreateSketchSolver();

@@ -1,6 +1,7 @@
 #include "planegcs_solver.h"
 
 #include <cmath>
+#include <algorithm>
 #include <deque>
 #include <set>
 
@@ -22,11 +23,13 @@ SolveResult PlaneGcsSolver::solve(const SketchModel& model,
     // Owned pools (stable addresses via deque): unknowns point here.
     std::deque<double> coords;  // 2 per point, in point order
     std::deque<double> radii;   // 1 per circle/arc, in order
+    std::deque<double> ellipseAxes;  // major/minor pairs, in ellipse order
     std::deque<double> values;  // driving magnitudes (never unknowns)
     std::deque<double> angles;  // arc angles (constants in Phase 4)
     std::map<std::string, size_t> pointIndex;
     std::map<std::string, size_t> circleIndex;
     std::map<std::string, size_t> arcIndex;
+    std::map<std::string, size_t> ellipseIndex;
 
     for (size_t i = 0; i < model.points.size(); ++i) {
       pointIndex[model.points[i].id] = i;
@@ -40,6 +43,11 @@ SolveResult PlaneGcsSolver::solve(const SketchModel& model,
     for (size_t i = 0; i < model.arcs.size(); ++i) {
       arcIndex[model.arcs[i].id] = i;
       radii.push_back(model.arcs[i].r);
+    }
+    for (size_t i = 0; i < model.ellipses.size(); ++i) {
+      ellipseIndex[model.ellipses[i].id] = i;
+      ellipseAxes.push_back(model.ellipses[i].majorRadius);
+      ellipseAxes.push_back(model.ellipses[i].minorRadius);
     }
     const size_t circleCount = model.circles.size();
 
@@ -98,6 +106,7 @@ SolveResult PlaneGcsSolver::solve(const SketchModel& model,
     std::vector<std::string> tagToId;
     tagToId.reserve(model.constraints.size());
     std::set<double*> radiusUnknowns;
+    std::set<double*> ellipseAxisUnknowns;
     std::set<std::string> fixedPointIds;  // from Fixed-kind constraints
     std::vector<int> solvedTags;  // tags that added a real GCS constraint
     auto needRadiusUnknown = [&](double* r) { radiusUnknowns.insert(r); };
@@ -151,6 +160,42 @@ SolveResult PlaneGcsSolver::solve(const SketchModel& model,
         return nullptr;  // arcs handled by caller where needed
       };
       switch (c.kind) {
+        case SketchConstraintKind::Symmetric: {
+          if(c.refs.size()!=3 || !pointIndex.count(c.refs[0]) ||
+              !pointIndex.count(c.refs[1]) || !lineIndex.count(c.refs[2]) ||
+              c.refs[0]==c.refs[1]) {
+            result.error="symmetric needs [distinct pointA, pointB, axisLine]";
+            return result;
+          }
+          const auto& axis=model.lines[lineIndex[c.refs[2]]];
+          const auto& a=model.points[pointIndex[axis.p1]];
+          const auto& b=model.points[pointIndex[axis.p2]];
+          if(std::hypot(a.x-b.x,a.y-b.y)<1e-9) {
+            result.error="symmetric axis is degenerate";return result;
+          }
+          sys.addConstraintP2PSymmetric(points[pointIndex[c.refs[0]]],
+              points[pointIndex[c.refs[1]]],lines[lineIndex[c.refs[2]]],tag);
+          break;
+        }
+        case SketchConstraintKind::EllipseMajorRadius:
+        case SketchConstraintKind::EllipseMinorRadius: {
+          if (c.refs.size()!=1 || !std::isfinite(c.value) || c.value<=0) {
+            result.error="ellipse dimension requires one ellipse ID and positive finite value";
+            return result;
+          }
+          const auto ellipseIt=ellipseIndex.find(c.refs[0]);
+          if (ellipseIt==ellipseIndex.end()) {
+            result.error="ellipse dimension references unknown ellipse";
+            return result;
+          }
+          const size_t axisIndex=2*ellipseIt->second+
+              (c.kind==SketchConstraintKind::EllipseMajorRadius ? 0 : 1);
+          double* axis=&ellipseAxes[axisIndex];
+          values.push_back(c.value);
+          sys.addConstraintEqual(axis,&values.back(),tag);
+          ellipseAxisUnknowns.insert(axis);
+          break;
+        }
         case SketchConstraintKind::Coincident: {
           if (!needPoints(2)) return result;
           sys.addConstraintP2PCoincident(points[pointIndex[c.refs[0]]],
@@ -297,6 +342,7 @@ SolveResult PlaneGcsSolver::solve(const SketchModel& model,
       }
     }
     for (double* r : radiusUnknowns) unknowns.push_back(r);
+    for (double* axis : ellipseAxisUnknowns) unknowns.push_back(axis);
 
     sys.declareUnknowns(unknowns);
     sys.initSolution();
@@ -353,6 +399,10 @@ SolveResult PlaneGcsSolver::solve(const SketchModel& model,
       }
       for (size_t i = 0; i < model.arcs.size(); ++i) {
         result.radii[model.arcs[i].id] = radii[circleCount + i];
+      }
+      for (size_t i = 0; i < model.ellipses.size(); ++i) {
+        result.ellipseAxes[model.ellipses[i].id] =
+            {ellipseAxes[2*i],ellipseAxes[2*i+1]};
       }
     }
     return result;

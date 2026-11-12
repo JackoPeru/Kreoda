@@ -11,6 +11,7 @@
 #include "../../model/feature_graph.h"
 #include "../../model/model_snapshot.h"
 #include "../../document/document_store.h"
+#include "../../features/assembly/assembly_constraints.h"
 #include "../../protocol/json_fields.h"
 #include "sketch_json.h"
 #include "projected_geometry.h"
@@ -808,6 +809,9 @@ bool SetSketchProjectionGroup(const std::string& sketchId,
     } else if (!targetWasDirty) {
       TheFeatureGraph().clearDirty(sketchId);
     }
+    std::vector<AssemblyConstraintIssue> assemblyIssues;
+    std::string assemblyError;
+    if(!ReadAssemblyConstraintIssues(&assemblyIssues,&assemblyError))return rollback(assemblyError);
     if (ocaf.InTransaction()) DocumentStore::instance().noteFeature(sketchId, "Sketch");
     else DocumentStore::instance().registerFeature(sketchId, "Sketch");
     if (!ocaf.CommitCommand(nullptr, error))
@@ -890,6 +894,9 @@ bool RemoveSketchProjectionGroup(const std::string& sketchId,
     } else if (!targetWasDirty) {
       TheFeatureGraph().clearDirty(sketchId);
     }
+    std::vector<AssemblyConstraintIssue> assemblyIssues;
+    std::string assemblyError;
+    if(!ReadAssemblyConstraintIssues(&assemblyIssues,&assemblyError))return rollback(assemblyError);
     if (ocaf.InTransaction()) DocumentStore::instance().noteFeature(sketchId, "Sketch");
     else DocumentStore::instance().registerFeature(sketchId, "Sketch");
     if (!ocaf.CommitCommand(nullptr, error))

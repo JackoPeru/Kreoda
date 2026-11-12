@@ -1,12 +1,205 @@
 import { expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { commandNativeRequest, validateLegacyNativeCommand } from "./native-command.js";
-import { commandJsonSchema } from "./index.js";
+import { commandJsonSchema, featureGeometryKind } from "./index.js";
+
+it("exposes strict surface extrude, revolve and ordered loft commands as native 48-50", () => {
+  expect(commandJsonSchema("CreateSurfaceExtrude")).toMatchObject({ nativeType: 48, creation: { fixedCount: 1 } });
+  expect(commandJsonSchema("CreateSurfaceRevolve")).toMatchObject({ nativeType: 49, creation: { fixedCount: 1 } });
+  expect(commandJsonSchema("CreateSurfaceLoft")).toMatchObject({ nativeType: 50, creation: { fixedCount: 1 } });
+
+  expect(commandNativeRequest("CreateSurfaceExtrude", { sketchId: "sketch-a", distanceMm: -25 }, "surface-a"))
+    .toEqual({ type: 48, fields: { featureId: "surface-a", sketchId: "sketch-a", distanceMm: -25 } });
+  expect(commandNativeRequest("CreateSurfaceRevolve", { sketchId: "sketch-a", angleDeg: 360 }, "surface-b"))
+    .toEqual({ type: 49, fields: { featureId: "surface-b", sketchId: "sketch-a", angleDeg: 360,
+      axisOriginXMm: 0, axisOriginYMm: 0, axisOriginZMm: 0, axisX: 1, axisY: 0, axisZ: 0 } });
+  expect(commandNativeRequest("CreateSurfaceLoft", { sketchIds: ["section-a", "section-b"] }, "surface-c"))
+    .toEqual({ type: 50, fields: { featureId: "surface-c", sketchIds: ["section-a", "section-b"] } });
+
+  for (const invalid of [
+    ["CreateSurfaceExtrude", { sketchId: "sketch-a", distanceMm: 0 }],
+    ["CreateSurfaceExtrude", { sketchId: "sketch-a", distanceMm: 100001 }],
+    ["CreateSurfaceRevolve", { sketchId: "sketch-a", angleDeg: 361 }],
+    ["CreateSurfaceRevolve", { sketchId: "sketch-a", angleDeg: 90, axisX: 0, axisY: 0, axisZ: 0 }],
+    ["CreateSurfaceRevolve", { sketchId: "sketch-a", angleDeg: 90, axisOriginXMm: 100001 }],
+    ["CreateSurfaceRevolve", { sketchId: "sketch-a", angleDeg: 90, unsupported: true }],
+    ["CreateSurfaceLoft", { sketchIds: ["section-a", "section-a"] }],
+  ] as const) expect(() => commandNativeRequest(invalid[0], invalid[1], "surface-invalid")).toThrow();
+
+  expect(featureGeometryKind("SurfaceExtrude")).toBe("surface");
+  expect(featureGeometryKind("SurfaceRevolve")).toBe("surface");
+  expect(featureGeometryKind("SurfaceLoft")).toBe("surface");
+  expect(featureGeometryKind("SurfaceLoftSewnSolid")).toBe("solid");
+  expect(featureGeometryKind("SurfaceFaceThicken")).toBe("solid");
+  expect(featureGeometryKind("FutureSurfaceOperation")).toBe("solid");
+});
+
+it("exposes associative surface sew and signed exact offset as native commands 51-52", () => {
+  expect(commandJsonSchema("CreateSurfaceSew")).toMatchObject({
+    nativeType: 51, creation: { fixedCount: 1 },
+    selectionBindings: { featureIds: "owners" },
+  });
+  expect(commandJsonSchema("CreateSurfaceOffset")).toMatchObject({
+    nativeType: 52, creation: { fixedCount: 1 },
+    selectionBindings: { targetId: "owner" },
+  });
+  expect(commandNativeRequest("CreateSurfaceSew", { featureIds: ["surface-a", "surface-b"] }, "sew-1"))
+    .toEqual({ type: 51, fields: { featureId: "sew-1", featureIds: ["surface-a", "surface-b"],
+      toleranceMm: 0.01, makeSolid: false } });
+  expect(commandNativeRequest("CreateSurfaceSew", {
+    featureIds: ["surface-b", "surface-a"], toleranceMm: 0.2, makeSolid: true,
+  }, "solid-1")).toEqual({ type: 51, fields: { featureId: "solid-1", featureIds: ["surface-b", "surface-a"],
+    toleranceMm: 0.2, makeSolid: true } });
+  expect(commandNativeRequest("CreateSurfaceOffset", {
+    targetId: "surface-a", distanceMm: -2,
+  }, "offset-1")).toEqual({ type: 52, fields: {
+    featureId: "offset-1", targetId: "surface-a", distanceMm: -2, toleranceMm: 1e-6,
+  } });
+
+  for (const invalid of [
+    ["CreateSurfaceSew", { featureIds: [] }],
+    ["CreateSurfaceSew", { featureIds: ["surface-a", "surface-a"] }],
+    ["CreateSurfaceSew", { featureIds: ["surface-a"], toleranceMm: 0 }],
+    ["CreateSurfaceSew", { featureIds: ["surface-a"], toleranceMm: 1.1 }],
+    ["CreateSurfaceSew", { featureIds: ["surface-a"], makeSolid: 1 }],
+    ["CreateSurfaceSew", { featureIds: ["surface-a"], extra: true }],
+    ["CreateSurfaceOffset", { targetId: "surface-a", distanceMm: 0 }],
+    ["CreateSurfaceOffset", { targetId: "surface-a", distanceMm: 0.0000005 }],
+    ["CreateSurfaceOffset", { targetId: "surface-a", distanceMm: 100001 }],
+    ["CreateSurfaceOffset", { targetId: "surface-a", distanceMm: -100001 }],
+    ["CreateSurfaceOffset", { targetId: "surface-a", distanceMm: 2, toleranceMm: 1.1 }],
+    ["CreateSurfaceOffset", { targetId: "surface-a", distanceMm: 2, extra: true }],
+  ] as const) expect(() => commandNativeRequest(invalid[0], invalid[1], "surface-invalid")).toThrow();
+
+  expect(featureGeometryKind("SurfaceSew")).toBe("surface");
+  expect(featureGeometryKind("SurfaceOffset")).toBe("surface");
+  expect(featureGeometryKind("SurfaceSewnSolid")).toBe("solid");
+});
+
+it("exposes signed surface thickening as strict native command 54 producing a solid", () => {
+  expect(commandJsonSchema("CreateSurfaceThicken")).toMatchObject({ nativeType: 54, creation: { fixedCount: 1 } });
+  expect(commandNativeRequest("CreateSurfaceThicken", { targetId: "sheet", thicknessMm: -2 }, "thickened")).toEqual({
+    type: 54, fields: { featureId: "thickened", targetId: "sheet", thicknessMm: -2, toleranceMm: 1e-6 },
+  });
+  for (const invalid of [
+    { targetId: "sheet", thicknessMm: 0 }, { targetId: "sheet", thicknessMm: 1e-7 },
+    { targetId: "sheet", thicknessMm: 100001 }, { targetId: "sheet", thicknessMm: "1" },
+    { targetId: "sheet", thicknessMm: 1, toleranceMm: 2 },
+    { targetId: "sheet", thicknessMm: 1, unknown: true }, { targetId: "bad id", thicknessMm: 1 },
+  ]) expect(() => commandNativeRequest("CreateSurfaceThicken", invalid, "thickened")).toThrow();
+  expect(featureGeometryKind("SurfaceThicken")).toBe("solid");
+});
+
+it("exposes SurfaceSweep as strict native command 53 with ordered sketch roles", () => {
+  expect(commandJsonSchema("CreateSurfaceSweep")).toMatchObject({
+    nativeType: 53,
+    creation: { fixedCount: 1 },
+    selectionBindings: { profileSketchId: "firstSketch", pathSketchId: "secondSketch" },
+  });
+  expect(commandNativeRequest("CreateSurfaceSweep", {
+    profileSketchId: "profile-a", pathSketchId: "path-b",
+  }, "sweep-1")).toEqual({
+    type: 53,
+    fields: { featureId: "sweep-1", profileSketchId: "profile-a", pathSketchId: "path-b", toleranceMm: 1e-6 },
+  });
+  expect(commandNativeRequest("CreateSurfaceSweep", {
+    profileSketchId: "profile-a", pathSketchId: "path-b", toleranceMm: 0.002,
+  }, "sweep-2")).toEqual({
+    type: 53,
+    fields: { featureId: "sweep-2", profileSketchId: "profile-a", pathSketchId: "path-b", toleranceMm: 0.002 },
+  });
+  for (const invalid of [
+    { profileSketchId: "profile-a", pathSketchId: "path-b", toleranceMm: 0 },
+    { profileSketchId: "profile-a", pathSketchId: "path-b", toleranceMm: 1.1 },
+    { profileSketchId: "profile-a", pathSketchId: "profile-a" },
+    { profileSketchId: "../profile", pathSketchId: "path-b" },
+    { profileSketchId: "profile-a", pathSketchId: "path-b", toleranceMm: "0.1" },
+    { profileSketchId: "profile-a", pathSketchId: "path-b", extra: true },
+  ]) expect(() => commandNativeRequest("CreateSurfaceSweep", invalid, "sweep-invalid")).toThrow();
+  expect(featureGeometryKind("SurfaceSweep")).toBe("surface");
+  expect(featureGeometryKind("SurfaceSewnSolid")).toBe("solid");
+  expect(featureGeometryKind("SurfaceFaceThicken")).toBe("solid");
+});
 
 it("runtime schemas expose the actual creation budget including multi-hole commands", () => {
   expect(commandJsonSchema("CreateBox")).toHaveProperty("creation", { fixedCount: 1 });
   expect(commandJsonSchema("CreateHolePattern")).toHaveProperty("creation", { idArrayParameter: "featureIds" });
   expect(commandJsonSchema("UpdateSketch")).toHaveProperty("creation", { fixedCount: 0 });
+});
+
+it("exposes a persistent bounded inward STEP face pocket as native command 45", () => {
+  expect(commandJsonSchema("CreateInwardFacePocket")).toMatchObject({
+    nativeType: 45, creation: { fixedCount: 1 },
+  });
+  const valid = { sourceFeatureId: "imported", faceRole: "face.plane.+Z", distanceMm: 2 };
+  expect(commandNativeRequest("CreateInwardFacePocket", valid, "pocket-1")).toEqual({
+    type: 45, fields: { ...valid, featureId: "pocket-1" },
+  });
+  for (const invalid of [
+    { ...valid, distanceMm: 0 },
+    { ...valid, distanceMm: -1 },
+    { ...valid, distanceMm: Number.NaN },
+    { ...valid, faceRole: "face[0]" },
+    { ...valid, faceRole: "" },
+    { ...valid, unknown: true },
+  ]) expect(() => commandNativeRequest("CreateInwardFacePocket", invalid, "pocket-1")).toThrow();
+  expect(() => commandNativeRequest("CreateInwardFacePocket", valid, "bad:id")).toThrow();
+});
+
+it("exposes persistent planar face thickening as native command 46", () => {
+  expect(commandJsonSchema("CreateSurfaceFaceThicken")).toMatchObject({ nativeType: 46, creation: { fixedCount: 1 } });
+  const valid = { sourceFeatureId: "imported", faceRole: "box.+Z", thicknessMm: 3 };
+  expect(commandNativeRequest("CreateSurfaceFaceThicken", valid, "thicken-1")).toEqual({
+    type: 46, fields: { ...valid, featureId: "thicken-1" },
+  });
+  for (const invalid of [
+    { ...valid, thicknessMm: 0 }, { ...valid, thicknessMm: -2 },
+    { ...valid, thicknessMm: Number.NaN }, { ...valid, faceRole: "face[0]" },
+    { ...valid, extra: "not allowed" },
+  ]) expect(() => commandNativeRequest("CreateSurfaceFaceThicken", invalid, "thicken-1")).toThrow();
+});
+
+it("validates canonical bounded assembly mates as native command 47", () => {
+  expect(commandJsonSchema("DefineAssemblyConstraint")).toMatchObject({ nativeType: 47, creation: { fixedCount: 0 } });
+  const ground = { constraintId: "fix-a", kind: "ground", movingId: "instance-a" };
+  const coincident = { constraintId: "align-b", kind: "coincident", movingId: "instance-b", fixedId: "instance-a" };
+  const distance = { constraintId: "dist-b", kind: "distance", movingId: "instance-b", fixedId: "instance-a", axis: 2, distanceMm: -12 };
+  for (const value of [ground, coincident, distance]) {
+    expect(commandNativeRequest("DefineAssemblyConstraint", value)).toEqual({ type: 47, fields: value });
+  }
+  for (const invalid of [
+    { ...ground, fixedId: "unexpected" }, { ...coincident, axis: 0 },
+    { ...distance, axis: 3 }, { ...distance, distanceMm: Number.NaN },
+    { ...coincident, fixedId: "" }, { ...distance, distanceMm: 2, untrusted: true },
+  ]) expect(() => commandNativeRequest("DefineAssemblyConstraint", invalid)).toThrow();
+});
+
+it("validates captured analytic geometric mates and strict source bindings", () => {
+  const face = { type: "face", featureId: "source-a", persistentFaceId: "box.+Z", geometryKind: "plane" };
+  const edge = { type: "edge", featureId: "source-b", persistentEdgeId: "edge.cir.box.+Z", geometryKind: "circle" };
+  const common = {
+    constraintId: "mate-1", movingId: "instance-a", fixedId: "instance-b",
+    captureRevision: 12, movingPickId: "instance-a:box.+Z", fixedPickId: "instance-b:box.+Z",
+    movingSourceBinding: face, fixedSourceBinding: face,
+  };
+  const variants = [
+    { ...common, kind: "concentric", movingSourceBinding: edge, fixedSourceBinding: edge },
+    { ...common, kind: "parallel" },
+    { ...common, kind: "perpendicular" },
+    { ...common, kind: "angle", movingSourceBinding: edge, fixedSourceBinding: face, angleDeg: 30 },
+  ];
+  for (const value of variants)
+    expect(commandNativeRequest("DefineAssemblyConstraint", value)).toEqual({ type: 47, fields: value });
+  for (const invalid of [
+    { ...variants[1], captureRevision: -1 },
+    { ...variants[1], captureRevision: Number.MAX_SAFE_INTEGER + 1 },
+    { ...variants[1], clientExtra: true },
+    { ...variants[1], movingSourceBinding: { ...face, persistentFaceId: "source-a:box.+Z" } },
+    { ...variants[0], fixedSourceBinding: { ...edge, persistentEdgeId: "x".repeat(513) } },
+    { ...variants[1], movingSourceBinding: { ...face, selectionEntry: "0:1:3" } },
+    { ...variants[1], movingSourceBinding: { ...face, persistentEdgeId: "edge.lin.x" } },
+    { ...variants[3], angleDeg: 181 },
+  ]) expect(() => commandNativeRequest("DefineAssemblyConstraint", invalid)).toThrow();
 });
 
 it("exports datum constructors with one creation and update/query with zero", () => {
@@ -44,6 +237,20 @@ it("exports strict projection commands with zero allocation and wire parity", ()
   for (const [id, type] of [["SetSketchProjection", 36], ["RemoveSketchProjection", 37], ["RequestSketchProjection", 38]] as const) {
     expect(commandJsonSchema(id)).toMatchObject({ nativeType: type, creation: { fixedCount: 0 } });
   }
+  expect(commandNativeRequest("DefineConfiguration", { name: "variant-A", overrides: { box: { widthMm: 120 } } })).toEqual({
+    type: 40, fields: { name: "variant-A", overrides: { box: { widthMm: 120 } } },
+  });
+  expect(commandNativeRequest("ActivateConfiguration", { name: "variant-A" })).toEqual({ type: 41, fields: { name: "variant-A" } });
+  expect(commandNativeRequest("QueryConfigurations", {})).toEqual({ type: 42, fields: {} });
+  for (const invalid of [
+    { name: "", overrides: { box: { widthMm: 120 } } },
+    { name: "variant", overrides: {} },
+    { name: "variant", overrides: { box: {} } },
+    { name: "variant", overrides: { box: { widthMm: Number.NaN } } },
+    { name: "variant", overrides: { box: { widthMm: Number.POSITIVE_INFINITY } } },
+  ]) expect(() => commandNativeRequest("DefineConfiguration", invalid)).toThrow();
+  expect(() => commandNativeRequest("ActivateConfiguration", { name: "variant", extra: 1 })).toThrow();
+  expect(() => commandNativeRequest("QueryConfigurations", { mutate: true })).toThrow();
   const parameters = commandJsonSchema("SetSketchProjection")!.parameters as { properties: { definition: unknown } };
   expect(parameters.properties.definition).toEqual(expand(contract.definitions["SketchProjectionDefinition"]));
   const definitionSchema = parameters.properties.definition as { maxJsonUtf8Bytes: number };
@@ -229,4 +436,31 @@ it("exports actual parameter constraints from the registry through the standard 
   expect(exported.nativeType).toBe(3);
   expect(exported.parameters).toMatchObject({ type: "object", required: ["widthMm", "heightMm", "depthMm"], properties: { widthMm: { type: "number", exclusiveMinimum: 0, maximum: 100000 } } });
   expect(commandJsonSchema("CreateShell")).toBeNull();
+});
+
+it("registers four strict face-history commands with fenced owner references", () => {
+  const face = { type: "face", featureId: "source-a", persistentFaceId: "source-a:box.+Z" };
+  const common = { sourceFeatureId: "source-a", sourceFace: face, captureRevision: 7 };
+  const move = { ...common, translationMm: { x: 0, y: 0, z: 2 },
+    rotationDeg: { x: 0, y: 0, z: 0 }, pivotMm: { x: 0, y: 0, z: 0 } };
+  const replacementFace = { type: "face", featureId: "support-b", persistentFaceId: "box.+X" };
+
+  expect(commandJsonSchema("CreateMoveFace")!.nativeType).toBe(57);
+  expect(commandJsonSchema("CreateOffsetFace")!.nativeType).toBe(58);
+  expect(commandJsonSchema("CreateDeleteFace")!.nativeType).toBe(59);
+  expect(commandJsonSchema("CreateReplaceFace")!.nativeType).toBe(60);
+  expect(featureGeometryKind("MoveFace")).toBe("solid");
+  expect(commandNativeRequest("CreateMoveFace", move, "move-a")).toEqual({
+    type: 57, fields: { ...move, featureId: "move-a" },
+  });
+  expect(commandNativeRequest("CreateOffsetFace", { ...common, distanceMm: -1 }, "offset-a").type).toBe(58);
+  expect(commandNativeRequest("CreateDeleteFace", common, "delete-a").type).toBe(59);
+  expect(commandNativeRequest("CreateReplaceFace", { ...common, replacementFace }, "replace-a").type).toBe(60);
+
+  expect(() => commandNativeRequest("CreateMoveFace", { ...move, captureRevision: Number.MAX_SAFE_INTEGER + 1 }, "move-b")).toThrow();
+  expect(() => commandNativeRequest("CreateMoveFace", { ...move, sourceFace: { ...face, featureId: "other" } }, "move-b")).toThrow();
+  expect(() => commandNativeRequest("CreateMoveFace", { ...move, sourceFace: { ...face, persistentFaceId: "other:box.+Z" } }, "move-b")).toThrow();
+  expect(() => commandNativeRequest("CreateMoveFace", { ...move, sourceFace: { ...face, selectionEntry: "0:1:4" } }, "move-b")).toThrow();
+  expect(() => commandNativeRequest("CreateOffsetFace", { ...common, distanceMm: 0 }, "offset-b")).toThrow();
+  expect(() => commandNativeRequest("CreateDeleteFace", { ...common, distanceMm: 1 }, "delete-b")).toThrow();
 });

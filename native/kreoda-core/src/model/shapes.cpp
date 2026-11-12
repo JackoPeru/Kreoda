@@ -71,6 +71,21 @@ std::vector<std::string> DescribeParams(const std::string& type) {
   if (type == "Sphere") return {"radiusMm"};
   if (type == "Extrude") return {"distanceMm"};
   if (type == "Revolve") return {"angleDeg"};
+  if (type == "SurfaceExtrude") return {"distanceMm"};
+  if (type == "SurfaceRevolve")
+    return {"angleDeg", "axisOriginXMm", "axisOriginYMm", "axisOriginZMm",
+            "axisX", "axisY", "axisZ"};
+  if (type == "SurfaceSew" || type == "SurfaceSewnSolid")
+    return {"toleranceMm"};
+  if (type == "SurfaceSweep") return {"toleranceMm"};
+  if (type == "SurfaceOffset") return {"distanceMm", "toleranceMm"};
+  if (type == "SurfaceThicken") return {"thicknessMm", "toleranceMm"};
+  if (type == "SurfaceTrim") return {"keepU", "keepV", "toleranceMm"};
+  if (type == "SurfaceExtend") return {"distanceMm", "toleranceMm"};
+  if (type == "MoveFace")
+    return {"txMm", "tyMm", "tzMm", "rxDeg", "ryDeg", "rzDeg",
+            "pxMm", "pyMm", "pzMm"};
+  if (type == "OffsetFace") return {"distanceMm"};
   if (type == "Hole") return {"diameterMm", "depthMm"};
   if (type == "HolePattern") return {"diameterMm", "depthMm", "count"};
   if (type == "Fillet") return {"radiusMm"};

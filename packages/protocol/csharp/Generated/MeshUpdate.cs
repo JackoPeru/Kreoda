@@ -90,6 +90,14 @@ public struct MeshUpdate : IFlatbufferObject
 #endif
   public double[] GetBboxMmArray() { return __p.__vector_as_array<double>(32); }
   public long Revision { get { int o = __p.__offset(34); return o != 0 ? __p.bb.GetLong(o + __p.bb_pos) : (long)0; } }
+  public byte CurvatureMaxAbsPerMm(int j) { int o = __p.__offset(36); return o != 0 ? __p.bb.Get(__p.__vector(o) + j * 1) : (byte)0; }
+  public int CurvatureMaxAbsPerMmLength { get { int o = __p.__offset(36); return o != 0 ? __p.__vector_len(o) : 0; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetCurvatureMaxAbsPerMmBytes() { return __p.__vector_as_span<byte>(36, 1); }
+#else
+  public ArraySegment<byte>? GetCurvatureMaxAbsPerMmBytes() { return __p.__vector_as_arraysegment(36); }
+#endif
+  public byte[] GetCurvatureMaxAbsPerMmArray() { return __p.__vector_as_array<byte>(36); }
 
   public static Offset<Kreoda.Protocol.MeshUpdate> CreateMeshUpdate(FlatBufferBuilder builder,
       StringOffset feature_idOffset = default(StringOffset),
@@ -107,10 +115,12 @@ public struct MeshUpdate : IFlatbufferObject
       VectorOffset edgesOffset = default(VectorOffset),
       double volume_mm3 = 0.0,
       VectorOffset bbox_mmOffset = default(VectorOffset),
-      long revision = 0) {
-    builder.StartTable(16);
+      long revision = 0,
+      VectorOffset curvature_max_abs_per_mmOffset = default(VectorOffset)) {
+    builder.StartTable(17);
     MeshUpdate.AddRevision(builder, revision);
     MeshUpdate.AddVolumeMm3(builder, volume_mm3);
+    MeshUpdate.AddCurvatureMaxAbsPerMm(builder, curvature_max_abs_per_mmOffset);
     MeshUpdate.AddBboxMm(builder, bbox_mmOffset);
     MeshUpdate.AddEdges(builder, edgesOffset);
     MeshUpdate.AddFaces(builder, facesOffset);
@@ -128,7 +138,7 @@ public struct MeshUpdate : IFlatbufferObject
     return MeshUpdate.EndMeshUpdate(builder);
   }
 
-  public static void StartMeshUpdate(FlatBufferBuilder builder) { builder.StartTable(16); }
+  public static void StartMeshUpdate(FlatBufferBuilder builder) { builder.StartTable(17); }
   public static void AddFeatureId(FlatBufferBuilder builder, StringOffset featureIdOffset) { builder.AddOffset(0, featureIdOffset.Value, 0); }
   public static void AddBodyId(FlatBufferBuilder builder, StringOffset bodyIdOffset) { builder.AddOffset(1, bodyIdOffset.Value, 0); }
   public static void AddLod(FlatBufferBuilder builder, sbyte lod) { builder.AddSbyte(2, lod, 0); }
@@ -180,6 +190,12 @@ public struct MeshUpdate : IFlatbufferObject
   public static VectorOffset CreateBboxMmVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<double>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartBboxMmVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 8); }
   public static void AddRevision(FlatBufferBuilder builder, long revision) { builder.AddLong(15, revision, 0); }
+  public static void AddCurvatureMaxAbsPerMm(FlatBufferBuilder builder, VectorOffset curvatureMaxAbsPerMmOffset) { builder.AddOffset(16, curvatureMaxAbsPerMmOffset.Value, 0); }
+  public static VectorOffset CreateCurvatureMaxAbsPerMmVector(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); for (int i = data.Length - 1; i >= 0; i--) builder.AddByte(data[i]); return builder.EndVector(); }
+  public static VectorOffset CreateCurvatureMaxAbsPerMmVectorBlock(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateCurvatureMaxAbsPerMmVectorBlock(FlatBufferBuilder builder, ArraySegment<byte> data) { builder.StartVector(1, data.Count, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateCurvatureMaxAbsPerMmVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<byte>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartCurvatureMaxAbsPerMmVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(1, numElems, 1); }
   public static Offset<Kreoda.Protocol.MeshUpdate> EndMeshUpdate(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<Kreoda.Protocol.MeshUpdate>(o);
@@ -208,6 +224,7 @@ static public class MeshUpdateVerify
       && verifier.VerifyField(tablePos, 30 /*VolumeMm3*/, 8 /*double*/, 8, false)
       && verifier.VerifyVectorOfData(tablePos, 32 /*BboxMm*/, 8 /*double*/, false)
       && verifier.VerifyField(tablePos, 34 /*Revision*/, 8 /*long*/, 8, false)
+      && verifier.VerifyVectorOfData(tablePos, 36 /*CurvatureMaxAbsPerMm*/, 1 /*byte*/, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

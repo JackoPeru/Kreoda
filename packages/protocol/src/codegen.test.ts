@@ -20,6 +20,8 @@ import { FaceRange } from "./generated/kreoda/protocol/face-range.js";
 import { EdgeRange } from "./generated/kreoda/protocol/edge-range.js";
 
 type MeshFixtureOverrides = {
+  curvature?: number[];
+  curvatureBytes?: Uint8Array;
   requestId?: string;
   featureId?: string;
   bodyId?: string;
@@ -61,6 +63,8 @@ function meshFixture(overrides: MeshFixtureOverrides = {}): Uint8Array {
     EdgeRange.createEdgeRange(builder, builder.createString(edge.id), edge.start, edge.count));
   const edgesOffset = MeshUpdate.createEdgesVector(builder, edgeOffsets);
   const bboxOffset = MeshUpdate.createBboxMmVector(builder, overrides.bboxMm ?? [0, 0, 0, 1, 1, 1]);
+  const curvatureOffset = overrides.curvatureBytes || overrides.curvature
+    ? MeshUpdate.createCurvatureMaxAbsPerMmVector(builder, overrides.curvatureBytes ?? bytes(overrides.curvature!)) : 0;
   const update = MeshUpdate.createMeshUpdate(
     builder,
     fid,
@@ -79,12 +83,25 @@ function meshFixture(overrides: MeshFixtureOverrides = {}): Uint8Array {
     overrides.volumeMm3 ?? 1,
     bboxOffset,
     overrides.revision ?? BigInt(7),
+    curvatureOffset,
   );
   builder.finish(update);
   return builder.asUint8Array();
 }
 
 describe("flatc codegen parity (§61)", () => {
+  it("preserves native curvature samples and the explicit unknown sentinel", () => {
+    const mesh = decodeMeshUpdateFb(meshFixture({ curvature: [0, .125, -1] }));
+    expect(mesh.curvatureMaxAbsPerMm).toEqual(new Float32Array([0, .125, -1]));
+    expect(decodeMeshUpdateFb(meshFixture()).curvatureMaxAbsPerMm).toBeUndefined();
+  });
+  it.each([[.1], [0, 0, 0, 0], [NaN, 0, 0], [Infinity, 0, 0], [-.5, 0, 0], [-2, 0, 0]])(
+    "rejects malformed native curvature %j", (...curvature) => {
+      expect(() => decodeMeshUpdateFb(meshFixture({ curvature }))).toThrow();
+    });
+  it("rejects a truncated packed curvature float", () => {
+    expect(() => decodeMeshUpdateFb(meshFixture({ curvatureBytes: new Uint8Array([1]) }))).toThrow();
+  });
   it("generated CommandType matches the handwritten registry", () => {
     const names = Object.keys(Handwritten) as (keyof typeof Handwritten)[];
     expect(names.length).toBeGreaterThan(0);
@@ -92,6 +109,13 @@ describe("flatc codegen parity (§61)", () => {
       const generatedValue = (Generated as unknown as Record<string, number>)[name];
       expect(generatedValue, `CommandType.${name}`).toBe(Handwritten[name]);
     }
+  });
+
+  it("keeps the four direct face-history IDs after existing command values", () => {
+    expect(Handwritten.CreateMoveFace).toBe(57);
+    expect(Handwritten.CreateOffsetFace).toBe(58);
+    expect(Handwritten.CreateDeleteFace).toBe(59);
+    expect(Handwritten.CreateReplaceFace).toBe(60);
   });
 
   it("CreateBox envelope round-trips through the generated bindings", () => {
@@ -156,7 +180,7 @@ describe("flatc codegen parity (§61)", () => {
     const reqId = builder.createString("req-7");
     const update = MeshUpdate.createMeshUpdate(
       builder, fid, fid, 1, reqId, 9, 9, 3,
-      posOff, nrmOff, idxOff, 0, faces, 0, 60000, bbox, BigInt(7),
+      posOff, nrmOff, idxOff, 0, faces, 0, 60000, bbox, BigInt(7), 0,
     );
     builder.finish(update);
     const bytes = builder.asUint8Array();
@@ -271,7 +295,7 @@ describe("flatc codegen parity (§61)", () => {
       builder, fid, fid, 1, fid, 0, 0, 0, emptyF32, emptyF32, emptyU32, 0,
       noFaces, 0, 0,
       MeshUpdate.createBboxMmVector(builder, [0, 0, 0, 0, 0, 0]),
-      BigInt(1),
+      BigInt(1), 0,
     );
     builder.finish(update);
     // Empty mesh decodes (zero triangles) — routing, not content, asserted.

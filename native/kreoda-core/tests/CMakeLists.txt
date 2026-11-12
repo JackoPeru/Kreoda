@@ -29,6 +29,17 @@ add_executable(kreoda-core-tests
   test_projection.cpp
   ../src/features/sketch/projected_geometry.cpp
   test_solids.cpp
+  test_surface_loft.cpp
+  test_surface_modeling.cpp
+  test_surface_sew_offset.cpp
+  test_surface_sweep.cpp
+  test_surface_thicken.cpp
+  test_surface_trim_extend.cpp
+  test_configurations.cpp
+  test_assembly_constraints.cpp
+  test_direct_face.cpp
+  test_direct_face_history.cpp
+  test_advanced_sketch.cpp
   test_step.cpp
   test_stl.cpp
   test_threemf.cpp
@@ -49,6 +60,7 @@ add_executable(kreoda-core-tests
   ../src/model/shapes.cpp
   ../src/model/commit.cpp
   ../src/features/primitives/primitives.cpp
+  ../src/features/direct/face_history.cpp
   ../src/features/rebuild.cpp
   ../src/features/datum/datum_commands.cpp
   ../src/features/datum/datum_json.cpp
@@ -62,6 +74,7 @@ add_executable(kreoda-core-tests
   ../src/features/revolve/revolve.cpp
   ../src/features/booleans/boolean.cpp
   ../src/features/hole/hole.cpp
+  ../src/features/assembly/assembly_geometry.cpp
   ../src/features/instance/instance.cpp
   ../src/features/fillet/fillet.cpp
   ../src/topology/face_roles.cpp
@@ -112,7 +125,7 @@ endif()
 if(OpenCASCADE_FOUND)
   target_link_libraries(kreoda-core-tests PRIVATE
     TKernel TKMath TKCDF TKLCAF TKCAF TKBin TKBinL TKBinXCAF TKXCAF
-    TKBRep TKTopAlgo TKGeomAlgo TKGeomBase TKG3d TKG2d TKPrim TKBO
+    TKBRep TKTopAlgo TKGeomAlgo TKGeomBase TKG3d TKG2d TKPrim TKBO TKOffset
     TKMesh TKShHealing TKXSBase TKFillet TKHLR TKDE TKDESTEP TKDESTL TKDEOBJ
   )
 endif()

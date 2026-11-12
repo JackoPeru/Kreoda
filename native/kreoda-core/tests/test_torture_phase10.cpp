@@ -353,12 +353,12 @@ TEST(Torture10, TopologySurvivesParentMutations) {
 
   // Reverse dominant dimensions: depth 20→150 is fine (through-hole
   // follows), but shrinking width 150→20 pushes the hole at x=50 off the
-  // face — the recompute must fail HONESTLY ("misses the solid") with the
-  // old geometry kept, never a silent rebind (§10.3 repair state).
+  // face — the outer-boundary guard must fail HONESTLY ("outside selected
+  // face") with the old geometry kept, never a silent rebind (§10.3 repair state).
   ASSERT_TRUE(kreoda::RebuildFeature("tb", "depthMm", 150, &err)) << err;
   EXPECT_TRUE(TopFaceResolves("tb"));
   EXPECT_FALSE(kreoda::RebuildFeature("tb", "widthMm", 20, &err));
-  EXPECT_NE(err.find("misses the solid"), std::string::npos) << err;
+  EXPECT_NE(err.find("outside selected face"), std::string::npos) << err;
   EXPECT_DOUBLE_EQ(ParamOf("tb", "widthMm"), 150.0);
   // Depth is now 150: the through-hole tool volume tracks the drilled depth.
   const double tool150 = 3.14159265358979 * 16.0 * 150.0;
@@ -400,7 +400,7 @@ TEST(Torture10, UpstreamEditFailureKeepsTipAtLastGood) {
   // Shrinking width 100→20 pushes the hole at x=50 off the face: honest
   // failure with everything kept (params, volumes, body, tip).
   EXPECT_FALSE(kreoda::RebuildFeature("tbt", "widthMm", 20, &err));
-  EXPECT_NE(err.find("misses the solid"), std::string::npos) << err;
+  EXPECT_NE(err.find("outside selected face"), std::string::npos) << err;
   EXPECT_DOUBLE_EQ(ParamOf("tbt", "widthMm"), 100.0);
   EXPECT_DOUBLE_EQ(VolumeOf("tht"), holeVol);
   EXPECT_DOUBLE_EQ(VolumeOf("tft"), filletVol);
@@ -653,7 +653,7 @@ TEST(Torture10, UpstreamInsertionFailureRestoresAllState) {
 #endif
 }
 
-TEST(Torture10, UpstreamInsertionRejectsIndexedReferencesAndAmbiguousFaces) {
+TEST(Torture10, UpstreamInsertionRejectsIndexedReferencesAndInvalidFaceTargets) {
 #if KREODA_WITH_OCCT
   std::string err;
   const auto setup = [&] {
@@ -681,12 +681,21 @@ TEST(Torture10, UpstreamInsertionRejectsIndexedReferencesAndAmbiguousFaces) {
   setup();
   const auto volume = VolumeOf("old");
   const auto undos = kreoda::OcafLive::instance().AvailableUndos();
-  reply = insert("blind", 3);  // blind cap duplicates box.+Z on the new target
-  EXPECT_FALSE(ok(reply));
-  EXPECT_NE(reply.find("needs repair"), std::string::npos) << reply;
+  reply = insert("blind", 3);
+  ASSERT_TRUE(ok(reply)) << reply;
+  constexpr double pi = 3.14159265358979323846;
+  EXPECT_NEAR(VolumeOf("old"), volume - 48 * pi, .01);
+  EXPECT_TRUE(kreoda::ShapeStore::instance().contains("new"));
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos + 1);
+  kreoda::BodyRecord insertedBody;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("old", &insertedBody));
+  EXPECT_EQ(insertedBody.history, (std::vector<std::string>{"plate", "new", "old"}));
+  ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"undo-blind-insert","documentId":"insert-guard","type":8})")));
   EXPECT_FALSE(kreoda::ShapeStore::instance().contains("new"));
   EXPECT_NEAR(VolumeOf("old"), volume, 1e-6);
   EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("old", &insertedBody));
+  EXPECT_EQ(insertedBody.history, (std::vector<std::string>{"plate", "old"}));
   ASSERT_TRUE(kreoda::OcafLive::instance().BeginTransaction("txn", &err));
   EXPECT_FALSE(ok(insert("throughAll", 0)));
   EXPECT_TRUE(kreoda::OcafLive::instance().InTransaction());
@@ -703,11 +712,53 @@ TEST(Torture10, UpstreamInsertionRejectsIndexedReferencesAndAmbiguousFaces) {
   ASSERT_TRUE(kreoda::CreateBoxFeature("tool", 40, 40, 40, &err));
   ASSERT_TRUE(kreoda::CreateBooleanFeature("fused", "fuse", "base", "tool", &err));
   ASSERT_TRUE(kreoda::CreateHoleFeature("old", "fused", "box.+Z", 20, 20, 8, "throughAll", 0, &err));
-  const auto ambiguousVolume = VolumeOf("old");
+  const auto steppedVolume = VolumeOf("old");
+  const auto steppedUndos = kreoda::OcafLive::instance().AvailableUndos();
+  kreoda::BodyRecord steppedBefore, steppedAfter;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("old", &steppedBefore));
+  err.clear();
   EXPECT_FALSE(kreoda::CreateHoleFeature("new", "fused", "box.+Z", 70, 20, 8,
       "throughAll", 0, &err, "old"));
-  EXPECT_NE(err.find("selected face needs repair"), std::string::npos) << err;
-  EXPECT_NEAR(VolumeOf("old"), ambiguousVolume, 1e-6);
+  EXPECT_NE(err.find("outside selected face"), std::string::npos) << err;
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("new"));
+  EXPECT_NEAR(VolumeOf("old"), steppedVolume, 1e-6);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), steppedUndos);
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("old", &steppedAfter));
+  EXPECT_EQ(steppedAfter.history, steppedBefore.history);
+#endif
+}
+
+TEST(Torture10, CoaxialCounterboreUsesOuterBoundaryAndRemainsEditableAfterUndo) {
+#if KREODA_WITH_OCCT
+  NewDoc("coaxial-counterbore");
+  std::string err;
+  constexpr double pi = 3.14159265358979323846;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("plate", 100, 60, 10, &err)) << err;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("through", "plate", "box.+Z", 50, 30,
+      6, "throughAll", 0, &err)) << err;
+  const double throughVolume = VolumeOf("through");
+  EXPECT_NEAR(throughVolume, 60000 - 90 * pi, .01);
+  const int throughUndos = kreoda::OcafLive::instance().AvailableUndos();
+
+  ASSERT_TRUE(kreoda::CreateHoleFeature("counterbore", "through", "box.+Z",
+      50, 30, 10, "blind", 3, &err)) << err;
+  EXPECT_NEAR(VolumeOf("counterbore"), 60000 - 138 * pi, .01);
+  const int counterboreUndos = kreoda::OcafLive::instance().AvailableUndos();
+  EXPECT_EQ(counterboreUndos, throughUndos + 1);
+
+  ASSERT_TRUE(kreoda::RebuildFeature("counterbore", "diameterMm", 12, &err)) << err;
+  EXPECT_NEAR(VolumeOf("counterbore"), 60000 - 171 * pi, .01);
+  ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"undo-counterbore-edit","documentId":"coaxial-counterbore","type":8})")));
+  EXPECT_NEAR(VolumeOf("counterbore"), 60000 - 138 * pi, .01);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), counterboreUndos);
+
+  ASSERT_TRUE(ok(rpc(R"({"protocolVersion":1,"requestId":"undo-counterbore-create","documentId":"coaxial-counterbore","type":8})")));
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("counterbore"));
+  EXPECT_NEAR(VolumeOf("through"), throughVolume, 1e-6);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), throughUndos);
+  kreoda::BodyRecord body;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("through", &body));
+  EXPECT_EQ(body.history, (std::vector<std::string>{"plate", "through"}));
 #endif
 }
 

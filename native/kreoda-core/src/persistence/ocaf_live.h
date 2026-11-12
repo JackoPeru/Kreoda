@@ -89,6 +89,14 @@ class OcafLive {
   // command so Undo/Redo restores formulas with geometry.
   bool UpsertExpressions(const std::string& featureId,
                          const std::string& exprJson, std::string* error);
+  // Document-scoped configuration definitions and active name, persisted as
+  // an OCAF attribute (never as copied B-Rep geometry). Caller owns command.
+  bool WriteConfigurations(const std::string& json, std::string* error);
+  bool ReadConfigurations(std::string* json, std::string* error) const;
+  bool WriteAssemblyConstraints(const std::string& json, std::string* error);
+  bool ReadAssemblyConstraints(std::string* json, std::string* error) const;
+  bool WriteBodyVisibility(const std::string& json,std::string* error);
+  bool ReadBodyVisibility(std::string* json,std::string* error) const;
 
   // Sketch labels (§21): sketches live under a Sketches folder as
   // name=sketch UUID + comment=serialized SketchFeature JSON. Mutations run
@@ -96,7 +104,10 @@ class OcafLive {
   bool UpsertDatum(const std::string& datumId, const std::string& datumJson,
                    std::string* error);
   // Bind native datum picks within its caller-owned OCAF command.
-  bool BindDatumSources(const std::string& datumId,std::string* definitionJson,std::string* error,bool refreshSemantic=false);
+  // verifiedRefresh may renew a lost selection only after the caller proves
+  // its parametric generator identity; ordinary indexed references still fail.
+  bool BindDatumSources(const std::string& datumId,std::string* definitionJson,std::string* error,bool refreshSemantic=false,
+                        const DatumSelectionResolver& verifiedRefresh={});
   DatumSelectionResolver DatumSourceResolver() const;
   bool UpsertSketch(const std::string& sketchId, const std::string& sketchJson,
                     std::string* error);

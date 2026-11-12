@@ -1,6 +1,14 @@
 // Generated from schemas/session-control-v1.json. Do not edit.
-// Source SHA256: b7dff8708d888a008674e473c309ef682aca58e993d76e397aa3946e2727525f
+// Source SHA256: 70dbfd2eb9ed09ccf73066d955ce0cb3024547663b9690950a173a2c80948328
 type StableFeatureID = string;
+
+type VoiceRequestID = string;
+
+type VoiceDocumentID = string;
+
+type VoiceRevision = number;
+
+type VoiceText = string;
 
 export interface RequestMetadata {
     operationId?: string;
@@ -75,12 +83,115 @@ export interface TxnParams {
 }
 
 export interface ErrorReply {
-    error:     string;
-    errorCode: string;
-    ok:        boolean;
-    requestId: string;
+    error:              string;
+    errorCode:          string;
+    ok:                 boolean;
+    recovery?:          SessionRecoveryIdentity;
+    recoveryPersisted?: boolean;
+    requestId:          string;
+    runId?:             string;
+    stage?:             string;
+    status?:            ErrorReplyStatus;
     [property: string]: unknown;
 }
+
+export interface SessionRecoveryIdentity {
+    baseRevision:  number;
+    causeCode:     string;
+    documentId:    string;
+    ownerClientId: null | string;
+    requestId:     string;
+    sessionId:     string;
+    transactionId: string;
+}
+
+export type ErrorReplyStatus = "uncertain";
+
+export interface GetVoiceStatusParams {
+}
+
+export interface GetVoiceStatusPayload {
+    configured: boolean;
+    documentId: string;
+    reachable:  boolean;
+    revision:   number;
+    sessionId:  string;
+}
+
+export interface TranscribeVoiceParams {
+    documentId:       string;
+    expectedRevision: number;
+    voiceRequestId:   string;
+    wavBase64:        string;
+}
+
+export interface TranscribeVoicePayload {
+    documentId:     string;
+    revision:       number;
+    sessionId:      string;
+    text:           string;
+    voiceRequestId: string;
+}
+
+export interface VoiceTurnParams {
+    context:          VoiceContext;
+    documentId:       string;
+    expectedRevision: number;
+    text:             string;
+    voiceRequestId:   string;
+}
+
+export interface VoiceContext {
+    documentId:     string;
+    revision:       number;
+    sessionId:      string;
+    voiceRequestId: string;
+    [property: string]: unknown;
+}
+
+export interface VoiceTurnPayload {
+    documentId:     string;
+    reply:          VoiceTurnAgentReply;
+    revision:       number;
+    sessionId:      string;
+    voiceRequestId: string;
+}
+
+export interface VoiceTurnAgentReply {
+    runId:      string;
+    sessionId?: null | string;
+    text:       string;
+}
+
+export interface SynthesizeVoiceParams {
+    documentId:       string;
+    expectedRevision: number;
+    text:             string;
+    voiceRequestId:   string;
+}
+
+export interface SynthesizeVoicePayload {
+    documentId:     string;
+    revision:       number;
+    sessionId:      string;
+    voiceRequestId: string;
+    wavBase64:      string;
+}
+
+export interface CancelVoiceParams {
+    documentId:     string;
+    voiceRequestId: string;
+}
+
+export interface CancelVoicePayload {
+    documentId:     string;
+    revision:       number;
+    sessionId:      string;
+    status:         CancelVoicePayloadStatus;
+    voiceRequestId: string;
+}
+
+export type CancelVoicePayloadStatus = "cancelRequested" | "notActive";
 
 export interface SessionRequestEnvelope {
     method:       string;
@@ -188,9 +299,10 @@ export interface SessionSnapshotPayload {
 }
 
 export interface BodyDescriptor {
-    bodyId:  string;
-    history: string[];
-    tip:     string;
+    bodyId:   string;
+    history:  string[];
+    tip:      string;
+    visible?: boolean;
     [property: string]: unknown;
 }
 

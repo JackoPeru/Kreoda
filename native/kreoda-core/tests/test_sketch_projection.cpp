@@ -2619,7 +2619,8 @@ TEST(SketchProjectionPublicWire, DispatchesAndSamplesCurvedGeometryReadOnly) {
       {{"featureId", "wire-target"}, {"groupId", "wire-link"}});
   ASSERT_EQ(remove.value("status", ""), "ok") << remove.dump();
   EXPECT_EQ(remove["featureId"], "wire-target");
-  EXPECT_TRUE(remove["sketch"]["projectionGroups"].empty());
+  EXPECT_TRUE(remove["sketch"].value("projectionGroups", kreoda::Json::array()).empty())
+      << remove.dump();
   const auto afterRemove = ProjectionRpc("projection-public-wire", 38,
       {{"featureId", "wire-target"}});
   ASSERT_EQ(afterRemove.value("status", ""), "ok") << afterRemove.dump();

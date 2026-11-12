@@ -2,6 +2,10 @@
 
 #include <filesystem>
 #include <cmath>
+#include <algorithm>
+#include <array>
+#include <limits>
+#include <vector>
 
 #include "../src/document/document_store.h"
 #include "../src/expressions/expressions.h"
@@ -26,6 +30,25 @@
 #include <XCAFDoc_ShapeTool.hxx>
 
 #include "rpc_text.h"
+
+#include <BRepAdaptor_Surface.hxx>
+#include <BRep_Builder.hxx>
+#include <BRepAlgoAPI_Cut.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
+#include <Precision.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS.hxx>
+#include <gp_Ax1.hxx>
+#include <gp_Ax2.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pln.hxx>
+#include <gp_Trsf.hxx>
+#include <gp_Vec.hxx>
 
 namespace fs = std::filesystem;
 
@@ -95,6 +118,193 @@ kreoda::ShapeRecord Get(const std::string& id) {
 }
 
 }  // namespace
+
+TEST(Topology, AxisRolesBelongOnlyToOutermostBlindCutSupportInEveryDirection) {
+  const TopoDS_Shape box =
+      BRepPrimAPI_MakeBox(gp_Pnt(17, -23, 41), 40, 30, 10).Shape();
+  const TopoDS_Shape cutter = BRepPrimAPI_MakeCylinder(
+      gp_Ax2(gp_Pnt(37, -8, 46), gp_Dir(0, 0, 1)), 3, 5).Shape();
+  const TopoDS_Shape seed = BRepAlgoAPI_Cut(box, cutter).Shape();
+  ASSERT_FALSE(seed.IsNull());
+
+  struct AxisCase {
+    const char* role;
+    gp_Dir supportAxis;
+    gp_Dir rotationAxis;
+    double rotationRadians;
+  };
+  const double halfPi = std::acos(-1.0) / 2.0;
+  const std::array<AxisCase, 6> axes{{
+      {"box.+X", gp_Dir(1, 0, 0), gp_Dir(0, 1, 0), halfPi},
+      {"box.-X", gp_Dir(-1, 0, 0), gp_Dir(0, 1, 0), -halfPi},
+      {"box.+Y", gp_Dir(0, 1, 0), gp_Dir(1, 0, 0), -halfPi},
+      {"box.-Y", gp_Dir(0, -1, 0), gp_Dir(1, 0, 0), halfPi},
+      {"box.+Z", gp_Dir(0, 0, 1), gp_Dir(1, 0, 0), 0.0},
+      {"box.-Z", gp_Dir(0, 0, -1), gp_Dir(1, 0, 0), std::acos(-1.0)},
+  }};
+
+  for (const auto& axis : axes) {
+    TopoDS_Shape shape = seed;
+    if (axis.rotationRadians != 0.0) {
+      gp_Trsf rotation;
+      rotation.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), axis.rotationAxis),
+                           axis.rotationRadians);
+      shape = BRepBuilderAPI_Transform(seed, rotation, true).Shape();
+    }
+    gp_Trsf shiftIntoNegativeSupport;
+    shiftIntoNegativeSupport.SetTranslation(gp_Vec(
+        -100 * axis.supportAxis.X(), -100 * axis.supportAxis.Y(),
+        -100 * axis.supportAxis.Z()));
+    shape = BRepBuilderAPI_Transform(shape, shiftIntoNegativeSupport, true).Shape();
+    std::vector<TopoDS_Face> faces;
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next())
+      faces.push_back(TopoDS::Face(ex.Current()));
+    ASSERT_GE(faces.size(), 8u) << axis.role;
+    const auto roles = kreoda::ClassifyFaceRoles(shape, "StepImport", "axis-solid");
+    ASSERT_EQ(roles.size(), faces.size()) << axis.role;
+
+    std::vector<double> supports(faces.size(),
+                                 std::numeric_limits<double>::quiet_NaN());
+    double outerSupport = std::numeric_limits<double>::lowest();
+    for (size_t i = 0; i < faces.size(); ++i) {
+      BRepAdaptor_Surface adapt(faces[i]);
+      if (adapt.GetType() != GeomAbs_Plane) continue;
+      const gp_Pln plane = adapt.Plane();
+      gp_Dir normal = plane.Axis().Direction();
+      if (faces[i].Orientation() == TopAbs_REVERSED) normal.Reverse();
+      if (normal.Dot(axis.supportAxis) < 1.0 - 1e-6) continue;
+      const gp_Pnt point = plane.Location();
+      const double support = point.X() * axis.supportAxis.X() +
+                             point.Y() * axis.supportAxis.Y() +
+                             point.Z() * axis.supportAxis.Z();
+      supports[i] = support;
+      outerSupport = std::max(outerSupport, support);
+    }
+
+    ASSERT_NE(outerSupport, std::numeric_limits<double>::lowest()) << axis.role;
+    EXPECT_LT(outerSupport, 0.0) << axis.role;
+    size_t outerFaces = 0;
+    size_t interiorParallelFaces = 0;
+    const double supportTolerance = std::max(Precision::Confusion(), 1e-7);
+    for (size_t i = 0; i < supports.size(); ++i) {
+      if (!std::isfinite(supports[i])) continue;
+      if (std::abs(supports[i] - outerSupport) <= supportTolerance) {
+        ++outerFaces;
+        EXPECT_EQ(roles[i], std::string("axis-solid:") + axis.role);
+      } else {
+        ++interiorParallelFaces;
+        EXPECT_NE(roles[i].find(":face."), std::string::npos) << roles[i];
+        EXPECT_TRUE(kreoda::HasIndexedTopologyRole(roles[i])) << roles[i];
+      }
+    }
+    EXPECT_EQ(outerFaces, 1u) << axis.role;
+    EXPECT_EQ(interiorParallelFaces, 1u) << axis.role;
+    TopoDS_Face top;
+    EXPECT_TRUE(kreoda::FindFaceByRole(shape, "axis-solid", "StepImport",
+                                       axis.role, &top)) << axis.role;
+  }
+}
+
+TEST(Topology, NearAxisNonparallelRoleCollisionIsTranslationInvariant) {
+  const TopoDS_Shape box = BRepPrimAPI_MakeBox(100, 50, 20).Shape();
+  const TopoDS_Shape cutter = BRepPrimAPI_MakeCylinder(
+      gp_Ax2(gp_Pnt(50, 25, 10), gp_Dir(1e-8, 0, 1)), 4, 20).Shape();
+  const TopoDS_Shape seed = BRepAlgoAPI_Cut(box, cutter).Shape();
+  ASSERT_FALSE(seed.IsNull());
+
+  struct PlaneWitness {
+    gp_Dir normal;
+    gp_Pnt point;
+  };
+  const auto check = [](const TopoDS_Shape& shape) {
+    const auto roles = kreoda::ClassifyFaceRoles(shape, "StepImport", "near-axis");
+    EXPECT_EQ(std::count(roles.begin(), roles.end(), "near-axis:box.+Z"), 2);
+    TopoDS_Face face;
+    EXPECT_FALSE(kreoda::FindFaceByRole(shape, "near-axis", "StepImport",
+                                        "box.+Z", &face));
+
+    std::vector<PlaneWitness> witnesses;
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+      BRepAdaptor_Surface adapt(TopoDS::Face(ex.Current()));
+      if (adapt.GetType() != GeomAbs_Plane) continue;
+      const gp_Pln plane = adapt.Plane();
+      gp_Dir normal = plane.Axis().Direction();
+      if (ex.Current().Orientation() == TopAbs_REVERSED) normal.Reverse();
+      if (std::abs(normal.X()) > 1e-6 || std::abs(normal.Y()) > 1e-6 ||
+          normal.Z() < 1.0 - 1e-6) continue;
+      witnesses.push_back({normal, plane.Location()});
+    }
+    ASSERT_EQ(witnesses.size(), 2u);
+    const auto& a = witnesses[0];
+    const auto& b = witnesses[1];
+    const double crossX = a.normal.Y() * b.normal.Z() - a.normal.Z() * b.normal.Y();
+    const double crossY = a.normal.Z() * b.normal.X() - a.normal.X() * b.normal.Z();
+    const double crossZ = a.normal.X() * b.normal.Y() - a.normal.Y() * b.normal.X();
+    EXPECT_GT(std::sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ), 5e-9);
+    const double relativeOffset = a.normal.X() * (b.point.X() - a.point.X()) +
+                                  a.normal.Y() * (b.point.Y() - a.point.Y()) +
+                                  a.normal.Z() * (b.point.Z() - a.point.Z());
+    EXPECT_NEAR(std::abs(relativeOffset), 10.0, 1e-4);
+  };
+
+  check(seed);
+  gp_Trsf translation;
+  translation.SetTranslation(gp_Vec(1e11, 0, 0));
+  check(BRepBuilderAPI_Transform(seed, translation, true).Shape());
+}
+
+TEST(Topology, UnequalHeightCompoundKeepsAxisRoleAmbiguous) {
+  TopoDS_Compound compound;
+  BRep_Builder builder;
+  builder.MakeCompound(compound);
+  builder.Add(compound,
+              BRepPrimAPI_MakeBox(gp_Pnt(0, 0, 0), 10, 10, 10).Shape());
+  builder.Add(compound,
+              BRepPrimAPI_MakeBox(gp_Pnt(20, 0, -3), 10, 10, 23).Shape());
+
+  const auto roles = kreoda::ClassifyFaceRoles(compound, "StepImport", "compound");
+  EXPECT_EQ(std::count(roles.begin(), roles.end(), "compound:box.+Z"), 2);
+  TopoDS_Face face;
+  EXPECT_FALSE(kreoda::FindFaceByRole(compound, "compound", "StepImport",
+                                      "box.+Z", &face));
+}
+
+TEST(Topology, SingleSolidCompoundWithLoosePlanarFaceStaysAmbiguous) {
+  TopoDS_Compound compound;
+  BRep_Builder builder;
+  builder.MakeCompound(compound);
+  builder.Add(compound, BRepPrimAPI_MakeBox(10, 10, 10).Shape());
+  const gp_Pln loosePlane(gp_Pnt(0, 0, 20), gp_Dir(0, 0, 1));
+  builder.Add(compound,
+              BRepBuilderAPI_MakeFace(loosePlane, -5, 5, -5, 5).Face());
+
+  size_t solids = 0;
+  for (TopExp_Explorer ex(compound, TopAbs_SOLID); ex.More(); ex.Next()) ++solids;
+  ASSERT_EQ(solids, 1u);
+  const auto roles = kreoda::ClassifyFaceRoles(compound, "StepImport", "mixed");
+  EXPECT_EQ(std::count(roles.begin(), roles.end(), "mixed:box.+Z"), 2);
+  TopoDS_Face face;
+  EXPECT_FALSE(kreoda::FindFaceByRole(compound, "mixed", "StepImport",
+                                      "box.+Z", &face));
+}
+
+TEST(Topology, PureSurfaceAxisRoleCollisionsRemainIndexed) {
+  TopoDS_Compound compound;
+  BRep_Builder builder;
+  builder.MakeCompound(compound);
+  const gp_Pln plane(gp_Pnt(0, 0, 5), gp_Dir(0, 0, 1));
+  builder.Add(compound,
+              BRepBuilderAPI_MakeFace(plane, 0, 10, 0, 10).Face());
+  builder.Add(compound,
+              BRepBuilderAPI_MakeFace(plane, 20, 30, 0, 10).Face());
+
+  const auto roles = kreoda::ClassifyFaceRoles(compound, "StepImport", "surface");
+  ASSERT_EQ(roles.size(), 2u);
+  EXPECT_EQ(roles[0], "surface:face.0");
+  EXPECT_EQ(roles[1], "surface:face.1");
+  EXPECT_TRUE(kreoda::HasIndexedTopologyRole(roles[0]));
+  EXPECT_TRUE(kreoda::HasIndexedTopologyRole(roles[1]));
+}
 
 TEST(Topology, BoxTopFaceSurvivesWidthChange) {
   NewDoc("topo1");

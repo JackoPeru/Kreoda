@@ -17,6 +17,14 @@
 #include <Bnd_Box.hxx>
 #include <GC_MakeArcOfCircle.hxx>
 #include <Geom_BSplineCurve.hxx>
+#include <Geom_Ellipse.hxx>
+#include <ElCLib.hxx>
+#include <GeomAPI_Interpolate.hxx>
+#include <GeomAPI_PointsToBSpline.hxx>
+#include <TColgp_Array1OfPnt.hxx>
+#include <TColgp_HArray1OfPnt.hxx>
+#include <TColStd_Array1OfReal.hxx>
+#include <TColStd_Array1OfInteger.hxx>
 #include <Geom_Circle.hxx>
 #include <Geom_Curve.hxx>
 #include <Geom_TrimmedCurve.hxx>
@@ -37,6 +45,7 @@
 #include <TopoDS_Shape.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Circ.hxx>
+#include <gp_Elips.hxx>
 #include <gp_Dir.hxx>
 #include <gp_Pln.hxx>
 #include <gp_Pnt.hxx>
@@ -87,8 +96,11 @@ bool EdgesFromSketch(const SketchFeature& sketch,
                      const std::set<std::string>* selected = nullptr) {
   const auto& m = sketch.model;
   const auto& plane = sketch.plane;
+  auto construction=[&](const std::string& id) {
+    return !selected && std::find(m.constructionIds.begin(),m.constructionIds.end(),id)!=m.constructionIds.end();
+  };
   for (const auto& l : m.lines) {
-    if (selected && !selected->count(l.id)) continue;
+    if ((selected && !selected->count(l.id)) || construction(l.id)) continue;
     const SketchPoint* a = FindPoint(m, l.p1);
     const SketchPoint* b = FindPoint(m, l.p2);
     if (!a || !b) {
@@ -111,7 +123,7 @@ bool EdgesFromSketch(const SketchFeature& sketch,
   }
   gp_Dir normal(plane.normal[0], plane.normal[1], plane.normal[2]);
   for (const auto& c : m.circles) {
-    if (selected && !selected->count(c.id)) continue;
+    if ((selected && !selected->count(c.id)) || construction(c.id)) continue;
     const SketchPoint* o = FindPoint(m, c.center);
     if (!o) {
       if (error) *error = "circle references unknown point";
@@ -137,7 +149,7 @@ bool EdgesFromSketch(const SketchFeature& sketch,
     }
   }
   for (const auto& a : m.arcs) {
-    if (selected && !selected->count(a.id)) continue;
+    if ((selected && !selected->count(a.id)) || construction(a.id)) continue;
     const SketchPoint* o = FindPoint(m, a.center);
     if (!o) {
       if (error) *error = "arc references unknown point";
@@ -180,6 +192,98 @@ bool EdgesFromSketch(const SketchFeature& sketch,
     } catch (const Standard_Failure& f) {
       if (error) *error = std::string("arc edge: ") + f.what();
       return false;
+    }
+  }
+  for (const auto& e:m.ellipses) {
+    if ((selected && !selected->count(e.id)) || construction(e.id)) continue;
+    const SketchPoint* o=FindPoint(m,e.center);
+    if (!o || !(e.majorRadius>e.minorRadius && e.minorRadius>1e-9) ||
+        !std::isfinite(e.rotationRad) || !std::isfinite(e.startAngleRad) ||
+        !std::isfinite(e.endAngleRad) ||
+        (e.arc && !(e.endAngleRad>e.startAngleRad &&
+                    e.endAngleRad-e.startAngleRad<6.283185307179586))) {
+      if (error) *error="invalid ellipse center, radii or interval"; return false;
+    }
+    try {
+      const gp_Pnt center=ToPnt(plane,o->x,o->y);
+      const gp_Dir major(plane.xAxis[0]*std::cos(e.rotationRad)+plane.yAxis[0]*std::sin(e.rotationRad),
+                         plane.xAxis[1]*std::cos(e.rotationRad)+plane.yAxis[1]*std::sin(e.rotationRad),
+                         plane.xAxis[2]*std::cos(e.rotationRad)+plane.yAxis[2]*std::sin(e.rotationRad));
+      const gp_Elips ellipse(gp_Ax2(center,normal,major),e.majorRadius,e.minorRadius);
+      BRepBuilderAPI_MakeEdge mk=e.arc
+          ? BRepBuilderAPI_MakeEdge(ellipse,e.startAngleRad,e.endAngleRad)
+          : BRepBuilderAPI_MakeEdge(ellipse);
+      if (!mk.IsDone()) { if (error) *error="ellipse edge construction failed"; return false; }
+      const gp_Pnt p1=ElCLib::Value(e.arc?e.startAngleRad:0,ellipse);
+      const gp_Pnt p2=ElCLib::Value(e.arc?e.endAngleRad:0,ellipse);
+      auto xy=[&](const gp_Pnt& p,const double* axis) {
+        return (p.X()-plane.origin[0])*axis[0]+(p.Y()-plane.origin[1])*axis[1]+
+               (p.Z()-plane.origin[2])*axis[2];
+      };
+      edges->push_back({e.id,mk.Edge(),xy(p1,plane.xAxis),xy(p1,plane.yAxis),
+                         xy(p2,plane.xAxis),xy(p2,plane.yAxis)});
+    } catch (const Standard_Failure& f) {
+      if (error) *error=std::string("ellipse edge: ")+f.what(); return false;
+    }
+  }
+  for (const auto& s:m.splines) {
+    if ((selected && !selected->count(s.id)) || construction(s.id)) continue;
+    if (s.pointIds.size()<3 || s.pointIds.size()>256 ||
+        (s.closed && s.pointIds.size()<4)) {
+      if (error) *error="spline requires 3..256 points"; return false;
+    }
+    try {
+      TColgp_Array1OfPnt points(1,static_cast<Standard_Integer>(s.pointIds.size()));
+      for (size_t i=0;i<s.pointIds.size();++i) {
+        const auto* p=FindPoint(m,s.pointIds[i]);
+        if (!p || !std::isfinite(p->x) || !std::isfinite(p->y)) {
+          if (error) *error="spline has missing/nonfinite point"; return false;
+        }
+        points.SetValue(static_cast<Standard_Integer>(i+1),ToPnt(plane,p->x,p->y));
+      }
+      Handle(Geom_BSplineCurve) curve;
+      if (s.controlPoints) {
+        if (s.closed) {
+          const int n=points.Length();
+          TColgp_Array1OfPnt periodic(1,n);
+          for (int k=1;k<=n;++k) periodic.SetValue(k,points.Value(k));
+          TColStd_Array1OfReal knots(1,n+1);
+          TColStd_Array1OfInteger mults(1,n+1);
+          for (int k=1;k<=n+1;++k) {
+            knots.SetValue(k,static_cast<double>(k-1));
+            mults.SetValue(k,1);
+          }
+          curve=new Geom_BSplineCurve(periodic,knots,mults,3,true);
+        } else {
+        const int degree=std::min(3,static_cast<int>(s.pointIds.size())-1);
+        const int knotCount=static_cast<int>(s.pointIds.size())-degree+1;
+        TColStd_Array1OfReal knots(1,knotCount);
+        TColStd_Array1OfInteger mults(1,knotCount);
+        for (int k=1;k<=knotCount;++k) {
+          knots.SetValue(k,static_cast<double>(k-1));
+          mults.SetValue(k,(k==1 || k==knotCount)?degree+1:1);
+        }
+        curve=new Geom_BSplineCurve(points,knots,mults,degree,false);
+        }
+      } else {
+        Handle(TColgp_HArray1OfPnt) through=new TColgp_HArray1OfPnt(1,points.Length());
+        for (int k=1;k<=points.Length();++k) through->SetValue(k,points.Value(k));
+        GeomAPI_Interpolate fit(through,s.closed,1e-7);
+        fit.Perform();
+        if (!fit.IsDone()) { if (error) *error="spline interpolation failed"; return false; }
+        curve=fit.Curve();
+      }
+      BRepBuilderAPI_MakeEdge mk(curve);
+      if (!mk.IsDone()) { if (error) *error="spline edge failed"; return false; }
+      const auto a=curve->StartPoint(),b=curve->EndPoint();
+      auto xy=[&](const gp_Pnt& p,const double* axis) {
+        return (p.X()-plane.origin[0])*axis[0]+(p.Y()-plane.origin[1])*axis[1]+
+               (p.Z()-plane.origin[2])*axis[2];
+      };
+      edges->push_back({s.id,mk.Edge(),xy(a,plane.xAxis),xy(a,plane.yAxis),
+                         xy(b,plane.xAxis),xy(b,plane.yAxis)});
+    } catch (const Standard_Failure& f) {
+      if (error) *error=std::string("spline edge: ")+f.what(); return false;
     }
   }
   return true;
@@ -656,6 +760,8 @@ bool BuildSketchEntityEdges(const SketchFeature& sketch,
   for (const auto& line : sketch.model.lines) ++matches[line.id];
   for (const auto& circle : sketch.model.circles) ++matches[circle.id];
   for (const auto& arc : sketch.model.arcs) ++matches[arc.id];
+  for (const auto& ellipse : sketch.model.ellipses) ++matches[ellipse.id];
+  for (const auto& spline : sketch.model.splines) ++matches[spline.id];
   for (const auto& id : selected) {
     if (matches[id] != 1)
       return ProfileFail(error, "sketch entity id is missing or ambiguous");

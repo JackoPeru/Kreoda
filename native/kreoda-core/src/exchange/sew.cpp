@@ -328,6 +328,7 @@ bool CollectExportRecords(std::vector<ShapeRecord>* records, std::string* error)
     if (!GetCurrentShapeRecord(stored.featureId, &current, error)) return false;
   }
   for (const auto& body : BodyStore::instance().bodies()) {
+    if (!body.visible) continue;
     ShapeRecord tip;
     if (!GetCurrentShapeRecord(body.tipFeatureId, &tip, error) || tip.shape.IsNull()) {
       if (error) *error = "cannot export missing body tip: " + body.tipFeatureId;

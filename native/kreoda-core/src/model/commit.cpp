@@ -6,6 +6,7 @@
 #include "features/datum/datum_store.h"
 #include "model/feature_graph.h"
 #include "model/geometry_availability.h"
+#include "model/geometry_kind.h"
 
 #if KREODA_WITH_OCCT
 #include <BRepBndLib.hxx>
@@ -49,15 +50,61 @@ bool CommitShape(const std::string& featureId, const std::string& type,
     if (error) *error = type + ": kernel returned null shape";
     return false;
   }
+  bool surface = IsSurfaceFeatureType(type);
+  if (type == "Instance" && deps.size() == 1) {
+    ShapeRecord prototype;
+    surface = ShapeStore::instance().get(deps.front(), &prototype) &&
+              IsSurfaceGeometry(prototype);
+  }
+  if (surface && !HasSurfaceTopology(shape)) {
+    if (error) *error = type + ": expected face/shell surface topology without solids";
+    return false;
+  }
+  if (!surface && IsKnownSolidFeatureType(type)) {
+    if (!HasSolidTopology(shape) || HasMixedSolidSurfaceTopology(shape)) {
+      if (error) *error = type + ": expected solid topology without free surface faces";
+      return false;
+    }
+    if (type == "SurfaceSewnSolid") {
+      for (const auto& dependency : deps) {
+        ShapeRecord source;
+        if (!ShapeStore::instance().get(dependency, &source) ||
+            !HasSurfaceTopology(source.shape) ||
+            HasSolidTopology(source.shape)) {
+          if (error) *error = type + ": solid conversion requires surface dependencies";
+          return false;
+        }
+      }
+    } else if (type == "SurfaceThicken") {
+      ShapeRecord source;
+      if (deps.size() != 1 || !ShapeStore::instance().get(deps.front(), &source) ||
+          !IsSurfaceGeometry(source) || !HasSurfaceTopology(source.shape) ||
+          HasSolidTopology(source.shape)) {
+        if (error) *error = type + ": solid conversion requires one surface dependency";
+        return false;
+      }
+    } else if (type != "Instance") {
+      for (const auto& dependency : deps) {
+        ShapeRecord source;
+        if (ShapeStore::instance().get(dependency, &source) &&
+            (!HasSolidTopology(source.shape) ||
+             HasMixedSolidSurfaceTopology(source.shape))) {
+          if (error) *error = type + ": solid operation requires solid dependencies";
+          return false;
+        }
+      }
+    }
+  }
   BRepCheck_Analyzer analyzer(shape);
   if (!analyzer.IsValid(shape)) {
     if (error) *error = type + ": BRepCheck validation failed";
     return false;
   }
   GProp_GProps props;
-  BRepGProp::VolumeProperties(shape, props);
+  if (!surface) BRepGProp::VolumeProperties(shape, props);
   Bnd_Box box;
-  BRepBndLib::Add(shape, box);
+  if (surface) BRepBndLib::AddOptimal(shape, box, false, false);
+  else BRepBndLib::Add(shape, box);
   double xmin, ymin, zmin, xmax, ymax, zmax;
   box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
   const bool isNew = !ShapeStore::instance().contains(featureId);
@@ -68,7 +115,7 @@ bool CommitShape(const std::string& featureId, const std::string& type,
   rec.dependsOn = std::move(deps);
   rec.refExtra = std::move(refExtra);
   rec.shape = shape;
-  rec.volumeMm3 = props.Mass();
+  rec.volumeMm3 = surface ? 0 : props.Mass();
   rec.bboxMm[0] = xmin;
   rec.bboxMm[1] = ymin;
   rec.bboxMm[2] = zmin;

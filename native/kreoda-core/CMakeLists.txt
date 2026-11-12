@@ -128,6 +128,7 @@ set(CORE_SOURCES
   src/model/commit.cpp
   src/model/geometry_availability.cpp
   src/features/primitives/primitives.cpp
+  src/features/direct/face_history.cpp
   src/features/rebuild.cpp
   src/features/datum/datum_commands.cpp
   src/features/datum/datum_json.cpp
@@ -142,6 +143,7 @@ set(CORE_SOURCES
   src/features/revolve/revolve.cpp
   src/features/booleans/boolean.cpp
   src/features/hole/hole.cpp
+  src/features/assembly/assembly_geometry.cpp
   src/features/instance/instance.cpp
   src/features/fillet/fillet.cpp
   src/topology/face_roles.cpp
@@ -232,7 +234,7 @@ if(OpenCASCADE_FOUND)
   target_compile_definitions(kreoda-core PRIVATE KREODA_WITH_OCCT=1)
   target_link_libraries(kreoda-core PRIVATE
     TKernel TKMath TKCDF TKLCAF TKCAF TKBin TKBinL TKBinXCAF TKXCAF
-    TKBRep TKTopAlgo TKGeomAlgo TKGeomBase TKG3d TKG2d TKPrim TKBO
+    TKBRep TKTopAlgo TKGeomAlgo TKGeomBase TKG3d TKG2d TKPrim TKBO TKOffset
     TKMesh TKShHealing TKXSBase TKFillet TKHLR TKDE TKDESTEP TKDESTL TKDEOBJ
   )
 else()

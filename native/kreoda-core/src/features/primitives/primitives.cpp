@@ -1,5 +1,6 @@
 #include "primitives.h"
 #include "diagnostics/crash_barrier.h"
+#include "features/assembly/assembly_constraints.h"
 
 #include <cmath>
 #include <algorithm>
@@ -20,6 +21,11 @@
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
 #include "features/revolve/revolve.h"
+#include "features/surface/surface_modeling.h"
+#include "features/surface/surface_sew_offset.h"
+#include "features/surface/surface_thicken.h"
+#include "features/surface/surface_sweep.h"
+#include "features/surface/surface_trim_extend.h"
 #include "features/sketch/sketch_store.h"
 #include "features/datum/datum_store.h"
 
@@ -47,6 +53,7 @@ CoreMesh TessellatePreviewRecord(const ShapeRecord& rec, int lod,
 namespace {
 
 constexpr double kMaxDimMm = 100000.0;
+thread_local bool gApplyingAssemblyPlacementPlan=false;
 
 bool checkPositive(double v, const char* what, std::string* error) {
   if (v > 0 && v <= kMaxDimMm) return true;
@@ -190,8 +197,70 @@ bool ResolveParamsForEdit(const ShapeRecord& rec, const std::string& paramName,
   const std::vector<std::string> slots = DescribeParams(rec.type);
   std::vector<double> params = rec.paramsMm;
 #if KREODA_WITH_OCCT
+  if (rec.type == "MoveFace" &&
+      (params.size() != 9 ||
+       !std::all_of(params.begin(), params.end(),
+                    [](double value) { return std::isfinite(value); }))) {
+    if (error) *error = "MoveFace expects nine finite transform parameters";
+    return false;
+  }
+  if (rec.type == "OffsetFace" &&
+      (params.size() != 1 || !std::isfinite(params[0]) || params[0] == 0)) {
+    if (error) *error = "OffsetFace expects one finite nonzero distanceMm";
+    return false;
+  }
   if (rec.type == "HolePattern" &&
       !NormalizeHolePatternParams(rec.refExtra, &params, error)) return false;
+  if (rec.type == "SurfaceExtrude" && params.size() != 1) {
+    if (error) *error = "SurfaceExtrude expects exactly one parameter";
+    return false;
+  }
+  if (rec.type == "SurfaceExtrude" &&
+      (!std::isfinite(params[0]) || params[0] == 0 ||
+       std::abs(params[0]) > kSurfaceParameterLimitMm)) {
+    if (error) *error = "distanceMm must be finite, nonzero and within +/-100000 mm";
+    return false;
+  }
+  if (rec.type == "SurfaceRevolve") {
+    std::vector<double> canonical;
+    if (!surface_detail::NormalizeRevolveParams(params, &canonical, error)) return false;
+    params = std::move(canonical);
+  }
+  if ((rec.type == "SurfaceSew" || rec.type == "SurfaceSewnSolid" ||
+       rec.type == "SurfaceSweep") &&
+      (params.size() != 1 || !std::isfinite(params[0]) ||
+       params[0] < 1e-7 || params[0] > 1.0)) {
+    if (error) *error = rec.type + " expects toleranceMm in [1e-7, 1]";
+    return false;
+  }
+  if (rec.type == "SurfaceOffset" &&
+      (params.size() != 2 || !std::isfinite(params[0]) ||
+       std::abs(params[0]) < 1e-6 || std::abs(params[0]) > 100000.0 ||
+       !std::isfinite(params[1]) || params[1] < 1e-7 || params[1] > 1.0)) {
+    if (error) *error = "SurfaceOffset expects distanceMm in +/-[1e-6, 100000] and toleranceMm in [1e-7, 1]";
+    return false;
+  }
+  if (rec.type == "SurfaceThicken" &&
+      (params.size() != 2 || !std::isfinite(params[0]) ||
+       std::abs(params[0]) < 1e-6 || std::abs(params[0]) > 100000.0 ||
+       !std::isfinite(params[1]) || params[1] < 1e-7 || params[1] > 1.0)) {
+    if (error) *error = "SurfaceThicken expects thicknessMm in +/-[1e-6, 100000] and toleranceMm in [1e-7, 1]";
+    return false;
+  }
+  if (rec.type == "SurfaceTrim" &&
+      (params.size() != 3 || !std::isfinite(params[0]) ||
+       !std::isfinite(params[1]) || !std::isfinite(params[2]) ||
+       params[2] < 1e-7 || params[2] > 1.0)) {
+    if (error) *error = "SurfaceTrim expects finite keepU, keepV and toleranceMm in [1e-7, 1]";
+    return false;
+  }
+  if (rec.type == "SurfaceExtend" &&
+      (params.size() != 2 || !std::isfinite(params[0]) ||
+       params[0] < 1e-6 || params[0] > 100000.0 ||
+       !std::isfinite(params[1]) || params[1] < 1e-7 || params[1] > 1.0)) {
+    if (error) *error = "SurfaceExtend expects distanceMm in [1e-6, 100000] and toleranceMm in [1e-7, 1]";
+    return false;
+  }
 #endif
   bool matched = false;
   if (!slots.empty() && slots.size() == params.size()) {
@@ -210,6 +279,52 @@ bool ResolveParamsForEdit(const ShapeRecord& rec, const std::string& paramName,
     }
     return false;
   }
+#if KREODA_WITH_OCCT
+  if (rec.type == "MoveFace" &&
+      (params.size() != 9 ||
+       !std::all_of(params.begin(), params.end(),
+                    [](double value) { return std::isfinite(value); }))) {
+    if (error) *error = "MoveFace expects nine finite transform parameters";
+    return false;
+  }
+  if (rec.type == "OffsetFace" &&
+      (params.size() != 1 || !std::isfinite(params[0]) || params[0] == 0)) {
+    if (error) *error = "OffsetFace expects one finite nonzero distanceMm";
+    return false;
+  }
+  if ((rec.type == "SurfaceSew" || rec.type == "SurfaceSewnSolid" ||
+       rec.type == "SurfaceSweep") &&
+      (!std::isfinite(params[0]) || params[0] < 1e-7 || params[0] > 1.0)) {
+    if (error) *error = "toleranceMm must be in [1e-7, 1]";
+    return false;
+  }
+  if (rec.type == "SurfaceOffset" &&
+      (!std::isfinite(params[0]) || std::abs(params[0]) < 1e-6 ||
+       std::abs(params[0]) > 100000.0 || !std::isfinite(params[1]) ||
+       params[1] < 1e-7 || params[1] > 1.0)) {
+    if (error) *error = "SurfaceOffset parameters are outside their supported ranges";
+    return false;
+  }
+  if (rec.type == "SurfaceThicken" &&
+      (!std::isfinite(params[0]) || std::abs(params[0]) < 1e-6 ||
+       std::abs(params[0]) > 100000.0 || !std::isfinite(params[1]) ||
+       params[1] < 1e-7 || params[1] > 1.0)) {
+    if (error) *error = "SurfaceThicken parameters are outside their supported ranges";
+    return false;
+  }
+  if (rec.type == "SurfaceTrim" &&
+      (!std::isfinite(params[0]) || !std::isfinite(params[1]) ||
+       !std::isfinite(params[2]) || params[2] < 1e-7 || params[2] > 1.0)) {
+    if (error) *error = "SurfaceTrim parameters are outside their supported ranges";
+    return false;
+  }
+  if (rec.type == "SurfaceExtend" &&
+      (!std::isfinite(params[0]) || params[0] < 1e-6 || params[0] > 100000.0 ||
+       !std::isfinite(params[1]) || params[1] < 1e-7 || params[1] > 1.0)) {
+    if (error) *error = "SurfaceExtend parameters are outside their supported ranges";
+    return false;
+  }
+#endif
 #if KREODA_WITH_OCCT
   if (rec.type == "HolePattern" &&
       !NormalizeHolePatternParams(rec.refExtra, &params, error)) return false;
@@ -249,6 +364,65 @@ bool BuildCandidateShape(const ShapeRecord& rec, const std::vector<double>& newP
              rec.dependsOn.size() == 1) {
     built = BuildRevolveShape(rec.dependsOn[0], newParams[0], &candidate,
                               error);
+  } else if (rec.type == "SurfaceExtrude" && newParams.size() == 1 &&
+             rec.dependsOn.size() == 1) {
+    built = BuildSurfaceExtrudeShape(rec.dependsOn[0], newParams[0],
+                                     &candidate, error);
+  } else if (rec.type == "SurfaceRevolve" && newParams.size() == 7 &&
+             rec.dependsOn.size() == 1) {
+    std::vector<double> canonical;
+    built = BuildSurfaceRevolveShape(rec.dependsOn[0], newParams, &candidate,
+                                     &canonical, error);
+  } else if (rec.type == "SurfaceSweep" && newParams.size() == 1 &&
+             rec.dependsOn.size() == 2) {
+    built = BuildSurfaceSweepShape(rec.dependsOn[0], rec.dependsOn[1],
+                                   newParams[0], &candidate, error);
+  } else if ((rec.type == "SurfaceSew" || rec.type == "SurfaceSewnSolid") &&
+             newParams.size() == 1) {
+    built = BuildSurfaceSewShape(rec.dependsOn, newParams[0],
+                                 rec.type == "SurfaceSewnSolid", &candidate,
+                                 error, records);
+  } else if (rec.type == "SurfaceOffset" && newParams.size() == 2 &&
+             rec.dependsOn.size() == 1) {
+    ShapeRecord target;
+    if (!get(rec.dependsOn[0], &target)) {
+      if (error) *error = "surface offset target vanished";
+      return false;
+    }
+    if (!IsSurfaceGeometry(target)) {
+      if (error) *error = "SurfaceOffset: target is not surface geometry";
+      return false;
+    }
+    built = BuildSurfaceOffsetShape(target, newParams[0], newParams[1],
+                                    &candidate, error);
+  } else if (rec.type == "SurfaceThicken" && newParams.size() == 2 &&
+             rec.dependsOn.size() == 1) {
+    built = BuildSurfaceThickenShape(rec.dependsOn.front(), newParams[0],
+                                     newParams[1], &candidate, error, records);
+  } else if (rec.type == "SurfaceTrim" && newParams.size() == 3 &&
+             rec.dependsOn.size() == 2) {
+    SurfaceTrimExtendJson refExtra;
+    try { refExtra = SurfaceTrimExtendJson::parse(rec.refExtra); }
+    catch (...) {
+      if (error) *error = "SurfaceTrim reference metadata is invalid";
+      return false;
+    }
+    built = surface_trim_extend_detail::BuildSurfaceTrimFromRecords(
+                                        rec.dependsOn[0], rec.dependsOn[1],
+                                        refExtra, newParams, rec.featureId, false,
+                                        &candidate, error, records);
+  } else if (rec.type == "SurfaceExtend" && newParams.size() == 2 &&
+             rec.dependsOn.size() == 1) {
+    SurfaceTrimExtendJson refExtra;
+    try { refExtra = SurfaceTrimExtendJson::parse(rec.refExtra); }
+    catch (...) {
+      if (error) *error = "SurfaceExtend reference metadata is invalid";
+      return false;
+    }
+    built = surface_trim_extend_detail::BuildSurfaceExtendFromRecords(
+                                          rec.dependsOn[0], refExtra, newParams,
+                                          rec.featureId, false, &candidate,
+                                          error, records);
   } else if (rec.type == "Hole" && newParams.size() == 2 &&
              rec.dependsOn.size() == 1) {
     ShapeRecord target;
@@ -573,6 +747,17 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
     if (error) *error = report.firstError;
     return false;
   }
+  if (!gApplyingAssemblyPlacementPlan) {
+    std::vector<AssemblyConstraintIssue> issues;
+    std::string assemblyError;
+    if (!ReadAssemblyConstraintIssues(&issues,&assemblyError)) {
+      OcafLive::instance().AbortCommand();
+      { std::string rsErr; OcafLive::instance().ResyncStore(&rsErr); }
+      before.restore();
+      if (error) *error=assemblyError;
+      return false;
+    }
+  }
   bool hadDelta = false;
   CrashTestBarrier("recompute-before-commit");
   OcafLive::instance().CommitCommand(&hadDelta, nullptr);
@@ -582,6 +767,185 @@ bool RebuildFeature(const std::string& featureId, const std::string& paramName,
   if (error) *error = "rebuild requires OCCT (link via vcpkg)";
   return false;
 #endif
+}
+
+bool ApplyAssemblyConstraintPlan(const nlohmann::json& doc,
+                                 const AssemblyConstraintPlan& plan,
+                                 bool persistMetadata,
+                                 const std::string& transactionId,
+                                 std::string* error,
+                                 const std::function<bool(nlohmann::json*,std::string*)>& prepareMetadata) {
+#if KREODA_WITH_OCCT
+  auto& ocaf=OcafLive::instance();
+  const bool ownsTransaction=!ocaf.InTransaction();
+  auto reject=[&](const std::string& reason) {
+    if (!ownsTransaction && ocaf.InTransaction()) ocaf.AbortCommand();
+    if (error) *error=reason;
+    return false;
+  };
+  if (!plan.issues.empty()) return reject(AssemblyConstraintIssueText(plan.issues));
+  static const char* names[]={"txMm","tyMm","tzMm","rxDeg","ryDeg","rzDeg"};
+  struct Edit { std::string id,name;double value=0;std::map<std::string,double> other; };
+  std::vector<Edit> edits;
+  for (const auto& entry:plan.placements) {
+    ShapeRecord current;
+    if (!ShapeStore::instance().get(entry.first,&current) || current.type!="Instance" || current.paramsMm.size()!=6)
+      return reject(entry.first+": missing rigid instance");
+    const auto ground=plan.groundedPlacements.find(entry.first);
+    if (ground!=plan.groundedPlacements.end()) {
+      for (std::size_t axis=0;axis<6;++axis)
+        if (!AssemblyCoordinatesAgree(current.paramsMm[axis],ground->second[axis]))
+          return reject(entry.first+": grounded component was moved");
+      continue;
+    }
+    const auto mask=plan.constrained.find(entry.first);
+    if (mask==plan.constrained.end()) continue;
+    Edit edit;edit.id=entry.first;
+    bool found=false;
+    for (std::size_t axis=0;axis<6;++axis) {
+      const double desired=entry.second[axis];
+      if (mask->second[axis] && !AssemblyCoordinatesAgree(current.paramsMm[axis],desired)) {
+        if (!found) { edit.name=names[axis];edit.value=desired;found=true; }
+        else edit.other[names[axis]]=desired;
+      }
+    }
+    if (found) edits.push_back(std::move(edit));
+  }
+  for (const auto& edit:edits) {
+    CoreMesh preview;
+    std::string previewError;
+    if (!BuildPreviewBodyMesh(edit.id,edit.name,edit.value,edit.id,&preview,&previewError,"",edit.other))
+      return reject(edit.id+": placement preflight failed: "+previewError);
+  }
+  if (edits.empty() && !persistMetadata) {
+    AssemblyConstraintPlan finalPlan;
+    if (!BuildAssemblyConstraintPlan(doc,&finalPlan,true)) return reject(AssemblyConstraintIssueText(finalPlan.issues));
+    return true;
+  }
+
+  const ModelSnapshot before;
+  if (ownsTransaction && !ocaf.BeginTransaction(transactionId,error)) return false;
+  auto fail=[&](const std::string& reason) {
+    if (ocaf.InTransaction()) {
+      if (ownsTransaction) {
+        std::string rollbackError;
+        ocaf.RollbackTransaction(transactionId,&rollbackError);
+      } else {
+        ocaf.AbortCommand();
+      }
+      std::string resyncError;
+      ocaf.ResyncStore(&resyncError);
+    }
+    before.restore();
+    if (error) *error=reason;
+    return false;
+  };
+  nlohmann::json persistedDoc=doc;
+  if(prepareMetadata&&!prepareMetadata(&persistedDoc,error))
+    return fail(error&& !error->empty()?*error:"assembly metadata preparation failed");
+  struct PlacementApplyScope {
+    bool previous;
+    PlacementApplyScope():previous(gApplyingAssemblyPlacementPlan){gApplyingAssemblyPlacementPlan=true;}
+    ~PlacementApplyScope(){gApplyingAssemblyPlacementPlan=previous;}
+  };
+  {
+    PlacementApplyScope applyScope;
+    for (const auto& edit:edits)
+      if (!RebuildFeature(edit.id,edit.name,edit.value,"",error,edit.other))
+        return fail(error && !error->empty()?*error:"assembly placement rebuild failed");
+  }
+  if (persistMetadata && !ocaf.WriteAssemblyConstraints(persistedDoc.dump(),error))
+    return fail(error && !error->empty()?*error:"cannot write assembly constraints");
+  AssemblyConstraintPlan finalPlan;
+  if (!BuildAssemblyConstraintPlan(persistedDoc,&finalPlan,true))
+    return fail(AssemblyConstraintIssueText(finalPlan.issues));
+  if (ownsTransaction) {
+    bool hadDelta=false;
+    if (!ocaf.CommitTransaction(transactionId,&hadDelta,error)) {
+      before.restore();
+      return false;
+    }
+  }
+  return true;
+#else
+  (void)doc;(void)plan;(void)persistMetadata;(void)transactionId;(void)prepareMetadata;
+  if (error) *error="assembly constraints require OCCT";
+  return false;
+#endif
+}
+
+bool DefineGeometricAssemblyConstraint(const nlohmann::json& request,std::string* error) {
+  auto reject=[&](const std::string& reason) {
+    if(OcafLive::instance().InTransaction())OcafLive::instance().AbortCommand();
+    if(error)*error=reason;return false;
+  };
+  if(!request.is_object()||!request.contains("constraintId")||!request["constraintId"].is_string()||
+     !request.contains("kind")||!request["kind"].is_string()||
+     !request.contains("movingId")||!request["movingId"].is_string()||
+     !request.contains("fixedId")||!request["fixedId"].is_string())
+    return reject("geometric mate request is incomplete");
+  if(!request.contains("captureRevision")||!request["captureRevision"].is_number_integer())
+    return reject("captureRevision must be a non-negative integer");
+  std::uint64_t captureRevision=0;
+  if(request["captureRevision"].is_number_unsigned())captureRevision=request["captureRevision"].get<std::uint64_t>();
+  else {
+    const auto signedRevision=request["captureRevision"].get<std::int64_t>();
+    if(signedRevision<0)return reject("captureRevision must be a non-negative integer");
+    captureRevision=static_cast<std::uint64_t>(signedRevision);
+  }
+  if(captureRevision!=static_cast<std::uint64_t>(DocumentStore::instance().revision()))
+    return reject("captureRevision does not match the current model revision");
+  const auto constraintId=request["constraintId"].get<std::string>();
+  const auto kind=request["kind"].get<std::string>();
+  const auto movingId=request["movingId"].get<std::string>();
+  const auto fixedId=request["fixedId"].get<std::string>();
+  if(!ShapeStore::ValidFeatureId(constraintId)||!ShapeStore::ValidFeatureId(movingId)||
+     !ShapeStore::ValidFeatureId(fixedId)||movingId==fixedId)
+    return reject("invalid geometric mate IDs");
+  if(kind!="concentric"&&kind!="parallel"&&kind!="perpendicular"&&kind!="angle")
+    return reject("unknown geometric mate kind");
+  if(!request.contains("movingPickId")||!request["movingPickId"].is_string()||
+     !request.contains("fixedPickId")||!request["fixedPickId"].is_string()||
+     !request.contains("movingSourceBinding")||!request["movingSourceBinding"].is_object()||
+     !request.contains("fixedSourceBinding")||!request["fixedSourceBinding"].is_object())
+    return reject("geometric mate needs world picks and source bindings");
+  if(kind=="angle"&&(!request.contains("angleDeg")||!request["angleDeg"].is_number()||
+     !std::isfinite(request["angleDeg"].get<double>())||request["angleDeg"].get<double>()<0||request["angleDeg"].get<double>()>180))
+    return reject("angleDeg must be finite and between 0 and 180 degrees");
+
+  nlohmann::json doc;std::string reason;
+  if(!ReadAssemblyDocument(&doc,&reason))return reject(reason);
+  AssemblyConstraintPlan existing;
+  if(!BuildAssemblyConstraintPlan(doc,&existing,true))return reject(AssemblyConstraintIssueText(existing.issues));
+  if(doc["constraints"].contains(constraintId))return reject("constraint ID exists");
+  ShapeRecord movingInstance,fixedInstance;
+  if(!GetCurrentShapeRecord(movingId,&movingInstance,&reason)||movingInstance.type!="Instance"||movingInstance.paramsMm.size()!=6)
+    return reject("moving component must be a live rigid instance: "+reason);
+  if(!GetCurrentShapeRecord(fixedId,&fixedInstance,&reason)||fixedInstance.type!="Instance"||fixedInstance.paramsMm.size()!=6)
+    return reject("fixed component must be a live rigid instance: "+reason);
+
+  AssemblyGeometryCapturePair pair;
+  if(!CaptureAssemblyGeometrySelection(movingInstance,request["movingPickId"].get<std::string>(),
+      request["movingSourceBinding"],&pair.moving,&reason))return reject("moving pick: "+reason);
+  if(!CaptureAssemblyGeometrySelection(fixedInstance,request["fixedPickId"].get<std::string>(),
+      request["fixedSourceBinding"],&pair.fixed,&reason))return reject("fixed pick: "+reason);
+  if(kind=="concentric"&&(!pair.moving.hasAxisLine||!pair.fixed.hasAxisLine))
+    return reject("concentric requires two cylindrical faces or circular edges");
+
+  nlohmann::json constraint={{"kind",kind},{"movingId",movingId},{"fixedId",fixedId},
+      {"movingSourceBinding",request["movingSourceBinding"]},{"fixedSourceBinding",request["fixedSourceBinding"]}};
+  if(kind=="angle")constraint["angleDeg"]=request["angleDeg"];
+  doc["constraints"][constraintId]=std::move(constraint);
+  AssemblyGeometryCaptures captures{{constraintId,pair}};
+  AssemblyConstraintPlan plan;
+  if(!BuildAssemblyConstraintPlan(doc,&plan,false,&captures))return reject(AssemblyConstraintIssueText(plan.issues));
+  auto prepare=[constraintId](nlohmann::json* updated,std::string* bindError) {
+    if(!updated||!updated->contains("constraints")||!(*updated)["constraints"].contains(constraintId)) {
+      if(bindError)*bindError="geometric constraint metadata disappeared";return false;
+    }
+    return BindAssemblyConstraintSources(constraintId,&(*updated)["constraints"][constraintId],bindError);
+  };
+  return ApplyAssemblyConstraintPlan(doc,plan,true,"assembly-"+constraintId,error,prepare);
 }
 
 }  // namespace kreoda

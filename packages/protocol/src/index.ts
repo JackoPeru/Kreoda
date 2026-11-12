@@ -10,12 +10,14 @@
 import { z } from "zod";
 import * as flatbuffers from "flatbuffers";
 import { MeshUpdate } from "./generated/kreoda/protocol.js";
-import { StableFeatureIdSchema } from "./session-control.js";
+import { SketchPlaneFrameSchema, StableFeatureIdSchema } from "./session-control.js";
+import { SketchProjectionGroupSummarySchema } from "./sketch-projection.js";
 
 export * from "./session-control.js";
 export * from "./session-model.js";
 export * from "./datum.js";
 export * from "./sketch-projection.js";
+export * from "./surface.js";
 
 export const PROTOCOL_VERSION = 1 as const;
 
@@ -59,6 +61,28 @@ export const CommandType = {
   SetSketchProjection: 36,
   RemoveSketchProjection: 37,
   RequestSketchProjection: 38,
+  CreateSurfaceLoftSewnSolid: 39,
+  DefineConfiguration: 40,
+  ActivateConfiguration: 41,
+  QueryConfigurations: 42,
+  CreateOutwardFacePush: 43,
+  SetBodyVisibility: 44,
+  CreateInwardFacePocket: 45,
+  CreateSurfaceFaceThicken: 46,
+  DefineAssemblyConstraint: 47,
+  CreateSurfaceExtrude: 48,
+  CreateSurfaceRevolve: 49,
+  CreateSurfaceLoft: 50,
+  CreateSurfaceSew: 51,
+  CreateSurfaceOffset: 52,
+  CreateSurfaceSweep: 53,
+  CreateSurfaceThicken: 54,
+  CreateSurfaceTrim: 55,
+  CreateSurfaceExtend: 56,
+  CreateMoveFace: 57,
+  CreateOffsetFace: 58,
+  CreateDeleteFace: 59,
+  CreateReplaceFace: 60,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
@@ -141,6 +165,18 @@ export const SketchArcSchema = z.object({
 });
 export type SketchArc = z.infer<typeof SketchArcSchema>;
 
+export const SketchEllipseSchema = z.object({
+  id: z.string().min(1), center: z.string().min(1),
+  majorRadius: z.number().finite().positive(), minorRadius: z.number().finite().positive(),
+  rotationRad: z.number().finite().default(0), arc: z.boolean().default(false),
+  startAngleRad: z.number().finite().default(0), endAngleRad: z.number().finite().default(2 * Math.PI),
+}).refine(e => e.majorRadius > e.minorRadius && e.minorRadius > 1e-9 &&
+  (!e.arc || (e.endAngleRad > e.startAngleRad && e.endAngleRad - e.startAngleRad < 2 * Math.PI)));
+export const SketchSplineSchema = z.object({
+  id: z.string().min(1), pointIds: z.array(z.string().min(1)).min(3).max(256),
+  controlPoints: z.boolean().default(true), closed: z.boolean().default(false),
+});
+
 export const SketchConstraintKindSchema = z.enum([
   "coincident",
   "horizontal",
@@ -155,6 +191,9 @@ export const SketchConstraintKindSchema = z.enum([
   "angle",
   "pointOnLine",
   "fixed",
+  "ellipseMajorRadius",
+  "ellipseMinorRadius",
+  "symmetric",
 ]);
 export type SketchConstraintKind = z.infer<typeof SketchConstraintKindSchema>;
 
@@ -162,7 +201,18 @@ export const SketchConstraintSchema = z.object({
   id: z.string().min(1),
   kind: SketchConstraintKindSchema,
   refs: z.array(z.string().min(1)).default([]),
-  value: z.number().default(0),
+  value: z.number().finite().default(0),
+}).superRefine((constraint, ctx) => {
+  if (constraint.kind === "symmetric" &&
+      (constraint.refs.length !== 3 || new Set(constraint.refs).size !== 3 || constraint.value !== 0)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom,
+      message: "symmetric requires distinct [pointA, pointB, axisLine] references and value 0" });
+  }
+  if ((constraint.kind === "ellipseMajorRadius" || constraint.kind === "ellipseMinorRadius") &&
+      (constraint.refs.length !== 1 || constraint.value <= 0)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom,
+      message: "ellipse dimension requires one ellipse ID and positive finite value" });
+  }
 });
 export type SketchConstraint = z.infer<typeof SketchConstraintSchema>;
 
@@ -171,9 +221,62 @@ export const SketchModelSchema = z.object({
   lines: z.array(SketchLineSchema).default([]),
   circles: z.array(SketchCircleSchema).default([]),
   arcs: z.array(SketchArcSchema).default([]),
+  ellipses: z.array(SketchEllipseSchema).optional(),
+  splines: z.array(SketchSplineSchema).optional(),
+  constructionIds: z.array(z.string().min(1)).optional(),
   constraints: z.array(SketchConstraintSchema).default([]),
+}).superRefine((model, ctx) => {
+  const ellipseIds = new Set((model.ellipses ?? []).map(ellipse => ellipse.id));
+  model.constraints.forEach((constraint, index) => {
+    if ((constraint.kind === "ellipseMajorRadius" || constraint.kind === "ellipseMinorRadius") &&
+        constraint.refs.length === 1 && !ellipseIds.has(constraint.refs[0]!)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom,
+        path: ["constraints", index, "refs", 0],
+        message: "ellipse dimension must reference an ellipse in the sketch" });
+    }
+  });
 });
 export type SketchModel = z.infer<typeof SketchModelSchema>;
+
+export const SketchCurveDisplayPointSchema = z.tuple([
+  z.number().finite(), z.number().finite(),
+]);
+export const SketchCurveDisplayCurveSchema = z.object({
+  entityId: z.string().min(1),
+  kind: z.enum(["ellipse", "ellipticalArc", "spline"]),
+  closed: z.boolean(),
+  pointsMm: z.array(SketchCurveDisplayPointSchema).min(2),
+});
+export const SketchCurveDisplayErrorSchema = z.object({
+  entityId: z.string().min(1).optional(),
+  message: z.string().min(1),
+});
+export const SketchCurveDisplaySchema = z.object({
+  space: z.literal("sketch-local"),
+  curves: z.array(SketchCurveDisplayCurveSchema),
+  errors: z.array(SketchCurveDisplayErrorSchema).default([]),
+});
+export type SketchCurveDisplay = z.infer<typeof SketchCurveDisplaySchema>;
+
+/** RequestSketch and UpdateSketch body. curveDisplay is optional for old cores. */
+export const SketchBodySchema = z.object({
+  featureId: z.string(),
+  type: z.string(),
+  planeKind: z.string(),
+  revision: z.number().int().nonnegative(),
+  sketch: z.object({
+    model: SketchModelSchema,
+    plane: SketchPlaneFrameSchema.optional(),
+    supportRef: z.string().optional(),
+    projectionGroups: z.array(SketchProjectionGroupSummarySchema).default([]),
+  }),
+  curveDisplay: SketchCurveDisplaySchema.optional(),
+  geometryCurrent: z.boolean().optional(),
+  geometryStatus: z.string().optional(),
+  error: z.string().optional(),
+  blockingSourceIds: z.array(z.string()).optional(),
+});
+export type SketchBody = z.infer<typeof SketchBodySchema>;
 
 export const CreateSketchPayloadSchema = z.object({
   supportRef: StableFeatureIdSchema.optional(),
@@ -364,6 +467,8 @@ export type MeshResponse = z.infer<typeof MeshResponseSchema>;
 export type EdgeRange = MeshResponse["edges"][number];
 
 export interface CoreMeshData {
+  /** Native maximum absolute principal curvature, mm^-1; -1 = undefined. */
+  curvatureMaxAbsPerMm?: Float32Array;
   positions: Float32Array;
   normals: Float32Array;
   indices: Uint32Array;
@@ -566,9 +671,11 @@ function decodeUpdate(update: MeshUpdate): CoreMeshUpdate {
   const norBytes = update.normalsArray();
   const idxBytes = update.indicesArray();
   const edgeBytes = update.edgeVerticesArray() ?? EMPTY_MESH_BYTES;
+  const curvatureBytes = update.curvatureMaxAbsPerMmArray() ?? EMPTY_MESH_BYTES;
   if (!posBytes || !norBytes || !idxBytes ||
       posBytes.byteLength > MAX_MESH_VECTOR_BYTES || norBytes.byteLength > MAX_MESH_VECTOR_BYTES ||
-      idxBytes.byteLength > MAX_MESH_VECTOR_BYTES || edgeBytes.byteLength > MAX_MESH_VECTOR_BYTES) {
+      idxBytes.byteLength > MAX_MESH_VECTOR_BYTES || edgeBytes.byteLength > MAX_MESH_VECTOR_BYTES ||
+      curvatureBytes.byteLength > MAX_MESH_VECTOR_BYTES) {
     throw new Error("mesh buffer missing or too large");
   }
   if (posBytes.byteLength !== norBytes.byteLength) {
@@ -596,6 +703,14 @@ function decodeUpdate(update: MeshUpdate): CoreMeshUpdate {
     throw new Error("mesh element counts do not match vector lengths");
   }
   const vertexCount = posBytes.byteLength / 12;
+  if (curvatureBytes.byteLength !== 0) {
+    if (curvatureBytes.byteLength !== vertexCount * 4) throw new Error("mesh curvature count mismatch");
+    const values = new DataView(curvatureBytes.buffer, curvatureBytes.byteOffset, curvatureBytes.byteLength);
+    for (let offset = 0; offset < curvatureBytes.byteLength; offset += 4) {
+      const value = values.getFloat32(offset, true);
+      if (!Number.isFinite(value) || (value < 0 && value !== -1)) throw new Error("invalid mesh curvature sample");
+    }
+  }
   const triangleCount = idxBytes.byteLength / 12;
   const edgeVertexCount = edgeBytes.byteLength / 12;
   validateFiniteFloat32Bytes(posBytes, "position");
@@ -677,5 +792,6 @@ function decodeUpdate(update: MeshUpdate): CoreMeshUpdate {
     bboxMm: bbox,
     triangleCount,
     revision,
+    ...(curvatureBytes.byteLength ? { curvatureMaxAbsPerMm: u8ToF32(curvatureBytes, "curvature") } : {}),
   };
 }

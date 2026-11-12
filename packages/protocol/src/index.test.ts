@@ -5,6 +5,8 @@ import {
   CreateRevolvePayloadSchema,
   CreateSpherePayloadSchema,
   FrameDecoder,
+  SketchBodySchema,
+  SketchCurveDisplaySchema,
   SketchModelSchema,
   decodeMeshResponse,
   frameMessage,
@@ -140,6 +142,33 @@ describe("sketch payloads (Phase 4)", () => {
     ).toThrow();
   });
 
+  it("round-trips ellipse driving dimensions and rejects invalid refs or values", () => {
+    const model = {
+      points: [{ id: "center", x: 0, y: 0 }],
+      ellipses: [{ id: "oval", center: "center", majorRadius: 12, minorRadius: 6 }],
+      constraints: [
+        { id: "major", kind: "ellipseMajorRadius", refs: ["oval"], value: 12 },
+        { id: "minor", kind: "ellipseMinorRadius", refs: ["oval"], value: 6 },
+      ],
+    };
+    const parsed = SketchModelSchema.parse(model);
+    expect(SketchModelSchema.parse(JSON.parse(JSON.stringify(parsed)))).toEqual(parsed);
+    expect(() => SketchModelSchema.parse({ ...model, constraints: [
+      { id: "major", kind: "ellipseMajorRadius", refs: [], value: 12 },
+    ] })).toThrow();
+    expect(() => SketchModelSchema.parse({ ...model, constraints: [
+      { id: "major", kind: "ellipseMajorRadius", refs: ["oval", "other"], value: 12 },
+    ] })).toThrow();
+    expect(() => SketchModelSchema.parse({ ...model, constraints: [
+      { id: "major", kind: "ellipseMajorRadius", refs: ["missing"], value: 12 },
+    ] })).toThrow();
+    for (const value of [0, -1, Number.POSITIVE_INFINITY, Number.NaN]) {
+      expect(() => SketchModelSchema.parse({ ...model, constraints: [
+        { id: "major", kind: "ellipseMajorRadius", refs: ["oval"], value },
+      ] })).toThrow();
+    }
+  });
+
   it("validates extrude/revolve params", () => {
     expect(
       CreateExtrudePayloadSchema.parse({
@@ -155,5 +184,27 @@ describe("sketch payloads (Phase 4)", () => {
         angleDeg: 400,
       }),
     ).toThrow();
+  });
+
+  it("accepts optional native curve display and rejects non-finite samples", () => {
+    const legacy = {
+      featureId: "sketch-a", type: "Sketch", planeKind: "XY", revision: 1,
+      sketch: { model: SketchModelSchema.parse({}), projectionGroups: [] },
+    };
+    expect(SketchBodySchema.parse(legacy).curveDisplay).toBeUndefined();
+    const curveDisplay = {
+      space: "sketch-local" as const,
+      curves: [{ entityId: "ellipse-a", kind: "ellipse" as const, closed: true,
+        pointsMm: [[2, 3], [4, 5]] as [number, number][] }],
+      errors: [],
+    };
+    expect(SketchBodySchema.parse({ ...legacy, curveDisplay }).curveDisplay).toEqual(curveDisplay);
+    expect(SketchCurveDisplaySchema.parse(curveDisplay)).toEqual(curveDisplay);
+    expect(SketchCurveDisplaySchema.parse({ ...curveDisplay, errors: [
+      { message: "native curve display failed" },
+    ] }).errors[0]?.entityId).toBeUndefined();
+    expect(() => SketchCurveDisplaySchema.parse({ ...curveDisplay, curves: [{
+      ...curveDisplay.curves[0]!, pointsMm: [[Number.NaN, 0], [4, 5]],
+    }] })).toThrow();
   });
 });

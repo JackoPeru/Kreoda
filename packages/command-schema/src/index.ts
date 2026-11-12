@@ -2,11 +2,45 @@
 // One definition drives toolbar, context menu, palette, shortcuts, AI tools.
 
 import { z } from "zod";
-import { CommandType, SketchModelSchema, StableFeatureIdSchema, SESSION_STABLE_FEATURE_ID_SCHEMA } from "@kreoda/protocol";
+import {
+  CommandType, SketchModelSchema, StableFeatureIdSchema, SESSION_STABLE_FEATURE_ID_SCHEMA,
+  SurfaceEdgeReferenceSchema, SurfaceFaceReferenceSchema,
+} from "@kreoda/protocol";
 import { DatumPlaneDefinitionSchema, DatumAxisDefinitionSchema, DatumPointDefinitionSchema, DatumDefinitionSchema } from "@kreoda/protocol";
 import { zodToJsonSchema, ignoreOverride } from "zod-to-json-schema";
 import { commandCreationRule } from "./native-command.js";
 export { commandNativeRequest, commandCreatesFeature, validateLegacyNativeCommand } from "./native-command.js";
+
+const AssemblySourceRoleSchema = z.string().min(1).max(512)
+  .refine(role => !role.includes(":"), "source role must be local to its feature");
+const AssemblySourceBindingSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("face"), featureId: StableFeatureIdSchema,
+    persistentFaceId: AssemblySourceRoleSchema, geometryKind: z.enum(["plane", "cylinder"]),
+  }).strict(),
+  z.object({
+    type: z.literal("edge"), featureId: StableFeatureIdSchema,
+    persistentEdgeId: AssemblySourceRoleSchema, geometryKind: z.enum(["circle", "line"]),
+  }).strict(),
+]);
+const GeometricAssemblyConstraintShape = {
+  constraintId: StableFeatureIdSchema,
+  movingId: StableFeatureIdSchema,
+  fixedId: StableFeatureIdSchema,
+  captureRevision: z.number().int().nonnegative().refine(Number.isSafeInteger),
+  movingPickId: z.string().min(1),
+  fixedPickId: z.string().min(1),
+};
+
+/** Surface bodies are identified only by their canonical feature types.
+ * Names such as SurfaceLoftSewnSolid, SurfaceSewnSolid and SurfaceFaceThicken still produce solids. */
+export function featureGeometryKind(type: string): "surface" | "solid" {
+  return type === "SurfaceExtrude" || type === "SurfaceRevolve" ||
+    type === "SurfaceLoft" || type === "SurfaceSew" || type === "SurfaceOffset" ||
+    type === "SurfaceSweep" || type === "SurfaceTrim" || type === "SurfaceExtend"
+    ? "surface"
+    : "solid";
+}
 
 export const SelectionKindSchema = z.enum([
   "body",
@@ -42,7 +76,7 @@ export interface CadCommandDefinition<P = unknown> {
   beginnerVisible: boolean;
   advancedVisible: boolean;
   availability: (ctx: CommandContext) => AvailabilityResult;
-  selectionBindings?: Record<string, "owner" | "edges" | "faceRole" | "sketch">;
+  selectionBindings?: Record<string, "owner" | "owners" | "edges" | "faceRole" | "sketch" | "firstSketch" | "secondSketch">;
   optionalSelectionBindings?: Record<string, "datumPlane">;
 }
 
@@ -54,6 +88,27 @@ export const CreateBoxParams = z.object({
 
 const always: AvailabilityResult = { available: true };
 const utf8Bytes = (value: string) => new TextEncoder().encode(value).length;
+const DirectFaceReferenceSchema = z.object({
+  type: z.literal("face"),
+  featureId: StableFeatureIdSchema,
+  persistentFaceId: z.string().min(1).max(512)
+    .refine(role => utf8Bytes(role) <= 512),
+}).strict().superRefine((reference, ctx) => {
+  const separator = reference.persistentFaceId.indexOf(":");
+  if (separator >= 0 &&
+      (reference.persistentFaceId.slice(0, separator) !== reference.featureId ||
+       reference.persistentFaceId.slice(separator + 1).length === 0 ||
+       reference.persistentFaceId.slice(separator + 1).includes(":"))) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom,
+      path: ["persistentFaceId"],
+      message: "persistentFaceId must be local or qualified by its exact owner" });
+  }
+});
+const DirectFaceVectorSchema = z.object({
+  x: z.number().finite(), y: z.number().finite(), z: z.number().finite(),
+}).strict();
+const DirectFaceRevisionSchema =
+  z.number().int().nonnegative().refine(Number.isSafeInteger);
 const ProjectionSourceSchema = z.union([
   z.object({ type: z.literal("edge"), featureId: StableFeatureIdSchema,
     persistentEdgeId: z.string().min(1).max(512) }).strict(),
@@ -469,6 +524,283 @@ export const COMMANDS: CadCommandDefinition[] = [
     supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
   },
   {
+    id: "CreateSurfaceLoftSewnSolid", nativeType: CommandType.CreateSurfaceLoftSewnSolid,
+    label: "Loft sewn solid", beginnerLabel: "Create loft",
+    description: "Create an associative sewn solid through ordered sketch sections.",
+    icon: "layers", parameterSchema: z.object({ sketchIds: z.array(StableFeatureIdSchema).min(2).max(128) }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateSurfaceExtrude", nativeType: CommandType.CreateSurfaceExtrude,
+    label: "Extrude surface", beginnerLabel: "Create surface",
+    description: "Create an uncapped surface body from exact sketch boundary wires.",
+    icon: "layers", parameterSchema: z.object({
+      sketchId: StableFeatureIdSchema,
+      distanceMm: z.number().finite().max(100000).min(-100000).refine(value => value !== 0),
+    }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateSurfaceRevolve", nativeType: CommandType.CreateSurfaceRevolve,
+    label: "Revolve surface", beginnerLabel: "Create revolved surface",
+    description: "Revolve exact sketch boundary wires about a normalized world axis without caps.",
+    icon: "rotate-3d", parameterSchema: z.object({
+      sketchId: StableFeatureIdSchema,
+      angleDeg: z.number().finite().positive().max(360),
+      axisOriginXMm: z.number().finite().min(-100000).max(100000).default(0),
+      axisOriginYMm: z.number().finite().min(-100000).max(100000).default(0),
+      axisOriginZMm: z.number().finite().min(-100000).max(100000).default(0),
+      axisX: z.number().finite().min(-1).max(1).default(1),
+      axisY: z.number().finite().min(-1).max(1).default(0),
+      axisZ: z.number().finite().min(-1).max(1).default(0),
+    }).strict().refine(({ axisX, axisY, axisZ }) => axisX ** 2 + axisY ** 2 + axisZ ** 2 > 1e-18),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateSurfaceLoft", nativeType: CommandType.CreateSurfaceLoft,
+    label: "Loft surface", beginnerLabel: "Create lofted surface",
+    description: "Create an uncapped surface through ordered, compatible sketch sections.",
+    icon: "layers", parameterSchema: z.object({
+      sketchIds: z.array(StableFeatureIdSchema).min(2).max(128)
+        .refine(ids => new Set(ids).size === ids.length),
+    }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateSurfaceSew", nativeType: CommandType.CreateSurfaceSew,
+    label: "Sew surfaces", beginnerLabel: "Sew surfaces",
+    description: "Join exact surface B-Reps into one connected surface or a truly closed solid.",
+    icon: "layers", parameterSchema: z.object({
+      featureIds: z.array(StableFeatureIdSchema).min(1).max(128)
+        .refine(ids => new Set(ids).size === ids.length),
+      toleranceMm: z.number().finite().min(1e-7).max(1).default(0.01),
+      makeSolid: z.boolean().default(false),
+    }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true,
+    availability: () => always, selectionBindings: { featureIds: "owners" },
+  },
+  {
+    id: "CreateSurfaceOffset", nativeType: CommandType.CreateSurfaceOffset,
+    label: "Offset surface", beginnerLabel: "Offset surface",
+    description: "Create an exact signed offset of a surface B-Rep.",
+    icon: "layers", parameterSchema: z.object({
+      targetId: StableFeatureIdSchema,
+      distanceMm: z.number().finite().refine(value => Math.abs(value) >= 1e-6 && Math.abs(value) <= 100000),
+      toleranceMm: z.number().finite().min(1e-7).max(1).default(1e-6),
+    }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true,
+    availability: () => always, selectionBindings: { targetId: "owner" },
+  },
+  {
+    id: "CreateSurfaceSweep", nativeType: CommandType.CreateSurfaceSweep,
+    label: "Sweep surface", beginnerLabel: "Sweep surface",
+    description: "Sweep exact sketch boundary wires along a connected sketch path without caps.",
+    icon: "layers", parameterSchema: z.object({
+      profileSketchId: StableFeatureIdSchema,
+      pathSketchId: StableFeatureIdSchema,
+      toleranceMm: z.number().finite().min(1e-7).max(1).default(1e-6),
+    }).strict().refine(({ profileSketchId, pathSketchId }) => profileSketchId !== pathSketchId),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true,
+    availability: (ctx) => ctx.selection.length === 2 && ctx.selection.every(reference => reference.kind === "sketch")
+      ? always : { available: false, reason: "Select exactly two sketches in profile then path order" },
+    selectionBindings: { profileSketchId: "firstSketch", pathSketchId: "secondSketch" },
+  },
+  {
+    id: "CreateSurfaceThicken", nativeType: CommandType.CreateSurfaceThicken,
+    label: "Thicken surface", beginnerLabel: "Create solid from surface",
+    description: "Create an independent editable solid with signed thickness from a connected surface body.",
+    icon: "layers", parameterSchema: z.object({
+      targetId: StableFeatureIdSchema,
+      thicknessMm: z.number().finite().refine(value => Math.abs(value) >= 1e-6 && Math.abs(value) <= 100000),
+      toleranceMm: z.number().finite().min(1e-7).max(1).default(1e-6),
+    }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true,
+    availability: () => always, selectionBindings: { targetId: "owner" },
+  },
+  {
+    id: "CreateSurfaceTrim", nativeType: CommandType.CreateSurfaceTrim,
+    label: "Trim surface", beginnerLabel: "Trim surface",
+    description: "Keep the connected surface region selected by an exact face and UV point.",
+    icon: "scissors", parameterSchema: z.object({
+      targetId: StableFeatureIdSchema,
+      toolId: StableFeatureIdSchema,
+      keepFace: SurfaceFaceReferenceSchema.describe("Face reference owned by targetId; internal OCAF bindings are not accepted."),
+      keepUv: z.tuple([z.number().finite(), z.number().finite()]),
+      toleranceMm: z.number().finite().min(1e-7).max(1).default(1e-6),
+    }).strict().superRefine((parameters, ctx) => {
+      if (parameters.targetId === parameters.toolId)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["toolId"], message: "toolId must differ from targetId" });
+      if (parameters.keepFace.featureId !== parameters.targetId)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["keepFace", "featureId"], message: "keepFace must belong to targetId" });
+    }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateSurfaceExtend", nativeType: CommandType.CreateSurfaceExtend,
+    label: "Extend surface", beginnerLabel: "Extend surface",
+    description: "Extend one free outer boundary by a measured spatial chord on its exact support.",
+    icon: "move-3d", parameterSchema: z.object({
+      targetId: StableFeatureIdSchema,
+      boundaryEdge: SurfaceEdgeReferenceSchema.describe("Edge reference owned by targetId; internal OCAF bindings are not accepted."),
+      distanceMm: z.number().finite().min(1e-6).max(100000),
+      toleranceMm: z.number().finite().min(1e-7).max(1).default(1e-6),
+    }).strict().superRefine((parameters, ctx) => {
+      if (parameters.boundaryEdge.featureId !== parameters.targetId)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["boundaryEdge", "featureId"], message: "boundaryEdge must belong to targetId" });
+    }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "DefineConfiguration", nativeType: CommandType.DefineConfiguration,
+    label: "Define configuration", beginnerLabel: "Save variant",
+    description: "Store validated parameter overrides for a named model configuration.",
+    icon: "layers", parameterSchema: z.object({
+      name: z.string().min(1).max(64),
+      overrides: z.record(StableFeatureIdSchema, z.record(z.string().min(1).max(128), z.number().finite()).refine(values => Object.keys(values).length > 0)).refine(values => Object.keys(values).length > 0),
+    }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "ActivateConfiguration", nativeType: CommandType.ActivateConfiguration,
+    label: "Activate configuration", beginnerLabel: "Switch variant",
+    description: "Apply an existing named configuration atomically.",
+    icon: "layers", parameterSchema: z.object({ name: z.string().min(1).max(64) }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "QueryConfigurations", nativeType: CommandType.QueryConfigurations,
+    label: "Inspect configurations", beginnerLabel: "List variants",
+    description: "Read the current configuration and saved names without changing model revision.",
+    icon: "info", parameterSchema: z.object({}).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: false, availability: () => always,
+  },
+  {
+    id: "CreateOutwardFacePush", nativeType: CommandType.CreateOutwardFacePush,
+    label: "Push planar face", beginnerLabel: "Extend selected face",
+    description: "Push a persistent planar face outwards by a positive distance.",
+    icon: "move-3d", parameterSchema: z.object({
+      sourceFeatureId: StableFeatureIdSchema,
+      faceRole: z.string().min(1).max(512).refine(role => !/(?:^|[.:])(?:face|edge)\[\d+\]/.test(role)),
+      distanceMm: z.number().finite().positive().max(100000),
+    }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateMoveFace", nativeType: CommandType.CreateMoveFace,
+    label: "Move face", beginnerLabel: "Move face",
+    description: "Move one captured planar face by a rigid transform while preserving the remaining convex planar supports.",
+    icon: "move-3d", parameterSchema: z.object({
+      sourceFeatureId: StableFeatureIdSchema,
+      sourceFace: DirectFaceReferenceSchema,
+      captureRevision: DirectFaceRevisionSchema,
+      translationMm: DirectFaceVectorSchema,
+      rotationDeg: DirectFaceVectorSchema,
+      pivotMm: DirectFaceVectorSchema,
+    }).strict().superRefine((parameters, ctx) => {
+      if (parameters.sourceFace.featureId !== parameters.sourceFeatureId)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceFace", "featureId"],
+          message: "sourceFace must belong to sourceFeatureId" });
+    }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateOffsetFace", nativeType: CommandType.CreateOffsetFace,
+    label: "Offset face", beginnerLabel: "Offset face",
+    description: "Apply a signed exact OCCT offset to one planar, cylindrical or spherical face.",
+    icon: "move-3d", parameterSchema: z.object({
+      sourceFeatureId: StableFeatureIdSchema,
+      sourceFace: DirectFaceReferenceSchema,
+      captureRevision: DirectFaceRevisionSchema,
+      distanceMm: z.number().finite().refine(value => value !== 0),
+    }).strict().superRefine((parameters, ctx) => {
+      if (parameters.sourceFace.featureId !== parameters.sourceFeatureId)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceFace", "featureId"],
+          message: "sourceFace must belong to sourceFeatureId" });
+    }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateDeleteFace", nativeType: CommandType.CreateDeleteFace,
+    label: "Delete face", beginnerLabel: "Delete face",
+    description: "Remove and heal one captured face using OCCT defeaturing.",
+    icon: "scissors", parameterSchema: z.object({
+      sourceFeatureId: StableFeatureIdSchema,
+      sourceFace: DirectFaceReferenceSchema,
+      captureRevision: DirectFaceRevisionSchema,
+    }).strict().superRefine((parameters, ctx) => {
+      if (parameters.sourceFace.featureId !== parameters.sourceFeatureId)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceFace", "featureId"],
+          message: "sourceFace must belong to sourceFeatureId" });
+    }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateReplaceFace", nativeType: CommandType.CreateReplaceFace,
+    label: "Replace face", beginnerLabel: "Replace face",
+    description: "Replace one captured planar support with a separate compatible planar face.",
+    icon: "layers", parameterSchema: z.object({
+      sourceFeatureId: StableFeatureIdSchema,
+      sourceFace: DirectFaceReferenceSchema,
+      captureRevision: DirectFaceRevisionSchema,
+      replacementFace: DirectFaceReferenceSchema,
+    }).strict().superRefine((parameters, ctx) => {
+      if (parameters.sourceFace.featureId !== parameters.sourceFeatureId)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceFace", "featureId"],
+          message: "sourceFace must belong to sourceFeatureId" });
+    }),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateInwardFacePocket", nativeType: CommandType.CreateInwardFacePocket,
+    label: "Pocket planar face", beginnerLabel: "Cut into selected face",
+    description: "Create a persistent inward pocket on a semantic planar face of an imported STEP solid.",
+    icon: "move-3d", parameterSchema: z.object({
+      sourceFeatureId: StableFeatureIdSchema,
+      faceRole: z.string().min(1).max(512).refine(role => !/(?:^|[.:])(?:face|edge)\[\d+\]/.test(role)),
+      distanceMm: z.number().finite().positive().max(100000),
+    }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "CreateSurfaceFaceThicken", nativeType: CommandType.CreateSurfaceFaceThicken,
+    label: "Thicken planar face", beginnerLabel: "Create solid from face",
+    description: "Create a separate persistent solid by thickening one semantic planar source face; does not implement arbitrary surface offset.",
+    icon: "layers", parameterSchema: z.object({
+      sourceFeatureId: StableFeatureIdSchema,
+      faceRole: z.string().min(1).max(512).refine(role => !/(?:^|[.:])(?:face|edge)\[\d+\]/.test(role)),
+      thicknessMm: z.number().finite().positive().max(100000),
+    }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "DefineAssemblyConstraint", nativeType: CommandType.DefineAssemblyConstraint,
+    label: "Constrain assembly instances", beginnerLabel: "Mate components",
+    description: "Ground rigid instances, constrain origins, or mate selected analytic faces and axes.",
+    icon: "link", parameterSchema: z.discriminatedUnion("kind", [
+      z.object({ constraintId: StableFeatureIdSchema, kind: z.literal("ground"), movingId: StableFeatureIdSchema }).strict(),
+      z.object({ constraintId: StableFeatureIdSchema, kind: z.literal("coincident"), movingId: StableFeatureIdSchema, fixedId: StableFeatureIdSchema }).strict(),
+      z.object({ constraintId: StableFeatureIdSchema, kind: z.literal("distance"), movingId: StableFeatureIdSchema, fixedId: StableFeatureIdSchema,
+        axis: z.number().int().min(0).max(2), distanceMm: z.number().finite() }).strict(),
+      z.object({ ...GeometricAssemblyConstraintShape, kind: z.literal("concentric"),
+        movingSourceBinding: AssemblySourceBindingSchema, fixedSourceBinding: AssemblySourceBindingSchema }).strict(),
+      z.object({ ...GeometricAssemblyConstraintShape, kind: z.literal("parallel"),
+        movingSourceBinding: AssemblySourceBindingSchema, fixedSourceBinding: AssemblySourceBindingSchema }).strict(),
+      z.object({ ...GeometricAssemblyConstraintShape, kind: z.literal("perpendicular"),
+        movingSourceBinding: AssemblySourceBindingSchema, fixedSourceBinding: AssemblySourceBindingSchema }).strict(),
+      z.object({ ...GeometricAssemblyConstraintShape, kind: z.literal("angle"),
+        movingSourceBinding: AssemblySourceBindingSchema, fixedSourceBinding: AssemblySourceBindingSchema,
+        angleDeg: z.number().finite().min(0).max(180) }).strict(),
+    ]),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
+    id: "SetBodyVisibility", nativeType: CommandType.SetBodyVisibility,
+    label: "Body visibility", beginnerLabel: "Show or hide body",
+    description: "Persistently toggle displayed body without deleting history or dependencies.",
+    icon: "eye", parameterSchema: z.object({ bodyId: z.string().min(1), visible: z.boolean() }).strict(),
+    supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
+  },
+  {
     id: "DeleteFeature", nativeType: CommandType.DeleteFeature,
     label: "Delete feature", beginnerLabel: "Delete feature",
     description: "Delete a feature or sketch only when it has no dependent geometry or formulas.",
@@ -507,6 +839,30 @@ export function commandJsonSchema(id: string) {
         }
       }
     }
+  }
+  if (id === "CreateSurfaceTrim" || id === "CreateSurfaceExtend") {
+    const record = (value: unknown) => value as Record<string, unknown>;
+    const properties = record(parameters["properties"]);
+    const referenceName = id === "CreateSurfaceTrim" ? "keepFace" : "boundaryEdge";
+    const roleName = id === "CreateSurfaceTrim" ? "persistentFaceId" : "persistentEdgeId";
+    const referenceProperties = record(record(properties[referenceName])["properties"]);
+    const role = record(referenceProperties[roleName]);
+    role["maxLength"] = 512;
+    role["maxUtf8Bytes"] = 512;
+  }
+  if (id === "CreateMoveFace" || id === "CreateOffsetFace" ||
+      id === "CreateDeleteFace" || id === "CreateReplaceFace") {
+    const record = (value: unknown) => value as Record<string, unknown>;
+    const properties = record(parameters["properties"]);
+    for (const referenceName of ["sourceFace", "replacementFace"]) {
+      if (!(referenceName in properties)) continue;
+      const referenceProperties = record(record(properties[referenceName])["properties"]);
+      const role = record(referenceProperties["persistentFaceId"]);
+      role["maxLength"] = 512;
+      role["maxUtf8Bytes"] = 512;
+    }
+    if ("captureRevision" in properties)
+      record(properties["captureRevision"])["maximum"] = Number.MAX_SAFE_INTEGER;
   }
   return { id: definition.id, nativeType: definition.nativeType,
     creation: commandCreationRule(id),
