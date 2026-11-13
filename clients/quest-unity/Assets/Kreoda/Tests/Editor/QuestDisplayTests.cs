@@ -50,6 +50,14 @@ namespace Kreoda.QuestRuntime.Tests
         static void RunDisplayUpdate(QuestDisplay display) => typeof(QuestDisplay)
             .GetMethod("Update", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(display, null);
 
+        static void SetEditorAnchorClock(QuestDisplay display, Func<float> clock)
+        {
+            var field = typeof(QuestDisplay).GetField("EditorAnchorClock",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.That(field, Is.Not.Null, "A deterministic, Editor-only clock is required to test bounded retry");
+            field.SetValue(display, clock);
+        }
+
         static QuestAnchorScope AnchorScope(string document = "cad-document", string pc = "trusted-pc",
             string session = "session-1", long generation = 1) =>
             new QuestAnchorScope(pc, document, session, generation);
@@ -186,7 +194,7 @@ namespace Kreoda.QuestRuntime.Tests
                 _display.EditorAnchorBackend = backend;
                 _display.EditorAnchorStoragePath = storage;
                 _display.EditorAuthenticatedScope = AnchorScope();
-                _display.EditorPermissionRequest = (granted, denied) => delayedGrant = granted;
+                _display.EditorPermissionRequest = (granted, denied, deniedForever) => delayedGrant = granted;
                 RunDisplayUpdate(_display);
                 Assert.That(_display.BeginPlacement(), Is.True);
                 _display.UpdatePointerPlacement(new Vector3(1, .8f, 1), 10, true, true,
@@ -210,6 +218,241 @@ namespace Kreoda.QuestRuntime.Tests
                 Assert.That(backend.CreateCalls, Is.EqualTo(1),
                     "An old permission callback must not save placement A after B was confirmed");
                 Assert.That(File.ReadAllText(previousFile), Is.EqualTo(expectedJson));
+            }
+            finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
+        }
+
+        [Test]
+        public void PermanentAnchorPermissionDenialCompletesRequestAndIgnoresLateGrant()
+        {
+            var field = typeof(QuestDisplay).GetField("EditorPermissionRequest",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.That(field, Is.Not.Null);
+            Assert.That(field.FieldType, Is.EqualTo(typeof(Action<Action, Action, Action>)),
+                "Permanent Android denial requires its own testable callback branch");
+            var storage = Path.Combine(Path.GetTempPath(), "kreoda-anchor-permanent-deny-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            try
+            {
+                var backend = new EditorFakeAnchorBackend { IsPermitted = false };
+                Action grant = null, permanentDeny = null;
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                field.SetValue(_display, (Action<Action, Action, Action>)((granted, denied, deniedForever) =>
+                {
+                    grant = granted;
+                    permanentDeny = deniedForever;
+                }));
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(.4f, .8f, 1), 0, true, true,
+                    QuestPlacementProvenance.ManualProjection);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                Assert.That(permanentDeny, Is.Not.Null);
+                Assert.That(grant, Is.Not.Null);
+                permanentDeny();
+                Assert.That(_display.Status, Does.Contain("negato"));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("negato"));
+                Assert.That(_display.EditorSaveOperation, Is.Null);
+                Assert.That(backend.CreateCalls, Is.Zero);
+                // A callback arriving out of order after denial must never persist.
+                backend.IsPermitted = true;
+                grant();
+                Assert.That(_display.EditorSaveOperation, Is.Null);
+                Assert.That(backend.CreateCalls, Is.Zero);
+                Assert.That(Directory.GetFiles(storage, "*.json", SearchOption.AllDirectories), Is.Empty);
+            }
+            finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
+        }
+
+        [Test]
+        public async Task TransientNotLocalizedRestoreRetriesOnlyAfterDelayInSameScope()
+        {
+            var storage = Path.Combine(Path.GetTempPath(), "kreoda-anchor-retry-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            try
+            {
+                var backend = new EditorFakeAnchorBackend();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(.5f, .8f, 1), 0, true, true,
+                    QuestPlacementProvenance.MetaRoomTable);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                var saved = await _display.EditorSaveOperation;
+                Assert.That(saved.Status, Is.EqualTo(QuestAnchorStatus.Saved));
+                DisposeOwnedDisplay();
+                CreateActualNativeCadDisplay();
+
+                float now = 100;
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope(session: "reconnected", generation: 7);
+                SetEditorAnchorClock(_display, () => now);
+                // The record exists, but the Meta backend cannot yet localize its UUID.
+                backend.Loaded = null;
+                RunDisplayUpdate(_display);
+                Assert.That((await _display.EditorRestoreOperation).Status, Is.EqualTo(QuestAnchorStatus.NotLocalized));
+                Assert.That(backend.LoadCalls, Is.EqualTo(1));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("vista temporanea"));
+                var localView = Root.position;
+                backend.Loaded = new EditorFakeAnchorHandle(saved.Record.AnchorUuid,
+                    new Pose(new Vector3(2, 1, 3), Quaternion.Euler(0, 70, 0)));
+                now = 101;
+                RunDisplayUpdate(_display);
+                Assert.That(backend.LoadCalls, Is.EqualTo(1), "Do not retry every frame");
+                now = 105;
+                RunDisplayUpdate(_display);
+                Assert.That(backend.LoadCalls, Is.EqualTo(2), "Retry bounded same-scope NotLocalized after backoff");
+                Assert.That((await _display.EditorRestoreOperation).Status, Is.EqualTo(QuestAnchorStatus.Restored));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("ricaricata"));
+                Assert.That(Vector3.Distance(Root.position, localView), Is.GreaterThan(.1f));
+                now = 1000;
+                RunDisplayUpdate(_display);
+                Assert.That(backend.LoadCalls, Is.EqualTo(2), "A successful restore stops the retry loop");
+            }
+            finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
+        }
+
+        [Test]
+        public async Task RestoreNotLocalizedRetryIsBoundedAndCanceledByExplicitPlacement()
+        {
+            var storage = Path.Combine(Path.GetTempPath(), "kreoda-anchor-retry-limit-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            try
+            {
+                var backend = new EditorFakeAnchorBackend();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(.7f, .8f, 1), 0, true, true,
+                    QuestPlacementProvenance.ManualProjection);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                Assert.That((await _display.EditorSaveOperation).Status, Is.EqualTo(QuestAnchorStatus.Saved));
+                DisposeOwnedDisplay();
+                CreateActualNativeCadDisplay();
+                float now = 0;
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope(session: "new", generation: 2);
+                SetEditorAnchorClock(_display, () => now);
+                backend.Loaded = null;
+                RunDisplayUpdate(_display);
+                Assert.That((await _display.EditorRestoreOperation).Status, Is.EqualTo(QuestAnchorStatus.NotLocalized));
+                Assert.That(backend.LoadCalls, Is.EqualTo(1));
+                now = 3;
+                RunDisplayUpdate(_display);
+                Assert.That((await _display.EditorRestoreOperation).Status, Is.EqualTo(QuestAnchorStatus.NotLocalized));
+                Assert.That(backend.LoadCalls, Is.EqualTo(2));
+                now = 8;
+                RunDisplayUpdate(_display);
+                Assert.That((await _display.EditorRestoreOperation).Status, Is.EqualTo(QuestAnchorStatus.NotLocalized));
+                Assert.That(backend.LoadCalls, Is.EqualTo(3));
+                now = 500;
+                RunDisplayUpdate(_display);
+                Assert.That(backend.LoadCalls, Is.EqualTo(3),
+                    "NotLocalized must have a hard attempt cap, not unbounded frame polling");
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.CancelPlacement();
+                now = 1000;
+                RunDisplayUpdate(_display);
+                Assert.That(backend.LoadCalls, Is.EqualTo(3),
+                    "An explicit user placement must not revive the old retry intent");
+            }
+            finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
+        }
+
+        [Test]
+        public async Task PendingRestoreRetryCannotApplyAnOldDocumentAfterScopeChange()
+        {
+            var storage = Path.Combine(Path.GetTempPath(), "kreoda-anchor-retry-scope-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            try
+            {
+                var backend = new EditorFakeAnchorBackend();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(.7f, .8f, 1), 0, true, true,
+                    QuestPlacementProvenance.ManualProjection);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                var saved = await _display.EditorSaveOperation;
+                Assert.That(saved.Status, Is.EqualTo(QuestAnchorStatus.Saved));
+                DisposeOwnedDisplay();
+                CreateActualNativeCadDisplay();
+                float now = 10;
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope(session: "new", generation: 2);
+                SetEditorAnchorClock(_display, () => now);
+                backend.Loaded = null;
+                RunDisplayUpdate(_display);
+                Assert.That((await _display.EditorRestoreOperation).Status, Is.EqualTo(QuestAnchorStatus.NotLocalized));
+                Assert.That(backend.LoadCalls, Is.EqualTo(1));
+                // Old UUID becomes available, but the application is now
+                // showing a different document under the same PC.
+                backend.Loaded = new EditorFakeAnchorHandle(saved.Record.AnchorUuid,
+                    new Pose(new Vector3(9, 1, 9), Quaternion.identity));
+                _display.EditorAuthenticatedScope = AnchorScope(document: "different-document",
+                    session: "other-session", generation: 3);
+                RunDisplayUpdate(_display);
+                Assert.That((await _display.EditorRestoreOperation).Status, Is.EqualTo(QuestAnchorStatus.Missing));
+                now = 100;
+                RunDisplayUpdate(_display);
+                Assert.That(backend.LoadCalls, Is.EqualTo(1),
+                    "The scheduled old-document retry must be canceled by scope invalidation");
+                Assert.That(_display.ConfirmedProvenance, Is.EqualTo(QuestPlacementProvenance.Unknown));
+            }
+            finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
+        }
+
+        [Test]
+        public async Task ChangedCadContactRejectsRestoredOutcomeRatherThanReportingSuccess()
+        {
+            var storage = Path.Combine(Path.GetTempPath(), "kreoda-anchor-geometry-reject-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            try
+            {
+                var backend = new EditorFakeAnchorBackend();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(.5f, .8f, 1), 0, true, true,
+                    QuestPlacementProvenance.MetaRoomTable);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                var saved = await _display.EditorSaveOperation;
+                Assert.That(saved.Status, Is.EqualTo(QuestAnchorStatus.Saved));
+                DisposeOwnedDisplay();
+                CreateActualNativeCadDisplay();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope(session: "new-session", generation: 5);
+                backend.Loaded = new EditorFakeAnchorHandle(saved.Record.AnchorUuid,
+                    new Pose(new Vector3(4, 1.1f, 2), Quaternion.identity));
+                var box = (double[])_view.BboxMetres.Clone();
+                box[0] += .02;
+                typeof(QuestMeshView).GetProperty("BboxMetres").SetValue(_view, box);
+                RunDisplayUpdate(_display);
+                var result = await _display.EditorRestoreOperation;
+                Assert.That(result.Status, Is.EqualTo(QuestAnchorStatus.InvalidContext),
+                    "A Meta UUID can localize while the restored CAD contact is stale");
+                Assert.That(result.Success, Is.False, "Rejected geometry cannot report successful placement");
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("Geometria CAD modificata"));
+                Assert.That(_display.ConfirmedProvenance, Is.EqualTo(QuestPlacementProvenance.Unknown));
             }
             finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
         }

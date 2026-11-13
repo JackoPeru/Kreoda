@@ -61,6 +61,64 @@ namespace Kreoda.QuestRuntime
     }
 
     /// <summary>
+    /// Storage seam for deterministic pre-commit epoch tests. Preparing may
+    /// serialize/write a private temporary file; publishing it is separate.
+    /// </summary>
+    internal interface IQuestAnchorRecordStorage
+    {
+        IQuestAnchorPreparedWrite Prepare(string path, QuestAnchorRecord record);
+    }
+
+    internal interface IQuestAnchorPreparedWrite : IDisposable
+    {
+        void Commit();
+    }
+
+    internal sealed class FileQuestAnchorRecordStorage : IQuestAnchorRecordStorage
+    {
+        public IQuestAnchorPreparedWrite Prepare(string path, QuestAnchorRecord record)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllText(temporary, JsonSerializer.Serialize(record), new UTF8Encoding(false));
+                return new PreparedWrite(path, temporary);
+            }
+            catch
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+                throw;
+            }
+        }
+
+        sealed class PreparedWrite : IQuestAnchorPreparedWrite
+        {
+            readonly string _path, _temporary;
+            bool _committed;
+
+            public PreparedWrite(string path, string temporary)
+            {
+                _path = path;
+                _temporary = temporary;
+            }
+
+            public void Commit()
+            {
+                if (_committed) throw new InvalidOperationException("Anchor record already committed.");
+                if (File.Exists(_path)) File.Replace(_temporary, _path, null);
+                else File.Move(_temporary, _path);
+                _committed = true;
+            }
+
+            public void Dispose()
+            {
+                if (!_committed && File.Exists(_temporary)) File.Delete(_temporary);
+            }
+        }
+    }
+
+    /// <summary>
     /// Per-PC/document/room local mapping to an on-device saved Meta anchor.
     /// Call UseSession on every session/document generation and invoke Save only
     /// from an explicit, completed physical placement user action.
@@ -69,6 +127,7 @@ namespace Kreoda.QuestRuntime
     public sealed class QuestSpatialAnchorStore : IDisposable
     {
         readonly IQuestSpatialAnchorBackend _backend;
+        readonly IQuestAnchorRecordStorage _storage;
         readonly string _directory;
         readonly SemaphoreSlim _singleOperation = new SemaphoreSlim(1, 1);
         readonly object _stateGate = new object();
@@ -79,8 +138,15 @@ namespace Kreoda.QuestRuntime
         QuestAnchorRecord _boundRecord;
 
         public QuestSpatialAnchorStore(IQuestSpatialAnchorBackend backend, string applicationStorageDirectory)
+            : this(backend, applicationStorageDirectory, new FileQuestAnchorRecordStorage())
+        {
+        }
+
+        internal QuestSpatialAnchorStore(IQuestSpatialAnchorBackend backend,
+            string applicationStorageDirectory, IQuestAnchorRecordStorage storage)
         {
             _backend = backend ?? throw new ArgumentNullException(nameof(backend));
+            _storage = storage ?? throw new ArgumentNullException(nameof(storage));
             if (string.IsNullOrWhiteSpace(applicationStorageDirectory))
                 throw new ArgumentException("A private local storage directory is required.", nameof(applicationStorageDirectory));
             _directory = Path.GetFullPath(Path.Combine(applicationStorageDirectory, "kreoda-spatial-anchors-v1"));
@@ -161,17 +227,43 @@ namespace Kreoda.QuestRuntime
                     return new QuestAnchorOutcome(QuestAnchorStatus.Superseded);
                 if (!_backend.IsPermitted) return new QuestAnchorOutcome(QuestAnchorStatus.PermissionDenied);
 
-                try { CommitRecord(scope, record); }
+                IQuestSpatialAnchorHandle previouslyBound = null;
+                try
+                {
+                    // Serialization and temporary-file I/O may block; do them
+                    // outside the session lock. Until Commit(), the existing
+                    // persistent mapping remains intact.
+                    using (var prepared = _storage.Prepare(RecordPath(scope), record))
+                    {
+                        lock (_stateGate)
+                        {
+                            // The generation must still be current at the
+                            // actual publication point. UseSession shares
+                            // this gate, so it cannot interleave between
+                            // publishing the file and binding its handle.
+                            if (!Current(scope, epoch) || cancellation.IsCancellationRequested)
+                                return new QuestAnchorOutcome(QuestAnchorStatus.Superseded);
+                            if (!_backend.IsPermitted)
+                                return new QuestAnchorOutcome(QuestAnchorStatus.PermissionDenied);
+
+                            prepared.Commit();
+                            previouslyBound = _bound;
+                            _bound = newAnchor;
+                            _boundRecord = record;
+                            newAnchor = null;
+                        }
+                    }
+                }
                 catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is NotSupportedException)
                 { return new QuestAnchorOutcome(QuestAnchorStatus.StorageFailed); }
 
-                lock (_stateGate)
+                // Dispose the old SDK handle outside the lock; a slow native
+                // release must not prevent session invalidation/rebinding.
+                try { previouslyBound?.Dispose(); }
+                catch (Exception ex)
                 {
-                    if (!Current(scope, epoch)) return new QuestAnchorOutcome(QuestAnchorStatus.Superseded);
-                    _bound?.Dispose();
-                    _bound = newAnchor;
-                    _boundRecord = record;
-                    newAnchor = null;
+                    Debug.LogWarning("Previous Quest spatial anchor release failed: " +
+                        ex.GetType().Name + " " + ex.Message);
                 }
                 return new QuestAnchorOutcome(QuestAnchorStatus.Saved, record, displayWorld);
             }
@@ -248,22 +340,6 @@ namespace Kreoda.QuestRuntime
             }
         }
 
-        void CommitRecord(QuestAnchorScope scope, QuestAnchorRecord record)
-        {
-            Directory.CreateDirectory(_directory);
-            var path = RecordPath(scope);
-            var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            try
-            {
-                File.WriteAllText(temporary, JsonSerializer.Serialize(record), new UTF8Encoding(false));
-                if (File.Exists(path)) File.Replace(temporary, path, null);
-                else File.Move(temporary, path);
-            }
-            finally
-            {
-                if (File.Exists(temporary)) File.Delete(temporary);
-            }
-        }
     }
 
     /// <summary>

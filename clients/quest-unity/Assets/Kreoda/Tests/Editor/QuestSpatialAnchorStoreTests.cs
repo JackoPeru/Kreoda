@@ -191,6 +191,42 @@ namespace Kreoda.QuestRuntime.Tests
         }
 
         [Test]
+        public async Task SessionChangedAfterPrecommitCheckCannotReplacePreviousRecord()
+        {
+            // RED regression for Current() -> disk commit -> post-write Current()
+            // interleaving. The injected filesystem stage switches sessions
+            // synchronously at the exact boundary; no thread sleeps or races.
+            var storage = new InterceptingStorage();
+            _store.Dispose();
+            _store = new QuestSpatialAnchorStore(_backend, _directory, storage);
+            _store.UseSession(Scope());
+
+            var firstAnchor = new FakeHandle(Guid.NewGuid(), PoseAt(1, 1, 1));
+            _backend.Created = firstAnchor;
+            var first = await _store.SaveConfirmedAsync(Scope(), PoseAt(1, 1, 1),
+                PoseAt(2, 1, 1), 1f, Vector3.zero, 0);
+            Assert.That(first.Status, Is.EqualTo(QuestAnchorStatus.Saved));
+            var previousJson = File.ReadAllText(OnlyRecord());
+
+            var replacement = new FakeHandle(Guid.NewGuid(), PoseAt(3, 1, 1));
+            _backend.Created = replacement;
+            var changedSession = Scope("next-network-session", 2);
+            storage.OnPrepared = () => _store.UseSession(changedSession);
+
+            var superseded = await _store.SaveConfirmedAsync(Scope(), PoseAt(3, 1, 1),
+                PoseAt(4, 1, 1), 1f, Vector3.zero, 0);
+            Assert.That(storage.PrepareCalls, Is.EqualTo(2));
+            Assert.That(superseded.Status, Is.EqualTo(QuestAnchorStatus.Superseded));
+            Assert.That(replacement.Disposed, Is.True);
+            Assert.That(firstAnchor.Disposed, Is.True);
+            Assert.That(_store.TryGetTrackedDisplayPose(out _, out _), Is.False);
+            Assert.That(File.ReadAllText(OnlyRecord()), Is.EqualTo(previousJson),
+                "A superseded save must not replace a valid mapping for the same PC/document/room");
+            Assert.That(Directory.GetFiles(_directory, "*.tmp", SearchOption.AllDirectories),
+                Is.Empty, "An abandoned staged transaction must remove its temporary file");
+        }
+
+        [Test]
         public async Task RevokingPermissionAfterAnchorCreationRejectsCommit()
         {
             var fake = new FakeHandle(Guid.NewGuid(), PoseAt(1, 1, 1))
@@ -269,6 +305,23 @@ namespace Kreoda.QuestRuntime.Tests
                 LoadCalls++;
                 LastLoadedUuid = uuid;
                 return Task.FromResult<IQuestSpatialAnchorHandle>(Loaded);
+            }
+        }
+
+        sealed class InterceptingStorage : IQuestAnchorRecordStorage
+        {
+            readonly IQuestAnchorRecordStorage _inner = new FileQuestAnchorRecordStorage();
+            public Action OnPrepared;
+            public int PrepareCalls;
+
+            public IQuestAnchorPreparedWrite Prepare(string path, QuestAnchorRecord record)
+            {
+                var staged = _inner.Prepare(path, record);
+                PrepareCalls++;
+                var action = OnPrepared;
+                OnPrepared = null;
+                action?.Invoke();
+                return staged;
             }
         }
 

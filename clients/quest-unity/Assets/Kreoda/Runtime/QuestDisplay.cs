@@ -44,6 +44,12 @@ namespace Kreoda.QuestRuntime
         IQuestSpatialAnchorBackend _anchorBackend;
         QuestAnchorScope _activeScope;
         bool _hasAuthenticatedScope, _restoreStarted, _liveSavedAnchor, _rootHiddenForLostAnchor;
+        // A temporarily unavailable Meta UUID may become localizable later.
+        // Only two delayed retries are allowed per authenticated scope.
+        const int MaxRestoreAttempts = 3;
+        int _restoreAttempts;
+        bool _restoreRetryScheduled;
+        float _restoreRetryAt;
         long _confirmationGeneration;
         PermissionCallbacks _pendingAnchorPermission;
         Task<QuestAnchorOutcome> _restoreOperation, _saveOperation;
@@ -55,7 +61,8 @@ namespace Kreoda.QuestRuntime
         internal QuestAnchorScope? EditorAuthenticatedScope;
         internal Task<QuestAnchorOutcome> EditorSaveOperation => _saveOperation;
         internal Task<QuestAnchorOutcome> EditorRestoreOperation => _restoreOperation;
-        internal Action<Action, Action> EditorPermissionRequest;
+        internal Action<Action, Action, Action> EditorPermissionRequest;
+        internal Func<float> EditorAnchorClock;
 #endif
         GameObject _marker;
         readonly Transform[] _footprintEdges = new Transform[4];
@@ -121,10 +128,25 @@ namespace Kreoda.QuestRuntime
         bool CurrentConfirmation(QuestAnchorScope scope, long confirmedGeneration) =>
             _confirmationGeneration == confirmedGeneration && CurrentScope(scope);
 
+        float AnchorNow()
+        {
+#if UNITY_EDITOR
+            if (EditorAnchorClock != null) return EditorAnchorClock();
+#endif
+            return Time.realtimeSinceStartup;
+        }
+
+        void CancelRestoreRetry()
+        {
+            _restoreRetryScheduled = false;
+            _restoreAttempts = 0;
+        }
+
         void InvalidatePendingAnchorIntent()
         {
             _confirmationGeneration++;
             _pendingAnchorPermission = null;
+            CancelRestoreRetry();
             if (_hasAuthenticatedScope) _anchorStore?.UseSession(_activeScope);
             _liveSavedAnchor = false;
             RevealHiddenCadRoot();
@@ -147,6 +169,7 @@ namespace Kreoda.QuestRuntime
                 RevealHiddenCadRoot();
                 _confirmationGeneration++;
                 _pendingAnchorPermission = null;
+                CancelRestoreRetry();
                 _anchorStore?.UseSession(default);
                 _hasAuthenticatedScope = false;
                 _restoreStarted = _liveSavedAnchor = _firstModel = _hasAnchor = false;
@@ -160,6 +183,7 @@ namespace Kreoda.QuestRuntime
             var changed = _hasAuthenticatedScope;
             _confirmationGeneration++;
             _pendingAnchorPermission = null;
+            CancelRestoreRetry();
             if (changed) { CancelPlacement();EndTwoHand(false); }
             _hasAuthenticatedScope = true;
             _activeScope = scope;
@@ -180,6 +204,17 @@ namespace Kreoda.QuestRuntime
         {
             SynchronizeAnchorScope();
             if (!_firstModel) FirstModel();
+            // No permission prompts or per-frame backend retry calls:
+            // at most two backoff-gated additional attempts after NotLocalized.
+            if (_restoreRetryScheduled && !PlacementActive && !TwoHandActive &&
+                _hasAuthenticatedScope && _anchorStore != null && _anchorBackend != null &&
+                _anchorBackend.IsPermitted && Connection.PendingMeshCount == 0 &&
+                Bounds(out _, out _) && AnchorNow() >= _restoreRetryAt)
+            {
+                _restoreRetryScheduled = false;
+                _restoreAttempts++;
+                _restoreOperation = RestoreCurrentScopeAsync(_activeScope, _confirmationGeneration);
+            }
             if (!_liveSavedAnchor || _anchorStore == null || !_hasAuthenticatedScope ||
                 PlacementActive || TwoHandActive) return;
             if (!_anchorStore.TryGetTrackedDisplayPose(out var localized, out var record) ||
@@ -220,6 +255,7 @@ namespace Kreoda.QuestRuntime
                 return new QuestAnchorOutcome(QuestAnchorStatus.Superseded);
             if (result.Status == QuestAnchorStatus.Restored && MatchesCurrentCadContact(result.Record))
             {
+                CancelRestoreRetry();
                 Root.localScale = Vector3.one * result.Record.DisplayScale;
                 Root.SetPositionAndRotation(result.DisplayWorldPose.position, result.DisplayWorldPose.rotation);
                 _localContact = result.Record.ContactModelPoint;
@@ -234,10 +270,25 @@ namespace Kreoda.QuestRuntime
                 return result;
             }
             _liveSavedAnchor = false;
+            var failedAttempt = _restoreAttempts;
+            var retryNotLocalized = result.Status == QuestAnchorStatus.NotLocalized &&
+                                    failedAttempt > 0 && failedAttempt < MaxRestoreAttempts;
             AnchorPersistenceStatus = result.Success
                 ? "Geometria CAD modificata: vecchio ancoraggio rifiutato" :
                 "Ancora locale assente, negata o non localizzata: vista temporanea";
             FallbackFirstModel(AnchorPersistenceStatus);
+            // Initial fallback may call Recenter, which legitimately revokes the
+            // previous epoch. Schedule the retry only AFTER that fallback and
+            // only if the authenticated PC/document scope is still current.
+            if (retryNotLocalized && CurrentScope(scope) && _anchorBackend != null &&
+                _anchorBackend.IsPermitted && !PlacementActive && !TwoHandActive)
+            {
+                _restoreAttempts = failedAttempt;
+                _restoreRetryAt = AnchorNow() + (failedAttempt == 1 ? 2f : 4f);
+                _restoreRetryScheduled = true;
+            }
+            if (result.Status == QuestAnchorStatus.Restored)
+                return new QuestAnchorOutcome(QuestAnchorStatus.InvalidContext);
             return result;
         }
 
@@ -288,10 +339,16 @@ namespace Kreoda.QuestRuntime
             // could overwrite this newer confirmed pose on disk.
             InvalidatePendingAnchorIntent();
             var confirmationGeneration = _confirmationGeneration;
+            var permissionResolved = false;
             void CommitWhenPermitted()
             {
-                if (!CurrentConfirmation(scope, confirmationGeneration) ||
-                    _anchorBackend == null || !_anchorBackend.IsPermitted) return;
+                if (permissionResolved || !CurrentConfirmation(scope, confirmationGeneration)) return;
+                if (_anchorBackend == null || !_anchorBackend.IsPermitted)
+                {
+                    Denied();
+                    return;
+                }
+                permissionResolved = true;
                 _pendingAnchorPermission = null;
                 _saveOperation = SaveConfirmedAnchorAsync(scope, contactPose, displayPose,
                     scale, contactModel, calibration, confirmationGeneration);
@@ -300,14 +357,16 @@ namespace Kreoda.QuestRuntime
             AnchorPersistenceStatus = "Permesso Anchor API assente · posizione valida solo in questa sessione";
             void Denied()
             {
-                if (!CurrentConfirmation(scope, confirmationGeneration)) return;
+                if (permissionResolved || !CurrentConfirmation(scope, confirmationGeneration)) return;
+                permissionResolved = true;
                 _pendingAnchorPermission = null;
-                Status = "Permesso Anchor API negato · ancoraggio non salvato";
+                AnchorPersistenceStatus = "Permesso Anchor API negato · ancoraggio non salvato";
+                Status = AnchorPersistenceStatus;
             }
 #if UNITY_EDITOR
             if (EditorPermissionRequest != null)
             {
-                EditorPermissionRequest(CommitWhenPermitted, Denied);
+                EditorPermissionRequest(CommitWhenPermitted, Denied, Denied);
                 return;
             }
 #endif
@@ -317,8 +376,9 @@ namespace Kreoda.QuestRuntime
             _pendingAnchorPermission = new PermissionCallbacks();
             _pendingAnchorPermission.PermissionGranted += _ => CommitWhenPermitted();
             _pendingAnchorPermission.PermissionDenied += _ => Denied();
-            Permission.RequestUserPermission("com.oculus.permission.USE_ANCHOR_API", _pendingAnchorPermission);
+            _pendingAnchorPermission.PermissionDeniedAndDontAskAgain += _ => Denied();
             Status = "Autorizzazione Meta Anchor richiesta sul visore; salvataggio in attesa";
+            Permission.RequestUserPermission("com.oculus.permission.USE_ANCHOR_API", _pendingAnchorPermission);
         }
 
         bool Bounds(out Vector3 min, out Vector3 max)
@@ -650,6 +710,7 @@ namespace Kreoda.QuestRuntime
                 if (!_restoreStarted)
                 {
                     _restoreStarted = true;
+                    _restoreAttempts = 1;
                     AnchorPersistenceStatus = "Ricerca ancora Meta locale · nessuna trasformazione Unity riutilizzata";
                     Status = AnchorPersistenceStatus;
                     _restoreOperation = RestoreCurrentScopeAsync(_activeScope, _confirmationGeneration);
