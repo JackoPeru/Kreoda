@@ -25,6 +25,7 @@ test("Phase14 deterministic native seven-case OCCT baseline — evidence, not He
   const rows: Array<NativeResult & { saveOpen: boolean; editUndo: boolean; groupUndo: boolean; runtimeError?: string }> = [];
   const root = mkdtempSync(path.join(os.tmpdir(), "kreoda-native-seven-"));
   const selected=process.env.KREODA_NATIVE_BENCH_ONLY ? ids.filter(id=>id===process.env.KREODA_NATIVE_BENCH_ONLY) : ids;
+  expect(selected.length, "KREODA_NATIVE_BENCH_ONLY must name a known fixture").toBeGreaterThan(0);
   for (const [index, id] of selected.entries()) {
     const profile = mkdtempSync(path.join(root, `fixture-${index}-`));
     const app = await electron.launch({ executablePath: createRequire(import.meta.url)("electron") as string,
@@ -112,7 +113,10 @@ test("Phase14 deterministic native seven-case OCCT baseline — evidence, not He
   const reportPath=path.join(root,"native-seven-report.json");
   writeFileSync(reportPath,JSON.stringify(report,null,2));
   await info.attach("native-seven-report",{path:reportPath,contentType:"application/json"});
+  const failedRows=rows.filter(r=>!r.geometryPassed||!r.groupUndo||!r.saveOpen||!r.editUndo||Boolean(r.runtimeError));
   console.log("NATIVE_SEVEN_BENCHMARK "+JSON.stringify({geometry:report.geometryPassCount,fullyChecked:report.fullyCheckedCount,
-    failures:rows.filter(r=>!r.geometryPassed).map(r=>({id:r.fixtureId,reason:r.error||r.runtimeError||r.failures.join(",")}))}));
+    failures:failedRows.map(r=>({id:r.fixtureId,reason:r.error||r.runtimeError||r.failures.join(","),
+      geometryPassed:r.geometryPassed,groupUndo:r.groupUndo,saveOpen:r.saveOpen,editUndo:r.editUndo}))}));
   expect(rows).toHaveLength(selected.length);
+  expect(failedRows,"Every selected native fixture must pass geometry, grouped Undo, Save/Open and edit/Undo").toEqual([]);
 });

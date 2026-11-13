@@ -663,8 +663,8 @@ export const COMMANDS: CadCommandDefinition[] = [
   {
     id: "ActivateConfiguration", nativeType: CommandType.ActivateConfiguration,
     label: "Activate configuration", beginnerLabel: "Switch variant",
-    description: "Apply an existing named configuration atomically.",
-    icon: "layers", parameterSchema: z.object({ name: z.string().min(1).max(64) }).strict(),
+    description: "Apply a named configuration atomically; an empty name restores the canonical Base configuration.",
+    icon: "layers", parameterSchema: z.object({ name: z.string().max(64) }).strict(),
     supportsPreview: false, beginnerVisible: false, advancedVisible: true, availability: () => always,
   },
   {
