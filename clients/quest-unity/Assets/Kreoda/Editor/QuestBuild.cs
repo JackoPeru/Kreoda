@@ -53,6 +53,10 @@ namespace Kreoda.QuestEditor
             config.requiresSystemKeyboard = true;
             config.focusAware = true;
             config.insightPassthroughSupport = OVRProjectConfig.FeatureSupport.Supported;
+            // Room planes remain opt-in at runtime. Metadata permissions must
+            // exist in the APK before the user can grant spatial-data access.
+            config.anchorSupport = OVRProjectConfig.AnchorSupport.Enabled;
+            config.sceneSupport = OVRProjectConfig.FeatureSupport.Supported;
             config.isPassthroughCameraAccessEnabled = false;
             config.systemLoadingScreenBackground = OVRProjectConfig.SystemLoadingScreenBackground.ContextualPassthrough;
             OVRProjectConfig.CommitProjectConfig(config);
@@ -68,6 +72,15 @@ namespace Kreoda.QuestEditor
             if (manager == null) manager = rigObject.AddComponent<OVRManager>();
             manager.trackingOriginType = OVRManager.TrackingOrigin.FloorLevel;
             manager.isInsightPassthroughEnabled = true;
+            // SDK207 exposes this serialized field as internal; use the
+            // official Editor serialization API rather than reflecting into
+            // a different assembly.
+            var managerSerialized = new SerializedObject(manager);
+            var automaticScenePermission = managerSerialized.FindProperty("requestScenePermissionOnStartup");
+            if (automaticScenePermission == null)
+                throw new InvalidOperationException("Meta scene permission startup setting missing");
+            automaticScenePermission.boolValue = false;
+            managerSerialized.ApplyModifiedPropertiesWithoutUndo();
             rig.centerEyeAnchor.GetComponent<Camera>().tag = "MainCamera";
             foreach (var eyeCamera in rig.GetComponentsInChildren<Camera>(true))
             {

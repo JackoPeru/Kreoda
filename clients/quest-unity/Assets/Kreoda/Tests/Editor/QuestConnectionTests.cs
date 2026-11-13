@@ -92,6 +92,32 @@ namespace Kreoda.QuestRuntime.Tests
             Assert.That(QuestConnection.IsSurfaceFeature(features, "missing"), Is.False);
         }
         const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+
+        [Test]
+        public void SpatialAnchorScopeCannotUseSavedOrDiscoveredPcWithoutActiveAuthentication()
+        {
+            var root = new GameObject("Stable authenticated anchor PC scope");
+            var connection = root.AddComponent<QuestConnection>();
+            var savedType = typeof(QuestConnection).GetNestedType("SavedDevice", BindingFlags.NonPublic);
+            Assert.That(savedType, Is.Not.Null);
+            var saved = Activator.CreateInstance(savedType, true);
+            savedType.GetField("PcId").SetValue(saved, Guid.NewGuid().ToString("D"));
+            savedType.GetField("Endpoint").SetValue(saved, "ws://192.168.10.90:9421");
+            typeof(QuestConnection).GetField("_saved", Private).SetValue(connection, saved);
+            try
+            {
+                Assert.That(connection.ActiveAuthenticatedPcId, Is.Null,
+                    "Saved credentials do not prove an active authenticated PC");
+                typeof(QuestConnection).GetProperty("Connected").SetValue(connection, true);
+                Assert.That(connection.ActiveAuthenticatedPcId, Is.Null,
+                    "A UI flag without an authenticated active SessionClient must not bind room data");
+                typeof(QuestConnection).GetProperty("Connected").SetValue(connection, false);
+                savedType.GetField("PcId").SetValue(saved, "");
+                Assert.That(connection.ActiveAuthenticatedPcId, Is.Null,
+                    "Empty/rotated PC credentials must fail closed");
+            }
+            finally { DestroyRoot(root); }
+        }
         static void DestroyRoot(GameObject root)
         {
             // EditMode fixtures call Reconnect without Awake. Explicitly stop

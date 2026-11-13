@@ -29,6 +29,16 @@ namespace Kreoda.QuestRuntime
         public QuestHome Home;
         public QuestAssemblyMates AssemblyMates;
         public QuestDirectFaceHistory DirectFaceHistory;
+        // Room discovery requires a deliberate MR button click. Starting the
+        // application cannot request permission or scan a user's room.
+        QuestRoomSurfaceProvider _roomSurfaceProvider;
+        bool _roomDiscoveryRequested;
+        string _roomActionStatus;
+#if UNITY_EDITOR
+        // Synthetic room hits exist ONLY in the Editor tests. Android APK
+        // always consults the genuine Meta scene anchor provider.
+        internal Func<Ray, QuestRoomSurfaceProvider.SurfaceHit?> EditorRoomTableContact;
+#endif
         Transform _voicePage, _voiceContextPage;
         TextMesh _voiceStatus, _voiceTranscript, _voiceReply, _voiceButton;
         TextMesh _voiceModeReadout, _voiceContextStatus, _voiceContextSummary;
@@ -317,6 +327,7 @@ namespace Kreoda.QuestRuntime
         int _selectedUploadVersion;
         readonly Dictionary<TextMesh, Vector2> _textLimits = new Dictionary<TextMesh, Vector2>();
         readonly RaycastHit[] _sectionHits = new RaycastHit[128];
+        readonly RaycastHit[] _placementHits = new RaycastHit[128];
         Vector3 _grabOffset, _grabStartPosition;
         Quaternion _grabStartRotation;
         float _grabDistance, _initialTrackingTime = -1;
@@ -516,6 +527,10 @@ namespace Kreoda.QuestRuntime
             OperationControl("MR / VR", new Vector3(-.1f, .037f, 0), .18f, Environment.Toggle, .032f);
             _handLabel = OperationControl("Mano Auto", new Vector3(.105f, .037f, 0), .17f, () =>
             { _handMode = (_handMode + 1) % 3; ResetIntent(); PlayerPrefs.SetInt("kreoda-hand-mode", _handMode); PlayerPrefs.Save(); }, .032f);
+            OperationControl("Rileva tavolo", new Vector3(-.1f, .002f, 0), .18f,
+                RequestMetaTableDiscovery, .025f, .009f);
+            OperationControl("Configura stanza", new Vector3(.105f, .002f, 0), .17f,
+                RequestMetaRoomSetup, .025f, .009f);
             OperationControl("Posiziona", new Vector3(-.1f, -.01f, 0), .18f, () => Display.BeginPlacement(), .032f);
             OperationControl("Centra CAD", new Vector3(.105f, -.01f, 0), .17f, Display.Recenter, .032f);
             OperationControl("Condividi selezione", new Vector3(0, -.241f, 0), .34f, PublishSelectionToDesktop, .030f);
@@ -2432,6 +2447,142 @@ namespace Kreoda.QuestRuntime
             return hasHit;
         }
 
+        enum PlacementPointSource { Invalid, MetaRoomTable, ColliderSurface, ManualProjection }
+
+        void RequestMetaTableDiscovery()
+        {
+            _roomDiscoveryRequested = true;
+            _roomSurfaceProvider = QuestRoomSurfaceProvider.OptInFromUserAction();
+            _roomActionStatus = _roomSurfaceProvider != null
+                ? _roomSurfaceProvider.Status
+                : "Rilevamento tavolo disponibile solo su Quest o ambiente Meta non pronto";
+        }
+
+        void RequestMetaRoomSetup()
+        {
+            if (!_roomDiscoveryRequested || _roomSurfaceProvider == null)
+            {
+                _roomActionStatus = "Prima scegli Rileva tavolo; nessuna scansione avviata";
+                return;
+            }
+            if (!_roomSurfaceProvider.RequestRoomSetup())
+            {
+                _roomActionStatus = "Scansione non avviata · verifica permessi e Room Setup sul visore";
+                return;
+            }
+            _roomActionStatus = _roomSurfaceProvider.Status;
+        }
+
+        bool TryGetOptedInMetaTable(Ray ray, out QuestRoomSurfaceProvider.SurfaceHit hit)
+        {
+            hit = default;
+            if (!_roomDiscoveryRequested) return false;
+#if UNITY_EDITOR
+            if (EditorRoomTableContact != null)
+            {
+                var synthetic = EditorRoomTableContact(ray);
+                if (!synthetic.HasValue) return false;
+                hit = synthetic.Value;
+                return true;
+            }
+#endif
+            return _roomSurfaceProvider != null &&
+                   _roomSurfaceProvider.TryGetTableContact(ray, out hit);
+        }
+
+        // Passthrough is a camera image, not a collision mesh. A Unity collider
+        // supplies a geometric contact, but cannot prove it is a real table.
+        // The bounded manual projection is explicitly identified when no
+        // usable collider is available.
+        PlacementPointSource ResolvePlacementPoint(Ray ray, out Vector3 point)
+        {
+            point = default;
+            var count = Physics.RaycastNonAlloc(ray, _placementHits, 5f, ~0, QueryTriggerInteraction.Ignore);
+            // A saturated unsorted NonAlloc buffer cannot establish the nearest
+            // blocking surface, so do not guess a contact or project through it.
+            if (count == _placementHits.Length) return PlacementPointSource.Invalid;
+
+            var nearestSurface = float.PositiveInfinity;
+            var nearestBlocker = float.PositiveInfinity;
+            var surfacePoint = default(Vector3);
+            for (var i = 0; i < count; i++)
+            {
+                var hit = _placementHits[i];
+                var collider = hit.collider;
+                if (collider == null || !Finite(hit.point) || !Finite(hit.normal) ||
+                    float.IsNaN(hit.distance) || float.IsInfinity(hit.distance) ||
+                    hit.distance < 0f || hit.distance > 5f) continue;
+                var target = collider.transform;
+                // CAD geometry, its guides and the VR reference floor are not
+                // evidence of a physical table in the player's room.
+                if (collider.GetComponentInParent<QuestMeshView>() != null ||
+                    Connection != null && Connection.DisplayRoot != null && target.IsChildOf(Connection.DisplayRoot) ||
+                    Environment != null && Environment.VrReference != null && target.IsChildOf(Environment.VrReference.transform) ||
+                    Rig != null && target.IsChildOf(Rig.transform)) continue;
+
+                // UI, edit handles, datum controls and non-horizontal solids
+                // occlude a table behind them. Their position is never an anchor.
+                var blocked = target.IsChildOf(transform) && _panel != null && target.IsChildOf(_panel) ||
+                    collider.GetComponentInParent<QuestButton>() != null ||
+                    collider.GetComponentInParent<QuestEditHandle>() != null ||
+                    collider.GetComponentInParent<QuestDatumView>() != null ||
+                    Connection != null && Connection.Section != null && Connection.Section.IsSectionCapCollider(collider) ||
+                    collider.gameObject.layer == LayerMask.NameToLayer("UI");
+                if (blocked || hit.normal.y < .65f)
+                {
+                    nearestBlocker = Mathf.Min(nearestBlocker, hit.distance);
+                    continue;
+                }
+                if (hit.distance < nearestSurface)
+                {
+                    nearestSurface = hit.distance;
+                    surfacePoint = hit.point;
+                }
+            }
+            // Only a tracked Meta TABLE/DESK plane from the user-enabled
+            // provider can receive MetaRoomTable provenance. Even such a plane
+            // cannot be accepted through a nearer UI or edit blocker.
+            if (TryGetOptedInMetaTable(ray, out var meta) && meta.AnchorId != Guid.Empty &&
+                Finite(meta.Point) && !float.IsNaN(meta.DistanceMetres) && !float.IsInfinity(meta.DistanceMetres) &&
+                meta.DistanceMetres >= .01f && meta.DistanceMetres <= 5f &&
+                Vector3.Distance(ray.GetPoint(meta.DistanceMetres), meta.Point) <= .01f &&
+                meta.DistanceMetres < nearestBlocker - .001f &&
+                meta.DistanceMetres <= nearestSurface + .002f)
+            {
+                point = meta.Point;
+                return PlacementPointSource.MetaRoomTable;
+            }
+            if (nearestSurface < nearestBlocker)
+            {
+                point = surfacePoint;
+                return PlacementPointSource.ColliderSurface;
+            }
+            if (!float.IsPositiveInfinity(nearestBlocker)) return PlacementPointSource.Invalid;
+            point = ray.GetPoint(.85f);
+            return Finite(point) ? PlacementPointSource.ManualProjection : PlacementPointSource.Invalid;
+        }
+
+        // Called by the actual tracked-pointer Update path. A frozen placement
+        // remains confirmable while the same tracked hand aims at the UI button.
+        bool UpdatePlacementFromPointer(Ray ray, bool tracked, float yaw)
+        {
+            if (Display == null || !Display.PlacementActive) return false;
+            var validRay = tracked && Finite(ray.origin) && Finite(ray.direction) &&
+                ray.direction.sqrMagnitude > .000001f && !float.IsNaN(yaw) && !float.IsInfinity(yaw);
+            if (!validRay)
+            {
+                Display.UpdatePointerPlacement(default, yaw, false, false, false);
+                return false;
+            }
+            var source = ResolvePlacementPoint(new Ray(ray.origin, ray.direction.normalized), out var point);
+            Display.UpdatePointerPlacement(point, yaw, true, source != PlacementPointSource.Invalid,
+                source == PlacementPointSource.MetaRoomTable ? QuestPlacementProvenance.MetaRoomTable :
+                source == PlacementPointSource.ColliderSurface ? QuestPlacementProvenance.ColliderUnverified :
+                source == PlacementPointSource.ManualProjection ? QuestPlacementProvenance.ManualProjection :
+                QuestPlacementProvenance.Unknown);
+            return source != PlacementPointSource.Invalid;
+        }
+
         void Update()
         {
             while (_massUi.TryDequeue(out var apply)) apply();
@@ -2544,7 +2695,9 @@ namespace Kreoda.QuestRuntime
                 SetButton(_pcChoices[i], index < localPcs.Length,
                     index < localPcs.Length ? ShortVoiceText(localPcs[index].Name, 34) : "");
             }
-            var viewStatus = Display.PlacementActive ? Display.Status : Environment.Status + "\nScala " + Display.ScaleName + " · quote CAD mm";
+            var viewStatus = Display.PlacementActive ? Display.Status : _roomDiscoveryRequested
+                ? (_roomSurfaceProvider != null ? _roomSurfaceProvider.Status : _roomActionStatus)
+                : Environment.Status + "\nScala " + Display.ScaleName + " · quote CAD mm";
             if (_viewStatus.text != viewStatus) _viewStatus.text = viewStatus;
             if (_sectionStatus != null && Connection.Section != null)
             {
@@ -2617,12 +2770,12 @@ namespace Kreoda.QuestRuntime
             {
                 _voiceContext?.CancelPointArm();
                 if (References != null && (References.IsFormOpen || _editingReference)) CancelReference();
-                UpdatePanelDrag(ray, pressed, false); HidePointerVisual(); _requireRelease = true; Display.UpdatePlacement(default, _yaw, false); return;
+                UpdatePanelDrag(ray, pressed, false); HidePointerVisual(); _requireRelease = true; UpdatePlacementFromPointer(ray, false, _yaw); return;
             }
             if (_requireRelease) { clicked = false; if (!pressed) _requireRelease = false; }
             var direction = Vector3.ProjectOnPlane(ray.direction, Vector3.up);
             if (direction.sqrMagnitude > .01f) _yaw = Mathf.Atan2(direction.x, direction.z) * (180f / (float)Math.PI);
-            Display.UpdatePlacement(ray.origin, _yaw, true);
+            UpdatePlacementFromPointer(ray, true, _yaw);
             if (_draggingPanel)
             {
                 _voiceContext?.CancelPointArm();
@@ -3067,7 +3220,7 @@ namespace Kreoda.QuestRuntime
                 case "Advanced PC diagnostics": return 12;
                 case "Home action status": return 2;
                 case "CAD configurations": return 4;
-                case "Display controls": return 22;
+                case "Display controls": return 24;
                 case "Optional diagnostics": return 1;
                 case "Section view": return 15;
                 case "Exact CAD editing": return 7;
@@ -3095,7 +3248,8 @@ namespace Kreoda.QuestRuntime
                 case "Home action status": return 0;
                 case "CAD configurations": return action == "Aggiorna" || action == "Successiva" ? 0 : action == "Attiva selezionata" ? 1 : 2;
                 case "Display controls":
-                    if (action == "MR / VR" || action.StartsWith("Mano ", StringComparison.Ordinal)) return 0;
+                    if (action == "MR / VR" || action.StartsWith("Mano ", StringComparison.Ordinal) ||
+                        action == "Rileva tavolo" || action == "Configura stanza") return 0;
                     if (action == "Posiziona" || action == "Centra CAD" || action == "Conferma" || action == "Annulla" || action == "\u22125" || action == "+5") return 1;
                     if (action == "Ispezione" || action == "Normale" || action == "1:10" ||
                         action == "1:5" || action == "1:1" || action == "2:1" ||
@@ -3680,7 +3834,7 @@ namespace Kreoda.QuestRuntime
                     if (zone == 1) return new[] { "Attiva selezionata" };
                     return new[] { "Indietro" };
                 case "Display controls":
-                    if (zone == 0) return new[] { "MR / VR", "Mano Auto" };
+                    if (zone == 0) return new[] { "MR / VR", "Mano Auto", "Rileva tavolo", "Configura stanza" };
                     if (zone == 1) return new[] { "Posiziona", "Centra CAD", "Conferma", "Annulla", "\u22125", "+5" };
                     if (zone == 2) return new[] { "1:10", "1:5", "1:1", "2:1", "10:1", "Fit", "Ispezione", "Normale" };
                     return new[] { "Condividi selezione", "UI L/R", "Centra UI", "Sezione", "Riferimenti", "Configurazioni" };
@@ -3801,8 +3955,10 @@ namespace Kreoda.QuestRuntime
                     if (action == "Indietro") return Card(0,-.11f,.86f,.57f,ControlCompositionKind.Route);
                     break;
                 case "Display controls":
-                    if (action == "MR / VR") return Card(-.25f,-.11f,.46f,.54f,ControlCompositionKind.Selector);
-                    if (action == "Mano Auto") return Card(.25f,-.11f,.46f,.54f,ControlCompositionKind.Selector);
+                    if (action == "MR / VR") return Card(-.25f,.085f,.46f,.22f,ControlCompositionKind.Selector);
+                    if (action == "Mano Auto") return Card(.25f,.085f,.46f,.22f,ControlCompositionKind.Selector);
+                    if (action == "Rileva tavolo") return Card(-.25f,-.275f,.46f,.22f,ControlCompositionKind.Discovery);
+                    if (action == "Configura stanza") return Card(.25f,-.275f,.46f,.22f,ControlCompositionKind.Discovery);
                     if (action == "Posiziona") return Card(-.25f,.102f,.46f,.24f,ControlCompositionKind.Placement);
                     if (action == "Centra CAD") return Card(.25f,.102f,.46f,.24f,ControlCompositionKind.Placement);
                     if (action == "Conferma") return Card(-.348f,-.305f,.284f,.25f,ControlCompositionKind.Commit);
@@ -3989,8 +4145,8 @@ namespace Kreoda.QuestRuntime
                 if (largeRealHitboxes < 1)
                     throw new InvalidOperationException("Missing original large clickable composition on " + page);
             }
-            if (checkedActions != 119)
-                throw new InvalidOperationException("Expected 119 actual Quest composed card targets, found " + checkedActions);
+            if (checkedActions != 121)
+                throw new InvalidOperationException("Expected 121 actual Quest composed card targets, found " + checkedActions);
         }
 
         void CreateComposedCardArtwork(TextMesh label, ControlCompositionKind kind, float width, float height)
@@ -4195,7 +4351,7 @@ namespace Kreoda.QuestRuntime
                 case "Advanced PC diagnostics": return new[] {3, 3, 4, 2}[zone];
                 case "Home action status": return 2;
                 case "CAD configurations": return new[] {2, 1, 1}[zone];
-                case "Display controls": return new[] {2, 6, 8, 6}[zone];
+                case "Display controls": return new[] {4, 6, 8, 6}[zone];
                 case "Optional diagnostics": return 1;
                 case "Section view": return new[] {1, 6, 6, 2}[zone];
                 case "Exact CAD editing": return new[] {2, 2, 3}[zone];

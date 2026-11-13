@@ -1,9 +1,24 @@
 using System;
+using System.Threading.Tasks;
 using Kreoda.QuestFoundation;
 using UnityEngine;
+using UnityEngine.Android;
 
 namespace Kreoda.QuestRuntime
 {
+    /// <summary>
+    /// Contact provenance is distinct from visual accuracy: only MetaRoomTable
+    /// was produced by an opted-in, tracked SDK TABLE/DESK room anchor.
+    /// Physical alignment still requires headset-wearer verification.
+    /// </summary>
+    public enum QuestPlacementProvenance
+    {
+        Unknown,
+        MetaRoomTable,
+        ColliderUnverified,
+        ManualProjection
+    }
+
     public sealed class QuestDisplay : MonoBehaviour
     {
         public QuestConnection Connection;
@@ -15,6 +30,7 @@ namespace Kreoda.QuestRuntime
         public bool PlacementActive { get; private set; }
         public bool FollowPointer { get; private set; }
         public bool TwoHandActive { get; private set; }
+        public QuestPlacementProvenance ConfirmedProvenance { get; private set; }
         Vector3 _handMidpoint, _handAxis, _handPosition, _handScale;
         Quaternion _handRotation;
         Transform Root => Connection.DisplayRoot;
@@ -23,6 +39,24 @@ namespace Kreoda.QuestRuntime
         string _oldScaleName;
         float _oldCalibration;
         bool _hasAnchor, _oldHasAnchor, _candidateTracked, _preferencesReady, _firstModel;
+        QuestPlacementProvenance _candidateProvenance;
+        QuestSpatialAnchorStore _anchorStore;
+        IQuestSpatialAnchorBackend _anchorBackend;
+        QuestAnchorScope _activeScope;
+        bool _hasAuthenticatedScope, _restoreStarted, _liveSavedAnchor, _rootHiddenForLostAnchor;
+        long _confirmationGeneration;
+        PermissionCallbacks _pendingAnchorPermission;
+        Task<QuestAnchorOutcome> _restoreOperation, _saveOperation;
+        public string AnchorPersistenceStatus { get; private set; } = "Ancora locale non verificata";
+#if UNITY_EDITOR
+        // Controlled EditMode seam; builds for Quest only ever use the Meta SDK.
+        internal IQuestSpatialAnchorBackend EditorAnchorBackend;
+        internal string EditorAnchorStoragePath;
+        internal QuestAnchorScope? EditorAuthenticatedScope;
+        internal Task<QuestAnchorOutcome> EditorSaveOperation => _saveOperation;
+        internal Task<QuestAnchorOutcome> EditorRestoreOperation => _restoreOperation;
+        internal Action<Action, Action> EditorPermissionRequest;
+#endif
         GameObject _marker;
         readonly Transform[] _footprintEdges = new Transform[4];
         // Direction arrows distinguish the two real CAD horizontal axes while
@@ -43,6 +77,248 @@ namespace Kreoda.QuestRuntime
             _preferencesReady = true;
             Connection.SceneChanged += FirstModel;
             FirstModel();
+        }
+
+        void EnsureAnchorStore()
+        {
+            if (_anchorStore != null) return;
+#if UNITY_EDITOR
+            if (EditorAnchorBackend == null || string.IsNullOrWhiteSpace(EditorAnchorStoragePath)) return;
+            _anchorBackend = EditorAnchorBackend;
+            _anchorStore = new QuestSpatialAnchorStore(_anchorBackend, EditorAnchorStoragePath);
+#else
+            if (Application.platform != RuntimePlatform.Android) return;
+            _anchorBackend = new OvrQuestSpatialAnchorBackend();
+            _anchorStore = new QuestSpatialAnchorStore(_anchorBackend, Application.persistentDataPath);
+#endif
+        }
+
+        // The room id remains deliberately empty until Meta supplies a trusted,
+        // stable identifier. Localization by saved UUID establishes the place;
+        // a raw Unity tracking origin or guessed room name never does.
+        bool TryAuthenticatedScope(out QuestAnchorScope scope)
+        {
+            scope = default;
+#if UNITY_EDITOR
+            if (EditorAuthenticatedScope.HasValue)
+            {
+                scope = EditorAuthenticatedScope.Value;
+                return scope.IsValid;
+            }
+#endif
+            if (Connection == null || !Connection.Connected) return false;
+            var pcId = Connection.ActiveAuthenticatedPcId;
+            var model = Connection.Client?.Model;
+            if (string.IsNullOrWhiteSpace(pcId) || model == null) return false;
+            scope = new QuestAnchorScope(pcId, model.DocumentId, model.SessionId,
+                Connection.ConnectionGeneration);
+            return scope.IsValid;
+        }
+
+        bool CurrentScope(QuestAnchorScope scope) => _hasAuthenticatedScope &&
+            _activeScope.Equals(scope) && TryAuthenticatedScope(out var current) && current.Equals(scope);
+
+        bool CurrentConfirmation(QuestAnchorScope scope, long confirmedGeneration) =>
+            _confirmationGeneration == confirmedGeneration && CurrentScope(scope);
+
+        void InvalidatePendingAnchorIntent()
+        {
+            _confirmationGeneration++;
+            _pendingAnchorPermission = null;
+            if (_hasAuthenticatedScope) _anchorStore?.UseSession(_activeScope);
+            _liveSavedAnchor = false;
+            RevealHiddenCadRoot();
+        }
+
+        void RevealHiddenCadRoot()
+        {
+            if (!_rootHiddenForLostAnchor) return;
+            _rootHiddenForLostAnchor = false;
+            if (Connection != null && Connection.DisplayRoot != null)
+                Connection.DisplayRoot.gameObject.SetActive(true);
+        }
+
+        void SynchronizeAnchorScope()
+        {
+            EnsureAnchorStore();
+            if (!TryAuthenticatedScope(out var scope))
+            {
+                if (!_hasAuthenticatedScope) return;
+                RevealHiddenCadRoot();
+                _confirmationGeneration++;
+                _pendingAnchorPermission = null;
+                _anchorStore?.UseSession(default);
+                _hasAuthenticatedScope = false;
+                _restoreStarted = _liveSavedAnchor = _firstModel = _hasAnchor = false;
+                ConfirmedProvenance = QuestPlacementProvenance.Unknown;
+                AnchorPersistenceStatus = "PC non autenticato · ancoraggio disattivato";
+                Recenter();
+                return;
+            }
+            if (_hasAuthenticatedScope && _activeScope.Equals(scope)) return;
+            RevealHiddenCadRoot();
+            var changed = _hasAuthenticatedScope;
+            _confirmationGeneration++;
+            _pendingAnchorPermission = null;
+            if (changed) { CancelPlacement();EndTwoHand(false); }
+            _hasAuthenticatedScope = true;
+            _activeScope = scope;
+            _anchorStore?.UseSession(scope);
+            _restoreStarted = _liveSavedAnchor = _firstModel = _hasAnchor = false;
+            ConfirmedProvenance = QuestPlacementProvenance.Unknown;
+            AnchorPersistenceStatus = "Verifica ancora locale per questo documento in attesa";
+            if (changed)
+            {
+                // A temporary head-relative view must not suppress the new
+                // document's persisted-anchor lookup.
+                Recenter();
+                _hasAnchor = _firstModel = false;
+            }
+        }
+
+        void Update()
+        {
+            SynchronizeAnchorScope();
+            if (!_firstModel) FirstModel();
+            if (!_liveSavedAnchor || _anchorStore == null || !_hasAuthenticatedScope ||
+                PlacementActive || TwoHandActive) return;
+            if (!_anchorStore.TryGetTrackedDisplayPose(out var localized, out var record) ||
+                !MatchesCurrentCadContact(record))
+            {
+                // A stale, unlocalized CAD root is not a trustworthy world
+                // placement: hide the physical geometry until the real Meta
+                // anchor is tracked again. The HUD remains outside this root.
+                if (!_rootHiddenForLostAnchor && Root != null)
+                {
+                    _rootHiddenForLostAnchor = true;
+                    Root.gameObject.SetActive(false);
+                }
+                AnchorPersistenceStatus = "Tracking ancora Meta perso · allineamento fisico non verificato";
+                Status = AnchorPersistenceStatus;
+                return;
+            }
+            RevealHiddenCadRoot();
+            Root.SetPositionAndRotation(localized.position, localized.rotation);
+            _localContact = record.ContactModelPoint;
+            _anchor = Root.TransformPoint(_localContact);
+            _hasAnchor = true;
+        }
+
+        bool MatchesCurrentCadContact(QuestAnchorRecord record)
+        {
+            if (record == null || !record.IsValid() || !Bounds(out var min, out var max)) return false;
+            var current = new Vector3((min.x + max.x) * .5f, min.y, (min.z + max.z) * .5f);
+            return Vector3.Distance(current, record.ContactModelPoint) <= .002f;
+        }
+
+        async Task<QuestAnchorOutcome> RestoreCurrentScopeAsync(QuestAnchorScope scope,
+            long confirmationGeneration)
+        {
+            var result = await _anchorStore.RestoreAsync(scope);
+            if (!CurrentConfirmation(scope, confirmationGeneration) ||
+                result.Status == QuestAnchorStatus.Superseded)
+                return new QuestAnchorOutcome(QuestAnchorStatus.Superseded);
+            if (result.Status == QuestAnchorStatus.Restored && MatchesCurrentCadContact(result.Record))
+            {
+                Root.localScale = Vector3.one * result.Record.DisplayScale;
+                Root.SetPositionAndRotation(result.DisplayWorldPose.position, result.DisplayWorldPose.rotation);
+                _localContact = result.Record.ContactModelPoint;
+                _anchor = Root.TransformPoint(_localContact);
+                _hasAnchor = _firstModel = _liveSavedAnchor = true;
+                HeightCalibration = result.Record.HeightCalibrationMetres;
+                ScaleName = "Manuale";
+                ConfirmedProvenance = QuestPlacementProvenance.Unknown;
+                AnchorPersistenceStatus = "Ancora Meta locale ricaricata · verifica allineamento fisico sul visore";
+                Status = AnchorPersistenceStatus;
+                SetPreviewStyle(false);
+                return result;
+            }
+            _liveSavedAnchor = false;
+            AnchorPersistenceStatus = result.Success
+                ? "Geometria CAD modificata: vecchio ancoraggio rifiutato" :
+                "Ancora locale assente, negata o non localizzata: vista temporanea";
+            FallbackFirstModel(AnchorPersistenceStatus);
+            return result;
+        }
+
+        void FallbackFirstModel(string reason)
+        {
+            if (_firstModel || PlacementActive || Connection.PendingMeshCount > 0 || !Bounds(out _, out _)) return;
+            _firstModel = true;
+            Recenter();
+            if (ScaleName != "Manuale") SetScale(ScaleName);
+            if (!string.IsNullOrEmpty(reason)) Status = reason;
+        }
+
+        async Task<QuestAnchorOutcome> SaveConfirmedAnchorAsync(QuestAnchorScope scope,
+            Pose contactPose, Pose displayPose, float scale, Vector3 contactModel, float calibration,
+            long confirmationGeneration)
+        {
+            var result = await _anchorStore.SaveConfirmedAsync(scope, contactPose, displayPose,
+                scale, contactModel, calibration);
+            if (!CurrentConfirmation(scope, confirmationGeneration))
+                return new QuestAnchorOutcome(QuestAnchorStatus.Superseded);
+            _liveSavedAnchor = result.Status == QuestAnchorStatus.Saved;
+            AnchorPersistenceStatus = _liveSavedAnchor
+                ? "Ancora Meta salvata localmente · verifica allineamento dopo riavvio"
+                : "Modello posizionato ma ancora locale non salvata (" + result.Status + ")";
+            Status = AnchorPersistenceStatus;
+            return result;
+        }
+
+        void SaveOnlyExplicitConfirmedPlacement()
+        {
+            SynchronizeAnchorScope();
+            if (!_hasAuthenticatedScope || _anchorStore == null || !Bounds(out _, out _) ||
+                !_hasAnchor || !Finite(Root.position) || !Finite(_anchor))
+            {
+                AnchorPersistenceStatus = "Nessun PC/documento autenticato: posizione valida solo in questa sessione";
+                return;
+            }
+            var scope = _activeScope;
+            // _anchor includes the explicitly requested height calibration;
+            // Meta itself receives a point ON the chosen physical contact.
+            var contactPose = new Pose(_anchor - Vector3.up * HeightCalibration, Root.rotation);
+            var displayPose = new Pose(Root.position, Root.rotation);
+            var scale = Root.localScale.x;
+            var contactModel = _localContact;
+            var calibration = HeightCalibration;
+            // Invalidate older saves even if a second Confirm happens under
+            // exactly the same PC/document/session. Otherwise an old callback
+            // could overwrite this newer confirmed pose on disk.
+            InvalidatePendingAnchorIntent();
+            var confirmationGeneration = _confirmationGeneration;
+            void CommitWhenPermitted()
+            {
+                if (!CurrentConfirmation(scope, confirmationGeneration) ||
+                    _anchorBackend == null || !_anchorBackend.IsPermitted) return;
+                _pendingAnchorPermission = null;
+                _saveOperation = SaveConfirmedAnchorAsync(scope, contactPose, displayPose,
+                    scale, contactModel, calibration, confirmationGeneration);
+            }
+            if (_anchorBackend.IsPermitted) { CommitWhenPermitted(); return; }
+            AnchorPersistenceStatus = "Permesso Anchor API assente · posizione valida solo in questa sessione";
+            void Denied()
+            {
+                if (!CurrentConfirmation(scope, confirmationGeneration)) return;
+                _pendingAnchorPermission = null;
+                Status = "Permesso Anchor API negato · ancoraggio non salvato";
+            }
+#if UNITY_EDITOR
+            if (EditorPermissionRequest != null)
+            {
+                EditorPermissionRequest(CommitWhenPermitted, Denied);
+                return;
+            }
+#endif
+            if (Application.platform != RuntimePlatform.Android) return;
+            // Only an actual Confirm user gesture may request this permission.
+            // A denied/ignored prompt never triggers SaveAnchorAsync.
+            _pendingAnchorPermission = new PermissionCallbacks();
+            _pendingAnchorPermission.PermissionGranted += _ => CommitWhenPermitted();
+            _pendingAnchorPermission.PermissionDenied += _ => Denied();
+            Permission.RequestUserPermission("com.oculus.permission.USE_ANCHOR_API", _pendingAnchorPermission);
+            Status = "Autorizzazione Meta Anchor richiesta sul visore; salvataggio in attesa";
         }
 
         bool Bounds(out Vector3 min, out Vector3 max)
@@ -106,7 +382,16 @@ namespace Kreoda.QuestRuntime
             Root.localScale = Vector3.one * scale;
             ScaleName = name;
             ApplyContact();
-            Status = "Scala " + name + " · quote CAD in mm";
+            var invalidatedStoredScale = !PlacementActive && (_liveSavedAnchor ||
+                _saveOperation != null && !_saveOperation.IsCompleted);
+            if (invalidatedStoredScale)
+            {
+                InvalidatePendingAnchorIntent();
+                AnchorPersistenceStatus = "Scala modificata: ripeti Posiziona/Conferma per salvare l'ancora";
+            }
+            Status = invalidatedStoredScale
+                ? "Scala " + name + " · modifica non salvata; al prossimo avvio ritorna il precedente ancoraggio"
+                : "Scala " + name + " · quote CAD in mm";
             if (!PlacementActive) SavePreferences();
             return true;
         }
@@ -115,13 +400,15 @@ namespace Kreoda.QuestRuntime
         {
             EndTwoHand(false);
             if (PlacementActive || !Bounds(out _, out _)) return false;
+            InvalidatePendingAnchorIntent();
             _oldPosition = Root.position; _oldRotation = Root.rotation; _oldScale = Root.localScale;
             _oldAnchor = _anchor; _oldContact = _localContact; _oldHasAnchor = _hasAnchor;
             _oldScaleName = ScaleName; _oldCalibration = HeightCalibration;
             PlacementActive = FollowPointer = true;
             SetPreviewStyle(true);
             _candidateTracked = false;
-            Status = "Punta sul tavolo → seleziona per fermare\nOrienta il raggio · poi Conferma";
+            _candidateProvenance = QuestPlacementProvenance.Unknown;
+            Status = "Punta a una superficie → seleziona per fermare\nSenza collider: punto manuale sul raggio a 0,85 m";
             CreatePlacementFootprint();
             return true;
         }
@@ -234,16 +521,43 @@ namespace Kreoda.QuestRuntime
         }
 
         public void UpdatePlacement(Vector3 point, float yaw, bool tracked)
+            => UpdatePointerPlacement(point, yaw, tracked, tracked, false);
+
+        public void UpdatePointerPlacement(Vector3 point, float yaw, bool tracked, bool hasContact, bool manual)
+            => UpdatePointerPlacement(point, yaw, tracked, hasContact,
+                manual ? QuestPlacementProvenance.ManualProjection : QuestPlacementProvenance.ColliderUnverified);
+
+        public void UpdatePointerPlacement(Vector3 point, float yaw, bool tracked, bool hasContact,
+            QuestPlacementProvenance provenance)
         {
             if (!PlacementActive) return;
-            _candidateTracked = tracked && Finite(point) && Finite(yaw);
+            // After a valid freeze the user's hand may aim at Confirm instead
+            // of at the table. Contact is only required while the preview moves.
+            _candidateTracked = tracked && Finite(yaw) &&
+                (!FollowPointer || hasContact && Finite(point));
             if (!_candidateTracked)
             {
                 if (_marker != null) _marker.SetActive(false);
-                Status = "Tracking perso: conferma disabilitata";
+                Status = tracked ? "Raggio bloccato o non valido: scegli una superficie libera" :
+                    "Tracking perso: conferma disabilitata";
                 return;
             }
-            if (FollowPointer) Place(point + Vector3.up * HeightCalibration, yaw);
+            if (FollowPointer)
+            {
+                if (!Place(point + Vector3.up * HeightCalibration, yaw))
+                {
+                    _candidateTracked = false;
+                    if (_marker != null) _marker.SetActive(false);
+                    Status = "Anteprima non valida: conferma disabilitata";
+                    return;
+                }
+                _candidateProvenance = provenance;
+                Status = provenance == QuestPlacementProvenance.MetaRoomTable
+                    ? "Anteprima su piano TABLE/DESK Meta · verifica allineamento sul visore\nSeleziona per fermare · Conferma o Annulla"
+                    : provenance == QuestPlacementProvenance.ManualProjection
+                    ? "Anteprima manuale · punto proiettato sul raggio a 0,85 m\nSeleziona per fermare · Conferma o Annulla"
+                    : "Aggancio a superficie con collider · tavolo non verificato\nSeleziona per fermare · Conferma o Annulla";
+            }
             else UpdatePlacementFootprint();
         }
 
@@ -252,7 +566,12 @@ namespace Kreoda.QuestRuntime
             if (!PlacementActive || !_candidateTracked) return;
             FollowPointer = !FollowPointer;
             UpdatePlacementFootprint();
-            Status = FollowPointer ? "Muovi/orienta il raggio · seleziona per fermare" : "Punto fermato · regola quota, Conferma o Annulla";
+            Status = FollowPointer ? "Muovi/orienta il raggio · seleziona per fermare" :
+                _candidateProvenance == QuestPlacementProvenance.MetaRoomTable
+                    ? "Piano TABLE/DESK Meta fermato · verifica quota e orientamento, Conferma o Annulla" :
+                _candidateProvenance == QuestPlacementProvenance.ManualProjection
+                    ? "Punto manuale fermato · regola quota, Conferma o Annulla" :
+                    "Collider locale fermato · verifica allineamento, Conferma o Annulla";
         }
 
         public bool ConfirmPlacement(bool tracked)
@@ -261,9 +580,17 @@ namespace Kreoda.QuestRuntime
             PlacementActive = false;
             SetPreviewStyle(false);
             RemoveMarker();
-            Status = "Modello posizionato · ancoraggio locale per questa sessione";
+            ConfirmedProvenance = _candidateProvenance;
+            Status = _candidateProvenance == QuestPlacementProvenance.MetaRoomTable
+                ? "Modello su piano TABLE/DESK Meta · allineamento fisico da verificare sul visore" :
+                _candidateProvenance == QuestPlacementProvenance.ManualProjection
+                    ? "Modello posizionato · punto manuale, non verificato sul tavolo" :
+                    "Modello posizionato · collider locale; tavolo non verificato";
             if (_preferencesReady) PlayerPrefs.SetString("kreoda-placement-mode", "table");
             SavePreferences();
+            // This is the sole physical-placement commit path: neither the
+            // preview nor opening an MR menu can persist a world anchor.
+            SaveOnlyExplicitConfirmedPlacement();
             return true;
         }
 
@@ -279,6 +606,7 @@ namespace Kreoda.QuestRuntime
         public void CancelPlacement()
         {
             if (!PlacementActive) return;
+            InvalidatePendingAnchorIntent();
             Root.SetPositionAndRotation(_oldPosition, _oldRotation); Root.localScale = _oldScale;
             _anchor = _oldAnchor; _localContact = _oldContact; _hasAnchor = _oldHasAnchor;
             ScaleName = _oldScaleName; HeightCalibration = _oldCalibration;
@@ -290,25 +618,49 @@ namespace Kreoda.QuestRuntime
 
         public void Recenter()
         {
+            var previouslySaved = _liveSavedAnchor;
             EndTwoHand(false);
             CancelPlacement();
+            InvalidatePendingAnchorIntent();
+            if (previouslySaved)
+            {
+                AnchorPersistenceStatus = "Vista ricentrata solo ora: il vecchio ancoraggio salvato resta per il prossimo avvio";
+            }
+            ConfirmedProvenance = QuestPlacementProvenance.Unknown;
             var head = Rig != null ? Rig.centerEyeAnchor : Camera.main?.transform;
             if (head == null) return;
             var forward = Vector3.ProjectOnPlane(head.forward, Vector3.up).normalized;
             if (forward.sqrMagnitude < .01f) forward = Vector3.forward;
             Place(head.position + forward * .8f - Vector3.up * .3f, Mathf.Atan2(forward.x, forward.z) * (180f / (float)Math.PI));
-            Status = "Vista centrata davanti a te";
+            Status = previouslySaved
+                ? "Vista centrata davanti a te · il vecchio ancoraggio locale tornerà al riavvio; Posiziona/Conferma per sostituirlo"
+                : "Vista centrata davanti a te";
             if (_preferencesReady) { PlayerPrefs.SetString("kreoda-placement-mode", "head"); SavePreferences(); }
         }
 
         void FirstModel()
         {
+            SynchronizeAnchorScope();
             SetPreviewStyle(PlacementActive);
             if (_firstModel || PlacementActive || Connection.PendingMeshCount > 0 || !Bounds(out _, out _)) return;
             if (_hasAnchor) { _firstModel = true; return; }
-            _firstModel = true;
-            Recenter(); if (ScaleName != "Manuale") SetScale(ScaleName);
-            // CAD changes after initial hydration never recenter or recompute Fit.
+            if (_hasAuthenticatedScope && _anchorStore != null && _anchorBackend != null &&
+                _anchorBackend.IsPermitted)
+            {
+                if (!_restoreStarted)
+                {
+                    _restoreStarted = true;
+                    AnchorPersistenceStatus = "Ricerca ancora Meta locale · nessuna trasformazione Unity riutilizzata";
+                    Status = AnchorPersistenceStatus;
+                    _restoreOperation = RestoreCurrentScopeAsync(_activeScope, _confirmationGeneration);
+                }
+                return;
+            }
+            FallbackFirstModel(_hasAuthenticatedScope
+                ? "Ancora Meta non autorizzata · vista temporanea, posizione non ripristinata"
+                : null);
+            // Upon authenticated session or document changes Sync resets this
+            // one-shot guard; old CAD pose never bleeds into a new document.
         }
 
         void SetPreviewStyle(bool active)
@@ -343,6 +695,7 @@ namespace Kreoda.QuestRuntime
         public bool BeginTwoHand(Vector3 left, Vector3 right)
         {
             if (TwoHandActive || !Finite(left) || !Finite(right) || (right - left).magnitude < .03f || !Bounds(out _, out _)) return false;
+            InvalidatePendingAnchorIntent();
             CancelPlacement();_handMidpoint = (left + right) / 2;_handAxis = right - left;
             _handPosition = Root.position;_handRotation = Root.rotation;_handScale = Root.localScale;
             TwoHandActive = true;return true;
@@ -361,14 +714,27 @@ namespace Kreoda.QuestRuntime
             if (!TwoHandActive) return;
             TwoHandActive = false;
             if (!confirm) { Root.SetPositionAndRotation(_handPosition, _handRotation);Root.localScale = _handScale;return; }
+            var previouslySaved = _liveSavedAnchor;
+            InvalidatePendingAnchorIntent();
             _anchor = Root.TransformPoint(_localContact);_hasAnchor = true;ScaleName = "Manuale";
-            Status = "Vista libera · quote CAD in mm";SavePreferences();
+            if (previouslySaved)
+            {
+                AnchorPersistenceStatus = "Manipolazione non persistita: il vecchio ancoraggio torna al prossimo avvio";
+            }
+            Status = previouslySaved
+                ? "Manipolazione non salvata · Posiziona/Conferma per sostituire il vecchio ancoraggio"
+                : "Vista libera · quote CAD in mm";
+            SavePreferences();
         }
         void OnApplicationFocus(bool focused) { if (!focused) { CancelPlacement();EndTwoHand(false); } }
         void OnApplicationPause(bool paused) { if (paused) { CancelPlacement();EndTwoHand(false); } }
         void OnDestroy()
         {
             if (Connection != null) { Connection.SceneChanged -= FirstModel; SetPreviewStyle(false); }
+            _confirmationGeneration++;
+            _pendingAnchorPermission = null;
+            _anchorStore?.Dispose();
+            _anchorStore = null;
             RemoveMarker();
         }
     }

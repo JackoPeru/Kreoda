@@ -23,6 +23,21 @@ namespace Kreoda.QuestRuntime
         public string Status { get; private set; } = "Non connesso";
         public string SavedEndpoint { get { lock (_gate) return _saved?.Endpoint ?? ""; } }
         public bool Connected { get; private set; }
+        // Only the stable ID of the currently authenticated PC may scope a
+        // spatial anchor. Never use IP, display name or a discovery candidate.
+        public string ActiveAuthenticatedPcId
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return Connected && _client != null && _client.IsConnected &&
+                           _run != null && !_run.IsCancellationRequested &&
+                           Guid.TryParseExact(_saved?.PcId, "D", out _)
+                        ? _saved.PcId : null;
+                }
+            }
+        }
         public DiscoveredSessionPc[] AvailablePcs { get; private set; } = Array.Empty<DiscoveredSessionPc>();
         public double? RttMilliseconds { get; private set; }
         public double? MeshMilliseconds { get; private set; }

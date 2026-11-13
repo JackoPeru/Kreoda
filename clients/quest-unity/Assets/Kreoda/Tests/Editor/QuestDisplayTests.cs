@@ -1,9 +1,14 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Kreoda.QuestFoundation;
 using NUnit.Framework;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Kreoda.QuestRuntime.Tests
 {
@@ -40,6 +45,287 @@ namespace Kreoda.QuestRuntime.Tests
         {
             var box = _view.BboxMetres;
             return new Vector3((float)(box[0] + box[3]) / 2, (float)box[1], (float)(box[2] + box[5]) / 2);
+        }
+
+        static void RunDisplayUpdate(QuestDisplay display) => typeof(QuestDisplay)
+            .GetMethod("Update", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(display, null);
+
+        static QuestAnchorScope AnchorScope(string document = "cad-document", string pc = "trusted-pc",
+            string session = "session-1", long generation = 1) =>
+            new QuestAnchorScope(pc, document, session, generation);
+
+        [Test]
+        public async Task PhysicalConfirmStoresRealAnchorAndSecondAppSessionRestoresChangedTrackingOrigin()
+        {
+            var storage = Path.Combine(Path.GetTempPath(), "kreoda-display-anchor-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            var backend = new EditorFakeAnchorBackend();
+            var initialContact = new Vector3(1.1f, .84f, 2.2f);
+            var restoredWorldAnchor = new Pose(new Vector3(-2.4f, 1.15f, 3.2f),
+                Quaternion.Euler(0, 100, 0));
+            try
+            {
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                RunDisplayUpdate(_display);
+                Assert.That(backend.LoadCalls, Is.Zero);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(initialContact, 35f, true, true,
+                    QuestPlacementProvenance.MetaRoomTable);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                Assert.That(_display.EditorSaveOperation, Is.Not.Null,
+                    "Only the real Confirm action may schedule persistence");
+                var saved = await _display.EditorSaveOperation;
+                Assert.That(saved.Status, Is.EqualTo(QuestAnchorStatus.Saved));
+                Assert.That(backend.CreateCalls, Is.EqualTo(1));
+                Assert.That(backend.CreatePose.position.y, Is.EqualTo(initialContact.y).Within(.0001f));
+                Assert.That(Directory.GetFiles(storage, "*.json", SearchOption.AllDirectories), Has.Length.EqualTo(1));
+                var formerRootPose = new Pose(Root.position, Root.rotation);
+                var previousContact = saved.Record.ContactModelPoint;
+                Assert.That(Vector3.Distance(Root.TransformPoint(previousContact), initialContact), Is.LessThan(.0005f));
+                Assert.That(saved.Record.TryGetWorldDisplayPose(restoredWorldAnchor, out var expectedRestored), Is.True);
+
+                // Destruction/recreation matches an actual app relaunch: no
+                // saved root transform, new generation, different tracking origin.
+                DisposeOwnedDisplay();
+                CreateActualNativeCadDisplay();
+                backend.Loaded = new EditorFakeAnchorHandle(saved.Record.AnchorUuid, restoredWorldAnchor);
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope(session: "session-restarted", generation: 9);
+                RunDisplayUpdate(_display);
+                Assert.That(_display.EditorRestoreOperation, Is.Not.Null);
+                var restored = await _display.EditorRestoreOperation;
+                Assert.That(restored.Status, Is.EqualTo(QuestAnchorStatus.Restored));
+                Assert.That(backend.LoadCalls, Is.EqualTo(1));
+                Assert.That(Vector3.Distance(Root.position, expectedRestored.position), Is.LessThan(.0005f));
+                Assert.That(Quaternion.Angle(Root.rotation, expectedRestored.rotation), Is.LessThan(.01f));
+                Assert.That(Vector3.Distance(Root.position, formerRootPose.position), Is.GreaterThan(1f));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("verifica allineamento"));
+                Assert.That(_display.ConfirmedProvenance, Is.EqualTo(QuestPlacementProvenance.Unknown),
+                    "saved local UUID is not evidence that a Meta TABLE classification was reobserved");
+            }
+            finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
+        }
+
+        [Test]
+        public async Task ChangingDocumentOrAuthenticatedPcClearsAnchorAndCannotReuseOtherModelRecord()
+        {
+            var storage = Path.Combine(Path.GetTempPath(), "kreoda-display-switch-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            try
+            {
+                var backend = new EditorFakeAnchorBackend();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(.9f, .8f, 1.4f), 0, true, true,
+                    QuestPlacementProvenance.ManualProjection);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                Assert.That((await _display.EditorSaveOperation).Success, Is.True);
+                Assert.That(backend.CreateCalls, Is.EqualTo(1));
+
+                _display.EditorAuthenticatedScope = AnchorScope(document: "other-document", session: "new-session", generation: 2);
+                RunDisplayUpdate(_display);
+                Assert.That(_display.EditorRestoreOperation, Is.Not.Null);
+                Assert.That((await _display.EditorRestoreOperation).Status, Is.EqualTo(QuestAnchorStatus.Missing));
+                Assert.That(backend.LoadCalls, Is.Zero);
+                Assert.That(_display.ConfirmedProvenance, Is.EqualTo(QuestPlacementProvenance.Unknown));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("vista temporanea"));
+
+                _display.EditorAuthenticatedScope = AnchorScope(pc: "unrelated-pc", session: "other-session", generation: 3);
+                RunDisplayUpdate(_display);
+                Assert.That((await _display.EditorRestoreOperation).Status, Is.EqualTo(QuestAnchorStatus.Missing));
+                Assert.That(backend.LoadCalls, Is.Zero);
+                Assert.That(_display.ConfirmedProvenance, Is.EqualTo(QuestPlacementProvenance.Unknown));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("vista temporanea"));
+            }
+            finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
+        }
+
+        [Test]
+        public void MissingAuthenticatedContextCannotSaveMetaAnchorOnConfirmEvenWhenSdkWouldPermit()
+        {
+            var storage = Path.Combine(Path.GetTempPath(), "kreoda-display-denied-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            try
+            {
+                var backend = new EditorFakeAnchorBackend();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                // No EditorAuthenticatedScope: the test connection has no real
+                // authenticated active SessionClient and cannot be fabricated.
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(0, .8f, 1), 0, true, true,
+                    QuestPlacementProvenance.ManualProjection);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                Assert.That(backend.CreateCalls, Is.Zero);
+                Assert.That(_display.EditorSaveOperation, Is.Null);
+                Assert.That(Directory.GetFiles(storage, "*.json", SearchOption.AllDirectories), Is.Empty);
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("Nessun PC/documento autenticato"));
+            }
+            finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
+        }
+
+        [Test]
+        public async Task DelayedPermissionFromEarlierConfirmedPlacementCannotOverwriteLaterSameScopeConfirm()
+        {
+            var storage = Path.Combine(Path.GetTempPath(), "kreoda-anchor-consent-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            try
+            {
+                var backend = new EditorFakeAnchorBackend { IsPermitted = false };
+                Action delayedGrant = null;
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                _display.EditorPermissionRequest = (granted, denied) => delayedGrant = granted;
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(1, .8f, 1), 10, true, true,
+                    QuestPlacementProvenance.ManualProjection);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                Assert.That(delayedGrant, Is.Not.Null);
+                Assert.That(backend.CreateCalls, Is.Zero);
+
+                backend.IsPermitted = true;
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(2, .8f, 1), 25, true, true,
+                    QuestPlacementProvenance.ManualProjection);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                Assert.That((await _display.EditorSaveOperation).Success, Is.True);
+                Assert.That(backend.CreateCalls, Is.EqualTo(1));
+                var previousFile = Directory.GetFiles(storage, "*.json", SearchOption.AllDirectories).Single();
+                var expectedJson = File.ReadAllText(previousFile);
+                delayedGrant();
+                Assert.That(backend.CreateCalls, Is.EqualTo(1),
+                    "An old permission callback must not save placement A after B was confirmed");
+                Assert.That(File.ReadAllText(previousFile), Is.EqualTo(expectedJson));
+            }
+            finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
+        }
+
+        [Test]
+        public async Task RecenterAfterSaveLeavesLocalRecordAndExplainsThatOldAnchorReturnsAtRelaunch()
+        {
+            var storage = Path.Combine(Path.GetTempPath(), "kreoda-anchor-recenter-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            try
+            {
+                var backend = new EditorFakeAnchorBackend();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(.4f, .83f, 1), 0, true, true,
+                    QuestPlacementProvenance.MetaRoomTable);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                Assert.That((await _display.EditorSaveOperation).Success, Is.True);
+                var currentFile = Directory.GetFiles(storage, "*.json", SearchOption.AllDirectories).Single();
+                var savedBytes = File.ReadAllBytes(currentFile);
+                // An explicit recenter is temporary: do not erase the Meta
+                // local anchor or imply that this new pose was durably saved.
+                _display.Recenter();
+                Assert.That(_display.Status, Does.Contain("vecchio ancoraggio"));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("prossimo avvio"));
+                Assert.That(File.ReadAllBytes(currentFile), Is.EqualTo(savedBytes));
+                Assert.That(backend.CreateCalls, Is.EqualTo(1));
+            }
+            finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
+        }
+
+        [Test]
+        public async Task TrackingLossAndAnchorDriftReresolvePoseWithoutUsingStaleUnityCoordinates()
+        {
+            var storage = Path.Combine(Path.GetTempPath(), "kreoda-anchor-drift-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            try
+            {
+                var backend = new EditorFakeAnchorBackend();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(.4f, .83f, 1), 0, true, true,
+                    QuestPlacementProvenance.MetaRoomTable);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                Assert.That((await _display.EditorSaveOperation).Success, Is.True);
+                var previous = Root.position;
+                backend.Created.Tracked = false;
+                RunDisplayUpdate(_display);
+                Assert.That(_display.Status, Does.Contain("Tracking ancora Meta perso"));
+                Assert.That(Root.gameObject.activeSelf, Is.False,
+                    "A stale CAD world pose must not remain displayed as physically aligned");
+                backend.Created.Pose = new Pose(backend.Created.Pose.position + Vector3.right,
+                    backend.Created.Pose.rotation);
+                backend.Created.Tracked = true;
+                RunDisplayUpdate(_display);
+                Assert.That(Root.gameObject.activeSelf, Is.True,
+                    "Real Meta relocalization should restore the CAD geometry without a saved Unity world pose");
+                Assert.That(Root.position.x, Is.EqualTo(previous.x + 1f).Within(.001f));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Not.Contain("corruzione"));
+            }
+            finally { if (Directory.Exists(storage)) Directory.Delete(storage, true); }
+        }
+
+        sealed class EditorFakeAnchorBackend : IQuestSpatialAnchorBackend
+        {
+            public bool IsPermitted { get; set; } = true;
+            public int CreateCalls, LoadCalls;
+            public Pose CreatePose;
+            public EditorFakeAnchorHandle Created;
+            public EditorFakeAnchorHandle Loaded;
+
+            public Task<IQuestSpatialAnchorHandle> CreateAsync(Pose worldPose, CancellationToken token)
+            {
+                CreateCalls++;
+                CreatePose = worldPose;
+                Created = new EditorFakeAnchorHandle(Guid.NewGuid().ToString("D"), worldPose);
+                return Task.FromResult<IQuestSpatialAnchorHandle>(Created);
+            }
+
+            public Task<IQuestSpatialAnchorHandle> LoadAsync(Guid uuid, CancellationToken token)
+            {
+                LoadCalls++;
+                return Task.FromResult<IQuestSpatialAnchorHandle>(Loaded);
+            }
+        }
+
+        sealed class EditorFakeAnchorHandle : IQuestSpatialAnchorHandle
+        {
+            readonly Guid _uuid;
+            public Pose Pose;
+            public bool Tracked = true;
+            bool _disposed;
+            public Guid Uuid => _uuid;
+
+            public EditorFakeAnchorHandle(string uuid, Pose pose)
+            {
+                _uuid = Guid.Parse(uuid);
+                Pose = pose;
+            }
+
+            public bool TryGetTrackedPose(out Pose pose)
+            {
+                pose = Pose;
+                return !_disposed && Tracked;
+            }
+
+            public Task<bool> SaveAsync(CancellationToken token) => Task.FromResult(!_disposed);
+            public void Dispose() { _disposed = true; }
         }
 
         [Test]

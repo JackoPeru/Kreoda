@@ -3,6 +3,8 @@ using System.Collections;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Collections.Generic;
+using Kreoda.QuestFoundation;
 using Kreoda.Session;
 using NUnit.Framework;
 using UnityEngine;
@@ -61,6 +63,125 @@ namespace Kreoda.QuestRuntime.Tests
             return target.Invoke(_controls, args);
         }
 
+        QuestMeshView CreatePlacementFixture()
+        {
+            var view = new GameObject("Placement CAD fixture").AddComponent<QuestMeshView>();
+            view.transform.SetParent(_controls.Connection.DisplayRoot, false);
+            view.Upload(QuestMeshViewTests.NativeFixture());
+            var views = (Dictionary<SceneObjectKey, QuestMeshView>)typeof(QuestConnection)
+                .GetField("_views", Private).GetValue(_controls.Connection);
+            views.Add(new SceneObjectKey(view.BodyId), view);
+            return view;
+        }
+
+        static Vector3 PlacementContact(QuestMeshView view) => new Vector3(
+            (float)(view.BboxMetres[0] + view.BboxMetres[3]) * .5f,
+            (float)view.BboxMetres[1],
+            (float)(view.BboxMetres[2] + view.BboxMetres[5]) * .5f);
+
+        [Test]
+        public void PlacementPointerProducerAnchorsAtNonCadPhysicsHitAndKeepsHeightCalibration()
+        {
+            var view = CreatePlacementFixture();
+            var table = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            table.transform.SetParent(_root.transform);
+            table.name = "Measured test table surface";
+            table.transform.position = new Vector3(0, .75f, 1.1f);
+            table.transform.localScale = new Vector3(.8f, .1f, .8f);
+            var origin = new Vector3(0, 1.4f, 0);
+            var contact = new Vector3(0, .8f, 1.1f);
+            var ray = new Ray(origin, (contact - origin).normalized);
+
+            // A CAD-owned collider nearer than the table must not become the contact.
+            var cadCollider = new GameObject("CAD owned collider");
+            cadCollider.transform.SetParent(_controls.Connection.DisplayRoot, false);
+            cadCollider.transform.position = ray.GetPoint(.3f);
+            cadCollider.AddComponent<BoxCollider>().size = Vector3.one * .12f;
+            Physics.SyncTransforms();
+            Assert.That(_controls.Display.BeginPlacement(), Is.True);
+            Assert.That(Call("UpdatePlacementFromPointer", ray, true, 30f), Is.EqualTo(true));
+            Assert.That(Vector3.Distance(_controls.Connection.DisplayRoot.TransformPoint(PlacementContact(view)),
+                contact), Is.LessThan(.002f), "contact must be on the table, never at hand origin or CAD collider");
+            Assert.That(_controls.Display.Status, Does.Contain("collider"));
+            Assert.That(_controls.Display.Status, Does.Contain("tavolo non verificato"),
+                "an unknown upward-facing collider does not establish a reconstructed real table");
+            _controls.Display.AdjustHeight(.015f);
+            Physics.SyncTransforms();
+            Assert.That(Call("UpdatePlacementFromPointer", ray, true, 30f), Is.EqualTo(true));
+            Assert.That(Vector3.Distance(_controls.Connection.DisplayRoot.TransformPoint(PlacementContact(view)),
+                contact + Vector3.up * .015f), Is.LessThan(.002f));
+            _controls.Display.FreezePlacement();
+            Assert.That(_controls.Display.ConfirmPlacement(true), Is.True);
+            Assert.That(_controls.Display.Status, Does.Contain("tavolo non verificato"),
+                "final model placement must preserve the unverified collider provenance");
+        }
+
+        [Test]
+        public void PlacementPointerProducerUsesClearlyLabeledFiniteManualFallbackWithoutRoomColliders()
+        {
+            var view = CreatePlacementFixture();
+            var origin = new Vector3(-1.5f, 1.3f, -.4f);
+            var ray = new Ray(origin, Vector3.right);
+            Assert.That(_controls.Display.BeginPlacement(), Is.True);
+            Physics.SyncTransforms();
+            Assert.That(Call("UpdatePlacementFromPointer", ray, true, 0f), Is.EqualTo(true));
+            Assert.That(Vector3.Distance(_controls.Connection.DisplayRoot.TransformPoint(PlacementContact(view)),
+                ray.GetPoint(.85f)), Is.LessThan(.002f), "manual fallback must follow a finite ray target");
+            Assert.That(_controls.Display.Status, Does.Contain("manuale"));
+            _controls.Display.FreezePlacement();
+            Assert.That(_controls.Display.FollowPointer, Is.False);
+            Assert.That(_controls.Display.ConfirmPlacement(true), Is.True);
+            Assert.That(_controls.Display.Status, Does.Contain("manuale"),
+                "a projected point must never be advertised as an automatically detected table");
+        }
+
+        [Test]
+        public void PlacementPointerProducerRejectsUiAndInvalidRaysWhileFrozenTargetSurvivesUiAim()
+        {
+            var view = CreatePlacementFixture();
+            var table = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            table.transform.SetParent(_root.transform);
+            table.transform.position = new Vector3(0, .75f, 1.1f);
+            table.transform.localScale = new Vector3(.8f, .1f, .8f);
+            var ray = new Ray(new Vector3(0, 1.4f, 0),
+                (new Vector3(0, .8f, 1.1f) - new Vector3(0, 1.4f, 0)).normalized);
+            var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            blocker.transform.SetParent(_root.transform);
+            blocker.transform.position = ray.GetPoint(.4f);
+            blocker.transform.localScale = Vector3.one * .14f;
+            blocker.AddComponent<QuestButton>().ActionId = "Front UI";
+            Physics.SyncTransforms();
+
+            Assert.That(_controls.Display.BeginPlacement(), Is.True);
+            var prior = _controls.Connection.DisplayRoot.position;
+            Assert.That(Call("UpdatePlacementFromPointer", ray, true, 0f), Is.EqualTo(false));
+            Assert.That(_controls.Connection.DisplayRoot.position, Is.EqualTo(prior));
+            _controls.Display.FreezePlacement();
+            Assert.That(_controls.Display.FollowPointer, Is.True,
+                "UI obstruction cannot freeze or confirm an ungrounded point");
+            Assert.That(Call("UpdatePlacementFromPointer",
+                new Ray(new Vector3(float.NaN, 0, 0), Vector3.forward), true, 0f), Is.EqualTo(false));
+            Assert.That(_controls.Connection.DisplayRoot.position, Is.EqualTo(prior));
+
+            blocker.SetActive(false);
+            Physics.SyncTransforms();
+            Assert.That(Call("UpdatePlacementFromPointer", ray, true, 0f), Is.EqualTo(true));
+            Assert.That(Vector3.Distance(_controls.Connection.DisplayRoot.TransformPoint(PlacementContact(view)),
+                new Vector3(0, .8f, 1.1f)), Is.LessThan(.002f));
+            _controls.Display.FreezePlacement();
+            blocker.SetActive(true);
+            Physics.SyncTransforms();
+            // After a valid freeze the hand may point at the UI Confirm action.
+            Assert.That(Call("UpdatePlacementFromPointer", ray, true, 0f), Is.EqualTo(false));
+            Assert.That(_controls.Display.ConfirmPlacement(true), Is.True);
+
+            Assert.That(_controls.Display.BeginPlacement(), Is.True);
+            Assert.That(Call("UpdatePlacementFromPointer", ray, false, 0f), Is.EqualTo(false));
+            _controls.Display.FreezePlacement();
+            Assert.That(_controls.Display.ConfirmPlacement(false), Is.False,
+                "tracking loss must not confirm any physical or projected contact");
+        }
+
         static string ResolveEditorStorageDirectory(string fallback)
         {
             var resolver = typeof(QuestConnection).GetMethod("ResolveEditorStorageDirectory",
@@ -107,6 +228,127 @@ namespace Kreoda.QuestRuntime.Tests
 
         static QuestButton ActionButton(Transform page, string id) =>
             page.GetComponentsInChildren<QuestButton>(true).Single(button => button.ActionId == id);
+
+        [Test]
+        public void ExplicitMetaRoomDiscoveryButtonsAreRealClickableDisplayActions()
+        {
+            var displayPage = _root.GetComponentsInChildren<Transform>(true)
+                .Single(page => page.name == "Display controls");
+            Call("Page", displayPage);
+            // An SDK scene query or consent prompt must never be launched by
+            // merely opening the view / constructing the UI.
+            Assert.That(_root.GetComponentsInChildren<QuestRoomSurfaceProvider>(true), Is.Empty);
+            foreach (var actionId in new[] { "Rileva tavolo", "Configura stanza" })
+            {
+                var button = ActionButton(displayPage, actionId);
+                Assert.That(button.Click, Is.Not.Null, actionId);
+                Assert.That(button.gameObject.activeInHierarchy, Is.True, actionId);
+                Assert.That(button.GetComponent<BoxCollider>().enabled, Is.True, actionId);
+            }
+            // This invocation is intentionally from the *actual* panel button,
+            // not a direct provider instance or an unreferenced test helper.
+            Assert.DoesNotThrow(() => ActionButton(displayPage, "Rileva tavolo").Click());
+            Assert.DoesNotThrow(() => ActionButton(displayPage, "Configura stanza").Click());
+            Assert.That(_controls.Connection.DisplayRoot, Is.Not.Null);
+        }
+
+        [Test]
+        public void VisibleRoomButtonsAndExistingPlacementButtonsOwnUnobstructedPhysicalRayTargets()
+        {
+            var page = _root.GetComponentsInChildren<Transform>(true)
+                .Single(item => item.name == "Display controls");
+            Call("Page", page);
+            Physics.SyncTransforms();
+            var labels = new[] { "MR / VR", "Mano Auto", "Rileva tavolo", "Configura stanza", "Posiziona", "Centra CAD" };
+            foreach (var action in labels)
+            {
+                var target = ActionButton(page, action);
+                var collider = target.GetComponent<BoxCollider>();
+                Assert.That(target.gameObject.activeInHierarchy, Is.True, action);
+                Assert.That(collider.enabled, Is.True, action);
+                var normal = target.transform.forward;
+                var ray = new Ray(collider.bounds.center + normal * .16f, -normal);
+                Assert.That(Physics.Raycast(ray, out var hit, .40f, ~0, QueryTriggerInteraction.Ignore),
+                    Is.True, action + " lacks a physical hit target");
+                Assert.That(hit.collider, Is.SameAs(collider),
+                    action + " is occluded by a neighboring action or decoration: " + hit.collider.name);
+            }
+        }
+
+        [Test]
+        public void ActualPlacementProducerUsesMetaRoomTableOnlyAfterExplicitDiscoveryAction()
+        {
+            var view = CreatePlacementFixture();
+            var ray = new Ray(new Vector3(0, 1.4f, 0),
+                (new Vector3(0, .8f, 1.1f) - new Vector3(0, 1.4f, 0)).normalized);
+            var expectedContact = ray.GetPoint(.96f);
+            var queries = 0;
+            _controls.EditorRoomTableContact = _ =>
+            {
+                queries++;
+                return new QuestRoomSurfaceProvider.SurfaceHit(Guid.NewGuid(), expectedContact, .96f);
+            };
+            Assert.That(_controls.Display.BeginPlacement(), Is.True);
+            Physics.SyncTransforms();
+
+            Assert.That(Call("UpdatePlacementFromPointer", ray, true, 0f), Is.EqualTo(true));
+            Assert.That(queries, Is.Zero, "The SDK room provider must not be queried before the user clicks Rileva tavolo");
+            Assert.That(_controls.Display.Status, Does.Contain("manuale"));
+
+            var page = _root.GetComponentsInChildren<Transform>(true)
+                .Single(item => item.name == "Display controls");
+            ActionButton(page, "Rileva tavolo").Click();
+            Assert.That(Call("UpdatePlacementFromPointer", ray, true, 22f), Is.EqualTo(true));
+            Assert.That(queries, Is.EqualTo(1), "Actual tracked-pointer producer must consult the opted-in provider");
+            Assert.That(Vector3.Distance(_controls.Connection.DisplayRoot.TransformPoint(PlacementContact(view)),
+                expectedContact), Is.LessThan(.003f));
+            Assert.That(_controls.Display.Status, Does.Contain("TABLE/DESK Meta"));
+            _controls.Display.FreezePlacement();
+            Assert.That(_controls.Display.ConfirmPlacement(true), Is.True);
+            Assert.That(_controls.Display.ConfirmedProvenance, Is.EqualTo(QuestPlacementProvenance.MetaRoomTable));
+            Assert.That(_controls.Display.Status, Does.Contain("da verificare"),
+                "SDK semantic classification is not an on-head physical accuracy test");
+        }
+
+        [Test]
+        public void MetaRoomTableNeverPassesNearerUiOrUnverifiedCollider()
+        {
+            var view = CreatePlacementFixture();
+            var ray = new Ray(new Vector3(0, 1.4f, 0),
+                (new Vector3(0, .8f, 1.1f) - new Vector3(0, 1.4f, 0)).normalized);
+            var point = ray.GetPoint(1.15f);
+            _controls.EditorRoomTableContact = _ =>
+                new QuestRoomSurfaceProvider.SurfaceHit(Guid.NewGuid(), point, 1.15f);
+            var page = _root.GetComponentsInChildren<Transform>(true)
+                .Single(item => item.name == "Display controls");
+            ActionButton(page, "Rileva tavolo").Click();
+            Assert.That(_controls.Display.BeginPlacement(), Is.True);
+
+            var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            blocker.transform.SetParent(_root.transform);
+            blocker.transform.position = ray.GetPoint(.45f);
+            blocker.transform.localScale = Vector3.one * .12f;
+            blocker.AddComponent<QuestButton>().ActionId = "Front UI blocker";
+            Physics.SyncTransforms();
+            Assert.That(Call("UpdatePlacementFromPointer", ray, true, 0f), Is.EqualTo(false));
+            Assert.That(_controls.Display.ConfirmPlacement(true), Is.False);
+
+            blocker.SetActive(false);
+            var unverifiedSurface = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            unverifiedSurface.transform.SetParent(_root.transform);
+            unverifiedSurface.transform.position = ray.GetPoint(.66f);
+            unverifiedSurface.transform.localScale = new Vector3(.45f, .1f, .45f);
+            // Test the actual downward-facing ray and upward Cube top face.
+            Physics.SyncTransforms();
+            Assert.That(Call("UpdatePlacementFromPointer", ray, true, 0f), Is.EqualTo(true));
+            Assert.That(_controls.Display.Status, Does.Contain("collider"));
+            Assert.That(_controls.Display.Status, Does.Contain("tavolo non verificato"));
+            _controls.Display.FreezePlacement();
+            Assert.That(_controls.Display.ConfirmPlacement(true), Is.True);
+            Assert.That(_controls.Display.ConfirmedProvenance,
+                Is.EqualTo(QuestPlacementProvenance.ColliderUnverified));
+            Assert.That(view, Is.Not.Null);
+        }
 
         [Test]
         public void DirectFacePageShowsOneEditableGroupAndRealContextGatedButtons()
@@ -919,7 +1161,7 @@ namespace Kreoda.QuestRuntime.Tests
                 Assert.That(large, Is.True, name + " must preserve a large real click target");
                 Assert.That(page.GetComponentsInChildren<QuestButton>(true).Length, Is.EqualTo(idsOnPage.Count));
             }
-            Assert.That(total, Is.EqualTo(119));
+            Assert.That(total, Is.EqualTo(121));
             Assert.That(panels.Count, Is.EqualTo(39));
         }
         [TestCase("home:project:new")]
