@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, statSync } from "node:fs";
 import { createServer } from "node:net";
+import os from "node:os";
 import path from "node:path";
 import { MAIN, HERE, hideForBackgroundE2E, openProject, runBar, snapOf } from "./helpers";
 
@@ -80,7 +81,9 @@ test("real OCCT reference sketch: six calibrated constraints, dimension edit, Un
     expect(statSync(modelingDll).mtimeMs, `Stale Release ModelingAgent: rebuild ${executable}`)
       .toBeGreaterThanOrEqual(statSync(source).mtimeMs);
   }
-  const tempRoot = path.resolve(HERE, "../../../../../.codex/tmp");
+  // The workspace is nested one directory deeper in the local worktree than
+  // in GitHub Actions. Use the OS temp directory, not a fixed parent count.
+  const tempRoot = os.tmpdir();
   const profile = mkdtempSync(path.join(tempRoot, "kreoda-reference-constrained-"));
   const localEnv = { ...process.env, TEMP: tempRoot, TMP: tempRoot, TMPDIR: tempRoot };
   const app = await electron.launch({ executablePath: createRequire(import.meta.url)("electron") as string,

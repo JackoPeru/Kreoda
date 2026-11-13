@@ -10,7 +10,7 @@ type ConfigurationState = {
   named: Record<string, Record<string, Record<string, number>>>;
 };
 
-test("[solo] native configurations: two solids, B-Rep, undo/redo, persistence and Desktop requery", async () => {
+test("native configurations: two solids, B-Rep, undo/redo, persistence and Desktop requery", async () => {
   const filename = path.join(os.tmpdir(), `kreoda-configurations-${process.pid}.icad`);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "kreoda-config-profile-"));
   const { app, window } = await boot({ KREODA_BACKGROUND_TEST: "1" }, [`--user-data-dir=${profile}`]);
