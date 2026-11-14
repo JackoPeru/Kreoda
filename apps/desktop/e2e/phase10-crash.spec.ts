@@ -560,13 +560,18 @@ test(`${target} kill inside the native sketch solver restores committed coordina
     } }).__kreoda_test.openSketch(id), sketch.id);
     const point = window.getByTestId("sk-point-p0");
     await expect(point).toBeVisible();
+    // Hover verifies that Playwright can hit the actual point before arming.
+    await point.hover();
     const bounds = (await point.boundingBox())!;
     const x = bounds.x + bounds.width / 2, y = bounds.y + bounds.height / 2;
     fs.mkdirSync(barrierDir, { recursive: true });
     fs.writeFileSync(stage + ".arm", "1");
-    await window.mouse.move(x, y);
     await window.mouse.down();
-    await window.mouse.move(x + 40, y + 12);
+    // Confirm the editor accepted pointerdown before expecting native work.
+    await expect(point).toHaveAttribute("fill", "#ffb020");
+    // Multiple moves are necessary for a drag preview: the first event may
+    // be throttled while the editor is settling after pointer capture.
+    await window.mouse.move(x + 40, y + 12, { steps: 5 });
     // Ready is emitted by PlaneGCS after building its residual/Jacobian;
     // the solve still owns temporary parameters and has not replied.
     await expect.poll(() => fs.existsSync(stage + ".ready"), { timeout: 15000 }).toBe(true);
