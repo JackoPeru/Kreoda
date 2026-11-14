@@ -108,6 +108,11 @@ function powershell(script, stage = 'win32-provenance') {
     69: 'signer-certificate-missing', 70: 'signer-subject-parse-error',
     71: 'windows-authenticode-trust-invalid',
     72: 'microsoft-windows-signer-subject-mismatch',
+    73: 'authenticode-cmdlet-unavailable',
+    74: 'trusted-system32-binary-absent',
+    75: 'authenticode-cmdlet-provenance-invalid',
+    76: 'authenticode-exact-filepath-fallback-error',
+    77: 'authenticode-signed-filepath-mismatch',
   })[call.status] ?? 'unclassified-exit' : 'not-applicable';
   const elapsedBucketMs = Math.round((Date.now() - started) / 100) * 100;
   assert(!call.error && call.status === 0,
@@ -296,8 +301,21 @@ function authenticNativeConsoleHost(records, member, state) {
     "try{$os=[Environment]::GetFolderPath('Windows'); " +
     "if([string]::IsNullOrWhiteSpace($os) -or -not [IO.Path]::IsPathRooted($os)){exit 62}; " +
     "$trusted=[IO.Path]::Combine($os,'System32','conhost.exe')}catch{exit 62}; " +
-    "try{$signature=Get-AuthenticodeSignature -LiteralPath $trusted -ErrorAction Stop}catch{exit 63}; " +
+    "if(-not [IO.File]::Exists($trusted)){exit 74}; " +
+    "try{$authCmd=Get-Command -Name Get-AuthenticodeSignature -CommandType Cmdlet -ErrorAction Stop}catch{exit 73}; " +
+    "if($authCmd.ModuleName -ne 'Microsoft.PowerShell.Security'){exit 75}; " +
+    // Both parameters must verify the SAME exact System32 binary. The hosted
+    // receipt proves LiteralPath can throw, but not the cause; use the
+    // FilePath variant only if its returned signed Path is exact.
+    // Neither a failed lookup nor an unsigned/untrusted binary is acceptable.
+    "$usedFilePathFallback=$false; " +
+    "try{$signature=Get-AuthenticodeSignature -LiteralPath $trusted -ErrorAction Stop}" +
+    "catch{$usedFilePathFallback=$true; " +
+    "try{$signature=Get-AuthenticodeSignature -FilePath $trusted -ErrorAction Stop}catch{exit 76}}; " +
     "if($null -eq $signature){exit 67}; " +
+    "try{$signedPath=[string]$signature.Path; " +
+    "if(-not [string]::Equals($signedPath,$trusted,[StringComparison]::OrdinalIgnoreCase)){exit 77}}" +
+    "catch{exit 77}; " +
     "try{$cert=$signature.SignerCertificate}catch{exit 68}; " +
     "if($null -eq $cert){exit 69}; " +
     "try{$subject=[string]$cert.Subject; " +
@@ -308,7 +326,8 @@ function authenticNativeConsoleHost(records, member, state) {
     "try{$created=if($p.CreationDate){$p.CreationDate.ToUniversalTime().ToString('o')}else{''}; " +
     "$proof=[pscustomobject]@{ProcessId=[int]$p.ProcessId;ParentProcessId=[int]$p.ParentProcessId;" +
     "Name=[string]$p.Name;ExecutablePath=[string]$p.ExecutablePath;" +
-    "CreationDate=$created;TrustedPath=$trusted;MicrosoftSignatureValid=[bool]$microsoft}}catch{exit 64}; " +
+    "CreationDate=$created;TrustedPath=$trusted;SignedPath=$signedPath;" +
+    "FilePathFallbackUsed=[bool]$usedFilePathFallback;MicrosoftSignatureValid=[bool]$microsoft}}catch{exit 64}; " +
     "try{$proof|ConvertTo-Json -Compress -ErrorAction Stop}catch{exit 65}" +
     "}catch{exit 66}";
   let proof;
@@ -322,6 +341,8 @@ function authenticNativeConsoleHost(records, member, state) {
     proof.ParentProcessId === state.coreIdentity.pid &&
     proof.Name?.toLowerCase() === 'conhost.exe' &&
     same(proof.TrustedPath, member.path) && same(proof.ExecutablePath, proof.TrustedPath) &&
+    same(proof.SignedPath, proof.TrustedPath) &&
+    typeof proof.FilePathFallbackUsed === 'boolean' &&
     proof.CreationDate === member.created && proof.MicrosoftSignatureValid === true &&
     hash(coreExe) === pins.core;
   if (verified) {
@@ -332,7 +353,8 @@ function authenticNativeConsoleHost(records, member, state) {
       state.pidDiagnostics.verifiedNativeConsoleHosts.push({
         pid: member.pid, parentPid: member.parentPid, created: member.created,
         image: 'conhost.exe', trustedSystem32: true, validMicrosoftSignature: true,
-        exactNativeParent: true,
+        exactNativeParent: true, exactSignedSystem32Path: true,
+        signatureFilePathFallbackUsed: proof.FilePathFallbackUsed,
       });
     }
   }
