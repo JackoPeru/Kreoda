@@ -101,14 +101,70 @@ function noForeignOwners() {
     "@('Kreoda.exe','kreoda-core.exe','Kreoda.HermesBridge.exe') }; " +
     "if ($p) { exit 73 }; 'NO_FOREIGN_KREODA'");
 }
-function ownProcess(pid, expectedExecutable, expectedParent) {
-  assert(Number.isInteger(pid) && pid > 0, "owned process PID is invalid");
-  const p = JSON.parse(powershell("$p=Get-CimInstance Win32_Process -Filter " +
-    "'ProcessId=" + pid + "'; if (-not $p) { exit 72 }; " +
-    "$p | Select-Object ProcessId,ParentProcessId,ExecutablePath | ConvertTo-Json -Compress"));
-  assert(p.ProcessId === pid && p.ParentProcessId === expectedParent &&
-    samePath(p.ExecutablePath ?? "", expectedExecutable), "process PID / path / parent does not match packaged binary");
-  return { pid, parentPid: p.ParentProcessId, exeSha256: sha256(expectedExecutable) };
+// Playwright may interpose a Windows launcher/driver, so an immediate parent
+// equal to the test's process.pid is NOT an invariant. Traverse a strictly
+// bounded, real Win32_Process ancestor chain instead; require BOTH the
+// Playwright-launched PID and our current Node PID in the Electron main tree.
+// Do not log process command lines or the environment (they may hold secrets).
+function processTree(pid, ownerPid) {
+  assert(Number.isSafeInteger(pid) && pid > 0 &&
+    Number.isSafeInteger(ownerPid) && ownerPid > 0, "owned process PID is invalid");
+  const script = "$current=" + pid + "; $seen=@{}; $rows=@(); " +
+    "for($i=0;$i -lt 10;$i++){ " +
+    "if($current -le 0 -or $seen.ContainsKey([string]$current)){break}; " +
+    "$seen[[string]$current]=$true; " +
+    "$p=Get-CimInstance Win32_Process -Filter ('ProcessId=' + $current); " +
+    "if(-not $p){break}; " +
+    "$created=if($p.CreationDate){$p.CreationDate.ToUniversalTime().ToString('o')}else{''}; " +
+    "$rows+= [pscustomobject]@{pid=[int]$p.ProcessId;parentPid=[int]$p.ParentProcessId;" +
+    "name=[string]$p.Name;image=[string]$p.ExecutablePath;createdUtc=$created}; " +
+    "if($current -eq " + ownerPid + "){break}; " +
+    "$current=[int]$p.ParentProcessId; " +
+    "}; ConvertTo-Json -InputObject @($rows) -Compress -Depth 3";
+  const nodes = JSON.parse(powershell(script));
+  assert(Array.isArray(nodes) && nodes.length > 0 && nodes.length <= 10 &&
+    nodes[0]?.pid === pid, "Windows process identity unavailable");
+  return nodes;
+}
+function ownProcess(pid, expectedExecutable, expectedSha, requiredAncestors, receipt, label, earliestStart, directParent = null) {
+  // Persist restricted diagnostics even if an ownership assertion fails.
+  // The PIDs and image *names* are enough to diagnose the hosted wrapper;
+  // never put arbitrary Win32 command lines or environment in the receipt.
+  const record = { targetPid: pid ?? null, requiredAncestors, checked: false };
+  receipt.ownershipDiagnostics ??= {};
+  receipt.ownershipDiagnostics[label] = record;
+  assert(Number.isSafeInteger(pid) && pid > 0 &&
+    requiredAncestors.length > 0 &&
+    requiredAncestors.every(value => Number.isSafeInteger(value) && value > 0),
+  "invalid process identity anchor");
+  const chain = processTree(pid, requiredAncestors.at(-1));
+  record.chain = chain.map(row => ({ pid: row.pid, parentPid: row.parentPid, name: row.name }));
+  record.executableMatchesPinnedPath = samePath(chain[0].image || "", expectedExecutable);
+  record.executableSha256MatchesPin = sha256(expectedExecutable) === expectedSha;
+  record.anchorsPresent = requiredAncestors.map(ancestor => ({
+    pid: ancestor, inChain: chain.some(row => row.pid === ancestor),
+  }));
+  const indices = requiredAncestors.map(ancestor => chain.findIndex(row => row.pid === ancestor));
+  record.ancestryOrdered = indices.every((index, i) =>
+    index >= 0 && (i === 0 || index >= indices[i - 1])) &&
+    chain.at(-1)?.pid === requiredAncestors.at(-1);
+  record.directParentMatches = directParent === null || chain[0].parentPid === directParent;
+  // Parent PIDs may be reused on Windows. Never accept an ancestor process
+  // created after the child it supposedly launched.
+  const born = chain.map(row => Date.parse(row.createdUtc ?? ""));
+  record.ancestryTimestampsValid = born.every((value, i) =>
+    Number.isFinite(value) && (i === 0 || value <= born[i - 1] + 2_000));
+  const createdAtMs = Date.parse(chain[0].createdUtc ?? "");
+  record.creationSinceLaunch = Number.isFinite(createdAtMs) &&
+    createdAtMs >= earliestStart - 8_000 && createdAtMs <= Date.now() + 2_000;
+  record.checked = true;
+  assert(record.executableMatchesPinnedPath && record.executableSha256MatchesPin &&
+    record.anchorsPresent.every(row => row.inChain) && record.ancestryOrdered &&
+    record.directParentMatches && record.ancestryTimestampsValid &&
+    record.creationSinceLaunch,
+  "actual Windows process image/launch-time/ancestry does not match pinned owned process");
+  return { pid, parentPid: chain[0].parentPid, exeSha256: sha256(expectedExecutable),
+    launchOriginNodePid: process.pid, ancestryDepth: chain.length };
 }
 function preflight() {
   // Check BEFORE generating evidence or starting any process.
@@ -352,17 +408,23 @@ async function main() {
   try {
     const require = createRequire(path.join(root, "apps", "desktop", "package.json"));
     const { _electron: electron } = require("@playwright/test");
+    const launchStartedAt = Date.now();
     app = await bounded(electron.launch({
       executablePath: gate.exe, args: ["--no-sandbox", "--lang=en-US", "--start-hidden",
         `--user-data-dir=${profile}`], env, timeout: 40_000,
     }), 50_000, "launch ORIGINAL hidden packaged Kreoda.exe");
-    const appPid = app.process()?.pid;
-    result.ownedElectron = ownProcess(appPid, gate.exe, process.pid);
+    const launcherPid = app.process()?.pid;
     const identity = await bounded(app.evaluate(({ app, BrowserWindow }) => ({
       isPackaged: app.isPackaged, executable: process.execPath, appPath: app.getAppPath(),
       resources: process.resourcesPath, userData: app.getPath("userData"),
+      mainPid: process.pid,
       visibleWindows: BrowserWindow.getAllWindows().filter(w => w.isVisible()).length,
     })), 10_000, "exact executable/resources/profile inspection");
+    // The real Electron main PID is read inside its main process, and must be
+    // descended from Playwright's launched PID AND this smoke's Node process.
+    result.ownedElectron = ownProcess(identity.mainPid, gate.exe, SHA.exe,
+      [launcherPid, process.pid], result, "electron", launchStartedAt);
+    const appPid = identity.mainPid;
     assert(identity.isPackaged && samePath(identity.executable, gate.exe) &&
       samePath(identity.appPath, gate.appAsar) &&
       samePath(identity.resources, path.join(gate.portable, "resources")) &&
@@ -381,7 +443,8 @@ async function main() {
         4000, "native coreInfo");
       return info?.running && Number.isInteger(info.pid) && info.pid > 0 ? info : null;
     }, "real packaged native core");
-    result.ownedNative = ownProcess(core.pid, gate.coreExe, appPid);
+    result.ownedNative = ownProcess(core.pid, gate.coreExe, SHA.core,
+      [appPid, process.pid], result, "native", launchStartedAt, appPid);
     nativePid = core.pid;
     result.checks.push({ name: "actual-packaged-OCCT-child", pass: true });
     const initial = await bounded(page.evaluate(() => window.__kreoda_test?.snapshot()),

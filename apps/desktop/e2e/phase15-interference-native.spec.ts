@@ -38,7 +38,13 @@ test("real OCCT interference is shared read-only and remains correct after save/
     const panel = window.getByTestId("interference-analysis-panel");
     if (!await panel.isVisible()) await openProperties(window);
     await panel.scrollIntoViewIfNeeded();
-    await panel.getByRole("button", { name: "Controlla interferenze" }).click();
+    const checkInterferences = async () => {
+      const button = panel.getByRole("button", { name: "Controlla interferenze" });
+      // After selecting parts the drawer gains rows; scroll the actual control above the bottom dock.
+      await button.evaluate(element => element.scrollIntoView({ block: "start", behavior: "auto" }));
+      await button.click();
+    };
+    await checkInterferences();
     await expect(panel.getByText("500 mm³", { exact: true })).toBeVisible();
     await panel.getByRole("button", { name: "Seleziona componenti" }).click();
     expect((await snapOf(window)).selectedIds.sort()).toEqual([source, part].sort());
@@ -62,13 +68,13 @@ test("real OCCT interference is shared read-only and remains correct after save/
     const undone = await snapOf(window);
     expect(undone.bodies.some(body => body.id === part)).toBe(false);
     expect(undone.bodies.some(body => body.id === source)).toBe(true);
-    await panel.getByRole("button", { name: "Controlla interferenze" }).click();
+    await checkInterferences();
     await expect(panel.getByText("Nessuna interferenza volumetrica.")).toBeVisible();
     await window.evaluate(() => (window as unknown as { __kreoda_test: { configurationE2E: { redo: () => Promise<void> } } }).__kreoda_test.configurationE2E.redo());
     await window.evaluate(file => (window as unknown as { __kreoda_test: { saveIcad: (path: string) => Promise<unknown> } }).__kreoda_test.saveIcad(file), file);
     await window.evaluate(file => (window as unknown as { __kreoda_test: { openIcad: (path: string) => Promise<unknown> } }).__kreoda_test.openIcad(file), file);
     await expect(panel.getByText("500 mm³", { exact: true })).toHaveCount(0);
-    await panel.getByRole("button", { name: "Controlla interferenze" }).click();
+    await checkInterferences();
     await expect(panel.getByText("500 mm³", { exact: true })).toBeVisible();
   } finally {
     peer.closeRaw();

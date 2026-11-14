@@ -64,7 +64,13 @@ test("unified session: saved document, paired client, existing edit, Desktop und
     await expect.poll(async () => (await snapOf(window)).bodies.filter(b => b.triangles > 0).length).toBe(2);
     checks.push("desktop-opens-saved-native-document");
 
-    const disabled = await window.evaluate(() => globalThis.window.kreoda.sessionConnectionStatus());
+    // Normal visible Desktop startup owns an automatic LAN listener. Stop only
+    // this Electron instance's discovery/listener before manual pairing.
+    const initial = await window.evaluate(() => globalThis.window.kreoda.sessionConnectionStatus());
+    if (initial.listener) {
+      expect(initial.interfaces.some(item => item.host === initial.listener!.host)).toBe(true);
+    }
+    const disabled = await window.evaluate(() => globalThis.window.kreoda.sessionDisable());
     expect(disabled.listener).toBeNull();
     const host = disabled.interfaces.find(i => i.host !== "127.0.0.1")?.host ?? "127.0.0.1";
     const enabled = await window.evaluate(host => globalThis.window.kreoda.sessionEnable(host, 0), host);

@@ -50,6 +50,9 @@ test("sketch workspace: disclosure, live drag, escape cancel", async () => {
     // Labels are hover/drag-only in the current editor, so hover first.
     const point = window.getByTestId("sk-point-p0");
     const label = window.locator("g", { has: point }).locator("text");
+    // Locator hover scrolls the SVG point into the visible hit-test area first.
+    // Raw coordinates from an off-screen boundingBox can hit the bottom dock.
+    await point.hover();
     const at = (await point.boundingBox())!;
     const cx = at.x + at.width / 2;
     const cy = at.y + at.height / 2;

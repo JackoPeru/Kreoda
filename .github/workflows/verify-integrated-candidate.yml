@@ -12,6 +12,13 @@ on:
       - scripts/ci/prepare-integrated-candidate-smoke.mjs
       - scripts/ci/candidate-stage-d-smoke.mjs
       - scripts/ci/candidate-visual-render-smoke.mjs
+      - scripts/ci/candidate-bridge-mcp-smoke.mjs
+      - scripts/ci/candidate-cold-relaunch-smoke.mjs
+      - apps/desktop/e2e/phase10-file-picker.spec.ts
+      - apps/desktop/e2e/phase11-session.spec.ts
+      - apps/desktop/e2e/phase15-curvature-native.spec.ts
+      - apps/desktop/e2e/phase15-interference-native.spec.ts
+      - apps/desktop/e2e/sketch-workspace.spec.ts
 
 permissions:
   # GitHub drafts are restricted to principals with repository write access.
@@ -43,7 +50,9 @@ jobs:
           $head = (git rev-parse HEAD).Trim()
           git merge-base --is-ancestor $env:EXPECTED_HEAD $head
           if ($LASTEXITCODE -ne 0) { throw "Original candidate source is not an ancestor: $head" }
-          $allowed = @('.github/workflows/verify-integrated-candidate.yml', 'scripts/ci/candidate-portable-smoke.mjs', 'scripts/ci/prepare-integrated-candidate-smoke.mjs', 'scripts/ci/candidate-stage-d-smoke.mjs', 'scripts/ci/candidate-visual-render-smoke.mjs')
+          # Exact packaged product code and its ZIP must be IDENTICAL to the original.
+          # Only harness and unshipped test specs may differ from its source commit.
+          $allowed = @('.github/workflows/verify-integrated-candidate.yml', 'scripts/ci/candidate-portable-smoke.mjs', 'scripts/ci/prepare-integrated-candidate-smoke.mjs', 'scripts/ci/candidate-stage-d-smoke.mjs', 'scripts/ci/candidate-visual-render-smoke.mjs', 'scripts/ci/candidate-bridge-mcp-smoke.mjs', 'scripts/ci/candidate-cold-relaunch-smoke.mjs', 'apps/desktop/e2e/phase10-file-picker.spec.ts', 'apps/desktop/e2e/phase11-session.spec.ts', 'apps/desktop/e2e/phase15-curvature-native.spec.ts', 'apps/desktop/e2e/phase15-interference-native.spec.ts', 'apps/desktop/e2e/sketch-workspace.spec.ts')
           $delta = @(git diff --name-only $env:EXPECTED_HEAD $head)
           if ($LASTEXITCODE -ne 0 -or @($delta | Where-Object { $_ -notin $allowed }).Count -ne 0) {
             throw 'Product source changed since the exact compiled candidate; rebuild needed'
@@ -177,12 +186,84 @@ jobs:
           node scripts/ci/candidate-visual-render-smoke.mjs '--prime-visual-grant=PRIME_APPROVED_GITHUB_HOSTED_VISUAL'
           if ($LASTEXITCODE -ne 0) { throw 'Original packaged WebGL raster acceptance failed' }
 
-      - name: REQUIRE both new packaged functional gates
+      - name: REAL packaged Desktop to HermesBridge authenticated HTTP MCP and Undo
+        id: bridge-mcp
+        continue-on-error: true
+        timeout-minutes: 8
+        shell: pwsh
+        env:
+          KREODA_HERMES_CONFIG: ''
+          KREODA_CAD_SESSION_URL: ''
+          KREODA_CAD_PAIR: ''
+          KREODA_VOICE_TOKEN: ''
+        run: |
+          $probe = Join-Path $env:GITHUB_WORKSPACE 'clients/session-dotnet/probes/Kreoda.McpProbe/bin/Release/net8.0/Kreoda.McpProbe.dll'
+          $sha = (Get-FileHash -LiteralPath $probe -Algorithm SHA256).Hash
+          node scripts/ci/candidate-bridge-mcp-smoke.mjs "--probe-sha256=$sha" '--prime-bridge-mcp-grant=PRIME_APPROVED_GITHUB_HOSTED_BRIDGE_MCP'
+          if ($LASTEXITCODE -ne 0) { throw 'Original packaged authenticated HTTP MCP CAD acceptance failed' }
+
+      - name: REAL packaged cold restart and ICAD persistence across Electron processes
+        id: cold-relaunch
+        continue-on-error: true
+        timeout-minutes: 8
+        shell: pwsh
+        env:
+          KREODA_HERMES_CONFIG: ''
+          KREODA_CAD_SESSION_URL: ''
+          KREODA_CAD_PAIR: ''
+          KREODA_VOICE_TOKEN: ''
+        run: |
+          node scripts/ci/candidate-cold-relaunch-smoke.mjs '--prime-cold-relaunch-grant=PRIME_APPROVED_GITHUB_HOSTED_COLD_RELAUNCH'
+          if ($LASTEXITCODE -ne 0) { throw 'Original packaged cold restart + ICAD recovery failed' }
+
+      - name: Build targeted CI Electron shell against original native OCCT bytes
+        id: targeted-shell-build
+        continue-on-error: true
+        timeout-minutes: 6
+        shell: pwsh
+        run: |
+          $releaseId = '0.1.0-integrated-20261113-c211b2e01fb7-f003945f69bd-476eccda'
+          $core = Join-Path $env:GITHUB_WORKSPACE ".artifacts/kreoda-integrated-package-20261113/output/$releaseId/Kreoda-win32-x64/resources/kreoda-core.exe"
+          $dest = Join-Path $env:GITHUB_WORKSPACE 'native/kreoda-core/build/Release/kreoda-core.exe'
+          if ((Get-FileHash -LiteralPath $core -Algorithm SHA256).Hash -ne 'F003945F69BDF04E7AB66EA1319B50E22723B5E716047E8DBB2F4E21DC3710B4') {
+            throw 'Native dev E2E source does not match the shipped original OCCT core'
+          }
+          if (Test-Path -LiteralPath $dest) { throw 'Unexpected native dev core would alter provenance' }
+          New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
+          Copy-Item -LiteralPath $core -Destination $dest
+          if ((Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash -ne 'F003945F69BDF04E7AB66EA1319B50E22723B5E716047E8DBB2F4E21DC3710B4') {
+            throw 'Real native test core bytes changed after staging'
+          }
+          pnpm --filter @kreoda/desktop build
+          if ($LASTEXITCODE -ne 0) { throw 'Targeted original-product E2E JavaScript build failed' }
+
+      - name: Recheck ONLY 5 original CI failing E2E flows with genuine OCCT
+        id: targeted-e2e
+        if: steps.targeted-shell-build.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 14
+        shell: pwsh
+        env:
+          KREODA_HERMES_CONFIG: ''
+          KREODA_VOICE_TOKEN: ''
+        run: |
+          # phase11-session.spec.ts contains two already-passing tests. Limit
+          # this verification to the five exact failures in native CI 43528252383.
+          $onlyFailures = 'native file pickers: Save/Open cancellation|unified session: saved document, paired client|native curvature reaches the real GPU|real OCCT interference is shared read-only|sketch workspace: disclosure'
+          pnpm --filter @kreoda/desktop exec playwright test e2e/phase10-file-picker.spec.ts e2e/phase11-session.spec.ts e2e/phase15-curvature-native.spec.ts e2e/phase15-interference-native.spec.ts e2e/sketch-workspace.spec.ts --grep $onlyFailures --reporter=list
+          if ($LASTEXITCODE -ne 0) { throw 'Targeted actual OCCT / Electron E2E regressions still fail' }
+
+      - name: REQUIRE all new packaged functional gates
         if: always()
         shell: pwsh
         run: |
-          if ('${{ steps.stage-d.outcome }}' -ne 'success' -or '${{ steps.visual.outcome }}' -ne 'success') {
-            throw "New packaged functional checks did not BOTH PASS (stageD=${{ steps.stage-d.outcome }}, visual=${{ steps.visual.outcome }})"
+          if ('${{ steps.stage-d.outcome }}' -ne 'success' -or
+              '${{ steps.visual.outcome }}' -ne 'success' -or
+              '${{ steps.bridge-mcp.outcome }}' -ne 'success' -or
+              '${{ steps.cold-relaunch.outcome }}' -ne 'success' -or
+              '${{ steps.targeted-shell-build.outcome }}' -ne 'success' -or
+              '${{ steps.targeted-e2e.outcome }}' -ne 'success') {
+            throw "New functional checks did not ALL PASS (stageD=${{ steps.stage-d.outcome }}, visual=${{ steps.visual.outcome }}, httpMcp=${{ steps.bridge-mcp.outcome }}, cold=${{ steps.cold-relaunch.outcome }}, targetedBuild=${{ steps.targeted-shell-build.outcome }}, targetedE2E=${{ steps.targeted-e2e.outcome }})"
           }
 
       - name: Retain exact smoke results and diagnostics
@@ -197,6 +278,12 @@ jobs:
             .artifacts/kreoda-integrated-package-20261113/smoke/**/bridge-stderr.log
             .artifacts/kreoda-integrated-package-20261113/hosted-smoke-manifest.json
             .artifacts/kreoda-integrated-package-20261113/stage-d-smoke/**/receipt.json
+            .artifacts/kreoda-integrated-package-20261113/bridge-mcp-smoke/**/receipt.json
+            .artifacts/kreoda-integrated-package-20261113/cold-relaunch-smoke/**/receipt.json
+            .artifacts/kreoda-integrated-acceptance-20261114/cold-relaunch-smoke/**/receipt.json
             .artifacts/kreoda-integrated-acceptance-20261114/visual-smoke/**/receipt.json
             .artifacts/kreoda-integrated-acceptance-20261114/visual-smoke/**/*.png
             prior-packaged-smoke-proof/**/smoke.json
+            apps/desktop/test-results/**/trace.zip
+            apps/desktop/test-results/**/error-context.md
+            apps/desktop/e2e/**/curvature-sphere.png

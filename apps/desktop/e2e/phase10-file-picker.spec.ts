@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { boot, openProject, runBar, snapOf } from "./helpers";
+import { boot, openProject, runBar, snapOf, type BodySnapshot } from "./helpers";
 
 const execute = promisify(execFile);
 type PickerResult = { kind: "Save" | "Open"; canceled: boolean; paths: string[] };
@@ -18,6 +18,23 @@ function nativePicker(pid: number, kind: "Save" | "Open", action: "Accept" | "Ca
 async function openPicker(window: Page) {
   await window.getByRole("button", { name: "More", exact: true }).click();
   await window.getByRole("button", { name: "Open", exact: true }).click();
+}
+
+// Direct creation can omit healthy-status flags; the native full-list response
+// after opening an ICAD supplies true/ok. Preserve every geometry and identity
+// field, and reject explicit failure/stale status in either snapshot.
+function comparableHealthyBodies(bodies: BodySnapshot[]): BodySnapshot[] {
+  return bodies.map(body => {
+    expect(body.geometryCurrent === undefined || body.geometryCurrent === true).toBe(true);
+    expect(body.status === undefined || body.status === "ok").toBe(true);
+    expect(body.error).toBeUndefined();
+    expect(body.blockingSourceIds ?? []).toEqual([]);
+    expect(body.triangles).toBeGreaterThan(0);
+    expect(body.faces.length).toBeGreaterThan(0);
+    expect(body.edgeCount).toBeGreaterThan(0);
+    expect(Number.isFinite(body.volumeMm3)).toBe(true);
+    return { ...body, geometryCurrent: true, status: "ok" };
+  });
 }
 
 test("native file pickers: Save/Open cancellation and editable project round trip", async () => {
@@ -74,7 +91,7 @@ test("native file pickers: Save/Open cancellation and editable project round tri
     };
     await pick("Save", "Cancel", save);
     expect(fs.existsSync(file)).toBe(false);
-    expect((await snapOf(window)).bodies).toEqual(saved.bodies);
+    expect(comparableHealthyBodies((await snapOf(window)).bodies)).toEqual(comparableHealthyBodies(saved.bodies));
     await pick("Save", "Accept", save);
     await expect.poll(() => fs.existsSync(file)).toBe(true);
     expect(fs.readFileSync(file).readUInt32LE(0)).toBe(0x04034b50);
@@ -82,10 +99,10 @@ test("native file pickers: Save/Open cancellation and editable project round tri
     const changed = await snapOf(window);
     expect(changed.bodies).toHaveLength(2);
     await pick("Open", "Cancel", () => openPicker(window));
-    expect((await snapOf(window)).bodies).toEqual(changed.bodies);
+    expect(comparableHealthyBodies((await snapOf(window)).bodies)).toEqual(comparableHealthyBodies(changed.bodies));
     await pick("Open", "Accept", () => openPicker(window));
     await expect.poll(async () => (await snapOf(window)).bodies.length).toBe(1);
-    expect((await snapOf(window)).bodies).toEqual(saved.bodies);
+    expect(comparableHealthyBodies((await snapOf(window)).bodies)).toEqual(comparableHealthyBodies(saved.bodies));
     await openProject(window);
     await window.getByTestId(`object-tree-${saved.bodies[0]!.id}`).click();
     await runBar(window, "set widthMm 120");

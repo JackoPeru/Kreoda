@@ -40,13 +40,23 @@ test("native curvature reaches the real GPU, uses physical scale and restores th
     const maximumPerMm = Number(await panel.getByLabel("Massimo curvatura mm inversi").inputValue());
     expect(maximumPerMm).toBeCloseTo(1 / 60, 7);
     let heated = baseline;
-    await expect.poll(async () => { heated = await capture(); return heated.bitmap !== baseline.bitmap; }).toBe(true);
-    const pixels = Buffer.from(heated.bitmap, "base64");
     let redPixels = 0;
-    for (let offset = 0; offset < pixels.length; offset += 4)
-      if (pixels[offset + 2]! > 120 && pixels[offset + 2]! > pixels[offset + 1]! * 1.5 && pixels[offset + 2]! > pixels[offset]! * 1.5) redPixels++;
-    expect(redPixels).toBeGreaterThan(1000);
-    fs.writeFileSync(info.outputPath("curvature-sphere.png"), Buffer.from(heated.png, "base64"));
+    // A changed capture can be an intermediate compositor frame while the GPU shader compiles.
+    // Poll for the actual red curvature pixels, retaining the pixel assertion on every host.
+    try {
+      await expect.poll(async () => {
+        heated = await capture();
+        if (heated.bitmap === baseline.bitmap) return 0;
+        const pixels = Buffer.from(heated.bitmap, "base64");
+        redPixels = 0;
+        for (let offset = 0; offset < pixels.length; offset += 4)
+          if (pixels[offset + 2]! > 120 && pixels[offset + 2]! > pixels[offset + 1]! * 1.5 && pixels[offset + 2]! > pixels[offset]! * 1.5) redPixels++;
+        return redPixels;
+      }, { timeout: 15000 }).toBeGreaterThan(1000);
+    } finally {
+      // Keep the real raster even if the runner cannot composite the shader.
+      fs.writeFileSync(info.outputPath("curvature-sphere.png"), Buffer.from(heated.png, "base64"));
+    }
     const full = await app.evaluate(async ({ BrowserWindow }) => {
       const image = await BrowserWindow.getAllWindows()[0]!.capturePage(undefined, { stayHidden: true });
       return image.toPNG().toString("base64");

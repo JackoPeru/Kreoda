@@ -120,6 +120,98 @@ async function waitProcessInfo(pid, expectedPath, parentPid) {
   return until(() => processInfo(pid, expectedPath, parentPid),
     "exact owned process identity " + pid, 8_000, 150);
 }
+// Playwright 1.63 launches Electron with shell=true on Windows. Its
+// app.process() can identify the cmd.exe launcher instead of Electron, and
+// even when it identifies Electron, Win32 parenting can include that shell.
+// Only the *Electron main PID* obtained inside the packaged main process may
+// parent the native OCCT sidecar. Bridge and dotnet retain the strict direct
+// parent check in waitProcessInfo above.
+function win32Process(pid) {
+  assert(Number.isInteger(pid) && pid > 0, "unverified Win32 process PID");
+  const json = ps(`$p=Get-CimInstance Win32_Process -Filter 'ProcessId = ${pid}'; if (-not $p) { exit 43 }; $p | Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine | ConvertTo-Json -Compress`);
+  const found = JSON.parse(json);
+  assert(found?.ProcessId === pid && Number.isInteger(found.ParentProcessId) &&
+    typeof found.ExecutablePath === "string" && found.ExecutablePath.length > 0,
+  "Win32 process identity cannot be grounded");
+  return found;
+}
+function safeParentDiagnostic(mainPid, launcherPid) {
+  // Never persist Win32 CommandLine, environment, full paths or pair tokens.
+  const observed = [], seen = new Set();
+  let pid = mainPid;
+  for (let hop = 0; hop < 5 && Number.isInteger(pid) && pid > 0 &&
+      !seen.has(pid); hop++) {
+    seen.add(pid);
+    try {
+      const record = win32Process(pid);
+      observed.push({ pid, parentPid: record.ParentProcessId,
+        image: path.win32.basename(record.ExecutablePath).slice(0, 64) });
+      if (pid === process.pid) break;
+      pid = record.ParentProcessId;
+    } catch {
+      observed.push({ pid, unavailable: true });
+      break;
+    }
+  }
+  return { mainPid, playwrightLauncherPid: launcherPid,
+    testRunnerPid: process.pid, observed };
+}
+function exactPlaywrightElectron(launcherPid, mainPid, profile) {
+  assert(Number.isInteger(launcherPid) && launcherPid > 0 &&
+    Number.isInteger(mainPid) && mainPid > 0 && mainPid !== process.pid,
+  "Playwright launcher / real Electron PID unavailable");
+  const systemRoot = process.env.SystemRoot ?? process.env.WINDIR;
+  assert(typeof systemRoot === "string" && path.win32.isAbsolute(systemRoot),
+    "cannot ground trusted Windows shell location");
+  const trustedShells = [
+    path.win32.join(systemRoot, "System32", "cmd.exe"),
+    path.win32.join(systemRoot, "SysWOW64", "cmd.exe"),
+  ];
+  const main = win32Process(mainPid);
+  assert(main.Name?.toLowerCase() === "kreoda.exe" &&
+    same(main.ExecutablePath, exe),
+  "Electron main Win32 PID/image/path differs from original package");
+  checkSha(main.ExecutablePath, requiredSha.exe);
+
+  let current = main, foundLauncher = mainPid === launcherPid;
+  let foundCommand = false;
+  const ancestry = [{ pid: mainPid, parentPid: main.ParentProcessId,
+    image: "Kreoda.exe" }];
+  const seen = new Set([mainPid]);
+  for (let depth = 0; current.ProcessId !== process.pid && depth < 4; depth++) {
+    const parentPid = current.ParentProcessId;
+    assert(Number.isInteger(parentPid) && parentPid > 0 && !seen.has(parentPid),
+      "Win32 launcher ancestry is missing or circular");
+    const parent = win32Process(parentPid);
+    seen.add(parentPid);
+    if (parentPid !== process.pid) {
+      assert(parent.Name?.toLowerCase() === "cmd.exe" &&
+        trustedShells.some(shell => same(parent.ExecutablePath, shell)),
+      "foreign process in Playwright-to-Electron ancestry");
+      const pinnedShell = trustedShells.find(shell => same(parent.ExecutablePath, shell));
+      checkSha(parent.ExecutablePath, sha(pinnedShell));
+      const command = String(parent.CommandLine ?? "").toLowerCase();
+      if (command.includes(exe.toLowerCase()) &&
+          command.includes(profile.toLowerCase()) &&
+          command.includes("--user-data-dir=")) foundCommand = true;
+    } else {
+      assert(parent.Name?.toLowerCase() === path.win32.basename(process.execPath).toLowerCase() &&
+        same(parent.ExecutablePath, process.execPath),
+      "Playwright ancestry did not terminate at this exact Node test runner");
+    }
+    if (parentPid === launcherPid) foundLauncher = true;
+    ancestry.push({ pid: parentPid, parentPid: parent.ParentProcessId,
+      image: parentPid === process.pid ? "test-runner" : "cmd.exe" });
+    current = parent;
+  }
+  assert(current.ProcessId === process.pid && foundLauncher,
+    "Playwright launcher PID not on bounded owned Win32 ancestry");
+  assert((ancestry.length === 2 && mainPid === launcherPid) || foundCommand,
+    "Playwright shell command does not identify the exact packaged Electron/profile");
+  return { pid: mainPid, playwrightLauncherPid: launcherPid,
+    parentPid: main.ParentProcessId, executablePath: main.ExecutablePath,
+    executableSha256: requiredSha.exe, ancestry };
+}
 function argsMap() {
   const args = process.argv.slice(2);
   assert(args.length === 2 && args.every(a => a.startsWith("--") && a.includes("=")),
@@ -160,10 +252,39 @@ function preflight() {
   for (const [file, expected] of [[exe, requiredSha.exe], [coreExe, requiredSha.core],
     [appAsar, requiredSha.asar], [bridgeExe, requiredSha.bridge]])
     checkSha(file, expected);
+  // The ORIGINAL publishedFiles schema is {name, sha256, size}; one genuine
+  // dependency lives under runtimes\browser\lib\net8.0. A nested relative path
+  // is valid, but no absolute path, traversal, ADS, or symlink may escape Bridge.
+  const bridgeRoot = fs.lstatSync(bridgeDir);
+  assert(bridgeRoot.isDirectory() && !bridgeRoot.isSymbolicLink(),
+    "published Bridge root is not a real directory");
+  const bridgeNames = new Set();
   for (const entry of original.bridge.publishedFiles ?? []) {
-    assert(typeof entry.name === "string" && path.basename(entry.name) === entry.name,
-      "unsafe Bridge manifest entry");
-    checkSha(path.join(bridgeDir, entry.name), entry.sha256);
+    const name = entry.name;
+    assert(typeof name === "string" && name.length > 0 &&
+      !path.win32.isAbsolute(name) && !path.posix.isAbsolute(name) &&
+      !name.includes(":") && !name.includes("\0") &&
+      hexSha(entry.sha256) && Number.isSafeInteger(entry.size) && entry.size >= 0,
+    "unsafe Bridge manifest entry");
+    const segments = name.split(/[\\/]/);
+    assert(segments.every(part => part.length > 0 && part !== "." && part !== ".." &&
+      !/[. ]$/.test(part) && !/[<>:"|?*\x00-\x1f]/.test(part) &&
+      !/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part)),
+    "unsafe Bridge manifest path components");
+    const file = path.resolve(bridgeDir, ...segments);
+    const identity = segments.join("/").toLowerCase();
+    assert(within(file, bridgeDir) && !bridgeNames.has(identity),
+      "Bridge path escapes directory or duplicates another entry");
+    bridgeNames.add(identity);
+    let directory = bridgeDir;
+    for (const part of segments.slice(0, -1)) {
+      directory = path.join(directory, part);
+      const stat = fs.lstatSync(directory);
+      assert(stat.isDirectory() && !stat.isSymbolicLink(),
+        "Bridge dependency traverses a linked or non-directory component");
+    }
+    assert(regular(file).size === entry.size, "Bridge published file size differs");
+    checkSha(file, entry.sha256);
   }
   assert(original.bridge.publishedFiles.length === 35,
     "missing one or more separately published Bridge dependencies");
@@ -484,9 +605,25 @@ async function main() {
     app = await bounded(electron.launch({ executablePath: exe,
       args: ["--no-sandbox", "--lang=en-US", "--start-hidden", `--user-data-dir=${profile}`],
       env, timeout: 40_000 }), 50_000, "exact packaged Kreoda Electron launch");
-    const appPid = app.process()?.pid;
-    const appOwner = await waitProcessInfo(appPid, exe, process.pid);
-    receipt.ownedElectronPid = appPid;
+    const launcherPid = app.process()?.pid;
+    let mainPid;
+    try {
+      mainPid = await bounded(app.evaluate(() => process.pid), 10_000,
+        "read actual Electron main process PID");
+    } catch (error) {
+      receipt.parentDiagnostic = safeParentDiagnostic(launcherPid, launcherPid);
+      throw error;
+    }
+    receipt.ownedElectronPid = mainPid;
+    receipt.playwrightLauncherPid = launcherPid ?? null;
+    let appOwner;
+    try {
+      appOwner = await until(() => exactPlaywrightElectron(launcherPid, mainPid, profile),
+        "exact packaged Electron main SHA and bounded Playwright ancestry", 8_000, 150);
+    } catch (error) {
+      receipt.parentDiagnostic = safeParentDiagnostic(mainPid, launcherPid);
+      throw error; // Never accept a foreign, stale or ungrounded parent chain.
+    }
     const info = await bounded(app.evaluate(({ app, BrowserWindow }) => ({
       isPackaged: app.isPackaged, exe: process.execPath,
       appPath: app.getAppPath(), resources: process.resourcesPath,
@@ -504,7 +641,7 @@ async function main() {
         4000, "native sidecar status");
       return status?.running && status?.pid > 0 ? status : null;
     }, "packaged actual OCCT native sidecar", 25_000);
-    const nativeOwner = await waitProcessInfo(coreInfo.pid, coreExe, appPid);
+    const nativeOwner = await waitProcessInfo(coreInfo.pid, coreExe, mainPid);
     originalCorePid = coreInfo.pid;
     const nativeInfo = await nativeCall(page, 1);
     assert(nativeInfo.occtVersion === "8.0.1-native", "OCCT version is not the real native core");
