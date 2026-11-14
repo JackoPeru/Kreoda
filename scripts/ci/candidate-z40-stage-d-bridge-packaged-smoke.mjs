@@ -21,6 +21,12 @@ const probeDll = path.join(checkout,"clients","session-dotnet","probes","Kreoda.
 const SHA = Object.freeze({
   probeSource: "7acefde7ed025ea0ca0bfa70cadf37ac4b52ed0fe1d99e7d34a12aa2a8bb7b9a",
   probeProject: "c98422cbe006543703c440ce4addc8f25bcc7befbbcacdb8e8c250b6d0368f6d",
+  // The two committed probe files contain LF line endings. Git for Windows
+  // checks them out as CRLF when core.autocrlf=true (no .gitattributes eol
+  // override). These are independently calculated full-file CRLF SHA256 pins,
+  // NOT a wildcard or relaxed source check.
+  probeSourceCrLf: "025451e065a38d225009dadccefbb955cd185e7b493fa5278f350e26908db6dc",
+  probeProjectCrLf: "c8732f0164cf2c3027aa71286bb62b37f84688f718273c61f3017344a92563ab",
   zip: "1cca3180578c35d3a5f81f0405d931eea66de63df50d0727d4bc76ccfb57a8b4",
   zipReceipt: "a89c263a88acbb3ec2145fda313c312afcb3803012be8949e1e8efd8bfb4985b",
   manifest: "fc62d7e8bad7ebdebd37e15c226ef13dc5467118d39e27cf4fc35a4a7374119e",
@@ -641,7 +647,12 @@ function probeRun(env, scenario, dotnetExe, children, expectFailure = false) {
 
 function sourcePin(file, checksum) {
   check(within(file, checkout), "forbidden untrusted source provenance location");
-  pin(file, checksum);
+  const actual = sha256(file); // regular() rejects symlinks/non-files.
+  const windowsCrLfPin = checksum === SHA.probeSource ? SHA.probeSourceCrLf
+    : checksum === SHA.probeProject ? SHA.probeProjectCrLf : null;
+  check(hex(checksum) && hex(windowsCrLfPin) &&
+    (actual === checksum.toLowerCase() || actual === windowsCrLfPin),
+  "official committed .NET probe source SHA256 differs from both exact LF/CRLF byte pins");
 }
 function freshProbeBuild(receipt) {
   const source = path.join(checkout, "clients", "session-dotnet", "probes", "Kreoda.McpProbe", "Program.cs");

@@ -100,10 +100,16 @@ function powershell(script, stage = 'win32-provenance') {
     call.error?.code === 'ENOBUFS' ? 'output-limit' :
     call.error ? 'spawn-error' : 'none';
   const exit = Number.isInteger(call.status) ? call.status : 'null';
+  const signaturePhase = stage === 'native-conhost-targeted-signature' ? ({
+    43: 'target-pid-absent', 61: 'cim-query-error', 62: 'windows-system-folder-error',
+    63: 'signature-query-error', 64: 'creation-or-proof-format-error',
+    65: 'json-serialization-error', 66: 'other-script-runtime-error',
+  })[call.status] ?? 'unclassified-exit' : 'not-applicable';
   const elapsedBucketMs = Math.round((Date.now() - started) / 100) * 100;
   assert(!call.error && call.status === 0,
     'Windows process provenance query failed [stage=' + stage +
-    ',exit=' + exit + ',error=' + errorClass + ',elapsedBucketMs=' + elapsedBucketMs + ']');
+    ',exit=' + exit + ',cause=' + signaturePhase +
+    ',error=' + errorClass + ',elapsedBucketMs=' + elapsedBucketMs + ']');
   return call.stdout.trim();
 }
 function processes() {
@@ -276,21 +282,27 @@ function authenticNativeConsoleHost(records, member, state) {
   // Check the signed *OS* binary, not any same-named executable shipped by an
   // application. Target the already observed PID and recheck exact creation,
   // path and native parent to protect against a reused process ID.
-  const script = "$ErrorActionPreference='Stop'; " +
-    "$p=Get-CimInstance Win32_Process -Filter 'ProcessId = " + member.pid + "'; " +
+  // Fixed exit codes identify a hosted PowerShell failure class without
+  // exposing stderr, command text, local paths or pairing credentials.
+  // A disappeared PID stays BLOCKED (43); do not infer its exit from a stale
+  // process census or treat a failed identity query as proof of termination.
+  const script = "$ErrorActionPreference='Stop'; try{ " +
+    "try{$p=Get-CimInstance Win32_Process -Filter 'ProcessId = " + member.pid + "' -ErrorAction Stop}catch{exit 61}; " +
     "if(-not $p){exit 43}; " +
-    "$os=[Environment]::GetFolderPath('Windows'); " +
-    "$trusted=[IO.Path]::Combine($os,'System32','conhost.exe'); " +
-    "$signature=Get-AuthenticodeSignature -LiteralPath $trusted; " +
+    "try{$os=[Environment]::GetFolderPath('Windows'); " +
+    "if([string]::IsNullOrWhiteSpace($os) -or -not [IO.Path]::IsPathRooted($os)){exit 62}; " +
+    "$trusted=[IO.Path]::Combine($os,'System32','conhost.exe')}catch{exit 62}; " +
+    "try{$signature=Get-AuthenticodeSignature -LiteralPath $trusted -ErrorAction Stop; " +
     "$cert=$signature.SignerCertificate; " +
     "$microsoft=($signature.Status -eq 'Valid' -and $null -ne $cert -and " +
     "$cert.Subject -match '(?:^|,\\s*)CN=Microsoft Windows(?:,|$)' -and " +
-    "$cert.Subject -match '(?:^|,\\s*)O=Microsoft Corporation(?:,|$)'); " +
-    "$created=if($p.CreationDate){$p.CreationDate.ToUniversalTime().ToString('o')}else{''}; " +
-    "[pscustomobject]@{ProcessId=[int]$p.ProcessId;ParentProcessId=[int]$p.ParentProcessId;" +
+    "$cert.Subject -match '(?:^|,\\s*)O=Microsoft Corporation(?:,|$)')}catch{exit 63}; " +
+    "try{$created=if($p.CreationDate){$p.CreationDate.ToUniversalTime().ToString('o')}else{''}; " +
+    "$proof=[pscustomobject]@{ProcessId=[int]$p.ProcessId;ParentProcessId=[int]$p.ParentProcessId;" +
     "Name=[string]$p.Name;ExecutablePath=[string]$p.ExecutablePath;" +
-    "CreationDate=$created;TrustedPath=$trusted;MicrosoftSignatureValid=[bool]$microsoft}" +
-    " | ConvertTo-Json -Compress";
+    "CreationDate=$created;TrustedPath=$trusted;MicrosoftSignatureValid=[bool]$microsoft}}catch{exit 64}; " +
+    "try{$proof|ConvertTo-Json -Compress -ErrorAction Stop}catch{exit 65}" +
+    "}catch{exit 66}";
   let proof;
   try { proof = JSON.parse(powershell(script, 'native-conhost-targeted-signature')); }
   catch (error) {
