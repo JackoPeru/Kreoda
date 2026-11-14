@@ -35,7 +35,9 @@ async function main() {
   const [zip, receiptFile] = process.argv.slice(2).map(p => path.resolve(p));
   assert((await sha256(zip)) === CANDIDATE_SHA, "original candidate ZIP hash differs");
   assert((await sha256(receiptFile)) === RECEIPT_SHA, "original 159-entry receipt hash differs");
-  const receipt = JSON.parse(await readFile(receiptFile, "utf8"));
+  // Windows PowerShell 5.1 Set-Content -Encoding UTF8 writes a BOM. Keep the
+  // source file byte-for-byte intact (the SHA above covers the BOM).
+  const receipt = JSON.parse((await readFile(receiptFile, "utf8")).replace(/^\uFEFF/, ""));
   assert(receipt.status === "CANDIDATE_TRANSPORT_SHA256_VERIFIED_UNSMOKED_NOT_PROMOTED" &&
     receipt.sha256.toLowerCase() === CANDIDATE_SHA && receipt.entriesVerified === 159 &&
     receipt.allEntriesVerified === true && receipt.uncompressedBytes === 767386464,
@@ -69,7 +71,7 @@ async function main() {
 
   const originalPath = path.join(release, "release-manifest.json");
   assert(unique.has(`${RELEASE_ID}/release-manifest.json`), "original manifest absent from bundle");
-  const original = JSON.parse(await readFile(originalPath, "utf8"));
+  const original = JSON.parse((await readFile(originalPath, "utf8")).replace(/^\uFEFF/, ""));
   assert(original.releaseId === RELEASE_ID && original.status === "PACKAGED_UNSMOKED_NOT_PROMOTED" &&
     original.smokeRequired === true && original.nativeCore.sha256.toLowerCase() === ORIGINAL_CORE_SHA &&
     original.packagedResources.appAsarSha256.toLowerCase() === ORIGINAL_ASAR_SHA &&
