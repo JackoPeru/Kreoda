@@ -111,13 +111,71 @@ function noForeignOwners(records) {
     'foreign Kreoda/OCCT/Bridge process exists on this hosted runner');
   }
 }
+// The broad Win32_Process census can omit ExecutablePath for the host Node
+// on one query and include it on the next. Verify the exact *current* Node
+// identity through a separate PID-filtered CIM query, as the passing Bridge
+// smoke does. Never infer host identity from parent PID alone.
+function attestHostNode(records, rootPid, firstLaunchMs, diagnostics) {
+  assert(Number.isSafeInteger(rootPid) && rootPid > 0 && rootPid === process.pid,
+    'host root PID is not this test process');
+  const census = records.get(rootPid);
+  const status = {
+    pid: rootPid, censusPresent: Boolean(census),
+    censusImage: census ? path.win32.basename(census.ExecutablePath || '') : null,
+    censusPathAvailable: Boolean(census?.ExecutablePath),
+    censusPathMatches: Boolean(census && same(census.ExecutablePath, process.execPath)),
+    queriedByPid: false, queriedImage: null, queriedPathMatches: false,
+    queriedCreationValid: false, createdBeforeLaunch: false,
+  };
+  if (diagnostics) diagnostics.push(status);
+  const raw = powershell(`$p=Get-CimInstance Win32_Process -Filter 'ProcessId = ${rootPid}'; if (-not $p) { '{}' } else { $p | Select-Object ProcessId,ParentProcessId,ExecutablePath,Name,@{Name='CreationDate';Expression={if($_.CreationDate){$_.CreationDate.ToUniversalTime().ToString('o')}else{''}}} | ConvertTo-Json -Compress }`);
+  const actual = JSON.parse(raw);
+  status.queriedByPid = actual?.ProcessId === rootPid;
+  status.queriedImage = typeof actual?.ExecutablePath === 'string'
+    ? path.win32.basename(actual.ExecutablePath) : null;
+  status.queriedPathMatches = same(actual?.ExecutablePath, process.execPath);
+  const created = Date.parse(actual?.CreationDate || '');
+  status.queriedCreationValid = Number.isFinite(created);
+  status.createdBeforeLaunch = status.queriedCreationValid &&
+    created <= firstLaunchMs + 2_000;
+  assert(status.queriedByPid && status.queriedPathMatches &&
+    status.createdBeforeLaunch && Number.isInteger(actual.ParentProcessId),
+  'host Node exact PID/executable/creation failed targeted Win32 attestation');
+  // A populated but conflicting census entry could indicate PID reuse.
+  // Only an omitted/empty census image can be superseded by the strict query.
+  assert(!census?.ExecutablePath || status.censusPathMatches,
+    'host Node census image conflicts with targeted process identity');
+  assert(!census?.CreationDate || census.CreationDate === actual.CreationDate,
+    'host Node census creation time conflicts with targeted process identity');
+  return actual;
+}
 // A Playwright launch can have an intermediate Node/cmd or another same-package
 // Electron process. Prove a bounded, unbroken ancestor chain to THIS Node PID;
 // every intermediate executable must be an exact whitelisted binary.
-function ancestry(records, childPid, expectedExecutable, rootPid, intermediaryPaths, firstLaunchMs, limit = 7) {
-  const rootNode = records.get(rootPid);
-  assert(rootNode && same(rootNode.ExecutablePath, process.execPath),
-    'host Node PID/executable is not present in the real Win32 process tree');
+function ancestry(records, childPid, expectedExecutable, rootPid, expectedRootExecutable,
+  intermediaryPaths, firstLaunchMs, limit = 7, rootDiagnostics = null) {
+  // Two legitimate rooted trees use this verifier:
+  // Electron -> trusted cmd.exe -> THIS Node; native OCCT -> Electron main.
+  // The second root is the pinned Electron image, never process.execPath.
+  let rootNode;
+  if (same(expectedRootExecutable, process.execPath)) {
+    assert(rootPid === process.pid, 'host root PID is not the running test Node');
+    rootNode = attestHostNode(records, rootPid, firstLaunchMs, rootDiagnostics);
+  } else {
+    assert(same(expectedRootExecutable, exe) && rootPid !== process.pid,
+      'native core root must be the expected pinned Electron image');
+    rootNode = records.get(rootPid);
+    const rootCreated = Date.parse(rootNode?.CreationDate || '');
+    const status = { pid: rootPid, role: 'electron-parent-of-native-core',
+      censusPresent: Boolean(rootNode),
+      censusImage: rootNode ? path.win32.basename(rootNode.ExecutablePath || '') : null,
+      exactPinnedElectron: Boolean(rootNode && same(rootNode.ExecutablePath, exe)),
+      creationValid: Number.isFinite(rootCreated) &&
+        rootCreated >= firstLaunchMs - 8_000 && rootCreated <= Date.now() + 2_000 };
+    if (rootDiagnostics) rootDiagnostics.push(status);
+    assert(status.exactPinnedElectron && status.creationValid && hash(exe) === pins.exe,
+      'native OCCT parent PID/executable/creation differs from pinned Electron main');
+  }
   const first = records.get(childPid);
   assert(first && same(first.ExecutablePath, expectedExecutable),
     'owned process PID/executable path mismatch: ' + childPid);
@@ -128,7 +186,12 @@ function ancestry(records, childPid, expectedExecutable, rootPid, intermediaryPa
   const visited = new Set([childPid]);
   let current = first;
   for (let hop = 0; hop < limit; ++hop) {
-    if (current.ParentProcessId === rootPid) return chain;
+    if (current.ParentProcessId === rootPid) {
+      assert(Date.parse(rootNode.CreationDate) <=
+        Date.parse(current.CreationDate || '') + 2_000,
+      'host Node process creation time contradicts verified ancestry');
+      return chain;
+    }
     const parent = records.get(current.ParentProcessId);
     assert(parent && !visited.has(parent.ProcessId),
       'missing/cyclic Playwright process parent for PID ' + childPid);
@@ -292,7 +355,9 @@ async function start(electron, profile, cycle) {
     assert(Number.isFinite(launcherCreated) &&
       launcherCreated >= launchStartedMs - 8_000 && launcherCreated <= Date.now() + 2_000,
     'Playwright launcher PID does not match this launch time');
-    const chain = ancestry(records, pid, exe, process.pid, intermediary, launchStartedMs);
+    state.pidDiagnostics.hostRootChecks = [];
+    const chain = ancestry(records, pid, exe, process.pid, process.execPath, intermediary,
+      launchStartedMs, 7, state.pidDiagnostics.hostRootChecks);
     state.pidDiagnostics.ancestry = chain.map(entry => ({
       pid: entry.pid, parentPid: entry.parentPid,
       image: path.win32.basename(records.get(entry.pid)?.ExecutablePath || ''),
@@ -315,7 +380,9 @@ async function start(electron, profile, cycle) {
       return info?.running && Number.isInteger(info.pid) && info.pid > 0 ? info : null;
     }, 'cycle ' + cycle + ' real OCCT sidecar', 30_000);
     const live = processes();
-    const coreChain = ancestry(live, core.pid, coreExe, pid, [exe], launchStartedMs, 7);
+    state.pidDiagnostics.nativeParentChecks = [];
+    const coreChain = ancestry(live, core.pid, coreExe, pid, exe, [exe],
+      launchStartedMs, 7, state.pidDiagnostics.nativeParentChecks);
     state.corePid = core.pid;
     state.coreChain = coreChain;
     // The verified Playwright cmd.exe is part of our launched lifecycle too.
@@ -324,8 +391,16 @@ async function start(electron, profile, cycle) {
     if (state.launcher.pid !== pid) state.tracked.push(state.launcher);
     assert(state.tracked.some(p => p.pid === core.pid), 'sidecar not descendant of packaged Electron');
     for (const member of state.tracked) {
-      assert(same(member.path, exe) || same(member.path, coreExe) ||
-        (member.pid === playwrightPid && same(member.path, trustedCmd)),
+      const trusted = same(member.path, exe) || same(member.path, coreExe) ||
+        (member.pid === playwrightPid && same(member.path, trustedCmd));
+      if (!trusted) {
+        state.pidDiagnostics.rejectedDescendants ??= [];
+        state.pidDiagnostics.rejectedDescendants.push({
+          pid: member.pid, parentPid: member.parentPid,
+          image: path.win32.basename(member.path || ''),
+        });
+      }
+      assert(trusted,
         'foreign executable descended from original packaged Electron');
     }
     state.identity = { playwrightPid, electronPid: pid, corePid: core.pid,
@@ -347,7 +422,16 @@ function captureOwned(state) {
   if (state.main && stillSame(live, state.main)) {
     const related = descendants(live, state.main.pid).map(identityOf);
     for (const item of related) {
-      assert(same(item.path, exe) || same(item.path, coreExe),
+      const trusted = same(item.path, exe) || same(item.path, coreExe);
+      if (!trusted) {
+        state.pidDiagnostics ??= {};
+        state.pidDiagnostics.rejectedDescendants ??= [];
+        state.pidDiagnostics.rejectedDescendants.push({
+          pid: item.pid, parentPid: item.parentPid,
+          image: path.win32.basename(item.path || ''),
+        });
+      }
+      assert(trusted,
         'foreign subprocess in owned Electron process tree');
     }
     const byPid = new Map([...state.tracked, ...related].map(p => [p.pid, p]));

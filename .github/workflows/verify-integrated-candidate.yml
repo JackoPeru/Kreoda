@@ -204,35 +204,246 @@ jobs:
           }
           'Previously completed exact packaged Stage D CAD verified by immutable receipt; not repeated.'
 
-      - name: REAL packaged WebGL viewport pixel proof
+      - name: Verify SHA-pinned hosted WebGL proof without repeating accepted rendering
         id: visual
         continue-on-error: true
         timeout-minutes: 8
         shell: pwsh
         env:
-          KREODA_HERMES_CONFIG: ''
-          KREODA_CAD_SESSION_URL: ''
-          KREODA_CAD_PAIR: ''
-          KREODA_VOICE_TOKEN: ''
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          node scripts/ci/candidate-visual-render-smoke.mjs '--prime-visual-grant=PRIME_APPROVED_GITHUB_HOSTED_VISUAL'
-          if ($LASTEXITCODE -ne 0) { throw 'Original packaged WebGL raster acceptance failed' }
+          $ErrorActionPreference = 'Stop'
+          if ($env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows') {
+            throw 'Cannot reuse hosted proof on an untrusted runner'
+          }
+          # This historical run was an overall FAILURE because other functional
+          # gates failed. Its actual visual and MCP steps were each SUCCESS.
+          # Never infer their success from the overall run conclusion or green
+          # continue-on-error jobs.
+          $priorHead = '8921c7bd6dfd40a0e02d042614da046686074e9a'
+          $src = @('scripts/ci/candidate-visual-render-smoke.mjs', 'scripts/ci/candidate-bridge-mcp-smoke.mjs')
+          $priorBlobs = @('ff4f6324d4f72fd9785440c6f2c5fc38fb83abbd', 'f396832f8e6d5bcf1b58ebe33a9a1bf3130e2f5b')
+          git merge-base --is-ancestor $priorHead HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Prior successful source is not an ancestor' }
+          git diff --quiet $priorHead HEAD -- $src
+          if ($LASTEXITCODE -ne 0) { throw 'Visual/MCP scripts changed since hosted success: new execution required' }
+          git diff --quiet -- $src
+          if ($LASTEXITCODE -ne 0) { throw 'Dirty visual/MCP source cannot reuse proof' }
+          git diff --cached --quiet -- $src
+          if ($LASTEXITCODE -ne 0) { throw 'Staged visual/MCP source cannot reuse proof' }
+          for ($i = 0; $i -lt $src.Count; $i++) {
+            $oldBlob = (git rev-parse "${priorHead}:$($src[$i])").Trim()
+            $nowBlob = (git rev-parse "HEAD:$($src[$i])").Trim()
+            if ($LASTEXITCODE -ne 0 -or $oldBlob -cne $priorBlobs[$i] -or $nowBlob -cne $oldBlob) {
+              throw "Pinned hosted proof script blob differs: $($src[$i])"
+            }
+          }
+          $prior = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/43582315537" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $prior.id -ne 43582315537 -or $prior.status -ne 'completed' -or
+              $prior.conclusion -ne 'failure' -or $prior.head_sha -cne $priorHead -or
+              $prior.repository.full_name -cne $env:GITHUB_REPOSITORY -or
+              $prior.event -ne 'push' -or $prior.run_attempt -ne 1 -or
+              $prior.path -ne '.github/workflows/verify-integrated-candidate.yml') {
+            throw 'Pinned hosted workflow run provenance differs'
+          }
+          $jobs = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/43582315537/jobs?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot establish previous hosted job results' }
+          $job = @($jobs.jobs | Where-Object {
+            $_.name -eq 'exact-packaged-smoke' -and $_.status -eq 'completed' -and
+            $_.runner_group_name -eq 'GitHub Actions' -and $_.labels -contains 'windows-latest'
+          })
+          if ($job.Count -ne 1) { throw 'Expected original GitHub-hosted Windows job is missing/ambiguous' }
+          foreach ($expected in @(
+            @{ name = 'REAL packaged WebGL viewport pixel proof'; number = 14 },
+            @{ name = 'REAL packaged Desktop to HermesBridge authenticated HTTP MCP and Undo'; number = 15 }
+          )) {
+            $step = @($job[0].steps | Where-Object {
+              $_.name -ceq $expected.name -and $_.number -eq $expected.number -and
+              $_.status -eq 'completed' -and $_.conclusion -eq 'success'
+            })
+            if ($step.Count -ne 1) { throw "Real hosted proof step was not successful: $($expected.name)" }
+          }
+          $artifacts = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/43582315537/artifacts?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot establish previous artifact provenance' }
+          $asset = @($artifacts.artifacts | Where-Object {
+            $_.id -eq 14109420591 -and $_.name -ceq 'candidate-exact-portable-smoke-43582315537' -and
+            $_.size_in_bytes -eq 935963 -and $_.expired -eq $false -and
+            $_.workflow_run.id -eq 43582315537 -and
+            $_.workflow_run.head_sha -ceq $priorHead
+          })
+          if ($asset.Count -ne 1) { throw 'Prior visual/MCP artifact missing or changed' }
+          $proofDir = Join-Path $env:GITHUB_WORKSPACE 'prior-visual-mcp-proof'
+          if (Test-Path -LiteralPath $proofDir) { throw 'Previous proof folder unexpectedly preexists' }
+          gh run download 43582315537 --repo $env:GITHUB_REPOSITORY --name 'candidate-exact-portable-smoke-43582315537' --dir $proofDir
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot download immutable previous visual/MCP artifact' }
+          $receipts = @(Get-ChildItem -LiteralPath $proofDir -File -Recurse -Filter receipt.json)
+          $visualFile = @($receipts | Where-Object { $_.FullName -match '[\\/]visual-smoke[\\/]' })
+          $mcpFile = @($receipts | Where-Object { $_.FullName -match '[\\/]bridge-mcp-smoke[\\/]' })
+          if ($visualFile.Count -ne 1 -or $mcpFile.Count -ne 1 -or
+              (Get-FileHash -LiteralPath $visualFile[0].FullName -Algorithm SHA256).Hash -cne
+                '6F5EE7D45DE47F0AAD0FB1FA392BF3CB137CB489102D261C64C7E981D54AD076' -or
+              (Get-FileHash -LiteralPath $mcpFile[0].FullName -Algorithm SHA256).Hash -cne
+                '8621F556D65FC001FD13A70696D34F34B75A55E242B0628725F147CF68CF9422') {
+            throw 'Original visual/MCP receipt absent, duplicated or SHA modified'
+          }
+          $mcp = Get-Content -LiteralPath $mcpFile[0].FullName -Raw | ConvertFrom-Json
+          $visual = Get-Content -LiteralPath $visualFile[0].FullName -Raw | ConvertFrom-Json
+          $release = '0.1.0-integrated-20261113-c211b2e01fb7-f003945f69bd-476eccda'
+          $bundle = '036cff37ed0b5850926224cb0afc75a159a558897d77ffc1f74e314bccf85b1d'
+          $manifest = '2064d409a22f1e0020e90ac194e7d8ebb5813550316e5ced69b5dc72b8d88a66'
+          $exe = 'a09ee422ccf2c678db1b41ed3d2dbbcf987be1585e0a7cdbbc858321778a35b4'
+          $core = 'f003945f69bdf04e7ab66ea1319b50e22723b5e716047e8dbb2f4e21dc3710b4'
+          $asar = 'e22221c092c28f1c1ce9115c3e3ac883ea37fa1c903ef14cde55ff09ee01fdae'
+          $bridge = 'e1d9cbe0a91480f1b1f608e499ede409ef5a97daa8e38ca30eb27817415f6af0'
+          if ($visual.status -ne 'PASS_PACKAGED_REAL_OCCT_VISIBLE_CANVAS_PIXELS_HIDDEN_WINDOW' -or
+              $visual.releaseId -ne $release -or $visual.runner -ne 'github-hosted-windows-x64' -or
+              $visual.sourceStatus.gitHead -cne $priorHead -or
+              $visual.sourceStatus.smokeScriptSha256 -cne '6c00926a844a1f71f6a05ce6c82fd100797bdd8ed5e234bf01f9139d6f5aacef' -or
+              $visual.sourceStatus.scriptWorkingTreeStatus -ne '' -or
+              $visual.pinned.originalManifestSha256 -cne $manifest -or $visual.pinned.bundleSha256 -cne $bundle -or
+              $visual.pinned.exeSha256 -cne $exe -or $visual.pinned.coreSha256 -cne $core -or
+              $visual.pinned.appAsarSha256 -cne $asar -or $visual.pinned.separatelyPublishedBridgeSha256 -cne $bridge -or
+              $visual.ownedElectron.exeSha256 -cne $exe -or $visual.ownedNative.exeSha256 -cne $core -or
+              @($visual.checks).Count -ne 5 -or @($visual.checks | Where-Object { $_.pass -ne $true }).Count -ne 0) {
+            throw 'Previous original WebGL screenshot proof is not a genuine packaged PASS'
+          }
+          foreach ($who in @('electron','native')) {
+            $own = $visual.ownershipDiagnostics.$who
+            if ($own.checked -ne $true -or $own.executableMatchesPinnedPath -ne $true -or
+                $own.executableSha256MatchesPin -ne $true -or $own.trustedAncestryImages -ne $true -or
+                $own.testNodeImageTrusted -ne $true -or $own.ancestryOrdered -ne $true -or
+                $own.ancestryTimestampsValid -ne $true -or $own.creationSinceLaunch -ne $true) {
+              throw "Previous WebGL proof did not attest genuine Windows process: $who"
+            }
+          }
+          if ($visual.stage -ne 'passed-all-real-geometry-and-raster-gates' -or
+              $visual.onboarding -ne 'dismissed-through-real-ui' -or
+              $visual.addBoxDialog -ne 'entire-radix-dialog-closed-after-native-submit' -or
+              $visual.lastUiState.homeVisible -ne $false -or $visual.lastUiState.workspaceVisible -ne $true -or
+              $visual.lastUiState.onboardingVisible -ne $false -or $visual.lastUiState.modalCount -ne 0 -or
+              $visual.lastUiState.nativeBodies -ne 1 -or
+              $visual.geometry.triangles -ne 12 -or $visual.geometry.revision -ne 1 -or
+              @($visual.geometry.dimensionsMm).Count -ne 3 -or
+              (@($visual.geometry.dimensionsMm) -join ',') -ne '100,50,20' -or
+              [math]::Abs($visual.geometry.volumeMm3 - 100000) -gt 0.01 -or
+              $visual.settlement.baseline.stable -ne $true -or
+              $visual.settlement.'post-box'.stable -ne $true -or
+              $visual.settlement.baseline.finalDrift.full.changedPixels -ne 0 -or
+              $visual.settlement.baseline.finalDrift.center.changedPixels -ne 0 -or
+              $visual.settlement.'post-box'.finalDrift.full.changedPixels -ne 0 -or
+              $visual.settlement.'post-box'.finalDrift.center.changedPixels -ne 0 -or
+              $visual.raster.accepted -ne $true -or
+              $visual.raster.baselineNoise.changedPixels -ne 0 -or
+              $visual.raster.centralBaselineNoise.changedPixels -ne 0 -or
+              $visual.raster.afterGeometryChange.changedPixels -ne 46649 -or
+              $visual.raster.afterGeometryChange.comparedPixels -ne 660240 -or
+              $visual.raster.minimumChangedPixels -ne 2641 -or
+              $visual.raster.centralGeometryChange.changedPixels -ne 40805 -or
+              $visual.raster.centralGeometryChange.comparedPixels -ne 237765 -or
+              $visual.raster.minimumCentralChangedPixels -ne 952 -or
+              $visual.raster.afterGeometryChange.meanRgbAbsoluteDelta -lt 1 -or
+              $visual.raster.centralGeometryChange.meanRgbAbsoluteDelta -lt 1 -or
+              $visual.raster.afterGeometryChange.changedPixels -lt 3*$visual.raster.baselineNoise.changedPixels+100 -or
+              $visual.raster.centralGeometryChange.changedPixels -lt 3*$visual.raster.centralBaselineNoise.changedPixels+100) {
+            throw 'Previously rendered OCCT box has no settled real 3D pixels or dialog is still open'
+          }
+          $requiredPng = @(
+            @{n='baseline-probe-01.png'; s='3db4483e683d5c5a814b4083e158f9882ece19c10b987e401e7fe56142ea0431'; z=116964},
+            @{n='baseline-probe-02.png'; s='975a4a0ac5dffebcc75f11e7d8e6ab56d5d61635cd24caf339a21db6cf1ceb96'; z=92007},
+            @{n='baseline-probe-03.png'; s='975a4a0ac5dffebcc75f11e7d8e6ab56d5d61635cd24caf339a21db6cf1ceb96'; z=92007},
+            @{n='before-a.png'; s='975a4a0ac5dffebcc75f11e7d8e6ab56d5d61635cd24caf339a21db6cf1ceb96'; z=92007},
+            @{n='before-b.png'; s='975a4a0ac5dffebcc75f11e7d8e6ab56d5d61635cd24caf339a21db6cf1ceb96'; z=92007},
+            @{n='post-box-probe-01.png'; s='451530212b3c312f4d4f90eeae7272436eebcb2c336c34cd991daf28fa29ca89'; z=98893},
+            @{n='post-box-probe-02.png'; s='2a82cecd8bf802cee418465692ad134a2398225d4fb44a81c68807f8258018ba'; z=98829},
+            @{n='post-box-probe-03.png'; s='2a82cecd8bf802cee418465692ad134a2398225d4fb44a81c68807f8258018ba'; z=98829},
+            @{n='after.png'; s='2a82cecd8bf802cee418465692ad134a2398225d4fb44a81c68807f8258018ba'; z=98829}
+          )
+          $pngDir = Split-Path -Parent $visualFile[0].FullName
+          $foundPng = @(Get-ChildItem -LiteralPath $pngDir -File -Filter '*.png')
+          if (@($visual.files).Count -ne 9 -or $foundPng.Count -ne 9) { throw 'Nine original screenshot witnesses not present' }
+          foreach ($expected in $requiredPng) {
+            $receiptEntry = @($visual.files | Where-Object { $_.name -ceq $expected.n })
+            $file = Join-Path $pngDir $expected.n
+            if ($receiptEntry.Count -ne 1 -or -not (Test-Path -LiteralPath $file -PathType Leaf) -or
+                $receiptEntry[0].pngSha256 -cne $expected.s -or $receiptEntry[0].bytes -ne $expected.z -or
+                (Get-Item -LiteralPath $file).Length -ne $expected.z -or
+                (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ne $expected.s) {
+              throw "Original visual raster PNG missing/mutated: $($expected.n)"
+            }
+          }
+          if ($visual.raster.afterGeometryChange.changedPixels -lt $visual.raster.minimumChangedPixels -or
+              $visual.raster.centralGeometryChange.changedPixels -lt $visual.raster.minimumCentralChangedPixels) {
+            throw 'Original visual pixel floor is not met'
+          }
+          if ($mcp.status -ne 'PASS_EXACT_PACKAGED_HTTP_MCP_NATIVE_UNDO_REVOKE' -or
+              $mcp.releaseId -ne $release -or $mcp.zipSha256 -cne $bundle -or
+              $mcp.originalManifestSha256 -cne $manifest -or
+              $mcp.packagedExeSha256 -cne $exe -or $mcp.packagedNativeSha256 -cne $core -or
+              $mcp.packagedAsarSha256 -cne $asar -or $mcp.publishedBridgeSha256 -cne $bridge) {
+            throw 'Co-downloaded original HTTP MCP receipt does not match pinned package'
+          }
+          'Previous WebGL and MCP genuinely successful hosted steps verified; nine PNG SHAs, settled raster and native BRep accepted without re-execution.'
 
-      - name: REAL packaged Desktop to HermesBridge authenticated HTTP MCP and Undo
+      - name: Verify SHA-pinned hosted authenticated HTTP MCP and Undo without repetition
         id: bridge-mcp
         continue-on-error: true
         timeout-minutes: 8
         shell: pwsh
-        env:
-          KREODA_HERMES_CONFIG: ''
-          KREODA_CAD_SESSION_URL: ''
-          KREODA_CAD_PAIR: ''
-          KREODA_VOICE_TOKEN: ''
         run: |
-          $probe = Join-Path $env:GITHUB_WORKSPACE 'clients/session-dotnet/probes/Kreoda.McpProbe/bin/Release/net8.0/Kreoda.McpProbe.dll'
-          $sha = (Get-FileHash -LiteralPath $probe -Algorithm SHA256).Hash
-          node scripts/ci/candidate-bridge-mcp-smoke.mjs "--probe-sha256=$sha" '--prime-bridge-mcp-grant=PRIME_APPROVED_GITHUB_HOSTED_BRIDGE_MCP'
-          if ($LASTEXITCODE -ne 0) { throw 'Original packaged authenticated HTTP MCP CAD acceptance failed' }
+          $ErrorActionPreference = 'Stop'
+          # The visual proof gate already validated both source blobs, old
+          # GitHub step outcomes, complete original package identities and
+          # downloaded the artifact ONCE into this fixed isolated location.
+          $dir = Join-Path $env:GITHUB_WORKSPACE 'prior-visual-mcp-proof'
+          if ('${{ steps.visual.outcome }}' -ne 'success' -or -not (Test-Path -LiteralPath $dir -PathType Container)) {
+            throw 'Authenticated MCP proof cannot rely on absent or failed visual provenance gate'
+          }
+          $found = @(Get-ChildItem -LiteralPath $dir -Recurse -File -Filter receipt.json |
+            Where-Object { $_.FullName -match '[\\/]bridge-mcp-smoke[\\/]' })
+          if ($found.Count -ne 1 -or (Get-FileHash -LiteralPath $found[0].FullName -Algorithm SHA256).Hash -cne
+              '8621F556D65FC001FD13A70696D34F34B75A55E242B0628725F147CF68CF9422') {
+            throw 'Original published HTTP MCP receipt missing or not immutable'
+          }
+          $mcp = Get-Content -LiteralPath $found[0].FullName -Raw | ConvertFrom-Json
+          $names = @(
+            'exact-hidden-packaged-Electron-real-OCCT',
+            'published-HermesBridge-real-WS-pairing-ready',
+            'HTTP-MCP-eight-tool-catalog-resource-schema-describe_model',
+            'HTTP-MCP-CreateBox-measureVolume-commit-renderer',
+            'Desktop-Undo-shared-MCP-document-revision',
+            'Desktop-revoke-denies-Bridge-MCP-CAD-tool'
+          )
+          if ($mcp.status -ne 'PASS_EXACT_PACKAGED_HTTP_MCP_NATIVE_UNDO_REVOKE' -or
+              $mcp.sourceCommit -cne '42445fe82dc53581b51dfb0540e127bccd17079b' -or
+              $mcp.probeReleaseDllSha256 -cne '4dc77d9697794d2b510b3b1d3205f03e80a5671e9de83071031dbd11d36206f7' -or
+              @($mcp.tests).Count -ne 6 -or @($mcp.tests | Where-Object { $_.pass -ne $true }).Count -ne 0) {
+            throw 'Published authenticated HTTP MCP proof lacks six genuine successful checks'
+          }
+          for ($i = 0; $i -lt $names.Count; $i++) {
+            if ($mcp.tests[$i].name -cne $names[$i]) { throw "Expected HTTP MCP acceptance check absent: $($names[$i])" }
+          }
+          $electron = $mcp.tests[0]
+          $bridge = $mcp.tests[1]
+          $catalog = $mcp.tests[2]
+          $build = $mcp.tests[3]
+          $undo = $mcp.tests[4]
+          $revoke = $mcp.tests[5]
+          if ($electron.electronImage.exactImage -ne $true -or $electron.coreImage.exactImage -ne $true -or
+              $electron.electronImage.executableSha256 -cne
+                'a09ee422ccf2c678db1b41ed3d2dbbcf987be1585e0a7cdbbc858321778a35b4' -or
+              $bridge.bridgeImage.exactImage -ne $true -or
+              $bridge.bridgePort -le 0 -or $bridge.sessionPort -le 0 -or
+              $bridge.bridgePort -eq $bridge.sessionPort -or
+              $catalog.baseline.features -ne 0 -or $catalog.baseline.bodies -ne 0 -or
+              $catalog.baseline.sketches -ne 0 -or $catalog.pairedDevicePersisted -ne $true -or
+              $build.finalRevision -ne 1 -or $build.triangles -ne 12 -or
+              [math]::Abs($build.volumeMm3 - 100000) -gt 0.01 -or
+              $undo.afterUndoRevision -ne 2 -or $undo.bodyCount -ne 0 -or
+              $revoke.deniedWithNonzeroExit -ne $true -or
+              $revoke.authenticatedDenialCode -cne 'UNAUTHORIZED') {
+            throw 'Real native MCP 100000mm3/12 triangles, renderer, Undo or authenticated revocation not proven'
+          }
+          'Six REAL exact packaged authenticated HTTP MCP/Bridge tests ACCEPTED from SHA-pinned GitHub-hosted receipt; not repeated.'
 
       - name: REAL packaged cold restart and ICAD persistence across Electron processes
         id: cold-relaunch
@@ -297,6 +508,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Canonical workspace package dependency build failed' }
           pnpm --filter @kreoda/desktop build
           if ($LASTEXITCODE -ne 0) { throw 'Targeted original-product E2E JavaScript build failed' }
+          # The phase11-session E2E invokes both compiled .NET probes directly.
+          # The complete native Windows CI builds both before test:all. Without
+          # them, a fully working CAD session fails with a missing DLL error.
+          foreach ($name in @('Kreoda.DeviceProbe', 'Kreoda.SessionProbe')) {
+            $project = "clients/session-dotnet/probes/$name/$name.csproj"
+            dotnet build $project -c Release --nologo -p:Platform=AnyCPU
+            if ($LASTEXITCODE -ne 0) { throw "Original Windows CI .NET acceptance probe failed to build: $name" }
+            $compiled = Join-Path $env:GITHUB_WORKSPACE "clients/session-dotnet/probes/$name/bin/Release/net8.0/$name.dll"
+            if (-not (Test-Path -LiteralPath $compiled -PathType Leaf) -or
+                (Get-Item -LiteralPath $compiled).Length -le 0) {
+              throw "Original Windows CI .NET acceptance probe DLL missing/empty: $name"
+            }
+            "ORIGINAL_CI_PROBE_SHA256_${name}=" + (Get-FileHash -LiteralPath $compiled -Algorithm SHA256).Hash
+          }
 
       - name: Recheck ONLY 5 original CI failing E2E flows with genuine OCCT
         id: targeted-e2e
@@ -356,6 +581,7 @@ jobs:
             .artifacts/kreoda-integrated-acceptance-20261114/visual-smoke/**/*.png
             prior-packaged-smoke-proof/**/smoke.json
             prior-stage-d-proof/**/receipt.json
+            prior-visual-mcp-proof/**
             apps/desktop/test-results/**/trace.zip
             apps/desktop/test-results/**/error-context.md
             apps/desktop/e2e/**/curvature-sphere.png
