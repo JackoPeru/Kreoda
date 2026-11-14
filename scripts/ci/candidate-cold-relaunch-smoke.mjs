@@ -88,11 +88,22 @@ async function until(fn, description, timeout = 25_000) {
   } while (Date.now() < deadline);
   fail('timed out waiting for ' + description + (last ? ': ' + last.message : ''));
 }
-function powershell(script) {
+function powershell(script, stage = 'win32-provenance') {
+  const started = Date.now();
   const call = spawnSync('powershell.exe',
     ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script],
     { encoding: 'utf8', windowsHide: true, timeout: 15_000, maxBuffer: 2 * 1024 * 1024 });
-  assert(!call.error && call.status === 0, 'Windows process provenance query failed');
+  // Never include the script, stdout, stderr, command line, or process paths in
+  // the receipt. Expose only bounded error class, exit code and elapsed time.
+  const errorClass = call.error?.code === 'ETIMEDOUT' ? 'timeout' :
+    call.error?.code === 'ENOENT' ? 'shell-unavailable' :
+    call.error?.code === 'ENOBUFS' ? 'output-limit' :
+    call.error ? 'spawn-error' : 'none';
+  const exit = Number.isInteger(call.status) ? call.status : 'null';
+  const elapsedBucketMs = Math.round((Date.now() - started) / 100) * 100;
+  assert(!call.error && call.status === 0,
+    'Windows process provenance query failed [stage=' + stage +
+    ',exit=' + exit + ',error=' + errorClass + ',elapsedBucketMs=' + elapsedBucketMs + ']');
   return call.stdout.trim();
 }
 function processes() {
@@ -280,7 +291,13 @@ function authenticNativeConsoleHost(records, member, state) {
     "Name=[string]$p.Name;ExecutablePath=[string]$p.ExecutablePath;" +
     "CreationDate=$created;TrustedPath=$trusted;MicrosoftSignatureValid=[bool]$microsoft}" +
     " | ConvertTo-Json -Compress";
-  const proof = JSON.parse(powershell(script));
+  let proof;
+  try { proof = JSON.parse(powershell(script, 'native-conhost-targeted-signature')); }
+  catch (error) {
+    if (error instanceof SyntaxError)
+      fail('native conhost targeted signature query returned invalid JSON');
+    throw error;
+  }
   const verified = proof.ProcessId === member.pid &&
     proof.ParentProcessId === state.coreIdentity.pid &&
     proof.Name?.toLowerCase() === 'conhost.exe' &&
