@@ -113,6 +113,9 @@ function powershell(script, stage = 'win32-provenance') {
     75: 'authenticode-cmdlet-provenance-invalid',
     76: 'authenticode-exact-filepath-fallback-error',
     77: 'authenticode-signed-filepath-mismatch',
+    78: 'trusted-powershell-home-mismatch',
+    79: 'trusted-security-module-manifest-absent',
+    80: 'trusted-security-module-import-error',
   })[call.status] ?? 'unclassified-exit' : 'not-applicable';
   const elapsedBucketMs = Math.round((Date.now() - started) / 100) * 100;
   assert(!call.error && call.status === 0,
@@ -302,16 +305,28 @@ function authenticNativeConsoleHost(records, member, state) {
     "if([string]::IsNullOrWhiteSpace($os) -or -not [IO.Path]::IsPathRooted($os)){exit 62}; " +
     "$trusted=[IO.Path]::Combine($os,'System32','conhost.exe')}catch{exit 62}; " +
     "if(-not [IO.File]::Exists($trusted)){exit 74}; " +
+    // The hosted pwsh -> Node -> powershell.exe chain can inherit a module
+    // search path that omits the Windows PowerShell 5.1 built-in modules.
+    // Never import from ambient PSModulePath: attest the actual PSHOME and
+    // import the exact OS-supplied security module manifest.
+    "$expectedPsHome=[IO.Path]::Combine($os,'System32','WindowsPowerShell','v1.0'); " +
+    "if(-not [string]::Equals($PSHOME,$expectedPsHome,[StringComparison]::OrdinalIgnoreCase)){exit 78}; " +
+    "$manifest=[IO.Path]::Combine($PSHOME,'Modules','Microsoft.PowerShell.Security'," +
+    "'Microsoft.PowerShell.Security.psd1'); " +
+    "if(-not [IO.File]::Exists($manifest)){exit 79}; " +
+    "try{Import-Module -Name $manifest -ErrorAction Stop}catch{exit 80}; " +
     "try{$authCmd=Get-Command -Name Get-AuthenticodeSignature -CommandType Cmdlet -ErrorAction Stop}catch{exit 73}; " +
-    "if($authCmd.ModuleName -ne 'Microsoft.PowerShell.Security'){exit 75}; " +
+    "if($authCmd.ModuleName -ne 'Microsoft.PowerShell.Security' -or " +
+    "-not [string]::Equals([string]$authCmd.Module.Path,$manifest," +
+    "[StringComparison]::OrdinalIgnoreCase)){exit 75}; " +
     // Both parameters must verify the SAME exact System32 binary. The hosted
     // receipt proves LiteralPath can throw, but not the cause; use the
     // FilePath variant only if its returned signed Path is exact.
     // Neither a failed lookup nor an unsigned/untrusted binary is acceptable.
     "$usedFilePathFallback=$false; " +
-    "try{$signature=Get-AuthenticodeSignature -LiteralPath $trusted -ErrorAction Stop}" +
+    "try{$signature=& $authCmd -LiteralPath $trusted -ErrorAction Stop}" +
     "catch{$usedFilePathFallback=$true; " +
-    "try{$signature=Get-AuthenticodeSignature -FilePath $trusted -ErrorAction Stop}catch{exit 76}}; " +
+    "try{$signature=& $authCmd -FilePath $trusted -ErrorAction Stop}catch{exit 76}}; " +
     "if($null -eq $signature){exit 67}; " +
     "try{$signedPath=[string]$signature.Path; " +
     "if(-not [string]::Equals($signedPath,$trusted,[StringComparison]::OrdinalIgnoreCase)){exit 77}}" +
