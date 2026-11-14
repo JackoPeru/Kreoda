@@ -1,0 +1,124 @@
+name: verify-integrated-candidate
+
+# Runs only when the isolated, byte-pinned smoke harness changes.
+# A draft candidate release is transport, NOT a production release.
+on:
+  push:
+    branches:
+      - codex/phase12-quest-foundation
+    paths:
+      - .github/workflows/verify-integrated-candidate.yml
+      - scripts/ci/candidate-portable-smoke.mjs
+      - scripts/ci/prepare-integrated-candidate-smoke.mjs
+
+permissions:
+  # GitHub drafts are restricted to principals with repository write access.
+  # Never use this token in the application under test.
+  contents: write
+
+jobs:
+  exact-packaged-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CANDIDATE_TAG: kreoda-candidate-20261114-9d11ef5
+      EXPECTED_HEAD: 9d11ef58c7cd5af97cd7b580f40aaf98f002ff38
+      EXPECTED_BUNDLE_SHA256: 036CFF37ED0B5850926224CB0AFC75A159A558897D77FFC1F74E314BCCF85B1D
+      EXPECTED_RECEIPT_SHA256: B7520DCDDB43E98EB82F147BEEC8F22279678E3E39C000CBA70A1FBD887F8F7A
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify exact source and truly isolated runner
+        shell: pwsh
+        run: |
+          if ($env:RUNNER_ENVIRONMENT -ne 'github-hosted') { throw 'Fail closed: no isolated GitHub-hosted runner' }
+          $head = (git rev-parse HEAD).Trim()
+          if ($head -ne $env:EXPECTED_HEAD) { throw "Unpinned source HEAD: $head" }
+          if (Get-Process -Name Kreoda,kreoda-core -ErrorAction SilentlyContinue) { throw 'Existing candidate process on runner' }
+          if (Get-Process -Id 8616 -ErrorAction SilentlyContinue) { throw 'Unverified foreign owner PID 8616 on runner' }
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install only smoke-driver dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download exact candidate from PRIVATE DRAFT release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $all = gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot list releases with authenticated read' }
+          $matching = @($all | Where-Object { $_.tag_name -eq $env:CANDIDATE_TAG -and $_.draft -eq $true -and $_.prerelease -eq $true })
+          if ($matching.Count -ne 1) { throw 'Exact unpublished draft candidate missing or ambiguous' }
+          $release = $matching[0]
+          if ($release.target_commitish -ne $env:EXPECTED_HEAD) { throw 'Draft release does not target pinned source' }
+          $assets = @(
+            @{ name = 'Kreoda-Desktop-Bridge-Quest-bundle-20261114.zip'; sha = $env:EXPECTED_BUNDLE_SHA256; size = 409742645 },
+            @{ name = 'Kreoda-Desktop-Bridge-Quest-bundle-20261114-verification.json'; sha = $env:EXPECTED_RECEIPT_SHA256; size = 60271 }
+          )
+          $dest = Join-Path $env:GITHUB_WORKSPACE 'candidate-input'
+          New-Item -ItemType Directory -Path $dest | Out-Null
+          foreach ($expected in $assets) {
+            $asset = @($release.assets | Where-Object { $_.name -eq $expected.name })
+            if ($asset.Count -ne 1 -or $asset[0].size -ne $expected.size) { throw "Draft asset missing/size differs: $($expected.name)" }
+            $file = Join-Path $dest $expected.name
+            $url = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/assets/$($asset[0].id)"
+            & curl.exe --fail --silent --show-error --location --header 'Accept: application/octet-stream' --header 'X-GitHub-Api-Version: 2022-11-28' --header "Authorization: Bearer $env:GH_TOKEN" --output $file $url
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $file)) { throw "Draft download failed: $($expected.name)" }
+            if ((Get-Item -LiteralPath $file).Length -ne $expected.size -or (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ne $expected.sha) {
+              throw "Downloaded bytes do not match exact original: $($expected.name)"
+            }
+          }
+          'Pinned unpublished candidate assets downloaded and authenticated.'
+
+      - name: Extract original package bytes without rewriting them
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:GITHUB_WORKSPACE 'candidate-input/Kreoda-Desktop-Bridge-Quest-bundle-20261114.zip'
+          $dest = Join-Path $env:GITHUB_WORKSPACE '.artifacts/kreoda-integrated-package-20261113/output'
+          if (Test-Path -LiteralPath $dest) { throw 'Unexpected pre-existing candidate extraction directory' }
+          Expand-Archive -LiteralPath $zip -DestinationPath $dest
+
+      - name: Verify every extracted file and adapt only ephemeral host paths
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:GITHUB_WORKSPACE 'candidate-input/Kreoda-Desktop-Bridge-Quest-bundle-20261114.zip'
+          $receipt = Join-Path $env:GITHUB_WORKSPACE 'candidate-input/Kreoda-Desktop-Bridge-Quest-bundle-20261114-verification.json'
+          node scripts/ci/prepare-integrated-candidate-smoke.mjs $zip $receipt
+          if ($LASTEXITCODE -ne 0) { throw 'Extracted original bytes/staging verification failed' }
+
+      - name: REAL Windows portable + OCCT + Bridge hidden packaged smoke
+        shell: pwsh
+        env:
+          KREODA_HERMES_CONFIG: ''
+          KREODA_CAD_SESSION_URL: ''
+          KREODA_CAD_PAIR: ''
+          KREODA_VOICE_TOKEN: ''
+        run: |
+          $smoke = Join-Path $env:GITHUB_WORKSPACE '.artifacts/kreoda-integrated-package-20261113/scripts/smoke-portable.mjs'
+          $manifest = Join-Path $env:GITHUB_WORKSPACE '.artifacts/kreoda-integrated-package-20261113/hosted-smoke-manifest.json'
+          node $smoke "--manifest=$manifest" '--prime-smoke-grant=PRIME_APPROVED_NO_EXTERNAL_KREODA_OWNER'
+          if ($LASTEXITCODE -ne 0) { throw 'Original portable smoke FAILED; candidate cannot be promoted' }
+
+      - name: Retain exact smoke results and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-exact-portable-smoke-${{ github.run_id }}
+          if-no-files-found: warn
+          path: |
+            .artifacts/kreoda-integrated-package-20261113/smoke/**/smoke.json
+            .artifacts/kreoda-integrated-package-20261113/smoke/**/electron-stderr.log
+            .artifacts/kreoda-integrated-package-20261113/smoke/**/bridge-stderr.log
+            .artifacts/kreoda-integrated-package-20261113/hosted-smoke-manifest.json
