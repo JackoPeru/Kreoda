@@ -10,11 +10,14 @@ on:
       - .github/workflows/verify-integrated-candidate.yml
       - scripts/ci/candidate-portable-smoke.mjs
       - scripts/ci/prepare-integrated-candidate-smoke.mjs
+      - scripts/ci/candidate-stage-d-smoke.mjs
+      - scripts/ci/candidate-visual-render-smoke.mjs
 
 permissions:
   # GitHub drafts are restricted to principals with repository write access.
   # Never use this token in the application under test.
   contents: write
+  actions: read
 
 jobs:
   exact-packaged-smoke:
@@ -40,7 +43,7 @@ jobs:
           $head = (git rev-parse HEAD).Trim()
           git merge-base --is-ancestor $env:EXPECTED_HEAD $head
           if ($LASTEXITCODE -ne 0) { throw "Original candidate source is not an ancestor: $head" }
-          $allowed = @('.github/workflows/verify-integrated-candidate.yml', 'scripts/ci/candidate-portable-smoke.mjs', 'scripts/ci/prepare-integrated-candidate-smoke.mjs')
+          $allowed = @('.github/workflows/verify-integrated-candidate.yml', 'scripts/ci/candidate-portable-smoke.mjs', 'scripts/ci/prepare-integrated-candidate-smoke.mjs', 'scripts/ci/candidate-stage-d-smoke.mjs', 'scripts/ci/candidate-visual-render-smoke.mjs')
           $delta = @(git diff --name-only $env:EXPECTED_HEAD $head)
           if ($LASTEXITCODE -ne 0 -or @($delta | Where-Object { $_ -notin $allowed }).Count -ne 0) {
             throw 'Product source changed since the exact compiled candidate; rebuild needed'
@@ -107,7 +110,47 @@ jobs:
           node scripts/ci/prepare-integrated-candidate-smoke.mjs $zip $receipt
           if ($LASTEXITCODE -ne 0) { throw 'Extracted original bytes/staging verification failed' }
 
-      - name: REAL Windows portable + OCCT + Bridge hidden packaged smoke
+      - name: Verify previous exact-package 7-of-7 hosted smoke without repeating it
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/43532379181" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $run.status -ne 'completed' -or $run.conclusion -ne 'success' -or
+              $run.head_sha -ne 'e580fb76e655d86a0236096c0d229b99d7c116d2') {
+            throw 'Original packaged runtime smoke is not a successful pinned GitHub job'
+          }
+          $dest = Join-Path $env:GITHUB_WORKSPACE 'prior-packaged-smoke-proof'
+          gh run download 43532379181 --repo $env:GITHUB_REPOSITORY --name 'candidate-exact-portable-smoke-43532379181' --dir $dest
+          if ($LASTEXITCODE -ne 0) { throw 'Original packaged acceptance receipt cannot be retrieved' }
+          $files = @(Get-ChildItem -LiteralPath $dest -Filter smoke.json -File -Recurse)
+          if ($files.Count -ne 1 -or (Get-FileHash -LiteralPath $files[0].FullName -Algorithm SHA256).Hash -ne
+              '4181D5A47E56C38F8C6FFA2E48C9615B6388A571378BE696B55575C5ADD09BCB') {
+            throw 'Original smoke receipt hash or identity changed'
+          }
+          $proof = Get-Content -LiteralPath $files[0].FullName -Raw | ConvertFrom-Json
+          if ($proof.status -ne 'PASS_PACKAGED_REAL_OCCT_BRIDGE_HIDDEN' -or
+              $proof.releaseId -ne '0.1.0-integrated-20261113-c211b2e01fb7-f003945f69bd-476eccda' -or
+              $proof.exeSha256 -ne 'a09ee422ccf2c678db1b41ed3d2dbbcf987be1585e0a7cdbbc858321778a35b4' -or
+              $proof.coreSha256 -ne 'f003945f69bdf04e7ab66ea1319b50e22723b5e716047e8dbb2f4e21dc3710b4' -or
+              @($proof.tests).Count -ne 7 -or @($proof.tests | Where-Object { -not $_.pass }).Count -ne 0) {
+            throw 'Original packaged functional acceptance receipt has not proved seven actual checks'
+          }
+          'Existing seven original packaged native smoke checks ACCEPTED by immutable receipt; not repeated.'
+
+      - name: Build real Release Stage D .NET acceptance probe
+        shell: pwsh
+        run: |
+          dotnet build clients/session-dotnet/probes/Kreoda.McpProbe/Kreoda.McpProbe.csproj -c Release --nologo -p:Platform=AnyCPU
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical native-reference-reconstruction probe build failed' }
+          $probe = Join-Path $env:GITHUB_WORKSPACE 'clients/session-dotnet/probes/Kreoda.McpProbe/bin/Release/net8.0/Kreoda.McpProbe.dll'
+          if (-not (Test-Path -LiteralPath $probe)) { throw 'Release probe missing' }
+          'STAGE_D_PROBE_SHA256='+ (Get-FileHash -LiteralPath $probe -Algorithm SHA256).Hash
+
+      - name: REAL packaged CAD Stage D calibrated sketch, ICAD and Undo
+        id: stage-d
+        continue-on-error: true
+        timeout-minutes: 8
         shell: pwsh
         env:
           KREODA_HERMES_CONFIG: ''
@@ -115,10 +158,32 @@ jobs:
           KREODA_CAD_PAIR: ''
           KREODA_VOICE_TOKEN: ''
         run: |
-          $smoke = Join-Path $env:GITHUB_WORKSPACE '.artifacts/kreoda-integrated-package-20261113/scripts/smoke-portable.mjs'
-          $manifest = Join-Path $env:GITHUB_WORKSPACE '.artifacts/kreoda-integrated-package-20261113/hosted-smoke-manifest.json'
-          node $smoke "--manifest=$manifest" '--prime-smoke-grant=PRIME_APPROVED_NO_EXTERNAL_KREODA_OWNER'
-          if ($LASTEXITCODE -ne 0) { throw 'Original portable smoke FAILED; candidate cannot be promoted' }
+          $probe = Join-Path $env:GITHUB_WORKSPACE 'clients/session-dotnet/probes/Kreoda.McpProbe/bin/Release/net8.0/Kreoda.McpProbe.dll'
+          $sha = (Get-FileHash -LiteralPath $probe -Algorithm SHA256).Hash
+          node scripts/ci/candidate-stage-d-smoke.mjs "--probe-sha256=$sha" '--prime-stage-d-grant=PRIME_APPROVED_GITHUB_HOSTED_STAGE_D'
+          if ($LASTEXITCODE -ne 0) { throw 'Original packaged Stage D CAD acceptance failed' }
+
+      - name: REAL packaged WebGL viewport pixel proof
+        id: visual
+        continue-on-error: true
+        timeout-minutes: 8
+        shell: pwsh
+        env:
+          KREODA_HERMES_CONFIG: ''
+          KREODA_CAD_SESSION_URL: ''
+          KREODA_CAD_PAIR: ''
+          KREODA_VOICE_TOKEN: ''
+        run: |
+          node scripts/ci/candidate-visual-render-smoke.mjs '--prime-visual-grant=PRIME_APPROVED_GITHUB_HOSTED_VISUAL'
+          if ($LASTEXITCODE -ne 0) { throw 'Original packaged WebGL raster acceptance failed' }
+
+      - name: REQUIRE both new packaged functional gates
+        if: always()
+        shell: pwsh
+        run: |
+          if ('${{ steps.stage-d.outcome }}' -ne 'success' -or '${{ steps.visual.outcome }}' -ne 'success') {
+            throw "New packaged functional checks did not BOTH PASS (stageD=${{ steps.stage-d.outcome }}, visual=${{ steps.visual.outcome }})"
+          }
 
       - name: Retain exact smoke results and diagnostics
         if: always()
@@ -131,3 +196,7 @@ jobs:
             .artifacts/kreoda-integrated-package-20261113/smoke/**/electron-stderr.log
             .artifacts/kreoda-integrated-package-20261113/smoke/**/bridge-stderr.log
             .artifacts/kreoda-integrated-package-20261113/hosted-smoke-manifest.json
+            .artifacts/kreoda-integrated-package-20261113/stage-d-smoke/**/receipt.json
+            .artifacts/kreoda-integrated-acceptance-20261114/visual-smoke/**/receipt.json
+            .artifacts/kreoda-integrated-acceptance-20261114/visual-smoke/**/*.png
+            prior-packaged-smoke-proof/**/smoke.json
