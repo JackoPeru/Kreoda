@@ -36,6 +36,7 @@ add_executable(kreoda-core-tests
   test_surface_thicken.cpp
   test_surface_trim_extend.cpp
   test_configurations.cpp
+  test_composed_config_projection.cpp
   test_assembly_constraints.cpp
   test_direct_face.cpp
   test_direct_face_history.cpp
