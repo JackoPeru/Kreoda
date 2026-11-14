@@ -102,8 +102,12 @@ function powershell(script, stage = 'win32-provenance') {
   const exit = Number.isInteger(call.status) ? call.status : 'null';
   const signaturePhase = stage === 'native-conhost-targeted-signature' ? ({
     43: 'target-pid-absent', 61: 'cim-query-error', 62: 'windows-system-folder-error',
-    63: 'signature-query-error', 64: 'creation-or-proof-format-error',
+    63: 'authenticode-invocation-error', 64: 'creation-or-proof-format-error',
     65: 'json-serialization-error', 66: 'other-script-runtime-error',
+    67: 'signature-result-missing', 68: 'certificate-access-error',
+    69: 'signer-certificate-missing', 70: 'signer-subject-parse-error',
+    71: 'windows-authenticode-trust-invalid',
+    72: 'microsoft-windows-signer-subject-mismatch',
   })[call.status] ?? 'unclassified-exit' : 'not-applicable';
   const elapsedBucketMs = Math.round((Date.now() - started) / 100) * 100;
   assert(!call.error && call.status === 0,
@@ -292,11 +296,15 @@ function authenticNativeConsoleHost(records, member, state) {
     "try{$os=[Environment]::GetFolderPath('Windows'); " +
     "if([string]::IsNullOrWhiteSpace($os) -or -not [IO.Path]::IsPathRooted($os)){exit 62}; " +
     "$trusted=[IO.Path]::Combine($os,'System32','conhost.exe')}catch{exit 62}; " +
-    "try{$signature=Get-AuthenticodeSignature -LiteralPath $trusted -ErrorAction Stop; " +
-    "$cert=$signature.SignerCertificate; " +
-    "$microsoft=($signature.Status -eq 'Valid' -and $null -ne $cert -and " +
-    "$cert.Subject -match '(?:^|,\\s*)CN=Microsoft Windows(?:,|$)' -and " +
-    "$cert.Subject -match '(?:^|,\\s*)O=Microsoft Corporation(?:,|$)')}catch{exit 63}; " +
+    "try{$signature=Get-AuthenticodeSignature -LiteralPath $trusted -ErrorAction Stop}catch{exit 63}; " +
+    "if($null -eq $signature){exit 67}; " +
+    "try{$cert=$signature.SignerCertificate}catch{exit 68}; " +
+    "if($null -eq $cert){exit 69}; " +
+    "try{$subject=[string]$cert.Subject; " +
+    "$microsoft=($subject -match '(?:^|,\\s*)CN=Microsoft Windows(?:,|$)' -and " +
+    "$subject -match '(?:^|,\\s*)O=Microsoft Corporation(?:,|$)')}catch{exit 70}; " +
+    "if($signature.Status -ne 'Valid'){exit 71}; " +
+    "if(-not $microsoft){exit 72}; " +
     "try{$created=if($p.CreationDate){$p.CreationDate.ToUniversalTime().ToString('o')}else{''}; " +
     "$proof=[pscustomobject]@{ProcessId=[int]$p.ProcessId;ParentProcessId=[int]$p.ParentProcessId;" +
     "Name=[string]$p.Name;ExecutablePath=[string]$p.ExecutablePath;" +
