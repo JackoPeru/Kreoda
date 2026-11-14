@@ -4,7 +4,25 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { openProject, runBar, snapOf } from "./helpers";
+import { openProject, runBar, snapOf, type BodySnapshot } from "./helpers";
+
+// The first incremental creation can omit healthy-state optional fields.
+// The authoritative full-list response after ICAD reopening includes true/ok.
+// Normalize ONLY these healthy flags, while verifying all B-Rep identity,
+// topology, parameters, dimensions and volume are preserved exactly.
+function comparableHealthyBodies(bodies: BodySnapshot[]): BodySnapshot[] {
+  return bodies.map(body => {
+    expect(body.geometryCurrent === undefined || body.geometryCurrent === true).toBe(true);
+    expect(body.status === undefined || body.status === "ok").toBe(true);
+    expect(body.error).toBeUndefined();
+    expect(body.blockingSourceIds ?? []).toEqual([]);
+    expect(body.triangles).toBeGreaterThan(0);
+    expect(body.faces.length).toBeGreaterThan(0);
+    expect(body.edgeCount).toBeGreaterThan(0);
+    expect(Number.isFinite(body.volumeMm3)).toBe(true);
+    return { ...body, geometryCurrent: true, status: "ok" };
+  });
+}
 
 test("installed desktop: packaged core, project round trip and continued editing", async ({}, testInfo) => {
   test.skip(process.platform !== "win32" || process.env.CI !== "true" || process.env.GITHUB_ACTIONS !== "true",
@@ -57,7 +75,8 @@ test("installed desktop: packaged core, project round trip and continued editing
     await window.evaluate(file => (window as unknown as {
       __kreoda_test: { openIcad: (file: string) => Promise<unknown> };
     }).__kreoda_test.openIcad(file), file);
-    expect((await snapOf(window)).bodies).toEqual(saved.bodies);
+    expect(comparableHealthyBodies((await snapOf(window)).bodies))
+      .toEqual(comparableHealthyBodies(saved.bodies));
     await openProject(window);
     await window.getByTestId(`object-tree-${saved.bodies[0]!.id}`).click();
     await runBar(window, "set widthMm 120");

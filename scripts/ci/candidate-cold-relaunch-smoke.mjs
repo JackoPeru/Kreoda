@@ -105,8 +105,7 @@ function processes() {
 }
 function noForeignOwners(records) {
   for (const item of records.values()) {
-    assert(item.ProcessId !== 8616 &&
-      !['kreoda.exe', 'kreoda-core.exe', 'kreoda.hermesbridge.exe'].includes(
+    assert(!['kreoda.exe', 'kreoda-core.exe', 'kreoda.hermesbridge.exe'].includes(
         String(item.Name || '').toLowerCase()),
     'foreign Kreoda/OCCT/Bridge process exists on this hosted runner');
   }
@@ -233,6 +232,74 @@ function stillSame(records, record) {
   const current = records.get(record.pid);
   return current && current.CreationDate === record.created &&
     same(current.ExecutablePath, record.path);
+}
+// Windows may launch an authentic Console Host for our native console-subsystem
+// OCCT executable. This is NOT a basename whitelist: its sole permitted parent
+// is the already authenticated, unmodified native core in THIS Electron tree.
+// All other process descendants must still be original Kreoda.exe/OCCT images.
+function consoleHostShape(records, member, state, now = Date.now()) {
+  const windows = process.env.SystemRoot || process.env.WINDIR;
+  if (!windows || !path.win32.isAbsolute(windows) ||
+      !state?.coreIdentity || !state.main || !state.coreChain) return false;
+  const expected = path.win32.join(windows, 'System32', 'conhost.exe');
+  const host = records.get(member.pid);
+  const core = records.get(state.coreIdentity.pid);
+  const main = records.get(state.main.pid);
+  const hostCreated = Date.parse(member.created || '');
+  const coreCreated = Date.parse(state.coreIdentity.created || '');
+  return Boolean(host && core && main &&
+    host.Name?.toLowerCase() === 'conhost.exe' &&
+    same(member.path, expected) && same(host.ExecutablePath, expected) &&
+    host.ProcessId === member.pid && host.ParentProcessId === member.parentPid &&
+    host.CreationDate === member.created && member.parentPid === state.coreIdentity.pid &&
+    stillSame(records, state.coreIdentity) && stillSame(records, state.main) &&
+    core.ParentProcessId === state.main.pid && same(core.ExecutablePath, coreExe) &&
+    main.ParentProcessId === state.main.parentPid &&
+    Number.isFinite(hostCreated) && Number.isFinite(coreCreated) &&
+    coreCreated >= state.launchStartedMs - 8_000 &&
+    hostCreated >= coreCreated - 2_000 && hostCreated >= state.launchStartedMs - 8_000 &&
+    hostCreated <= now + 2_000);
+}
+function authenticNativeConsoleHost(records, member, state) {
+  if (!consoleHostShape(records, member, state)) return false;
+  // Check the signed *OS* binary, not any same-named executable shipped by an
+  // application. Target the already observed PID and recheck exact creation,
+  // path and native parent to protect against a reused process ID.
+  const script = "$ErrorActionPreference='Stop'; " +
+    "$p=Get-CimInstance Win32_Process -Filter 'ProcessId = " + member.pid + "'; " +
+    "if(-not $p){exit 43}; " +
+    "$os=[Environment]::GetFolderPath('Windows'); " +
+    "$trusted=[IO.Path]::Combine($os,'System32','conhost.exe'); " +
+    "$signature=Get-AuthenticodeSignature -LiteralPath $trusted; " +
+    "$cert=$signature.SignerCertificate; " +
+    "$microsoft=($signature.Status -eq 'Valid' -and $null -ne $cert -and " +
+    "$cert.Subject -match '(?:^|,\\s*)CN=Microsoft Windows(?:,|$)' -and " +
+    "$cert.Subject -match '(?:^|,\\s*)O=Microsoft Corporation(?:,|$)'); " +
+    "$created=if($p.CreationDate){$p.CreationDate.ToUniversalTime().ToString('o')}else{''}; " +
+    "[pscustomobject]@{ProcessId=[int]$p.ProcessId;ParentProcessId=[int]$p.ParentProcessId;" +
+    "Name=[string]$p.Name;ExecutablePath=[string]$p.ExecutablePath;" +
+    "CreationDate=$created;TrustedPath=$trusted;MicrosoftSignatureValid=[bool]$microsoft}" +
+    " | ConvertTo-Json -Compress";
+  const proof = JSON.parse(powershell(script));
+  const verified = proof.ProcessId === member.pid &&
+    proof.ParentProcessId === state.coreIdentity.pid &&
+    proof.Name?.toLowerCase() === 'conhost.exe' &&
+    same(proof.TrustedPath, member.path) && same(proof.ExecutablePath, proof.TrustedPath) &&
+    proof.CreationDate === member.created && proof.MicrosoftSignatureValid === true &&
+    hash(coreExe) === pins.core;
+  if (verified) {
+    state.pidDiagnostics ??= {};
+    state.pidDiagnostics.verifiedNativeConsoleHosts ??= [];
+    if (!state.pidDiagnostics.verifiedNativeConsoleHosts.some(p =>
+      p.pid === member.pid && p.created === member.created)) {
+      state.pidDiagnostics.verifiedNativeConsoleHosts.push({
+        pid: member.pid, parentPid: member.parentPid, created: member.created,
+        image: 'conhost.exe', trustedSystem32: true, validMicrosoftSignature: true,
+        exactNativeParent: true,
+      });
+    }
+  }
+  return verified;
 }
 function preflight() {
   assert(process.platform === 'win32' && process.arch === 'x64' &&
@@ -385,6 +452,7 @@ async function start(electron, profile, cycle) {
       launchStartedMs, 7, state.pidDiagnostics.nativeParentChecks);
     state.corePid = core.pid;
     state.coreChain = coreChain;
+    state.coreIdentity = identityOf(live.get(core.pid));
     // The verified Playwright cmd.exe is part of our launched lifecycle too.
     // Keep its exact PID/image/creation identity for the shutdown check.
     state.tracked = [state.main, ...descendants(live, pid).map(identityOf)];
@@ -392,7 +460,8 @@ async function start(electron, profile, cycle) {
     assert(state.tracked.some(p => p.pid === core.pid), 'sidecar not descendant of packaged Electron');
     for (const member of state.tracked) {
       const trusted = same(member.path, exe) || same(member.path, coreExe) ||
-        (member.pid === playwrightPid && same(member.path, trustedCmd));
+        (member.pid === playwrightPid && same(member.path, trustedCmd)) ||
+        authenticNativeConsoleHost(live, member, state);
       if (!trusted) {
         state.pidDiagnostics.rejectedDescendants ??= [];
         state.pidDiagnostics.rejectedDescendants.push({
@@ -422,7 +491,8 @@ function captureOwned(state) {
   if (state.main && stillSame(live, state.main)) {
     const related = descendants(live, state.main.pid).map(identityOf);
     for (const item of related) {
-      const trusted = same(item.path, exe) || same(item.path, coreExe);
+      const trusted = same(item.path, exe) || same(item.path, coreExe) ||
+        authenticNativeConsoleHost(live, item, state);
       if (!trusted) {
         state.pidDiagnostics ??= {};
         state.pidDiagnostics.rejectedDescendants ??= [];

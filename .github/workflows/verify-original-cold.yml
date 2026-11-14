@@ -1,0 +1,332 @@
+name: verify-original-cold
+
+# Separate smoke for original ZIP SHA036C and ASAR E222.
+# The z40 HEAD is only a source-only host for the cold smoke driver.
+on:
+  push:
+    branches:
+      - codex/phase12-quest-foundation
+    paths:
+      - .github/workflows/verify-original-cold.yml
+      - scripts/ci/candidate-cold-relaunch-smoke.mjs
+  workflow_dispatch:
+
+permissions:
+  # Private DRAFT release downloads require a write-capable GH principal.
+  # This credential is present ONLY in download, never in the packaged process.
+  contents: write
+  actions: read
+
+jobs:
+  original-cold-relaunch:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      COLD_DRAFT_TAG: kreoda-candidate-20261114-9d11ef5
+      ORIGINAL_SOURCE_BASE: 9d11ef58c7cd5af97cd7b580f40aaf98f002ff38
+      ORIGINAL_RELEASE_ID: 0.1.0-integrated-20261113-c211b2e01fb7-f003945f69bd-476eccda
+      ORIGINAL_ZIP_NAME: Kreoda-Desktop-Bridge-Quest-bundle-20261114.zip
+      ORIGINAL_RECEIPT_NAME: Kreoda-Desktop-Bridge-Quest-bundle-20261114-verification.json
+      ORIGINAL_ZIP_SHA256: 036cff37ed0b5850926224cb0afc75a159a558897d77ffc1f74e314bccf85b1d
+      ORIGINAL_RECEIPT_SHA256: b7520dcddb43e98eb82f147beec8f22279678e3e39c000cba70a1fbd887f8f7a
+      ORIGINAL_MANIFEST_SHA256: 2064d409a22f1e0020e90ac194e7d8ebb5813550316e5ced69b5dc72b8d88a66
+      ORIGINAL_EXE_SHA256: a09ee422ccf2c678db1b41ed3d2dbbcf987be1585e0a7cdbbc858321778a35b4
+      ORIGINAL_ASAR_SHA256: e22221c092c28f1c1ce9115c3e3ac883ea37fa1c903ef14cde55ff09ee01fdae
+      ORIGINAL_CORE_SHA256: f003945f69bdf04e7ab66ea1319b50e22723b5e716047e8dbb2f4e21dc3710b4
+      ORIGINAL_BRIDGE_SHA256: e1d9cbe0a91480f1b1f608e499ede409ef5a97daa8e38ca30eb27817415f6af0
+      ORIGINAL_PREPARER_SHA256: 72528e10e21673426f9585da128a66a2fb6d86543466d59545319d0b2c8a3548
+      ORIGINAL_PORTABLE_SMOKE_SHA256: 378a20e9f5eaef6cd2a3de845995ea0c05b26389c877719e853ca957d85c5355
+      COLD_DRIVER_SHA256: 3cc35e91165cee3baf98882f68943f1aed6e64c9b9c2d781d482d244ecfcb244
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify hosted Windows source identity and no foreign application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or
+              $env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_OS -ne 'Windows' -or
+              $env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
+            throw 'Original cold replay requires isolated GitHub-hosted Windows x64'
+          }
+          if ($env:GITHUB_REF -cne 'refs/heads/codex/phase12-quest-foundation' -or
+              $env:GITHUB_REF_TYPE -cne 'branch' -or
+              $env:GITHUB_EVENT_NAME -notin @('push','workflow_dispatch')) {
+            throw 'Unexpected ref/event for original cold replay'
+          }
+          $head = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $head -cne $env:GITHUB_SHA) {
+            throw 'Checkout does not match the triggering GitHub source SHA'
+          }
+          git merge-base --is-ancestor $env:ORIGINAL_SOURCE_BASE $head
+          if ($LASTEXITCODE -ne 0) { throw 'Original source commit not in harness history' }
+          if (@(Get-Process -Name Kreoda,kreoda-core,Kreoda.HermesBridge -ErrorAction SilentlyContinue).Count -ne 0) {
+            throw 'Existing foreign Kreoda process detected on hosted runner'
+          }
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Pin exact source-only committed cold driver and immutable preparer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Hash Git blob bytes to avoid checkout CRLF text conversion.
+          # This SHA must be updated ONLY after an intentionally reviewed new driver commit.
+          $sourceCheck = @'
+          const crypto = require('node:crypto');
+          const child = require('node:child_process');
+          const pins = [
+            ['scripts/ci/candidate-cold-relaunch-smoke.mjs', process.env.COLD_DRIVER_SHA256],
+            ['scripts/ci/prepare-integrated-candidate-smoke.mjs', process.env.ORIGINAL_PREPARER_SHA256],
+            ['scripts/ci/candidate-portable-smoke.mjs', process.env.ORIGINAL_PORTABLE_SMOKE_SHA256],
+          ];
+          for (const [file, expected] of pins) {
+            const bytes = child.execFileSync('git', ['show', 'HEAD:' + file], { maxBuffer: 2_000_000 });
+            const actual = crypto.createHash('sha256').update(bytes).digest('hex');
+            if (actual !== expected) throw Error('Immutable source SHA mismatch: ' + file);
+          }
+          process.stdout.write('EXACT_COMMITTED_COLD_DRIVER_AND_STAGING_BLOBS');
+          '@
+          $attested = $sourceCheck | node -
+          if ($LASTEXITCODE -ne 0 -or $attested -cne 'EXACT_COMMITTED_COLD_DRIVER_AND_STAGING_BLOBS') {
+            throw 'Unreviewed cold test/staging source commit'
+          }
+
+      - name: Install only frozen smoke-driver dependencies
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen Playwright driver install failed' }
+
+      - name: Download immutable original DRAFT ZIP and verification receipt
+        id: download
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $releases = gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot query original DRAFT release listing' }
+          $matching = @($releases | Where-Object {
+            $_.tag_name -ceq $env:COLD_DRAFT_TAG -and $_.draft -eq $true -and $_.prerelease -eq $true
+          })
+          if ($matching.Count -ne 1 -or $matching[0].target_commitish -cne $env:ORIGINAL_SOURCE_BASE) {
+            throw 'Original unpublished draft release/target not found or ambiguous'
+          }
+          $release = $matching[0]
+          $pins = @(
+            @{ name=$env:ORIGINAL_ZIP_NAME; size=409742645L; sha=$env:ORIGINAL_ZIP_SHA256 },
+            @{ name=$env:ORIGINAL_RECEIPT_NAME; size=60271L; sha=$env:ORIGINAL_RECEIPT_SHA256 }
+          )
+          if (@($release.assets).Count -ne 2) { throw 'Unexpected asset in original draft release' }
+          $dest = Join-Path $env:GITHUB_WORKSPACE '.artifacts/original-cold-input'
+          if (Test-Path -LiteralPath $dest) { throw 'Original input directory unexpectedly exists' }
+          New-Item -ItemType Directory -Path $dest | Out-Null
+          foreach ($pin in $pins) {
+            $asset = @($release.assets | Where-Object { $_.name -ceq $pin.name })
+            if ($asset.Count -ne 1 -or $asset[0].state -cne 'uploaded' -or
+                [long]$asset[0].size -ne $pin.size) {
+              throw "Original DRAFT asset missing, ambiguous or wrong size: $($pin.name)"
+            }
+            $file = Join-Path $dest $pin.name
+            $url = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/assets/$($asset[0].id)"
+            & curl.exe --fail --silent --show-error --location --header 'Accept: application/octet-stream' --header 'X-GitHub-Api-Version: 2022-11-28' --header "Authorization: Bearer $env:GH_TOKEN" --output $file $url
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $file -PathType Leaf) -or
+                (Get-Item -LiteralPath $file).Length -ne $pin.size -or
+                (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ine $pin.sha) {
+              throw "Original DRAFT asset failed immutable SHA: $($pin.name)"
+            }
+          }
+
+      - name: Verify original 159 safe ZIP entries and stage unchanged package
+        id: staging
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $inputDir = Join-Path $env:GITHUB_WORKSPACE '.artifacts/original-cold-input'
+          $zipPath = Join-Path $inputDir $env:ORIGINAL_ZIP_NAME
+          $receiptPath = Join-Path $inputDir $env:ORIGINAL_RECEIPT_NAME
+          if ((Get-Item -LiteralPath $zipPath).Length -ne 409742645L -or
+              (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash -ine $env:ORIGINAL_ZIP_SHA256 -or
+              (Get-FileHash -LiteralPath $receiptPath -Algorithm SHA256).Hash -ine $env:ORIGINAL_RECEIPT_SHA256) {
+            throw 'Original immutable ZIP/receipt changed between steps'
+          }
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+          $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+          $sum = 0L
+          $prefix = $env:ORIGINAL_RELEASE_ID + '/'
+          try {
+            if ($zip.Entries.Count -ne 159) { throw 'Original package needs exactly 159 entries' }
+            foreach ($entry in $zip.Entries) {
+              $name = [string]$entry.FullName
+              if (-not $entry.Name -or
+                  -not $name.StartsWith($prefix, [StringComparison]::Ordinal) -or
+                  $name.Contains('\') -or $name -match '[\x00-\x1f:"<>|*?]' -or
+                  -not $seen.Add($name)) { throw "Unsafe/duplicate original ZIP entry: $name" }
+              foreach ($segment in $name.Substring($prefix.Length).Split('/')) {
+                if (-not $segment -or $segment -in @('.','..') -or
+                    $segment -cne $segment.TrimEnd([char[]]@(' ','.')) -or
+                    $segment -match '^(?i:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$') {
+                  throw "Original ZIP Windows traversal / alias: $name"
+                }
+              }
+              $sum += [long]$entry.Length
+            }
+          } finally { $zip.Dispose() }
+          if ($seen.Count -ne 159 -or $sum -ne 767386464L) {
+            throw 'Original immutable ZIP size or census differs'
+          }
+          $dest = Join-Path $env:GITHUB_WORKSPACE '.artifacts/kreoda-integrated-package-20261113/output'
+          if (Test-Path -LiteralPath $dest) { throw 'Pre-existing original extraction directory' }
+          Expand-Archive -LiteralPath $zipPath -DestinationPath $dest -ErrorAction Stop
+          node scripts/ci/prepare-integrated-candidate-smoke.mjs $zipPath $receiptPath
+          if ($LASTEXITCODE -ne 0) { throw 'Original 159 entries failed verified staging helper' }
+          $release = Join-Path $dest $env:ORIGINAL_RELEASE_ID
+          $manifestFile = Join-Path $release 'release-manifest.json'
+          if ((Get-FileHash -LiteralPath $manifestFile -Algorithm SHA256).Hash -ine $env:ORIGINAL_MANIFEST_SHA256) {
+            throw 'Original release manifest SHA not preserved'
+          }
+          $manifest = Get-Content -LiteralPath $manifestFile -Raw | ConvertFrom-Json
+          $hosted = Get-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE '.artifacts/kreoda-integrated-package-20261113/hosted-smoke-manifest.json') -Raw | ConvertFrom-Json
+          if ($manifest.releaseId -cne $env:ORIGINAL_RELEASE_ID -or
+              $manifest.nativeCore.sha256 -ine $env:ORIGINAL_CORE_SHA256 -or
+              $manifest.packagedResources.appAsarSha256 -ine $env:ORIGINAL_ASAR_SHA256 -or
+              @($manifest.bridge.publishedFiles).Count -ne 35 -or
+              $hosted.zipSha256 -ine $env:ORIGINAL_ZIP_SHA256 -or
+              $hosted.hostedReceiptSha256 -ine $env:ORIGINAL_RECEIPT_SHA256) {
+            throw 'Original manifest and ephemeral hosted staging identity differs'
+          }
+          $binaries = @{
+            'Kreoda-win32-x64/Kreoda.exe'=$env:ORIGINAL_EXE_SHA256
+            'Kreoda-win32-x64/resources/app.asar'=$env:ORIGINAL_ASAR_SHA256
+            'Kreoda-win32-x64/resources/kreoda-core.exe'=$env:ORIGINAL_CORE_SHA256
+            'Kreoda.HermesBridge-net8.0/Kreoda.HermesBridge.exe'=$env:ORIGINAL_BRIDGE_SHA256
+          }
+          foreach ($relative in $binaries.Keys) {
+            $file = Join-Path $release $relative.Replace('/', [IO.Path]::DirectorySeparatorChar)
+            if ((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ine $binaries[$relative]) {
+              throw "Original package binary has wrong SHA: $relative"
+            }
+          }
+          if ($env:ORIGINAL_ASAR_SHA256 -ieq '121b8083d3dec16f0cfa3343ff0b0b31753813c1451f14ade266d31782998f5e') {
+            throw 'Original cold replay MUST NOT use the later z40 ASAR'
+          }
+
+      - name: REAL ORIGINAL packaged cold relaunch, native OCCT, saved ICAD and Undo
+        id: cold-smoke
+        if: steps.staging.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 18
+        shell: pwsh
+        env:
+          KREODA_HERMES_CONFIG: ''
+          KREODA_CAD_SESSION_URL: ''
+          KREODA_CAD_PAIR: ''
+          KREODA_VOICE_TOKEN: ''
+          KREODA_UPDATE_FEED: ''
+          KREODA_UPDATE_PUBKEY: ''
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+          node scripts/ci/candidate-cold-relaunch-smoke.mjs '--prime-cold-relaunch-grant=PRIME_APPROVED_GITHUB_HOSTED_COLD_RELAUNCH'
+          if ($LASTEXITCODE -ne 0) { throw 'Original cold-relaunch real packaged E2E failed' }
+
+      - name: Require real original two-lifecycle receipt and native ICAD evidence
+        id: cold-receipt
+        if: steps.cold-smoke.outcome == 'success'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:GITHUB_WORKSPACE '.artifacts/kreoda-integrated-acceptance-20261114/cold-relaunch-smoke'
+          if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+            throw 'Missing cold smoke evidence'
+          }
+          $files = @(Get-ChildItem -LiteralPath $dir -Recurse -File -Filter 'receipt.json')
+          if ($files.Count -ne 1) { throw 'Expected exactly one original packaged cold receipt' }
+          $r = Get-Content -LiteralPath $files[0].FullName -Raw | ConvertFrom-Json
+          if ($r.status -cne 'PASS_ORIGINAL_PACKAGED_TWO_LIFECYCLES_NATIVE_OCCT' -or
+              $r.scenario -cne 'original-packaged-electron-native-occt-cold-relaunch-icad-persistence' -or
+              $r.isolatedRunner -cne 'github-hosted-windows' -or
+              $r.releaseId -cne $env:ORIGINAL_RELEASE_ID -or
+              $r.originalManifestSha256 -ine $env:ORIGINAL_MANIFEST_SHA256 -or
+              $r.bundleSha256 -ine $env:ORIGINAL_ZIP_SHA256 -or
+              $r.originalExeSha256 -ine $env:ORIGINAL_EXE_SHA256 -or
+              $r.originalCoreSha256 -ine $env:ORIGINAL_CORE_SHA256 -or
+              $r.originalAsarSha256 -ine $env:ORIGINAL_ASAR_SHA256 -or
+              $r.originalBridgeSha256 -ine $env:ORIGINAL_BRIDGE_SHA256 -or
+              $r.failure -or $r.cleanupFailure -or $r.postflightFailure) {
+            throw 'Original cold receipt lacks actual native two-cycle PASS proof'
+          }
+          $sha = [string]$r.icadSha256
+          if ($sha -notmatch '^[0-9a-fA-F]{64}$' -or
+              $r.run1.icadSha256 -ine $sha -or $r.run2.sameIcadSha256 -ine $sha -or
+              [long]$r.run1.icadBytes -le 100 -or
+              @($r.run1.boxes).Count -ne 2 -or
+              @($r.run2.boxesAfterOpen).Count -ne 2 -or
+              @($r.run2.boxesAfterRedo).Count -ne 2 -or
+              $r.run2.undoRestoredSavedDimensions -ne $true -or
+              $r.run2.redoRestoredManualEdit -ne $true) {
+            throw 'Real native Box identities, ICAD save/reopen and Undo/Redo not proved'
+          }
+          foreach ($cycle in @('run1','run2')) {
+            $item = $r.$cycle
+            if ($item.identity.packaged -ne $true -or
+                $item.identity.userDataIsolated -ne $true -or
+                [int]$item.identity.electronPid -le 0 -or
+                [int]$item.identity.corePid -le 0 -or
+                $item.shutdown.verifiedCoreTerminated -ne $true -or
+                @($item.shutdown.verifiedTerminatedPids).Count -lt 2 -or
+                -not $item.identity.electronCreationDate -or
+                -not $item.identity.coreCreationDate) {
+              throw "Original $cycle process ancestry or shutdown incomplete"
+            }
+            $signedHosts = @($item.pidDiagnostics.verifiedNativeConsoleHosts | Where-Object { $_ -ne $null })
+            foreach ($hostInfo in $signedHosts) {
+              if ($hostInfo.trustedSystem32 -ne $true -or
+                  $hostInfo.validMicrosoftSignature -ne $true -or
+                  $hostInfo.exactNativeParent -ne $true) {
+                throw "Original $cycle native console host not Microsoft-authenticated"
+              }
+            }
+          }
+          if (($r.run1.identity.electronPid -eq $r.run2.identity.electronPid -and
+               $r.run1.identity.electronCreationDate -eq $r.run2.identity.electronCreationDate) -or
+              ($r.run1.identity.corePid -eq $r.run2.identity.corePid -and
+               $r.run1.identity.coreCreationDate -eq $r.run2.identity.coreCreationDate)) {
+            throw 'Original second lifecycle is not independent'
+          }
+          'PASS_ORIGINAL_COLD_RECEIPT_SHA256=' + (Get-FileHash -LiteralPath $files[0].FullName -Algorithm SHA256).Hash
+
+      - name: REQUIRE all original cold gates to pass independently
+        if: always()
+        shell: pwsh
+        run: |
+          if ('${{ steps.download.outcome }}' -ne 'success' -or
+              '${{ steps.staging.outcome }}' -ne 'success' -or
+              '${{ steps.cold-smoke.outcome }}' -ne 'success' -or
+              '${{ steps.cold-receipt.outcome }}' -ne 'success') {
+            throw 'ORIGINAL COLD REJECTED: original draft/staging/real lifecycle/receipt not all PASS'
+          }
+
+      - name: Retain original cold receipt and sanitized diagnostics on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-cold-acceptance-${{ github.run_id }}
+          if-no-files-found: warn
+          path: |
+            .artifacts/kreoda-integrated-acceptance-20261114/cold-relaunch-smoke/**/receipt.json
+            .artifacts/kreoda-integrated-acceptance-20261114/cold-relaunch-smoke/**/*.json
+            .artifacts/original-cold-input/Kreoda-Desktop-Bridge-Quest-bundle-20261114-verification.json
