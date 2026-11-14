@@ -29,6 +29,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          # Candidate product bytes were built from a previous commit; the
+          # ancestry/diff guard requires that commit, not a depth-1 clone.
+          fetch-depth: 0
 
       - name: Verify exact source and truly isolated runner
         shell: pwsh
