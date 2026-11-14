@@ -156,21 +156,53 @@ jobs:
           if (-not (Test-Path -LiteralPath $probe)) { throw 'Release probe missing' }
           'STAGE_D_PROBE_SHA256='+ (Get-FileHash -LiteralPath $probe -Algorithm SHA256).Hash
 
-      - name: REAL packaged CAD Stage D calibrated sketch, ICAD and Undo
+      - name: Verify pinned Stage D packaged 7-of-7 proof without repeating it
         id: stage-d
-        continue-on-error: true
-        timeout-minutes: 8
         shell: pwsh
         env:
-          KREODA_HERMES_CONFIG: ''
-          KREODA_CAD_SESSION_URL: ''
-          KREODA_CAD_PAIR: ''
-          KREODA_VOICE_TOKEN: ''
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $probe = Join-Path $env:GITHUB_WORKSPACE 'clients/session-dotnet/probes/Kreoda.McpProbe/bin/Release/net8.0/Kreoda.McpProbe.dll'
-          $sha = (Get-FileHash -LiteralPath $probe -Algorithm SHA256).Hash
-          node scripts/ci/candidate-stage-d-smoke.mjs "--probe-sha256=$sha" '--prime-stage-d-grant=PRIME_APPROVED_GITHUB_HOSTED_STAGE_D'
-          if ($LASTEXITCODE -ne 0) { throw 'Original packaged Stage D CAD acceptance failed' }
+          $prior = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/43579488425" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $prior.status -ne 'completed' -or
+              $prior.head_sha -ne '66961b50395c62e66641f888afedcd42064fe630') {
+            throw 'Previously executed Stage D is not pinned to accepted test sources'
+          }
+          $jobs = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/43579488425/jobs?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot verify old Stage D job outcome' }
+          $steps = @($jobs.jobs | ForEach-Object { $_.steps } | Where-Object { $_.name -eq 'REAL packaged CAD Stage D calibrated sketch, ICAD and Undo' -and $_.conclusion -eq 'success' })
+          if ($steps.Count -ne 1) { throw 'Stage D was not an actual successful hosted step' }
+          $priorDir = Join-Path $env:GITHUB_WORKSPACE 'prior-stage-d-proof'
+          gh run download 43579488425 --repo $env:GITHUB_REPOSITORY --name 'candidate-exact-portable-smoke-43579488425' --dir $priorDir
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot retrieve previous Stage D receipt' }
+          $file = @(Get-ChildItem -LiteralPath $priorDir -Recurse -File -Filter receipt.json | Where-Object { $_.FullName -like '*stage-d-smoke*' })
+          if ($file.Count -ne 1 -or (Get-FileHash -LiteralPath $file[0].FullName -Algorithm SHA256).Hash -ne
+              'DB8F737BD15D9B12EB4157452AE5D9CADBB2BBD81E10507ADDD61583DC12EA79') {
+            throw 'Previously verified Stage D receipt missing/modified'
+          }
+          $proof = Get-Content -LiteralPath $file[0].FullName -Raw | ConvertFrom-Json
+          if ($proof.status -ne 'PASS_PACKAGED_REAL_OCCT_BRIDGE_STAGE_D' -or
+              $proof.candidateBundleSha256 -ne '036cff37ed0b5850926224cb0afc75a159a558897d77ffc1f74e314bccf85b1d' -or
+              $proof.isolatedRunner -ne 'github-hosted-windows' -or
+              $proof.originalExeSha256 -ne 'a09ee422ccf2c678db1b41ed3d2dbbcf987be1585e0a7cdbbc858321778a35b4' -or
+              $proof.originalAsarSha256 -ne 'e22221c092c28f1c1ce9115c3e3ac883ea37fa1c903ef14cde55ff09ee01fdae' -or
+              $proof.originalCoreSha256 -ne 'f003945f69bdf04e7ab66ea1319b50e22723b5e716047e8dbb2f4e21dc3710b4' -or
+              $proof.originalManifestSha256 -ne '2064d409a22f1e0020e90ac194e7d8ebb5813550316e5ced69b5dc72b8d88a66' -or
+              @($proof.tests).Count -ne 7 -or @($proof.tests | Where-Object { -not $_.pass }).Count -ne 0) {
+            throw 'Original Stage D failed native calibration or seven required checks'
+          }
+          $calibration = @($proof.tests | Where-Object { $_.name -eq 'Release-McpProbe-PrivateCadConnection-rollback-and-commit' })
+          $width = @($proof.tests | Where-Object { $_.name -eq 'native-width-edit-80-to-90-while-height-40' })
+          $height = @($proof.tests | Where-Object { $_.name -eq 'native-height-edit-40-to-50' })
+          $undo = @($proof.tests | Where-Object { $_.name -eq 'native-Undo-restores-saved-90x40-six-constraints' })
+          if ($calibration.Count -ne 1 -or $calibration[0].solver.constraints -ne 6 -or
+              $calibration[0].rollbackVerified -ne $true -or
+              $calibration[0].volumeMm3 -lt 25599.99 -or $calibration[0].volumeMm3 -gt 25600.01 -or
+              $width.Count -ne 1 -or $width[0].volumeMm3 -ne 28800 -or
+              $height.Count -ne 1 -or $height[0].volumeMm3 -ne 36000 -or
+              $undo.Count -ne 1 -or $undo[0].volumeMm3 -ne 28800) {
+            throw 'Actual native Stage D constraint/volume/Undo proof is incomplete'
+          }
+          'Previously completed exact packaged Stage D CAD verified by immutable receipt; not repeated.'
 
       - name: REAL packaged WebGL viewport pixel proof
         id: visual
@@ -223,7 +255,10 @@ jobs:
         shell: pwsh
         run: |
           $releaseId = '0.1.0-integrated-20261113-c211b2e01fb7-f003945f69bd-476eccda'
-          $core = Join-Path $env:GITHUB_WORKSPACE ".artifacts/kreoda-integrated-package-20261113/output/$releaseId/Kreoda-win32-x64/resources/kreoda-core.exe"
+          $release = Join-Path $env:GITHUB_WORKSPACE ".artifacts/kreoda-integrated-package-20261113/output/$releaseId"
+          $resources = Join-Path $release 'Kreoda-win32-x64/resources'
+          $core = Join-Path $resources 'kreoda-core.exe'
+          $originalManifest = Join-Path $release 'release-manifest.json'
           $dest = Join-Path $env:GITHUB_WORKSPACE 'native/kreoda-core/build/Release/kreoda-core.exe'
           if ((Get-FileHash -LiteralPath $core -Algorithm SHA256).Hash -ne 'F003945F69BDF04E7AB66EA1319B50E22723B5E716047E8DBB2F4E21DC3710B4') {
             throw 'Native dev E2E source does not match the shipped original OCCT core'
@@ -234,6 +269,32 @@ jobs:
           if ((Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash -ne 'F003945F69BDF04E7AB66EA1319B50E22723B5E716047E8DBB2F4E21DC3710B4') {
             throw 'Real native test core bytes changed after staging'
           }
+          $manifest = Get-Content -LiteralPath $originalManifest -Raw | ConvertFrom-Json
+          if (@($manifest.dlls).Count -ne 45 -or $manifest.packagedResources.runtimeDllsVerified -ne 45) {
+            throw 'Original native OCCT runtime manifest is incomplete'
+          }
+          foreach ($dll in $manifest.dlls) {
+            if (-not ($dll.name -cmatch '^[A-Za-z0-9_.-]+\.dll$') -or
+                $dll.name.Contains('..') -or $dll.name.Contains('/') -or $dll.name.Contains('\')) {
+              throw 'Unsafe native runtime DLL manifest entry'
+            }
+            $source = Join-Path $resources $dll.name
+            $target = Join-Path (Split-Path -Parent $dest) $dll.name
+            if ((Get-Item -LiteralPath $source).Length -ne $dll.size -or
+                (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ne $dll.sha256) {
+              throw "Original packaged OCCT runtime DLL mismatches source manifest: $($dll.name)"
+            }
+            if (Test-Path -LiteralPath $target) { throw "Native CI test DLL collision: $($dll.name)" }
+            Copy-Item -LiteralPath $source -Destination $target
+            if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -ne $dll.sha256) {
+              throw "Staged runtime DLL changed: $($dll.name)"
+            }
+          }
+          # The original full CI compiles pnpm workspace packages BEFORE the
+          # Desktop shell. A clean hosted checkout has no generated protocol,
+          # command-schema or units typings until these exact packages build.
+          pnpm --filter './packages/*' -r build
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical workspace package dependency build failed' }
           pnpm --filter @kreoda/desktop build
           if ($LASTEXITCODE -ne 0) { throw 'Targeted original-product E2E JavaScript build failed' }
 
@@ -250,6 +311,16 @@ jobs:
           # phase11-session.spec.ts contains two already-passing tests. Limit
           # this verification to the five exact failures in native CI 43528252383.
           $onlyFailures = 'native file pickers: Save/Open cancellation|unified session: saved document, paired client|native curvature reaches the real GPU|real OCCT interference is shared read-only|sketch workspace: disclosure'
+          $files = @('phase10-file-picker.spec.ts', 'phase11-session.spec.ts', 'phase15-curvature-native.spec.ts', 'phase15-interference-native.spec.ts', 'sketch-workspace.spec.ts')
+          $listing = @(pnpm --filter @kreoda/desktop exec playwright test e2e/phase10-file-picker.spec.ts e2e/phase11-session.spec.ts e2e/phase15-curvature-native.spec.ts e2e/phase15-interference-native.spec.ts e2e/sketch-workspace.spec.ts --grep $onlyFailures --list)
+          if ($LASTEXITCODE -ne 0 -or @($listing | Where-Object { $_ -eq 'Total: 5 tests in 5 files' }).Count -ne 1) {
+            throw 'Targeted E2E selection is not exactly five tests across five files'
+          }
+          foreach ($name in $files) {
+            if (@($listing | Where-Object { $_ -match ('^\s+' + [regex]::Escape($name) + ':\d+:\d+ ') }).Count -ne 1) {
+              throw "Targeted E2E original failing test missing or duplicated: $name"
+            }
+          }
           pnpm --filter @kreoda/desktop exec playwright test e2e/phase10-file-picker.spec.ts e2e/phase11-session.spec.ts e2e/phase15-curvature-native.spec.ts e2e/phase15-interference-native.spec.ts e2e/sketch-workspace.spec.ts --grep $onlyFailures --reporter=list
           if ($LASTEXITCODE -ne 0) { throw 'Targeted actual OCCT / Electron E2E regressions still fail' }
 
@@ -284,6 +355,7 @@ jobs:
             .artifacts/kreoda-integrated-acceptance-20261114/visual-smoke/**/receipt.json
             .artifacts/kreoda-integrated-acceptance-20261114/visual-smoke/**/*.png
             prior-packaged-smoke-proof/**/smoke.json
+            prior-stage-d-proof/**/receipt.json
             apps/desktop/test-results/**/trace.zip
             apps/desktop/test-results/**/error-context.md
             apps/desktop/e2e/**/curvature-sphere.png

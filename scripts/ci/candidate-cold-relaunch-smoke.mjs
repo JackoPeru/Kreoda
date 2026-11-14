@@ -244,26 +244,66 @@ function envFor(profile) {
 }
 async function start(electron, profile, cycle) {
   const launchStartedMs = Date.now();
+  exact(exe, pins.exe);
+  exact(coreExe, pins.core);
   const app = await bounded(electron.launch({ executablePath: exe,
     args: ['--no-sandbox', '--lang=en-US', '--start-hidden', '--user-data-dir=' + profile],
     env: envFor(profile), timeout: 40_000 }), 50_000, 'cycle ' + cycle + ' Electron launch');
   const state = { app, main: null, tracked: [], corePid: null,
     launchStartedMs, phase: cycle };
   try {
-    const pid = app.process()?.pid;
-    assert(Number.isInteger(pid) && pid > 0, 'Playwright did not return packaged Electron PID');
-    const records = processes();
-    const intermediary = [exe, process.execPath,
-      path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe')];
-    const chain = ancestry(records, pid, exe, process.pid, intermediary, launchStartedMs);
-    state.main = identityOf(records.get(pid));
-    state.mainChain = chain;
+    // On hosted Windows, Playwright can report the PID of a cmd.exe launcher.
+    // Electron's own main process reports its PID from app.evaluate().
+    const playwrightPid = app.process()?.pid;
+    state.pidDiagnostics = { playwrightPid: playwrightPid ?? null,
+      electronMainPid: null, launcherInMainAncestry: false };
+    assert(Number.isSafeInteger(playwrightPid) && playwrightPid > 0,
+      'Playwright did not return a launcher PID');
     const actual = await bounded(app.evaluate(({ app: packaged, BrowserWindow }) => ({
+      mainPid: process.pid,
       isPackaged: packaged.isPackaged, exe: process.execPath,
       appPath: packaged.getAppPath(), resources: process.resourcesPath,
       userData: packaged.getPath('userData'),
       visibleWindows: BrowserWindow.getAllWindows().filter(w => w.isVisible()).length,
     })), 10_000, 'cycle ' + cycle + ' packaged identity');
+    const pid = actual.mainPid;
+    const records = processes();
+    const trustedCmd = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+    const intermediary = [exe, process.execPath, trustedCmd];
+    const launcher = records.get(playwrightPid);
+    const mainRecord = records.get(pid);
+    // Keep the failure receipt diagnostic limited to PIDs, image basenames
+    // and booleans: Win32 command lines and environment can contain secrets.
+    state.pidDiagnostics = {
+      playwrightPid, electronMainPid: Number.isSafeInteger(pid) ? pid : null,
+      playwrightImage: launcher ? path.win32.basename(launcher.ExecutablePath || '') : null,
+      electronMainImage: mainRecord ? path.win32.basename(mainRecord.ExecutablePath || '') : null,
+      playwrightPathTrusted: Boolean(launcher &&
+        (same(launcher.ExecutablePath, trustedCmd) || same(launcher.ExecutablePath, exe))),
+      electronMainPathPinned: Boolean(mainRecord && same(mainRecord.ExecutablePath, exe)),
+      launcherInMainAncestry: false,
+      sameProcess: playwrightPid === pid,
+    };
+    assert(Number.isSafeInteger(pid) && pid > 0,
+      'Electron main process did not provide a valid PID');
+    assert(state.pidDiagnostics.playwrightPathTrusted,
+      'Playwright-reported PID does not identify trusted cmd.exe or the original Electron executable');
+    const launcherCreated = Date.parse(launcher.CreationDate || '');
+    assert(Number.isFinite(launcherCreated) &&
+      launcherCreated >= launchStartedMs - 8_000 && launcherCreated <= Date.now() + 2_000,
+    'Playwright launcher PID does not match this launch time');
+    const chain = ancestry(records, pid, exe, process.pid, intermediary, launchStartedMs);
+    state.pidDiagnostics.ancestry = chain.map(entry => ({
+      pid: entry.pid, parentPid: entry.parentPid,
+      image: path.win32.basename(records.get(entry.pid)?.ExecutablePath || ''),
+    }));
+    state.pidDiagnostics.launcherInMainAncestry =
+      chain.some(entry => entry.pid === playwrightPid);
+    assert(state.pidDiagnostics.launcherInMainAncestry,
+      'Electron main process does not descend from this Playwright launcher PID');
+    state.main = identityOf(records.get(pid));
+    state.launcher = identityOf(launcher);
+    state.mainChain = chain;
     assert(actual.isPackaged && same(actual.exe, exe) && same(actual.appPath, appAsar) &&
       same(actual.resources, resources) && actual.visibleWindows === 0 &&
       (same(actual.userData, profile) || within(actual.userData, profile)),
@@ -278,13 +318,17 @@ async function start(electron, profile, cycle) {
     const coreChain = ancestry(live, core.pid, coreExe, pid, [exe], launchStartedMs, 7);
     state.corePid = core.pid;
     state.coreChain = coreChain;
+    // The verified Playwright cmd.exe is part of our launched lifecycle too.
+    // Keep its exact PID/image/creation identity for the shutdown check.
     state.tracked = [state.main, ...descendants(live, pid).map(identityOf)];
+    if (state.launcher.pid !== pid) state.tracked.push(state.launcher);
     assert(state.tracked.some(p => p.pid === core.pid), 'sidecar not descendant of packaged Electron');
     for (const member of state.tracked) {
-      assert(same(member.path, exe) || same(member.path, coreExe),
+      assert(same(member.path, exe) || same(member.path, coreExe) ||
+        (member.pid === playwrightPid && same(member.path, trustedCmd)),
         'foreign executable descended from original packaged Electron');
     }
-    state.identity = { electronPid: pid, corePid: core.pid,
+    state.identity = { playwrightPid, electronPid: pid, corePid: core.pid,
       electronAncestry: chain, coreAncestry: coreChain,
       initialOwnedChildren: state.tracked.length - 1,
       userDataIsolated: true, packaged: true,
@@ -318,10 +362,11 @@ async function shutdown(state) {
     await bounded(state.app.close(), 15_000, 'cycle ' + state.phase + ' Electron close');
   } catch (cause) {
     error = cause;
-    // One verified Playwright-owned app process may be terminated on failure.
+    // Playwright's process handle may point to cmd.exe, not Electron main.
+    // Terminate only the PID whose *Electron image and creation* were attested.
     // Never kill by basename or a PID that has been reused or changed path.
     try {
-      if (state.main && stillSame(processes(), state.main)) state.app.process()?.kill();
+      if (state.main && stillSame(processes(), state.main)) process.kill(state.main.pid);
     } catch { /* original failure is retained */ }
   }
   if (state.main) {
@@ -350,6 +395,15 @@ async function ensureWorkspace(page) {
     await page.getByTestId('home-new-project').click();
   await page.getByTestId('workspace-chrome').waitFor({ state: 'visible', timeout: 25_000 });
   await page.getByText(/core 0\.1\.0(?!-stub)/i).waitFor({ state: 'visible', timeout: 25_000 });
+  // Fresh isolated profiles show onboarding over the CAD canvas. Use its real
+  // dismiss control; do not bypass the UI through DOM or storage mutations.
+  const onboarding = page.getByTestId('onboarding');
+  try { await onboarding.waitFor({ state: 'visible', timeout: 5_000 }); }
+  catch { /* Already dismissed in this profile. */ }
+  if (await onboarding.isVisible())
+    await onboarding.getByRole('button', { name: 'Dismiss', exact: true })
+      .click({ timeout: 8_000 });
+  await onboarding.waitFor({ state: 'hidden', timeout: 12_000 });
 }
 async function snap(page) {
   return bounded(page.evaluate(() => window.__kreoda_test.snapshot()), 8_000, 'real CAD UI snapshot');
@@ -390,7 +444,12 @@ function verifiedSolids(state, expected) {
 async function addBox(page, expectedCount) {
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await page.getByRole('button', { name: /Add box/ }).click();
-  await page.getByRole('button', { name: 'Create', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: /Add box/i });
+  await dialog.waitFor({ state: 'visible', timeout: 10_000 });
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click();
+  // The button relabels to Building... before native execution finishes.
+  // A native body can already be visible while the dialog remains open.
+  await dialog.waitFor({ state: 'hidden', timeout: 45_000 });
   return until(async () => {
     const state = await snap(page);
     return state?.bodies?.length === expectedCount &&
@@ -508,6 +567,7 @@ async function main() {
     const { _electron: electron } = requireDesktop('@playwright/test');
     current = await start(electron, profile, 1);
     receipt.run1.identity = current.identity;
+    receipt.run1.pidDiagnostics = current.pidDiagnostics;
     const saved = await bounded(runFirst(current.page, project, receipt),
       165_000, 'lifecycle #1 native create/edit/save');
     receipt.icadSha256 = receipt.run1.icadSha256;
@@ -519,6 +579,7 @@ async function main() {
     exact(appAsar, pins.asar);
     current = await start(electron, profile, 2);
     receipt.run2.identity = current.identity;
+    receipt.run2.pidDiagnostics = current.pidDiagnostics;
     assert(current.identity.electronPid !== receipt.run1.identity.electronPid ||
       current.identity.electronCreationDate !== receipt.run1.identity.electronCreationDate,
     'second launch did not establish an independent Electron lifecycle');
@@ -539,7 +600,12 @@ async function main() {
     receipt.status = 'PASS_ORIGINAL_PACKAGED_TWO_LIFECYCLES_NATIVE_OCCT';
   } catch (cause) {
     error = cause;
-    if (cause?.lifecycle) current = cause.lifecycle;
+    if (cause?.lifecycle) {
+      current = cause.lifecycle;
+      const key = current.phase === 2 ? 'run2' : 'run1';
+      receipt[key].pidDiagnostics = current.pidDiagnostics ?? {
+        playwrightPid: current.app?.process()?.pid ?? null, electronMainPid: null };
+    }
     receipt.failure = { kind: cause?.name || 'Error',
       message: String(cause?.message ?? cause).slice(0, 450) };
   } finally {

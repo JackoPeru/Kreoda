@@ -141,6 +141,16 @@ function ownProcess(pid, expectedExecutable, expectedSha, requiredAncestors, rec
   record.chain = chain.map(row => ({ pid: row.pid, parentPid: row.parentPid, name: row.name }));
   record.executableMatchesPinnedPath = samePath(chain[0].image || "", expectedExecutable);
   record.executableSha256MatchesPin = sha256(expectedExecutable) === expectedSha;
+  // A PID chain alone is not ownership: an untrusted executable could sit
+  // between Playwright's launcher and Electron. Every ancestor must be this
+  // exact packaged Electron image, this test's exact Node image or the
+  // trusted Windows System32 cmd.exe launcher (never arbitrary executables).
+  const trustedCmd = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "cmd.exe");
+  const pinnedElectron = path.join(output, RELEASE_ID, "Kreoda-win32-x64", "Kreoda.exe");
+  record.trustedAncestryImages = chain.slice(1).every(row =>
+    [expectedExecutable, pinnedElectron, process.execPath, trustedCmd]
+      .some(image => samePath(row.image || "", image)));
+  record.testNodeImageTrusted = samePath(chain.at(-1)?.image || "", process.execPath);
   record.anchorsPresent = requiredAncestors.map(ancestor => ({
     pid: ancestor, inChain: chain.some(row => row.pid === ancestor),
   }));
@@ -148,6 +158,13 @@ function ownProcess(pid, expectedExecutable, expectedSha, requiredAncestors, rec
   record.ancestryOrdered = indices.every((index, i) =>
     index >= 0 && (i === 0 || index >= indices[i - 1])) &&
     chain.at(-1)?.pid === requiredAncestors.at(-1);
+  const launcher = chain[indices[0]];
+  record.launcherImageTrusted = !!launcher &&
+    [expectedExecutable, pinnedElectron, process.execPath, trustedCmd]
+      .some(image => samePath(launcher.image || "", image));
+  const launcherBorn = Date.parse(launcher?.createdUtc ?? "");
+  record.launcherStartedSinceLaunch = Number.isFinite(launcherBorn) &&
+    launcherBorn >= earliestStart - 8_000 && launcherBorn <= Date.now() + 2_000;
   record.directParentMatches = directParent === null || chain[0].parentPid === directParent;
   // Parent PIDs may be reused on Windows. Never accept an ancestor process
   // created after the child it supposedly launched.
@@ -159,12 +176,40 @@ function ownProcess(pid, expectedExecutable, expectedSha, requiredAncestors, rec
     createdAtMs >= earliestStart - 8_000 && createdAtMs <= Date.now() + 2_000;
   record.checked = true;
   assert(record.executableMatchesPinnedPath && record.executableSha256MatchesPin &&
+    record.trustedAncestryImages && record.testNodeImageTrusted &&
+    record.launcherImageTrusted && record.launcherStartedSinceLaunch &&
     record.anchorsPresent.every(row => row.inChain) && record.ancestryOrdered &&
     record.directParentMatches && record.ancestryTimestampsValid &&
     record.creationSinceLaunch,
   "actual Windows process image/launch-time/ancestry does not match pinned owned process");
-  return { pid, parentPid: chain[0].parentPid, exeSha256: sha256(expectedExecutable),
-    launchOriginNodePid: process.pid, ancestryDepth: chain.length };
+  return { pid, parentPid: chain[0].parentPid, createdUtc: chain[0].createdUtc,
+    exeSha256: sha256(expectedExecutable), launchOriginNodePid: process.pid,
+    ancestryDepth: chain.length };
+}
+function terminateAttestedElectronIfUnchanged(identity, executable, receipt) {
+  // app.process() may be a cmd.exe wrapper. Never terminate that PID.
+  // On failed close, only the previously attested Electron MAIN PID may be
+  // terminated, after fresh OS image / SHA / creation-time verification.
+  const record = { requestedPid: identity?.pid ?? null, exactIdentityMatch: false,
+    attempted: false };
+  receipt.shutdownFallback = record;
+  if (!identity || !Number.isSafeInteger(identity.pid) || !identity.createdUtc) return;
+  try {
+    const tree = processTree(identity.pid, process.pid);
+    const live = tree[0];
+    record.exactIdentityMatch = live.pid === identity.pid &&
+      live.parentPid === identity.parentPid &&
+      live.createdUtc === identity.createdUtc &&
+      samePath(live.image || "", executable) &&
+      sha256(executable) === SHA.exe && identity.exeSha256 === SHA.exe;
+    if (!record.exactIdentityMatch) return;
+    record.attempted = true;
+    process.kill(identity.pid);
+  } catch {
+    // Already exited, inaccessible or changed identity: never kill another
+    // process and retain the original shutdown failure in receipt.json.
+    record.verifiedTermination = false;
+  }
 }
 function preflight() {
   // Check BEFORE generating evidence or starting any process.
@@ -302,19 +347,34 @@ function rasterStats(image) {
     quantizedColors: histogram.size, nonDominantPixelFraction: (total - dominant) / total,
     opaquePixelFraction: opaque / total, rawRgbaSha256: hashBytes(image.rgba) };
 }
-function rasterDifference(a, b) {
+function centralRoi(image) {
+  // The CAD body is centered on this viewport. Ignore outer toolbars, while
+  // keeping the ORIGINAL full-canvas threshold as a separate mandatory gate.
+  const x = Math.floor(image.width * 0.2), y = Math.floor(image.height * 0.2);
+  return { x, y, width: Math.floor(image.width * 0.8) - x,
+    height: Math.floor(image.height * 0.8) - y };
+}
+function rasterDifference(a, b, region = null) {
   assert(a.width === b.width && a.height === b.height,
     "before/after screenshots have different viewport dimensions");
+  const bounds = region ?? { x: 0, y: 0, width: a.width, height: a.height };
+  assert(bounds.width > 0 && bounds.height > 0 && bounds.x >= 0 && bounds.y >= 0 &&
+    bounds.x + bounds.width <= a.width && bounds.y + bounds.height <= a.height,
+  "invalid real screenshot pixel comparison rectangle");
   let changed = 0, energy = 0;
-  for (let i = 0; i < a.rgba.length; i += 4) {
-    const dr = Math.abs(a.rgba[i] - b.rgba[i]);
-    const dg = Math.abs(a.rgba[i + 1] - b.rgba[i + 1]);
-    const db = Math.abs(a.rgba[i + 2] - b.rgba[i + 2]);
-    if (Math.max(dr, dg, db) >= 24) changed++;
-    energy += dr + dg + db;
+  for (let y = bounds.y; y < bounds.y + bounds.height; y++) {
+    for (let x = bounds.x; x < bounds.x + bounds.width; x++) {
+      const i = (y * a.width + x) * 4;
+      const dr = Math.abs(a.rgba[i] - b.rgba[i]);
+      const dg = Math.abs(a.rgba[i + 1] - b.rgba[i + 1]);
+      const db = Math.abs(a.rgba[i + 2] - b.rgba[i + 2]);
+      if (Math.max(dr, dg, db) >= 24) changed++;
+      energy += dr + dg + db;
+    }
   }
-  return { changedPixels: changed, changedFraction: changed / (a.width * a.height),
-    meanRgbAbsoluteDelta: energy / (a.width * a.height * 3) };
+  const count = bounds.width * bounds.height;
+  return { changedPixels: changed, comparedPixels: count, changedFraction: changed / count,
+    meanRgbAbsoluteDelta: energy / (count * 3) };
 }
 async function canvasRect(page) {
   const data = await bounded(page.evaluate(() => {
@@ -362,13 +422,25 @@ async function captureActualCanvas(app, page, targetFile) {
     image.width <= rect.width * 3 && image.height <= rect.height * 3,
   "capturePage returned wrong/empty compositor raster");
   fs.writeFileSync(targetFile, png, { flag: "wx" });
-  return { image, file: path.basename(targetFile), pngSha256: hashBytes(png),
+  return { image, path: targetFile, file: path.basename(targetFile), pngSha256: hashBytes(png),
     bytes: png.length, dom, stats: rasterStats(image) };
 }
-function evidenceOfPixels(beforeA, beforeB, after) {
+function evidenceOfPixels(beforeA, beforeB, after, result) {
   const noise = rasterDifference(beforeA.image, beforeB.image);
   const change = rasterDifference(beforeB.image, after.image);
+  const roi = centralRoi(beforeB.image);
+  const roiNoise = rasterDifference(beforeA.image, beforeB.image, roi);
+  const roiChange = rasterDifference(beforeB.image, after.image, roi);
   const material = Math.max(300, Math.ceil(beforeB.image.width * beforeB.image.height * 0.004));
+  const materialRoi = Math.max(300, Math.ceil(roi.width * roi.height * 0.004));
+  const metrics = { baselineNoise: noise, afterGeometryChange: change,
+    minimumChangedPixels: material, centralRoi: roi,
+    centralBaselineNoise: roiNoise, centralGeometryChange: roiChange,
+    minimumCentralChangedPixels: materialRoi, accepted: false,
+    criteria: "actual PNG RGB delta>=24; >=0.4% changed for full canvas AND central CAD ROI; both >3x baseline drift" };
+  // Keep metrics even on failure, so hosted JSON + real probe PNGs can
+  // distinguish a blank canvas, a transient frame and an overlay.
+  result.raster = metrics;
   assert(beforeB.image.rgba.length === after.image.rgba.length,
     "before and after have incompatible pixel buffers");
   assert(after.stats.opaquePixelFraction >= 0.99 &&
@@ -380,8 +452,109 @@ function evidenceOfPixels(beforeA, beforeB, after) {
     change.meanRgbAbsoluteDelta >= 1.0 &&
     change.meanRgbAbsoluteDelta >= noise.meanRgbAbsoluteDelta * 2,
   "genuine after-box pixels do not materially differ from stable empty viewport");
-  return { baselineNoise: noise, afterGeometryChange: change, minimumChangedPixels: material,
-    accepted: true, criteria: "RGBA PNG pixel delta >=24; >=0.4% changed; >3x empty-scene drift" };
+  assert(roiChange.changedPixels >= materialRoi &&
+    roiChange.changedPixels >= roiNoise.changedPixels * 3 + 100 &&
+    roiChange.meanRgbAbsoluteDelta >= 1.0 &&
+    roiChange.meanRgbAbsoluteDelta >= roiNoise.meanRgbAbsoluteDelta * 2,
+  "central CAD viewport shows no material BRep geometry change");
+  metrics.accepted = true;
+  return metrics;
+}
+// The previous hosted run captured HOME in before-a and ONBOARDING in
+// before-b. A visible canvas is NOT proof that the CAD route has settled.
+// Snapshot only sanitized UI states, never modal text, command lines or
+// session configuration in uploaded receipt.json.
+async function uiState(page) {
+  return bounded(page.evaluate(() => {
+    const visible = element => !!element && element.getClientRects().length > 0 &&
+      getComputedStyle(element).visibility !== "hidden";
+    const countVisible = selector =>
+      [...document.querySelectorAll(selector)].filter(visible).length;
+    const snapshot = window.__kreoda_test?.snapshot?.();
+    const canvas = document.querySelector('[data-testid="viewport"] canvas');
+    return {
+      homeVisible: countVisible('[data-testid="home-screen"]') > 0,
+      workspaceVisible: countVisible('[data-testid="workspace-chrome"]') === 1,
+      canvasVisible: visible(canvas),
+      onboardingVisible: countVisible('[data-testid="onboarding"]') > 0,
+      modalCount: countVisible('[role="dialog"]'),
+      modalOverlayCount: countVisible('[data-radix-dialog-overlay]'),
+      nativeBodies: snapshot?.bodies?.length ?? null,
+    };
+  }), 6000, "sanitized real CAD workspace/modal state");
+}
+async function ensureClearWorkspace(page, requiredBodies, result) {
+  const state = await uiState(page);
+  result.lastUiState = state;
+  assert(!state.homeVisible && state.workspaceVisible && state.canvasVisible &&
+    !state.onboardingVisible && state.modalCount === 0 &&
+    state.modalOverlayCount === 0 && state.nativeBodies === requiredBodies,
+  "CAD workspace not settled/empty of onboarding and modal overlays");
+  return state;
+}
+function sourceStatus() {
+  const script = fileURLToPath(import.meta.url);
+  const runGit = args => {
+    const response = spawnSync("git.exe", ["-C", root, ...args],
+      { encoding: "utf8", windowsHide: true, timeout: 7000, maxBuffer: 4096 });
+    return !response.error && response.status === 0 ? response.stdout.trim() : null;
+  };
+  return { smokeScriptSha256: sha256(script), gitHead: runGit(["rev-parse", "HEAD"]),
+    scriptWorkingTreeStatus: runGit(["status", "--short", "--",
+      "scripts/ci/candidate-visual-render-smoke.mjs"]) };
+}
+function stableCompositor(previous, current) {
+  const comparable = previous.image.width === current.image.width &&
+    previous.image.height === current.image.height &&
+    previous.dom.backingWidth === current.dom.backingWidth &&
+    previous.dom.backingHeight === current.dom.backingHeight &&
+    previous.dom.renderer === current.dom.renderer &&
+    previous.dom.x === current.dom.x && previous.dom.y === current.dom.y;
+  if (!comparable) return { comparable: false, stable: false };
+  const full = rasterDifference(previous.image, current.image);
+  const center = rasterDifference(previous.image, current.image, centralRoi(current.image));
+  // This is a MAXIMUM permitted baseline/settling drift, not a relaxed
+  // detection threshold. Evidence of a new BRep still requires >0.4%.
+  const stable = full.changedFraction <= 0.001 && center.changedFraction <= 0.001 &&
+    full.meanRgbAbsoluteDelta <= 0.35 && center.meanRgbAbsoluteDelta <= 0.35;
+  return { comparable, stable, full, center };
+}
+async function settledCanvasPair(app, page, proofDir, result, stage, bodies) {
+  const records = [];
+  const limit = Date.now() + 45_000;
+  result.settlement ??= {};
+  result.settlement[stage] = { stable: false, attempts: [] };
+  for (let attempt = 1; attempt <= 8 && Date.now() < limit; attempt++) {
+    await ensureClearWorkspace(page, bodies, result);
+    const file = path.join(proofDir, `${stage}-probe-${String(attempt).padStart(2, "0")}.png`);
+    const frame = await captureActualCanvas(app, page, file);
+    result.files.push({ name: frame.file, pngSha256: frame.pngSha256, bytes: frame.bytes });
+    await ensureClearWorkspace(page, bodies, result);
+    const emptyGridValid = stage !== "baseline" ||
+      (frame.stats.opaquePixelFraction >= 0.99 &&
+        frame.stats.quantizedColors >= 4 &&
+        frame.stats.nonDominantPixelFraction >= 0.008);
+    const comparison = records.length ? stableCompositor(records.at(-1), frame) : null;
+    const event = { attempt, filename: frame.file, width: frame.image.width,
+      height: frame.image.height, sha256: frame.pngSha256,
+      gridNonempty: emptyGridValid, comparison };
+    result.settlement[stage].attempts.push(event);
+    records.push(frame);
+    if (comparison?.stable && emptyGridValid) {
+      result.settlement[stage].stable = true;
+      result.settlement[stage].consecutiveStableScreenshots = 2;
+      result.settlement[stage].finalDrift = comparison;
+      return records.slice(-2);
+    }
+    await delay(350);
+  }
+  fail(`bounded ${stage} viewport never produced two consecutive stable non-overlaid real canvas PNGs`);
+}
+function copyEvidence(source, file, result) {
+  // The source is already a real PNG saved by webContents.capturePage.
+  fs.copyFileSync(source.path, file, fs.constants.COPYFILE_EXCL);
+  result.files.push({ name: path.basename(file), pngSha256: source.pngSha256,
+    bytes: source.bytes });
 }
 async function main() {
   const gate = preflight();
@@ -403,8 +576,9 @@ async function main() {
     startedAtUtc: new Date().toISOString(), releaseId: RELEASE_ID, runner: "github-hosted-windows-x64",
     pinned: { originalManifestSha256: SHA.originalManifest, bundleSha256: SHA.bundle,
       exeSha256: SHA.exe, coreSha256: SHA.core, appAsarSha256: SHA.asar,
-      separatelyPublishedBridgeSha256: SHA.bridge }, files: [], checks: [] };
-  let app, failure, nativePid = null;
+      separatelyPublishedBridgeSha256: SHA.bridge }, sourceStatus: sourceStatus(),
+    stage: "prelaunch", files: [], checks: [] };
+  let app, page, failure, nativePid = null;
   try {
     const require = createRequire(path.join(root, "apps", "desktop", "package.json"));
     const { _electron: electron } = require("@playwright/test");
@@ -432,12 +606,28 @@ async function main() {
     "wrong executable/resources or non-isolated Electron profile");
     assert(identity.visibleWindows === 0, "window exposed before viewport capture");
     result.checks.push({ name: "packaged-hidden-provenance", pass: true });
-    const page = await bounded(app.firstWindow({ timeout: 30_000 }), 35_000, "hidden packaged renderer");
+    result.stage = "enter-cad-workspace";
+    page = await bounded(app.firstWindow({ timeout: 30_000 }), 35_000, "hidden packaged renderer");
     await page.getByTestId("home-screen").waitFor({ state: "visible", timeout: 25_000 });
     await page.getByTestId("home-new-project").click({ timeout: 12_000 });
     await page.getByTestId("workspace-chrome").waitFor({ state: "visible", timeout: 20_000 });
+    await page.getByTestId("home-screen").waitFor({ state: "hidden", timeout: 20_000 });
     await page.getByText(/core 0\.1\.0(?!-stub)/i).waitFor({ state: "visible", timeout: 20_000 });
     await page.getByTestId("viewport").locator("canvas").waitFor({ state: "visible", timeout: 20_000 });
+    // Fresh isolated profiles can display the first-run onboarding OVER the
+    // live viewport. Dismiss it with the actual button (never mutate DOM,
+    // localStorage, native scene or screenshot data).
+    const onboarding = page.getByTestId("onboarding");
+    try { await onboarding.waitFor({ state: "visible", timeout: 5000 }); }
+    catch { /* A previously dismissed onboarding is also permitted. */ }
+    if (await onboarding.isVisible()) {
+      await onboarding.getByRole("button", { name: "Dismiss", exact: true })
+        .click({ timeout: 8000 });
+      await onboarding.waitFor({ state: "hidden", timeout: 12_000 });
+      result.onboarding = "dismissed-through-real-ui";
+    } else {
+      result.onboarding = "not-shown";
+    }
     const core = await until(async () => {
       const info = await bounded(page.evaluate(() => window.kreoda.coreInfo()),
         4000, "native coreInfo");
@@ -447,23 +637,40 @@ async function main() {
       [appPid, process.pid], result, "native", launchStartedAt, appPid);
     nativePid = core.pid;
     result.checks.push({ name: "actual-packaged-OCCT-child", pass: true });
-    const initial = await bounded(page.evaluate(() => window.__kreoda_test?.snapshot()),
-      8000, "empty native CAD snapshot");
-    assert(initial && Array.isArray(initial.bodies) && initial.bodies.length === 0,
-      "new project already contains solids; cannot capture unambiguous before-frame");
-    await delay(300);
-    const a = await captureActualCanvas(app, page, path.join(proofDir, "before-a.png"));
-    await delay(250);
-    const b = await captureActualCanvas(app, page, path.join(proofDir, "before-b.png"));
-    result.files.push({ name: a.file, pngSha256: a.pngSha256, bytes: a.bytes },
-      { name: b.file, pngSha256: b.pngSha256, bytes: b.bytes });
+    result.stage = "stable-empty-cad-baseline";
+    await until(async () => {
+      const state = await uiState(page);
+      result.lastUiState = state;
+      return !state.homeVisible && state.workspaceVisible && state.canvasVisible &&
+        !state.onboardingVisible && state.modalCount === 0 &&
+        state.modalOverlayCount === 0 && state.nativeBodies === 0;
+    }, "fully rendered empty CAD workspace without HOME/onboarding/modal", 20_000);
+    const [a, b] = await settledCanvasPair(app, page, proofDir, result, "baseline", 0);
+    copyEvidence(a, path.join(proofDir, "before-a.png"), result);
+    copyEvidence(b, path.join(proofDir, "before-b.png"), result);
     result.before = { ...b.stats, dom: b.dom };
+    result.checks.push({ name: "stable-real-grid-baseline-without-home-onboarding-modal", pass: true });
     // Real UI operations, identical to existing packaged smoke and E2E helpers.
+    result.stage = "create-real-native-box-and-close-entire-dialog";
     await page.getByRole("button", { name: "Add", exact: true }).click({ timeout: 8000 });
     await page.getByRole("button", { name: /Add box/ }).click({ timeout: 8000 });
-    await page.getByRole("button", { name: "Create", exact: true }).click({ timeout: 10_000 });
-    await page.getByRole("button", { name: "Create", exact: true })
-      .waitFor({ state: "hidden", timeout: 8000 });
+    // The button changes its label from Create to Building... during native
+    // work; waiting for the Create *button* to disappear was a false success.
+    const addBoxDialog = page.getByRole("dialog", { name: /Add box/i });
+    await addBoxDialog.waitFor({ state: "visible", timeout: 10_000 });
+    await addBoxDialog.getByRole("button", { name: "Create", exact: true })
+      .click({ timeout: 10_000 });
+    await addBoxDialog.waitFor({ state: "hidden", timeout: 45_000 });
+    result.addBoxDialog = "entire-radix-dialog-closed-after-native-submit";
+    await until(async () => {
+      const status = await uiState(page);
+      result.lastUiState = status;
+      return status.workspaceVisible && !status.homeVisible &&
+        !status.onboardingVisible && status.modalCount === 0 &&
+        status.modalOverlayCount === 0 && status.nativeBodies === 1;
+    }, "box dialog fully gone and exactly one CAD body present", 20_000);
+    await ensureClearWorkspace(page, 1, result);
+    result.stage = "verify-real-native-brep";
     const snapshot = await until(async () => {
       const value = await bounded(page.evaluate(() => window.__kreoda_test?.snapshot()),
         5000, "post-add native scene snapshot");
@@ -479,26 +686,33 @@ async function main() {
     const expectedVolume = body.paramsMm.reduce((product, value) => product * value, 1);
     assert(Math.abs(body.volumeMm3 - expectedVolume) <=
       Math.max(0.01, expectedVolume * 1e-6), "OCCT BRep volume contradicts actual box dimensions");
-    await delay(450);
-    const after = await captureActualCanvas(app, page, path.join(proofDir, "after.png"));
-    result.files.push({ name: after.file, pngSha256: after.pngSha256, bytes: after.bytes });
+    result.stage = "stable-post-box-compositor";
+    const [, after] = await settledCanvasPair(app, page, proofDir, result, "post-box", 1);
+    copyEvidence(after, path.join(proofDir, "after.png"), result);
     result.after = { ...after.stats, dom: after.dom };
     result.geometry = { bodyId: body.id, triangles: body.triangles, volumeMm3: body.volumeMm3,
       dimensionsMm: body.paramsMm, revision: snapshot.revision, geometryCurrent: body.geometryCurrent ?? null };
-    result.raster = evidenceOfPixels(a, b, after);
+    result.stage = "pixel-delta-and-central-roi";
+    result.raster = evidenceOfPixels(a, b, after, result);
+    result.raster.postBoxSettlement = result.settlement["post-box"].finalDrift;
     result.checks.push({ name: "real-native-OCCT-box-triangles-volume", pass: true },
       { name: "actual-webgl2-compositor-before-after-pixels", pass: true });
+    result.stage = "passed-all-real-geometry-and-raster-gates";
     result.status = "PASS_PACKAGED_REAL_OCCT_VISIBLE_CANVAS_PIXELS_HIDDEN_WINDOW";
   } catch (error) {
     failure = error;
     result.error = { kind: error?.name ?? "Error",
       message: String(error?.message ?? error).slice(0, 600) };
+    if (page) {
+      try { result.failureUiState = await uiState(page); }
+      catch { result.failureUiState = { available: false }; }
+    }
   } finally {
     if (app) {
       try { await bounded(app.close(), 15_000, "close exact owned Electron"); }
       catch (error) {
         result.shutdownError = String(error?.message ?? error).slice(0, 250);
-        app.process()?.kill(); // OUR launched PID only; never Stop-Process by image name.
+        terminateAttestedElectronIfUnchanged(result.ownedElectron, gate.exe, result);
       }
     }
     try {

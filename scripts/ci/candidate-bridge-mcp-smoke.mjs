@@ -100,6 +100,103 @@ function ownedImage(pid, expectedPath, parentPid = null) {
     same(data.ExecutablePath, expectedPath), "unexpected process identity or ancestry");
   return { pid, actualParentPid: data.ParentProcessId, exactImage: true };
 }
+function win32Process(pid) {
+  check(Number.isInteger(pid) && pid > 0, "Win32 process PID unavailable");
+  const record = JSON.parse(powershell(`$p=Get-CimInstance Win32_Process -Filter 'ProcessId = ${pid}'; if (-not $p) { exit 43 }; $p | Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine,@{Name='CreationUtc';Expression={$_.CreationDate.ToUniversalTime().ToString('o')}} | ConvertTo-Json -Compress`));
+  check(record?.ProcessId === pid && Number.isInteger(record.ParentProcessId) &&
+    typeof record.ExecutablePath === "string" && record.ExecutablePath.length > 0 &&
+    typeof record.CreationUtc === "string" && !Number.isNaN(Date.parse(record.CreationUtc)),
+  "Win32 process identity unavailable");
+  return record;
+}
+function electronAncestry(launcherPid, mainPid, profile) {
+  check(Number.isInteger(launcherPid) && launcherPid > 0 &&
+    Number.isInteger(mainPid) && mainPid > 0 && mainPid !== process.pid,
+  "Playwright launcher or actual Electron main PID missing");
+  const systemRoot = process.env.SystemRoot ?? process.env.WINDIR;
+  check(typeof systemRoot === "string" && path.win32.isAbsolute(systemRoot),
+    "trusted Windows system root unavailable");
+  const trustedShells = [path.win32.join(systemRoot, "System32", "cmd.exe"),
+    path.win32.join(systemRoot, "SysWOW64", "cmd.exe")];
+  const main = win32Process(mainPid);
+  check(main.Name?.toLowerCase() === "kreoda.exe" && same(main.ExecutablePath, exe),
+    "Electron main process differs from exact packaged Kreoda.exe");
+  pin(main.ExecutablePath, hashes.exe);
+  let current = main;
+  let launcherFound = launcherPid === mainPid;
+  let shellCommandVerified = false;
+  const ancestry = [{ pid: mainPid, parentPid: main.ParentProcessId, image: "Kreoda.exe" }];
+  const visited = new Set([mainPid]);
+  for (let hop = 0; current.ProcessId !== process.pid && hop < 4; hop++) {
+    const parentPid = current.ParentProcessId;
+    check(Number.isInteger(parentPid) && parentPid > 0 && !visited.has(parentPid),
+      "Electron launcher ancestry is missing or circular");
+    const parent = win32Process(parentPid);
+    visited.add(parentPid);
+    if (parentPid === process.pid) {
+      check(parent.Name?.toLowerCase() === path.win32.basename(process.execPath).toLowerCase() &&
+        same(parent.ExecutablePath, process.execPath),
+      "Electron ancestry does not terminate at exact test Node process");
+    } else {
+      check(parent.Name?.toLowerCase() === "cmd.exe" &&
+        trustedShells.some(shell => same(shell, parent.ExecutablePath)),
+      "foreign Win32 process in Playwright Electron ancestry");
+      const command = String(parent.CommandLine ?? "").toLowerCase();
+      if (command.includes(exe.toLowerCase()) && command.includes(profile.toLowerCase()) &&
+          command.includes("--user-data-dir=")) shellCommandVerified = true;
+    }
+    if (parentPid === launcherPid) launcherFound = true;
+    ancestry.push({ pid: parentPid, parentPid: parent.ParentProcessId,
+      image: parentPid === process.pid ? "test-node" : "cmd.exe" });
+    current = parent;
+  }
+  check(current.ProcessId === process.pid && launcherFound,
+    "Playwright launcher not in bounded owned Electron ancestry");
+  check((ancestry.length === 2 && launcherPid === mainPid) || shellCommandVerified,
+    "trusted Windows shell command did not identify exact packaged EXE and profile");
+  return { pid: mainPid, playwrightLauncherPid: launcherPid,
+    parentPid: main.ParentProcessId, exactImage: true,
+    executableSha256: hashes.exe, creationUtc: main.CreationUtc, ancestry };
+}
+function terminateAuthenticatedElectron(owner) {
+  check(owner?.exactImage === true && owner.executableSha256 === hashes.exe &&
+    Number.isInteger(owner.pid) && typeof owner.creationUtc === "string",
+  "cannot terminate Electron without previously authenticated owner and creation time");
+  const live = win32Process(owner.pid);
+  check(live.CreationUtc === owner.creationUtc && live.Name?.toLowerCase() === "kreoda.exe" &&
+    same(live.ExecutablePath, exe), "Electron PID was reused or identity changed; no termination");
+  pin(live.ExecutablePath, hashes.exe);
+  const image = `'${exe.replaceAll("'", "''")}'`;
+  const creation = `'${owner.creationUtc.replaceAll("'", "''")}'`;
+  // Use one live .NET Process handle to check image/time and kill the exact
+  // authenticated main process, never Playwright's cmd.exe launch wrapper.
+  powershell(`$p=[System.Diagnostics.Process]::GetProcessById(${owner.pid}); if ($p.StartTime.ToUniversalTime().ToString('o') -ne ${creation}) { exit 78 }; if (-not [string]::Equals($p.MainModule.FileName, ${image}, [StringComparison]::OrdinalIgnoreCase)) { exit 79 }; if ((Get-FileHash -LiteralPath $p.MainModule.FileName -Algorithm SHA256).Hash.ToLowerInvariant() -ne '${hashes.exe}') { exit 80 }; $p.Kill(); 'VERIFIED_MAIN_TERMINATED'`);
+}
+function safeAncestryDiagnostic(pid, launcherPid) {
+  const observed = [], visited = new Set();
+  let current = pid;
+  for (let depth = 0; depth < 5 && Number.isInteger(current) && current > 0 &&
+    !visited.has(current); depth++) {
+    visited.add(current);
+    try {
+      const record = win32Process(current);
+      observed.push({ pid: current, parentPid: record.ParentProcessId,
+        image: path.win32.basename(record.ExecutablePath).slice(0, 48) });
+      if (current === process.pid) break;
+      current = record.ParentProcessId;
+    } catch { observed.push({ pid: current, unavailable: true }); break; }
+  }
+  return { electronMainPid: pid ?? null, playwrightLauncherPid: launcherPid ?? null,
+    testNodePid: process.pid, observed };
+}
+function safeFailureMessage(error) {
+  const message = String(error?.message ?? "");
+  if (message.startsWith("BRIDGE_MCP_BLOCKED: "))
+    return message.slice("BRIDGE_MCP_BLOCKED: ".length, "BRIDGE_MCP_BLOCKED: ".length + 180)
+      .replace(/[\\\r\n]/g, "_");
+  if (/^timeout: [\w ./-]{1,100}$/.test(message)) return message;
+  return "unclassified error; inspect failing stage (details redacted)";
+}
 function safePublishedPath(relativeName) {
   check(typeof relativeName === "string" && relativeName.length > 0 &&
     !path.isAbsolute(relativeName) && !relativeName.startsWith("\\") &&
@@ -176,7 +273,7 @@ function probeRun(env, scenario, dotnetExe, children, expectFailure = false) {
   children.push(run);
   const outcome = new Promise((resolve, reject) => {
     let output = "";
-    let diagnosticsBytes = 0;
+    let diagnostics = "", diagnosticsBytes = 0;
     let settled = false;
     const timer = setTimeout(() => { run.kill(); finish(false, Error("Release MCP probe deadline")); }, 45_000);
     function finish(ok, value) {
@@ -191,14 +288,24 @@ function probeRun(env, scenario, dotnetExe, children, expectFailure = false) {
     });
     run.stderr.on("data", bytes => {
       diagnosticsBytes += bytes.length;
+      diagnostics += String(bytes);
       if (diagnosticsBytes > 128 * 1024) { run.kill(); finish(false, Error("probe stderr limit")); }
     });
     run.once("error", () => finish(false, Error("Release MCP probe spawn failed")));
     run.once("exit", (code, signal) => {
       if (expectFailure) {
-        if (code !== null && code !== 0 && signal === null)
-          finish(true, { expectedDenial: true, nonzeroExitCode: code });
-        else finish(false, Error("revoked Bridge device still reached MCP describe_model"));
+        // Official .NET SDK probe throws on an actual MCP tool IsError result.
+        // An arbitrary nonzero code (crash, transport failure, missing DLL)
+        // is NOT evidence of device revocation. Do not log raw stderr/secrets.
+        const marker = diagnostics.match(/kreoda_(?:query|describe_model) returned a tool error:\s*(\{[^\r\n]{1,4096}\})/);
+        let denial;
+        try { denial = marker ? JSON.parse(marker[1]) : null; } catch { denial = null; }
+        if (code !== null && code !== 0 && signal === null && !output.trim() &&
+          diagnostics.includes("System.InvalidOperationException:") &&
+          denial?.status === "error" &&
+          ["UNAUTHORIZED", "NOT_CONNECTED"].includes(denial.errorCode))
+          finish(true, { expectedDenial: true, denialCode: denial.errorCode, nonzeroExitCode: code });
+        else finish(false, Error("revocation lacked official SDK MCP authenticated-denial marker"));
       } else if (code !== 0 || signal !== null)
         finish(false, Error("Release MCP probe failed; tool/transport contract did not pass"));
       else {
@@ -241,9 +348,11 @@ async function main() {
     packagedNativeSha256: hashes.native, packagedAsarSha256: hashes.asar,
     publishedBridgeSha256: hashes.bridge, probeReleaseDllSha256: probeSha, tests: [] };
   const children = [];
-  let app, error, corePid;
+  let app, error, corePid, authenticatedElectron;
+  let stage = "foreign-owner-preflight";
   try {
     foreignOwnerGuard();
+    stage = "isolated-profile-and-dependencies";
     const env = { ...process.env, KREODA_BACKGROUND_TEST: "1",
       KREODA_RECOVERY_DIR: path.join(profile, "recovery"),
       KREODA_PLUGINS_DIR: path.join(profile, "plugins"),
@@ -259,13 +368,23 @@ async function main() {
     fs.mkdirSync(env.LOCALAPPDATA);
     const requireDesktop = createRequire(path.join(root, "apps", "desktop", "package.json"));
     const { _electron: electron } = requireDesktop("@playwright/test");
+    stage = "launch-original-packaged-electron";
     app = await bounded(electron.launch({ executablePath: exe,
       args: ["--no-sandbox", "--lang=en-US", "--start-hidden", `--user-data-dir=${profile}`],
       env, timeout: 40_000 }), 50_000, "launch original packaged Electron");
-    const electronPid = app.process()?.pid;
-    // Playwright may interpose a Windows spawn wrapper. Its returned PID is
-    // the owned launch handle; authenticate its executable bytes/path here.
-    const electronImage = ownedImage(electronPid, exe);
+    const launcherPid = app.process()?.pid;
+    stage = "electron-main-pid-and-bounded-playwright-ancestry";
+    const mainPid = await bounded(app.evaluate(() => process.pid), 10_000,
+      "actual packaged Electron main PID");
+    let electronImage;
+    try {
+      electronImage = electronAncestry(launcherPid, mainPid, profile);
+      authenticatedElectron = electronImage;
+    } catch (ancestryError) {
+      report.ancestryDiagnostic = safeAncestryDiagnostic(mainPid, launcherPid);
+      throw ancestryError;
+    }
+    stage = "packaged-asar-hidden-profile-identity";
     const identity = await bounded(app.evaluate(({ app, BrowserWindow }) => ({
       packaged: app.isPackaged, executable: process.execPath, appPath: app.getAppPath(),
       resources: process.resourcesPath, profile: app.getPath("userData"),
@@ -275,16 +394,18 @@ async function main() {
       same(identity.appPath, appAsar) && same(identity.resources, resources) &&
       same(identity.profile, profile) && identity.visibleWindows === 0,
     "packaged app identity, profile, or hidden window not authentic");
+    stage = "packaged-renderer-and-native-core";
     const page = await bounded(app.firstWindow({ timeout: 30_000 }), 35_000, "packaged renderer");
     const core = await until(async () => {
       const value = await page.evaluate(() => window.kreoda.coreInfo());
       return value?.running && value.pid > 0 ? value : null;
     }, "real packaged OCCT process");
     corePid = core.pid;
-    const coreImage = ownedImage(core.pid, nativeExe, electronPid);
+    const coreImage = ownedImage(core.pid, nativeExe, mainPid);
     report.tests.push({ name: "exact-hidden-packaged-Electron-real-OCCT", pass: true,
       electronImage, coreImage });
 
+    stage = "enable-private-ws-and-session-pair";
     const listener = await bounded(page.evaluate(() => window.kreoda.sessionEnable("127.0.0.1", 0)),
       10_000, "enable private WS session");
     const sessionPort = listener?.listener?.port;
@@ -301,6 +422,7 @@ async function main() {
       KREODA_CAD_SESSION_URL: `ws://127.0.0.1:${sessionPort}/`,
       KREODA_CAD_PAIR: pair.token, KREODA_CAD_DEVICE_FILE: deviceFile,
       KREODA_MCP_PROBE_URL: bridgeUrl + "/mcp" };
+    stage = "published-bridge-process-and-health";
     const bridge = spawn(bridgeExe, [], { cwd: bridgeDir, windowsHide: true,
       env: bridgeEnv, stdio: ["ignore", "ignore", "ignore"] });
     children.push(bridge);
@@ -335,6 +457,7 @@ async function main() {
       }
       return outcome;
     };
+    stage = "official-http-mcp-empty-describe-and-catalog";
     const before = await run("mcp-inspect");
     check(before.scenario === "mcp-inspect" && before.status === "inspected" &&
       before.requestActive === false && before.features === 0 &&
@@ -349,6 +472,7 @@ async function main() {
       baseline: { features: before.features, bodies: before.bodies, sketches: before.sketches },
       pairedDevicePersisted: true });
 
+    stage = "official-http-mcp-createbox-commit-volume";
     const created = await run(""); // McpProbe default: official HTTP MCP CreateBox/commit/query.
     check(Array.isArray(created.passed) && created.passed.length === 3 &&
       created.passed.includes("native-canonical-checked-transaction") &&
@@ -357,9 +481,11 @@ async function main() {
       Math.abs(created.measuredVolumeMm3 - 100_000) <= 0.01 &&
       created.solidCount === 1,
     "official HTTP MCP native CreateBox/commit/measurement proof failed");
+    stage = "official-http-mcp-postcommit-describe";
     const after = await run("mcp-inspect");
     check(after.status === "inspected" && after.features === 1 && after.bodies === 1 &&
       after.requestActive === false, "MCP commit not visible through describe_model");
+    stage = "packaged-renderer-observes-mcp-native-solid";
     const observed = await until(async () => {
       const snap = await page.evaluate(() => window.__kreoda_test?.snapshot());
       const body = snap?.bodies?.find(b => b.id === created.featureId);
@@ -370,14 +496,45 @@ async function main() {
       featureId: created.featureId, finalRevision: created.finalRevision,
       volumeMm3: created.measuredVolumeMm3, triangles: observed.bodies[0].triangles });
 
+    stage = "desktop-undo-mcp-created-solid";
     const home = page.getByTestId("home-new-project");
-    if (await home.isVisible()) await home.click();
+    await home.waitFor({ state: "visible", timeout: 15_000 });
+    await home.click({ timeout: 8_000 });
     await page.getByTestId("workspace-chrome").waitFor({ state: "visible", timeout: 15_000 });
+    await page.getByTestId("home-screen").waitFor({ state: "hidden", timeout: 12_000 });
+    const onboarding = page.getByTestId("onboarding");
+    if (await onboarding.isVisible()) {
+      // Real first-run UI control, never a synthetic storage/DOM bypass.
+      await onboarding.getByRole("button", { name: "Dismiss", exact: true })
+        .click({ timeout: 8_000 });
+      report.onboarding = "dismissed-through-real-ui";
+    } else report.onboarding = "not-shown-after-MCP-CreateBox";
+    await onboarding.waitFor({ state: "hidden", timeout: 12_000 });
+    // A modal (including an unfinished Add box / Building... dialog) must
+    // actually be absent before using the real command dock for Undo.
+    await until(async () => {
+      const ui = await bounded(page.evaluate(() => {
+        const visible = element => !!element && element.getClientRects().length > 0 &&
+          getComputedStyle(element).visibility !== "hidden";
+        const countVisible = selector =>
+          [...document.querySelectorAll(selector)].filter(visible).length;
+        return { home: countVisible('[data-testid="home-screen"]'),
+          workspace: countVisible('[data-testid="workspace-chrome"]'),
+          onboarding: countVisible('[data-testid="onboarding"]'),
+          dialogs: countVisible('[role="dialog"]'),
+          modalOverlays: countVisible('[data-radix-dialog-overlay]'),
+          bodies: window.__kreoda_test?.snapshot?.().bodies?.length ?? null };
+      }), 5_000, "sanitized actual workspace modal state");
+      return ui.home === 0 && ui.workspace === 1 && ui.onboarding === 0 &&
+        ui.dialogs === 0 && ui.modalOverlays === 0 && ui.bodies === 1 ? true : null;
+    }, "fully settled CAD workspace without onboarding or Building dialog", 15_000);
+    await page.getByTestId("command-input").waitFor({ state: "visible", timeout: 8_000 });
     await runBar(page, "undo");
     const undone = await until(async () => {
       const snap = await page.evaluate(() => window.__kreoda_test?.snapshot());
       return snap?.bodies?.length === 0 && snap?.revision > created.finalRevision ? snap : null;
     }, "packaged Desktop Undo removes MCP-created body", 25_000);
+    stage = "official-http-mcp-postundo-describe";
     const undoneMcp = await run("mcp-inspect");
     check(undoneMcp.bodies === 0 && undoneMcp.features === 0 &&
       undoneMcp.requestActive === false,
@@ -385,30 +542,42 @@ async function main() {
     report.tests.push({ name: "Desktop-Undo-shared-MCP-document-revision", pass: true,
       afterUndoRevision: undone.revision, bodyCount: undoneMcp.bodies });
 
+    stage = "revoke-bridge-session-device";
     await bounded(page.evaluate(id => window.kreoda.sessionRevoke(id), device.deviceId),
       10_000, "revoke real Bridge device");
+    stage = "official-http-mcp-postrevocation-denial";
     const revoked = await run("mcp-inspect", true);
-    check(revoked.expectedDenial === true, "MCP device was still authenticated after revoke");
+    check(revoked.expectedDenial === true, "revocation lacks authenticated MCP denial proof");
     const stillListening = await fetch(bridgeUrl + "/health", { signal: AbortSignal.timeout(1500) });
     check(stillListening.ok && (await stillListening.json()).mcp === true,
       "Bridge exited; cannot attribute MCP denial to revocation");
-    report.tests.push({ name: "Desktop-revoke-denies-Bridge-MCP-describe_model", pass: true,
-      deniedWithNonzeroExit: true });
+    report.tests.push({ name: "Desktop-revoke-denies-Bridge-MCP-CAD-tool", pass: true,
+      deniedWithNonzeroExit: true, authenticatedDenialCode: revoked.denialCode });
+    stage = "disable-private-session";
     await bounded(page.evaluate(() => window.kreoda.sessionDisable()),
       10_000, "disable disposable CAD session");
     report.status = "PASS_EXACT_PACKAGED_HTTP_MCP_NATIVE_UNDO_REVOKE";
   } catch (failure) {
     error = failure;
     // Never persist or print pairing secrets, device credential, or .NET stderr.
-    report.failure = { step: report.tests.length, kind: failure?.name ?? "Error",
-      reason: "Bounded packaged HTTP MCP acceptance failed; inspect source step and hosted test logs" };
+    report.failure = { stage, completedTests: report.tests.length,
+      kind: /^(Error|TypeError|RangeError|SyntaxError)$/.test(failure?.name ?? "") ? failure.name : "Error",
+      reason: safeFailureMessage(failure) };
   } finally {
     for (const child of children) if (child && child.exitCode === null &&
       child.signalCode === null && !child.killed) child.kill();
     if (app) {
       try { await bounded(app.close(), 12_000, "close owned packaged Electron"); }
-      catch { app.process()?.kill(); report.status = "FAIL_OR_BLOCKED";
-        report.shutdownError = "owned Electron did not close cleanly";
+      catch {
+        report.status = "FAIL_OR_BLOCKED";
+        report.shutdownError = "owned Electron did not close cleanly; exact main PID fallback required";
+        try {
+          if (!authenticatedElectron) fail("no authenticated main PID for fallback");
+          terminateAuthenticatedElectron(authenticatedElectron);
+          report.shutdownFallback = "terminated-reverified-authenticated-electron-main-only";
+        } catch {
+          report.shutdownFallback = "blocked-no-exact-live-identity-proof; no unverified process killed";
+        }
         error ??= Error("owned Electron shutdown failed"); }
     }
     try { await releaseChildren(children); }
