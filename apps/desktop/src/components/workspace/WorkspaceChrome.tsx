@@ -233,7 +233,7 @@ export function WorkspaceChrome({
       )}
       {propsOpen && (
         <div
-          className="kreoda-float-elevated absolute bottom-4 right-3 top-[68px] z-30 flex w-72 flex-col p-2"
+          className="kreoda-float-elevated absolute bottom-4 right-3 top-[68px] z-40 flex w-72 flex-col p-2"
           data-testid="properties-drawer"
           role="complementary"
           aria-label={t("common.properties")}
