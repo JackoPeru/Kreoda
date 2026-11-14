@@ -2,8 +2,9 @@
 // This script does not launch Kreoda and never rewrites the package or its manifest.
 // Usage: node scripts/ci/prepare-integrated-candidate-smoke.mjs <bundle.zip> <verification.json>
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { createReadStream } from "node:fs";
-import { copyFile, lstat, mkdir, readFile, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const CANDIDATE_SHA = "036cff37ed0b5850926224cb0afc75a159a558897d77ffc1f74e314bccf85b1d";
@@ -83,15 +84,19 @@ async function main() {
     (await sha256(path.join(portable, "resources", "app.asar"))) === ORIGINAL_ASAR_SHA,
     "packaged native core or ASAR changed");
 
-  const originalSmoke = path.join(root, "scripts", "ci", "candidate-portable-smoke.mjs");
-  assert((await sha256(originalSmoke)) === SMOKE_SHA, "smoke test script was altered");
+  // Git for Windows may translate LF to CRLF on checkout. Do not accept an
+  // arbitrary on-disk copy: restore the ORIGINAL byte-pinned Git blob instead.
+  const smokeBlob = execFileSync("git", ["show", "HEAD:scripts/ci/candidate-portable-smoke.mjs"],
+    { cwd: root, encoding: "buffer", maxBuffer: 2_000_000 });
+  assert(createHash("sha256").update(smokeBlob).digest("hex") === SMOKE_SHA,
+    "original committed smoke test script SHA changed");
   const smokeLocation = path.join(evidence, "scripts", "smoke-portable.mjs");
   const smokeManifestPath = path.join(evidence, "hosted-smoke-manifest.json");
   const pathsJson = path.join(root, ".codex", "paths.json");
   await mkdir(path.dirname(smokeLocation), { recursive: true });
   await mkdir(path.dirname(pathsJson), { recursive: true });
   await mkdir(path.join(root, ".codex", "tmp"), { recursive: true });
-  await copyFile(originalSmoke, smokeLocation);
+  await writeFile(smokeLocation, smokeBlob, { flag: "wx" });
   assert((await sha256(smokeLocation)) === SMOKE_SHA, "staged smoke script changed");
 
   // New *host-only* manifest points to the unchanged extracted files. Never modify
