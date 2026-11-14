@@ -260,9 +260,17 @@ jobs:
           }
           'NEW z40 156/156 files and exact EXE/ASAR/OCCT/Bridge/Quest accepted for testing.'
 
+      - name: Reject false, unchanged, unstable and noisy CPU raster witnesses
+        id: raster-negative
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          node scripts/ci/candidate-z40-interference-packaged-smoke.mjs '--pixel-negative-selftest'
+          if ($LASTEXITCODE -ne 0) { throw 'Bounded compositor raster negative tests failed' }
+
       - name: Run REAL packaged 1008px z40 UI/OCCT/ICAD smoke
         id: packaged-smoke
-        if: steps.verify-bundle.outcome == 'success'
+        if: steps.verify-bundle.outcome == 'success' && steps.raster-negative.outcome == 'success'
         continue-on-error: true
         timeout-minutes: 12
         shell: pwsh
@@ -340,12 +348,28 @@ jobs:
             throw 'Actual post-Undo z40/dock overlap and unforced hit-tested click not proven'
           }
           $screenshots = @($r.screenshots)
-          if ($screenshots.Count -ne 2) { throw 'Missing two actual new packaged PNG screenshots' }
+          if ($screenshots.Count -ne 3) { throw 'Missing three actual new packaged A/B/A PNG screenshots' }
+          $expectedPngs = @(
+            'actual-packaged-before-Undo-overlap500-1008x655.png',
+            'actual-packaged-after-Undo-zero-1008x655.png',
+            'actual-packaged-after-Redo-restored-1008x655.png'
+          )
+          if (@($screenshots | ForEach-Object { $_.filename } | Sort-Object) -join '|' -cne
+              (@($expectedPngs | Sort-Object) -join '|')) {
+            throw 'A/B/A geometry screenshots missing or duplicated'
+          }
           foreach ($s in $screenshots) {
             $name = [string]$s.filename
             $file = Join-Path (Split-Path -Parent $receipts[0].FullName) $name
             if ($name -cnotmatch '^actual-packaged-[A-Za-z0-9-]+-1008x655[.]png$' -or
                 $s.width -ne 1008 -or $s.height -ne 655 -or
+                $s.evidence -cne 'stable-hidden-packaged-native-BGRA-and-PNG' -or
+                $s.materialPixelDeltaVerified -ne $true -or
+                [int]$s.stablePair.attempt -lt 1 -or [int]$s.stablePair.attempt -gt 4 -or
+                [int]$s.stablePair.translatedFaceStrongDelta -lt 0 -or
+                [int]$s.stablePair.translatedFaceStrongDelta -gt 8 -or
+                [int]$s.stablePair.gridControlStrongDelta -lt 0 -or
+                [int]$s.stablePair.gridControlStrongDelta -gt 8 -or
                 [long]$s.bytes -lt 1000 -or
                 [string]$s.sha256 -notmatch '^[0-9a-fA-F]{64}$' -or
                 -not (Test-Path -LiteralPath $file -PathType Leaf) -or
@@ -354,6 +378,84 @@ jobs:
               throw 'Actual packaged screenshot missing, mismatched or not immutable'
             }
           }
+          $proof = $r.pixelProof
+          if ($null -eq $proof -or $proof.materialPixelDeltaVerified -ne $true -or
+              $proof.method -cne 'three-stable-packaged-compositor-BGRA-native-geometry-A-B-A' -or
+              $proof.blueChannel -cne 'BGRA[0]>=70, BGRA[0]>=G+15 and >=R+30' -or
+              $proof.strongDeltaThresholdL1 -ne 60 -or
+              $proof.translatedFaceRoi.left -ne 546 -or $proof.translatedFaceRoi.top -ne 316 -or
+              $proof.translatedFaceRoi.right -ne 569 -or $proof.translatedFaceRoi.bottom -ne 350 -or
+              $proof.gridControlRoi.left -ne 375 -or $proof.gridControlRoi.top -ne 290 -or
+              $proof.gridControlRoi.right -ne 470 -or $proof.gridControlRoi.bottom -ne 370 -or
+              (@($proof.nativeBodyCounts) -join ',') -cne '2,1,2' -or
+              $proof.restoredRealUiSelection -ne $true -or
+              $proof.nativeRevisions.before -ne @($r.tests | Where-Object { $_.name -ceq 'real-native-instance-plus5-1000mm3' })[0].revision -or
+              $proof.nativeRevisions.undo -ne @($r.tests | Where-Object { $_.name -ceq 'real-commandbar-Undo-removes-translated-OCCT-instance' })[0].revision -or
+              $proof.nativeRevisions.redo -ne @($r.tests | Where-Object { $_.name -ceq 'real-Redo-ICAD-save-open-restores-overlap-500' })[0].redoneRevision) {
+            throw 'Real OCCT revision-correlated A/B/A material pixel proof absent'
+          }
+          # Independently decode the actual immutable PNG bytes: JSON-only
+          # claims cannot make a blank, noisy or UI-contaminated image pass.
+          Add-Type -AssemblyName System.Drawing
+          $dir = Split-Path -Parent $receipts[0].FullName
+          $a = [System.Drawing.Bitmap]::FromFile((Join-Path $dir $expectedPngs[0]))
+          $b = [System.Drawing.Bitmap]::FromFile((Join-Path $dir $expectedPngs[1]))
+          $c = [System.Drawing.Bitmap]::FromFile((Join-Path $dir $expectedPngs[2]))
+          function Measure-Pixels($first, $second, $roi) {
+            $pixels = 0; $blueA = 0; $blueB = 0; $blueGone = 0; $blueAdded = 0; $strongDelta = 0
+            for ($y = [int]$roi.top; $y -lt [int]$roi.bottom; $y++) {
+              for ($x = [int]$roi.left; $x -lt [int]$roi.right; $x++) {
+                $v = $first.GetPixel($x,$y); $w = $second.GetPixel($x,$y)
+                $vb = $v.B -ge 70 -and $v.B -ge ($v.G+15) -and $v.B -ge ($v.R+30)
+                $wb = $w.B -ge 70 -and $w.B -ge ($w.G+15) -and $w.B -ge ($w.R+30)
+                $pixels++
+                if ($vb) { $blueA++ }
+                if ($wb) { $blueB++ }
+                if ($vb -and -not $wb) { $blueGone++ }
+                if (-not $vb -and $wb) { $blueAdded++ }
+                $rgbL1 = [math]::Abs([int]$v.R-[int]$w.R) +
+                  [math]::Abs([int]$v.G-[int]$w.G) +
+                  [math]::Abs([int]$v.B-[int]$w.B)
+                if ($rgbL1 -ge 60) { $strongDelta++ }
+              }
+            }
+            return [pscustomobject]@{ pixels=$pixels; blueA=$blueA; blueB=$blueB;
+              blueGone=$blueGone; blueAdded=$blueAdded; strongDelta=$strongDelta }
+          }
+          try {
+            foreach ($bitmap in @($a,$b,$c)) {
+              if ($bitmap.Width -ne 1008 -or $bitmap.Height -ne 655) {
+                throw 'Native compositor PNG not 1008x655'
+              }
+            }
+            $pairs = @{
+              lost = Measure-Pixels $a $b $proof.translatedFaceRoi
+              regained = Measure-Pixels $b $c $proof.translatedFaceRoi
+              returned = Measure-Pixels $a $c $proof.translatedFaceRoi
+              controlUndo = Measure-Pixels $a $b $proof.gridControlRoi
+              controlRedo = Measure-Pixels $b $c $proof.gridControlRoi
+              controlReturn = Measure-Pixels $a $c $proof.gridControlRoi
+            }
+            foreach ($pair in $pairs.Keys) {
+              foreach ($field in @('pixels','blueA','blueB','blueGone','blueAdded','strongDelta')) {
+                if ($pairs[$pair].$field -ne $proof.$pair.$field) {
+                  throw "PNG-computed $pair.$field disagrees with packaged native BGRA metric"
+                }
+              }
+            }
+            if ($pairs.lost.blueA -lt 150 -or $pairs.lost.blueB -gt 35 -or
+                $pairs.lost.blueGone -lt 140 -or $pairs.lost.strongDelta -lt 140 -or
+                $pairs.regained.blueA -gt 35 -or $pairs.regained.blueB -lt 150 -or
+                $pairs.regained.blueAdded -lt 140 -or $pairs.regained.strongDelta -lt 140 -or
+                $pairs.returned.strongDelta -gt 24 -or
+                $pairs.returned.blueGone -gt 20 -or $pairs.returned.blueAdded -gt 20 -or
+                $pairs.controlUndo.strongDelta -gt 16 -or
+                $pairs.controlRedo.strongDelta -gt 16 -or
+                $pairs.controlReturn.strongDelta -gt 16) {
+              throw 'PNG evidence fails native solids A/B/A disappearance/return or fixed camera control'
+            }
+          } finally { $a.Dispose(); $b.Dispose(); $c.Dispose() }
+          'NEW_Z40_GEOMETRY_PIXEL_PROOF=PASS'
           'NEW_Z40_RECEIPT_SHA256=' + (Get-FileHash -LiteralPath $receipts[0].FullName -Algorithm SHA256).Hash
 
       - name: REQUIRE every NEW z40 gate to pass (not workflow color)
@@ -362,6 +464,7 @@ jobs:
         run: |
           if ('${{ steps.download.outcome }}' -ne 'success' -or
               '${{ steps.verify-bundle.outcome }}' -ne 'success' -or
+              '${{ steps.raster-negative.outcome }}' -ne 'success' -or
               '${{ steps.packaged-smoke.outcome }}' -ne 'success' -or
               '${{ steps.functional-receipt.outcome }}' -ne 'success') {
             throw 'NEW Z40 REJECTED: draft, 156-entry verification, functional smoke or receipt did not PASS'

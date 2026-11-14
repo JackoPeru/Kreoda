@@ -121,7 +121,28 @@ test("pull face resizes solid in one undo step", async () => {
       const browserWindow = BrowserWindow.getAllWindows()[0];
       if (!browserWindow) throw new Error("Electron screenshot window missing");
       const visibleBefore = browserWindow.isVisible();
-      const image = await browserWindow.webContents.capturePage(undefined, { stayHidden: true });
+      // GH43586421382 trace: the drag, native Undo and renderedFrames poll
+      // passed; webContents.capturePage then hung until the whole 90s test
+      // timed out. Use the BrowserWindow.capturePage path proven by the
+      // passing phase15-interference E2E on this same hosted runner.
+      // A bounded warm-up and final frame must BOTH be real compositor
+      // captures. No synthetic image, forced visibility or timeout increase.
+      const captureFrame = async () => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          return await Promise.race([
+            browserWindow.capturePage(undefined, { stayHidden: true }),
+            new Promise<never>((_, reject) => {
+              timer = setTimeout(() =>
+                reject(new Error("hidden BrowserWindow compositor capture stalled")), 10000);
+            }),
+          ]);
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      };
+      await captureFrame();
+      const image = await captureFrame();
       const { width, height } = image.getSize();
       return {
         png: image.toPNG().toString("base64"),

@@ -222,6 +222,128 @@ function preflight() {
   return { release, exe, asar, core, portable, resources };
 }
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Pinned to the observed GH43585030962 compositor geometry (1008x655).
+// The translated +5mm native box exposes its right face in this strip. The
+// dimension chip ends above y=316; drawer starts beyond x=708; dock is below
+// y=561. A separate unchanged grid patch detects camera/frame drift. This is
+// a narrow source-correlated claim, not a general visual-quality assertion.
+const raster = Object.freeze({
+  width: 1008, height: 655,
+  translatedFace: Object.freeze({ left: 546, top: 316, right: 569, bottom: 350 }),
+  gridControl: Object.freeze({ left: 375, top: 290, right: 470, bottom: 370 }),
+});
+const bitmapBytes = raster.width * raster.height * 4;
+function pixelStats(a, b, roi) {
+  check(Buffer.isBuffer(a) && Buffer.isBuffer(b) &&
+    a.length === bitmapBytes && b.length === bitmapBytes,
+  "invalid 1008x655 BGRA native compositor bitmap");
+  const result = { pixels: 0, blueA: 0, blueB: 0, blueGone: 0,
+    blueAdded: 0, strongDelta: 0 };
+  // Electron/Windows nativeImage.toBitmap() uses BGRA bytes.
+  const blue = (v, offset) => v[offset] >= 70 &&
+    v[offset] >= v[offset + 1] + 15 &&
+    v[offset] >= v[offset + 2] + 30;
+  for (let y = roi.top; y < roi.bottom; y++) {
+    for (let x = roi.left; x < roi.right; x++) {
+      const offset = (y * raster.width + x) * 4;
+      const aBlue = blue(a, offset), bBlue = blue(b, offset);
+      const sum = Math.abs(a[offset] - b[offset]) +
+        Math.abs(a[offset + 1] - b[offset + 1]) +
+        Math.abs(a[offset + 2] - b[offset + 2]);
+      result.pixels++;
+      result.blueA += Number(aBlue);
+      result.blueB += Number(bBlue);
+      result.blueGone += Number(aBlue && !bBlue);
+      result.blueAdded += Number(!aBlue && bBlue);
+      result.strongDelta += Number(sum >= 60);
+    }
+  }
+  return result;
+}
+function proveRaster(before, undone, restored, scene) {
+  const ids = bodies => bodies?.map(body => body.id).sort();
+  const sameIds = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  check(scene && scene.sourceId && scene.partId &&
+    scene.sourceId !== scene.partId &&
+    sameIds(ids(scene.before?.bodies), [scene.sourceId, scene.partId].sort()) &&
+    sameIds(ids(scene.undone?.bodies), [scene.sourceId]) &&
+    sameIds(ids(scene.redone?.bodies), [scene.sourceId, scene.partId].sort()) &&
+    sameIds(ids(scene.restored?.bodies), [scene.sourceId, scene.partId].sort()) &&
+    scene.before.revision < scene.undone.revision &&
+    scene.undone.revision < scene.redone.revision &&
+    Number.isInteger(scene.restored.revision) && scene.restored.revision >= 0 &&
+    sameIds([...scene.restored.selectedIds].sort(), [scene.sourceId, scene.partId].sort()),
+  "native A/B/A geometry or restored real UI selection does not match compositor phases");
+  const lost = pixelStats(before, undone, raster.translatedFace);
+  const regained = pixelStats(undone, restored, raster.translatedFace);
+  const returned = pixelStats(before, restored, raster.translatedFace);
+  const controlUndo = pixelStats(before, undone, raster.gridControl);
+  const controlRedo = pixelStats(undone, restored, raster.gridControl);
+  const controlReturn = pixelStats(before, restored, raster.gridControl);
+  check(lost.blueA >= 150 && lost.blueB <= 35 &&
+    lost.blueGone >= 140 && lost.strongDelta >= 140 &&
+    regained.blueA <= 35 && regained.blueB >= 150 &&
+    regained.blueAdded >= 140 && regained.strongDelta >= 140 &&
+    returned.strongDelta <= 24 && returned.blueGone <= 20 &&
+    returned.blueAdded <= 20 &&
+    [controlUndo, controlRedo, controlReturn].every(value => value.strongDelta <= 16),
+  "native +5mm solid must disappear on Undo and return on Redo in stable compositor pixels; camera/grid must remain fixed");
+  return { materialPixelDeltaVerified: true,
+    method: "three-stable-packaged-compositor-BGRA-native-geometry-A-B-A",
+    translatedFaceRoi: raster.translatedFace, gridControlRoi: raster.gridControl,
+    blueChannel: "BGRA[0]>=70, BGRA[0]>=G+15 and >=R+30",
+    strongDeltaThresholdL1: 60,
+    lost, regained, returned, controlUndo, controlRedo, controlReturn,
+    nativeBodyCounts: [2, 1, 2],
+    nativeRevisions: { before: scene.before.revision, undo: scene.undone.revision,
+      redo: scene.redone.revision },
+    restoredRealUiSelection: true };
+}
+
+// Opt-in CPU-only negative suite: synthetic bytes NEVER become evidence or PNGs.
+// Production continues to require the hosted runner and the exact SHA-pinned ZIP.
+function rasterNegativeSelftest() {
+  const blank = () => Buffer.alloc(bitmapBytes);
+  const filled = blank();
+  for (let y = 318; y < 340; y++)
+    for (let x = 548; x < 560; x++) {
+      const i = (y * raster.width + x) * 4;
+      filled[i] = 140; filled[i + 1] = 90; filled[i + 2] = 60; filled[i + 3] = 255;
+    }
+  const scene = { sourceId: "box", partId: "part",
+    before: { revision: 2, bodies: [{id:"box"}, {id:"part"}] },
+    undone: { revision: 3, bodies: [{id:"box"}] },
+    redone: { revision: 4, bodies: [{id:"box"}, {id:"part"}] },
+    restored: { revision: 0, bodies: [{id:"box"}, {id:"part"}],
+      selectedIds: ["box", "part"] } };
+  const rejects = (name, a, b, c, source = scene) => {
+    let rejected = false;
+    try { proveRaster(a, b, c, source); } catch { rejected = true; }
+    check(rejected, "negative selftest accepted " + name);
+  };
+  check(proveRaster(filled, blank(), filled, scene).materialPixelDeltaVerified,
+    "CPU comparator sentinel failed (not a real compositor capture)");
+  rejects("false all-black frames", blank(), blank(), blank());
+  rejects("zero delta", filled, filled, filled);
+  rejects("no restored geometry", filled, blank(), blank());
+  const noise = blank();
+  for (let y = raster.gridControl.top; y < raster.gridControl.top + 40; y++)
+    for (let x = raster.gridControl.left; x < raster.gridControl.left + 12; x++) {
+      const i = (y * raster.width + x) * 4;
+      noise[i] = 255; noise[i + 1] = 255; noise[i + 2] = 255;
+    }
+  rejects("noise/camera change in control ROI", filled, noise, filled);
+  rejects("false native scene correlation", filled, blank(), filled,
+    { ...scene, restored: { ...scene.restored, bodies: [{ id: "box" }] } });
+  const unstable = Buffer.from(filled);
+  for (let y = 318; y < 328; y++)
+    for (let x = 548; x < 552; x++)
+      unstable[(y * raster.width + x) * 4] = 0;
+  check(pixelStats(filled, unstable, raster.translatedFace).strongDelta > 8,
+    "unstable compositor pair was not rejected by the eight-pixel noise budget");
+  console.log("PASS: CPU-only raster comparator negatives and sentinel; NO packaged acceptance claimed");
+}
 async function bounded(task, ms, label) {
   let timer;
   try {
@@ -599,16 +721,72 @@ async function inspectInterferences(page, expected, phase, receipt, requireDockO
     pass: true, measuredOverlapMm3: expected, pointer: geometry,
     click: "Playwright role-button click without force" });
 }
-async function screenshot(app, dest, receipt, phase) {
-  const base64 = await bounded(app.evaluate(async ({ BrowserWindow }) => {
-    const windows = BrowserWindow.getAllWindows();
-    if (windows.length !== 1 || windows[0].isVisible()) throw Error("unexpected visible window");
-    await windows[0].webContents.capturePage(undefined, { stayHidden: true });
-    const image = await windows[0].webContents.capturePage(undefined, { stayHidden: true });
-    if (image.isEmpty() || windows[0].isVisible()) throw Error("no valid hidden compositor frame");
-    return image.toPNG().toString("base64");
-  }), 20_000, "real packaged hidden Electron compositor " + phase);
-  const png = Buffer.from(base64, "base64");
+async function screenshot(app, page, dest, receipt, phase) {
+  const target = await bounded(page.evaluate(() => {
+    const canvas = document.querySelector('[data-testid="viewport"] canvas');
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom,
+      face: document.elementFromPoint(555, 330) === canvas,
+      control: document.elementFromPoint(400, 330) === canvas };
+  }), 8_000, "unoccluded native mesh and grid compositor ROIs");
+  check(target && target.face && target.control &&
+    target.left <= raster.gridControl.left &&
+    target.top <= raster.gridControl.top &&
+    target.right >= raster.translatedFace.right &&
+    target.bottom >= raster.gridControl.bottom,
+  "actual native viewport raster regions are covered by UI or outside canvas");
+  let stable = null;
+  for (let attempt = 0; attempt < 4 && !stable; attempt++) {
+    const pair = await bounded(app.evaluate(async ({ BrowserWindow }) => {
+      const windows = BrowserWindow.getAllWindows();
+      if (windows.length !== 1 || windows[0].isVisible())
+        throw Error("unexpected visible window");
+      // GH43586421382/43586999803: hidden webContents.capturePage can hang.
+      // Phase15's real packaged BrowserWindow.capturePage path succeeds. Bound
+      // EACH native capture in the Electron main process so a stalled capture
+      // cannot consume the whole hosted job or silently become raster proof.
+      const captureFrame = async () => {
+        let timer;
+        try {
+          return await Promise.race([
+            windows[0].capturePage(undefined, { stayHidden: true }),
+            new Promise((_, reject) => {
+              timer = setTimeout(() => reject(Error(
+                "hidden BrowserWindow compositor capture stalled")), 10_000);
+            }),
+          ]);
+        } finally { clearTimeout(timer); }
+      };
+      const first = await captureFrame();
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const second = await captureFrame();
+      if (first.isEmpty() || second.isEmpty() || windows[0].isVisible())
+        throw Error("no valid hidden compositor frames");
+      const sizeA = first.getSize(), sizeB = second.getSize();
+      if (sizeA.width !== 1008 || sizeA.height !== 655 ||
+          sizeB.width !== 1008 || sizeB.height !== 655)
+        throw Error("capturePage not exact 1008x655");
+      return { first: first.toBitmap().toString("base64"),
+        second: second.toBitmap().toString("base64"),
+        png: second.toPNG().toString("base64") };
+    }), 25_000, "two bounded real packaged hidden Electron compositor frames " + phase);
+    check(typeof pair.first === "string" && typeof pair.second === "string" &&
+      typeof pair.png === "string", "captured Electron pixel payload absent");
+    const a = Buffer.from(pair.first, "base64");
+    const b = Buffer.from(pair.second, "base64");
+    const face = pixelStats(a, b, raster.translatedFace);
+    const grid = pixelStats(a, b, raster.gridControl);
+    if (face.strongDelta <= 8 && grid.strongDelta <= 8) {
+      stable = { bitmap: b, png: Buffer.from(pair.png, "base64"),
+        stablePair: { translatedFaceStrongDelta: face.strongDelta,
+          gridControlStrongDelta: grid.strongDelta, attempt: attempt + 1 } };
+    } else {
+      await delay(180);
+    }
+  }
+  check(stable, "four bounded pairs could not establish stable real compositor frames");
+  const png = stable.png;
   check(png.length >= 1000 &&
     png.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) &&
     png.readUInt32BE(16) === 1008 && png.readUInt32BE(20) === 655,
@@ -617,8 +795,9 @@ async function screenshot(app, dest, receipt, phase) {
   fs.writeFileSync(path.join(dest, filename), png, { flag: "wx" });
   const checksum = createHash("sha256").update(png).digest("hex");
   receipt.screenshots.push({ filename, sha256: checksum, bytes: png.length,
-    width: 1008, height: 655, evidence: "captured-hidden-packaged-PNG-only",
-    materialPixelDeltaVerified: false });
+    width: 1008, height: 655, evidence: "stable-hidden-packaged-native-BGRA-and-PNG",
+    stablePair: stable.stablePair, materialPixelDeltaVerified: false });
+  return stable.bitmap;
 }
 async function cleanShutdown(app, mainOwner, coreOwner, receipt) {
   let appCloseClean = true;
@@ -776,7 +955,7 @@ async function main() {
       JSON.stringify(selection.bodies) === JSON.stringify(before.bodies),
     "real selection changed OCCT topology or missed two components");
     receipt.tests.push({ name: "real-UI-select-two-OCCT-components", pass: true });
-    await screenshot(app, receiptDir, receipt, "before-Undo-overlap500");
+    const beforePixels = await screenshot(app, page, receiptDir, receipt, "before-Undo-overlap500");
     stage = "real-Desktop-commandbar-Undo";
     await runBar(page, "undo");
     const undone = await bodiesAre(page, [sourceId]);
@@ -791,10 +970,33 @@ async function main() {
     check(readonlyUndone.revision === undone.revision &&
       JSON.stringify(readonlyUndone.bodies) === JSON.stringify(undone.bodies),
     "post-Undo interference analysis is not genuinely read-only");
-    await screenshot(app, receiptDir, receipt, "after-Undo-zero");
+    const undonePixels = await screenshot(app, page, receiptDir, receipt, "after-Undo-zero");
     stage = "real-native-Redo-ICAD-save-open";
     await runBar(page, "redo");
     const redone = await bodiesAre(page, [sourceId, partId]);
+    stage = "real-UI-restore-two-body-selection-for-native-geometry-raster-proof";
+    // Repeat the same real Properties button used before Undo. Capture A'
+    // before ICAD reopen, which is permitted to reset the document epoch and
+    // camera. This isolates Undo/Redo native mesh changes from camera resets.
+    await panel.getByRole("button", { name: "Controlla interferenze", exact: true })
+      .click({ timeout: 15_000 });
+    await panel.getByText("500 mm³", { exact: true })
+      .waitFor({ state: "visible", timeout: 20_000 });
+    await panel.getByRole("button", { name: "Seleziona componenti", exact: true })
+      .click({ timeout: 12_000 });
+    const restored = await snapshot(page);
+    check(restored.revision === redone.revision &&
+      JSON.stringify([...restored.selectedIds].sort()) ===
+        JSON.stringify([sourceId, partId].sort()) &&
+      JSON.stringify(restored.bodies) === JSON.stringify(redone.bodies),
+    "actual packaged UI selection failed to restore identical native A/B/A geometry");
+    const restoredPixels = await screenshot(app, page, receiptDir, receipt,
+      "after-Redo-restored");
+    stage = "source-native-A-B-A-compositor-material-pixel-proof";
+    receipt.pixelProof = proveRaster(beforePixels, undonePixels, restoredPixels,
+      { sourceId, partId, before, undone, redone, restored });
+    for (const entry of receipt.screenshots) entry.materialPixelDeltaVerified = true;
+    stage = "real-native-ICAD-save-open-after-pixel-restoration";
     await bounded(page.evaluate(file => window.__kreoda_test.saveIcad(file), icad),
       35_000, "real packaged native ICAD save");
     check(regular(icad).size > 100 &&
@@ -850,4 +1052,15 @@ async function main() {
   check(receipt.status === "PASS_PACKAGED_Z40_INTERFERENCE",
     "packaged z40 interference smoke was not fully accepted");
 }
-main().catch(() => { console.error("z40 packaged smoke FAILED; inspect hosted receipt.json"); process.exitCode = 1; });
+if (process.argv.length === 3 && process.argv[2] === "--pixel-negative-selftest") {
+  try { rasterNegativeSelftest(); }
+  catch (error) {
+    console.error("z40 CPU raster negative selftest FAILED:", safeFailure(error));
+    process.exitCode = 1;
+  }
+} else {
+  main().catch(() => {
+    console.error("z40 packaged smoke FAILED; inspect hosted receipt.json");
+    process.exitCode = 1;
+  });
+}
