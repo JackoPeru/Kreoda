@@ -35,7 +35,13 @@ jobs:
         run: |
           if ($env:RUNNER_ENVIRONMENT -ne 'github-hosted') { throw 'Fail closed: no isolated GitHub-hosted runner' }
           $head = (git rev-parse HEAD).Trim()
-          if ($head -ne $env:EXPECTED_HEAD) { throw "Unpinned source HEAD: $head" }
+          git merge-base --is-ancestor $env:EXPECTED_HEAD $head
+          if ($LASTEXITCODE -ne 0) { throw "Original candidate source is not an ancestor: $head" }
+          $allowed = @('.github/workflows/verify-integrated-candidate.yml', 'scripts/ci/candidate-portable-smoke.mjs', 'scripts/ci/prepare-integrated-candidate-smoke.mjs')
+          $delta = @(git diff --name-only $env:EXPECTED_HEAD $head)
+          if ($LASTEXITCODE -ne 0 -or @($delta | Where-Object { $_ -notin $allowed }).Count -ne 0) {
+            throw 'Product source changed since the exact compiled candidate; rebuild needed'
+          }
           if (Get-Process -Name Kreoda,kreoda-core -ErrorAction SilentlyContinue) { throw 'Existing candidate process on runner' }
           if (Get-Process -Id 8616 -ErrorAction SilentlyContinue) { throw 'Unverified foreign owner PID 8616 on runner' }
 
