@@ -1339,6 +1339,20 @@ export class CoreClient {
     return CreatedFeatureSchema.parse(parsed);
   }
 
+  async createShell(params: {
+    targetId: string;
+    faceRole: string;
+    thicknessMm: number;
+  }): Promise<CreatedFeature> {
+    const featureId = newFeatureId("sh");
+    const parsed = await this.invoke(
+      CommandType.CreateShell,
+      this.documentId,
+      { featureId, ...params },
+    );
+    return CreatedFeatureSchema.parse(parsed);
+  }
+
   /** Rigid placed copy of a solid (Phase 9d): translation mm + ZYX degrees. */
   async createInstance(params: {
     targetId: string;

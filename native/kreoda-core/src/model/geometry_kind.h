@@ -28,6 +28,7 @@ inline bool IsKnownSolidFeatureType(const std::string& type) {
          type == "Extrude" || type == "Revolve" || type == "Union" ||
          type == "Subtract" || type == "Intersect" || type == "Hole" ||
          type == "HolePattern" || type == "Fillet" || type == "Chamfer" ||
+         type == "Shell" ||
          type == "SurfaceLoftSewnSolid" || type == "SurfaceSewnSolid" ||
          type == "SurfaceThicken" ||
          type == "SurfaceFaceThicken" ||

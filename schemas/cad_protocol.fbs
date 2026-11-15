@@ -67,7 +67,8 @@ enum CommandType : ushort {
   CreateMoveFace,
   CreateOffsetFace,
   CreateDeleteFace,
-  CreateReplaceFace
+  CreateReplaceFace,
+  CreateShell
 }
 
 enum StatusCode : byte {

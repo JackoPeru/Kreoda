@@ -7,7 +7,7 @@ namespace kreoda {
 
 BodySemantics FeatureBodySemantics(const std::string& type) {
   if (type == "Hole" || type == "HolePattern" || type == "Fillet" ||
-      type == "Chamfer" || type == "Union" || type == "Subtract" ||
+      type == "Chamfer" || type == "Shell" || type == "Union" || type == "Subtract" ||
       type == "Intersect" || type == "MoveFace" || type == "OffsetFace" ||
       type == "DeleteFace" || type == "ReplaceFace") {
     return BodySemantics::AdvancesBody;

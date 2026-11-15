@@ -50,6 +50,7 @@
 #include "features/evaluate.h"
 #include "features/extrusion/extrude.h"
 #include "features/fillet/fillet.h"
+#include "features/shell/shell.h"
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
 #include "features/assembly/assembly_constraints.h"
@@ -2448,6 +2449,32 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
                              error_body(isFillet ? "FILLET_FAILED"
                                                 : "CHAMFER_FAILED",
                                         error));
+      }
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateShell: {
+      const std::string featureId =
+          json_string_field(requestJson, "featureId", "");
+      const std::string targetId =
+          json_string_field(requestJson, "targetId", "");
+      std::vector<std::string> faceIds;
+      std::set<std::string> seen;
+      for (const auto& id : json_string_array(requestJson, "faceIds")) {
+        if (seen.insert(id).second) faceIds.push_back(id);
+      }
+      const std::string single = json_string_field(requestJson, "faceId", "");
+      if (!single.empty() && seen.insert(single).second) faceIds.push_back(single);
+      const std::string role = json_string_field(requestJson, "faceRole", "");
+      if (!role.empty() && seen.insert(role).second) faceIds.push_back(role);
+      const double thickness = json_double_field(
+          requestJson, "thicknessMm",
+          json_double_field(requestJson, "thickness", 0));
+      std::string error;
+      if (!CreateShellFeature(featureId, targetId, faceIds, thickness, &error)) {
+        return make_response(requestId, "error",
+                             error_body("SHELL_FAILED", error));
       }
       ShapeRecord rec;
       ShapeStore::instance().get(featureId, &rec);

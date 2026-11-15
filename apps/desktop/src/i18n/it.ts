@@ -661,6 +661,9 @@ export const it: Record<EnKey, string> = {
   "cmd.chamfer": "Smusso",
   "cmd.chamferBeginner": "Smussa angolo",
   "cmd.chamferDesc": "Smussa gli spigoli selezionati con distanza simmetrica.",
+  "cmd.shell": "Svuota",
+  "cmd.shellBeginner": "Corpo cavo",
+  "cmd.shellDesc": "Svuota il corpo con uno spessore di parete, lasciando aperta la faccia selezionata.",
   "cmd.instance": "Istanza",
   "cmd.instanceBeginner": "Copia posizionata",
   "cmd.instanceDesc":

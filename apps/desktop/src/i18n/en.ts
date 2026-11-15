@@ -659,6 +659,9 @@ export const en = {
   "cmd.chamfer": "Chamfer",
   "cmd.chamferBeginner": "Cut corner",
   "cmd.chamferDesc": "Chamfer the selected edges with a symmetric distance.",
+  "cmd.shell": "Shell",
+  "cmd.shellBeginner": "Hollow body",
+  "cmd.shellDesc": "Hollow the body with a wall thickness, leaving the selected face open.",
   "cmd.instance": "Instance",
   "cmd.instanceBeginner": "Copy placed",
   "cmd.instanceDesc":

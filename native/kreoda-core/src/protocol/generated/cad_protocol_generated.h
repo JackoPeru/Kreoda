@@ -198,11 +198,12 @@ enum CommandType : uint16_t {
   CommandType_CreateOffsetFace = 58,
   CommandType_CreateDeleteFace = 59,
   CommandType_CreateReplaceFace = 60,
+  CommandType_CreateShell = 61,
   CommandType_MIN = CommandType_None,
-  CommandType_MAX = CommandType_CreateReplaceFace
+  CommandType_MAX = CommandType_CreateShell
 };
 
-inline const CommandType (&EnumValuesCommandType())[61] {
+inline const CommandType (&EnumValuesCommandType())[62] {
   static const CommandType values[] = {
     CommandType_None,
     CommandType_GetCoreInfo,
@@ -264,13 +265,14 @@ inline const CommandType (&EnumValuesCommandType())[61] {
     CommandType_CreateMoveFace,
     CommandType_CreateOffsetFace,
     CommandType_CreateDeleteFace,
-    CommandType_CreateReplaceFace
+    CommandType_CreateReplaceFace,
+    CommandType_CreateShell
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandType() {
-  static const char * const names[62] = {
+  static const char * const names[63] = {
     "None",
     "GetCoreInfo",
     "CreateDocument",
@@ -332,13 +334,14 @@ inline const char * const *EnumNamesCommandType() {
     "CreateOffsetFace",
     "CreateDeleteFace",
     "CreateReplaceFace",
+    "CreateShell",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandType(CommandType e) {
-  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_CreateReplaceFace)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_CreateShell)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandType()[index];
 }

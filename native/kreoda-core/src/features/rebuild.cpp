@@ -7,6 +7,7 @@
 #include "features/booleans/boolean.h"
 #include "features/extrusion/extrude.h"
 #include "features/fillet/fillet.h"
+#include "features/shell/shell.h"
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
 #include "features/revolve/revolve.h"
@@ -106,6 +107,7 @@ bool RebuildNodeFromStore(const std::string& featureId, std::string* error) {
   if (rec.type == "Fillet" || rec.type == "Chamfer") {
     return RebuildFilletFromStore(featureId, error);
   }
+  if (rec.type == "Shell") return RebuildShellFromStore(featureId, error);
   if (rec.type == "Instance") {
     return RebuildInstanceFromStore(featureId, error);
   }

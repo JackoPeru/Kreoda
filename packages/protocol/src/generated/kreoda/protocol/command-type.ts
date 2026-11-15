@@ -63,5 +63,6 @@ export enum CommandType {
   CreateMoveFace = 57,
   CreateOffsetFace = 58,
   CreateDeleteFace = 59,
-  CreateReplaceFace = 60
+  CreateReplaceFace = 60,
+  CreateShell = 61
 }

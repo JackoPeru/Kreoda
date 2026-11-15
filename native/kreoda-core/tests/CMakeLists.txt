@@ -29,6 +29,7 @@ add_executable(kreoda-core-tests
   test_projection.cpp
   ../src/features/sketch/projected_geometry.cpp
   test_solids.cpp
+  test_shell.cpp
   test_surface_loft.cpp
   test_surface_modeling.cpp
   test_surface_sew_offset.cpp
@@ -78,6 +79,7 @@ add_executable(kreoda-core-tests
   ../src/features/assembly/assembly_geometry.cpp
   ../src/features/instance/instance.cpp
   ../src/features/fillet/fillet.cpp
+  ../src/features/shell/shell.cpp
   ../src/topology/face_roles.cpp
   ../src/tessellation/box_tessellator.cpp
   ../src/tessellation/mesh.cpp

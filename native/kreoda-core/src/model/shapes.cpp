@@ -90,6 +90,7 @@ std::vector<std::string> DescribeParams(const std::string& type) {
   if (type == "HolePattern") return {"diameterMm", "depthMm", "count"};
   if (type == "Fillet") return {"radiusMm"};
   if (type == "Chamfer") return {"distanceMm"};
+  if (type == "Shell") return {"thicknessMm"};
   if (type == "Instance") return {"txMm", "tyMm", "tzMm", "rxDeg", "ryDeg", "rzDeg"};
   return {};
 }

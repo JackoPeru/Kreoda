@@ -389,6 +389,27 @@ export const COMMANDS: CadCommandDefinition[] = [
         : { available: false, reason: "Select an edge first" },
   },
   {
+    id: "CreateShell",
+    selectionBindings: { targetId: "owner", faceRole: "faceRole" },
+    nativeType: CommandType.CreateShell,
+    label: "Shell",
+    beginnerLabel: "Hollow body",
+    description: "Hollow the body with a wall thickness, leaving the selected face open.",
+    icon: "box",
+    parameterSchema: z.object({
+      targetId: StableFeatureIdSchema,
+      faceRole: z.string().min(1).max(512),
+      thicknessMm: z.number().finite().positive().max(50000),
+    }),
+    supportsPreview: false,
+    beginnerVisible: false,
+    advancedVisible: true,
+    availability: (ctx) =>
+      ctx.selection.some((s) => s.kind === "face")
+        ? always
+        : { available: false, reason: "Select a face to leave open first" },
+  },
+  {
     id: "CreateInstance",
     nativeType: CommandType.CreateInstance,
     label: "Instance",

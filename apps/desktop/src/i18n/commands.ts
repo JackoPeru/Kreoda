@@ -95,6 +95,11 @@ const LABELS: Record<string, { label: EnKey; beginner: EnKey; desc: EnKey }> = {
     beginner: "cmd.chamferBeginner",
     desc: "cmd.chamferDesc",
   },
+  CreateShell: {
+    label: "cmd.shell",
+    beginner: "cmd.shellBeginner",
+    desc: "cmd.shellDesc",
+  },
   CreateInstance: {
     label: "cmd.instance",
     beginner: "cmd.instanceBeginner",

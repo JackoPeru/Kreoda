@@ -435,7 +435,11 @@ it("exports actual parameter constraints from the registry through the standard 
   const exported = commandJsonSchema("CreateBox")!;
   expect(exported.nativeType).toBe(3);
   expect(exported.parameters).toMatchObject({ type: "object", required: ["widthMm", "heightMm", "depthMm"], properties: { widthMm: { type: "number", exclusiveMinimum: 0, maximum: 100000 } } });
-  expect(commandJsonSchema("CreateShell")).toBeNull();
+  const shell = commandJsonSchema("CreateShell")!;
+  expect(shell.nativeType).toBe(61);
+  expect(shell.parameters).toMatchObject({ type: "object",
+    required: ["targetId", "faceRole", "thicknessMm"],
+    properties: { thicknessMm: { type: "number", exclusiveMinimum: 0, maximum: 50000 } } });
 });
 
 it("registers four strict face-history commands with fenced owner references", () => {

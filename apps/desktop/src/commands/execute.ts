@@ -384,6 +384,13 @@ async function dispatchCommand(
       await pullAndAppend(created);
       return { kind: "created", feature: created };
     }
+    case "CreateShell": {
+      const created = await coreClient.createShell(
+        p as { targetId: string; faceRole: string; thicknessMm: number },
+      );
+      await pullAndAppend(created);
+      return { kind: "created", feature: created };
+    }
     case "CreateInstance": {
       const created = await coreClient.createInstance(
         p as {
