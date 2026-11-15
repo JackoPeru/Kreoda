@@ -103,79 +103,25 @@ namespace Kreoda.QuestRuntime.Tests
             }
         }
 
+        
         [Test]
-        public void PanoramicHomeMovesOriginalActionHitboxesWithTheirGlassIslands()
+        public void SpatialHomeUsesThreeWorldLockedCardsAndOneBelt()
         {
-            var page = (Transform)typeof(QuestControls).GetField("_homePage", Private).GetValue(_controls);
-            var left = page.Cast<Transform>().Single(item => item.name == "Left / projects");
-            var right = page.Cast<Transform>().Single(item => item.name == "Right / actions");
-            Assert.That(left, Is.Not.Null);
-            Assert.That(right, Is.Not.Null);
-            Assert.That(left.localPosition.x, Is.LessThan(-.28f));
-            Assert.That(right.localPosition.x, Is.GreaterThan(.28f));
-            var leftRect = new Rect(left.localPosition.x - left.localScale.x * .5f,
-                left.localPosition.y - left.localScale.y * .5f, left.localScale.x, left.localScale.y);
-            var rightRect = new Rect(right.localPosition.x - right.localScale.x * .5f,
-                right.localPosition.y - right.localScale.y * .5f, right.localScale.x, right.localScale.y);
-            var selectOnLeft = false;
-            var selectOnRight = false;
-            var openOnLeft = false;
-            var openOnRight = false;
-            var lateralTargets = 0;
-            foreach (var id in new[] { "home:pc", "home:project:select", "home:project:open", "home:ai" })
-            {
-                var matches = page.GetComponentsInChildren<QuestButton>(true)
-                    .Where(button => button.ActionId == id)
-                    .Select(button => new { Button = button, Collider = button.GetComponent<BoxCollider>() }).ToArray();
-                Assert.That(matches.Length, Is.GreaterThan(0), id);
-                Assert.That(matches.All(target => target.Collider != null), Is.True, id + " keeps every real hitbox");
-                var tested = 0;
-                foreach (var target in matches)
-                {
-                    var collider = target.Collider;
-                    var center = page.InverseTransformPoint(collider.transform.TransformPoint(collider.center));
-                    if (center.y > .215f) continue; // Keep the PC status button in the top bar out of island checks.
-                    var points = new Vector3[8];
-                    var k = 0;
-                    foreach (var x in new[] { -1f, 1f })
-                    foreach (var y in new[] { -1f, 1f })
-                    foreach (var z in new[] { -1f, 1f })
-                        points[k++] = page.InverseTransformPoint(collider.transform.TransformPoint(
-                            collider.center + Vector3.Scale(collider.size * .5f, new Vector3(x, y, z))));
-                    var minX = points.Min(p => p.x);
-                    var maxX = points.Max(p => p.x);
-                    var minY = points.Min(p => p.y);
-                    var maxY = points.Max(p => p.y);
-                    var leftSide = center.x < 0;
-                    var panel = leftSide ? leftRect : rightRect;
-                    Assert.That(minX, Is.GreaterThanOrEqualTo(panel.xMin - .004f), id);
-                    Assert.That(maxX, Is.LessThanOrEqualTo(panel.xMax + .004f), id);
-                    Assert.That(minY, Is.GreaterThanOrEqualTo(panel.yMin - .004f), id);
-                    Assert.That(maxY, Is.LessThanOrEqualTo(panel.yMax + .004f), id);
-                    Assert.That(leftSide ? maxX < -.15f : minX > .15f, Is.True,
-                        "central passthrough must remain free of active hitboxes: " + id);
-                    var label = target.Button.transform.parent == page
-                        ? page.GetComponentsInChildren<TextMesh>(true).Single(text => text.text ==
-                            (id == "home:pc" ? "CONNETTI" : id == "home:project:select" ? "PROGETTI" :
-                                id == "home:project:open" ? "APRI" : "ASSISTENTE"))
-                        : target.Button.transform.parent.GetComponentInChildren<TextMesh>(true);
-                    Assert.That(label, Is.Not.Null, id + " keeps its real label");
-                    var labelCenter = page.InverseTransformPoint(label.transform.position);
-                    Assert.That(labelCenter.x, Is.InRange(panel.xMin - .004f, panel.xMax + .004f), id + " label follows island");
-                    Assert.That(labelCenter.y, Is.InRange(panel.yMin - .004f, panel.yMax + .004f), id + " label follows island");
-                    if (id == "home:project:select") { if (leftSide) selectOnLeft = true; else selectOnRight = true; }
-                    if (id == "home:project:open") { if (leftSide) openOnLeft = true; else openOnRight = true; }
-                    tested++;
-                    lateralTargets++;
-                }
-                Assert.That(tested, Is.GreaterThan(0), id + " must include every Home action below the top bar");
-            }
-            Assert.That(selectOnLeft && selectOnRight, Is.True, "project selection remains real on both Home islands");
-            Assert.That(openOnLeft && openOnRight, Is.True, "project opening remains real on both Home islands");
-            Assert.That(lateralTargets, Is.EqualTo(6), "all six real lateral hitboxes and their labels stay within their islands");
-            Assert.That(page.Cast<Transform>().Single(item => item.name == "Top / nav").localPosition.x, Is.EqualTo(0f).Within(.001f));
-            Assert.That(ActionButton(page, "home:view").transform.position.x,
-                Is.EqualTo(page.position.x).Within(.15f), "central dock must not follow lateral islands");
+            var page = (Transform)Field("_homePage");
+            foreach (var card in new[] { "ENTRA NELLO SPAZIO card", "CONNETTI PC card", "HERMES card" })
+                Assert.That(page.Find(card), Is.Not.Null, card);
+            foreach (var id in new[] { "home:design", "home:pc", "home:ai", "home:project:select",
+                "home:project:open", "home:model", "home:view", "home:measure", "home:render" })
+                Assert.That(ActionButton(page, id), Is.Not.Null, id);
+            var belt = page.Find("Spatial context belt");
+            Assert.That(belt, Is.Not.Null);
+            Assert.That(belt.GetComponentsInChildren<QuestButton>(true).Length, Is.EqualTo(5));
+            var left = page.Find("ENTRA NELLO SPAZIO card");
+            var rail = (Transform)Field("_toolRail");
+            var leftCollider = left.GetComponentInChildren<BoxCollider>();
+            var railCollider = rail.Find("Sezione rail button").GetComponent<BoxCollider>();
+            Assert.That(leftCollider.bounds.Intersects(railCollider.bounds), Is.False,
+                "launch cards must clear the world-locked tool rail");
         }
 
         [Test]
@@ -261,39 +207,31 @@ namespace Kreoda.QuestRuntime.Tests
             Assert.That(data.RecentProjectCount, Is.EqualTo(1));
         }
 
+        
         [Test]
-        public void HomeHeroUsesFloatingDesktopIdentityInsidePassthroughGap()
+        public void SpatialHomeBindsLiveConnectionStateToTheWorldLockedChip()
         {
-            var home = (Transform)Field("_homePage");
-            var labels = home.GetComponentsInChildren<TextMesh>(true);
-            var wordmark = labels.Single(label => label.text == "KREODA" && label.transform.localPosition.y < .2f);
-            var navWordmark = labels.Single(label => label.text == "KREODA" && label.transform.localPosition.y >= .2f);
-            Assert.That(labels.Any(label => label.text == "Progetta · Visualizza · Realizza"), Is.True);
-            Assert.That(labels.Any(label => label.text == "Dalla tua idea al mondo reale"), Is.True);
-            Assert.That(wordmark.anchor, Is.EqualTo(TextAnchor.MiddleCenter));
-            Assert.That(navWordmark.transform.localPosition.x, Is.LessThan(-.30f), "top navigation identity stays in its own island");
-            foreach (var label in labels.Where(label => label.transform.localPosition.y < .2f &&
-                         (label.text == "KREODA" || label.text == "Progetta · Visualizza · Realizza" ||
-                          label.text == "Dalla tua idea al mondo reale")))
-            {
-                Assert.That(Mathf.Abs(label.transform.localPosition.x), Is.LessThanOrEqualTo(.16f), label.text);
-                Assert.That(label.GetComponent<Collider>(), Is.Null, label.text + " must float without a hit target");
-            }
-            Assert.That(home.GetComponentsInChildren<Transform>(true).Any(item => item.name == "Home hero backdrop"), Is.False);
+            var chip = (TextMesh)Field("_chipStatus");
+            Assert.That(chip, Is.Not.Null, "the world-locked status chip must exist");
+            _controls.Home.SetConnectionStatus("PC connesso", true);
+            Assert.That(chip.text, Is.EqualTo("PC CONNESSO"));
+            Assert.That(_controls.Home.ConnectionStatus.text, Is.EqualTo("PC connesso"));
+            _controls.Home.SetConnectionStatus("PC non connesso", false);
+            Assert.That(chip.text, Is.EqualTo("PC NON CONNESSO"));
         }
 
+        
         [Test]
-        public void OfflineRecentProjectsUseOneCaptionAndNoProjectRowsOrIcons()
+        public void EmptyRecentProjectsRenderOneBadgeAndNoFakeRows()
         {
             var home = (Transform)Field("_homePage");
             _controls.Home.SetProjectStatus(null, false, false);
+            Assert.That(_controls.Home.OpenableStatus.text, Is.EqualTo("NESSUN PROGETTO CARICATO"));
             var labels = home.GetComponentsInChildren<TextMesh>(true).Select(label => label.text).ToArray();
-            Assert.That(labels.Count(label => label == "Collega il PC per vedere i progetti recenti"), Is.EqualTo(1));
-            Assert.That(labels.Any(label => label == "AGGIORNATO DAL PC"), Is.False);
-            Assert.That(labels.Any(label => label.Contains("il documento corrente")), Is.False);
-            Assert.That(home.Cast<Transform>().SelectMany(item => item.GetComponentsInChildren<Transform>(true))
-                .Where(item => item.name.StartsWith("Recent project card ") || item.name.StartsWith("Recent project identity "))
-                .All(item => !item.gameObject.activeSelf), Is.True);
+            Assert.That(labels.Any(label => label.Contains("Cucina_Villa_Costa") || label.Contains("Scale_Moderne")), Is.False);
+            Assert.That(home.GetComponentsInChildren<Transform>(true)
+                .Any(item => item.name.StartsWith("Recent project card ")), Is.False,
+                "the redesign uses one honest badge instead of fake recent rows");
         }
 
         [Test]
@@ -349,12 +287,11 @@ namespace Kreoda.QuestRuntime.Tests
             if (home == null) return;
             Assert.That(home.gameObject.activeSelf, Is.True, "Home must be the first visible page");
             var labels = home.GetComponentsInChildren<TextMesh>(true).Select(label => label.text).ToArray();
-            foreach (var expected in new[] { "KREODA", "Progetta · Visualizza · Realizza", "Dalla tua idea al mondo reale",
-                "PROGETTI RECENTI", "PROGETTI SUL PC", "INIZIA DA QUI", "CONNETTI", "PROGETTI", "APRI", "ASSISTENTE" })
-                Assert.That(labels, Does.Contain(expected), "missing Desktop Home label: " + expected);
+            foreach (var expected in new[] { "ENTRA NELLO SPAZIO", "CONNETTI PC", "HERMES",
+                "NESSUN PROGETTO CARICATO", "DISEGNA", "MODELLA", "VISTA", "MISURA", "DISPLAY", "PC non connesso" })
+                Assert.That(labels, Does.Contain(expected), "missing spatial Home label: " + expected);
             Assert.That(labels.Any(label => label.Contains("Cucina_Villa_Costa") || label.Contains("Scale_Moderne")), Is.False,
                 "Desktop demo filenames must not appear as Quest user projects");
-            Assert.That(labels, Does.Contain("Collega il PC per vedere i progetti recenti"));
             Assert.That(labels.Count(label => label == "PC non connesso"), Is.EqualTo(1));
             Assert.That(home.GetComponentsInChildren<Component>(true).Any(component => component != null &&
                 component.GetType().Name.Contains("VideoPlayer")), Is.False, "passthrough room replaces Desktop's video background");
@@ -404,24 +341,22 @@ namespace Kreoda.QuestRuntime.Tests
             Assert.That(_controls.Connection.Client, Is.Null, "connection action cannot manufacture a CAD document");
         }
 
+        
         [Test]
-        public void LongConnectionStatusStaysInsideItsMeasuredButtonBounds()
+        public void LongConnectionStatusStaysInsideTheChip()
         {
-            var home = (Transform)Field("_homePage");
-            Assert.That(home, Is.Not.Null, "Quest must build a Home page before measuring its connection status");
-            if (home == null) return;
-            var label = _controls.Home.ConnectionStatus;
+            var chip = (TextMesh)Field("_chipStatus");
+            Assert.That(chip, Is.Not.Null, "the world-locked status chip must exist");
             typeof(QuestConnection).GetField("<Status>k__BackingField", Private).SetValue(_controls.Connection,
-                "Ricerca del PC locale · Kreoda Studio · connessione in riconnessione dopo un cambio rete");
+                "Ricerca del PC locale - Kreoda Studio - connessione in riconnessione dopo un cambio rete");
             typeof(QuestControls).GetMethod("Update", Private).Invoke(_controls, null);
             typeof(QuestControls).GetMethod("LateUpdate", Private).Invoke(_controls, null);
             Physics.SyncTransforms();
-            var text = label.GetComponent<MeshRenderer>().bounds;
-            var button = label.transform.parent.GetComponentInChildren<Collider>().bounds;
-            Assert.That(label.text, Does.EndWith("..."), "long connection state must be shortened before it becomes unreadable");
-            Assert.That(label.transform.localScale.x, Is.GreaterThanOrEqualTo(.85f), "connection text must remain readable");
-            Assert.That(text.size.x, Is.LessThanOrEqualTo(button.size.x * .95f));
-            Assert.That(text.size.y, Is.LessThanOrEqualTo(button.size.y * .9f));
+            Assert.That(chip.text, Does.EndWith("..."), "long connection state must be shortened");
+            var backing = chip.transform.parent.Find("Status chip backing").GetComponent<MeshRenderer>().bounds;
+            var text = chip.GetComponent<MeshRenderer>().bounds;
+            Assert.That(text.size.x, Is.LessThanOrEqualTo(backing.size.x * .95f));
+            Assert.That(text.size.y, Is.LessThanOrEqualTo(backing.size.y * .9f));
         }
 
         [TestCase("_homePage")]
@@ -435,7 +370,7 @@ namespace Kreoda.QuestRuntime.Tests
             Physics.SyncTransforms();
             var panel = (Transform)Field("_panel");
             var allowed = pageField == "_homePage" ? Rect.MinMaxRect(-.48f, -.40f, .48f, .32f)
-                : Rect.MinMaxRect(-.21f, -.32f, .21f, .27f);
+                : Rect.MinMaxRect(-.30f, -.37f, .25f, .28f);
             var boundsMethod = typeof(QuestControls).GetMethod("ColliderPageBounds", BindingFlags.Static | BindingFlags.NonPublic);
             var buttons = _controls.GetComponentsInChildren<QuestButton>().Where(button => button.gameObject.activeInHierarchy).ToArray();
             foreach (var button in buttons)
@@ -493,7 +428,7 @@ namespace Kreoda.QuestRuntime.Tests
         static QuestButton ActionButton(Transform page, string id) =>
             page.GetComponentsInChildren<QuestButton>(true).First(button => button.ActionId == id);
 
-        void ReturnHome() => _controls.transform.Find("Compact panel (0.42 m)/Home control")
-            .GetComponentInChildren<QuestButton>(true).Click.Invoke();
+        void ReturnHome() => _controls.transform.Find("Compact panel (0.42 m)/Spatial tool rail/Home rail button")
+            .GetComponent<QuestButton>().Click.Invoke();
     }
 }

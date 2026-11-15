@@ -54,8 +54,14 @@ namespace Kreoda.QuestRuntime
         }
         public enum StatusSeverity { Neutral, Active, Warning, Error }
         public enum OperationPanelRole { DevicePicker, Selector, ParameterEditor, PrimaryCommand, Diagnostic, History, Navigation }
-        public static readonly Color Ink = new Color(.96f, .97f, 1f);
-        public static readonly Color Accent = new Color(.50f, .72f, 1f);
+        public static readonly Color Ink = new Color(.961f, .980f, .988f);
+        public static readonly Color Accent = new Color(.388f, .961f, .914f);
+        public static readonly Color Muted = new Color(.718f, .808f, .831f);
+        public static readonly Color Panel = new Color(.043f, .110f, .141f);
+        public static readonly Color PanelEdge = new Color(.322f, .522f, .557f);
+        public static readonly Color Warning = new Color(1f, .733f, .447f);
+        public static readonly Color Good = new Color(.494f, .878f, .714f);
+        public static readonly Color Line = new Color(.314f, .443f, .486f);
 
         // Transparent local HUD material. Never place an opaque full-screen quad
         // over Quest passthrough; only the independent panels use this material.
@@ -65,11 +71,12 @@ namespace Kreoda.QuestRuntime
             // generic Unlit/Transparent fallback rendered white in Unity Editor.
             var shader = Shader.Find("Kreoda/QuestUi");
             var glass = shader != null ? new Material(shader) : new Material(source);
-            glass.name = "Quest MR neutral glass";
-            glass.color = new Color(.055f, .06f, .075f, .82f);
-            if (glass.HasProperty("_Sheen")) glass.SetFloat("_Sheen", .14f);
-            if (glass.HasProperty("_BorderSize")) glass.SetFloat("_BorderSize", .0045f);
-            if (glass.HasProperty("_BorderColor")) glass.SetColor("_BorderColor", new Color(.90f, .93f, 1f, .10f));
+            glass.name = "Quest MR teal glass";
+            glass.color = new Color(Panel.r, Panel.g, Panel.b, .95f);
+            if (glass.HasProperty("_Sheen")) glass.SetFloat("_Sheen", .10f);
+            if (glass.HasProperty("_BorderSize")) glass.SetFloat("_BorderSize", .006f);
+            if (glass.HasProperty("_BorderColor"))
+                glass.SetColor("_BorderColor", new Color(PanelEdge.r, PanelEdge.g, PanelEdge.b, .75f));
             glass.renderQueue = 3000;
             return glass;
         }
@@ -80,7 +87,7 @@ namespace Kreoda.QuestRuntime
         public static void Divider(Transform parent, Material material, string name, Vector3 center, float width)
         {
             var line = GlassMaterial(material);
-            line.color = new Color(.85f, .88f, .94f, .10f);
+            line.color = new Color(Line.r, Line.g, Line.b, .55f);
             Surface(parent, line, name, center, new Vector3(width, .0012f, .0005f));
         }
 
@@ -88,8 +95,8 @@ namespace Kreoda.QuestRuntime
             float width, float height, Color edge)
         {
             var bodyMaterial = GlassMaterial(material);
-            bodyMaterial.color = new Color(.055f, .06f, .075f, .86f);
-            if (bodyMaterial.HasProperty("_Radius")) bodyMaterial.SetFloat("_Radius", .10f);
+            bodyMaterial.color = new Color(Panel.r, Panel.g, Panel.b, .96f);
+            if (bodyMaterial.HasProperty("_Radius")) bodyMaterial.SetFloat("_Radius", .09f);
             var surface = GlassSurface(parent, bodyMaterial, name, center, new Vector3(width, height, .002f));
             // One rounded surface; its shader owns the hairline. Extra bezels
             // and stacked highlights obscure the room and compete with content.
@@ -155,23 +162,23 @@ namespace Kreoda.QuestRuntime
             root.SetParent(parent, false);
             root.localPosition = center;
             var back = GlassMaterial(material);
-            back.color = new Color(.055f, .075f, .095f, .42f);
+            back.color = new Color(Panel.r, Panel.g, Panel.b, .85f);
             Surface(root, back, name + " focus backing", Vector3.zero,
                 new Vector3(width, height, .002f));
             var accent = GlassMaterial(material);
-            accent.color = new Color(.24f, .68f, .94f, .72f);
+            accent.color = new Color(Accent.r, Accent.g, Accent.b, .9f);
             Surface(root, accent, name + " focus edge", new Vector3(-width * .475f, 0, -.004f),
                 new Vector3(.0022f, height * .70f, .0006f));
             var title = Label(root, font, string.Empty,
                 new Vector3(-width * .435f, height * .27f, -.010f), .010f,
-                new Vector2(width * .87f, height * .22f), register, new Color(.66f, .72f, .80f));
+                new Vector2(width * .87f, height * .22f), register, Muted);
             var value = Label(root, font, string.Empty,
                 new Vector3(-width * .435f, height * .01f, -.012f), .014f,
                 new Vector2(width * .87f, height * .28f), register, Ink);
             value.fontStyle = FontStyle.Bold;
             var side = Label(root, font, string.Empty,
                 new Vector3(-width * .435f, -height * .30f, -.012f), .010f,
-                new Vector2(width * .87f, height * .20f), register, new Color(.66f, .72f, .80f));
+                new Vector2(width * .87f, height * .20f), register, Muted);
             return new LiveFocusStage(root, title, value, side, back, accent);
         }
 
@@ -267,7 +274,10 @@ namespace Kreoda.QuestRuntime
             button.transform.localPosition = center;
             button.transform.localScale = new Vector3(width, height, .003f);
             var buttonMaterial = GlassMaterial(material);
-            buttonMaterial.color = new Color(.10f, .11f, .13f, .80f);
+            buttonMaterial.color = new Color(.125f, .188f, .216f, .99f);
+            if (buttonMaterial.HasProperty("_BorderColor"))
+                buttonMaterial.SetColor("_BorderColor", new Color(PanelEdge.r, PanelEdge.g, PanelEdge.b, .8f));
+            if (buttonMaterial.HasProperty("_Radius")) buttonMaterial.SetFloat("_Radius", .16f);
             button.GetComponent<MeshRenderer>().sharedMaterial = buttonMaterial;
             var input = button.AddComponent<QuestButton>();
             input.ActionId = id;
@@ -276,7 +286,7 @@ namespace Kreoda.QuestRuntime
             var iconY = compact ? height * .19f : height * .17f;
             var iconSide = compact ? .030f : .061f;
             Ellipse(parent, material, id + " icon background", center + new Vector3(0, iconY, -.009f),
-                iconSide * .5f, iconSide * .5f, new Color(Accent.r, Accent.g, Accent.b, .12f), 0f);
+                iconSide * .5f, iconSide * .5f, new Color(Accent.r, Accent.g, Accent.b, .16f), 0f);
             var icon = new GameObject(id + " icon group").transform;
             icon.SetParent(parent, false);
             icon.localPosition = center + new Vector3(0, iconY, -.015f);
@@ -347,9 +357,13 @@ namespace Kreoda.QuestRuntime
             var x = center.x; var y = center.y; var z = center.z;
             if (kind == 0) // CAD cube / project
             {
-                Outline(parent, ink, name, center, .019f, .019f, color, .0015f);
-                Surface(parent, ink, name + " core", new Vector3(x, y, z - .001f), new Vector3(.006f, .006f, .001f));
-                Surface(parent, ink, name + " upper facet", new Vector3(x, y + .006f, z - .001f), new Vector3(.008f, .0012f, .0008f));
+                const float r = .013f;
+                Hexagon(parent, ink, name + " silhouette", center, r, color);
+                Stroke(parent, ink, name + " edge up", new Vector2(x, y + r), new Vector2(x, y), .0015f, color, z);
+                Stroke(parent, ink, name + " edge left", new Vector2(x, y),
+                    new Vector2(x - r * .866f, y - r * .5f), .0015f, color, z);
+                Stroke(parent, ink, name + " edge right", new Vector2(x, y),
+                    new Vector2(x + r * .866f, y - r * .5f), .0015f, color, z);
             }
             else if (kind == 1) // crosshair / measure
             {
@@ -363,6 +377,98 @@ namespace Kreoda.QuestRuntime
                 Surface(parent, ink, name + " node A", new Vector3(x - .012f, y, z), new Vector3(.005f, .009f, .001f));
                 Surface(parent, ink, name + " node B", new Vector3(x + .012f, y, z), new Vector3(.005f, .009f, .001f));
                 Surface(parent, ink, name + " midpoint", new Vector3(x, y, z - .001f), new Vector3(.004f, .004f, .001f));
+            }
+            else if (kind == 4) // home
+            {
+                Stroke(parent, ink, name + " roof L", new Vector2(x - .014f, y + .001f),
+                    new Vector2(x, y + .013f), .0018f, color, z);
+                Stroke(parent, ink, name + " roof R", new Vector2(x, y + .013f),
+                    new Vector2(x + .014f, y + .001f), .0018f, color, z);
+                Stroke(parent, ink, name + " left wall", new Vector2(x - .011f, y + .001f),
+                    new Vector2(x - .011f, y - .012f), .0018f, color, z);
+                Stroke(parent, ink, name + " right wall", new Vector2(x + .011f, y + .001f),
+                    new Vector2(x + .011f, y - .012f), .0018f, color, z);
+                Stroke(parent, ink, name + " floor", new Vector2(x - .011f, y - .012f),
+                    new Vector2(x + .011f, y - .012f), .0018f, color, z);
+            }
+            else if (kind == 5) // move
+            {
+                Surface(parent, ink, name + " horizontal", new Vector3(x, y, z), new Vector3(.030f, .0018f, .001f));
+                Surface(parent, ink, name + " vertical", new Vector3(x, y, z), new Vector3(.0018f, .030f, .001f));
+                Stroke(parent, ink, name + " left tip", new Vector2(x - .015f, y),
+                    new Vector2(x - .010f, y + .004f), .0018f, color, z);
+                Stroke(parent, ink, name + " left tip 2", new Vector2(x - .015f, y),
+                    new Vector2(x - .010f, y - .004f), .0018f, color, z);
+                Stroke(parent, ink, name + " right tip", new Vector2(x + .015f, y),
+                    new Vector2(x + .010f, y + .004f), .0018f, color, z);
+                Stroke(parent, ink, name + " right tip 2", new Vector2(x + .015f, y),
+                    new Vector2(x + .010f, y - .004f), .0018f, color, z);
+            }
+            else if (kind == 6) // rotate
+            {
+                var points = new Vector2[9];
+                for (var i = 0; i < points.Length; i++)
+                {
+                    var angle = (240f + i * 15f) * Mathf.Deg2Rad;
+                    points[i] = new Vector2(x + Mathf.Cos(angle) * .012f, y + Mathf.Sin(angle) * .012f);
+                }
+                for (var i = 0; i + 1 < points.Length; i++)
+                    Stroke(parent, ink, name + " arc " + i, points[i], points[i + 1], .0018f, color, z);
+                Stroke(parent, ink, name + " arrow", points[points.Length - 1],
+                    points[points.Length - 1] + new Vector2(.006f, .004f), .0018f, color, z);
+            }
+            else if (kind == 7) // pen / sketch
+            {
+                Stroke(parent, ink, name + " body", new Vector2(x - .012f, y + .012f),
+                    new Vector2(x + .010f, y - .010f), .0022f, color, z);
+                Stroke(parent, ink, name + " tip", new Vector2(x + .010f, y - .010f),
+                    new Vector2(x + .014f, y - .014f), .0018f, color, z);
+                Stroke(parent, ink, name + " nib", new Vector2(x - .012f, y + .012f),
+                    new Vector2(x - .015f, y + .006f), .0018f, color, z);
+            }
+            else if (kind == 8) // section plane
+            {
+                Outline(parent, ink, name, center, .022f, .018f, color, .0016f);
+                Stroke(parent, ink, name + " cut", new Vector2(x - .010f, y + .008f),
+                    new Vector2(x + .008f, y - .008f), .0018f, color, z);
+            }
+            else if (kind == 9) // axes / references
+            {
+                Surface(parent, ink, name + " x", new Vector3(x + .006f, y, z), new Vector3(.020f, .0016f, .001f));
+                Surface(parent, ink, name + " y", new Vector3(x, y + .006f, z), new Vector3(.0016f, .020f, .001f));
+                Stroke(parent, ink, name + " z", new Vector2(x - .006f, y - .004f),
+                    new Vector2(x - .014f, y - .012f), .0016f, color, z);
+            }
+            else if (kind == 10) // voice
+            {
+                Ellipse(parent, ink, name + " ring 1", new Vector3(x, y, z), .014f, .014f, color, .9f);
+                Ellipse(parent, ink, name + " ring 2", new Vector3(x, y, z), .009f, .009f, color, .85f);
+                Surface(parent, ink, name + " core", new Vector3(x, y, z - .001f), new Vector3(.004f, .004f, .001f));
+                Surface(parent, ink, name + " right tick", new Vector3(x + .018f, y, z), new Vector3(.005f, .0016f, .001f));
+                Surface(parent, ink, name + " left tick", new Vector3(x - .018f, y, z), new Vector3(.005f, .0016f, .001f));
+            }
+            else if (kind == 11) // warning
+            {
+                Stroke(parent, ink, name + " left", new Vector2(x, y + .013f),
+                    new Vector2(x - .013f, y - .010f), .0018f, color, z);
+                Stroke(parent, ink, name + " right", new Vector2(x, y + .013f),
+                    new Vector2(x + .013f, y - .010f), .0018f, color, z);
+                Stroke(parent, ink, name + " base", new Vector2(x - .013f, y - .010f),
+                    new Vector2(x + .013f, y - .010f), .0018f, color, z);
+                Surface(parent, ink, name + " mark", new Vector3(x, y - .002f, z - .001f), new Vector3(.0018f, .006f, .001f));
+            }
+            else if (kind == 12) // variants / stack
+            {
+                Outline(parent, ink, name + " back", center + new Vector3(-.004f, .004f, .001f),
+                    .018f, .014f, color, .0015f);
+                Outline(parent, ink, name + " front", center + new Vector3(.004f, -.004f, -.001f),
+                    .018f, .014f, color, .0015f);
+            }
+            else if (kind == 13) // metrics / bars
+            {
+                Surface(parent, ink, name + " bar 1", new Vector3(x - .010f, y - .005f, z), new Vector3(.004f, .010f, .001f));
+                Surface(parent, ink, name + " bar 2", new Vector3(x, y + .002f, z), new Vector3(.004f, .024f, .001f));
+                Surface(parent, ink, name + " bar 3", new Vector3(x + .010f, y - .002f, z), new Vector3(.004f, .016f, .001f));
             }
             else // navigation / play
             {
@@ -418,7 +524,7 @@ namespace Kreoda.QuestRuntime
             Vector2 bounds, Action<TextMesh, Vector2> register, bool primary)
         {
             var row = Label(parent, font, text, position, primary ? .0105f : .0098f,
-                bounds, register, primary ? Ink : new Color(.70f, .76f, .84f));
+                bounds, register, primary ? Ink : Muted);
             row.fontStyle = primary ? FontStyle.Bold : FontStyle.Normal;
             return row;
         }
@@ -427,8 +533,8 @@ namespace Kreoda.QuestRuntime
             Vector3 center, float width, float height)
         {
             var background = GlassMaterial(material);
-            background.color = new Color(.055f, .065f, .085f, .55f);
-            if (background.HasProperty("_Sheen")) background.SetFloat("_Sheen", .10f);
+            background.color = new Color(Panel.r, Panel.g, Panel.b, .9f);
+            if (background.HasProperty("_Sheen")) background.SetFloat("_Sheen", .08f);
             return Surface(parent, background, name, center, new Vector3(width, height, .001f));
         }
 
@@ -437,9 +543,9 @@ namespace Kreoda.QuestRuntime
             switch (severity)
             {
                 case StatusSeverity.Active: return Accent;
-                case StatusSeverity.Warning: return new Color(1f, .78f, .45f);
-                case StatusSeverity.Error: return new Color(1f, .48f, .50f);
-                default: return new Color(.64f, .70f, .78f);
+                case StatusSeverity.Warning: return Warning;
+                case StatusSeverity.Error: return new Color(1f, .48f, .43f);
+                default: return Muted;
             }
         }
 
@@ -477,7 +583,7 @@ namespace Kreoda.QuestRuntime
             Vector3 position, float width, Action<TextMesh, Vector2> register)
         {
             Label(parent, font, key, position, .0095f,
-                new Vector2(width * .38f, .022f), register, new Color(.66f, .72f, .80f));
+                new Vector2(width * .38f, .022f), register, Muted);
             return Label(parent, font, value, position + new Vector3(width * .40f, 0, 0), .0105f,
                 new Vector2(width * .57f, .022f), register, Ink);
         }
@@ -491,7 +597,7 @@ namespace Kreoda.QuestRuntime
             root.SetParent(parent, false);
             root.localPosition = center;
             var body = GlassMaterial(material);
-            body.color = new Color(.055f, .065f, .085f, .30f);
+            body.color = new Color(Panel.r, Panel.g, Panel.b, .55f);
             Surface(root, body, name + " group surface", Vector3.zero,
                 new Vector3(width, height, .001f));
             var indicator = GlassMaterial(material);
@@ -543,10 +649,10 @@ namespace Kreoda.QuestRuntime
                 if (_accent != null && _accent.color != color) _accent.color = color;
                 // The entire factual card changes with the operation's state,
                 // while translucent background keeps passthrough visible.
-                var backing = severity == StatusSeverity.Error ? new Color(.20f, .09f, .11f, .60f)
-                    : severity == StatusSeverity.Warning ? new Color(.18f, .15f, .10f, .55f)
-                    : severity == StatusSeverity.Active ? new Color(.10f, .16f, .24f, .55f)
-                    : new Color(.055f, .065f, .085f, .50f);
+                var backing = severity == StatusSeverity.Error ? new Color(.22f, .10f, .10f, .85f)
+                    : severity == StatusSeverity.Warning ? new Color(.18f, .15f, .10f, .80f)
+                    : severity == StatusSeverity.Active ? new Color(.078f, .314f, .357f, .85f)
+                    : new Color(Panel.r, Panel.g, Panel.b, .9f);
                 if (_background != null && _background.color != backing) _background.color = backing;
             }
         }
@@ -585,21 +691,26 @@ namespace Kreoda.QuestRuntime
             Action click, Action<TextMesh, Vector2> register, bool emphasized = false)
         {
             var fill = GlassMaterial(material);
-            fill.color = emphasized ? new Color(.17f, .32f, .52f, .92f) : new Color(.11f, .12f, .14f, .86f);
+            fill.color = emphasized ? new Color(.078f, .314f, .357f, .97f) : new Color(.082f, .153f, .192f, .97f);
+            if (fill.HasProperty("_BorderColor"))
+                fill.SetColor("_BorderColor", emphasized
+                    ? new Color(.384f, .851f, .863f, .9f)
+                    : new Color(PanelEdge.r, PanelEdge.g, PanelEdge.b, .8f));
+            if (fill.HasProperty("_BorderSize")) fill.SetFloat("_BorderSize", .01f);
+            if (fill.HasProperty("_Radius")) fill.SetFloat("_Radius", .28f);
             var characterCount = Mathf.Max(1, string.IsNullOrEmpty(caption) ? 1 : caption.Length);
             var labelWidth = Mathf.Max(.012f, width - Mathf.Min(.016f, width * .18f));
             // TextMesh characterSize is proportional to glyph advance; keep
             // compact action labels within the measured collider's text inset.
             var textSize = Mathf.Min(.0135f, height * .62f, labelWidth / (characterCount * .55f));
             var title = Button(parent, font, fill, id, caption, center, width, height,
-                textSize, click, register,
-                emphasized ? Ink : new Color(.86f, .90f, .96f));
+                textSize, click, register, Ink);
             // Every workflow command has one semantic edge indicator. It is a
             // non-raycastable sibling within the control root; actual commands
             // and their independently enabled colliders remain untouched.
             var semantic = GlassMaterial(fill);
-            semantic.color = emphasized ? new Color(.46f, .68f, 1f, .85f) :
-                new Color(.30f, .40f, .52f, .30f);
+            semantic.color = emphasized ? new Color(Accent.r, Accent.g, Accent.b, .9f) :
+                new Color(Line.r, Line.g, Line.b, .5f);
             Surface(title.transform.parent, semantic, "Operation semantic rail",
                 center + new Vector3(-width * .465f, 0, -.005f),
                 new Vector3(.002f, height * .55f, .0006f));
@@ -923,6 +1034,236 @@ namespace Kreoda.QuestRuntime
             }
             surface.GetComponent<Collider>().enabled = false;
             return surface;
+        }
+
+        // ---- Spatial XR component kit (KREODA Quest 3 redesign v3) ----
+
+        public static void Stroke(Transform parent, Material source, string name, Vector2 from, Vector2 to,
+            float thickness, Color color, float z = 0f)
+        {
+            var material = GlassMaterial(source);
+            material.color = color;
+            var stroke = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            stroke.name = name;
+            stroke.transform.SetParent(parent, false);
+            var delta = to - from;
+            var mid = (from + to) * .5f;
+            stroke.transform.localPosition = new Vector3(mid.x, mid.y, z);
+            stroke.transform.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+            stroke.transform.localScale = new Vector3(delta.magnitude, thickness, .001f);
+            stroke.GetComponent<MeshRenderer>().sharedMaterial = material;
+            stroke.GetComponent<Collider>().enabled = false;
+        }
+
+        public static void Hexagon(Transform parent, Material source, string name, Vector3 center, float radius,
+            Color color)
+        {
+            var points = new Vector2[6];
+            for (var i = 0; i < 6; i++)
+            {
+                var angle = (60f * i + 30f) * Mathf.Deg2Rad;
+                points[i] = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+            }
+            for (var i = 0; i < 6; i++)
+                Stroke(parent, source, name + " edge " + i, center + (Vector3)points[i],
+                    center + (Vector3)points[(i + 1) % 6], .0018f, color, center.z);
+        }
+
+        public static TextMesh Pill(Transform parent, Font font, Material material, string id, string label,
+            Vector3 center, float width, float height, bool active, Action click,
+            Action<TextMesh, Vector2> register)
+        {
+            var group = new GameObject(label + " pill").transform;
+            group.SetParent(parent, false);
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = label;
+            body.transform.SetParent(group, false);
+            body.transform.localPosition = center;
+            body.transform.localScale = new Vector3(width, height, .008f);
+            var fill = GlassMaterial(material);
+            fill.color = active ? new Color(.078f, .314f, .357f, .97f) : new Color(.082f, .153f, .192f, .97f);
+            if (fill.HasProperty("_BorderColor"))
+                fill.SetColor("_BorderColor", active
+                    ? new Color(.384f, .851f, .863f, .95f)
+                    : new Color(PanelEdge.r, PanelEdge.g, PanelEdge.b, .85f));
+            if (fill.HasProperty("_BorderSize")) fill.SetFloat("_BorderSize", .012f);
+            if (fill.HasProperty("_Radius")) fill.SetFloat("_Radius", .30f);
+            body.GetComponent<MeshRenderer>().sharedMaterial = fill;
+            var input = body.AddComponent<QuestButton>();
+            input.ActionId = id;
+            input.Click = click;
+            var text = Label(group, font, label, center + new Vector3(0, 0, -.006f),
+                Mathf.Min(.0125f, height * .45f), new Vector2(width - .008f, height - .004f), register, Ink);
+            text.anchor = TextAnchor.MiddleCenter;
+            text.fontStyle = FontStyle.Bold;
+            return text;
+        }
+
+        public static TextMesh Badge(Transform parent, Font font, Material material, string id, string text,
+            Vector3 center, float width, float height, Color tint, Action click,
+            Action<TextMesh, Vector2> register)
+        {
+            var group = new GameObject(text + " badge").transform;
+            group.SetParent(parent, false);
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = text;
+            body.transform.SetParent(group, false);
+            body.transform.localPosition = center;
+            body.transform.localScale = new Vector3(width, height, .008f);
+            var fill = GlassMaterial(material);
+            fill.color = new Color(.063f, .176f, .212f, .95f);
+            if (fill.HasProperty("_BorderColor")) fill.SetColor("_BorderColor", new Color(tint.r, tint.g, tint.b, .9f));
+            if (fill.HasProperty("_BorderSize")) fill.SetFloat("_BorderSize", .012f);
+            if (fill.HasProperty("_Radius")) fill.SetFloat("_Radius", .30f);
+            body.GetComponent<MeshRenderer>().sharedMaterial = fill;
+            if (click != null)
+            {
+                var input = body.AddComponent<QuestButton>();
+                input.ActionId = id;
+                input.Click = click;
+            }
+            else body.GetComponent<Collider>().enabled = false;
+            Ellipse(group, material, text + " dot", center + new Vector3(-width * .5f + height * .55f, 0, -.008f),
+                height * .11f, height * .11f, tint, 0f);
+            var label = Label(group, font, text, center + new Vector3(-width * .5f + height * 1.05f, 0, -.010f),
+                Mathf.Min(.0105f, height * .42f), new Vector2(width - height * 1.2f, height - .004f), register, Ink);
+            label.anchor = TextAnchor.MiddleLeft;
+            return label;
+        }
+
+        public static Transform StatusChip(Transform parent, Font font, Material material, Vector3 center,
+            float width, float height, Action<TextMesh, Vector2> register, out TextMesh status)
+        {
+            var root = new GameObject("Spatial status chip").transform;
+            root.SetParent(parent, false);
+            root.localPosition = center;
+            var back = GlassMaterial(material);
+            back.color = new Color(.043f, .125f, .161f, .93f);
+            if (back.HasProperty("_BorderColor"))
+                back.SetColor("_BorderColor", new Color(.467f, .690f, .722f, .95f));
+            if (back.HasProperty("_BorderSize")) back.SetFloat("_BorderSize", .012f);
+            if (back.HasProperty("_Radius")) back.SetFloat("_Radius", .48f);
+            Surface(root, back, "Status chip backing", Vector3.zero, new Vector3(width, height, .002f));
+            Hexagon(root, material, "Kreoda mark", new Vector3(-width * .44f, 0, -.010f), height * .30f, Accent);
+            var brand = Label(root, font, "KREODA / MR", new Vector3(-width * .36f, 0, -.012f),
+                Mathf.Min(.015f, height * .46f), new Vector2(width * .30f, height * .8f), register, Ink);
+            brand.anchor = TextAnchor.MiddleLeft;
+            brand.fontStyle = FontStyle.Bold;
+            var separator = GlassMaterial(material);
+            separator.color = new Color(Line.r, Line.g, Line.b, .7f);
+            Surface(root, separator, "Status chip separator", new Vector3(-width * .045f, 0, -.009f),
+                new Vector3(.0012f, height * .55f, .0005f));
+            Ellipse(root, material, "Status chip dot", new Vector3(-width * .005f, 0, -.010f),
+                height * .10f, height * .10f, Warning, 0f);
+            status = Label(root, font, "PC NON CONNESSO", new Vector3(width * .015f, 0, -.012f),
+                Mathf.Min(.0115f, height * .36f), new Vector2(width * .36f, height * .8f), register, Muted);
+            status.anchor = TextAnchor.MiddleLeft;
+            return root;
+        }
+
+        public static TextMesh SectionLabel(Transform parent, Font font, string title, string subtitle,
+            Vector3 topLeft, float width, Action<TextMesh, Vector2> register, out TextMesh subtitleLabel)
+        {
+            var heading = Label(parent, font, title, topLeft, .0105f, new Vector2(width, .016f), register, Accent);
+            heading.fontStyle = FontStyle.Bold;
+            subtitleLabel = Label(parent, font, subtitle, topLeft + new Vector3(0, -.017f, -.001f), .0085f,
+                new Vector2(width, .016f), register, Muted);
+            return heading;
+        }
+
+        public static Transform Hint(Transform parent, Font font, Material material, Vector3 center, float width)
+        {
+            var root = new GameObject("Input hint").transform;
+            root.SetParent(parent, false);
+            root.localPosition = center;
+            var back = GlassMaterial(material);
+            back.color = new Color(.067f, .141f, .173f, .87f);
+            if (back.HasProperty("_Radius")) back.SetFloat("_Radius", .30f);
+            Surface(root, back, "Hint backing", Vector3.zero, new Vector3(width, .028f, .001f));
+            var mode = Label(root, font, "ACCESSO RAPIDO", new Vector3(-width * .46f, .006f, -.008f),
+                .0062f, new Vector2(width * .9f, .010f), null, Accent);
+            mode.fontStyle = FontStyle.Bold;
+            Label(root, font, "Punta e pizzica · oppure Trigger", new Vector3(-width * .46f, -.006f, -.008f),
+                .0075f, new Vector2(width * .9f, .011f), null, Ink);
+            return root;
+        }
+
+        public static Transform ToolRail(Transform parent, Font font, Material material, Vector3 center,
+            float width, float height, string[] ids, string[] labels, int[] glyphs, int active,
+            Action<string> activate, Action<TextMesh, Vector2> register)
+        {
+            var root = new GameObject("Spatial tool rail").transform;
+            root.SetParent(parent, false);
+            root.localPosition = center;
+            var back = GlassMaterial(material);
+            back.color = new Color(.043f, .129f, .157f, .95f);
+            if (back.HasProperty("_BorderColor"))
+                back.SetColor("_BorderColor", new Color(.337f, .561f, .580f, .95f));
+            if (back.HasProperty("_BorderSize")) back.SetFloat("_BorderSize", .01f);
+            if (back.HasProperty("_Radius")) back.SetFloat("_Radius", .09f);
+            Surface(root, back, "Tool rail backing", Vector3.zero, new Vector3(width, height, .002f));
+            var count = Mathf.Min(4, Mathf.Min(ids.Length, Mathf.Min(labels.Length, glyphs.Length)));
+            var slot = (height - .02f) / count;
+            for (var i = 0; i < count; i++)
+            {
+                var y = (height * .5f - .01f) - slot * (i + .5f);
+                var button = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                button.name = labels[i] + " rail button";
+                button.transform.SetParent(root, false);
+                button.transform.localPosition = new Vector3(0, y, -.006f);
+                button.transform.localScale = new Vector3(width - .012f, slot - .008f, .006f);
+                var fill = GlassMaterial(material);
+                fill.color = i == active ? new Color(.078f, .325f, .353f, .99f) : new Color(.125f, .188f, .216f, .99f);
+                if (fill.HasProperty("_BorderColor"))
+                    fill.SetColor("_BorderColor", i == active
+                        ? new Color(.392f, .933f, .882f, .95f)
+                        : new Color(.341f, .455f, .490f, .9f));
+                if (fill.HasProperty("_BorderSize")) fill.SetFloat("_BorderSize", i == active ? .016f : .008f);
+                if (fill.HasProperty("_Radius")) fill.SetFloat("_Radius", .22f);
+                button.GetComponent<MeshRenderer>().sharedMaterial = fill;
+                var input = button.AddComponent<QuestButton>();
+                input.ActionId = ids[i];
+                var id = ids[i];
+                input.Click = () => activate?.Invoke(id);
+                var icon = new GameObject(labels[i] + " icon").transform;
+                icon.SetParent(root, false);
+                icon.localPosition = new Vector3(0, y + slot * .12f, -.014f);
+                icon.localScale = Vector3.one * Mathf.Max(.6f, width / .085f);
+                Glyph(icon, material, labels[i] + " glyph", Vector3.zero, Accent, glyphs[i]);
+                var label = Label(root, font, labels[i], new Vector3(0, y - slot * .22f, -.016f),
+                    .0062f, new Vector2(width - .01f, .012f), register, Ink);
+                label.anchor = TextAnchor.MiddleCenter;
+            }
+            return root;
+        }
+
+        public static Transform Belt(Transform parent, Font font, Material material, Vector3 center,
+            float width, float height, string[] ids, string[] labels, bool[] active, Action<string> activate,
+            Action<TextMesh, Vector2> register)
+        {
+            var root = new GameObject("Spatial context belt").transform;
+            root.SetParent(parent, false);
+            root.localPosition = center;
+            var back = GlassMaterial(material);
+            back.color = new Color(.051f, .129f, .165f, .97f);
+            if (back.HasProperty("_BorderColor"))
+                back.SetColor("_BorderColor", new Color(.318f, .498f, .522f, .95f));
+            if (back.HasProperty("_BorderSize")) back.SetFloat("_BorderSize", .01f);
+            if (back.HasProperty("_Radius")) back.SetFloat("_Radius", .22f);
+            Surface(root, back, "Belt backing", Vector3.zero, new Vector3(width, height, .002f));
+            var count = Mathf.Min(ids.Length, Mathf.Min(labels.Length, active.Length));
+            var gap = .008f;
+            var pillWidth = Mathf.Min(.085f, (width - .02f - gap * (count - 1)) / Mathf.Max(1, count));
+            var total = pillWidth * count + gap * (count - 1);
+            var start = -total * .5f + pillWidth * .5f;
+            for (var i = 0; i < count; i++)
+            {
+                var id = ids[i];
+                Pill(root, font, material, id, labels[i],
+                    new Vector3(start + i * (pillWidth + gap), 0, -.006f), pillWidth, height - .012f,
+                    active[i], () => activate?.Invoke(id), register);
+            }
+            return root;
         }
     }
 }

@@ -289,6 +289,9 @@ namespace Kreoda.QuestRuntime
         string _selectedPcNotice;
         string _selectedPcId;
         TextMesh _status, _target, _endpointLabel, _codeLabel, _viewStatus, _handLabel, _diagnostics;
+        TextMesh _chipStatus, _sectionTitle, _sectionSubtitle;
+        Material _chipDot;
+        Transform _toolRail, _shellHint;
         TextMesh _massStatus;
         TextMesh _assemblyKindButton, _assemblyMovingButton, _assemblyFixedButton, _assemblyAxisButton,
             _assemblyValueButton, _assemblyMateApplyButton, _assemblyMateStatus, _assemblyMovingStatus, _assemblyFixedStatus;
@@ -374,12 +377,13 @@ namespace Kreoda.QuestRuntime
             _panel.SetParent(transform, false);
             _panel.localScale = Vector3.one * 1.40f;
             _content = _panel;
-            // No opaque full-page backdrop: the legacy material/shader can
-            // obscure text and controls even when placed at positive local Z.
-            // The thin, non-colliding outline leaves the center fully open.
-            BuildLegacyPageShell();
+            // No opaque full-page backdrop: the world-locked chip, rail and
+            // contextual panels stay separate islands over real passthrough.
+            BuildSpatialShell();
             if (Home == null) Home = GetComponent<QuestHome>() ?? gameObject.AddComponent<QuestHome>();
             _homePage = Home.Build(_panel, Font, PanelMaterial, ButtonMaterial, RegisterTextBounds, HomeAction);
+            Home.ChipStatus = _chipStatus;
+            Home.ChipDot = _chipDot;
             _status = Home.ConnectionStatus;
             if (AssemblyMates == null) AssemblyMates = GetComponent<QuestAssemblyMates>() ?? gameObject.AddComponent<QuestAssemblyMates>();
             AssemblyMates.Connection = Connection;
@@ -456,12 +460,6 @@ namespace Kreoda.QuestRuntime
             Button("Indietro", new Vector3(.09f, -.185f, 0), .16f,
                 () => Page(_assemblyMatesPage), .034f, .010f);
             _content = _panel;
-            var header = Button("Trascina", new Vector3(-.13f, .235f, 0), .12f, null, .035f, .011f);
-            header.transform.parent.GetComponentInChildren<QuestButton>().DragPanel = true;
-            _legacyHeaderControls.Add(header.transform.parent.gameObject);
-            _legacyHeaderControls.Add(Button("Home", new Vector3(.005f, .235f, 0), .09f, () => Page(_homePage), .035f, .011f).transform.parent.gameObject);
-            _legacyHeaderControls.Add(Button("PC", new Vector3(.105f, .235f, 0), .07f, () => Page(_pcPage), .035f, .011f).transform.parent.gameObject);
-            _legacyHeaderControls.Add(Button("×", new Vector3(.18f, .235f, 0), .035f, TogglePanel, .035f, .012f).transform.parent.gameObject);
             _pcPage = PageRoot("PC locali");_content = _pcPage;
             _pcStatus = Label(_content, "Ricerca del PC locale…", new Vector3(-.19f, .13f, -.003f), .012f);
             _textLimits[_pcStatus] = new Vector2(.38f, .055f);
@@ -806,41 +804,83 @@ namespace Kreoda.QuestRuntime
             RecenterPanel();
         }
 
-        void BuildLegacyPageShell()
+        void BuildSpatialShell()
         {
-            // Legacy pages fit inside x=[-.20,.20], y=[-.30,.25].
-            // Four narrow rails replace the legacy fullscreen occluding cube.
-            // Surface() disables colliders, preserving all button raycasts.
             var source = PanelMaterial != null ? PanelMaterial : ButtonMaterial;
             if (source == null)
             {
                 var shader = Shader.Find("Kreoda/QuestUi") ?? Shader.Find("Unlit/Color");
                 source = new Material(shader);
             }
-            var rim = QuestUi.GlassMaterial(source);
-            rim.color = new Color(.90f, .93f, 1f, .10f);
-            const float z = .014f;
-            _pageShellEdges.Add(QuestUi.Surface(_panel, rim, "Legacy shell top",
-                new Vector3(0, .272f, z), new Vector3(.424f, .002f, .001f)));
-            _pageShellEdges.Add(QuestUi.Surface(_panel, rim, "Legacy shell bottom",
-                new Vector3(0, -.315f, z), new Vector3(.424f, .002f, .001f)));
-            _pageShellEdges.Add(QuestUi.Surface(_panel, rim, "Legacy shell left",
-                new Vector3(-.212f, -.021f, z), new Vector3(.002f, .587f, .001f)));
-            _pageShellEdges.Add(QuestUi.Surface(_panel, rim, "Legacy shell right",
-                new Vector3(.212f, -.021f, z), new Vector3(.002f, .587f, .001f)));
-            // Keep spatial context visible through the center. A narrow top
-            // shelf and two translucent side accents frame the tools without
-            // bringing back the old blocking fullscreen panel.
-            var shelf = QuestUi.GlassMaterial(rim);
-            shelf.color = new Color(.06f, .065f, .08f, .55f);
-            _pageShellEdges.Add(QuestUi.Surface(_panel, shelf, "Legacy shell header glass",
-                new Vector3(0, .256f, .021f), new Vector3(.42f, .029f, .001f)));
-            var side = QuestUi.GlassMaterial(rim);
-            side.color = new Color(.10f, .12f, .16f, .12f);
-            _pageShellEdges.Add(QuestUi.Surface(_panel, side, "Legacy shell left ambient",
-                new Vector3(-.207f, -.023f, .021f), new Vector3(.006f, .54f, .001f)));
-            _pageShellEdges.Add(QuestUi.Surface(_panel, side, "Legacy shell right ambient",
-                new Vector3(.207f, -.023f, .021f), new Vector3(.006f, .54f, .001f)));
+            var chip = QuestUi.StatusChip(_panel, Font, source, new Vector3(0, .215f, 0),
+                .30f, .036f, RegisterTextBounds, out _chipStatus);
+            var dot = chip.Find("Status chip dot");
+            if (dot != null) _chipDot = dot.GetComponent<MeshRenderer>()?.sharedMaterial;
+            _sectionTitle = QuestUi.SectionLabel(_panel, Font, "SPAZIO / HOME",
+                "Le azioni sono oggetti nello spazio.", new Vector3(-.190f, .175f, -.006f),
+                .19f, RegisterTextBounds, out _sectionSubtitle);
+            _toolRail = QuestUi.ToolRail(_panel, Font, source, new Vector3(-.245f, .02f, 0),
+                .085f, .30f,
+                new[] { "rail:home", "rail:view", "rail:section", "rail:references" },
+                new[] { "Home", "Vista", "Sezione", "Riferimenti" },
+                new[] { 4, 0, 8, 9 }, 0, RailAction, RegisterTextBounds);
+            _shellHint = QuestUi.Hint(_panel, Font, source, new Vector3(-.17f, -.345f, 0), .175f);
+        }
+
+        void RailAction(string id)
+        {
+            switch (id)
+            {
+                case "rail:home": Page(_homePage); break;
+                case "rail:view": Page(_viewPage); break;
+                case "rail:section": Page(_sectionPage); break;
+                case "rail:references": OpenReferences(); break;
+            }
+        }
+
+        void UpdateSpatialSection(Transform selected)
+        {
+            if (_sectionTitle == null) return;
+            string title, subtitle;
+            if (selected == _homePage) { title = "SPAZIO / HOME"; subtitle = "Le azioni sono oggetti nello spazio."; }
+            else if (selected == _viewPage) { title = "SPAZIO / WORKSPACE"; subtitle = "Modello su piano reale. Strumenti vicini all'oggetto."; }
+            else if (selected == _connectionPage) { title = "SPAZIO / CONNESSIONE"; subtitle = "Pairing protetto. Target CAD solo dopo connessione."; }
+            else if (selected == _pcPage) { title = "SPAZIO / RICERCA PC"; subtitle = "Dispositivi della rete locale e ricerca di workstation."; }
+            else if (selected == _commandPage) { title = "SPAZIO / AZIONI CAD"; subtitle = "Comandi contestuali sulla selezione geometrica."; }
+            else if (selected == _editPage) { title = "SPAZIO / MODIFICA"; subtitle = "Handle spaziale e valore numerico preciso."; }
+            else if (selected == _sketchPage) { title = "SPAZIO / SKETCH"; subtitle = "Piano di disegno ancorato alla geometria."; }
+            else if (selected == _sectionPage) { title = "SPAZIO / SEZIONE"; subtitle = "Un piano attraversa l'oggetto nello spazio reale."; }
+            else if (selected == _referencePage) { title = "SPAZIO / RIFERIMENTI"; subtitle = "Piani, assi e punti creati intorno al pezzo."; }
+            else if (selected == _configurationPage) { title = "SPAZIO / CONFIGURAZIONI"; subtitle = "Varianti del progetto, selezione spaziale."; }
+            else if (selected == _metricsPage) { title = "SPAZIO / METRICHE"; subtitle = "Strumentazione non invasiva, nessun grafico inventato."; }
+            else if (selected == _voicePage) { title = "SPAZIO / HERMES"; subtitle = "Assistente contestuale, non sostituisce i comandi CAD."; }
+            else if (selected == _homeNoticePage) { title = "SPAZIO / ESITO"; subtitle = "Messaggio world-locked; mai coprire l'area di lavoro."; }
+            else { title = "SPAZIO / KREODA"; subtitle = "Strumenti contestuali intorno al modello."; }
+            if (_sectionTitle.text != title) _sectionTitle.text = title;
+            if (_sectionSubtitle.text != subtitle) _sectionSubtitle.text = subtitle;
+            if (_shellHint != null) _shellHint.gameObject.SetActive(selected != _homePage);
+            UpdateRailActive(selected);
+        }
+
+        void UpdateRailActive(Transform selected)
+        {
+            if (_toolRail == null) return;
+            var active = selected == _homePage ? 0 : selected == _viewPage ? 1 :
+                selected == _sectionPage ? 2 : selected == _referencePage ? 3 : -1;
+            var names = new[] { "Home", "Vista", "Sezione", "Riferimenti" };
+            for (var i = 0; i < names.Length; i++)
+            {
+                var button = _toolRail.Find(names[i] + " rail button");
+                if (button == null) continue;
+                var renderer = button.GetComponent<MeshRenderer>();
+                if (renderer == null || renderer.sharedMaterial == null) continue;
+                var fill = renderer.sharedMaterial;
+                fill.color = i == active ? new Color(.078f, .325f, .353f, .99f) : new Color(.125f, .188f, .216f, .99f);
+                if (fill.HasProperty("_BorderColor"))
+                    fill.SetColor("_BorderColor", i == active
+                        ? new Color(.392f, .933f, .882f, .95f)
+                        : new Color(.341f, .455f, .490f, .9f));
+            }
         }
 
         Transform PageRoot(string name)
@@ -1042,6 +1082,9 @@ namespace Kreoda.QuestRuntime
             if (page == null || Font == null || PanelMaterial == null) return;
             var stage = QuestUi.CreateLiveFocusStage(page, Font, PanelMaterial,
                 PageTitle(pageName), new Vector3(0, .163f, .011f), .394f, .105f, RegisterTextBounds);
+            // The spatial redesign replaces the desktop summary slab with the
+            // world-locked status chip and the right-hand inspector.
+            stage.Root.gameObject.SetActive(false);
             _textLimits[stage.Value] = new Vector2(.35f, .027f);
             _textLimits[stage.Side] = new Vector2(.35f, .020f);
             _domainFocus.Add(page, new DomainFocus
@@ -1468,9 +1511,10 @@ namespace Kreoda.QuestRuntime
             foreach (var edge in _pageShellEdges)
                 if (edge != null) edge.SetActive(selected != _homePage);
             foreach (var legacyControl in _legacyHeaderControls)
-                if (legacyControl != null) legacyControl.SetActive(selected != _homePage);
+                if (legacyControl != null)
+                    legacyControl.SetActive(selected != _homePage);
+            UpdateSpatialSection(selected);
         }
-
         void HomeAction(string id)
         {
             switch (id)

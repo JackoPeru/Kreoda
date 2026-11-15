@@ -1291,8 +1291,8 @@ namespace Kreoda.QuestRuntime.Tests
             Assert.That(_controls.Home.Background, Is.Null, "real room must remain visible between HUD islands");
             var bounds = new Bounds(home.position, Vector3.zero);
             foreach (var renderer in home.GetComponentsInChildren<MeshRenderer>()) bounds.Encapsulate(renderer.bounds);
-            Assert.That(bounds.size.x, Is.GreaterThanOrEqualTo(.65f));
-            Assert.That(bounds.size.y, Is.GreaterThanOrEqualTo(.60f));
+            Assert.That(bounds.size.x, Is.GreaterThanOrEqualTo(.55f));
+            Assert.That(bounds.size.y, Is.GreaterThanOrEqualTo(.50f));
             typeof(QuestControls).GetField("_panelOffset", Private).SetValue(_controls, new Vector3(0, 0, 1));
             _head.transform.position = new Vector3(2, 1.8f, 3);
             _controls.RecenterPanel();
