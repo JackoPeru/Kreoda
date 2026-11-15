@@ -120,19 +120,24 @@ session/document/revision fences; pattern inference (three authored holes → on
 transaction); symmetry inference with explicit acceptance; constraint suggestions; parametric generators
 (mounting plate, brackets, enclosure, spacer); design-from-function alternatives (explicit choice, never silent);
 Quest-selected geometry/spatial point as intent context (`SpatialVoiceIntent.cs`, `VoiceSelectionContext.cs`);
-reference-guided parametric reconstruction with explicit calibration (no automatic pixel detection);
-alternative approval with guarded transactional execution (`VoiceCandidateApproval.cs`).
+reference-guided parametric reconstruction with explicit calibration; calibrated image line/circle detection
+with an explicit, editable sketch proposal (no automatic geometry commit); alternative approval with guarded
+transactional execution (`VoiceCandidateApproval.cs`).
 
 **Evidence.** `GenerativeIntentTests`, `SemanticInferenceTests`, `SketchConstraintSuggestionsTests`,
 `ReferenceReconstructionTests`, `CadIntentProposalTests`, `SpatialVoiceIntentTests`,
 `VoiceCandidateApprovalTests`; E2E `phase16-brackets-native.spec.ts`, `phase16-enclosure-native.spec.ts`,
 `phase16-native-pattern.spec.ts`, `phase16-manual-hole-inference.spec.ts`,
 `phase16-symmetric-approval-native.spec.ts`, `phase16-approved-alternative-native.spec.ts`,
-`phase16-reference-reconstruction-native.spec.ts`, `phase16-projection-mcp.spec.ts`.
+`phase16-reference-reconstruction-native.spec.ts`, `phase16-projection-mcp.spec.ts`; Desktop
+`reference-detect.test.ts` (synthetic line/circle detection and mapping) and E2E
+`phase16-reference-vision.spec.ts` (calibrated image -> detection -> editable sketch in the core).
 
-**Limits.** Image line/circle detection (Stage B) and vision-assisted feature proposals (Stage C) are not
-implemented; Stage D (editable parametric reconstruction) is implemented only with an explicit calibration
-fence. A live Hermes agent proposal accepted on the physical headset remains open.
+**Limits.** Stage B/C use deterministic Hough-style line/circle detection tuned for clean, high-contrast
+drawings; noisy photos may need cleanup, and no learned vision model proposes features. Detected geometry
+becomes an ordinary editable sketch only after the explicit "Create editable sketch" action; no opaque mesh
+or silent commit is used. Stage D (editable parametric reconstruction) remains fenced by explicit calibration.
+A live Hermes agent proposal accepted on the physical headset remains open.
 
 ## Fixes delivered in this session
 
