@@ -691,9 +691,9 @@ public sealed class SessionClient : IAsyncDisposable
                 else
                 {
                     if (!_pending.TryRemove(idProp.GetString()!, out var removed)) return;
-                    if (pending.Method == SessionMethods.Snapshot && pending.LineageGenerationAtSend != _lineageGeneration)
+                    if (pending.LineageGenerationAtSend != _lineageGeneration)
                     {
-                        FailPending(removed, new SessionException("NEED_FULL_SNAPSHOT", "snapshot reply belongs to a retired lineage"));
+                        FailPending(removed, new SessionException("NEED_FULL_SNAPSHOT", "reply belongs to a retired lineage"));
                         return;
                     }
                     ObserveReplyLineage(root, pending);
