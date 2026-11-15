@@ -371,12 +371,14 @@ namespace Kreoda.QuestRuntime
                 Surface(parent, ink, name + " vertical", new Vector3(x, y, z), new Vector3(.0018f, .025f, .001f));
                 Ellipse(parent, source, name + " reticle", new Vector3(x, y, z - .001f), .009f, .009f, color, .88f);
             }
-            else if (kind == 2) // connected nodes
+            else if (kind == 2) // connection / chain link
             {
-                Surface(parent, ink, name + " bar", new Vector3(x, y, z), new Vector3(.025f, .002f, .001f));
-                Surface(parent, ink, name + " node A", new Vector3(x - .012f, y, z), new Vector3(.005f, .009f, .001f));
-                Surface(parent, ink, name + " node B", new Vector3(x + .012f, y, z), new Vector3(.005f, .009f, .001f));
-                Surface(parent, ink, name + " midpoint", new Vector3(x, y, z - .001f), new Vector3(.004f, .004f, .001f));
+                Ellipse(parent, ink, name + " link left", new Vector3(x - .006f, y + .004f, z),
+                    .009f, .009f, color, .52f);
+                Ellipse(parent, ink, name + " link right", new Vector3(x + .006f, y - .004f, z),
+                    .009f, .009f, color, .52f);
+                Stroke(parent, ink, name + " link bridge", new Vector2(x - .002f, y),
+                    new Vector2(x + .002f, y), .0022f, color, z);
             }
             else if (kind == 4) // home
             {
@@ -702,7 +704,7 @@ namespace Kreoda.QuestRuntime
             var labelWidth = Mathf.Max(.012f, width - Mathf.Min(.016f, width * .18f));
             // TextMesh characterSize is proportional to glyph advance; keep
             // compact action labels within the measured collider's text inset.
-            var textSize = Mathf.Min(.0135f, height * .62f, labelWidth / (characterCount * .55f));
+            var textSize = Mathf.Min(.0115f, height * .62f, labelWidth / (characterCount * .55f));
             var title = Button(parent, font, fill, id, caption, center, width, height,
                 textSize, click, register, Ink);
             // Every workflow command has one semantic edge indicator. It is a
@@ -1093,7 +1095,7 @@ namespace Kreoda.QuestRuntime
             input.ActionId = id;
             input.Click = click;
             var text = Label(group, font, label, center + new Vector3(0, 0, -.006f),
-                Mathf.Min(.0125f, height * .45f), new Vector2(width - .008f, height - .004f), register, Ink);
+                Mathf.Min(.0105f, height * .42f), new Vector2(width - .008f, height - .004f), register, Ink);
             text.anchor = TextAnchor.MiddleCenter;
             text.fontStyle = FontStyle.Bold;
             return text;
@@ -1126,7 +1128,7 @@ namespace Kreoda.QuestRuntime
             Ellipse(group, material, text + " dot", center + new Vector3(-width * .5f + height * .55f, 0, -.008f),
                 height * .11f, height * .11f, tint, 0f);
             var label = Label(group, font, text, center + new Vector3(-width * .5f + height * 1.05f, 0, -.010f),
-                Mathf.Min(.0105f, height * .42f), new Vector2(width - height * 1.2f, height - .004f), register, Ink);
+                Mathf.Min(.0085f, height * .42f), new Vector2(width - height * 1.2f, height - .004f), register, Ink);
             label.anchor = TextAnchor.MiddleLeft;
             return label;
         }
@@ -1146,7 +1148,7 @@ namespace Kreoda.QuestRuntime
             Surface(root, back, "Status chip backing", Vector3.zero, new Vector3(width, height, .002f));
             Hexagon(root, material, "Kreoda mark", new Vector3(-width * .44f, 0, -.010f), height * .30f, Accent);
             var brand = Label(root, font, "KREODA / MR", new Vector3(-width * .36f, 0, -.012f),
-                Mathf.Min(.015f, height * .46f), new Vector2(width * .30f, height * .8f), register, Ink);
+                Mathf.Min(.0125f, height * .40f), new Vector2(width * .30f, height * .8f), register, Ink);
             brand.anchor = TextAnchor.MiddleLeft;
             brand.fontStyle = FontStyle.Bold;
             var separator = GlassMaterial(material);
@@ -1156,7 +1158,7 @@ namespace Kreoda.QuestRuntime
             Ellipse(root, material, "Status chip dot", new Vector3(-width * .005f, 0, -.010f),
                 height * .10f, height * .10f, Warning, 0f);
             status = Label(root, font, "PC NON CONNESSO", new Vector3(width * .015f, 0, -.012f),
-                Mathf.Min(.0115f, height * .36f), new Vector2(width * .36f, height * .8f), register, Muted);
+                Mathf.Min(.009f, height * .30f), new Vector2(width * .36f, height * .8f), register, Muted);
             status.anchor = TextAnchor.MiddleLeft;
             return root;
         }
@@ -1164,9 +1166,9 @@ namespace Kreoda.QuestRuntime
         public static TextMesh SectionLabel(Transform parent, Font font, string title, string subtitle,
             Vector3 topLeft, float width, Action<TextMesh, Vector2> register, out TextMesh subtitleLabel)
         {
-            var heading = Label(parent, font, title, topLeft, .0105f, new Vector2(width, .016f), register, Accent);
+            var heading = Label(parent, font, title, topLeft, .0095f, new Vector2(width, .016f), register, Accent);
             heading.fontStyle = FontStyle.Bold;
-            subtitleLabel = Label(parent, font, subtitle, topLeft + new Vector3(0, -.017f, -.001f), .0085f,
+            subtitleLabel = Label(parent, font, subtitle, topLeft + new Vector3(0, -.017f, -.001f), .0080f,
                 new Vector2(width, .016f), register, Muted);
             return heading;
         }
@@ -1231,7 +1233,7 @@ namespace Kreoda.QuestRuntime
                 icon.localScale = Vector3.one * Mathf.Max(.6f, width / .085f);
                 Glyph(icon, material, labels[i] + " glyph", Vector3.zero, Accent, glyphs[i]);
                 var label = Label(root, font, labels[i], new Vector3(0, y - slot * .22f, -.016f),
-                    .0062f, new Vector2(width - .01f, .012f), register, Ink);
+                    .0075f, new Vector2(width - .01f, .012f), register, Ink);
                 label.anchor = TextAnchor.MiddleCenter;
             }
             return root;

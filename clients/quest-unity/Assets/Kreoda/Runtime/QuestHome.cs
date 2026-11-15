@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using UnityEngine;
 
@@ -31,30 +31,30 @@ namespace Kreoda.QuestRuntime
             var tile = QuestUi.GlassMaterial(buttonMaterial);
 
             HomeCard(Page, font, glass, tile, "home:design", "ENTRA NELLO SPAZIO", "Modella e ispeziona",
-                "APRI", 0, new Vector3(-.130f, .020f, 0), .130f, .175f, true,
+                "APRI", 0, new Vector3(-.200f, .015f, 0), .150f, .200f, true,
                 () => activate?.Invoke("home:design"), register);
             HomeCard(Page, font, glass, tile, "home:pc", "CONNETTI PC", "Trova workstation",
-                "SELEZIONA", 2, new Vector3(0, .020f, 0), .130f, .175f, false,
+                "SELEZIONA", 2, new Vector3(0, .015f, 0), .150f, .200f, false,
                 () => activate?.Invoke("home:pc"), register);
             HomeCard(Page, font, glass, tile, "home:ai", "HERMES", "Assistente vocale",
-                "SELEZIONA", 10, new Vector3(.130f, .020f, 0), .130f, .175f, false,
+                "SELEZIONA", 10, new Vector3(.200f, .015f, 0), .150f, .200f, false,
                 () => activate?.Invoke("home:ai"), register);
 
             OpenableStatus = QuestUi.Badge(Page, font, tile, "home:project:select",
-                "NESSUN PROGETTO CARICATO", new Vector3(-.050f, -.105f, -.008f), .200f, .030f,
+                "NESSUN PROGETTO CARICATO", new Vector3(-.060f, -.105f, -.008f), .160f, .026f,
                 QuestUi.Warning, () => activate?.Invoke("home:project:select"), register);
             ProjectStatus = OpenableStatus;
             QuestUi.Pill(Page, font, tile, "home:project:open", "APRI",
-                new Vector3(.105f, -.105f, -.008f), .060f, .030f, false,
+                new Vector3(.115f, -.105f, -.008f), .060f, .026f, false,
                 () => activate?.Invoke("home:project:open"), register);
 
-            QuestUi.Belt(Page, font, tile, new Vector3(0, -.155f, -.006f), .390f, .040f,
+            QuestUi.Belt(Page, font, tile, new Vector3(0, -.155f, -.006f), .480f, .040f,
                 new[] { "home:design", "home:model", "home:view", "home:measure", "home:render" },
                 new[] { "DISEGNA", "MODELLA", "VISTA", "MISURA", "DISPLAY" },
                 new[] { true, false, false, false, false },
                 id => activate?.Invoke(id), register);
 
-            QuestUi.Hint(Page, font, tile, new Vector3(-.160f, -.218f, -.006f), .175f);
+            QuestUi.Hint(Page, font, tile, new Vector3(-.150f, -.218f, -.006f), .200f);
 
             // Compatibility status text for existing callers; the visible
             // state lives in the world-locked shell chip.
@@ -83,23 +83,23 @@ namespace Kreoda.QuestRuntime
             if (card.HasProperty("_Radius")) card.SetFloat("_Radius", .12f);
             QuestUi.Surface(root, card, title + " backing", Vector3.zero, new Vector3(width, height, .002f));
 
-            var discY = height * .25f;
+            var discY = height * .17f;
             QuestUi.Ellipse(root, glass, title + " icon disc", new Vector3(0, discY, -.008f),
-                height * .16f, height * .16f, new Color(.075f, .286f, .294f, .9f), 0f);
+                height * .20f, height * .20f, new Color(.075f, .286f, .294f, .9f), 0f);
             var icon = new GameObject(title + " icon").transform;
             icon.SetParent(root, false);
             icon.localPosition = new Vector3(0, discY, -.014f);
-            icon.localScale = Vector3.one * 1.55f;
+            icon.localScale = Vector3.one * 1.70f;
             QuestUi.Glyph(icon, glass, title + " glyph", Vector3.zero, QuestUi.Accent, glyph);
 
-            var heading = QuestUi.Label(root, font, title, new Vector3(0, -.018f, -.012f),
-                .0115f, new Vector2(width - .012f, .020f), register, QuestUi.Ink);
+            var heading = QuestUi.Label(root, font, title, new Vector3(0, -.038f, -.012f),
+                .0100f, new Vector2(width - .012f, .020f), register, QuestUi.Ink);
             heading.anchor = TextAnchor.MiddleCenter;
             heading.fontStyle = FontStyle.Bold;
-            var caption = QuestUi.Label(root, font, subtitle, new Vector3(0, -.036f, -.012f),
-                .0085f, new Vector2(width - .012f, .016f), register, QuestUi.Muted);
+            var caption = QuestUi.Label(root, font, subtitle, new Vector3(0, -.055f, -.012f),
+                .0075f, new Vector2(width - .012f, .016f), register, QuestUi.Muted);
             caption.anchor = TextAnchor.MiddleCenter;
-            QuestUi.Pill(root, font, tile, id, action, new Vector3(0, -height * .34f, -.012f),
+            QuestUi.Pill(root, font, tile, id, action, new Vector3(0, -height * .40f, -.012f),
                 width * .62f, height * .15f, primary, click, register);
         }
 

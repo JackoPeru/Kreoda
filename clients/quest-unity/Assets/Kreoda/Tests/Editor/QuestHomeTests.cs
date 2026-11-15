@@ -118,10 +118,10 @@ namespace Kreoda.QuestRuntime.Tests
             Assert.That(belt.GetComponentsInChildren<QuestButton>(true).Length, Is.EqualTo(5));
             var left = page.Find("ENTRA NELLO SPAZIO card");
             var rail = (Transform)Field("_toolRail");
-            var leftCollider = left.GetComponentInChildren<BoxCollider>();
-            var railCollider = rail.Find("Sezione rail button").GetComponent<BoxCollider>();
-            Assert.That(leftCollider.bounds.Intersects(railCollider.bounds), Is.False,
-                "launch cards must clear the world-locked tool rail");
+            Assert.That(left, Is.Not.Null);
+            Assert.That(rail.gameObject.activeSelf, Is.False,
+                "the Home mockup has no tool rail; it appears on the workspace pages");
+            Assert.That(page.Find("Spatial context belt"), Is.Not.Null);
         }
 
         [Test]

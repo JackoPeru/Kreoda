@@ -813,17 +813,18 @@ namespace Kreoda.QuestRuntime
                 source = new Material(shader);
             }
             var chip = QuestUi.StatusChip(_panel, Font, source, new Vector3(0, .215f, 0),
-                .30f, .036f, RegisterTextBounds, out _chipStatus);
+                .32f, .032f, RegisterTextBounds, out _chipStatus);
             var dot = chip.Find("Status chip dot");
             if (dot != null) _chipDot = dot.GetComponent<MeshRenderer>()?.sharedMaterial;
             _sectionTitle = QuestUi.SectionLabel(_panel, Font, "SPAZIO / HOME",
-                "Le azioni sono oggetti nello spazio.", new Vector3(-.190f, .175f, -.006f),
+                "Le azioni sono oggetti nello spazio.", new Vector3(-.280f, .175f, -.006f),
                 .19f, RegisterTextBounds, out _sectionSubtitle);
             _toolRail = QuestUi.ToolRail(_panel, Font, source, new Vector3(-.245f, .02f, 0),
                 .085f, .30f,
                 new[] { "rail:home", "rail:view", "rail:section", "rail:references" },
                 new[] { "Home", "Vista", "Sezione", "Riferimenti" },
                 new[] { 4, 0, 8, 9 }, 0, RailAction, RegisterTextBounds);
+            _toolRail.gameObject.SetActive(false);
             _shellHint = QuestUi.Hint(_panel, Font, source, new Vector3(-.17f, -.345f, 0), .175f);
         }
 
@@ -859,6 +860,20 @@ namespace Kreoda.QuestRuntime
             if (_sectionTitle.text != title) _sectionTitle.text = title;
             if (_sectionSubtitle.text != subtitle) _sectionSubtitle.text = subtitle;
             if (_shellHint != null) _shellHint.gameObject.SetActive(selected != _homePage);
+            var labelX = selected == _homePage ? -.280f : -.190f;
+            if (_sectionTitle != null)
+            {
+                var position = _sectionTitle.transform.localPosition;
+                if (!Mathf.Approximately(position.x, labelX))
+                    _sectionTitle.transform.localPosition = new Vector3(labelX, position.y, position.z);
+            }
+            if (_sectionSubtitle != null)
+            {
+                var position = _sectionSubtitle.transform.localPosition;
+                if (!Mathf.Approximately(position.x, labelX))
+                    _sectionSubtitle.transform.localPosition = new Vector3(labelX, position.y, position.z);
+            }
+            if (_toolRail != null) _toolRail.gameObject.SetActive(selected != _homePage);
             UpdateRailActive(selected);
         }
 
