@@ -316,13 +316,17 @@ namespace Kreoda.QuestRuntime
         QuestMeshView _selected;
         QuestDatumView _selectedDatum;
         MeshSemanticHit _hit;
-        LineRenderer _ray;
-        Transform _pointerDot, _pointerHalo;
-        MeshRenderer _pointerDotRenderer, _pointerHaloRenderer;
-        Material _pointerIdleMaterial, _pointerHoverMaterial, _pointerPressMaterial, _pointerHaloMaterial;
+        readonly LineRenderer[] _rays = new LineRenderer[2];
+        readonly Transform[] _pointerDots = new Transform[2], _pointerRings = new Transform[2];
+        readonly MeshRenderer[] _pointerDotRenderers = new MeshRenderer[2], _pointerRingRenderers = new MeshRenderer[2];
+        Material _pointerIdleMaterial, _pointerHoverMaterial, _pointerPressMaterial;
+        readonly RaycastHit[] _uiHits = new RaycastHit[128];
+        readonly Dictionary<QuestButton, float> _buttonClickTime = new Dictionary<QuestButton, float>();
         TouchScreenKeyboard _keyboard;
         string _endpoint = "", _code = "";
-        bool _editingCode, _pinching, _requireRelease = true, _tracked, _draggingPanel, _uiLeft, _wasConnected;
+        bool _editingCode, _requireRelease = true, _tracked, _draggingPanel, _uiLeft, _wasConnected;
+        readonly bool[] _pinching = new bool[2];
+        readonly int[] _pinchReleaseFrames = new int[2];
         int _handMode;
         Vector3 _panelOffset;
         float _yaw;
@@ -335,7 +339,6 @@ namespace Kreoda.QuestRuntime
         Quaternion _grabStartRotation;
         float _grabDistance, _initialTrackingTime = -1;
         bool _initialPanelPlaced;
-        int _pinchReleaseFrames;
 
         void Start()
         {
@@ -710,21 +713,17 @@ namespace Kreoda.QuestRuntime
                 TogglePanel, .03f);
             menu.transform.parent.SetParent(transform, false);
             _compactMenu.Add(menu.transform.parent);
-            _ray = new GameObject("Pointer ray").AddComponent<LineRenderer>();
-            _ray.transform.SetParent(transform, false);
-            _ray.sharedMaterial = RayMaterial;
-            _ray.positionCount = 2;
-            _ray.startWidth = .0007f;
-            _ray.endWidth = .0015f;
-            _ray.useWorldSpace = true;
-            _ray.startColor = new Color(.36f, .74f, 1f, .15f);
-            _ray.endColor = new Color(.36f, .74f, 1f, .80f);
-            _pointerIdleMaterial = PointerMaterial(new Color(.38f, .75f, 1f, .96f));
-            _pointerHoverMaterial = PointerMaterial(new Color(.74f, .96f, 1f, 1f));
-            _pointerPressMaterial = PointerMaterial(new Color(.13f, 1f, .73f, 1f));
-            _pointerHaloMaterial = PointerMaterial(new Color(.16f, .61f, 1f, .33f));
-            _pointerHalo = PointerSphere("Pointer focus ring", .021f, _pointerHaloMaterial, out _pointerHaloRenderer);
-            _pointerDot = PointerSphere("Pointer tip", .010f, _pointerIdleMaterial, out _pointerDotRenderer);
+            _pointerIdleMaterial = PointerMaterial(new Color(.92f, .97f, 1f, .92f));
+            _pointerHoverMaterial = PointerMaterial(new Color(.63f, .98f, .95f, 1f));
+            _pointerPressMaterial = PointerMaterial(new Color(.63f, .98f, .95f, 1f));
+            for (var hand = 0; hand < 2; hand++)
+            {
+                _rays[hand] = CreatePointerRay(hand == 0 ? "Pointer ray left" : "Pointer ray right");
+                _pointerRings[hand] = PointerRing(hand == 0 ? "Pointer ring left" : "Pointer ring right",
+                    out _pointerRingRenderers[hand]);
+                _pointerDots[hand] = PointerSphere(hand == 0 ? "Pointer press left" : "Pointer press right",
+                    .0032f, _pointerPressMaterial, out _pointerDotRenderers[hand]);
+            }
             HidePointerVisual();
             RecenterPanel();
             Connection.SceneChanged += RefreshSelection;
@@ -737,6 +736,22 @@ namespace Kreoda.QuestRuntime
             return result;
         }
 
+        static LineRenderer CreatePointerRay(string name)
+        {
+            var ray = new GameObject(name).AddComponent<LineRenderer>();
+            var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color") ?? Shader.Find("Standard");
+            ray.sharedMaterial = new Material(shader) { color = Color.white };
+            ray.positionCount = 2;
+            ray.useWorldSpace = true;
+            ray.startWidth = .00035f;
+            ray.endWidth = .00055f;
+            ray.numCapVertices = 4;
+            ray.startColor = new Color(1f, 1f, 1f, .04f);
+            ray.endColor = new Color(1f, 1f, 1f, .55f);
+            ray.enabled = false;
+            return ray;
+        }
+
         Transform PointerSphere(string name, float diameter, Material material, out MeshRenderer renderer)
         {
             var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -747,41 +762,83 @@ namespace Kreoda.QuestRuntime
             if (collider != null) collider.enabled = false;
             renderer = sphere.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = material;
+            sphere.SetActive(false);
             return sphere.transform;
+        }
+
+        // Meta-style hand cursor: a small thin ring on the surface, no halo.
+        Transform PointerRing(string name, out MeshRenderer renderer)
+        {
+            var ring = new GameObject(name);
+            ring.transform.SetParent(transform, false);
+            const int sides = 48;
+            var vertices = new Vector3[sides * 2];
+            var triangles = new int[sides * 6];
+            for (var i = 0; i < sides; i++)
+            {
+                var angle = i * 2f * Mathf.PI / sides;
+                vertices[i * 2] = new Vector3(Mathf.Cos(angle) * .5f, Mathf.Sin(angle) * .5f, 0f);
+                vertices[i * 2 + 1] = new Vector3(Mathf.Cos(angle) * .40f, Mathf.Sin(angle) * .40f, 0f);
+                var next = (i + 1) % sides;
+                var at = i * 6;
+                triangles[at] = i * 2; triangles[at + 1] = next * 2; triangles[at + 2] = i * 2 + 1;
+                triangles[at + 3] = i * 2 + 1; triangles[at + 4] = next * 2; triangles[at + 5] = next * 2 + 1;
+            }
+            var mesh = new Mesh { name = name + " mesh", vertices = vertices, triangles = triangles };
+            mesh.RecalculateBounds();
+            ring.AddComponent<MeshFilter>().sharedMesh = mesh;
+            renderer = ring.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = _pointerIdleMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            ring.SetActive(false);
+            return ring.transform;
         }
 
         void HidePointerVisual()
         {
-            if (_ray != null) _ray.enabled = false;
-            if (_pointerDot != null) _pointerDot.gameObject.SetActive(false);
-            if (_pointerHalo != null) _pointerHalo.gameObject.SetActive(false);
+            for (var hand = 0; hand < 2; hand++) HidePointerVisual(hand);
         }
 
-        void ShowPointerVisual(Ray ray, Vector3 target, bool hit, bool interactive, bool pressed, bool clicked)
+        void HidePointerVisual(int hand)
         {
-            // No visual infinity ray: free-space indication stops at a comfortable
-            // arm's-length distance; real surface hits end precisely on the surface.
+            if (_rays[hand] != null) _rays[hand].enabled = false;
+            if (_pointerDots[hand] != null) _pointerDots[hand].gameObject.SetActive(false);
+            if (_pointerRings[hand] != null) _pointerRings[hand].gameObject.SetActive(false);
+        }
+
+        void ShowPointerVisual(int hand, Ray ray, Vector3 target, bool hit, bool interactive,
+            bool pressed, bool clicked)
+        {
+            // Thin Meta-style ray: no beam band and no pulsing halo. The ring
+            // is the cursor; a tiny filled dot appears only while pressing.
             var distance = Mathf.Max(.09f, Vector3.Distance(ray.origin, target));
-            var start = ray.GetPoint(Mathf.Min(.09f, distance * .18f));
-            _ray.enabled = true;
-            _ray.SetPosition(0, start);
-            _ray.SetPosition(1, target);
-            var color = clicked || pressed && interactive ? _pointerPressMaterial.color :
+            var start = ray.GetPoint(Mathf.Min(.07f, distance * .14f));
+            var line = _rays[hand];
+            line.enabled = true;
+            line.SetPosition(0, start);
+            line.SetPosition(1, target);
+            var active = clicked || pressed && interactive;
+            var tint = active ? _pointerPressMaterial.color :
                 interactive ? _pointerHoverMaterial.color : _pointerIdleMaterial.color;
-            _ray.startColor = new Color(color.r, color.g, color.b, .12f);
-            _ray.endColor = new Color(color.r, color.g, color.b, hit ? .88f : .38f);
-            _ray.endWidth = clicked ? .0028f : interactive ? .0021f : .0012f;
-            _pointerDot.gameObject.SetActive(true);
-            _pointerDot.position = target;
-            _pointerDot.localScale = Vector3.one * (clicked ? .011f : pressed ? .012f : interactive ? .017f : .009f);
-            _pointerDotRenderer.sharedMaterial = clicked || pressed && interactive ? _pointerPressMaterial :
+            line.startColor = new Color(tint.r, tint.g, tint.b, .04f);
+            line.endColor = new Color(tint.r, tint.g, tint.b, hit ? .55f : .25f);
+            line.endWidth = interactive ? .00065f : .0005f;
+            var ring = _pointerRings[hand];
+            ring.gameObject.SetActive(true);
+            ring.position = target;
+            ring.rotation = Quaternion.LookRotation(-ray.direction);
+            var diameter = clicked ? .0115f : pressed ? .0105f : interactive ? .0095f : .0075f;
+            ring.localScale = Vector3.one * diameter;
+            _pointerRingRenderers[hand].sharedMaterial = active ? _pointerPressMaterial :
                 interactive ? _pointerHoverMaterial : _pointerIdleMaterial;
-            _pointerHalo.gameObject.SetActive(hit && interactive);
-            if (hit)
+            var dot = _pointerDots[hand];
+            dot.gameObject.SetActive(pressed);
+            if (pressed)
             {
-                _pointerHalo.position = target;
-                var pulse = 1f + .09f * Mathf.Sin(Time.unscaledTime * 7f);
-                _pointerHalo.localScale = Vector3.one * (clicked ? .025f : pressed ? .027f : .032f * pulse);
+                dot.position = target;
+                dot.localScale = Vector3.one * .0032f;
+                _pointerDotRenderers[hand].sharedMaterial = _pointerPressMaterial;
             }
         }
 
@@ -1851,7 +1908,9 @@ namespace Kreoda.QuestRuntime
                 _keyboard = null;
             }
             _pendingExact = null;_exactIntent = null;
-            _pinching = false; _requireRelease = true;
+            _pinching[0] = _pinching[1] = false;
+            _pinchReleaseFrames[0] = _pinchReleaseFrames[1] = 0;
+            _requireRelease = true;
             UpdatePanelDrag(default, false, false);
             if (Display != null) Display.CancelPlacement();
             if (Display != null) Display.EndTwoHand(false);
@@ -2825,13 +2884,15 @@ namespace Kreoda.QuestRuntime
                 return;
             }
             _tracked = Pointer(out var ray, out var clicked, out var pressed, out var orientation);
+            var primaryHand = PreferLeftHand ? 0 : 1;
+            UpdateSecondaryHand(!PreferLeftHand);
             if (Spatial != null && Spatial.Holding)
             { _voiceContext?.CancelPointArm();Spatial.Drag(ray, orientation, pressed, _tracked);HidePointerVisual();return; }
             if (!_tracked)
             {
                 _voiceContext?.CancelPointArm();
                 if (References != null && (References.IsFormOpen || _editingReference)) CancelReference();
-                UpdatePanelDrag(ray, pressed, false); HidePointerVisual(); _requireRelease = true; UpdatePlacementFromPointer(ray, false, _yaw); return;
+                UpdatePanelDrag(ray, pressed, false); HidePointerVisual(primaryHand); _requireRelease = true; UpdatePlacementFromPointer(ray, false, _yaw); return;
             }
             if (_requireRelease) { clicked = false; if (!pressed) _requireRelease = false; }
             var direction = Vector3.ProjectOnPlane(ray.direction, Vector3.up);
@@ -2841,7 +2902,7 @@ namespace Kreoda.QuestRuntime
             {
                 _voiceContext?.CancelPointArm();
                 UpdatePanelDrag(ray, pressed, true);
-                ShowPointerVisual(ray, ray.GetPoint(_grabDistance), true, true, pressed, clicked);
+                ShowPointerVisual(primaryHand, ray, ray.GetPoint(_grabDistance), true, true, pressed, clicked);
                 return;
             }
             var hasHit = false;
@@ -2884,7 +2945,7 @@ namespace Kreoda.QuestRuntime
                 (hitCollider.GetComponent<QuestEditHandle>() != null ||
                  hitCollider.GetComponentInParent<QuestDatumView>() != null ||
                  hitCollider.GetComponent<QuestMeshView>() != null) || hitView != null;
-            ShowPointerVisual(ray, hasHit ? hitPoint : ray.GetPoint(.85f), hasHit, isInteractive, pressed, clicked);
+            ShowPointerVisual(primaryHand, ray, hasHit ? hitPoint : ray.GetPoint(.85f), hasHit, isInteractive, pressed, clicked);
             var armButtonClick = button != null && button.ActionId == "Arma punto" && clicked;
             if (_voiceContext != null && _voiceContext.PointArmed && !armButtonClick)
             {
@@ -2902,7 +2963,7 @@ namespace Kreoda.QuestRuntime
             if (button != null)
             {
                 if (button.DragPanel) { _voiceContext?.CancelPointArm();BeginPanelDrag(ray, hitPoint); }
-                else { if (button.ActionId != "Arma punto") _voiceContext?.CancelPointArm();button.Click?.Invoke(); }
+                else { if (button.ActionId != "Arma punto") _voiceContext?.CancelPointArm();InvokeUiButton(button); }
                 return;
             }
             if (_voiceContext != null && _voiceContext.ExplicitMode &&
@@ -3128,8 +3189,8 @@ namespace Kreoda.QuestRuntime
             if (_pointerSource == source) return;
             _voiceContext?.PointerSourceChanged(source);
             ResetIntent();_pointerSource = source;
-            _pinching = false;
-            _pinchReleaseFrames = 0;
+            _pinching[0] = _pinching[1] = false;
+            _pinchReleaseFrames[0] = _pinchReleaseFrames[1] = 0;
             _requireRelease = true;
         }
         bool Pose(bool left, out Ray ray, out Quaternion rotation, out int source)
@@ -3151,13 +3212,27 @@ namespace Kreoda.QuestRuntime
         }
         bool Pointer(out Ray ray, out bool clicked, out bool pressed, out Quaternion orientation)
         {
-            clicked = pressed = false;
             bool left = _handMode == 1 || (_handMode == 0 && OVRInput.GetDominantHand() == OVRInput.Handedness.LeftHanded);
             PreferLeftHand = left;
-            bool tracked = Pose(left, out ray, out orientation, out var source);
+            var tracked = PointerFor(left, out ray, out clicked, out pressed, out orientation, out var source);
             SetPointerSource(source);
-            if (!tracked) return false;
-            if (source <= 2) {
+            return tracked;
+        }
+
+        bool PointerFor(bool left, out Ray ray, out bool clicked, out bool pressed,
+            out Quaternion orientation, out int source)
+        {
+            clicked = pressed = false;
+            var handIndex = left ? 0 : 1;
+            var tracked = Pose(left, out ray, out orientation, out source);
+            if (!tracked)
+            {
+                _pinching[handIndex] = false;
+                _pinchReleaseFrames[handIndex] = 0;
+                return false;
+            }
+            if (source <= 2)
+            {
                 var hand = left ? LeftHand : RightHand;
                 // Finger confidence prevents incidental pinches during partial
                 // tracking; release must remain stable for two frames to rearm.
@@ -3166,24 +3241,79 @@ namespace Kreoda.QuestRuntime
                 pressed = pinching;
                 if (pinching)
                 {
-                    clicked = !_pinching && _pinchReleaseFrames >= 2;
-                    _pinching = true;
-                    _pinchReleaseFrames = 0;
+                    clicked = !_pinching[handIndex] && _pinchReleaseFrames[handIndex] >= 2;
+                    _pinching[handIndex] = true;
+                    _pinchReleaseFrames[handIndex] = 0;
                 }
                 else
                 {
-                    _pinchReleaseFrames = Mathf.Min(2, _pinchReleaseFrames + 1);
-                    if (_pinchReleaseFrames == 2) _pinching = false;
+                    _pinchReleaseFrames[handIndex] = Mathf.Min(2, _pinchReleaseFrames[handIndex] + 1);
+                    if (_pinchReleaseFrames[handIndex] == 2) _pinching[handIndex] = false;
                 }
-            } else {
+            }
+            else
+            {
                 var controller = left ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch;
-                clicked = OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, controller);pressed = OVRInput.Get(OVRInput.Button.PrimaryIndexTrigger, controller);
+                clicked = OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, controller);
+                pressed = OVRInput.Get(OVRInput.Button.PrimaryIndexTrigger, controller);
                 if (OVRInput.GetDown(OVRInput.Button.Two, controller)) TogglePanel();
-                _pinching = false;
-                _pinchReleaseFrames = 0;
+                _pinching[handIndex] = false;
+                _pinchReleaseFrames[handIndex] = 0;
             }
             return true;
         }
+
+        // Both hands point and click UI. The secondary hand never manipulates
+        // the model or placement: it only raycasts the nearest real button, so
+        // it cannot double-activate geometry or fight the primary hand.
+        void UpdateSecondaryHand(bool left)
+        {
+            var hand = left ? 0 : 1;
+            if (_draggingPanel || _keyboard != null || !PointerFor(left, out var ray, out var clicked,
+                out var pressed, out _, out _))
+            {
+                HidePointerVisual(hand);
+                return;
+            }
+            var button = ResolvePointerButton(ray, out var point, out _);
+            ShowPointerVisual(hand, ray, button != null ? point : ray.GetPoint(.85f),
+                button != null, button != null, pressed, clicked);
+            if (clicked && button != null) InvokeUiButton(button);
+        }
+
+        QuestButton ResolvePointerButton(Ray ray, out Vector3 point, out float distance)
+        {
+            point = ray.GetPoint(.85f);
+            distance = 5f;
+            var count = Physics.RaycastNonAlloc(ray, _uiHits, 5f, ~0, QueryTriggerInteraction.Ignore);
+            Collider nearest = null;
+            for (var i = 0; i < count; i++)
+            {
+                var candidate = _uiHits[i];
+                if (candidate.collider == null || candidate.distance >= distance) continue;
+                distance = candidate.distance;
+                nearest = candidate.collider;
+                point = candidate.point;
+            }
+            return nearest != null ? nearest.GetComponent<QuestButton>() : null;
+        }
+
+        void InvokeUiButton(QuestButton button)
+        {
+            if (button == null || button.Click == null) return;
+            if (_buttonClickTime.TryGetValue(button, out var last) &&
+                Time.unscaledTime - last < .12f) return;
+            _buttonClickTime[button] = Time.unscaledTime;
+            if (_buttonClickTime.Count > 256)
+            {
+                var stale = new List<QuestButton>();
+                foreach (var entry in _buttonClickTime)
+                    if (entry.Key == null) stale.Add(entry.Key);
+                foreach (var key in stale) _buttonClickTime.Remove(key);
+            }
+            button.Click.Invoke();
+        }
+
         static bool IndexPinchStarted(bool pressed, ref bool pinching)
         { var clicked = pressed && !pinching;pinching = pressed;return clicked; }
         bool TwoHandInput()
