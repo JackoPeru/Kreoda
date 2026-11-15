@@ -34,6 +34,7 @@ export type PlanStep =
     }
   | { command: "CreateFillet"; params: { radiusMm: number } }
   | { command: "CreateChamfer"; params: { distanceMm: number } }
+  | { command: "CreateShell"; params: { thicknessMm: number } }
   | {
       command: "CreateInstance";
       params: {
@@ -86,6 +87,8 @@ const HEAD_ALIASES: Record<string, string> = {
   arrotonda: "fillet",
   smusso: "chamfer",
   angolo: "chamfer",
+  svuota: "shell",
+  svuotare: "shell",
   imposta: "set",
   quota: "set",
   annulla: "undo",
@@ -179,7 +182,7 @@ const VIEW_NAMES_IT = ["alto", "fronte", "destra", "iso", "basso", "retro", "sin
 
 const KNOWN = new Set([
   "help", "?", "box", "plate", "cylinder", "tube", "sphere", "ball",
-  "holes", "hole", "fillet", "round", "chamfer", "corner", "set",
+  "holes", "hole", "fillet", "round", "chamfer", "corner", "shell", "set",
   "dimension", "undo", "redo", "view", ...VIEW_NAMES, "export", "save", "open",
 ]);
 
@@ -455,6 +458,25 @@ export function parseCommand(input: string): ParseResult {
     };
   }
 
+  if (head === "shell") {
+    const d = num(tks[1]);
+    if (d === null || tks.length > 2) {
+      return {
+        ok: false,
+        reason: "invalid",
+        message: t("parse.usageShell"),
+      };
+    }
+    return {
+      ok: true,
+      plan: {
+        steps: [{ command: "CreateShell", params: { thicknessMm: d } }],
+        source: "local",
+        text: input.trim(),
+      },
+    };
+  }
+
   if (head === "set" || head === "dimension") {
     // Preserve camelCase: tokens() lowercases, so take paramName from raw input.
     const raw = rawTokens(input);
@@ -597,6 +619,8 @@ export function describeStep(step: PlanStep): string {
       return t("parse.stepFillet", { r: step.params.radiusMm });
     case "CreateChamfer":
       return t("parse.stepChamfer", { d: step.params.distanceMm });
+    case "CreateShell":
+      return t("parse.stepShell", { t: step.params.thicknessMm });
     case "CreateInstance": {
       const p = step.params;
       const coords = [p.txMm ?? 0, p.tyMm ?? 0, p.tzMm ?? 0]

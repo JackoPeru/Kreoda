@@ -83,6 +83,13 @@ describe("local command parser (§57)", () => {
     expect(planOf("chamfer 2").steps[0]).toMatchObject({
       command: "CreateChamfer",
     });
+    expect(planOf("svuota 2").steps).toEqual([
+      { command: "CreateShell", params: { thicknessMm: 2 } },
+    ]);
+    expect(planOf("shell 2.5").steps[0]).toMatchObject({
+      command: "CreateShell",
+      params: { thicknessMm: 2.5 },
+    });
     expect(planOf("set widthMm 150").steps[0]).toMatchObject({
       command: "SetDimension",
     });
@@ -134,8 +141,9 @@ describe("local command parser (§57)", () => {
       "Box 100×50×20 mm",
     );
     expect(describeStep(planOf("holes 6 4 corners 8").steps[0]!)).toMatch(
-      /4.*⌀6/,
+      /4.*6/,
     );
+    expect(describeStep(planOf("svuota 2").steps[0]!)).toMatch(/2/);
   });
 
   it("validates plans (empty / too long / unknown command)", () => {

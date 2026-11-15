@@ -251,6 +251,7 @@ export class HttpLlmProvider implements IntentModelProvider {
         "CreateHole",
         "CreateFillet",
         "CreateChamfer",
+        "CreateShell",
         "CreateInstance",
         "SetDimension",
         "Undo",
@@ -297,6 +298,11 @@ export class HttpLlmProvider implements IntentModelProvider {
               edgeIds: { type: "array", items: { type: "string" } },
               distanceMm: numProp(0.01, 50000),
             } : {}),
+            ...(c.id === "CreateShell" ? {
+              targetId: { type: "string" },
+              faceRole: { type: "string" },
+              thicknessMm: numProp(0.01, 50000),
+            } : {}),
             ...(c.id === "CreateInstance" ? {
               targetId: { type: "string" },
               txMm: { type: "number" },
@@ -319,9 +325,11 @@ export class HttpLlmProvider implements IntentModelProvider {
             ? ["widthMm", "heightMm", "depthMm"]
             : c.id === "CreateHole"
               ? ["targetId", "faceRole", "xMm", "yMm", "diameterMm", "depthMode"]
-              : c.id === "CreateInstance"
-                ? ["targetId"]
-                : c.id === "SetDimension"
+              : c.id === "CreateShell"
+                ? ["targetId", "faceRole", "thicknessMm"]
+                : c.id === "CreateInstance"
+                  ? ["targetId"]
+                  : c.id === "SetDimension"
                   ? ["featureId", "paramName"]
                   : [],
           ...(c.id === "SetDimension"
@@ -683,6 +691,19 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             diameterMm: p.diameterMm,
             depthMode: p.depthMode,
             depthMm: p.depthMm,
+          }, { skipAvailability: true });
+          break;
+        }
+        case "CreateShell": {
+          const p = step.params as { targetId?: string; faceRole?: string; thicknessMm: number };
+          const face = p.targetId && p.faceRole
+            ? { targetId: p.targetId, faceRole: p.faceRole }
+            : selectedFace();
+          if (!face) throw new Error(t("cmd.reasonFace"));
+          await executeCommand("CreateShell", {
+            targetId: face.targetId,
+            faceRole: face.faceRole,
+            thicknessMm: p.thicknessMm,
           }, { skipAvailability: true });
           break;
         }
