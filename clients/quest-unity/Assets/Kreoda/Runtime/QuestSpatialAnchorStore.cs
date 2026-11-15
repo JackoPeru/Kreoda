@@ -22,7 +22,8 @@ namespace Kreoda.QuestRuntime
         NotLocalized,
         SaveFailed,
         StorageFailed,
-        Superseded
+        Superseded,
+        BackendFailed
     }
 
     public readonly struct QuestAnchorOutcome
@@ -128,6 +129,7 @@ namespace Kreoda.QuestRuntime
     {
         readonly IQuestSpatialAnchorBackend _backend;
         readonly IQuestAnchorRecordStorage _storage;
+        readonly JsonSerializerOptions _restoreJsonOptions;
         readonly string _directory;
         readonly SemaphoreSlim _singleOperation = new SemaphoreSlim(1, 1);
         readonly object _stateGate = new object();
@@ -143,10 +145,12 @@ namespace Kreoda.QuestRuntime
         }
 
         internal QuestSpatialAnchorStore(IQuestSpatialAnchorBackend backend,
-            string applicationStorageDirectory, IQuestAnchorRecordStorage storage)
+            string applicationStorageDirectory, IQuestAnchorRecordStorage storage,
+            JsonSerializerOptions restoreJsonOptions = null)
         {
             _backend = backend ?? throw new ArgumentNullException(nameof(backend));
             _storage = storage ?? throw new ArgumentNullException(nameof(storage));
+            _restoreJsonOptions = restoreJsonOptions;
             if (string.IsNullOrWhiteSpace(applicationStorageDirectory))
                 throw new ArgumentException("A private local storage directory is required.", nameof(applicationStorageDirectory));
             _directory = Path.GetFullPath(Path.Combine(applicationStorageDirectory, "kreoda-spatial-anchors-v1"));
@@ -290,10 +294,13 @@ namespace Kreoda.QuestRuntime
                 var path = RecordPath(scope);
                 if (!File.Exists(path)) return new QuestAnchorOutcome(QuestAnchorStatus.Missing);
                 QuestAnchorRecord record;
-                try { record = JsonSerializer.Deserialize<QuestAnchorRecord>(File.ReadAllText(path)); }
+                try { record = JsonSerializer.Deserialize<QuestAnchorRecord>(File.ReadAllText(path), _restoreJsonOptions); }
                 catch (JsonException) { return new QuestAnchorOutcome(QuestAnchorStatus.CorruptRecord); }
                 catch (IOException) { return new QuestAnchorOutcome(QuestAnchorStatus.StorageFailed); }
                 catch (UnauthorizedAccessException) { return new QuestAnchorOutcome(QuestAnchorStatus.StorageFailed); }
+                // Missing converter/AOT metadata is a serialization failure,
+                // never evidence that the Meta anchor failed to localize.
+                catch (NotSupportedException) { return new QuestAnchorOutcome(QuestAnchorStatus.StorageFailed); }
                 if (record == null || !record.Matches(scope))
                     return new QuestAnchorOutcome(QuestAnchorStatus.CorruptRecord);
                 if (!_backend.IsPermitted) return new QuestAnchorOutcome(QuestAnchorStatus.PermissionDenied);
@@ -318,7 +325,12 @@ namespace Kreoda.QuestRuntime
                 return new QuestAnchorOutcome(QuestAnchorStatus.Restored, record, displayPose);
             }
             catch (OperationCanceledException) { return new QuestAnchorOutcome(QuestAnchorStatus.Superseded); }
-            catch (Exception) { return new QuestAnchorOutcome(QuestAnchorStatus.NotLocalized); }
+            catch (TimeoutException)
+            {
+                return new QuestAnchorOutcome(
+                    !Current(scope, epoch) || cancellation.IsCancellationRequested
+                        ? QuestAnchorStatus.Superseded : QuestAnchorStatus.NotLocalized);
+            }
             finally { loaded?.Dispose(); _singleOperation.Release(); }
         }
 

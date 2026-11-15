@@ -62,6 +62,18 @@ namespace Kreoda.QuestRuntime.Tests
             string session = "session-1", long generation = 1) =>
             new QuestAnchorScope(pc, document, session, generation);
 
+        static string CreateAnchorStorage(string prefix)
+        {
+            var storage = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(storage);
+            return storage;
+        }
+
+        static void DeleteAnchorStorage(string storage)
+        {
+            if (Directory.Exists(storage)) Directory.Delete(storage, true);
+        }
+
         [Test]
         public async Task PhysicalConfirmStoresRealAnchorAndSecondAppSessionRestoresChangedTrackingOrigin()
         {
@@ -371,6 +383,124 @@ namespace Kreoda.QuestRuntime.Tests
         }
 
         [Test]
+        public async Task UnexpectedSdkRestoreErrorUsesTemporaryDisplayWithoutAutomaticRetry()
+        {
+            var storage = CreateAnchorStorage("qa-r-");
+            try
+            {
+                var backend = new EditorFakeAnchorBackend();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(.6f, .8f, 1), 0, true, true,
+                    QuestPlacementProvenance.ManualProjection);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                Assert.That((await _display.EditorSaveOperation).Status, Is.EqualTo(QuestAnchorStatus.Saved));
+
+                DisposeOwnedDisplay();
+                CreateActualNativeCadDisplay();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope(session: "reconnected", generation: 7);
+                float now = 100;
+                SetEditorAnchorClock(_display, () => now);
+                backend.LoadFailure = new InvalidOperationException("injected SDK fault");
+                UnityEngine.TestTools.LogAssert.Expect(LogType.Warning,
+                    "Quest Meta anchor restore failed: InvalidOperationException");
+                RunDisplayUpdate(_display);
+
+                var pending = _display.EditorRestoreOperation;
+                Assert.That(pending, Is.Not.Null);
+                QuestAnchorOutcome result;
+                try { result = await pending; }
+                catch (InvalidOperationException exception)
+                {
+                    Assert.Fail("Unexpected SDK fault escaped restore: " + exception.GetType().Name);
+                    return;
+                }
+
+                Assert.That(pending.IsFaulted, Is.False);
+                Assert.That(result.Status, Is.EqualTo(QuestAnchorStatus.BackendFailed));
+                Assert.That(result.Success, Is.False);
+                Assert.That(result.Record, Is.Null);
+                Assert.That(backend.LoadCalls, Is.EqualTo(1));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("vista temporanea"));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("tracking non verificato"));
+                Assert.That(Root.gameObject.activeSelf, Is.True);
+                Assert.That(_display.ConfirmedProvenance, Is.EqualTo(QuestPlacementProvenance.Unknown));
+                now = 500;
+                RunDisplayUpdate(_display);
+                RunDisplayUpdate(_display);
+                Assert.That(backend.LoadCalls, Is.EqualTo(1), "Unexpected SDK failure must not schedule retry");
+            }
+            finally { DeleteAnchorStorage(storage); }
+        }
+
+        [Test]
+        public async Task OldGenerationSdkFaultCannotFallbackOrBindAfterDocumentSwitch()
+        {
+            var storage = CreateAnchorStorage("qa-s-");
+            try
+            {
+                var backend = new EditorFakeAnchorBackend();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope();
+                RunDisplayUpdate(_display);
+                Assert.That(_display.BeginPlacement(), Is.True);
+                _display.UpdatePointerPlacement(new Vector3(.6f, .8f, 1), 0, true, true,
+                    QuestPlacementProvenance.ManualProjection);
+                _display.FreezePlacement();
+                Assert.That(_display.ConfirmPlacement(true), Is.True);
+                Assert.That((await _display.EditorSaveOperation).Status, Is.EqualTo(QuestAnchorStatus.Saved));
+
+                DisposeOwnedDisplay();
+                CreateActualNativeCadDisplay();
+                _display.EditorAnchorBackend = backend;
+                _display.EditorAnchorStoragePath = storage;
+                _display.EditorAuthenticatedScope = AnchorScope(session: "scope-a", generation: 2);
+                backend.PendingLoad = new TaskCompletionSource<IQuestSpatialAnchorHandle>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                RunDisplayUpdate(_display);
+                var oldTask = _display.EditorRestoreOperation;
+                Assert.That(oldTask, Is.Not.Null);
+                Assert.That(oldTask.IsCompleted, Is.False);
+                Assert.That(backend.LoadCalls, Is.EqualTo(1));
+
+                _display.EditorAuthenticatedScope = AnchorScope(document: "document-b",
+                    session: "scope-b", generation: 3);
+                RunDisplayUpdate(_display);
+                var newTask = _display.EditorRestoreOperation;
+                Assert.That(newTask, Is.Not.Null);
+                Assert.That(newTask, Is.Not.SameAs(oldTask));
+                Assert.That(newTask.IsCompleted, Is.False);
+                UnityEngine.TestTools.LogAssert.Expect(LogType.Warning,
+                    "Quest Meta anchor restore failed: InvalidOperationException");
+                backend.PendingLoad.SetException(new InvalidOperationException("late SDK fault"));
+
+                QuestAnchorOutcome oldResult;
+                try { oldResult = await oldTask; }
+                catch (InvalidOperationException exception)
+                {
+                    Assert.Fail("Old restore fault escaped after scope switch: " + exception.GetType().Name);
+                    return;
+                }
+                var newResult = await newTask;
+
+                Assert.That(oldResult.Status, Is.EqualTo(QuestAnchorStatus.Superseded));
+                Assert.That(newResult.Status, Is.EqualTo(QuestAnchorStatus.Missing));
+                Assert.That(backend.LoadCalls, Is.EqualTo(1));
+                Assert.That(_display.ConfirmedProvenance, Is.EqualTo(QuestPlacementProvenance.Unknown));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Contain("vista temporanea"));
+                Assert.That(_display.AnchorPersistenceStatus, Does.Not.Contain("SDK"));
+            }
+            finally { DeleteAnchorStorage(storage); }
+        }
+
+        [Test]
         public async Task PendingRestoreRetryCannotApplyAnOldDocumentAfterScopeChange()
         {
             var storage = Path.Combine(Path.GetTempPath(), "kreoda-anchor-retry-scope-" + Guid.NewGuid().ToString("N"));
@@ -531,6 +661,8 @@ namespace Kreoda.QuestRuntime.Tests
             public Pose CreatePose;
             public EditorFakeAnchorHandle Created;
             public EditorFakeAnchorHandle Loaded;
+            public Exception LoadFailure;
+            public TaskCompletionSource<IQuestSpatialAnchorHandle> PendingLoad;
 
             public Task<IQuestSpatialAnchorHandle> CreateAsync(Pose worldPose, CancellationToken token)
             {
@@ -543,6 +675,8 @@ namespace Kreoda.QuestRuntime.Tests
             public Task<IQuestSpatialAnchorHandle> LoadAsync(Guid uuid, CancellationToken token)
             {
                 LoadCalls++;
+                if (LoadFailure != null) throw LoadFailure;
+                if (PendingLoad != null) return PendingLoad.Task;
                 return Task.FromResult<IQuestSpatialAnchorHandle>(Loaded);
             }
         }

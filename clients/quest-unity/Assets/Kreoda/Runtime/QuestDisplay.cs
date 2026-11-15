@@ -249,7 +249,17 @@ namespace Kreoda.QuestRuntime
         async Task<QuestAnchorOutcome> RestoreCurrentScopeAsync(QuestAnchorScope scope,
             long confirmationGeneration)
         {
-            var result = await _anchorStore.RestoreAsync(scope);
+            QuestAnchorOutcome result;
+            try { result = await _anchorStore.RestoreAsync(scope); }
+            catch (OperationCanceledException)
+            {
+                result = new QuestAnchorOutcome(QuestAnchorStatus.Superseded);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning("Quest Meta anchor restore failed: " + exception.GetType().Name);
+                result = new QuestAnchorOutcome(QuestAnchorStatus.BackendFailed);
+            }
             if (!CurrentConfirmation(scope, confirmationGeneration) ||
                 result.Status == QuestAnchorStatus.Superseded)
                 return new QuestAnchorOutcome(QuestAnchorStatus.Superseded);
@@ -275,7 +285,9 @@ namespace Kreoda.QuestRuntime
                                     failedAttempt > 0 && failedAttempt < MaxRestoreAttempts;
             AnchorPersistenceStatus = result.Success
                 ? "Geometria CAD modificata: vecchio ancoraggio rifiutato" :
-                "Ancora locale assente, negata o non localizzata: vista temporanea";
+                result.Status == QuestAnchorStatus.BackendFailed
+                    ? "Errore SDK ancora Meta: vista temporanea; tracking non verificato"
+                    : "Ancora locale assente, negata o non localizzata: vista temporanea";
             FallbackFirstModel(AnchorPersistenceStatus);
             // Initial fallback may call Recenter, which legitimately revokes the
             // previous epoch. Schedule the retry only AFTER that fallback and
