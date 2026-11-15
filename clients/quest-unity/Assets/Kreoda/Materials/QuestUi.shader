@@ -3,10 +3,11 @@ Shader "Kreoda/QuestUi"
     Properties
     {
         _Color ("Color", Color) = (0.94, 0.96, 0.98, 0.78)
-        _Radius ("Corner radius", Range(0.01, 0.2)) = 0.11
-        _BorderColor ("Hairline color", Color) = (0.85, 0.88, 0.94, 0.12)
-        _BorderSize ("Hairline width", Range(0, 0.06)) = 0.003
-        _Sheen ("Surface light", Range(0, 1)) = 0.08
+        _Radius ("Corner radius", Range(0.001, 0.5)) = 0.11
+        _Aspect ("Aspect (width/height)", Float) = 1
+        _BorderColor ("Hairline color", Color) = (0.90, 0.93, 1.0, 0.10)
+        _BorderSize ("Hairline width", Range(0, 0.06)) = 0.0045
+        _Sheen ("Surface light", Range(0, 1)) = 0.14
     }
     SubShader
     {
@@ -25,6 +26,7 @@ Shader "Kreoda/QuestUi"
 
             fixed4 _Color;
             float _Radius;
+            float _Aspect;
             fixed4 _BorderColor;
             float _BorderSize;
             float _Sheen;
@@ -53,8 +55,12 @@ Shader "Kreoda/QuestUi"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 // Cubes have UVs on all six faces. Only the front face is
                 // visible for our thin MR quads; smooth derivatives prevent
-                // pixel-staircase edges at headset resolution.
-                float2 q = abs(i.uv - 0.5) - (0.5 - _Radius);
+                // pixel-staircase edges at headset resolution. The aspect
+                // rescale keeps corner radii and hairlines metric-uniform on
+                // wide bars and small square tiles alike.
+                float2 uv = float2(i.uv.x * _Aspect, i.uv.y);
+                float2 halfSize = float2(_Aspect, 1.0) * 0.5;
+                float2 q = abs(uv - halfSize) - (halfSize - _Radius);
                 float distance = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - _Radius;
                 float feather = max(fwidth(distance) * 1.25, .001);
                 float coverage = 1.0 - smoothstep(-feather, feather, distance);
@@ -64,7 +70,7 @@ Shader "Kreoda/QuestUi"
                 float stroke = 1.0 - smoothstep(0.0, max(_BorderSize, 0.0001), -distance);
                 float trim = saturate(stroke * _BorderColor.a);
                 fixed4 result = _Color;
-                result.rgb += smoothstep(.15, 1.0, i.uv.y) * _Sheen * .10;
+                result.rgb += smoothstep(.15, 1.0, i.uv.y) * _Sheen * .14;
                 result.rgb = lerp(result.rgb, _BorderColor.rgb, trim);
                 result.a = saturate(_Color.a + (1.0 - _Color.a) * trim * .12) * coverage;
                 return result;

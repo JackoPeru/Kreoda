@@ -54,8 +54,8 @@ namespace Kreoda.QuestRuntime
         }
         public enum StatusSeverity { Neutral, Active, Warning, Error }
         public enum OperationPanelRole { DevicePicker, Selector, ParameterEditor, PrimaryCommand, Diagnostic, History, Navigation }
-        public static readonly Color Ink = new Color(.92f, .95f, .99f);
-        public static readonly Color Accent = new Color(.45f, .68f, 1f);
+        public static readonly Color Ink = new Color(.96f, .97f, 1f);
+        public static readonly Color Accent = new Color(.50f, .72f, 1f);
 
         // Transparent local HUD material. Never place an opaque full-screen quad
         // over Quest passthrough; only the independent panels use this material.
@@ -66,10 +66,10 @@ namespace Kreoda.QuestRuntime
             var shader = Shader.Find("Kreoda/QuestUi");
             var glass = shader != null ? new Material(shader) : new Material(source);
             glass.name = "Quest MR neutral glass";
-            glass.color = new Color(.105f, .115f, .135f, .84f);
-            if (glass.HasProperty("_Sheen")) glass.SetFloat("_Sheen", .08f);
-            if (glass.HasProperty("_BorderSize")) glass.SetFloat("_BorderSize", .003f);
-            if (glass.HasProperty("_BorderColor")) glass.SetColor("_BorderColor", new Color(.85f, .88f, .94f, .12f));
+            glass.color = new Color(.055f, .06f, .075f, .82f);
+            if (glass.HasProperty("_Sheen")) glass.SetFloat("_Sheen", .14f);
+            if (glass.HasProperty("_BorderSize")) glass.SetFloat("_BorderSize", .0045f);
+            if (glass.HasProperty("_BorderColor")) glass.SetColor("_BorderColor", new Color(.90f, .93f, 1f, .10f));
             glass.renderQueue = 3000;
             return glass;
         }
@@ -80,16 +80,16 @@ namespace Kreoda.QuestRuntime
         public static void Divider(Transform parent, Material material, string name, Vector3 center, float width)
         {
             var line = GlassMaterial(material);
-            line.color = new Color(.80f, .84f, .90f, .12f);
-            Surface(parent, line, name, center, new Vector3(width, .0007f, .0005f));
+            line.color = new Color(.85f, .88f, .94f, .10f);
+            Surface(parent, line, name, center, new Vector3(width, .0012f, .0005f));
         }
 
         public static GameObject GlassCard(Transform parent, Material material, string name, Vector3 center,
             float width, float height, Color edge)
         {
             var bodyMaterial = GlassMaterial(material);
-            bodyMaterial.color = new Color(.085f, .095f, .115f, .86f);
-            if (bodyMaterial.HasProperty("_Radius")) bodyMaterial.SetFloat("_Radius", .11f);
+            bodyMaterial.color = new Color(.055f, .06f, .075f, .86f);
+            if (bodyMaterial.HasProperty("_Radius")) bodyMaterial.SetFloat("_Radius", .10f);
             var surface = GlassSurface(parent, bodyMaterial, name, center, new Vector3(width, height, .002f));
             // One rounded surface; its shader owns the hairline. Extra bezels
             // and stacked highlights obscure the room and compete with content.
@@ -163,15 +163,15 @@ namespace Kreoda.QuestRuntime
             Surface(root, accent, name + " focus edge", new Vector3(-width * .475f, 0, -.004f),
                 new Vector3(.0022f, height * .70f, .0006f));
             var title = Label(root, font, string.Empty,
-                new Vector3(-width * .435f, height * .27f, -.010f), .009f,
-                new Vector2(width * .87f, height * .22f), register, new Color(.68f,.77f,.84f));
+                new Vector3(-width * .435f, height * .27f, -.010f), .010f,
+                new Vector2(width * .87f, height * .22f), register, new Color(.66f, .72f, .80f));
             var value = Label(root, font, string.Empty,
-                new Vector3(-width * .435f, height * .01f, -.012f), .0125f,
+                new Vector3(-width * .435f, height * .01f, -.012f), .014f,
                 new Vector2(width * .87f, height * .28f), register, Ink);
             value.fontStyle = FontStyle.Bold;
             var side = Label(root, font, string.Empty,
-                new Vector3(-width * .435f, -height * .30f, -.012f), .009f,
-                new Vector2(width * .87f, height * .20f), register, new Color(.68f,.77f,.84f));
+                new Vector3(-width * .435f, -height * .30f, -.012f), .010f,
+                new Vector2(width * .87f, height * .20f), register, new Color(.66f, .72f, .80f));
             return new LiveFocusStage(root, title, value, side, back, accent);
         }
 
@@ -267,25 +267,23 @@ namespace Kreoda.QuestRuntime
             button.transform.localPosition = center;
             button.transform.localScale = new Vector3(width, height, .003f);
             var buttonMaterial = GlassMaterial(material);
-            buttonMaterial.color = new Color(.16f, .175f, .20f, .88f);
+            buttonMaterial.color = new Color(.10f, .11f, .13f, .80f);
             button.GetComponent<MeshRenderer>().sharedMaterial = buttonMaterial;
             var input = button.AddComponent<QuestButton>();
             input.ActionId = id;
             input.Click = click;
-            var decoration = GlassMaterial(material);
-            decoration.color = new Color(.34f, .48f, .68f, .14f);
             var compact = height < .09f;
             var iconY = compact ? height * .19f : height * .17f;
             var iconSide = compact ? .030f : .061f;
-            Surface(parent, decoration, id + " icon background", center + new Vector3(0, iconY, -.009f),
-                new Vector3(iconSide, iconSide, .001f));
+            Ellipse(parent, material, id + " icon background", center + new Vector3(0, iconY, -.009f),
+                iconSide * .5f, iconSide * .5f, new Color(Accent.r, Accent.g, Accent.b, .12f), 0f);
             var icon = new GameObject(id + " icon group").transform;
             icon.SetParent(parent, false);
             icon.localPosition = center + new Vector3(0, iconY, -.015f);
             icon.localScale = Vector3.one * (compact ? .88f : 1.82f);
             Glyph(icon, material, id + " icon", Vector3.zero, Accent, glyph);
             var labelMesh = Label(parent, font, label,
-                center + new Vector3(-width * .43f, -height * .12f, -.016f), compact ? .0105f : .0145f,
+                center + new Vector3(-width * .43f, -height * .12f, -.016f), compact ? .0115f : .0155f,
                 new Vector2(width * .88f, height * .28f), register, Ink);
             labelMesh.anchor = TextAnchor.UpperCenter;
             // UpperCenter anchors need their own centering; the original
@@ -411,7 +409,7 @@ namespace Kreoda.QuestRuntime
         public static TextMesh Heading(Transform parent, Font font, string text, Vector3 position,
             Vector2 bounds, Action<TextMesh, Vector2> register, Color? color = null)
         {
-            var title = Label(parent, font, text, position, .013f, bounds, register, color ?? Accent);
+            var title = Label(parent, font, text, position, .014f, bounds, register, color ?? Ink);
             title.fontStyle = FontStyle.Bold;
             return title;
         }
@@ -420,7 +418,7 @@ namespace Kreoda.QuestRuntime
             Vector2 bounds, Action<TextMesh, Vector2> register, bool primary)
         {
             var row = Label(parent, font, text, position, primary ? .0105f : .0098f,
-                bounds, register, primary ? Ink : new Color(.68f, .79f, .88f));
+                bounds, register, primary ? Ink : new Color(.70f, .76f, .84f));
             row.fontStyle = primary ? FontStyle.Bold : FontStyle.Normal;
             return row;
         }
@@ -429,8 +427,8 @@ namespace Kreoda.QuestRuntime
             Vector3 center, float width, float height)
         {
             var background = GlassMaterial(material);
-            background.color = new Color(.075f, .145f, .22f, .42f);
-            if (background.HasProperty("_Sheen")) background.SetFloat("_Sheen", .12f);
+            background.color = new Color(.055f, .065f, .085f, .55f);
+            if (background.HasProperty("_Sheen")) background.SetFloat("_Sheen", .10f);
             return Surface(parent, background, name, center, new Vector3(width, height, .001f));
         }
 
@@ -439,9 +437,9 @@ namespace Kreoda.QuestRuntime
             switch (severity)
             {
                 case StatusSeverity.Active: return Accent;
-                case StatusSeverity.Warning: return new Color(1f, .75f, .35f);
-                case StatusSeverity.Error: return new Color(1f, .44f, .43f);
-                default: return new Color(.65f, .76f, .85f);
+                case StatusSeverity.Warning: return new Color(1f, .78f, .45f);
+                case StatusSeverity.Error: return new Color(1f, .48f, .50f);
+                default: return new Color(.64f, .70f, .78f);
             }
         }
 
@@ -479,7 +477,7 @@ namespace Kreoda.QuestRuntime
             Vector3 position, float width, Action<TextMesh, Vector2> register)
         {
             Label(parent, font, key, position, .0095f,
-                new Vector2(width * .38f, .022f), register, new Color(.64f, .75f, .85f));
+                new Vector2(width * .38f, .022f), register, new Color(.66f, .72f, .80f));
             return Label(parent, font, value, position + new Vector3(width * .40f, 0, 0), .0105f,
                 new Vector2(width * .57f, .022f), register, Ink);
         }
@@ -493,7 +491,7 @@ namespace Kreoda.QuestRuntime
             root.SetParent(parent, false);
             root.localPosition = center;
             var body = GlassMaterial(material);
-            body.color = new Color(.06f, .13f, .21f, .28f);
+            body.color = new Color(.055f, .065f, .085f, .30f);
             Surface(root, body, name + " group surface", Vector3.zero,
                 new Vector3(width, height, .001f));
             var indicator = GlassMaterial(material);
@@ -545,10 +543,10 @@ namespace Kreoda.QuestRuntime
                 if (_accent != null && _accent.color != color) _accent.color = color;
                 // The entire factual card changes with the operation's state,
                 // while translucent background keeps passthrough visible.
-                var backing = severity == StatusSeverity.Error ? new Color(.22f, .09f, .11f, .63f)
-                    : severity == StatusSeverity.Warning ? new Color(.19f, .15f, .09f, .57f)
-                    : severity == StatusSeverity.Active ? new Color(.075f, .19f, .27f, .55f)
-                    : new Color(.075f, .145f, .22f, .42f);
+                var backing = severity == StatusSeverity.Error ? new Color(.20f, .09f, .11f, .60f)
+                    : severity == StatusSeverity.Warning ? new Color(.18f, .15f, .10f, .55f)
+                    : severity == StatusSeverity.Active ? new Color(.10f, .16f, .24f, .55f)
+                    : new Color(.055f, .065f, .085f, .50f);
                 if (_background != null && _background.color != backing) _background.color = backing;
             }
         }
@@ -587,21 +585,21 @@ namespace Kreoda.QuestRuntime
             Action click, Action<TextMesh, Vector2> register, bool emphasized = false)
         {
             var fill = GlassMaterial(material);
-            fill.color = emphasized ? new Color(.12f, .35f, .54f, .88f) : new Color(.08f, .17f, .28f, .78f);
+            fill.color = emphasized ? new Color(.17f, .32f, .52f, .92f) : new Color(.11f, .12f, .14f, .86f);
             var characterCount = Mathf.Max(1, string.IsNullOrEmpty(caption) ? 1 : caption.Length);
-            var labelWidth = Mathf.Max(.012f, width - .016f);
+            var labelWidth = Mathf.Max(.012f, width - Mathf.Min(.016f, width * .18f));
             // TextMesh characterSize is proportional to glyph advance; keep
             // compact action labels within the measured collider's text inset.
-            var textSize = Mathf.Min(.0115f, height * .62f, labelWidth / (characterCount * .58f));
+            var textSize = Mathf.Min(.0135f, height * .62f, labelWidth / (characterCount * .55f));
             var title = Button(parent, font, fill, id, caption, center, width, height,
                 textSize, click, register,
-                emphasized ? Ink : new Color(.84f, .90f, .96f));
+                emphasized ? Ink : new Color(.86f, .90f, .96f));
             // Every workflow command has one semantic edge indicator. It is a
             // non-raycastable sibling within the control root; actual commands
             // and their independently enabled colliders remain untouched.
             var semantic = GlassMaterial(fill);
-            semantic.color = emphasized ? new Color(.36f, .83f, 1f, .85f) :
-                new Color(.25f, .48f, .64f, .36f);
+            semantic.color = emphasized ? new Color(.46f, .68f, 1f, .85f) :
+                new Color(.30f, .40f, .52f, .30f);
             Surface(title.transform.parent, semantic, "Operation semantic rail",
                 center + new Vector3(-width * .465f, 0, -.005f),
                 new Vector3(.002f, height * .55f, .0006f));
@@ -902,9 +900,10 @@ namespace Kreoda.QuestRuntime
             var input = button.AddComponent<QuestButton>();
             input.ActionId = id;
             input.Click = click;
-            return Label(group, font, text, position + new Vector3(-width / 2 + .008f,
-                height / 2 - Mathf.Min(.006f, height * .15f), -.006f),
+            var label = Label(group, font, text, position + new Vector3(-width / 2 + .010f, 0, -.006f),
                 textSize, new Vector2(width - .016f, height - Mathf.Min(.010f, height * .30f)), register, color);
+            label.anchor = TextAnchor.MiddleLeft;
+            return label;
         }
 
         public static GameObject Surface(Transform parent, Material material, string name, Vector3 position, Vector3 size)
@@ -914,7 +913,14 @@ namespace Kreoda.QuestRuntime
             surface.transform.SetParent(parent, false);
             surface.transform.localPosition = position;
             surface.transform.localScale = size;
-            surface.GetComponent<MeshRenderer>().sharedMaterial = material;
+            var renderer = surface.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            if (material != null && material.HasProperty("_Aspect"))
+            {
+                var block = new MaterialPropertyBlock();
+                block.SetFloat("_Aspect", size.x / Mathf.Max(.0001f, size.y));
+                renderer.SetPropertyBlock(block);
+            }
             surface.GetComponent<Collider>().enabled = false;
             return surface;
         }

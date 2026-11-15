@@ -338,17 +338,19 @@ namespace Kreoda.QuestRuntime
         {
             _voiceContext = GetComponent<QuestVoiceContext>() ?? gameObject.AddComponent<QuestVoiceContext>();
             if (Voice != null) { Voice.Connection = Connection;Voice.Controls = this; }
+            var uiFont = Resources.Load<Font>("Inter-Regular");
+            if (uiFont != null) Font = uiFont;
             // Runtime override is required: the saved Unity scene holds older light materials.
             // Keep the CAD viewport untouched; only local Quest UI materials are themed.
             if (PanelMaterial != null)
             {
                 PanelMaterial = QuestUi.GlassMaterial(PanelMaterial);
-                PanelMaterial.color = new Color(.045f, .072f, .105f, .68f);
+                PanelMaterial.color = new Color(.055f, .06f, .075f, .82f);
             }
             if (ButtonMaterial != null)
             {
                 ButtonMaterial = QuestUi.GlassMaterial(ButtonMaterial);
-                ButtonMaterial.color = new Color(.085f, .16f, .25f, .88f);
+                ButtonMaterial.color = new Color(.13f, .14f, .17f, .80f);
             }
             if (References == null) References = GetComponent<QuestReferences>() ?? gameObject.AddComponent<QuestReferences>();
             References.Connection = Connection;References.Commands = Commands;References.Changed += RefreshReferencePage;
@@ -540,7 +542,7 @@ namespace Kreoda.QuestRuntime
             OperationControl("+5", new Vector3(.165f, -.055f, 0), .045f, () => Display.AdjustHeight(.005f), .032f);
             var scales = new[] { "1:10", "1:5", "1:1", "2:1", "10:1", "Fit" };
             for (int i = 0; i < scales.Length; i++)
-            { var preset = scales[i]; OperationControl(preset, new Vector3(-.16f + i * .064f, -.10f, 0), .055f, () => Display.SetScale(preset), .03f, .010f); }
+            { var preset = scales[i]; OperationControl(preset, new Vector3(-.16f + i * .064f, -.10f, 0), .055f, () => Display.SetScale(preset), .03f, .012f); }
             OperationControl("Ispezione", new Vector3(-.1f, -.145f, 0), .18f, () => Quality(MeshLod.Inspection), .031f);
             OperationControl("Normale", new Vector3(.105f, -.145f, 0), .17f, () => Quality(MeshLod.Interactive), .031f);
             OperationControl("UI L/R", new Vector3(-.13f, -.205f, 0), .11f, () =>
@@ -816,7 +818,7 @@ namespace Kreoda.QuestRuntime
                 source = new Material(shader);
             }
             var rim = QuestUi.GlassMaterial(source);
-            rim.color = new Color(.20f, .62f, .91f, .72f);
+            rim.color = new Color(.90f, .93f, 1f, .10f);
             const float z = .014f;
             _pageShellEdges.Add(QuestUi.Surface(_panel, rim, "Legacy shell top",
                 new Vector3(0, .272f, z), new Vector3(.424f, .002f, .001f)));
@@ -830,11 +832,11 @@ namespace Kreoda.QuestRuntime
             // shelf and two translucent side accents frame the tools without
             // bringing back the old blocking fullscreen panel.
             var shelf = QuestUi.GlassMaterial(rim);
-            shelf.color = new Color(.055f, .13f, .21f, .58f);
+            shelf.color = new Color(.06f, .065f, .08f, .55f);
             _pageShellEdges.Add(QuestUi.Surface(_panel, shelf, "Legacy shell header glass",
                 new Vector3(0, .256f, .021f), new Vector3(.42f, .029f, .001f)));
             var side = QuestUi.GlassMaterial(rim);
-            side.color = new Color(.12f, .34f, .52f, .20f);
+            side.color = new Color(.10f, .12f, .16f, .12f);
             _pageShellEdges.Add(QuestUi.Surface(_panel, side, "Legacy shell left ambient",
                 new Vector3(-.207f, -.023f, .021f), new Vector3(.006f, .54f, .001f)));
             _pageShellEdges.Add(QuestUi.Surface(_panel, side, "Legacy shell right ambient",
@@ -4364,7 +4366,7 @@ namespace Kreoda.QuestRuntime
             }
         }
         TextMesh OperationControl(string text, Vector3 position, float width, Action action,
-            float height = .039f, float textSize = .013f)
+            float height = .039f, float textSize = .014f)
         {
             var page = _content;
             if (!_authoredActionIndex.TryGetValue(page, out var sequence)) sequence = 0;

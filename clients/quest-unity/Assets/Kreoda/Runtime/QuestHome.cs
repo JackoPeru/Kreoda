@@ -17,6 +17,7 @@ namespace Kreoda.QuestRuntime
         Material[] _recentAccents;
         GameObject[] _recentAccentObjects;
         GameObject[] _recentIdentityMarks;
+        GameObject _recentEmpty;
         static readonly int RecentColorProperty = Shader.PropertyToID("_Color");
         string _lastRecentSummary;
         Material _connectionIndicatorMaterial;
@@ -37,16 +38,17 @@ namespace Kreoda.QuestRuntime
             var glass = QuestUi.GlassMaterial(panelMaterial);
             var tile = QuestUi.GlassMaterial(buttonMaterial);
             var cyan = QuestUi.Ink;
-            var subdued = new Color(.73f, .77f, .83f);
-            var signal = new Material(glass) { color = new Color(.45f, .68f, 1f, .64f) };
+            var subdued = new Color(.68f, .73f, .80f);
+            var signal = new Material(glass) { color = new Color(.50f, .72f, 1f, .60f) };
 
             // Separated islands: never an opaque central overlay over passthrough.
-            QuestUi.GlassCard(Page, glass, "Top / nav", new Vector3(0, .253f, .014f), .96f, .069f, cyan);
+            QuestUi.GlassCard(Page, glass, "Top / nav", new Vector3(0, .253f, .014f), .96f, .062f, cyan);
             _connectionIndicatorMaterial = new Material(signal);
             QuestUi.GlassSurface(Page, _connectionIndicatorMaterial, "Top signal indicator", new Vector3(-.361f, .253f, -.009f),
                 new Vector3(.003f, .029f, .001f));
-            QuestUi.Heading(Page, font, "KREODA", new Vector3(-.350f, .268f, -.009f),
-                new Vector2(.20f, .035f), register, QuestUi.Ink);
+            var brand = QuestUi.Label(Page, font, "KREODA", new Vector3(-.350f, .263f, -.010f),
+                .018f, new Vector2(.20f, .035f), register, QuestUi.Ink);
+            brand.fontStyle = FontStyle.Bold;
             // Only navigable screens with real HomeAction routes are exposed.
             // No placeholder Materials/Settings category without a destination.
             Nav("home:design", "DISEGNA", -.108f, font, tile, register, activate);
@@ -56,15 +58,15 @@ namespace Kreoda.QuestRuntime
                 new Vector3(.273f, .253f, -.006f), .184f, .042f, .012f,
                 () => activate?.Invoke("home:pc"), register, cyan);
 
-            var wordmark = QuestUi.Label(Page, font, "KREODA", new Vector3(0, .105f, -.012f), .025f,
+            var wordmark = QuestUi.Label(Page, font, "KREODA", new Vector3(0, .105f, -.012f), .022f,
                 new Vector2(.28f, .044f), register, QuestUi.Ink);
             wordmark.anchor = TextAnchor.MiddleCenter;
             wordmark.fontStyle = FontStyle.Bold;
             var promise = QuestUi.Label(Page, font, "Progetta · Visualizza · Realizza",
-                new Vector3(0, .059f, -.012f), .011f, new Vector2(.34f, .020f), register, QuestUi.Ink);
+                new Vector3(0, .062f, -.012f), .010f, new Vector2(.34f, .020f), register, QuestUi.Ink);
             promise.anchor = TextAnchor.MiddleCenter;
             var tagline = QuestUi.Label(Page, font, "Dalla tua idea al mondo reale",
-                new Vector3(0, .032f, -.012f), .0095f, new Vector2(.32f, .018f), register, subdued);
+                new Vector3(0, .038f, -.012f), .009f, new Vector2(.32f, .018f), register, subdued);
             tagline.anchor = TextAnchor.MiddleCenter;
 
             QuestUi.GlassCard(Page, glass, "Left / projects", new Vector3(-.228f, .005f, .014f), .304f, .395f, cyan);
@@ -72,6 +74,8 @@ namespace Kreoda.QuestRuntime
             // Keep title bounds entirely above the section divider at y=.148.
             QuestUi.Heading(Page, font, "PROGETTI RECENTI", new Vector3(-.363f, .179f, -.010f),
                 new Vector2(.27f, .028f), register, cyan);
+            QuestUi.GlassSurface(Page, signal, "Projects accent tick", new Vector3(-.372f, .184f, -.010f),
+                new Vector3(.0022f, .018f, .0005f));
             // The heading's reserved bottom is .127; the first card top is .118.
             // Keep a 9 mm vertical gap at the authored local scale.
             _recentSourceCaption = QuestUi.Label(Page, font, string.Empty,
@@ -107,6 +111,13 @@ namespace Kreoda.QuestRuntime
                     new Vector2(.200f, .027f), register, index == 0);
             }
             ProjectStatus = _recentRows[0];
+            _recentEmpty = new GameObject("Recent projects empty state");
+            _recentEmpty.transform.SetParent(Page, false);
+            _recentEmpty.transform.localPosition = new Vector3(-.228f, .075f, 0);
+            QuestUi.Outline(_recentEmpty.transform, glass, "Empty projects frame",
+                Vector3.zero, .22f, .058f, new Color(.85f, .88f, .94f, .09f), .0012f);
+            QuestUi.Glyph(_recentEmpty.transform, glass, "Empty projects glyph",
+                new Vector3(0, 0, -.002f), new Color(.50f, .72f, 1f, .42f), 0);
             SetProjectStatus(null, false, false);
             // Reserved bottom of this caption must stay above the divider at .003.
             QuestUi.Label(Page, font, "PROGETTI SUL PC", new Vector3(-.363f, .030f, -.010f), .0115f,
@@ -123,12 +134,20 @@ namespace Kreoda.QuestRuntime
             QuestUi.Divider(Page, glass, "Action header separator", new Vector3(.228f, .148f, .007f), .265f);
             QuestUi.Heading(Page, font, "INIZIA DA QUI", new Vector3(.092f, .179f, -.010f),
                 new Vector2(.26f, .028f), register, cyan);
+            QuestUi.GlassSurface(Page, signal, "Actions accent tick", new Vector3(.083f, .184f, -.010f),
+                new Vector3(.0022f, .018f, .0005f));
             ActionTile("home:pc", "CONNETTI", .157f, .073f, 2, font, tile, register, activate);
             ActionTile("home:project:select", "PROGETTI", .300f, .073f, 0, font, tile, register, activate);
             ActionTile("home:project:open", "APRI", .157f, -.075f, 1, font, tile, register, activate);
             ActionTile("home:ai", "ASSISTENTE", .300f, -.075f, 3, font, tile, register, activate);
 
-            // The Desktop action arc floats directly over the real room.
+            // The Desktop action arc floats directly over the real room. One
+            // quiet backing bar unifies the arc without closing the center.
+            var dockBacking = QuestUi.GlassMaterial(glass);
+            dockBacking.color = new Color(.045f, .05f, .062f, .62f);
+            if (dockBacking.HasProperty("_Radius")) dockBacking.SetFloat("_Radius", .12f);
+            QuestUi.GlassSurface(Page, dockBacking, "Dock / backing", new Vector3(0, -.292f, .014f),
+                new Vector3(.84f, .122f, .002f));
             Dock("home:design", "DISEGNA", -.305f, -.269f, 0, font, tile, register, activate);
             Dock("home:model", "MODELLA", -.158f, -.298f, 2, font, tile, register, activate);
             // The center dock action itself is the hub: avoid an opaque sphere
@@ -174,7 +193,7 @@ namespace Kreoda.QuestRuntime
             Action<TextMesh, Vector2> register, Action<string> activate)
         {
             QuestUi.Button(Page, font, material, id, label, new Vector3(x, .253f, -.006f), .094f, .042f,
-                .010f, () => activate?.Invoke(id), register);
+                .0115f, () => activate?.Invoke(id), register);
         }
 
         void ActionTile(string id, string label, float x, float y, int glyph, Font font, Material material,
@@ -233,6 +252,8 @@ namespace Kreoda.QuestRuntime
             var lines = hasProjects && !string.IsNullOrWhiteSpace(status)
                 ? ClipLines(status, _recentRows.Length, 31).Split('\n') : Array.Empty<string>();
             hasProjects = lines.Any(line => !string.IsNullOrWhiteSpace(line));
+            if (_recentEmpty != null && _recentEmpty.activeSelf == hasProjects)
+                _recentEmpty.SetActive(!hasProjects);
             var cacheKey = (hasProjects ? "rows:" : "empty:") +
                 (serverSnapshot ? "server:" : "session:") + (status ?? string.Empty);
             if (_lastRecentSummary == cacheKey) return;
@@ -247,7 +268,7 @@ namespace Kreoda.QuestRuntime
                 if (_recentRows[index] != null)
                 {
                     var desired = visible && index == 0
-                        ? QuestUi.Ink : new Color(.68f, .79f, .88f);
+                        ? QuestUi.Ink : new Color(.70f, .76f, .84f);
                     if (_recentRows[index].color != desired) _recentRows[index].color = desired;
                 }
                 if (_recentCards != null && _recentCards[index] != null)
@@ -261,18 +282,18 @@ namespace Kreoda.QuestRuntime
                         _recentIdentityMarks[index].SetActive(visible);
                     if (_recentAccents != null && _recentAccents[index] != null)
                     {
-                        var accent = visible
-                            ? (index == 0 ? new Color(.30f, .78f, 1f, .68f) : new Color(.30f, .61f, .80f, .36f))
-                            : new Color(.56f, .66f, .74f, .20f);
+                    var accent = visible
+                        ? (index == 0 ? new Color(.50f, .72f, 1f, .66f) : new Color(.45f, .55f, .65f, .34f))
+                        : new Color(.50f, .55f, .60f, .18f);
                         if (_recentAccents[index].color != accent) _recentAccents[index].color = accent;
                     }
                     var cardRenderer = _recentCards[index].GetComponent<MeshRenderer>();
                     if (cardRenderer != null && cardRenderer.sharedMaterial != null)
                     {
                         var fill = visible && index == 0
-                            ? new Color(.10f, .22f, .33f, .57f)
-                            : visible ? new Color(.080f, .165f, .25f, .49f)
-                            : new Color(.075f, .145f, .22f, .42f);
+                            ? new Color(.11f, .15f, .20f, .62f)
+                            : visible ? new Color(.08f, .10f, .13f, .52f)
+                            : new Color(.07f, .085f, .11f, .42f);
                         if (cardRenderer.sharedMaterial.HasProperty(RecentColorProperty))
                         {
                             var properties = new MaterialPropertyBlock();
