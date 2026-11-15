@@ -11,6 +11,7 @@ import { SketchEditor, defaultRectModel } from "../components/SketchEditor";
 import { ExtrudeDialog } from "../components/ExtrudeDialog";
 import { HoleDialog } from "../components/HoleDialog";
 import { DressUpDialog } from "../components/DressUpDialog";
+import { ShellDialog } from "../components/ShellDialog";
 import {
   AddPrimitiveDialog,
   type PrimitiveKind,
@@ -122,6 +123,7 @@ export function App() {
   const [extruding, setExtruding] = useState(false);
   const [holing, setHoling] = useState(false);
   const [dressUp, setDressUp] = useState<"fillet" | "chamfer" | null>(null);
+  const [shelling, setShelling] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
   const [showReference, setShowReference] = useState(false);
   const [showReferenceGeometry, setShowReferenceGeometry] = useState(false);
@@ -695,6 +697,10 @@ export function App() {
         onSketch={() => void createSketch()}
         onHole={() => setHoling(true)}
         onDressUp={(kind) => setDressUp(kind)}
+        onShell={() => {
+          setSurfaceOpen(false);
+          setShelling(true);
+        }}
         onExtrude={() => setExtruding(true)}
         onPlugins={() => setShowPlugins(true)}
         onReference={() => setShowReference(true)}
@@ -772,6 +778,7 @@ export function App() {
       {dressUp && (
         <DressUpDialog kind={dressUp} onClose={() => setDressUp(null)} />
       )}
+      {shelling && <ShellDialog onClose={() => setShelling(false)} />}
       </>
       )}
     </div>

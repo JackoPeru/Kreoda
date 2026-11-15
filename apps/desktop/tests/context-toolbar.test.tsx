@@ -15,6 +15,7 @@ function toolbar() {
   return render(<ContextToolbar
     onHole={vi.fn()}
     onDressUp={vi.fn()}
+    onShell={vi.fn()}
     onSketch={vi.fn()}
     onExtrude={vi.fn()}
     onEditSketch={vi.fn()}

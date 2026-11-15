@@ -22,6 +22,7 @@ import { useT } from "../i18n";
 export function ContextToolbar({
   onHole,
   onDressUp,
+  onShell,
   onSketch,
   onExtrude,
   onEditSketch,
@@ -30,6 +31,7 @@ export function ContextToolbar({
 }: {
   onHole: () => void;
   onDressUp: (kind: "fillet" | "chamfer") => void;
+  onShell: () => void;
   onSketch: () => void;
   onExtrude: () => void;
   onEditSketch: (id: string) => void;
@@ -70,6 +72,7 @@ export function ContextToolbar({
       candidates.push(
         { id: "PullFace", label: t("ctx.pullFace"), hint: t("ctx.pullFaceHint") },
         { id: "CreateHole", label: t("ctx.hole"), hint: t("ctx.holeHint") },
+        { id: "CreateShell", label: t("ctx.shell"), hint: t("ctx.shellHint") },
         { id: "CreateSketch", label: t("ctx.sketchHere"), hint: t("ctx.sketchHereHint") },
       );
     }
@@ -141,6 +144,7 @@ export function ContextToolbar({
   const run = (id: string): void => {
     if (id === "PullFace") setTool(activeTool === "pull" ? "select" : "pull");
     else if (id === "CreateHole") onHole();
+    else if (id === "CreateShell") onShell();
     else if (id === "CreateFillet") onDressUp("fillet");
     else if (id === "CreateChamfer") onDressUp("chamfer");
     else if (id === "CreateSketch") onSketch();

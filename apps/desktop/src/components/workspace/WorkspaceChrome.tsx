@@ -34,6 +34,7 @@ export function WorkspaceChrome({
   onSketch,
   onHole,
   onDressUp,
+  onShell,
   onExtrude,
   onPlugins,
   onReference,
@@ -66,6 +67,7 @@ export function WorkspaceChrome({
   onSketch: () => void;
   onHole: () => void;
   onDressUp: (kind: "fillet" | "chamfer") => void;
+  onShell: () => void;
   onExtrude: () => void;
   onPlugins: () => void;
   onReference: () => void;
@@ -282,6 +284,7 @@ export function WorkspaceChrome({
       <ContextToolbar
         onHole={onHole}
         onDressUp={onDressUp}
+        onShell={onShell}
         onSketch={onSketch}
         onExtrude={onExtrude}
         onEditSketch={onEditSketch}

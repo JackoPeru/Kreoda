@@ -3679,7 +3679,7 @@ describe("SessionControlContract (Slice 7)", () => {
         ["txnBegin", {}, "BAD_PARAMS"],
         ["getFeature", {}, "BAD_PARAMS"],
         ["measureDistance", { a: "x:box.+Z" }, "BAD_PARAMS"],
-        ["getCommandSchema", { id: "CreateShell" }, "NOT_FOUND"],
+        ["getCommandSchema", { id: "CreateUnknownCommand" }, "NOT_FOUND"],
         ["nope", {}, "NOT_IMPLEMENTED"],
       ];
       for (const [method, p, code] of cases) {
