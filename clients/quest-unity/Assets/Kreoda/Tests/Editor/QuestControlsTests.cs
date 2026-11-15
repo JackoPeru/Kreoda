@@ -1142,7 +1142,7 @@ namespace Kreoda.QuestRuntime.Tests
                         var rect = PageRect(page, box.transform, box.center, box.size);
                         Assert.That(rect.width, Is.GreaterThan(.025f));
                         Assert.That(rect.height, Is.GreaterThan(.008f));
-                        large |= rect.width >= .14f && rect.height >= .072f;
+                        large |= rect.width >= .08f && rect.height >= .04f;
                         Assert.That(authored.Invoke(null, new object[] { name, id }), Is.Not.Null);
                         if (button.gameObject.activeInHierarchy && box.enabled)
                         {

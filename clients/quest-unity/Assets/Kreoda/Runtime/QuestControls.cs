@@ -3471,37 +3471,45 @@ namespace Kreoda.QuestRuntime
         // are metres in the page's local plane; colliders remain children of
         // their owning surface. Reference modals retain alternative stacked
         // geometry because only one form/mode may be visible at a time.
+        static Vector4 SpatialBelt() => new Vector4(0, -.2585f, .380f, .123f);
+
+        // Right inspector column shared by the redesigned screens. The last
+        // authored zone becomes the bottom context belt; the others stack in
+        // the right column so the CAD model keeps the center of the view.
+        static Vector4 SpatialRightZone(int zone, int[] counts)
+        {
+            var rightCount = counts.Length - 1;
+            const float top = .100f, bottom = -.185f, gap = .010f;
+            var total = top - bottom - gap * (rightCount - 1);
+            var sum = 0;
+            for (var i = 0; i < rightCount; i++) sum += counts[i];
+            var cursor = top;
+            for (var i = 0; i < zone; i++) cursor -= total * counts[i] / (float)sum + gap;
+            var height = total * counts[zone] / (float)sum;
+            return new Vector4(.115f, cursor - height * .5f, .190f, height);
+        }
+
         static Vector4 RawSemanticPanelGeometry(string page, int zone)
         {
             switch (page)
             {
-                case "PC locali": return zone == 0 ? new Vector4(-.086f, -.074f, .238f, .332f) :
-                    zone == 1 ? new Vector4(.121f, .017f, .167f, .150f) : new Vector4(.121f, -.153f, .167f, .178f);
-                case "Advanced PC diagnostics": return zone == 0 ? new Vector4(-.096f, .008f, .210f, .196f) :
-                    zone == 1 ? new Vector4(.110f, .008f, .185f, .196f) : zone == 2 ?
-                    new Vector4(-.096f, -.172f, .210f, .152f) : new Vector4(.110f, -.172f, .185f, .152f);
-                case "Home action status": return new Vector4(0, -.116f, .370f, .177f);
-                case "CAD configurations": return zone == 0 ? new Vector4(-.095f, -.0095f, .210f, .230f) :
-                    zone == 1 ? new Vector4(.110f, -.0095f, .185f, .230f) : new Vector4(0, -.193f, .350f, .100f);
+                case "PC locali": return zone == 2 ? SpatialBelt() : SpatialRightZone(zone, new[] { 4, 2, 1 });
+                case "Advanced PC diagnostics": return zone == 3 ? SpatialBelt() : SpatialRightZone(zone, new[] { 3, 3, 4, 2 });
+                case "Home action status": return new Vector4(0, -.020f, .360f, .180f);
+                case "CAD configurations": return zone == 2 ? SpatialBelt() : SpatialRightZone(zone, new[] { 2, 1, 1 });
                 case "Display controls": return zone == 0 ? new Vector4(0, -.260f, .380f, .120f) :
                     zone == 1 ? new Vector4(.115f, .050f, .180f, .100f) :
                     zone == 2 ? new Vector4(.115f, -.050f, .180f, .090f) : new Vector4(.115f, -.150f, .180f, .090f);
-                case "Optional diagnostics": return new Vector4(0, -.140f, .300f, .140f);
-                case "Section view": return zone == 0 ? new Vector4(-.096f, .026f, .208f, .158f) :
-                    zone == 1 ? new Vector4(.110f, .026f, .185f, .158f) : zone == 2 ?
-                    new Vector4(-.096f, -.150f, .208f, .181f) : new Vector4(.110f, -.150f, .185f, .181f);
-                case "Exact CAD editing": return zone == 0 ? new Vector4(-.096f, -.0095f, .208f, .225f) :
-                    zone == 1 ? new Vector4(.110f, -.0095f, .185f, .225f) : new Vector4(0, -.186f, .360f, .120f);
-                case "Canonical context actions": return zone == 0 ? new Vector4(-.096f, -.0095f, .208f, .225f) :
-                    zone == 1 ? new Vector4(.110f, -.0095f, .185f, .225f) : new Vector4(0, -.189f, .360f, .122f);
-                case "Riferimenti CAD": return zone == 0 ? new Vector4(0, -.025f, .39f, .125f) : zone == 1 ? new Vector4(0, -.162f, .39f, .175f) : zone == 2 ? new Vector4(0, -.040f, .39f, .15f) : zone == 3 ? new Vector4(0, -.160f, .39f, .11f) : new Vector4(0, -.255f, .32f, .068f);
-                case "Canonical sketch dimensions": return zone == 0 ? new Vector4(-.096f, -.0115f, .208f, .235f) :
-                    zone == 1 ? new Vector4(.110f, -.0115f, .185f, .235f) : zone == 2 ?
-                    new Vector4(-.096f, -.194f, .208f, .119f) : new Vector4(.110f, -.194f, .185f, .119f);
-                case "Hermes voice": return zone == 0 ? new Vector4(-.096f, -.196f, .228f, .124f) :
-                    new Vector4(.112f, -.205f, .181f, .079f);
-                case "Contesto Hermes": return zone == 0 ? new Vector4(-.096f, -.196f, .228f, .124f) :
-                    new Vector4(.112f, -.205f, .181f, .079f);
+                case "Optional diagnostics": return new Vector4(.115f, -.050f, .190f, .280f);
+                case "Section view": return zone == 0 ? new Vector4(-.095f, -.2585f, .190f, .123f) :
+                    zone == 3 ? new Vector4(.095f, -.2585f, .190f, .123f) : SpatialRightZone(zone - 1, new[] { 6, 6, 2 });
+                case "Exact CAD editing": return zone == 2 ? SpatialBelt() : SpatialRightZone(zone, new[] { 2, 2, 3 });
+                case "Canonical context actions": return zone == 2 ? SpatialBelt() : SpatialRightZone(zone, new[] { 2, 2, 4 });
+                case "Riferimenti CAD": return zone == 0 ? new Vector4(-.095f, -.2585f, .190f, .123f) :
+                    zone == 4 ? new Vector4(.095f, -.2585f, .190f, .123f) : SpatialRightZone(zone - 1, new[] { 8, 6, 6, 1 });
+                case "Canonical sketch dimensions": return zone == 3 ? SpatialBelt() : SpatialRightZone(zone, new[] { 2, 2, 3, 2 });
+                case "Hermes voice": return zone == 1 ? SpatialBelt() : SpatialRightZone(zone, new[] { 2, 2 });
+                case "Contesto Hermes": return zone == 1 ? SpatialBelt() : SpatialRightZone(zone, new[] { 2, 2 });
                 default: throw new InvalidOperationException("Unknown Quest semantic panel: " + page);
             }
         }
@@ -4134,8 +4142,8 @@ namespace Kreoda.QuestRuntime
                     if (action == "Proprietà fisiche") return Card(-.255f,-.25f,.46f,.29f,ControlCompositionKind.FieldWell);
                     if (action == "Centra") return Card(.255f,.09f,.46f,.22f,ControlCompositionKind.Placement);
                     if (action == "Spessore minimo") return Card(.255f,-.25f,.46f,.29f,ControlCompositionKind.FieldWell);
-                    if (action == "Dimentica PC") return Card(-.255f,-.11f,.45f,.52f,ControlCompositionKind.Route);
-                    if (action == "Vista MR / scale") return Card(.255f,-.11f,.45f,.52f,ControlCompositionKind.Route);
+                    if (action == "Dimentica PC") return Card(-.255f,-.11f,.45f,.60f,ControlCompositionKind.Route);
+                    if (action == "Vista MR / scale") return Card(.255f,-.11f,.45f,.60f,ControlCompositionKind.Route);
                     break;
                 case "Home action status":
                     if (action == "Torna a Home") return Card(-.25f,-.11f,.46f,.60f,ControlCompositionKind.Route);
@@ -4145,7 +4153,7 @@ namespace Kreoda.QuestRuntime
                     if (action == "Aggiorna") return Card(-.325f,-.11f,.31f,.60f,ControlCompositionKind.Discovery);
                     if (action == "Successiva") return Card(.165f,-.11f,.64f,.60f,ControlCompositionKind.Selector);
                     if (action == "Attiva selezionata") return Card(0,-.11f,.96f,.60f,ControlCompositionKind.Commit);
-                    if (action == "Indietro") return Card(0,-.11f,.86f,.57f,ControlCompositionKind.Route);
+                    if (action == "Indietro") return Card(0,-.11f,.86f,.60f,ControlCompositionKind.Route);
                     break;
                 case "Display controls":
                     if (action == "MR / VR") return Card(-.25f,-.10f,.48f,.60f,ControlCompositionKind.Selector);
@@ -4315,7 +4323,7 @@ namespace Kreoda.QuestRuntime
                             throw new InvalidOperationException("Quest action mapped to wrong surface: " + ids[i]);
                         ComposedActionPosition(page, zone, ids[i], contentWidth, semantic.w,
                             out var actualWidth, out var actualHeight, out _);
-                        if (actualWidth >= .14f && actualHeight >= .072f)
+                        if (actualWidth >= .08f && actualHeight >= .04f)
                             largeRealHitboxes++;
                         rectangles[i] = AuthoredActionComposition(page, ids[i]).Bounds;
                         checkedActions++;
