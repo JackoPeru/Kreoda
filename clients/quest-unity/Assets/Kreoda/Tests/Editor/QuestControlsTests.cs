@@ -1608,7 +1608,7 @@ namespace Kreoda.QuestRuntime.Tests
             Call("TogglePanel");
             Call("TogglePanel");
             Assert.That(Vector3.Distance(_controls.transform.position, _controls.Rig.centerEyeAnchor.position +
-                _controls.Rig.centerEyeAnchor.forward * 1.25f), Is.LessThan(.001f), "B/Y show must recover independently of the saved offset");
+                _controls.Rig.centerEyeAnchor.forward * .95f), Is.LessThan(.001f), "B/Y show must recover independently of the saved offset");
         }
 
         [Test]
@@ -1620,7 +1620,7 @@ namespace Kreoda.QuestRuntime.Tests
             var far = new Ray(ray.origin + Vector3.down * 5, ray.direction);
             Call("UpdatePanelDrag", far, true, true);
             Call("UpdatePanelDrag", far, false, true);
-            Assert.That(Vector3.Distance(_controls.transform.position, head.position + head.forward * 1.25f), Is.LessThan(.001f));
+            Assert.That(Vector3.Distance(_controls.transform.position, head.position + head.forward * .95f), Is.LessThan(.001f));
         }
 
         [Test]

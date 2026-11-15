@@ -339,6 +339,9 @@ namespace Kreoda.QuestRuntime
         Quaternion _grabStartRotation;
         float _grabDistance, _initialTrackingTime = -1;
         bool _initialPanelPlaced;
+        bool _panelUserPlaced;
+        bool _recenterOnResume;
+        float _resumeTrackingTime = -1;
 
         void Start()
         {
@@ -363,19 +366,16 @@ namespace Kreoda.QuestRuntime
             _endpoint = Connection.SavedEndpoint;
             _handMode = Mathf.Clamp(PlayerPrefs.GetInt("kreoda-hand-mode", 0), 0, 2);
             _uiLeft = PlayerPrefs.GetInt("kreoda-ui-left", 0) != 0;
-            bool currentLayout = PlayerPrefs.GetInt("kreoda-panel-layout", 0) == 2;
+            // Layout v3 starts at the redesigned working distance. Older saved
+            // offsets are discarded once so a stale dragged/offset menu cannot
+            // reappear far to the side after the redesign.
+            bool currentLayout = PlayerPrefs.GetInt("kreoda-panel-layout", 0) == 3;
             _panelOffset = currentLayout ? new Vector3(PlayerPrefs.GetFloat("kreoda-panel-x", 0),
-                PlayerPrefs.GetFloat("kreoda-panel-y", 0), PlayerPrefs.GetFloat("kreoda-panel-z", 1.25f)) : new Vector3(0, 0, 1.25f);
-            // Older versions saved the default panel at 1 m. Migrate only that
-            // untouched default; preserve any position explicitly dragged by the user.
-            if (currentLayout && Mathf.Abs(_panelOffset.x) < .001f &&
-                Mathf.Abs(_panelOffset.y) < .001f && Mathf.Abs(_panelOffset.z - 1f) < .001f)
-            {
-                _panelOffset.z = 1.25f;
-                SavePanelOffset();
-            }
+                PlayerPrefs.GetFloat("kreoda-panel-y", 0), PlayerPrefs.GetFloat("kreoda-panel-z", .95f))
+                : new Vector3(0, 0, .95f);
+            _panelUserPlaced = currentLayout;
             if (!ValidPanelOffset(_panelOffset))
-                _panelOffset = new Vector3(0, 0, 1.25f);
+                _panelOffset = new Vector3(0, 0, .95f);
             _panel = new GameObject("Compact panel (0.42 m)").transform;
             _panel.SetParent(transform, false);
             _panel.localScale = Vector3.one * 1.40f;
@@ -550,6 +550,7 @@ namespace Kreoda.QuestRuntime
             {
                 _uiLeft = !_uiLeft;
                 _panelOffset.x = (_uiLeft ? -1 : 1) * Mathf.Max(.25f, Mathf.Abs(_panelOffset.x));
+                _panelUserPlaced = true;
                 PlayerPrefs.SetInt("kreoda-ui-left", _uiLeft ? 1 : 0); SavePanelOffset(); RecenterPanel();
             }, .023f);
             OperationControl("Centra UI", new Vector3(0, -.205f, 0), .11f, ResetPanel, .03f);
@@ -855,8 +856,9 @@ namespace Kreoda.QuestRuntime
         public void ResetPanel()
         {
             UpdatePanelDrag(default, false, false);
-            _panelOffset = new Vector3(0, 0, 1.25f);
+            _panelOffset = new Vector3(0, 0, .95f);
             _initialPanelPlaced = true;
+            _panelUserPlaced = false;
             SavePanelOffset();
             RecenterPanel();
         }
@@ -1887,7 +1889,7 @@ namespace Kreoda.QuestRuntime
         }
         void SavePanelOffset()
         {
-            PlayerPrefs.SetInt("kreoda-panel-layout", 2);
+            PlayerPrefs.SetInt("kreoda-panel-layout", 3);
             PlayerPrefs.SetFloat("kreoda-panel-x", _panelOffset.x); PlayerPrefs.SetFloat("kreoda-panel-y", _panelOffset.y);
             PlayerPrefs.SetFloat("kreoda-panel-z", _panelOffset.z); PlayerPrefs.Save();
         }
@@ -4767,6 +4769,20 @@ namespace Kreoda.QuestRuntime
                 if (!_draggingPanel) RecenterPanel();
                 if (Time.unscaledTime - _initialTrackingTime >= .5f) _initialPanelPlaced = true;
             }
+            // A headset taken off keeps the app running with a stale world pose.
+            // On the next wear, put the menu back in front unless the user chose
+            // a position themselves; after that it stays world-locked.
+            if (_recenterOnResume && OVRManager.hasVrFocus &&
+                OVRPlugin.GetNodePositionTracked(OVRPlugin.Node.EyeCenter))
+            {
+                if (_resumeTrackingTime < 0) _resumeTrackingTime = Time.unscaledTime;
+                if (Time.unscaledTime - _resumeTrackingTime >= .25f)
+                {
+                    _recenterOnResume = false;
+                    _resumeTrackingTime = -1;
+                    if (!_panelUserPlaced) RecenterPanel();
+                }
+            }
             foreach (var entry in _textLimits)
             {
                 var bounds = entry.Key.GetComponent<MeshRenderer>().localBounds.size;
@@ -4798,6 +4814,7 @@ namespace Kreoda.QuestRuntime
             if (head == null) return;
             _panelOffset = Quaternion.Inverse(Quaternion.Euler(0, head.eulerAngles.y, 0)) * (transform.position - head.position);
             if (!ValidPanelOffset(_panelOffset)) { ResetPanel(); return; }
+            _panelUserPlaced = true;
             SavePanelOffset();
         }
 
@@ -4832,7 +4849,11 @@ namespace Kreoda.QuestRuntime
                 _instrumentGlass = null;
             }
         }
-        void OnApplicationFocus(bool focused) { if (!focused) ResetIntent(); }
-        void OnApplicationPause(bool paused) { if (paused) ResetIntent(); }
+        void OnApplicationFocus(bool focused) { if (!focused) ResetIntent(); else { _recenterOnResume = true; _resumeTrackingTime = -1; } }
+        void OnApplicationPause(bool paused)
+        {
+            if (paused) ResetIntent();
+            else { _recenterOnResume = true; _resumeTrackingTime = -1; }
+        }
     }
 }
