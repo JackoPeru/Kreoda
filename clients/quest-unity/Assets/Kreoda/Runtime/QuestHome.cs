@@ -81,11 +81,14 @@ namespace Kreoda.QuestRuntime
                     : new Color(.333f, .490f, .529f, .9f));
             if (card.HasProperty("_BorderSize")) card.SetFloat("_BorderSize", primary ? .014f : .008f);
             if (card.HasProperty("_Radius")) card.SetFloat("_Radius", .12f);
+            if (card.HasProperty("_Sheen")) card.SetFloat("_Sheen", .18f);
             QuestUi.Surface(root, card, title + " backing", Vector3.zero, new Vector3(width, height, .002f));
 
             var discY = height * .17f;
             QuestUi.Ellipse(root, glass, title + " icon disc", new Vector3(0, discY, -.008f),
                 height * .20f, height * .20f, new Color(.075f, .286f, .294f, .9f), 0f);
+            QuestUi.Ellipse(root, glass, title + " icon ring", new Vector3(0, discY, -.009f),
+                height * .20f, height * .20f, new Color(.35f, .75f, .78f, .55f), .93f);
             var icon = new GameObject(title + " icon").transform;
             icon.SetParent(root, false);
             icon.localPosition = new Vector3(0, discY, -.014f);
