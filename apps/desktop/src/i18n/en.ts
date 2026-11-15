@@ -499,6 +499,16 @@ export const en = {
   "ref.errHeightRange": "Calibrated height out of range (max 1000000 mm).",
   "ref.errImportFailed": "import failed",
   "ref.errCalibFailed": "calibration failed",
+  "ref.detect": "Detect lines/circles",
+  "ref.detecting": "Detecting...",
+  "ref.detected": "{lines} lines, {circles} circles detected",
+  "ref.detectCalibrate": "Calibrate the image first (Measure or known width).",
+  "ref.detectEmpty": "No usable lines or circles were detected.",
+  "ref.detectFailed": "Detection failed.",
+  "ref.createSketch": "Create editable sketch",
+  "ref.creatingSketch": "Creating...",
+  "ref.detectHint": "Creates an ordinary editable sketch; nothing is applied without this button.",
+  "ref.detectPreviewAria": "Detected lines and circles overlay",
 
   // ── plugins dialog ──────────────────────────────────────
   "plugins.title": "Plugins (sandboxed)",

@@ -501,6 +501,16 @@ export const it: Record<EnKey, string> = {
   "ref.errHeightRange": "Altezza tarata fuori intervallo (max 1000000 mm).",
   "ref.errImportFailed": "importazione non riuscita",
   "ref.errCalibFailed": "taratura non riuscita",
+  "ref.detect": "Rileva linee/cerchi",
+  "ref.detecting": "Rilevamento...",
+  "ref.detected": "{lines} linee, {circles} cerchi rilevati",
+  "ref.detectCalibrate": "Tara prima l'immagine (Misura o larghezza nota).",
+  "ref.detectEmpty": "Nessuna linea o cerchio utilizzabile rilevato.",
+  "ref.detectFailed": "Rilevamento non riuscito.",
+  "ref.createSketch": "Crea schizzo modificabile",
+  "ref.creatingSketch": "Creazione...",
+  "ref.detectHint": "Crea un normale schizzo modificabile; nulla viene applicato senza questo pulsante.",
+  "ref.detectPreviewAria": "Sovrapposizione di linee e cerchi rilevati",
 
   // ── plugins dialog ──────────────────────────────────────
   "plugins.title": "Plugin (isolati)",
