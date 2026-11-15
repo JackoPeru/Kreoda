@@ -3483,9 +3483,9 @@ namespace Kreoda.QuestRuntime
                 case "Home action status": return new Vector4(0, -.116f, .370f, .177f);
                 case "CAD configurations": return zone == 0 ? new Vector4(-.095f, -.0095f, .210f, .230f) :
                     zone == 1 ? new Vector4(.110f, -.0095f, .185f, .230f) : new Vector4(0, -.193f, .350f, .100f);
-                case "Display controls": return zone == 0 ? new Vector4(-.096f, .055f, .208f, .093f) :
-                    zone == 1 ? new Vector4(.110f, .008f, .185f, .188f) :
-                    zone == 2 ? new Vector4(-.096f, -.149f, .208f, .293f) : new Vector4(.110f, -.205f, .185f, .224f);
+                case "Display controls": return zone == 0 ? new Vector4(0, -.260f, .380f, .120f) :
+                    zone == 1 ? new Vector4(.115f, .050f, .180f, .100f) :
+                    zone == 2 ? new Vector4(.115f, -.050f, .180f, .090f) : new Vector4(.115f, -.150f, .180f, .090f);
                 case "Optional diagnostics": return new Vector4(0, -.140f, .300f, .140f);
                 case "Section view": return zone == 0 ? new Vector4(-.096f, .026f, .208f, .158f) :
                     zone == 1 ? new Vector4(.110f, .026f, .185f, .158f) : zone == 2 ?
@@ -4148,10 +4148,10 @@ namespace Kreoda.QuestRuntime
                     if (action == "Indietro") return Card(0,-.11f,.86f,.57f,ControlCompositionKind.Route);
                     break;
                 case "Display controls":
-                    if (action == "MR / VR") return Card(-.25f,.085f,.46f,.22f,ControlCompositionKind.Selector);
-                    if (action == "Mano Auto") return Card(.25f,.085f,.46f,.22f,ControlCompositionKind.Selector);
-                    if (action == "Rileva tavolo") return Card(-.25f,-.275f,.46f,.22f,ControlCompositionKind.Discovery);
-                    if (action == "Configura stanza") return Card(.25f,-.275f,.46f,.22f,ControlCompositionKind.Discovery);
+                    if (action == "MR / VR") return Card(-.25f,-.10f,.48f,.60f,ControlCompositionKind.Selector);
+                    if (action == "Mano Auto") return Card(.25f,.10f,.44f,.20f,ControlCompositionKind.Selector);
+                    if (action == "Rileva tavolo") return Card(.25f,-.10f,.44f,.20f,ControlCompositionKind.Discovery);
+                    if (action == "Configura stanza") return Card(.25f,-.30f,.44f,.20f,ControlCompositionKind.Discovery);
                     if (action == "Posiziona") return Card(-.25f,.102f,.46f,.24f,ControlCompositionKind.Placement);
                     if (action == "Centra CAD") return Card(.25f,.102f,.46f,.24f,ControlCompositionKind.Placement);
                     if (action == "Conferma") return Card(-.348f,-.305f,.284f,.25f,ControlCompositionKind.Commit);
