@@ -158,6 +158,11 @@ A live Hermes agent proposal accepted on the physical headset remains open.
   showed them. The Home belt is now three centered actions (MODELLA/VISTA/MISURA); CREA/SCHERMO remain
   reachable from the launch card and rail. Verified on the connected Quest 3: all three labels readable in
   passthrough.
+- **PC brand refresh / honest Home**: bundled Inter Regular/SemiBold, remapped the PC blue/sky/slate palette to
+  the Quest teal/carbon identity, moved dialog surfaces and the 3D grid/selection to the same tokens, and
+  replaced Home's hardcoded fake render/AI/export task list with an honest empty state. Verified 647/647
+  vitest, Home 2/2, context toolbar 2/2 and golden 3/3. The Home background video remains the supplied
+  photographic asset; the interactive chrome is teal.
 
 ## Remaining acceptance (not software)
 
