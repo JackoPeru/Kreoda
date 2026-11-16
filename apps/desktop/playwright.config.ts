@@ -6,7 +6,9 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 90000,
   retries: 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Session specs bind fixed relay ports (44752/44753), so parallel workers
+  // collide even though the CAD specs themselves are independent.
+  workers: 1,
   reporter: [["list"]],
   use: {
     trace: "retain-on-failure",
