@@ -68,7 +68,8 @@ enum CommandType : ushort {
   CreateOffsetFace,
   CreateDeleteFace,
   CreateReplaceFace,
-  CreateShell
+  CreateShell,
+  CreateMirror
 }
 
 enum StatusCode : byte {

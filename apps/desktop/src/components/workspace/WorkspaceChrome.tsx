@@ -40,6 +40,7 @@ export function WorkspaceChrome({
   onReference,
   onReferenceGeometry,
   onInstance,
+  onMirror,
   onEditSketch,
   projectOpen,
   onProjectOpenChange,
@@ -73,6 +74,7 @@ export function WorkspaceChrome({
   onReference: () => void;
   onReferenceGeometry: () => void;
   onInstance: () => void;
+  onMirror: () => void;
   onEditSketch: (id: string) => void;
   projectOpen: boolean;
   onProjectOpenChange: (open: boolean) => void;
@@ -289,6 +291,7 @@ export function WorkspaceChrome({
         onExtrude={onExtrude}
         onEditSketch={onEditSketch}
         onInstance={onInstance}
+        onMirror={onMirror}
         onOpenProps={() => {
           onSurfaceOpenChange(false);
           onPropsOpenChange(true);

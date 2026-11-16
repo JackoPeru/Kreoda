@@ -93,6 +93,7 @@ enum CommandId {
   kCreateDeleteFace = 59,
   kCreateReplaceFace = 60,
   kCreateShell = 61,
+  kCreateMirror = 62,
 };
 
 }  // namespace kreoda

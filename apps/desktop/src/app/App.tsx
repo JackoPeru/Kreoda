@@ -6,6 +6,7 @@ import { PluginsDialog } from "../components/PluginsDialog";
 import { ReferenceDialog } from "../components/ReferenceDialog";
 import { ReferenceGeometryPanel } from "../components/workspace/ReferenceGeometryPanel";
 import { InstanceDialog } from "../components/InstanceDialog";
+import { MirrorDialog } from "../components/MirrorDialog";
 import { shouldShowOnboarding } from "../components/Onboarding";
 import { SketchEditor, defaultRectModel } from "../components/SketchEditor";
 import { ExtrudeDialog } from "../components/ExtrudeDialog";
@@ -130,6 +131,7 @@ export function App() {
   const [showReference, setShowReference] = useState(false);
   const [showReferenceGeometry, setShowReferenceGeometry] = useState(false);
   const [showInstance, setShowInstance] = useState(false);
+  const [showMirror, setShowMirror] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   // Drawers are closed by default (UX-1): capabilities on demand, never
@@ -745,6 +747,10 @@ export function App() {
           setSurfaceOpen(false);
           setShowInstance(true);
         }}
+        onMirror={() => {
+          setSurfaceOpen(false);
+          setShowMirror(true);
+        }}
         onEditSketch={openSketchEditor}
         projectOpen={projectOpen}
         onProjectOpenChange={setProjectOpen}
@@ -806,6 +812,7 @@ export function App() {
       {showInstance && (
         <InstanceDialog onClose={() => setShowInstance(false)} />
       )}
+      {showMirror && <MirrorDialog onClose={() => setShowMirror(false)} />}
       {extruding && <ExtrudeDialog onClose={() => setExtruding(false)} />}
       {holing && <HoleDialog onClose={() => setHoling(false)} />}
       {dressUp && (

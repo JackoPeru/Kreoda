@@ -84,6 +84,7 @@ export const CommandType = {
   CreateDeleteFace: 59,
   CreateReplaceFace: 60,
   CreateShell: 61,
+  CreateMirror: 62,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 

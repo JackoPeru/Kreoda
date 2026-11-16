@@ -35,7 +35,8 @@ inline bool IsKnownSolidFeatureType(const std::string& type) {
          type == "OutwardFacePush" || type == "InwardFacePocket" ||
          type == "MoveFace" || type == "OffsetFace" ||
          type == "DeleteFace" || type == "ReplaceFace" ||
-         type == "StepImport" || type == "MeshImport" || type == "Instance";
+         type == "StepImport" || type == "MeshImport" || type == "Instance" ||
+         type == "Mirror";
 }
 
 #if KREODA_WITH_OCCT

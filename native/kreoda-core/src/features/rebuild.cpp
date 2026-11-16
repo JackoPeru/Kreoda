@@ -10,6 +10,7 @@
 #include "features/shell/shell.h"
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
+#include "features/mirror/mirror.h"
 #include "features/revolve/revolve.h"
 #include "features/surface/loft_sew.h"
 #include "features/surface/face_thicken.h"
@@ -110,6 +111,9 @@ bool RebuildNodeFromStore(const std::string& featureId, std::string* error) {
   if (rec.type == "Shell") return RebuildShellFromStore(featureId, error);
   if (rec.type == "Instance") {
     return RebuildInstanceFromStore(featureId, error);
+  }
+  if (rec.type == "Mirror") {
+    return RebuildMirrorFromStore(featureId, error);
   }
   TopoDS_Shape shape;
   bool built = false;

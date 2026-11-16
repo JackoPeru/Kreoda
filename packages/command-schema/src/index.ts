@@ -435,6 +435,26 @@ export const COMMANDS: CadCommandDefinition[] = [
         : { available: false, reason: "Select a solid body first" },
   },
   {
+    id: "CreateMirror",
+    selectionBindings: { targetId: "owner" },
+    nativeType: CommandType.CreateMirror,
+    label: "Mirror",
+    beginnerLabel: "Mirror body",
+    description: "Mirror the selected solid across a principal plane.",
+    icon: "copy",
+    parameterSchema: z.object({
+      targetId: StableFeatureIdSchema,
+      planeKind: z.enum(["XY", "XZ", "YZ"]).default("XY"),
+    }),
+    supportsPreview: false,
+    beginnerVisible: false,
+    advancedVisible: true,
+    availability: (ctx) =>
+      ctx.selection.some((s) => s.kind === "body")
+        ? always
+        : { available: false, reason: "Select a solid body first" },
+  },
+  {
     id: "Undo",
     nativeType: CommandType.Undo,
     label: "Undo",

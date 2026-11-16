@@ -53,6 +53,7 @@
 #include "features/shell/shell.h"
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
+#include "features/mirror/mirror.h"
 #include "features/assembly/assembly_constraints.h"
 #include "features/primitives/primitives.h"
 #include "features/revolve/revolve.h"
@@ -2504,6 +2505,22 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       if (!CreateInstanceFeature(featureId, targetId, placement, &error)) {
         return make_response(requestId, "error",
                              error_body("INSTANCE_FAILED", error));
+      }
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateMirror: {
+      const std::string featureId =
+          json_string_field(requestJson, "featureId", "");
+      const std::string targetId =
+          json_string_field(requestJson, "targetId", "");
+      const std::string planeKind =
+          json_string_field(requestJson, "planeKind", "XY");
+      std::string error;
+      if (!CreateMirrorFeature(featureId, targetId, planeKind, &error)) {
+        return make_response(requestId, "error",
+                             error_body("MIRROR_FAILED", error));
       }
       ShapeRecord rec;
       ShapeStore::instance().get(featureId, &rec);

@@ -105,6 +105,11 @@ const LABELS: Record<string, { label: EnKey; beginner: EnKey; desc: EnKey }> = {
     beginner: "cmd.instanceBeginner",
     desc: "cmd.instanceDesc",
   },
+  CreateMirror: {
+    label: "cmd.mirror",
+    beginner: "cmd.mirrorBeginner",
+    desc: "cmd.mirrorDesc",
+  },
   Undo: { label: "cmd.undo", beginner: "cmd.undo", desc: "cmd.undoDesc" },
   Redo: { label: "cmd.redo", beginner: "cmd.redo", desc: "cmd.redoDesc" },
 };

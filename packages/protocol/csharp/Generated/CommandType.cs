@@ -69,6 +69,7 @@ public enum CommandType : ushort
   CreateDeleteFace = 59,
   CreateReplaceFace = 60,
   CreateShell = 61,
+  CreateMirror = 62,
 };
 
 

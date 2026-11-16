@@ -1372,6 +1372,19 @@ export class CoreClient {
     return CreatedFeatureSchema.parse(parsed);
   }
 
+  async createMirror(params: {
+    targetId: string;
+    planeKind: "XY" | "XZ" | "YZ";
+  }): Promise<CreatedFeature> {
+    const featureId = newFeatureId("mir");
+    const parsed = await this.invoke(
+      CommandType.CreateMirror,
+      this.documentId,
+      { featureId, ...params },
+    );
+    return CreatedFeatureSchema.parse(parsed);
+  }
+
   /** Face plane frame in world coords (hole positioning, §10). */
   async requestFaceInfo(
     featureId: string,

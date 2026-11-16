@@ -3,6 +3,17 @@ import { readFileSync } from "node:fs";
 import { commandNativeRequest, validateLegacyNativeCommand } from "./native-command.js";
 import { commandJsonSchema, featureGeometryKind } from "./index.js";
 
+it("exposes CreateMirror as native 62 with principal planes", () => {
+  expect(commandJsonSchema("CreateMirror")).toMatchObject({
+    nativeType: 62,
+    selectionBindings: { targetId: "owner" },
+  });
+  expect(commandNativeRequest("CreateMirror", { targetId: "body-1", planeKind: "YZ" }, "mirror-1"))
+    .toEqual({ type: 62, fields: { featureId: "mirror-1", targetId: "body-1", planeKind: "YZ" } });
+  expect(() => commandNativeRequest("CreateMirror", { targetId: "body-1", planeKind: "AB" }, "mirror-1"))
+    .toThrow();
+});
+
 it("exposes strict surface extrude, revolve and ordered loft commands as native 48-50", () => {
   expect(commandJsonSchema("CreateSurfaceExtrude")).toMatchObject({ nativeType: 48, creation: { fixedCount: 1 } });
   expect(commandJsonSchema("CreateSurfaceRevolve")).toMatchObject({ nativeType: 49, creation: { fixedCount: 1 } });

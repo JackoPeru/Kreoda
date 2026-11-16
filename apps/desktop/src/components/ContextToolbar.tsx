@@ -27,6 +27,7 @@ export function ContextToolbar({
   onExtrude,
   onEditSketch,
   onInstance,
+  onMirror,
   onOpenProps,
 }: {
   onHole: () => void;
@@ -36,6 +37,7 @@ export function ContextToolbar({
   onExtrude: () => void;
   onEditSketch: (id: string) => void;
   onInstance: () => void;
+  onMirror: () => void;
   onOpenProps: () => void;
 }) {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -91,6 +93,7 @@ export function ContextToolbar({
     // Single solid body: the only supported transform is a placed copy.
     if (bareIds.length > 0 && sketchId === undefined && commandAvailability("CreateInstance").available) {
       candidates.push({ id: "CopyPlaced", label: t("ctx.copyPlaced"), hint: t("ctx.copyPlacedHint") });
+      candidates.push({ id: "CreateMirror", label: t("ctx.mirror"), hint: t("ctx.mirrorHint") });
     }
     if (kinds.has("face") && selectedIds.length === 1) {
       candidates.push({ id: "SelectSimilar", label: t("ctx.similar"), hint: t("ctx.similarHint") });
@@ -151,6 +154,7 @@ export function ContextToolbar({
     else if (id === "CreateExtrude") onExtrude();
     else if (id === "EditSketch" && sketchId !== undefined) onEditSketch(sketchId);
     else if (id === "CopyPlaced") onInstance();
+    else if (id === "CreateMirror") onMirror();
     else if (id === "SelectSimilar") {
       const faceId = selectedIds[0]!;
       const meshes = useDocumentUiStore.getState().meshes;
@@ -169,6 +173,7 @@ export function ContextToolbar({
       id === "PullFace" ||
       id === "EditSketch" ||
       id === "CopyPlaced" ||
+      id === "CreateMirror" ||
       id === "SelectSimilar" ||
       id === "SelectConnected" ||
       id === "BooleanFuse" ||

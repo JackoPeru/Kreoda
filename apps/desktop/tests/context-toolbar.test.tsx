@@ -20,6 +20,7 @@ function toolbar() {
     onExtrude={vi.fn()}
     onEditSketch={vi.fn()}
     onInstance={vi.fn()}
+  onMirror={vi.fn()}
     onOpenProps={vi.fn()}
   />);
 }

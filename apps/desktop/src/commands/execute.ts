@@ -406,6 +406,13 @@ async function dispatchCommand(
       await pullAndAppend(created);
       return { kind: "created", feature: created };
     }
+    case "CreateMirror": {
+      const created = await coreClient.createMirror(
+        p as { targetId: string; planeKind: "XY" | "XZ" | "YZ" },
+      );
+      await pullAndAppend(created);
+      return { kind: "created", feature: created };
+    }
     case "SetDimension": {
       const { featureId, paramName, valueMm, expression } = p as {
         featureId: string;
