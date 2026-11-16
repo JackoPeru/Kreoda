@@ -98,19 +98,21 @@ The installed packet then joined a real Desktop session and received a live delt
 (`native/kreoda-core/src/features/datum/`), associative sketch projection with repair and broken-source gating
 (`sketch_projection.cpp`), advanced sketch geometry (ellipse, elliptical arc, B-spline, trim/extend, mirror,
 linear pattern, symmetric constraint, construction geometry), surface bodies/extrude/revolve/loft/sweep/offset/
-sew/thicken/trim/extend, section view on both clients, analyses (mass, volume, area, center of mass, draft,
+sew/thicken/trim/extend, body mirror across principal planes (XY/XZ/YZ), section view on both clients,
+analyses (mass, volume, area, center of mass, draft,
 curvature, zebra, minimum thickness, interference), bounded assembly mates (ground, coincident, distance,
 concentric, parallel, perpendicular, angle), sparse configurations (Small/Medium/Large without duplicating
 geometry), and explicit direct-face history (MoveFace, OffsetFace, DeleteFace, ReplaceFace, imported STEP
 outward push / inward pocket).
 
 **Evidence.** Native suites `test_datum`, `test_sketch_projection`, `test_advanced_sketch`, `test_surface_*`,
-`test_assembly_constraints`, `test_configurations`, `test_direct_face*`, `test_session_geometry`; Desktop
-`phase15-*.spec.ts` including the [solo] native configurations flow; Quest projections/configurations/analysis
-panels with Editor tests.
+`test_assembly_constraints`, `test_configurations`, `test_direct_face*`, `test_mirror`,
+`test_session_geometry`; Desktop `phase15-*.spec.ts` including the [solo] native configurations flow and
+`phase16-mirror-native.spec.ts`; Quest projections/configurations/analysis panels with Editor tests.
 
-**Limits.** General curved-surface thickening, arbitrary face-to-face mating and a full industrial assembly
-solver are not claimed; the implemented operations are the bounded ones above. On-device display of every
+**Limits.** General curved-surface thickening, arbitrary face-to-face mating, mirroring across arbitrary datum
+planes and a full industrial assembly solver are not claimed; the implemented operations are the bounded ones
+above. On-device display of every
 Phase 15 flow is hardware acceptance.
 
 ## Phase 16 — Intent / generative modeling
