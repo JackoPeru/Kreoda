@@ -153,6 +153,11 @@ A live Hermes agent proposal accepted on the physical headset remains open.
   mojibake in their "Box 100×50×20" regexes and could never match; repaired.
 - **Installed runtime**: verified kernel `908b7d5b…` deployed with a hash-checked rollback copy; packaged
   desktop smoke passed on a hidden isolated profile.
+- **Quest Home belt on-device legibility** (`QuestHome.cs`/`QuestUi.cs`, APK arm64-20261116-4): the
+  five-action belt's outer labels never rendered on the headset (empty pills) although the Editor render
+  showed them. The Home belt is now three centered actions (MODELLA/VISTA/MISURA); CREA/SCHERMO remain
+  reachable from the launch card and rail. Verified on the connected Quest 3: all three labels readable in
+  passthrough.
 
 ## Remaining acceptance (not software)
 
@@ -164,7 +169,9 @@ A live Hermes agent proposal accepted on the physical headset remains open.
    - 2026-11-16 partial device check: the installed APK was launched on the USB-connected Quest 3
      (serial 2G0YC1ZFB8043H); the Home UI rendered in passthrough with the live PC status
      ("PC CONNESSO A PC-MATTEO") and Desktop held an established TCP session from 192.168.1.11.
-     Screenshots and logcat are in `.artifacts/quest-live-20261116`. Hands/pointer and the remaining
+     Screenshots and logcat are in `.artifacts/quest-live-20261116`. APK arm64-20261116-4
+     (SHA256 `20DA5CEAFDFBECEFC33EE59425A2B29C8509A1C5A3397A0C3A487E48DF046486`) was then installed
+     and the Home belt reads MODELLA/VISTA/MISURA on device. Hands/pointer and the remaining
      interactions above still require the headset worn.
 2. Live Hermes: one real remote-agent run of the seven frozen fixtures with ≥6/7 success and recorded
    commands/repairs/timing (the deterministic native baseline is not a substitute).
