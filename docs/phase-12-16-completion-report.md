@@ -187,6 +187,14 @@ A live Hermes agent proposal accepted on the physical headset remains open.
      interactions above still require the headset worn.
 2. Live Hermes: one real remote-agent run of the seven frozen fixtures with ≥6/7 success and recorded
    commands/repairs/timing (the deterministic native baseline is not a substitute).
+   - 2026-11-16 live check: the bridge/MCP and remote `kreoda-agent` are reachable; a real `/voice/turn`
+     answered in 72 s. The CAD voice flow exposed a bridge bug: the agent called `kreoda_begin_request`
+     without the voice origin and received LOCKED. The repo bridge now joins an implicit begin to the one
+     active voice turn (explicit foreign origins still rejected) and the turn prompt states the origin rule;
+     bridge tests 145/145. The remote `kreoda-agent` (Qwen3.8-27B) remains too slow/unreliable for the
+     frozen CAD fixtures: 175 s to the first begin, then no CAD command within 600 s; `hermes-agent` also
+     timed out. The frozen live bridge has not been republished; live text Hermes works, live CAD Hermes
+     still needs a faster remote model or a republished bridge with a longer client timeout.
 3. Pristine LAN pairing on a factory-clean headset (no USB provisioning).
 4. On-device performance acceptance for the current APK (frame cadence/LOD under the roadmap targets).
 5. Any remaining visual sign-off of Phase 15/16 flows on the headset.
