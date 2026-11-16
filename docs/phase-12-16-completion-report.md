@@ -163,6 +163,13 @@ A live Hermes agent proposal accepted on the physical headset remains open.
   replaced Home's hardcoded fake render/AI/export task list with an honest empty state. Verified 647/647
   vitest, Home 2/2, context toolbar 2/2 and golden 3/3. The Home background video remains the supplied
   photographic asset; the interactive chrome is teal.
+- **PC Home actions made functional** (`09e2700`): Progetti/Modelli open the workspace project drawer; Importa
+  uses the real open-file path; Template opens a real template picker (plate with four holes, open-box native
+  Shell, cylinder) built from the same CreateBox/CreateHolesCorners/CreateShell/CreateCylinder commands as manual
+  editing; Esporta uses the real save/export path; Impostazioni switches and persists the interface language;
+  Disegna creates a sketch and opens the editor; Misura opens the properties/analysis drawer. The fake
+  Materiali/Render entries were removed or renamed to real actions. E2E `phase16-home-actions` 4/4, desktop
+  647/647, Home 2/2, context toolbar 2/2; templates are ordinary undoable features, not locked meshes.
 
 ## Remaining acceptance (not software)
 
