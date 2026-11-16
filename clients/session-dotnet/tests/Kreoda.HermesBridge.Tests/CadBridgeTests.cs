@@ -1261,11 +1261,26 @@ public sealed class CadBridgeTests
         await using var bridge = new CadBridge(_ => Task.FromResult(client));
         var context = Json("{\"voiceRequestId\":\"voice-1\",\"sessionId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"documentId\":\"doc-phase1\",\"revision\":7}");
         var origin = await bridge.BeginVoiceAsync(context);
-        await Assert.ThrowsAsync<SessionException>(() => bridge.BeginAsync("other", new[] { Check() }));
+        await Assert.ThrowsAsync<SessionException>(() => bridge.BeginAsync("other", new[] { Check() }, originRequestId: "foreign"));
         var request = await bridge.BeginAsync("voice plate", new[] { Check() }, originRequestId: origin);
         await bridge.CommandAsync(request, "CreateBox", Json("{}"), "plate");
         Assert.True(await bridge.EndVoiceAsync(origin));Assert.Equal(1, wire.Rollbacks);
         await Assert.ThrowsAsync<SessionException>(() => bridge.BeginAsync("late", new[] { Check() }, originRequestId: origin));
+    }
+
+    [Fact]
+    public async Task AgentBeginWithoutOriginJoinsTheActiveVoiceTurn()
+    {
+        await using var wire = new Wire();await using var client = await wire.Connect();
+        await using var bridge = new CadBridge(_ => Task.FromResult(client));
+        var context = Json("{\"voiceRequestId\":\"voice-implicit\",\"sessionId\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"documentId\":\"doc-phase1\",\"revision\":7}");
+        var origin = await bridge.BeginVoiceAsync(context);
+        var request = await bridge.BeginAsync("implicit plate", new[] { Check() });
+        await bridge.CommandAsync(request, "CreateBox", Json("{}"), "plate");
+        var committed = await bridge.CommitAsync(request);
+        Assert.Equal("committed", committed.GetProperty("status").GetString());
+        Assert.False(await bridge.EndVoiceAsync(origin));
+        Assert.Equal(1, wire.Commits);
     }
 
     [Fact]

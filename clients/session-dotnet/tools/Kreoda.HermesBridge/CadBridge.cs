@@ -109,8 +109,14 @@ public sealed class CadBridge(Func<CancellationToken, Task<SessionClient>> conne
             await client.SnapshotAsync(client.Model?.DocumentId ?? "doc-phase1", ct);
             var model = client.Model ?? throw new SessionException("NEED_FULL_SNAPSHOT", "CAD snapshot unavailable");
             if (expectedFence is not null) RequireContext(client, expectedFence);
-            if (_voice is not null && (originRequestId != _voice.Id || _voice.Committed))
-                throw new SessionException("LOCKED", "Voice CAD request requires its originating voiceRequestId and one Undo group");
+            if (_voice is not null) {
+                // Agents that omit the optional origin still belong to the one
+                // active voice turn; an explicit foreign origin is rejected.
+                if (_voice.Committed) throw new SessionException("LOCKED", "Voice CAD request already committed");
+                if (originRequestId is not null && originRequestId != _voice.Id)
+                    throw new SessionException("LOCKED", "Voice CAD request requires its originating voiceRequestId and one Undo group");
+                originRequestId = _voice.Id;
+            }
             if (_voice is null && originRequestId is not null) throw new SessionException("NOT_OWNER", "Voice request has ended");
             if (_voice is not null && (model.SessionId != _voice.Model.SessionId || model.DocumentId != _voice.Model.DocumentId || model.Revision != _voice.Model.Revision))
                 throw new SessionException("NEED_FULL_SNAPSHOT", "Voice document changed before CAD execution");

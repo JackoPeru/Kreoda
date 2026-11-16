@@ -63,7 +63,7 @@ public sealed class HermesGatewayClient
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length > 8000 || context.ValueKind != JsonValueKind.Object || context.GetRawText().Length > 65536)
             throw new ArgumentException("Voice text and CAD context must be bounded");
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);deadline.CancelAfter(TimeSpan.FromSeconds(180));
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);deadline.CancelAfter(TimeSpan.FromSeconds(600));
         var token = deadline.Token;string? run = null;var complete = false;
         try {
             var key = "kreoda-" + Guid.NewGuid().ToString("D");

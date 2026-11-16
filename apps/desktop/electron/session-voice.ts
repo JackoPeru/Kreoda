@@ -138,7 +138,7 @@ export class SessionVoiceBridge {
       throw badParams("Invalid voice turn request");
     const body = JSON.stringify({ text, context });
     if (Buffer.byteLength(body, "utf8") > MAX_TURN_BYTES) throw badParams("Voice turn exceeds Bridge request limit");
-    const bytes = await this.request("/voice/turn", "POST", body, MAX_ERROR_BYTES, 185000, "turn", signal);
+    const bytes = await this.request("/voice/turn", "POST", body, MAX_ERROR_BYTES, 600000, "turn", signal);
     const reply = asRecord(parseJson(bytes, "turn"));
     if (!reply || typeof reply["text"] !== "string" || reply["text"].length > 8000 ||
         typeof reply["runId"] !== "string" || !SAFE_RUN_ID.test(reply["runId"]) ||

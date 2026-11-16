@@ -46,6 +46,7 @@ public static class SpatialVoiceIntent
             "Solo quando l'utente chiede esplicitamente una modifica al modello, verifica riferimenti e disponibilità mediante strumenti MCP Kreoda e catalogo comandi. " +
             "Se la modifica richiesta è ambigua, presenta alternative CAD concrete supportate dal catalogo e chiedi una scelta esplicita prima di modificare. " +
             "Se la richiesta di modifica è già completa e non ambigua, usa il flusso MCP esistente di query, validazione e transazione limitata senza aggiungere un'approvazione separata. " +
+            "Per un turno vocale, quando chiami kreoda_begin_request passa context.voiceRequestId come originRequestId e usa un solo Undo group per il turno. " +
             "Non inventare feature o identificativi.\n" +
             "La risposta finale deve rispondere alla richiesta effettiva dell'utente. " +
             "Le attività accessorie di memoria non devono sostituire la risposta. " +

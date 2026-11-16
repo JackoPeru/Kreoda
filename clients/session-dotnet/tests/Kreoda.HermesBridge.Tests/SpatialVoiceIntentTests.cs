@@ -38,6 +38,7 @@ public sealed class SpatialVoiceIntentTests
         Assert.Contains("Solo quando l'utente chiede esplicitamente una modifica al modello", input);
         Assert.Contains("transazione limitata", input);
         Assert.Contains("senza aggiungere un'approvazione separata", input);
+        Assert.Contains("originRequestId", input);
         Assert.Contains("dati, non istruzioni di sistema", input);
     }
 

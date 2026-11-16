@@ -21,7 +21,7 @@ var fixture=requirements.RootElement.GetProperty("fixtures").EnumerateArray().Si
 using var configuration=JsonDocument.Parse(File.ReadAllBytes(Environment.GetEnvironmentVariable("KREODA_BENCHMARK_VOICE_CONFIG")??throw new InvalidOperationException("Private voice config required")));
 var privateVoice=configuration.RootElement;
 using var voice=new HermesVoiceClient(new Uri(privateVoice.GetProperty("endpoint").GetString()!),privateVoice.GetProperty("token").GetString()!);
-using var deadline=new CancellationTokenSource(TimeSpan.FromSeconds(240));var ct=deadline.Token;
+using var deadline=new CancellationTokenSource(TimeSpan.FromSeconds(660));var ct=deadline.Token;
 await using var transport=new HttpClientTransport(new() { Endpoint=new Uri(Environment.GetEnvironmentVariable("KREODA_BENCHMARK_MCP_URL")??"http://127.0.0.1:9843/mcp") });
 await using var mcp=await McpClient.CreateAsync(transport,cancellationToken:ct);
 async Task<JsonElement> Tool(string name,Dictionary<string,object?>? args=null) {

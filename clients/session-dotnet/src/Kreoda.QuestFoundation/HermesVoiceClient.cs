@@ -55,7 +55,7 @@ public sealed class HermesVoiceClient : IVoiceClient
         if (string.IsNullOrWhiteSpace(text) || text.Length > 8000 || context.ValueKind != JsonValueKind.Object || context.GetRawText().Length > 65536)
             throw new ArgumentException("Voice request is outside limits");
         using var content = new StringContent(JsonSerializer.Serialize(new { text, context }), Encoding.UTF8, "application/json");
-        var result = await JsonPost("turn", content, TimeSpan.FromSeconds(180), ct);
+        var result = await JsonPost("turn", content, TimeSpan.FromSeconds(630), ct);
         return new(Text(result, "text"), result.TryGetProperty("sessionId", out var session) && session.ValueKind == JsonValueKind.String ? session.GetString() : null,
             Text(result, "runId"));
     }

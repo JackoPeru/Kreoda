@@ -15,6 +15,15 @@ void CheckToolCatalog(IEnumerable<string> names, string message) {
         message + ": [" + string.Join(", ", actual) + "]");
 }
 var scenario = Environment.GetEnvironmentVariable("KREODA_MCP_PROBE_SCENARIO");
+if (scenario == "live-describe")
+{
+    await using var liveTransport = new HttpClientTransport(new() {
+        Endpoint = new Uri(Environment.GetEnvironmentVariable("KREODA_MCP_PROBE_URL")!) });
+    await using var liveMcp = await McpClient.CreateAsync(liveTransport);
+    var liveDescription = await liveMcp.CallToolAsync("kreoda_describe_model", new Dictionary<string, object?>());
+    Console.WriteLine(liveDescription.Content.OfType<TextContentBlock>().Single().Text);
+    return;
+}
 if (scenario == "automatic-agent-local-connection")
 {
     var deviceFile = Environment.GetEnvironmentVariable("KREODA_CAD_DEVICE_FILE")!;
