@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
 import { HomeScreen } from "../components/home/HomeScreen";
-import { openDocumentAtPath } from "../components/workspace/WorkspaceActions";
+import { openDocument, openDocumentAtPath, saveDocument } from "../components/workspace/WorkspaceActions";
 import { PluginsDialog } from "../components/PluginsDialog";
 import { ReferenceDialog } from "../components/ReferenceDialog";
 import { ReferenceGeometryPanel } from "../components/workspace/ReferenceGeometryPanel";
@@ -12,6 +12,8 @@ import { ExtrudeDialog } from "../components/ExtrudeDialog";
 import { HoleDialog } from "../components/HoleDialog";
 import { DressUpDialog } from "../components/DressUpDialog";
 import { ShellDialog } from "../components/ShellDialog";
+import { TemplateDialog } from "../components/TemplateDialog";
+import { SettingsDialog } from "../components/SettingsDialog";
 import {
   AddPrimitiveDialog,
   type PrimitiveKind,
@@ -128,6 +130,8 @@ export function App() {
   const [showReference, setShowReference] = useState(false);
   const [showReferenceGeometry, setShowReferenceGeometry] = useState(false);
   const [showInstance, setShowInstance] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   // Drawers are closed by default (UX-1): capabilities on demand, never
   // permanently docked.
   const [projectOpen, setProjectOpen] = useState(false);
@@ -665,11 +669,40 @@ export function App() {
   return (
     <div className="h-full">
       {view === "home" ? (
-        <HomeScreen onEnterWorkspace={enterWorkspace} onOpenRecent={async path => {
-          const error = await openDocumentAtPath(path);
-          if (!error) enterWorkspace();
-          return error;
-        }} />
+        <HomeScreen
+          onEnterWorkspace={enterWorkspace}
+          onOpenRecent={async path => {
+            const error = await openDocumentAtPath(path);
+            if (!error) enterWorkspace();
+            return error;
+          }}
+          onOpenProject={() => {
+            enterWorkspace();
+            setProjectOpen(true);
+          }}
+          onImport={() => {
+            void openDocument().then(error => {
+              if (error) window.alert(error);
+              else enterWorkspace();
+            });
+          }}
+          onTemplate={() => setShowTemplates(true)}
+          onDraw={() => {
+            enterWorkspace();
+            void createSketch();
+          }}
+          onMeasure={() => {
+            enterWorkspace();
+            setPropsOpen(true);
+          }}
+          onExport={() => {
+            enterWorkspace();
+            void saveDocument().then(error => {
+              if (error) window.alert(error);
+            });
+          }}
+          onSettings={() => setShowSettings(true)}
+        />
       ) : (
       <>
       <button
@@ -781,6 +814,16 @@ export function App() {
       {shelling && <ShellDialog onClose={() => setShelling(false)} />}
       </>
       )}
+      {showTemplates && (
+        <TemplateDialog
+          onClose={() => setShowTemplates(false)}
+          onDone={() => {
+            setShowTemplates(false);
+            enterWorkspace();
+          }}
+        />
+      )}
+      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
