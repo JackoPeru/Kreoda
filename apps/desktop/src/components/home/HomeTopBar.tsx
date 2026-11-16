@@ -48,9 +48,9 @@ export function HomeTopBar({ onNavigate }: { onNavigate?: (key: string) => void 
     >
       <div className="flex items-center gap-5">
         <svg aria-hidden="true" className="size-8 shrink-0" viewBox="0 0 32 34" fill="none">
-          <path d="M3 2C3 1 4 0 5 0H9V34H5C4 34 3 33 3 32V2Z" fill="#DDE6FF" />
-          <path d="M12 14L24 0H31L17 18L12 14Z" fill="#9BC2FF" />
-          <path d="M12 20L17 16L31 34H24L12 20Z" fill="#A8AAFF" />
+          <path d="M3 2C3 1 4 0 5 0H9V34H5C4 34 3 33 3 32V2Z" fill="#F5FAFC" />
+          <path d="M12 14L24 0H31L17 18L12 14Z" fill="#63F5E9" />
+          <path d="M12 20L17 16L31 34H24L12 20Z" fill="#2FB8AE" />
         </svg>
         <span className="leading-tight">
           <span className="block text-lg font-semibold tracking-[0.25em] text-white">

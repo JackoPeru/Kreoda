@@ -297,7 +297,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
       className="absolute inset-0 z-30 flex items-center justify-center bg-black/60"
       data-testid="reference-dialog"
     >
-      <div className="w-[28rem] max-w-[92vw] rounded-xl border border-white/15 bg-[#141922] p-5 shadow-2xl">
+      <div className="w-[28rem] max-w-[92vw] rounded-xl border border-white/15 bg-[var(--kreoda-float-elevated-bg)] p-5 shadow-2xl">
         <div className="pb-2 text-sm font-semibold">
           {tt("ref.title")}
         </div>

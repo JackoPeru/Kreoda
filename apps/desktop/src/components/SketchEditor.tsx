@@ -1085,7 +1085,7 @@ export function SketchEditor({
           <svg
             viewBox={`0 0 ${VIEW} ${VIEW}`}
             preserveAspectRatio="xMidYMid meet"
-            className="block aspect-square w-full max-w-full min-w-0 rounded-md bg-[#0b0e13] touch-none select-none"
+            className="block aspect-square w-full max-w-full min-w-0 rounded-md bg-[var(--kreoda-workspace-bg)] touch-none select-none"
             style={canvasWidth === null ? undefined : { width: `${canvasWidth}px`, height: `${canvasWidth}px` }}
             data-testid="sketch-canvas"
             aria-label={tt("sketch.curve.canvas")}
@@ -1267,8 +1267,8 @@ export function SketchEditor({
                     cx={cx}
                     cy={cy}
                     r={active || selectedSplinePoint ? 7 : 5}
-                    fill={active ? "#ffb020" : selectedSplinePoint ? "#f5cc62" : "#4f8cff"}
-                    stroke="#0b0e13"
+                    fill={active ? "#ffb020" : selectedSplinePoint ? "#f5cc62" : "#63f5e9"}
+                    stroke="var(--kreoda-workspace-bg)"
                     strokeWidth={1.5}
                     style={{ cursor: "grab" }}
                     onPointerDown={onPointDown(p.id)}

@@ -1,18 +1,62 @@
 @import "tailwindcss";
 
+/* PC brand refresh: same teal/carbon identity as the Quest client. */
+@theme {
+  --color-sky-200: #d6fef9;
+  --color-sky-300: #a9fbf4;
+  --color-sky-400: #63f5e9;
+  --color-sky-500: #3ed9ce;
+  --color-sky-600: #2fb8ae;
+  --color-sky-700: #249b93;
+  --color-sky-800: #1b7a74;
+  --color-sky-900: #0f4a46;
+  --color-sky-950: #082b2a;
+  --color-blue-200: #d6fef9;
+  --color-blue-300: #a9fbf4;
+  --color-blue-400: #63f5e9;
+  --color-blue-500: #3ed9ce;
+  --color-blue-600: #2fb8ae;
+  --color-blue-700: #249b93;
+  --color-blue-800: #1b7a74;
+  --color-blue-900: #0f4a46;
+  --color-blue-950: #082b2a;
+  --color-slate-700: #1a3a44;
+  --color-slate-800: #12303a;
+  --color-slate-900: #0b1c24;
+  --color-slate-950: #061014;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
 
   /* UX-0 design foundation: single source for the minimal contextual UI.
-     Dark graphite + blue accent; floating panels stay semi-transparent
-     with thin borders and moderate blur. No glow. */
-  --kreoda-workspace-bg: #0b0e13;
-  --kreoda-float-bg: rgba(20, 25, 34, 0.82);
-  --kreoda-float-elevated-bg: rgba(24, 30, 41, 0.94);
-  --kreoda-border-subtle: rgba(255, 255, 255, 0.1);
-  --kreoda-text-primary: #e6ebf2;
-  --kreoda-accent: #4f8cff;
-  --kreoda-accent-hover: #6ea8ff;
+     Carbon/teal identity shared with the Quest client; floating panels stay
+     semi-transparent with thin borders and moderate blur. No glow. */
+  --kreoda-workspace-bg: #08151b;
+  --kreoda-float-bg: rgba(11, 28, 36, 0.86);
+  --kreoda-float-elevated-bg: rgba(13, 34, 43, 0.96);
+  --kreoda-border-subtle: rgba(99, 245, 233, 0.16);
+  --kreoda-text-primary: #f5fafc;
+  --kreoda-text-muted: #b7ced4;
+  --kreoda-accent: #63f5e9;
+  --kreoda-accent-hover: #8ff9f0;
+  --kreoda-warning: #ffbb72;
   --kreoda-radius-sm: 8px;
   --kreoda-radius-md: 12px;
   --kreoda-surface-blur: 12px;
@@ -26,7 +70,7 @@ body,
   margin: 0;
   background: var(--kreoda-workspace-bg);
   color: var(--kreoda-text-primary);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Floating surface helpers consumed by the workspace shell. */

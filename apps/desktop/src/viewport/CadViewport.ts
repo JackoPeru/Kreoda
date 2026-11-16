@@ -110,7 +110,7 @@ export class CadViewport {
     container.appendChild(this.renderer.domElement);
     this.renderer.domElement.tabIndex = 0;
 
-    this.scene.background = new THREE.Color(0x0b0e13);
+    this.scene.background = new THREE.Color(0x08151b);
     this.camera = new THREE.PerspectiveCamera(
       45,
       container.clientWidth / Math.max(1, container.clientHeight),
@@ -123,13 +123,13 @@ export class CadViewport {
       onFrameSelection: () => this.frameSelection(),
     });
 
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x1a2230, 0.9);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x0f242b, 0.9);
     const key = new THREE.DirectionalLight(0xffffff, 1.6);
     key.position.set(220, -160, 320);
     this.scene.add(hemi, key);
     this.scene.add(this.datumView.group);
 
-    const grid = new THREE.GridHelper(1000, 50, 0x2a3a55, 0x1a2230);
+    const grid = new THREE.GridHelper(1000, 50, 0x1b3a44, 0x0f242b);
     grid.rotation.x = Math.PI / 2;
     this.scene.add(grid);
 
@@ -965,13 +965,13 @@ export class CadViewport {
     THREE.MeshStandardMaterial,
     THREE.MeshStandardMaterial,
   ] {
-    // UX-5 presentation: neutral grey solids, soft hover, blue selection
+    // UX-5 presentation: neutral grey solids, soft hover, teal selection
     // (matches --kreoda-accent). Preview ghosts stay amber — uncommitted
     // state is a semantic warning, not decoration.
     const defs = [
       { color: 0x939db0, emissive: 0x000000 },
-      { color: 0xa8bedd, emissive: 0x111c2c },
-      { color: 0x4f8cff, emissive: 0x1e3a6e },
+      { color: 0xa9fbf4, emissive: 0x0f4a46 },
+      { color: 0x63f5e9, emissive: 0x1b7a74 },
       { color: 0x4bcab0, emissive: 0x11352e },
     ] as const;
     const materials = defs.map(
@@ -1155,7 +1155,7 @@ export class CadViewport {
     g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pts), 3));
     this.edgeSelectedLines = new THREE.LineSegments(
       g,
-      new THREE.LineBasicMaterial({ color: 0x7fb2ff }),
+      new THREE.LineBasicMaterial({ color: 0x63f5e9 }),
     );
     this.applySectionClip(this.edgeSelectedLines.material as THREE.Material);
     this.edgeSelectedLines.renderOrder = 2;

@@ -17,7 +17,7 @@ export function RecentProjects({ onOpen }: {
   return (
     <section data-testid="home-recent" className="bg-slate-900/55 backdrop-blur-xl border border-white/10 rounded-2xl p-4 w-[300px]">
       <header className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-[#e6ebf2]">Progetti recenti</h2>
+        <h2 className="text-sm font-semibold text-[var(--kreoda-text-primary)]">Progetti recenti</h2>
         {projects.length > 5 && <button type="button" onClick={() => setExpanded(value => !value)} className="text-sky-400 text-xs hover:text-sky-300 transition-colors">{expanded ? "Mostra meno" : "Vedi tutti →"}</button>}
       </header>
       {projects.length === 0 && <p className="text-xs text-white/50">Nessun progetto salvato o aperto di recente.</p>}
@@ -33,7 +33,7 @@ export function RecentProjects({ onOpen }: {
               className="w-full flex items-center gap-3 rounded-xl p-2 text-left hover:bg-white/5 transition-colors disabled:opacity-50">
               <FolderOpen size={26} className="shrink-0 text-sky-300" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium text-[#e6ebf2]">{name}</span>
+                <span className="block truncate text-[13px] font-medium text-[var(--kreoda-text-primary)]">{name}</span>
                 <span className="block text-xs text-white/60">{new Date(openedAt).toLocaleDateString("it-IT")}</span>
               </span>
             </button>

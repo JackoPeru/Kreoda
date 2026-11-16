@@ -12,9 +12,9 @@ function glowTexture(): THREE.CanvasTexture {
   canvas.width = canvas.height = 256;
   const context = canvas.getContext("2d")!;
   const gradient = context.createRadialGradient(128, 128, 6, 128, 128, 125);
-  gradient.addColorStop(0, "rgba(100,185,255,0.65)");
-  gradient.addColorStop(0.22, "rgba(40,125,255,0.32)");
-  gradient.addColorStop(1, "rgba(25,90,255,0)");
+  gradient.addColorStop(0, "rgba(99,245,233,0.65)");
+  gradient.addColorStop(0.22, "rgba(47,184,174,0.32)");
+  gradient.addColorStop(1, "rgba(20,120,115,0)");
   context.fillStyle = gradient;
   context.fillRect(0, 0, 256, 256);
   const texture = new THREE.CanvasTexture(canvas);
@@ -83,8 +83,8 @@ export function HomeScene3D() {
     host.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#15191f");
-    scene.fog = new THREE.Fog("#15191f", 17, 35);
+    scene.background = new THREE.Color("#08151b");
+    scene.fog = new THREE.Fog("#08151b", 17, 35);
     const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 65);
     camera.position.set(0, 3.05, 10.2);
     camera.lookAt(0, 1.55, -2.1);
@@ -201,7 +201,7 @@ export function HomeScene3D() {
       const blackMetal = new THREE.MeshStandardMaterial({ color: "#16191c", roughness: 0.32, metalness: 0.82 });
       const brass = new THREE.MeshStandardMaterial({ color: "#ae8054", roughness: 0.28, metalness: 0.72 });
       const blue = new THREE.MeshBasicMaterial({
-        color: "#58abff", transparent: true, opacity: 0.7, toneMapped: false,
+        color: "#63f5e9", transparent: true, opacity: 0.7, toneMapped: false,
       });
       const warmStrip = new THREE.MeshBasicMaterial({ color: "#ffd4a0", toneMapped: false });
 
@@ -402,7 +402,7 @@ export function HomeScene3D() {
       scene.add(rock);
       const k = new THREE.Group();
       const blueEdge = new THREE.MeshStandardMaterial({
-        color: "#aab4ca", emissive: "#3979d3", emissiveIntensity: 0.32,
+        color: "#aab4ca", emissive: "#1b7a74", emissiveIntensity: 0.32,
         metalness: 0.18, roughness: 0.38,
       });
       const marbleFacet = (outline: Array<[number, number]>, z: number,
@@ -440,13 +440,13 @@ export function HomeScene3D() {
       jointShape.closePath();
       const joint = new THREE.Mesh(new THREE.ShapeGeometry(jointShape),
         new THREE.MeshPhysicalMaterial({
-          map: sculptureTexture, color: "#a5b4e8", roughness: 0.23,
+          map: sculptureTexture, color: "#a9fbf4", roughness: 0.23,
           metalness: 0.03, clearcoat: 0.5,
         }));
       joint.position.z = 0.93;
       k.add(joint);
       const kSeam = new THREE.MeshBasicMaterial({
-        color: "#75baff", transparent: true, opacity: 0.82, toneMapped: false,
+        color: "#63f5e9", transparent: true, opacity: 0.82, toneMapped: false,
       });
       for (const points of [
         [[-0.84, 0], [-0.43, 0]],
@@ -467,7 +467,7 @@ export function HomeScene3D() {
       const haloTexture = glowTexture();
       generatedTextures.push(haloTexture);
       const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: haloTexture, color: "#67b5ff", transparent: true, opacity: 0.45,
+        map: haloTexture, color: "#63f5e9", transparent: true, opacity: 0.45,
         blending: THREE.AdditiveBlending, depthWrite: false, depthTest: true,
       }));
       halo.position.set(0, 2.8, -2.45);
@@ -476,7 +476,7 @@ export function HomeScene3D() {
       const glowDisc = new THREE.Mesh(
         new THREE.PlaneGeometry(5.4, 3.2),
         new THREE.MeshBasicMaterial({
-          map: haloTexture, color: "#4d9fff", transparent: true, opacity: 0.48,
+          map: haloTexture, color: "#3ed9ce", transparent: true, opacity: 0.48,
           blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
         }),
       );
@@ -485,7 +485,7 @@ export function HomeScene3D() {
       scene.add(glowDisc);
       const windowReflection = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 3),
         new THREE.MeshBasicMaterial({
-          map: haloTexture, color: "#3282e8", transparent: true, opacity: 0.8,
+          map: haloTexture, color: "#2fb8ae", transparent: true, opacity: 0.8,
           depthWrite: false,
         }));
       windowReflection.rotation.x = -Math.PI / 2;
@@ -499,7 +499,7 @@ export function HomeScene3D() {
       crownRing.position.set(-0.15, 2.018, -1.55);
       scene.add(crownRing);
       const hologram = new THREE.MeshBasicMaterial({
-        color: "#61b7ff", transparent: true, opacity: 0.18,
+        color: "#63f5e9", transparent: true, opacity: 0.18,
         blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
       });
       const hologramBeams: THREE.Mesh[] = [];
@@ -523,7 +523,7 @@ export function HomeScene3D() {
       ring.scale.x = 1.18;
       ring.position.set(-0.15, 0.98, -1.55);
       scene.add(ring);
-      const glowLight = new THREE.PointLight("#5ba8ff", 6, 3, 2);
+      const glowLight = new THREE.PointLight("#3ed9ce", 6, 3, 2);
       glowLight.position.set(-0.1, 2.12, -0.75);
       scene.add(glowLight);
       const sculptureLight = new THREE.PointLight("#d8dbe7", 3.2, 4, 2);
@@ -570,7 +570,7 @@ export function HomeScene3D() {
       scene.add(tabletop);
       const tableGlow = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 1.7),
         new THREE.MeshBasicMaterial({
-          map: haloTexture, color: "#1d55d0", transparent: true, opacity: 0.32,
+          map: haloTexture, color: "#1b7a74", transparent: true, opacity: 0.32,
           blending: THREE.AdditiveBlending, depthWrite: false,
         }));
       tableGlow.rotation.order = "YXZ";

@@ -22,7 +22,7 @@ export function ActionOrbit({ onAction }: Props) {
       />
       <div
         data-testid="home-orbit-center"
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-sky-400/60 bg-sky-950/40 shadow-[0_0_40px_rgba(56,189,248,0.45)] text-sky-300 text-sm px-8 py-4 whitespace-nowrap"
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-sky-400/60 bg-sky-950/40 shadow-[0_0_40px_rgba(99,245,233,0.45)] text-sky-300 text-sm px-8 py-4 whitespace-nowrap"
       >
         Cosa vuoi fare oggi?
       </div>

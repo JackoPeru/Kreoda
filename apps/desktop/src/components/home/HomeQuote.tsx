@@ -12,7 +12,7 @@ export function HomeQuote() {
           className="h-full w-full object-cover"
         />
       </span>
-      <p className="text-[13px] italic leading-snug text-[#e6ebf2]">
+      <p className="text-[13px] italic leading-snug text-[var(--kreoda-text-primary)]">
         &ldquo;Ogni spazio racconta una storia.&rdquo;
       </p>
     </aside>

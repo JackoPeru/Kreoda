@@ -3,8 +3,8 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: radial-gradient(ellipse at 55% 30%, #374252 0%, #171c25 46%, #0c1016 100%);
-  color: #edf2fb;
+  background: radial-gradient(ellipse at 55% 30%, #1d4148 0%, #0b1c24 46%, #061014 100%);
+  color: #f5fafc;
 }
 
 .home-background-video {
@@ -23,8 +23,8 @@
   z-index: 1;
   pointer-events: none;
   background:
-    linear-gradient(to bottom, rgba(5, 7, 10, 0.45), transparent 19%, transparent 60%, rgba(4, 6, 9, 0.36)),
-    linear-gradient(to right, rgba(5, 7, 10, 0.19), transparent 24%, transparent 76%, rgba(5, 7, 10, 0.16));
+    linear-gradient(to bottom, rgba(4, 10, 12, 0.45), transparent 19%, transparent 60%, rgba(3, 8, 10, 0.36)),
+    linear-gradient(to right, rgba(4, 10, 12, 0.19), transparent 24%, transparent 76%, rgba(4, 10, 12, 0.16));
 }
 
 .home-vignette::before {
@@ -32,8 +32,8 @@
   position: absolute;
   inset: 0 0 auto;
   height: 7.8125vh;
-  background: rgba(8, 10, 15, 0.72);
-  border-bottom: 1px solid rgba(198, 218, 245, 0.12);
+  background: rgba(6, 16, 20, 0.72);
+  border-bottom: 1px solid rgba(99, 245, 233, 0.14);
   backdrop-filter: blur(18px);
 }
 
@@ -89,7 +89,7 @@
 
 .home-root [data-testid="home-topbar"] > div:last-child > div:first-child {
   padding-right: 32px;
-  border-right: 1px solid rgba(206, 220, 244, 0.2);
+  border-right: 1px solid rgba(99, 245, 233, 0.18);
 }
 
 .home-layout {
@@ -328,8 +328,8 @@
     height: auto;
     flex-wrap: wrap;
     gap: 12px;
-    background: rgba(8, 10, 15, 0.72);
-    border-bottom: 1px solid rgba(198, 218, 245, 0.12);
+    background: rgba(6, 16, 20, 0.72);
+    border-bottom: 1px solid rgba(99, 245, 233, 0.14);
     backdrop-filter: blur(18px);
   }
 
