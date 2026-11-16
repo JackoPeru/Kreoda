@@ -1263,7 +1263,7 @@ namespace Kreoda.QuestRuntime
                 var id = ids[i];
                 Pill(root, font, material, id, labels[i],
                     new Vector3(start + i * (pillWidth + gap), 0, -.006f), pillWidth, height - .012f,
-                    active[i], () => activate?.Invoke(id), register);
+                    active[i], () => activate?.Invoke(id), null);
             }
             return root;
         }

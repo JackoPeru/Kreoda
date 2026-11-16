@@ -48,10 +48,10 @@ namespace Kreoda.QuestRuntime
                 new Vector3(.115f, -.105f, -.008f), .060f, .026f, false,
                 () => activate?.Invoke("home:project:open"), register);
 
-            QuestUi.Belt(Page, font, tile, new Vector3(0, -.155f, -.006f), .480f, .040f,
-                new[] { "home:design", "home:model", "home:view", "home:measure", "home:render" },
-                new[] { "DISEGNA", "MODELLA", "VISTA", "MISURA", "DISPLAY" },
-                new[] { true, false, false, false, false },
+            QuestUi.Belt(Page, font, tile, new Vector3(0, -.155f, -.006f), .320f, .040f,
+                new[] { "home:model", "home:view", "home:measure" },
+                new[] { "MODELLA", "VISTA", "MISURA" },
+                new[] { true, false, false },
                 id => activate?.Invoke(id), register);
 
             QuestUi.Hint(Page, font, tile, new Vector3(-.150f, -.218f, -.006f), .200f);
