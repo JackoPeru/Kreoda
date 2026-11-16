@@ -58,6 +58,7 @@ export function buildReferenceSketch(
   const points: SketchModel["points"] = [];
   const lines: SketchModel["lines"] = [];
   const circles: SketchModel["circles"] = [];
+  const constraints: SketchModel["constraints"] = [];
   const byKey = new Map<string, string>();
   const pointId = (x: number, y: number): string | null => {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
@@ -78,7 +79,17 @@ export function buildReferenceSketch(
     const p1 = pointId(x1, y1);
     const p2 = pointId(x2, y2);
     if (!p1 || !p2 || p1 === p2) continue;
-    lines.push({ id: `l${lines.length}`, p1, p2 });
+    const lineId = `l${lines.length}`;
+    lines.push({ id: lineId, p1, p2 });
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const length = Math.hypot(dx, dy);
+    const tolerance = length * Math.tan((2 * Math.PI) / 180);
+    if (Math.abs(dy) <= tolerance) {
+      constraints.push({ id: `hc${constraints.length}`, kind: "horizontal", refs: [lineId], value: 0 });
+    } else if (Math.abs(dx) <= tolerance) {
+      constraints.push({ id: `vc${constraints.length}`, kind: "vertical", refs: [lineId], value: 0 });
+    }
   }
   for (const circle of detection.circles) {
     if (circles.length >= maxCircles) break;
@@ -87,13 +98,20 @@ export function buildReferenceSketch(
     if (!(r >= 0.5) || !Number.isFinite(r)) continue;
     const center = pointId(cx, cy);
     if (!center) continue;
-    circles.push({ id: `c${circles.length}`, center, r });
+    const circleId = `c${circles.length}`;
+    circles.push({ id: circleId, center, r });
+    constraints.push({
+      id: `dc${constraints.length}`,
+      kind: "diameter",
+      refs: [circleId],
+      value: 2 * r,
+    });
   }
   if (lines.length === 0 && circles.length === 0) {
     throw new Error("No usable lines or circles were detected.");
   }
   return {
-    model: { points, lines, circles, arcs: [], constraints: [] },
+    model: { points, lines, circles, arcs: [], constraints },
     lineCount: lines.length,
     circleCount: circles.length,
   };

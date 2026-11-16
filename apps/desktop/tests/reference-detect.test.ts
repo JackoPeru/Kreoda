@@ -115,6 +115,11 @@ describe("reference image detection (Stage B)", () => {
     expect(new Set(parsed.points.map((p) => p.id)).size).toBe(parsed.points.length);
     expect(new Set(parsed.lines.map((l) => l.id)).size).toBe(parsed.lines.length);
     expect(new Set(parsed.circles.map((c) => c.id)).size).toBe(parsed.circles.length);
+    const kinds = parsed.constraints.map((c) => c.kind);
+    expect(kinds).toContain("horizontal");
+    expect(kinds).toContain("vertical");
+    expect(kinds).toContain("diameter");
+    expect(new Set(parsed.constraints.map((c) => c.id)).size).toBe(parsed.constraints.length);
   });
 
   it("requires calibration and usable geometry", () => {

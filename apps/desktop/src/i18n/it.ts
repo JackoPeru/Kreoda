@@ -503,7 +503,7 @@ export const it: Record<EnKey, string> = {
   "ref.errCalibFailed": "taratura non riuscita",
   "ref.detect": "Rileva linee/cerchi",
   "ref.detecting": "Rilevamento...",
-  "ref.detected": "{lines} linee, {circles} cerchi rilevati",
+  "ref.detected": "{lines} linee, {circles} cerchi, {constraints} vincoli rilevati",
   "ref.detectCalibrate": "Tara prima l'immagine (Misura o larghezza nota).",
   "ref.detectEmpty": "Nessuna linea o cerchio utilizzabile rilevato.",
   "ref.detectFailed": "Rilevamento non riuscito.",

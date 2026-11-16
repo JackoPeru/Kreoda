@@ -501,7 +501,7 @@ export const en = {
   "ref.errCalibFailed": "calibration failed",
   "ref.detect": "Detect lines/circles",
   "ref.detecting": "Detecting...",
-  "ref.detected": "{lines} lines, {circles} circles detected",
+  "ref.detected": "{lines} lines, {circles} circles, {constraints} constraints detected",
   "ref.detectCalibrate": "Calibrate the image first (Measure or known width).",
   "ref.detectEmpty": "No usable lines or circles were detected.",
   "ref.detectFailed": "Detection failed.",

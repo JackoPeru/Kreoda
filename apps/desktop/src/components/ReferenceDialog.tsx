@@ -436,6 +436,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
                     {tt("ref.detected", {
                       lines: detection.proposal.lineCount,
                       circles: detection.proposal.circleCount,
+                      constraints: detection.proposal.model.constraints.length,
                     })}
                   </span>
                   <button

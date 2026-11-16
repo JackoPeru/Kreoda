@@ -63,6 +63,7 @@ test("reference detection proposes an editable sketch from lines and circles", a
     expect(sketch.lines ?? 0).toBeGreaterThanOrEqual(2);
     expect(sketch.circles ?? 0).toBeGreaterThanOrEqual(1);
     expect(sketch.points).toBeGreaterThanOrEqual(4);
+    expect(sketch.constraints).toBeGreaterThanOrEqual(3);
   } finally {
     await app.close();
     fs.rmSync(profile, { recursive: true, force: true });
