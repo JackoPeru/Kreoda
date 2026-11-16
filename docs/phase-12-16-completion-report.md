@@ -121,8 +121,8 @@ transaction); symmetry inference with explicit acceptance; constraint suggestion
 (mounting plate, brackets, enclosure, spacer); design-from-function alternatives (explicit choice, never silent);
 Quest-selected geometry/spatial point as intent context (`SpatialVoiceIntent.cs`, `VoiceSelectionContext.cs`);
 reference-guided parametric reconstruction with explicit calibration; calibrated image line/circle detection
-with an explicit, editable sketch proposal (no automatic geometry commit); alternative approval with guarded
-transactional execution (`VoiceCandidateApproval.cs`).
+with an explicit, editable sketch proposal (axis/diameter constraints applied where applicable; no automatic
+geometry commit); alternative approval with guarded transactional execution (`VoiceCandidateApproval.cs`).
 
 **Evidence.** `GenerativeIntentTests`, `SemanticInferenceTests`, `SketchConstraintSuggestionsTests`,
 `ReferenceReconstructionTests`, `CadIntentProposalTests`, `SpatialVoiceIntentTests`,
@@ -130,7 +130,7 @@ transactional execution (`VoiceCandidateApproval.cs`).
 `phase16-native-pattern.spec.ts`, `phase16-manual-hole-inference.spec.ts`,
 `phase16-symmetric-approval-native.spec.ts`, `phase16-approved-alternative-native.spec.ts`,
 `phase16-reference-reconstruction-native.spec.ts`, `phase16-projection-mcp.spec.ts`; Desktop
-`reference-detect.test.ts` (synthetic line/circle detection and mapping) and E2E
+`reference-detect.test.ts` (synthetic line/circle detection, mapping and constraints) and E2E
 `phase16-reference-vision.spec.ts` (calibrated image -> detection -> editable sketch in the core).
 
 **Limits.** Stage B/C use deterministic Hough-style line/circle detection tuned for clean, high-contrast
@@ -161,6 +161,11 @@ A live Hermes agent proposal accepted on the physical headset remains open.
    "Individuazione della posizione" system dialog must be confirmed once by the user; while the headset was
    off-head it stayed in front of the app and blocked visual capture of the synced box (the mesh delta itself is
    proven by logcat in the 2026-11-13 evidence bundle).
+   - 2026-11-16 partial device check: the installed APK was launched on the USB-connected Quest 3
+     (serial 2G0YC1ZFB8043H); the Home UI rendered in passthrough with the live PC status
+     ("PC CONNESSO A PC-MATTEO") and Desktop held an established TCP session from 192.168.1.11.
+     Screenshots and logcat are in `.artifacts/quest-live-20261116`. Hands/pointer and the remaining
+     interactions above still require the headset worn.
 2. Live Hermes: one real remote-agent run of the seven frozen fixtures with ≥6/7 success and recorded
    commands/repairs/timing (the deterministic native baseline is not a substitute).
 3. Pristine LAN pairing on a factory-clean headset (no USB provisioning).
