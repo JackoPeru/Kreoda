@@ -15,7 +15,7 @@ export function RecentProjects({ onOpen }: {
     return () => { active = false; };
   }, []);
   return (
-    <section data-testid="home-recent" className="bg-slate-900/55 backdrop-blur-xl border border-white/10 rounded-2xl p-4 w-[300px]">
+    <section data-testid="home-recent" className="bg-slate-900/75 backdrop-blur-md border border-white/10 rounded-2xl p-4 w-[300px]">
       <header className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-[var(--kreoda-text-primary)]">Progetti recenti</h2>
         {projects.length > 5 && <button type="button" onClick={() => setExpanded(value => !value)} className="text-sky-400 text-xs hover:text-sky-300 transition-colors">{expanded ? "Mostra meno" : "Vedi tutti →"}</button>}

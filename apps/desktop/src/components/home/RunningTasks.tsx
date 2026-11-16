@@ -2,7 +2,7 @@ export function RunningTasks({ onSeeAll }: { onSeeAll?: () => void }) {
   return (
     <div
       data-testid="home-tasks"
-      className="bg-slate-900/55 backdrop-blur-xl border border-white/10 rounded-2xl p-4 w-[320px] min-h-[190px]"
+      className="bg-slate-900/75 backdrop-blur-md border border-white/10 rounded-2xl p-4 w-[320px] min-h-[190px]"
     >
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-white">Task in corso</h3>
