@@ -1,4 +1,4 @@
-import { Box, Camera, Eye, PenLine, Ruler } from "lucide-react";
+import { Box, Download, Eye, PenLine, Ruler } from "lucide-react";
 
 type Props = {
   onAction?: (key: string) => void;
@@ -9,7 +9,7 @@ const ACTIONS = [
   { key: "model", label: "Modella", Icon: Box, pos: "left-1/2 top-0 -translate-x-1/2" },
   { key: "view", label: "Visualizza", Icon: Eye, pos: "right-[54px] top-[32px]" },
   { key: "measure", label: "Misura", Icon: Ruler, pos: "left-0 top-[125px]" },
-  { key: "render", label: "Renderizza", Icon: Camera, pos: "right-4 top-[125px]" },
+  { key: "render", label: "Esporta", Icon: Download, pos: "right-4 top-[125px]" },
 ] as const;
 
 export function ActionOrbit({ onAction }: Props) {
@@ -22,7 +22,7 @@ export function ActionOrbit({ onAction }: Props) {
       />
       <div
         data-testid="home-orbit-center"
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-sky-400/60 bg-sky-950/40 shadow-[0_0_40px_rgba(56,189,248,0.45)] text-sky-300 text-sm px-8 py-4 whitespace-nowrap"
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-sky-400/60 bg-sky-950/40 shadow-[0_0_40px_rgba(99,245,233,0.45)] text-sky-300 text-sm px-8 py-4 whitespace-nowrap"
       >
         Cosa vuoi fare oggi?
       </div>

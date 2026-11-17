@@ -1,10 +1,18 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <cmath>
+#include <algorithm>
+#include <array>
+#include <limits>
+#include <vector>
 
 #include "../src/document/document_store.h"
+#include "../src/expressions/expressions.h"
+#include "../src/features/booleans/boolean.h"
 #include "../src/features/fillet/fillet.h"
 #include "../src/features/hole/hole.h"
+#include "../src/features/instance/instance.h"
 #include "../src/features/primitives/primitives.h"
 #include "../src/model/body.h"
 #include "../src/model/shapes.h"
@@ -22,6 +30,25 @@
 #include <XCAFDoc_ShapeTool.hxx>
 
 #include "rpc_text.h"
+
+#include <BRepAdaptor_Surface.hxx>
+#include <BRep_Builder.hxx>
+#include <BRepAlgoAPI_Cut.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
+#include <Precision.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS.hxx>
+#include <gp_Ax1.hxx>
+#include <gp_Ax2.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pln.hxx>
+#include <gp_Trsf.hxx>
+#include <gp_Vec.hxx>
 
 namespace fs = std::filesystem;
 
@@ -91,6 +118,193 @@ kreoda::ShapeRecord Get(const std::string& id) {
 }
 
 }  // namespace
+
+TEST(Topology, AxisRolesBelongOnlyToOutermostBlindCutSupportInEveryDirection) {
+  const TopoDS_Shape box =
+      BRepPrimAPI_MakeBox(gp_Pnt(17, -23, 41), 40, 30, 10).Shape();
+  const TopoDS_Shape cutter = BRepPrimAPI_MakeCylinder(
+      gp_Ax2(gp_Pnt(37, -8, 46), gp_Dir(0, 0, 1)), 3, 5).Shape();
+  const TopoDS_Shape seed = BRepAlgoAPI_Cut(box, cutter).Shape();
+  ASSERT_FALSE(seed.IsNull());
+
+  struct AxisCase {
+    const char* role;
+    gp_Dir supportAxis;
+    gp_Dir rotationAxis;
+    double rotationRadians;
+  };
+  const double halfPi = std::acos(-1.0) / 2.0;
+  const std::array<AxisCase, 6> axes{{
+      {"box.+X", gp_Dir(1, 0, 0), gp_Dir(0, 1, 0), halfPi},
+      {"box.-X", gp_Dir(-1, 0, 0), gp_Dir(0, 1, 0), -halfPi},
+      {"box.+Y", gp_Dir(0, 1, 0), gp_Dir(1, 0, 0), -halfPi},
+      {"box.-Y", gp_Dir(0, -1, 0), gp_Dir(1, 0, 0), halfPi},
+      {"box.+Z", gp_Dir(0, 0, 1), gp_Dir(1, 0, 0), 0.0},
+      {"box.-Z", gp_Dir(0, 0, -1), gp_Dir(1, 0, 0), std::acos(-1.0)},
+  }};
+
+  for (const auto& axis : axes) {
+    TopoDS_Shape shape = seed;
+    if (axis.rotationRadians != 0.0) {
+      gp_Trsf rotation;
+      rotation.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), axis.rotationAxis),
+                           axis.rotationRadians);
+      shape = BRepBuilderAPI_Transform(seed, rotation, true).Shape();
+    }
+    gp_Trsf shiftIntoNegativeSupport;
+    shiftIntoNegativeSupport.SetTranslation(gp_Vec(
+        -100 * axis.supportAxis.X(), -100 * axis.supportAxis.Y(),
+        -100 * axis.supportAxis.Z()));
+    shape = BRepBuilderAPI_Transform(shape, shiftIntoNegativeSupport, true).Shape();
+    std::vector<TopoDS_Face> faces;
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next())
+      faces.push_back(TopoDS::Face(ex.Current()));
+    ASSERT_GE(faces.size(), 8u) << axis.role;
+    const auto roles = kreoda::ClassifyFaceRoles(shape, "StepImport", "axis-solid");
+    ASSERT_EQ(roles.size(), faces.size()) << axis.role;
+
+    std::vector<double> supports(faces.size(),
+                                 std::numeric_limits<double>::quiet_NaN());
+    double outerSupport = std::numeric_limits<double>::lowest();
+    for (size_t i = 0; i < faces.size(); ++i) {
+      BRepAdaptor_Surface adapt(faces[i]);
+      if (adapt.GetType() != GeomAbs_Plane) continue;
+      const gp_Pln plane = adapt.Plane();
+      gp_Dir normal = plane.Axis().Direction();
+      if (faces[i].Orientation() == TopAbs_REVERSED) normal.Reverse();
+      if (normal.Dot(axis.supportAxis) < 1.0 - 1e-6) continue;
+      const gp_Pnt point = plane.Location();
+      const double support = point.X() * axis.supportAxis.X() +
+                             point.Y() * axis.supportAxis.Y() +
+                             point.Z() * axis.supportAxis.Z();
+      supports[i] = support;
+      outerSupport = std::max(outerSupport, support);
+    }
+
+    ASSERT_NE(outerSupport, std::numeric_limits<double>::lowest()) << axis.role;
+    EXPECT_LT(outerSupport, 0.0) << axis.role;
+    size_t outerFaces = 0;
+    size_t interiorParallelFaces = 0;
+    const double supportTolerance = std::max(Precision::Confusion(), 1e-7);
+    for (size_t i = 0; i < supports.size(); ++i) {
+      if (!std::isfinite(supports[i])) continue;
+      if (std::abs(supports[i] - outerSupport) <= supportTolerance) {
+        ++outerFaces;
+        EXPECT_EQ(roles[i], std::string("axis-solid:") + axis.role);
+      } else {
+        ++interiorParallelFaces;
+        EXPECT_NE(roles[i].find(":face."), std::string::npos) << roles[i];
+        EXPECT_TRUE(kreoda::HasIndexedTopologyRole(roles[i])) << roles[i];
+      }
+    }
+    EXPECT_EQ(outerFaces, 1u) << axis.role;
+    EXPECT_EQ(interiorParallelFaces, 1u) << axis.role;
+    TopoDS_Face top;
+    EXPECT_TRUE(kreoda::FindFaceByRole(shape, "axis-solid", "StepImport",
+                                       axis.role, &top)) << axis.role;
+  }
+}
+
+TEST(Topology, NearAxisNonparallelRoleCollisionIsTranslationInvariant) {
+  const TopoDS_Shape box = BRepPrimAPI_MakeBox(100, 50, 20).Shape();
+  const TopoDS_Shape cutter = BRepPrimAPI_MakeCylinder(
+      gp_Ax2(gp_Pnt(50, 25, 10), gp_Dir(1e-8, 0, 1)), 4, 20).Shape();
+  const TopoDS_Shape seed = BRepAlgoAPI_Cut(box, cutter).Shape();
+  ASSERT_FALSE(seed.IsNull());
+
+  struct PlaneWitness {
+    gp_Dir normal;
+    gp_Pnt point;
+  };
+  const auto check = [](const TopoDS_Shape& shape) {
+    const auto roles = kreoda::ClassifyFaceRoles(shape, "StepImport", "near-axis");
+    EXPECT_EQ(std::count(roles.begin(), roles.end(), "near-axis:box.+Z"), 2);
+    TopoDS_Face face;
+    EXPECT_FALSE(kreoda::FindFaceByRole(shape, "near-axis", "StepImport",
+                                        "box.+Z", &face));
+
+    std::vector<PlaneWitness> witnesses;
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+      BRepAdaptor_Surface adapt(TopoDS::Face(ex.Current()));
+      if (adapt.GetType() != GeomAbs_Plane) continue;
+      const gp_Pln plane = adapt.Plane();
+      gp_Dir normal = plane.Axis().Direction();
+      if (ex.Current().Orientation() == TopAbs_REVERSED) normal.Reverse();
+      if (std::abs(normal.X()) > 1e-6 || std::abs(normal.Y()) > 1e-6 ||
+          normal.Z() < 1.0 - 1e-6) continue;
+      witnesses.push_back({normal, plane.Location()});
+    }
+    ASSERT_EQ(witnesses.size(), 2u);
+    const auto& a = witnesses[0];
+    const auto& b = witnesses[1];
+    const double crossX = a.normal.Y() * b.normal.Z() - a.normal.Z() * b.normal.Y();
+    const double crossY = a.normal.Z() * b.normal.X() - a.normal.X() * b.normal.Z();
+    const double crossZ = a.normal.X() * b.normal.Y() - a.normal.Y() * b.normal.X();
+    EXPECT_GT(std::sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ), 5e-9);
+    const double relativeOffset = a.normal.X() * (b.point.X() - a.point.X()) +
+                                  a.normal.Y() * (b.point.Y() - a.point.Y()) +
+                                  a.normal.Z() * (b.point.Z() - a.point.Z());
+    EXPECT_NEAR(std::abs(relativeOffset), 10.0, 1e-4);
+  };
+
+  check(seed);
+  gp_Trsf translation;
+  translation.SetTranslation(gp_Vec(1e11, 0, 0));
+  check(BRepBuilderAPI_Transform(seed, translation, true).Shape());
+}
+
+TEST(Topology, UnequalHeightCompoundKeepsAxisRoleAmbiguous) {
+  TopoDS_Compound compound;
+  BRep_Builder builder;
+  builder.MakeCompound(compound);
+  builder.Add(compound,
+              BRepPrimAPI_MakeBox(gp_Pnt(0, 0, 0), 10, 10, 10).Shape());
+  builder.Add(compound,
+              BRepPrimAPI_MakeBox(gp_Pnt(20, 0, -3), 10, 10, 23).Shape());
+
+  const auto roles = kreoda::ClassifyFaceRoles(compound, "StepImport", "compound");
+  EXPECT_EQ(std::count(roles.begin(), roles.end(), "compound:box.+Z"), 2);
+  TopoDS_Face face;
+  EXPECT_FALSE(kreoda::FindFaceByRole(compound, "compound", "StepImport",
+                                      "box.+Z", &face));
+}
+
+TEST(Topology, SingleSolidCompoundWithLoosePlanarFaceStaysAmbiguous) {
+  TopoDS_Compound compound;
+  BRep_Builder builder;
+  builder.MakeCompound(compound);
+  builder.Add(compound, BRepPrimAPI_MakeBox(10, 10, 10).Shape());
+  const gp_Pln loosePlane(gp_Pnt(0, 0, 20), gp_Dir(0, 0, 1));
+  builder.Add(compound,
+              BRepBuilderAPI_MakeFace(loosePlane, -5, 5, -5, 5).Face());
+
+  size_t solids = 0;
+  for (TopExp_Explorer ex(compound, TopAbs_SOLID); ex.More(); ex.Next()) ++solids;
+  ASSERT_EQ(solids, 1u);
+  const auto roles = kreoda::ClassifyFaceRoles(compound, "StepImport", "mixed");
+  EXPECT_EQ(std::count(roles.begin(), roles.end(), "mixed:box.+Z"), 2);
+  TopoDS_Face face;
+  EXPECT_FALSE(kreoda::FindFaceByRole(compound, "mixed", "StepImport",
+                                      "box.+Z", &face));
+}
+
+TEST(Topology, PureSurfaceAxisRoleCollisionsRemainIndexed) {
+  TopoDS_Compound compound;
+  BRep_Builder builder;
+  builder.MakeCompound(compound);
+  const gp_Pln plane(gp_Pnt(0, 0, 5), gp_Dir(0, 0, 1));
+  builder.Add(compound,
+              BRepBuilderAPI_MakeFace(plane, 0, 10, 0, 10).Face());
+  builder.Add(compound,
+              BRepBuilderAPI_MakeFace(plane, 20, 30, 0, 10).Face());
+
+  const auto roles = kreoda::ClassifyFaceRoles(compound, "StepImport", "surface");
+  ASSERT_EQ(roles.size(), 2u);
+  EXPECT_EQ(roles[0], "surface:face.0");
+  EXPECT_EQ(roles[1], "surface:face.1");
+  EXPECT_TRUE(kreoda::HasIndexedTopologyRole(roles[0]));
+  EXPECT_TRUE(kreoda::HasIndexedTopologyRole(roles[1]));
+}
 
 TEST(Topology, BoxTopFaceSurvivesWidthChange) {
   NewDoc("topo1");
@@ -196,6 +410,7 @@ TEST(Topology, PreviewDoesNotCommit) {
   // Preview arrives as a FlatBuffers mesh (§8): would-be width 999.
   const auto* update = kreoda_test::meshRoot(pv);
   ASSERT_NE(update, nullptr);
+  EXPECT_EQ(update->lod(), 0) << "Preview must identify its actual level-0 tessellation";
   EXPECT_DOUBLE_EQ(update->volume_mm3(), 999.0 * 50.0 * 20.0);
 #else
   GTEST_SKIP() << "preview binary needs flatbuffers";
@@ -203,6 +418,297 @@ TEST(Topology, PreviewDoesNotCommit) {
   // Committed state untouched: same revision, same volume.
   EXPECT_EQ(kreoda::DocumentStore::instance().revision(), rev);
   EXPECT_DOUBLE_EQ(Get("vbox").volumeMm3, 100000);
+}
+
+TEST(Topology, BodyPreviewKeepsDownstreamHoleAndCommittedHistory) {
+  NewDoc("p13-preview-body");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-base", 100, 50, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("p13-hole", "p13-base", "box.+Z", 25, 25,
+      6, "throughAll", 0, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto beforeVolume = Get("p13-hole").volumeMm3;
+  const auto bytes = kreoda_test::rpcBytes(
+      R"({"protocolVersion":1,"requestId":"p13-body-preview","documentId":"p13-preview-body","type":6,"featureId":"p13-base","paramName":"widthMm","valueMm":140,"isPreview":true,"previewTipId":"p13-hole"})");
+  const auto* update = kreoda_test::meshRoot(bytes);
+  ASSERT_NE(update, nullptr);
+  EXPECT_EQ(update->feature_id()->str(), "p13-hole");
+  EXPECT_EQ(update->lod(), 0);
+  EXPECT_NEAR(update->volume_mm3(), 140000 - std::acos(-1.0) * 9 * 20, .001);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  EXPECT_DOUBLE_EQ(Get("p13-base").paramsMm[0], 100);
+  EXPECT_DOUBLE_EQ(Get("p13-hole").volumeMm3, beforeVolume);
+  kreoda::BodyRecord body;
+  ASSERT_TRUE(kreoda::BodyStore::instance().bodyForFeature("p13-base", &body));
+  EXPECT_EQ(body.tipFeatureId, "p13-hole");
+  const auto previewVolume = update->volume_mm3();
+  ASSERT_TRUE(kreoda::RebuildFeature("p13-base", "widthMm", 140, &error)) << error;
+  EXPECT_NEAR(previewVolume, Get("p13-hole").volumeMm3, .001);
+}
+
+TEST(Topology, BodyPreviewEvaluatesDependentFormulaInScratchOnly) {
+  NewDoc("p13-preview-expression");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-form-base", 100, 50, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("p13-form-hole", "p13-form-base", "box.+Z", 25, 25,
+      6, "throughAll", 0, &error)) << error;
+  ASSERT_TRUE(kreoda::RebuildFeature("p13-form-hole", "diameterMm", 0,
+      "p13-form-base.widthMm / 10", &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto expressions = kreoda::ExpressionStore::instance().forFeature("p13-form-hole");
+  const auto bytes = kreoda_test::rpcBytes(
+      R"({"protocolVersion":1,"requestId":"p13-form-preview","documentId":"p13-preview-expression","type":6,"featureId":"p13-form-base","paramName":"widthMm","valueMm":140,"isPreview":true,"previewTipId":"p13-form-hole"})");
+  const auto* update = kreoda_test::meshRoot(bytes);
+  ASSERT_NE(update, nullptr);
+  EXPECT_EQ(update->feature_id()->str(), "p13-form-hole");
+  EXPECT_NEAR(update->volume_mm3(), 140000 - std::acos(-1.0) * 49 * 20, .001);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  EXPECT_EQ(kreoda::ExpressionStore::instance().forFeature("p13-form-hole"), expressions);
+  EXPECT_DOUBLE_EQ(Get("p13-form-base").paramsMm[0], 100);
+  EXPECT_DOUBLE_EQ(Get("p13-form-hole").paramsMm[0], 10);
+  const auto previewVolume = update->volume_mm3();
+  ASSERT_TRUE(kreoda::RebuildFeature("p13-form-base", "widthMm", 140, &error)) << error;
+  EXPECT_NEAR(previewVolume, Get("p13-form-hole").volumeMm3, .001);
+}
+
+TEST(Topology, BodyPreviewRejectsUnrelatedRequestedTipWithoutMutation) {
+  NewDoc("p13-preview-unrelated");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-owner", 100, 50, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-other", 80, 40, 10, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto response = kreoda_test::rpcText(
+      R"({"protocolVersion":1,"requestId":"p13-unrelated-preview","documentId":"p13-preview-unrelated","type":6,"featureId":"p13-owner","paramName":"widthMm","valueMm":140,"isPreview":true,"previewTipId":"p13-other"})");
+  EXPECT_NE(response.find("PREVIEW_FAILED"), std::string::npos);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  EXPECT_DOUBLE_EQ(Get("p13-owner").paramsMm[0], 100);
+  EXPECT_DOUBLE_EQ(Get("p13-other").paramsMm[0], 80);
+}
+
+TEST(Topology, BodyPreviewCompoundPlacementUsesAllValuesWithoutCommit) {
+  NewDoc("p13-compound-preview");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-pos-box", 100, 50, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateInstanceFeature("p13-pos-inst", "p13-pos-box", {0, 0, 0, 0, 0, 0}, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto bytes = kreoda_test::rpcBytes(
+      R"({"protocolVersion":1,"requestId":"p13-pos-preview","documentId":"p13-compound-preview","type":6,"featureId":"p13-pos-inst","paramName":"txMm","valueMm":10,"isPreview":true,"previewTipId":"p13-pos-inst","previewValues":{"tyMm":20,"tzMm":30}})");
+  const auto* update = kreoda_test::meshRoot(bytes);
+  ASSERT_NE(update, nullptr);
+  EXPECT_EQ(update->feature_id()->str(), "p13-pos-inst");
+  ASSERT_NE(update->bbox_mm(), nullptr);
+  EXPECT_NEAR(update->bbox_mm()->Get(0), 10, .001);
+  EXPECT_NEAR(update->bbox_mm()->Get(1), 20, .001);
+  EXPECT_NEAR(update->bbox_mm()->Get(2), 30, .001);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  EXPECT_EQ(Get("p13-pos-inst").paramsMm, (std::vector<double>{0, 0, 0, 0, 0, 0}));
+}
+
+TEST(Topology, CompoundParameterCommitUsesOneUndoAndRejectsInvalidLastValue) {
+  NewDoc("p13-compound-commit");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-commit-box", 100, 50, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateInstanceFeature("p13-commit-inst", "p13-commit-box", {0, 0, 0, 0, 0, 0}, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto committed = kreoda_test::rpcText(
+      R"({"protocolVersion":1,"requestId":"p13-position-commit","documentId":"p13-compound-commit","type":6,"featureId":"p13-commit-inst","paramName":"txMm","valueMm":10,"parameterValues":{"tyMm":20,"tzMm":30}})");
+  ASSERT_NE(committed.find("\"status\":\"ok\""), std::string::npos) << committed;
+  EXPECT_EQ(Get("p13-commit-inst").paramsMm, (std::vector<double>{10, 20, 30, 0, 0, 0}));
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision + 1);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos + 1);
+  const auto failed = kreoda_test::rpcText(
+      R"({"protocolVersion":1,"requestId":"p13-position-failed","documentId":"p13-compound-commit","type":6,"featureId":"p13-commit-inst","paramName":"txMm","valueMm":40,"parameterValues":{"tyMm":50,"zzInvalid":60}})");
+  EXPECT_NE(failed.find("REBUILD_FAILED"), std::string::npos);
+  EXPECT_EQ(Get("p13-commit-inst").paramsMm, (std::vector<double>{10, 20, 30, 0, 0, 0}));
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision + 1);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos + 1);
+  ASSERT_TRUE(kreoda_test::rpcOk(
+      R"({"protocolVersion":1,"requestId":"p13-position-undo","documentId":"p13-compound-commit","type":8})"));
+  EXPECT_EQ(Get("p13-commit-inst").paramsMm, (std::vector<double>{0, 0, 0, 0, 0, 0}));
+}
+
+TEST(Topology, CompoundParameterKernelFailureRestoresEveryStagedValue) {
+  NewDoc("p13-compound-kernel-failure");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-fail-box", 100, 50, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("p13-fail-hole", "p13-fail-box", "box.+Z", 25, 25,
+      6, "throughAll", 0, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto volume = Get("p13-fail-hole").volumeMm3;
+  const auto failed = kreoda_test::rpcText(
+      R"({"protocolVersion":1,"requestId":"p13-kernel-fail","documentId":"p13-compound-kernel-failure","type":6,"featureId":"p13-fail-box","paramName":"widthMm","valueMm":140,"parameterValues":{"heightMm":5}})");
+  EXPECT_NE(failed.find("REBUILD_FAILED"), std::string::npos) << failed;
+  EXPECT_EQ(Get("p13-fail-box").paramsMm, (std::vector<double>{100, 50, 20}));
+  EXPECT_DOUBLE_EQ(Get("p13-fail-hole").volumeMm3, volume);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+}
+
+TEST(Topology, CompoundFormulaCommitUsesFinalCandidateAndOneUndo) {
+  NewDoc("p13-compound-formula-commit");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-formula-commit", 100, 20, 10, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  ASSERT_TRUE(kreoda_test::rpcOk(
+      R"({"protocolVersion":1,"requestId":"p13-formula-commit","documentId":"p13-compound-formula-commit","type":6,"featureId":"p13-formula-commit","paramName":"widthMm","expression":"heightMm * 10000","parameterValues":{"heightMm":5}})"));
+  EXPECT_EQ(Get("p13-formula-commit").paramsMm, (std::vector<double>{50000, 5, 10}));
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision + 1);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos + 1);
+  ASSERT_TRUE(kreoda_test::rpcOk(
+      R"({"protocolVersion":1,"requestId":"p13-formula-undo","documentId":"p13-compound-formula-commit","type":8})"));
+  EXPECT_EQ(Get("p13-formula-commit").paramsMm, (std::vector<double>{100, 20, 10}));
+  EXPECT_TRUE(kreoda::ExpressionStore::instance().forFeature("p13-formula-commit").empty());
+}
+
+TEST(Topology, BodyPreviewRejectsUnknownCompoundParameterWithoutCommit) {
+  NewDoc("p13-invalid-compound-preview");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-invalid-box", 100, 50, 20, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto response = kreoda_test::rpcText(
+      R"({"protocolVersion":1,"requestId":"p13-invalid-preview","documentId":"p13-invalid-compound-preview","type":6,"featureId":"p13-invalid-box","paramName":"widthMm","valueMm":140,"isPreview":true,"previewTipId":"p13-invalid-box","previewValues":{"missingMm":20}})");
+  EXPECT_NE(response.find("PREVIEW_FAILED"), std::string::npos);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_DOUBLE_EQ(Get("p13-invalid-box").paramsMm[0], 100);
+}
+
+TEST(Topology, BodyPreviewRejectsCyclicOrMissingGeometryDependencies) {
+  for (const bool cycle : {false, true}) {
+    NewDoc("p13-preview-bad-dependency");
+    std::string error;
+    ASSERT_TRUE(kreoda::CreateBoxFeature("p13-dep-base", 100, 50, 20, &error)) << error;
+    ASSERT_TRUE(kreoda::CreateHoleFeature("p13-dep-hole", "p13-dep-base", "box.+Z", 25, 25,
+        6, "throughAll", 0, &error)) << error;
+    auto malformed = Get("p13-dep-base");
+    malformed.dependsOn = {cycle ? "p13-dep-hole" : "p13-missing"};
+    kreoda::ShapeStore::instance().put(malformed);
+    const auto revision = kreoda::DocumentStore::instance().revision();
+    const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+    const auto response = kreoda_test::rpcText(
+        R"({"protocolVersion":1,"requestId":"p13-bad-dep-preview","documentId":"p13-preview-bad-dependency","type":6,"featureId":"p13-dep-base","paramName":"widthMm","valueMm":140,"isPreview":true,"previewTipId":"p13-dep-hole"})");
+    EXPECT_NE(response.find("PREVIEW_FAILED"), std::string::npos);
+    EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+    EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+    EXPECT_EQ(Get("p13-dep-base").dependsOn, malformed.dependsOn);
+    EXPECT_DOUBLE_EQ(Get("p13-dep-base").paramsMm[0], 100);
+  }
+}
+
+TEST(Topology, BodyPreviewRejectsStableSelfReferentialExpression) {
+  NewDoc("p13-preview-expression-cycle");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-self-base", 100, 50, 20, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto response = kreoda_test::rpcText(
+      R"({"protocolVersion":1,"requestId":"p13-self-preview","documentId":"p13-preview-expression-cycle","type":6,"featureId":"p13-self-base","paramName":"widthMm","expression":"widthMm","isPreview":true,"previewTipId":"p13-self-base"})");
+  EXPECT_NE(response.find("PREVIEW_FAILED"), std::string::npos);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  EXPECT_TRUE(kreoda::ExpressionStore::instance().forFeature("p13-self-base").empty());
+}
+
+TEST(Topology, BodyPreviewRejectsMalformedDependentPrimitiveParameters) {
+  for (const auto& type : {"Box", "Cylinder", "Sphere"}) {
+    NewDoc("p13-preview-malformed-primitive");
+    std::string error;
+    ASSERT_TRUE(kreoda::CreateBoxFeature("p13-malformed-base", 100, 50, 20, &error)) << error;
+    ASSERT_TRUE(kreoda::CreateHoleFeature("p13-malformed-child", "p13-malformed-base", "box.+Z", 25, 25,
+        6, "throughAll", 0, &error)) << error;
+    auto malformed = Get("p13-malformed-child");
+    malformed.type = type;
+    malformed.paramsMm = {10, 20, 30, 40};
+    kreoda::ShapeStore::instance().put(malformed);
+    const auto revision = kreoda::DocumentStore::instance().revision();
+    const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+    kreoda::CoreMesh mesh;
+    EXPECT_FALSE(kreoda::BuildPreviewBodyMesh("p13-malformed-base", "widthMm", 140,
+        "p13-malformed-child", &mesh, &error)) << type;
+    EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+    EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+    EXPECT_EQ(Get("p13-malformed-child").paramsMm, malformed.paramsMm);
+    EXPECT_DOUBLE_EQ(Get("p13-malformed-base").paramsMm[0], 100);
+  }
+}
+
+TEST(Topology, BodyPreviewRejectsExtraDependentInputs) {
+  NewDoc("p13-preview-extra-input");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-extra-base", 100, 50, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-extra-tool", 10, 10, 10, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateHoleFeature("p13-extra-hole", "p13-extra-base", "box.+Z", 25, 25,
+      6, "throughAll", 0, &error)) << error;
+  auto malformed = Get("p13-extra-hole");
+  malformed.dependsOn.push_back("p13-extra-tool");
+  kreoda::ShapeStore::instance().put(malformed);
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  kreoda::CoreMesh mesh;
+  EXPECT_FALSE(kreoda::BuildPreviewBodyMesh("p13-extra-base", "widthMm", 140,
+      "p13-extra-hole", &mesh, &error));
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  EXPECT_EQ(Get("p13-extra-hole").dependsOn, malformed.dependsOn);
+  EXPECT_DOUBLE_EQ(Get("p13-extra-base").paramsMm[0], 100);
+}
+
+TEST(Topology, BodyPreviewUsesCanonicalBooleanRecipe) {
+  NewDoc("p13-preview-boolean-recipe");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-bool-base", 100, 50, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-bool-tool", 20, 20, 20, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateBooleanFeature("p13-bool-tip", "fuse", "p13-bool-base",
+      "p13-bool-tool", &error)) << error;
+  auto recipe = Get("p13-bool-tip");
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  kreoda::CoreMesh mesh;
+  for (const auto& invalid : {"", "op=invalid"}) {
+    recipe.refExtra = invalid;
+    kreoda::ShapeStore::instance().put(recipe);
+    EXPECT_FALSE(kreoda::BuildPreviewBodyMesh("p13-bool-base", "widthMm", 140,
+        "p13-bool-tip", &mesh, &error));
+    EXPECT_EQ(Get("p13-bool-tip").refExtra, invalid);
+    EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+    EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  }
+  recipe.refExtra = "op=cut";
+  kreoda::ShapeStore::instance().put(recipe);
+  ASSERT_TRUE(kreoda::BuildPreviewBodyMesh("p13-bool-base", "widthMm", 140,
+      "p13-bool-tip", &mesh, &error)) << error;
+  EXPECT_NEAR(mesh.volumeMm3, 132000, 1e-5);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  ASSERT_TRUE(kreoda::RebuildFeature("p13-bool-base", "widthMm", 140, "", &error)) << error;
+  EXPECT_NEAR(Get("p13-bool-tip").volumeMm3, mesh.volumeMm3, 1e-5);
+}
+
+TEST(Topology, BodyPreviewEvaluatesFormulaAfterCompoundCandidateValues) {
+  NewDoc("p13-preview-compound-formula");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("p13-formula-box", 100, 20, 10, &error)) << error;
+  const auto revision = kreoda::DocumentStore::instance().revision();
+  const auto undos = kreoda::OcafLive::instance().AvailableUndos();
+  const auto raw = kreoda_test::rpcBytes(
+      R"({"protocolVersion":1,"requestId":"p13-formula-preview","documentId":"p13-preview-compound-formula","type":6,"featureId":"p13-formula-box","paramName":"widthMm","expression":"heightMm * 10000","isPreview":true,"previewTipId":"p13-formula-box","previewValues":{"heightMm":5}})");
+  const auto* update = kreoda_test::meshRoot(raw);
+  ASSERT_NE(update, nullptr) << std::string(raw.begin(), raw.end());
+  EXPECT_DOUBLE_EQ(update->volume_mm3(), 2500000);
+  EXPECT_EQ(kreoda::DocumentStore::instance().revision(), revision);
+  EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), undos);
+  EXPECT_EQ(Get("p13-formula-box").paramsMm, (std::vector<double>{100, 20, 10}));
+  EXPECT_TRUE(kreoda::ExpressionStore::instance().forFeature("p13-formula-box").empty());
 }
 
 TEST(Topology, SelectionSurvivesSaveOpen) {

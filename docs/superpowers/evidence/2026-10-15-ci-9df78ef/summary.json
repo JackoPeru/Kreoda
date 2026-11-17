@@ -1,0 +1,23 @@
+{
+  "headSha": "9df78ef488706ef82e5d617431ea03d9f4bd6ea2",
+  "uniqueSchemaTests": 12,
+  "desktopTests": 287,
+  "protocolTests": 51,
+  "nativeCTest": 244,
+  "jobId": 116465199158,
+  "conclusion": "success",
+  "ordinaryNativeElectronE2E": 67,
+  "proofBoundary": "Published evaluator9df78ef only; uncommitted profiles and Windows rename correction excluded",
+  "runId": 38747587367,
+  "fullCrashE2E": 32,
+  "managed": {
+    "SessionClient": 141,
+    "ModelingAgent": 33,
+    "HermesBridge": 34,
+    "Benchmark": 33,
+    "total": 241
+  },
+  "productionCoreRestored": true,
+  "normalAndInstalledPackagedCoreSelfTests": true,
+  "rawLogSha256": "16b797d75151c5575830e26c39c31daa0989514be843ccba19494a0f13c74c2f"
+}

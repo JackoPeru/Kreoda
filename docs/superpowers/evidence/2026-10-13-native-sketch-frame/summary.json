@@ -1,0 +1,72 @@
+{
+  "base": "8f22b59b04a86c50a054026934b8e4bf59562cf1",
+  "worker": {
+    "thread": "01a135cf-1f78-7e70-a9af-c0a89fad377e",
+    "model": "gpt-6-luna",
+    "effort": "max"
+  },
+  "parent": {
+    "ctest": 193,
+    "focused": 9,
+    "skipped": 0,
+    "failed": 0,
+    "selfTestExit": 0,
+    "volumeBefore": 350,
+    "volumeAfter": 504,
+    "ocafSaveOpen": true,
+    "postOpenEdit": true,
+    "undoRedo": true,
+    "correctedFocused": 8,
+    "ctestSeconds": 78.46,
+    "duplicateFocused": 5
+  },
+  "reviewPending": true,
+  "datumFeatureComplete": false,
+  "goalComplete": false,
+  "review": {
+    "verdict": "unavailable",
+    "reason": "account usage limit",
+    "correctionsImplementedAndParentVerified": true,
+    "independentShip": false
+  },
+  "previousReview": {
+    "verdict": "fix-first",
+    "thread": "01a135ef-c140-7e73-a618-1f754279f903",
+    "model": "gpt-6-sol",
+    "effort": "high",
+    "sources": 893,
+    "artifacts": 96,
+    "externalInputs": 2,
+    "unchanged": true,
+    "reason": "malformed stored frames silently dropped on open/resync"
+  },
+  "previousReviews": [
+    {
+      "verdict": "fix-first",
+      "thread": "01a135ef-c140-7e73-a618-1f754279f903",
+      "model": "gpt-6-sol",
+      "effort": "high",
+      "sources": 893,
+      "artifacts": 96,
+      "externalInputs": 2,
+      "unchanged": true,
+      "reason": "malformed stored frames silently dropped on open/resync"
+    },
+    {
+      "verdict": "fix-first",
+      "thread": "01a1360c-004b-70f2-9478-67788d4b40af",
+      "model": "gpt-6-sol",
+      "effort": "high",
+      "sources": 894,
+      "artifacts": 97,
+      "externalInputs": 2,
+      "unchanged": true,
+      "reason": "first Sketches root validated but last Sketches root adopted"
+    }
+  ],
+  "accepted": false,
+  "quotaFallback": {
+    "selectedWorkerTerminated": true,
+    "parentContinuedPerUser": true
+  }
+}

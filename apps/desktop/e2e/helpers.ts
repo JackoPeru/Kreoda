@@ -4,15 +4,34 @@
 import { expect, _electron as electron, type Page } from "@playwright/test";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { writeFile } from "node:fs/promises";
+import type { ElectronApplication } from "@playwright/test";
+import type { DatumDescriptor, SketchPlaneFrame } from "@kreoda/protocol";
 
 export const HERE = import.meta.dirname;
 export const MAIN = path.join(HERE, "..", ".vite", "build", "main.cjs");
+
+/** Keep Playwright's frame-based stability checks running after hiding Electron. */
+export async function hideForBackgroundE2E(
+  app: Awaited<ReturnType<typeof electron.launch>>,
+): Promise<void> {
+  await app.evaluate(({ BrowserWindow }) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.setBackgroundThrottling(false);
+      window.hide();
+    }
+  });
+}
 
 export interface BodySnapshot {
   id: string;
   type: string;
   paramsMm: number[];
   volumeMm3: number;
+  geometryCurrent?: boolean;
+  status?: string;
+  error?: string;
+  blockingSourceIds?: string[];
   triangles: number;
   faces: string[];
   edgeCount: number;
@@ -22,13 +41,25 @@ export interface BodySnapshot {
 export interface SketchSnapshot {
   id: string;
   planeKind: string;
+  plane?: SketchPlaneFrame;
+  modelPlane?: SketchPlaneFrame;
+  supportRef?: string;
   points: number;
+  lines?: number;
+  circles?: number;
+  arcs?: number;
   constraints: number;
+  projectionGroups?: import("@kreoda/protocol").SketchProjectionGroupSummary[];
+  geometryCurrent?: boolean;
+  status?: string;
+  error?: string;
+  blockingSourceIds?: string[];
 }
 
 export interface Snapshot {
   revision: number;
   references?: import("../src/reference/store").ReferencePlane[];
+  datums?: DatumDescriptor[];
   selectedIds: string[];
   bodies: BodySnapshot[];
   sketches: SketchSnapshot[];
@@ -40,15 +71,29 @@ export interface Snapshot {
 
 /** Launch the shell, wait for DOM + sidecar handshake. */
 export async function boot(env?: Record<string, string>, extraArgs: string[] = []) {
+  const launchEnv = Object.fromEntries(
+    Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
+  Object.assign(launchEnv, env);
+  const backgroundTest = launchEnv.KREODA_BACKGROUND_TEST === "1";
   const app = await electron.launch({
     executablePath: createRequire(import.meta.url)("electron") as string,
     // --lang pins navigator.language so detectLocale() stays English:
     // specs assert English chrome regardless of the OS language.
     args: [MAIN, "--no-sandbox", "--lang=en-US", ...extraArgs],
-    ...(env ? { env } : {}),
+    env: launchEnv,
   });
   try {
     const window = await app.firstWindow({ timeout: 30000 });
+    if (backgroundTest) {
+      await app.evaluate(({ BrowserWindow }) => {
+        const windows = BrowserWindow.getAllWindows();
+        if (windows.length === 0 || windows.some((item) => item.isVisible())) {
+          throw new Error("KREODA_BACKGROUND_TEST requires every BrowserWindow hidden at launch");
+        }
+        for (const item of windows) item.webContents.setBackgroundThrottling(false);
+      });
+    }
     // Home/workspace/native readiness remains authoritative even when
     // Playwright's cached DOMContentLoaded notification is absent.
     // Home (§home) is the boot screen: enter the workspace like a user would.
@@ -126,4 +171,27 @@ export async function openProperties(window: Page): Promise<void> {
 export async function addBox(window: Page): Promise<void> {
   await window.getByRole("button", { name: "Add", exact: true }).click();
   await window.getByRole("button", { name: /Add box/ }).click();
+}
+
+/**
+ * Screenshot that also works for background (hidden) Electron windows.
+ * page.screenshot waits for a compositor frame and can hang when the window is
+ * never shown; webContents.capturePage renders the same surface directly.
+ */
+export async function shot(
+  window: Page,
+  app: ElectronApplication,
+  file: string,
+): Promise<void> {
+  try {
+    await window.screenshot({ path: file, timeout: 8000 });
+    return;
+  } catch {
+    const png = await app.evaluate(async ({ BrowserWindow }) => {
+      const target = BrowserWindow.getAllWindows()[0];
+      if (!target) throw new Error("no BrowserWindow to capture");
+      return (await target.webContents.capturePage()).toPNG().toString("base64");
+    });
+    await writeFile(file, Buffer.from(png, "base64"));
+  }
 }

@@ -1,0 +1,9 @@
+
+Running 4 tests using 1 worker
+
+  ok 1 e2e\phase14-hermes-mcp.spec.ts:10:1 › official MCP checked native request reaches Desktop and one shared Undo (7.0s)
+  ok 2 e2e\phase15-datum.spec.ts:77:1 › native datum edit, supported extrude, save/open and undo stay coherent in hidden Electron (26.9s)
+  ok 3 e2e\phase15-datum-mcp.spec.ts:56:1 › official MCP creates native datum, supported sketch and solid in one Desktop Undo group (19.0s)
+  ok 4 e2e\phase15-datum-targets.spec.ts:22:1 › actual native datum target binds sketch support and clears after Undo (17.9s)
+
+  4 passed (1.2m)

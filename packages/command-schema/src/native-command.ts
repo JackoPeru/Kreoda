@@ -24,6 +24,12 @@ export function commandCreatesFeature(commandId: string): boolean {
   return COMMANDS.some(definition => definition.id === commandId) && commandId.startsWith("Create") && commandId !== "CreateHolePattern";
 }
 
+/** Same allocation semantics as commandNativeRequest; clients can budget before mutation. */
+export function commandCreationRule(commandId: string): { fixedCount: number } | { idArrayParameter: string } {
+  return commandId === "CreateHolePattern" ? { idArrayParameter: "featureIds" }
+    : { fixedCount: commandCreatesFeature(commandId) ? 1 : 0 };
+}
+
 /** One registry validation and one wire translation for named and integer calls. */
 export function commandNativeRequest(commandId: string, parameters: unknown, featureId?: unknown): { type: number; fields: Record<string, unknown> } {
   const definition = COMMANDS.find(command => command.id === commandId);

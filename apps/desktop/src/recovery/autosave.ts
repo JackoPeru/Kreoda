@@ -19,6 +19,8 @@ type DocVersion = { epoch: number; revision: number; references: number };
 
 let lastSaved: DocVersion = { epoch: -1, revision: -1, references: -1 };
 let savedThisSession = false;
+/** State at the last explicit Save or document load (Open/recovery). */
+let cleanVersion: DocVersion | null = null;
 
 function docState(): DocVersion & { bodies: number } {
   const s = useDocumentUiStore.getState();
@@ -61,19 +63,37 @@ export async function recoveryAvailable(): Promise<boolean> {
   return window.kreoda.recoveryExists();
 }
 
+/** Record the current document as the state the user last saved or opened. */
+export function markDocumentClean(): void {
+  const s = docState();
+  cleanVersion = { epoch: s.epoch, revision: s.revision, references: s.references };
+}
+
+/**
+ * True when the live document holds edits no explicit save/open captured.
+ * Autosave snapshots do not count: opening another project overwrites the
+ * single recovery file, so the prompt is the user's only warning.
+ */
+export function hasUnsavedWork(): boolean {
+  const s = docState();
+  if (s.bodies === 0 && !savedThisSession) return false;
+  return cleanVersion === null || !sameVersion(s, cleanVersion);
+}
+
 /** Restore the autosave snapshot through the real Open path (no shortcuts). */
 export async function restoreRecovery(): Promise<void> {
   const path = await window.kreoda.recoveryPath();
-  const { features: list, sketches, revision } =
+  const { features: list, sketches, datums, revision } =
     await coreClient.openDocument(path);
   // Document replacement = new epoch (C5): core revisions reset.
-  const restoreEpoch = await syncOpenedDocument(list, revision, sketches);
+  const restoreEpoch = await syncOpenedDocument(list, revision, sketches, datums);
   // Keep the file: quitting again without saving must prompt again.
   const restored = docState();
   if (restored.epoch === restoreEpoch && restored.revision === revision) {
     lastSaved = restored;
   }
   savedThisSession = true;
+  markDocumentClean();
 }
 
 export async function discardRecovery(): Promise<void> {
@@ -81,6 +101,7 @@ export async function discardRecovery(): Promise<void> {
   // Fresh prompt logic afterwards: an empty boot must not recreate the file
   // until this session dirties something again.
   savedThisSession = false;
+  cleanVersion = null;
 }
 
 /** Explicit user save makes recovery redundant — clear it (non-fatal). */
@@ -95,5 +116,8 @@ export async function clearRecoveryAfterSave(): Promise<void> {
     lastSaved = { epoch: -1, revision: -1, references: -1 };
   }
   const after = docState();
-  if (cleared && sameVersion(before, after)) lastSaved = before;
+  if (cleared && sameVersion(before, after)) {
+    lastSaved = before;
+    markDocumentClean();
+  }
 }

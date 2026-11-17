@@ -1,0 +1,56 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Projection.ObliqueEllipseBuildsExactProfileAndPrismWithoutMutation:Projection.ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops:Projection.ClosedBSplineProfileRetainsNativeCurve:Sketch.ExtrudePreservesDisconnectedMaterialRegions:Sketch.RevolvePreservesDisconnectedMaterialRegions
+[==========] Running 5 tests from 2 test suites.
+[----------] Global test environment set-up.
+[----------] 2 tests from Sketch
+[ RUN      ] Sketch.ExtrudePreservesDisconnectedMaterialRegions
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch.cpp(468): error: Value of: kreoda::CreateExtrudeFeature("ex-disconnected", "sk-disconnected", 10, &error)
+  Actual: false
+Expected: true
+sketch face failed validation
+
+[  FAILED  ] Sketch.ExtrudePreservesDisconnectedMaterialRegions (2 ms)
+[ RUN      ] Sketch.RevolvePreservesDisconnectedMaterialRegions
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch.cpp(602): error: Value of: kreoda::CreateRevolveFeature("rv-disconnected", "sk-disconnected-revolve", 360, &error)
+  Actual: false
+Expected: true
+sketch face failed validation
+
+[  FAILED  ] Sketch.RevolvePreservesDisconnectedMaterialRegions (0 ms)
+[----------] 2 tests from Sketch (2 ms total)
+
+[----------] 3 tests from Projection
+[ RUN      ] Projection.ObliqueEllipseBuildsExactProfileAndPrismWithoutMutation
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_projection.cpp(361): error: Value of: kreoda::BuildPlanarProfileFromEdges(projected, plane, &profile, &error)
+  Actual: false
+Expected: true
+native planar profile assembly is unavailable
+
+[  FAILED  ] Projection.ObliqueEllipseBuildsExactProfileAndPrismWithoutMutation (0 ms)
+[ RUN      ] Projection.ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_projection.cpp(400): error: Value of: kreoda::BuildPlanarProfileFromEdges( {CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 4), CircleEdge(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), 10)}, plane, &profile, &error)
+  Actual: false
+Expected: true
+native planar profile assembly is unavailable
+
+[  FAILED  ] Projection.ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops (0 ms)
+[ RUN      ] Projection.ClosedBSplineProfileRetainsNativeCurve
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_projection.cpp(442): error: Value of: kreoda::BuildPlanarProfileFromEdges( {edge}, kreoda::SketchPlane{}, &profile, &error)
+  Actual: false
+Expected: true
+native planar profile assembly is unavailable
+
+[  FAILED  ] Projection.ClosedBSplineProfileRetainsNativeCurve (0 ms)
+[----------] 3 tests from Projection (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 5 tests from 2 test suites ran. (3 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 5 tests, listed below:
+[  FAILED  ] Sketch.ExtrudePreservesDisconnectedMaterialRegions
+[  FAILED  ] Sketch.RevolvePreservesDisconnectedMaterialRegions
+[  FAILED  ] Projection.ObliqueEllipseBuildsExactProfileAndPrismWithoutMutation
+[  FAILED  ] Projection.ProfilesClassifyAnnularDisconnectedAndNestedNativeLoops
+[  FAILED  ] Projection.ClosedBSplineProfileRetainsNativeCurve
+
+ 5 FAILED TESTS

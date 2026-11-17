@@ -1,0 +1,37 @@
+build-and-test	JS unit tests	2026-10-15T08:41:22.7691959Z packages/plugin-sdk test:  Test Files  1 passed (1)
+build-and-test	JS unit tests	2026-10-15T08:41:22.7705759Z packages/plugin-sdk test:       Tests  2 passed (2)
+build-and-test	JS unit tests	2026-10-15T08:41:22.9845747Z packages/units test:  Test Files  2 passed (2)
+build-and-test	JS unit tests	2026-10-15T08:41:22.9857633Z packages/units test:       Tests  4 passed (4)
+build-and-test	JS unit tests	2026-10-15T08:41:24.1916782Z packages/protocol test:  Test Files  5 passed (5)
+build-and-test	JS unit tests	2026-10-15T08:41:24.1918491Z packages/protocol test:       Tests  51 passed (51)
+build-and-test	JS unit tests	2026-10-15T08:41:26.2700838Z packages/command-schema test:  Test Files  2 passed (2)
+build-and-test	JS unit tests	2026-10-15T08:41:26.2702524Z packages/command-schema test:       Tests  12 passed (12)
+build-and-test	JS unit tests	2026-10-15T08:41:52.2452348Z apps/desktop test:  Test Files  44 passed (44)
+build-and-test	JS unit tests	2026-10-15T08:41:52.2453436Z apps/desktop test:       Tests  287 passed (287)
+build-and-test	Native self-test + gtest	2026-10-15T08:47:48.3377479Z kreoda-core self-test OK
+build-and-test	Native self-test + gtest	2026-10-15T08:49:20.2789119Z 100% tests passed out of 233
+build-and-test	.NET build + tests	2026-10-15T08:50:52.2738617Z Passed!  - Failed:     0, Passed:   141, Skipped:     0, Total:   141, Duration: 1 s - Kreoda.SessionClient.Tests.dll (net8.0)
+build-and-test	.NET build + tests	2026-10-15T08:50:54.0212879Z Passed!  - Failed:     0, Passed:    33, Skipped:     0, Total:    33, Duration: 39 ms - Kreoda.ModelingAgent.Tests.dll (net8.0)
+build-and-test	.NET build + tests	2026-10-15T08:50:56.5783796Z Passed!  - Failed:     0, Passed:    34, Skipped:     0, Total:    34, Duration: 1 s - Kreoda.HermesBridge.Tests.dll (net8.0)
+build-and-test	.NET build + tests	2026-10-15T08:50:58.1491650Z Passed!  - Failed:     0, Passed:    33, Skipped:     0, Total:    33, Duration: 126 ms - Kreoda.ModelingAgent.Benchmark.Tests.dll (net8.0)
+build-and-test	Verify Squirrel install and packaged core	2026-10-15T08:54:56.8033906Z kreoda-core self-test OK
+build-and-test	Full regression (test:all)	2026-10-15T08:56:26.9743235Z Passed!  - Failed:     0, Passed:   141, Skipped:     0, Total:   141, Duration: 1 s - Kreoda.SessionClient.Tests.dll (net8.0)
+build-and-test	Full regression (test:all)	2026-10-15T08:56:28.5916139Z Passed!  - Failed:     0, Passed:    33, Skipped:     0, Total:    33, Duration: 30 ms - Kreoda.ModelingAgent.Tests.dll (net8.0)
+build-and-test	Full regression (test:all)	2026-10-15T08:56:30.9061251Z Passed!  - Failed:     0, Passed:    34, Skipped:     0, Total:    34, Duration: 994 ms - Kreoda.HermesBridge.Tests.dll (net8.0)
+build-and-test	Full regression (test:all)	2026-10-15T08:56:33.8513591Z Passed!  - Failed:     0, Passed:    33, Skipped:     0, Total:    33, Duration: 139 ms - Kreoda.ModelingAgent.Benchmark.Tests.dll (net8.0)
+build-and-test	Full regression (test:all)	2026-10-15T08:56:33.9068688Z .NET tests passed: SessionClient=131+, ModelingAgent=33+, HermesBridge=32+, ModelingBenchmark=33+, total=241, failed=0
+build-and-test	Full regression (test:all)	2026-10-15T08:56:35.6008577Z packages/units test:  Test Files  2 passed (2)
+build-and-test	Full regression (test:all)	2026-10-15T08:56:35.6042975Z packages/units test:       Tests  4 passed (4)
+build-and-test	Full regression (test:all)	2026-10-15T08:56:35.6470296Z packages/plugin-sdk test:  Test Files  1 passed (1)
+build-and-test	Full regression (test:all)	2026-10-15T08:56:35.6525528Z packages/plugin-sdk test:       Tests  2 passed (2)
+build-and-test	Full regression (test:all)	2026-10-15T08:56:37.4814460Z packages/protocol test:  Test Files  5 passed (5)
+build-and-test	Full regression (test:all)	2026-10-15T08:56:37.4815862Z packages/protocol test:       Tests  51 passed (51)
+build-and-test	Full regression (test:all)	2026-10-15T08:56:39.8664028Z packages/command-schema test:  Test Files  2 passed (2)
+build-and-test	Full regression (test:all)	2026-10-15T08:56:39.8665605Z packages/command-schema test:       Tests  12 passed (12)
+build-and-test	Full regression (test:all)	2026-10-15T08:57:07.1524596Z apps/desktop test:  Test Files  44 passed (44)
+build-and-test	Full regression (test:all)	2026-10-15T08:57:07.1525907Z apps/desktop test:       Tests  287 passed (287)
+build-and-test	Full regression (test:all)	2026-10-15T09:05:17.2805289Z   67 passed (8.1m)
+build-and-test	Full regression (test:all)	2026-10-15T09:07:32.6414354Z 100% tests passed out of 1
+build-and-test	Full regression (test:all)	2026-10-15T09:09:50.2949675Z   32 passed (2.3m)
+build-and-test	Full regression (test:all)	2026-10-15T09:12:21.4107033Z 100% tests passed out of 1
+build-and-test	Full regression (test:all)	2026-10-15T09:12:21.4169806Z PHASE10_CRASH_GATE {"passed":true,"production_core_restored":true}

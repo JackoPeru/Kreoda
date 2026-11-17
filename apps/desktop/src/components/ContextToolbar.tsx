@@ -22,18 +22,26 @@ import { useT } from "../i18n";
 export function ContextToolbar({
   onHole,
   onDressUp,
+  onShell,
   onSketch,
   onExtrude,
   onEditSketch,
   onInstance,
+  onMirror,
+  onBodyPattern,
+  onCircularPattern,
   onOpenProps,
 }: {
   onHole: () => void;
   onDressUp: (kind: "fillet" | "chamfer") => void;
+  onShell: () => void;
   onSketch: () => void;
   onExtrude: () => void;
   onEditSketch: (id: string) => void;
   onInstance: () => void;
+  onMirror: () => void;
+  onBodyPattern: () => void;
+  onCircularPattern: () => void;
   onOpenProps: () => void;
 }) {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -47,6 +55,7 @@ export function ContextToolbar({
   // availability is computed live at render/click from getState().
   useDocumentUiStore((s) => s.sketches.length);
   useDocumentUiStore((s) => s.features.length);
+  const datums = useDocumentUiStore((s) => s.datums);
 
   useEffect(() => {
     if (moreOpen) {
@@ -56,73 +65,56 @@ export function ContextToolbar({
 
   const kinds = new Set(selectedIds.map(selectionKindOf));
   const candidates: { id: string; label: string; hint: string }[] = [];
-  if (kinds.has("face")) {
-    candidates.push(
-      { id: "PullFace", label: t("ctx.pullFace"), hint: t("ctx.pullFaceHint") },
-      { id: "CreateHole", label: t("ctx.hole"), hint: t("ctx.holeHint") },
-      { id: "CreateSketch", label: t("ctx.sketchHere"), hint: t("ctx.sketchHereHint") },
-    );
-  }
-  if (kinds.has("edge")) {
-    candidates.push(
-      { id: "CreateFillet", label: t("ctx.round"), hint: t("ctx.roundHint") },
-      { id: "CreateChamfer", label: t("ctx.corner"), hint: t("ctx.cornerHint") },
-    );
-  }
+  const hasDatumSelection = kinds.has("datumPlane") || kinds.has("datumAxis") || kinds.has("datumPoint");
+  const selectedDatumPlane = selectedIds.length === 1
+    ? datums.find((datum) => datum.featureId === selectedIds[0] && datum.kind === "DatumPlane" && datum.status === "ok")
+    : undefined;
   const bareIds = selectedIds.filter((id) => id.indexOf(":") < 0);
   const sketchId = bareIds.find((id) => isSketchId(id));
-  if (sketchId !== undefined) {
-    // Sketch nouns: extrude only when the registry agrees; editing the 2D
-    // model through the real solver path is always valid.
-    if (commandAvailability("CreateExtrude").available) {
-      candidates.push({
-        id: "CreateExtrude",
-        label: t("ctx.pullSketch"),
-        hint: t("ctx.pullSketchHint"),
-      });
+  if (hasDatumSelection) {
+    if (selectedDatumPlane) candidates.push({ id: "CreateSketch", label: t("ctx.sketchHere"), hint: t("ctx.sketchHereHint") });
+  } else {
+    if (kinds.has("face")) {
+      candidates.push(
+        { id: "PullFace", label: t("ctx.pullFace"), hint: t("ctx.pullFaceHint") },
+        { id: "CreateHole", label: t("ctx.hole"), hint: t("ctx.holeHint") },
+        { id: "CreateShell", label: t("ctx.shell"), hint: t("ctx.shellHint") },
+        { id: "CreateSketch", label: t("ctx.sketchHere"), hint: t("ctx.sketchHereHint") },
+      );
     }
-    candidates.push({
-      id: "EditSketch",
-      label: t("ctx.editSketch"),
-      hint: t("ctx.editSketchHint"),
-    });
-  }
-  // Single solid body: the only supported transform is a placed copy.
-  // No generic Move/Rotate/Scale is exposed (no such commands exist).
-  if (
-    bareIds.length > 0 &&
-    sketchId === undefined &&
-    commandAvailability("CreateInstance").available
-  ) {
-    candidates.push({
-      id: "CopyPlaced",
-      label: t("ctx.copyPlaced"),
-      hint: t("ctx.copyPlacedHint"),
-    });
-  }
-  // Bulk selection helpers (§16): similar faces / connected edges.
-  if (kinds.has("face") && selectedIds.length === 1) {
-    candidates.push({
-      id: "SelectSimilar",
-      label: t("ctx.similar"),
-      hint: t("ctx.similarHint"),
-    });
-  }
-  if (kinds.has("edge") && selectedIds.length === 1) {
-    candidates.push({
-      id: "SelectConnected",
-      label: t("ctx.connected"),
-      hint: t("ctx.connectedHint"),
-    });
-  }
-  // Two selected solids: fuse / cut / common through the real boolean op.
-  const booleanAvail = commandAvailability("CreateBoolean");
-  if (booleanAvail.available) {
-    candidates.push(
-      { id: "BooleanFuse", label: t("ctx.combine"), hint: t("ctx.combineHint") },
-      { id: "BooleanCut", label: t("ctx.subtract"), hint: t("ctx.subtractHint") },
-      { id: "BooleanCommon", label: t("ctx.overlap"), hint: t("ctx.overlapHint") },
-    );
+    if (kinds.has("edge")) {
+      candidates.push(
+        { id: "CreateFillet", label: t("ctx.round"), hint: t("ctx.roundHint") },
+        { id: "CreateChamfer", label: t("ctx.corner"), hint: t("ctx.cornerHint") },
+      );
+    }
+    if (sketchId !== undefined) {
+      if (commandAvailability("CreateExtrude").available) {
+        candidates.push({ id: "CreateExtrude", label: t("ctx.pullSketch"), hint: t("ctx.pullSketchHint") });
+      }
+      candidates.push({ id: "EditSketch", label: t("ctx.editSketch"), hint: t("ctx.editSketchHint") });
+    }
+    // Single solid body: placed copy, mirror and linear pattern.
+    if (bareIds.length > 0 && sketchId === undefined && commandAvailability("CreateInstance").available) {
+      candidates.push({ id: "CopyPlaced", label: t("ctx.copyPlaced"), hint: t("ctx.copyPlacedHint") });
+      candidates.push({ id: "CreateMirror", label: t("ctx.mirror"), hint: t("ctx.mirrorHint") });
+      candidates.push({ id: "CreateBodyPattern", label: t("ctx.bodyPattern"), hint: t("ctx.bodyPatternHint") });
+      candidates.push({ id: "CreateCircularBodyPattern", label: t("ctx.circularPattern"), hint: t("ctx.circularPatternHint") });
+    }
+    if (kinds.has("face") && selectedIds.length === 1) {
+      candidates.push({ id: "SelectSimilar", label: t("ctx.similar"), hint: t("ctx.similarHint") });
+    }
+    if (kinds.has("edge") && selectedIds.length === 1) {
+      candidates.push({ id: "SelectConnected", label: t("ctx.connected"), hint: t("ctx.connectedHint") });
+    }
+    const booleanAvail = commandAvailability("CreateBoolean");
+    if (booleanAvail.available) {
+      candidates.push(
+        { id: "BooleanFuse", label: t("ctx.combine"), hint: t("ctx.combineHint") },
+        { id: "BooleanCut", label: t("ctx.subtract"), hint: t("ctx.subtractHint") },
+        { id: "BooleanCommon", label: t("ctx.overlap"), hint: t("ctx.overlapHint") },
+      );
+    }
   }
   if (candidates.length === 0) return null;
   const secondaryIds = new Set(["SelectSimilar", "SelectConnected"]);
@@ -161,12 +153,16 @@ export function ContextToolbar({
   const run = (id: string): void => {
     if (id === "PullFace") setTool(activeTool === "pull" ? "select" : "pull");
     else if (id === "CreateHole") onHole();
+    else if (id === "CreateShell") onShell();
     else if (id === "CreateFillet") onDressUp("fillet");
     else if (id === "CreateChamfer") onDressUp("chamfer");
     else if (id === "CreateSketch") onSketch();
     else if (id === "CreateExtrude") onExtrude();
     else if (id === "EditSketch" && sketchId !== undefined) onEditSketch(sketchId);
     else if (id === "CopyPlaced") onInstance();
+    else if (id === "CreateMirror") onMirror();
+    else if (id === "CreateBodyPattern") onBodyPattern();
+    else if (id === "CreateCircularBodyPattern") onCircularPattern();
     else if (id === "SelectSimilar") {
       const faceId = selectedIds[0]!;
       const meshes = useDocumentUiStore.getState().meshes;
@@ -185,6 +181,9 @@ export function ContextToolbar({
       id === "PullFace" ||
       id === "EditSketch" ||
       id === "CopyPlaced" ||
+      id === "CreateMirror" ||
+      id === "CreateBodyPattern" ||
+      id === "CreateCircularBodyPattern" ||
       id === "SelectSimilar" ||
       id === "SelectConnected" ||
       id === "BooleanFuse" ||

@@ -1,0 +1,16 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch_projection.cpp(708): error: Expected equality of these values:
+  response.value("status", "")
+    Which is: "unavailable"
+  "ok"
+{"blockingSourceIds":["recover-transaction-fail-source-b"],"error":"geometry unavailable for recover-transaction-fail-target; blocked by recover-transaction-fail-source-b: projection group linked-b is broken: selection is missing or belongs to another context","featureId":"recover-transaction-fail-target","geometryCurrent":false,"planeKind":"XY","protocolVersion":1,"redos":0,"requestId":"projection-rpc-3","revision":7,"sketch":{"id":"recover-transaction-fail-target","model":{"arcs":[],"circles":[],"constraints":[],"lines":[],"points":[]},"plane":{"normal":[0,0,1],"origin":[0,0,0],"xAxis":[1,0,0],"yAxis":[0,1,0]},"planeKind":"XY","projectionGroups":[{"blockingSourceIds":[],"definition":{"operation":"projectEdges","sources":[{"featureId":"recover-transaction-fail-source-a","persistentEdgeId":"recover-transaction-fail-source-a:edge.cir.cyl.+Z~cyl.wall","type":"edge"}],"version":1},"error":"","generation":3,"groupId":"linked-a","sourceFeatureIds":["recover-transaction-fail-source-a"],"status":"ok"},{"blockingSourceIds":["recover-transaction-fail-source-b"],"definition":{"operation":"projectEdges","sources":[{"featureId":"recover-transaction-fail-source-b","persistentEdgeId":"recover-transaction-fail-source-b:edge.cir.cyl.+Z~cyl.wall","type":"edge"}],"version":1},"error":"selection is missing or belongs to another context","generation":0,"groupId":"linked-b","sourceFeatureIds":["recover-transaction-fail-source-b"],"status":"broken"}],"supportRef":""},"status":"unavailable","type":"Sketch","undos":0}
+
+[  FAILED  ] SketchProjectionRecovery.TaintedJoinedRepairRestoresBothBrokenGroups (57 ms)
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch_projection.cpp(792): error: Value of: CreateBrokenProjectionPair("recover-transaction-success", tempDir, &fixture, &error)
+  Actual: false
+Expected: true
+{"errorCode":"TRANSACTION_OPEN","errorMessage":"a session transaction is in progress — join it with its transactionId or wait","protocolVersion":1,"requestId":"projection-create-4","status":"error"}
+
+[  FAILED  ] SketchProjectionRecovery.TwoGroupRepairInOneTransactionHasOneUndo (1 ms)
+[==========] 5 tests from 1 test suite ran. (1124 ms total)
+[  PASSED  ] 3 tests.

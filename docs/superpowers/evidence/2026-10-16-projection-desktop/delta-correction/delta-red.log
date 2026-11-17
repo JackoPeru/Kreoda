@@ -1,0 +1,56 @@
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop
+
+ ❯ tests/projection-source-delta.test.tsx (3 tests | 2 failed) 52ms
+   × keeps semantic edge and shape sources after an unrelated delta retains the mesh 40ms
+   × withdraws changed sources while replacement mesh is pending, then restores them 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/projection-source-delta.test.tsx > keeps semantic edge and shape sources after an unrelated delta retains the mesh
+AssertionError: expected null not to be null
+ ❯ tests/projection-source-delta.test.tsx:30:73
+     28|   render(<SketchProjectionPanel sketchId="target" />);
+     29|   const source = screen.getByLabelText("Projection source");
+     30|   expect(source.querySelector('option[value="edge:solid:edge-a"]')).no…
+       |                                                                         ^
+     31|   fireEvent.change(screen.getByLabelText("Projection operation"), { ta…
+     32|   expect(source.querySelector('option[value="shape:solid"]')).not.toBe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/projection-source-delta.test.tsx > withdraws changed sources while replacement mesh is pending, then restores them
+AssertionError: expected { revision: 1, edges: [ { …(1) } ] } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+{
+  "edges": [
+    {
+      "persistentEdgeId": "solid:edge-a",
+    },
+  ],
+  "revision": 1,
+}
+
+ ❯ tests/projection-source-delta.test.tsx:40:54
+     38|   mockCore.requestMesh.mockReturnValue(new Promise(resolve => { releas…
+     39|   const pending = syncFromCoreList([feature], 2, [target], ["solid"]);
+     40|   expect(useDocumentUiStore.getState().meshes.solid).toBeUndefined();
+       |                                                      ^
+     41|   release({ ...mesh, revision: 2 });
+     42|   await pending;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  10:18:48
+   Duration  13.79s (transform 269ms, setup 49ms, import 3.66s, tests 52ms, environment 9.28s)
+
+undefined
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/projection-source-delta.test.tsx

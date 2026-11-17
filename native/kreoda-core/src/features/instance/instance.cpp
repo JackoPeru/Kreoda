@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "model/commit.h"
+#include "model/geometry_availability.h"
 #include "model/shapes.h"
 #include "features/sketch/sketch_store.h"
 #include "persistence/ocaf_live.h"
@@ -74,6 +75,15 @@ bool PlacementTrsf(const std::vector<double>& p, gp_Trsf* out,
 #endif
 
 #if KREODA_WITH_OCCT
+bool BuildInstanceTransform(const std::vector<double>& placement,
+                            gp_Trsf* out, std::string* error) {
+  if (!out) {
+    if (error) *error = "placement transform output is required";
+    return false;
+  }
+  return PlacementTrsf(placement, out, error);
+}
+
 bool BuildInstanceShape(const TopoDS_Shape& target,
                         const std::vector<double>& placement,
                         TopoDS_Shape* out, std::string* error) {
@@ -82,7 +92,7 @@ bool BuildInstanceShape(const TopoDS_Shape& target,
     return false;
   }
   gp_Trsf trsf;
-  if (!PlacementTrsf(placement, &trsf, error)) return false;
+  if (!BuildInstanceTransform(placement, &trsf, error)) return false;
   try {
     BRepBuilderAPI_Transform mk(target, trsf, true);
     mk.Build();
@@ -114,8 +124,8 @@ bool CreateInstanceFeature(const std::string& featureId,
   }
 #if KREODA_WITH_OCCT
   ShapeRecord target;
-  if (!ShapeStore::instance().get(targetId, &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(targetId, &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) *error = "unknown target " + targetId;
     return false;
   }
@@ -150,8 +160,8 @@ bool RebuildInstanceFromStore(const std::string& featureId,
   }
 #if KREODA_WITH_OCCT
   ShapeRecord target;
-  if (!ShapeStore::instance().get(rec.dependsOn[0], &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(rec.dependsOn[0], &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) {
       *error = "instance target vanished (needs repair): " + rec.dependsOn[0];
     }

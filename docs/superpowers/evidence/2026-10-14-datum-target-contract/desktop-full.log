@@ -1,0 +1,12 @@
+
+> @kreoda/desktop@0.1.0 test C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop
+> vitest run "--maxWorkers=2"
+
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop
+
+
+ Test Files  43 passed (43)
+      Tests  284 passed (284)
+   Start at  16:26:00
+   Duration  36.74s (transform 4.42s, setup 260ms, import 15.62s, tests 13.51s, environment 31.61s)

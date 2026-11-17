@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="4" result="Failed(Child)" total="4" passed="2" failed="2" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-16 15:49:41Z" end-time="2026-10-16 15:49:41Z" duration="0,2545296">
+  <test-suite type="TestSuite" id="1000" name="Kreoda Quest" fullname="Kreoda Quest" runstate="Runnable" testcasecount="97" result="Failed" site="Child" start-time="2026-10-16 15:49:41Z" end-time="2026-10-16 15:49:41Z" duration="0.254530" total="4" passed="2" failed="2" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1121" name="Kreoda.QuestRuntime.Tests.dll" fullname="C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity/Library/ScriptAssemblies/Kreoda.QuestRuntime.Tests.dll" runstate="Runnable" testcasecount="97" result="Failed" site="Child" start-time="2026-10-16 15:49:41Z" end-time="2026-10-16 15:49:41Z" duration="0.244805" total="4" passed="2" failed="2" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="47776" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1122" name="Kreoda" fullname="Kreoda" runstate="Runnable" testcasecount="97" result="Failed" site="Child" start-time="2026-10-16 15:49:41Z" end-time="2026-10-16 15:49:41Z" duration="0.243966" total="4" passed="2" failed="2" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1123" name="QuestRuntime" fullname="Kreoda.QuestRuntime" runstate="Runnable" testcasecount="97" result="Failed" site="Child" start-time="2026-10-16 15:49:41Z" end-time="2026-10-16 15:49:41Z" duration="0.240593" total="4" passed="2" failed="2" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1124" name="Tests" fullname="Kreoda.QuestRuntime.Tests" runstate="Runnable" testcasecount="97" result="Failed" site="Child" start-time="2026-10-16 15:49:41Z" end-time="2026-10-16 15:49:41Z" duration="0.239906" total="4" passed="2" failed="2" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestFixture" id="1068" name="QuestHomeTests" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" testcasecount="4" result="Failed" site="Child" start-time="2026-10-16 15:49:41Z" end-time="2026-10-16 15:49:41Z" duration="0.237520" total="4" passed="2" failed="2" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-case id="1069" name="DefaultHomeMatchesDesktopHierarchyAndUsesHonestEmptyStates" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests.DefaultHomeMatchesDesktopHierarchyAndUsesHonestEmptyStates" methodname="DefaultHomeMatchesDesktopHierarchyAndUsesHonestEmptyStates" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" seed="751444494" result="Failed" start-time="2026-10-16 15:49:41Z" end-time="2026-10-16 15:49:41Z" duration="0.175707" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  missing Desktop Home label: Ogni spazio racconta una storia
+  Expected: collection containing "Ogni spazio racconta una storia"
+  But was:  < "KREODA", "Progetta · Visualizza · Realizza", "Dalla tua idea al mondo reale", "PC non connesso", "Progetti recenti", "Ancora nessun progetto
+sincronizzato", "Task in corso", "Nessun task attivo", "Inizia da qui", "Nuovo Progetto", "Importa", "Template", "AI Assistant", "Disegna", "Modella", "Visualizza", "Misura", "Render", "Ogni spazio racconta una storia." >
+]]></message>
+                  <stack-trace><![CDATA[at Kreoda.QuestRuntime.Tests.QuestHomeTests.DefaultHomeMatchesDesktopHierarchyAndUsesHonestEmptyStates () [0x000f0] in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Assets\Kreoda\Tests\Editor\QuestHomeTests.cs:62
+]]></stack-trace>
+                </failure>
+              </test-case>
+              <test-case id="1071" name="HomeActionsOpenExistingWorkspacePagesAndNeverFakeProjectCreation" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests.HomeActionsOpenExistingWorkspacePagesAndNeverFakeProjectCreation" methodname="HomeActionsOpenExistingWorkspacePagesAndNeverFakeProjectCreation" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" seed="1197533231" result="Passed" start-time="2026-10-16 15:49:41Z" end-time="2026-10-16 15:49:41Z" duration="0.019164" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1072" name="LongConnectionStatusStaysInsideItsMeasuredButtonBounds" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests.LongConnectionStatusStaysInsideItsMeasuredButtonBounds" methodname="LongConnectionStatusStaysInsideItsMeasuredButtonBounds" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" seed="1354743086" result="Failed" label="Error" start-time="2026-10-16 15:49:41Z" end-time="2026-10-16 15:49:41Z" duration="0.014393" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[System.NullReferenceException : Object reference not set to an instance of an object]]></message>
+                  <stack-trace><![CDATA[  at Kreoda.QuestRuntime.Tests.QuestHomeTests.LongConnectionStatusStaysInsideItsMeasuredButtonBounds () [0x00035] in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Assets\Kreoda\Tests\Editor\QuestHomeTests.cs:124 
+  at (wrapper managed-to-native) System.Reflection.RuntimeMethodInfo.InternalInvoke(System.Reflection.RuntimeMethodInfo,object,object[],System.Exception&)
+  at System.Reflection.RuntimeMethodInfo.Invoke (System.Object obj, System.Reflection.BindingFlags invokeAttr, System.Reflection.Binder binder, System.Object[] parameters, System.Globalization.CultureInfo culture) [0x0006a] in <d49d4cb128564ee1b54a84338c98d353>:0 ]]></stack-trace>
+                </failure>
+              </test-case>
+              <test-case id="1070" name="ManualPairingInputsStayOutsideHomeAndWorkspaceActionsStayReachable" fullname="Kreoda.QuestRuntime.Tests.QuestHomeTests.ManualPairingInputsStayOutsideHomeAndWorkspaceActionsStayReachable" methodname="ManualPairingInputsStayOutsideHomeAndWorkspaceActionsStayReachable" classname="Kreoda.QuestRuntime.Tests.QuestHomeTests" runstate="Runnable" seed="708330731" result="Passed" start-time="2026-10-16 15:49:41Z" end-time="2026-10-16 15:49:41Z" duration="0.014445" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\docs\superpowers\evidence\2026-10-16-quest-home-ui\green-home.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

@@ -1,0 +1,22 @@
+{
+  "head": "b5d1736740f9793c3a8ecbd9d179205de4fbfe63",
+  "runId": 38707325681,
+  "jobId": 116329852819,
+  "status": "completed",
+  "conclusion": "success",
+  "native": 233,
+  "sessionClient": 141,
+  "modelingAgent": 33,
+  "hermesBridge": 34,
+  "modelingBenchmark": 33,
+  "managedTotal": 241,
+  "desktop": 287,
+  "protocol": 51,
+  "commandSchemaUnique": 12,
+  "ordinaryE2E": 67,
+  "crashE2E": 32,
+  "productionCoreRestored": true,
+  "rawLogSha256": "64ed717ce0b5190186193f878bd29cf6bf39d22554ef6ebac157d2ee357274ce",
+  "rawLog": "C:/Users/matte/AppData/Local/Temp/kreoda-ci-b5d1736-full.log",
+  "url": "https://github.com/JackoPeru/Kreoda/actions/runs/38707325681"
+}

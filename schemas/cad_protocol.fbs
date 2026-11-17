@@ -37,7 +37,41 @@ enum CommandType : ushort {
   BeginTransaction,
   CommitTransaction,
   RollbackTransaction,
-  RequestSessionQuery
+  RequestSessionQuery,
+  CreateDatumPlane,
+  CreateDatumAxis,
+  CreateDatumPoint,
+  UpdateDatum,
+  RequestDatum,
+  SetSketchProjection,
+  RemoveSketchProjection,
+  RequestSketchProjection,
+  CreateSurfaceLoftSewnSolid,
+  DefineConfiguration,
+  ActivateConfiguration,
+  QueryConfigurations,
+  CreateOutwardFacePush,
+  SetBodyVisibility,
+  CreateInwardFacePocket,
+  CreateSurfaceFaceThicken,
+  DefineAssemblyConstraint,
+  CreateSurfaceExtrude,
+  CreateSurfaceRevolve,
+  CreateSurfaceLoft,
+  CreateSurfaceSew,
+  CreateSurfaceOffset,
+  CreateSurfaceSweep,
+  CreateSurfaceThicken,
+  CreateSurfaceTrim,
+  CreateSurfaceExtend,
+  CreateMoveFace,
+  CreateOffsetFace,
+  CreateDeleteFace,
+  CreateReplaceFace,
+  CreateShell,
+  CreateMirror,
+  CreateBodyPattern,
+  CreateCircularBodyPattern
 }
 
 enum StatusCode : byte {
@@ -333,6 +367,9 @@ table MeshUpdate {
   volume_mm3: double;
   bbox_mm: [double];
   revision: long;
+  // Optional native max(|principal curvature|) at each surface vertex, mm^-1.
+  // Packed little-endian float32; -1 = undefined, absent = legacy/unavailable.
+  curvature_max_abs_per_mm: [ubyte];
 }
 
 table SelectionRemap {

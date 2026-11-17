@@ -168,11 +168,45 @@ enum CommandType : uint16_t {
   CommandType_CommitTransaction = 28,
   CommandType_RollbackTransaction = 29,
   CommandType_RequestSessionQuery = 30,
+  CommandType_CreateDatumPlane = 31,
+  CommandType_CreateDatumAxis = 32,
+  CommandType_CreateDatumPoint = 33,
+  CommandType_UpdateDatum = 34,
+  CommandType_RequestDatum = 35,
+  CommandType_SetSketchProjection = 36,
+  CommandType_RemoveSketchProjection = 37,
+  CommandType_RequestSketchProjection = 38,
+  CommandType_CreateSurfaceLoftSewnSolid = 39,
+  CommandType_DefineConfiguration = 40,
+  CommandType_ActivateConfiguration = 41,
+  CommandType_QueryConfigurations = 42,
+  CommandType_CreateOutwardFacePush = 43,
+  CommandType_SetBodyVisibility = 44,
+  CommandType_CreateInwardFacePocket = 45,
+  CommandType_CreateSurfaceFaceThicken = 46,
+  CommandType_DefineAssemblyConstraint = 47,
+  CommandType_CreateSurfaceExtrude = 48,
+  CommandType_CreateSurfaceRevolve = 49,
+  CommandType_CreateSurfaceLoft = 50,
+  CommandType_CreateSurfaceSew = 51,
+  CommandType_CreateSurfaceOffset = 52,
+  CommandType_CreateSurfaceSweep = 53,
+  CommandType_CreateSurfaceThicken = 54,
+  CommandType_CreateSurfaceTrim = 55,
+  CommandType_CreateSurfaceExtend = 56,
+  CommandType_CreateMoveFace = 57,
+  CommandType_CreateOffsetFace = 58,
+  CommandType_CreateDeleteFace = 59,
+  CommandType_CreateReplaceFace = 60,
+  CommandType_CreateShell = 61,
+  CommandType_CreateMirror = 62,
+  CommandType_CreateBodyPattern = 63,
+  CommandType_CreateCircularBodyPattern = 64,
   CommandType_MIN = CommandType_None,
-  CommandType_MAX = CommandType_RequestSessionQuery
+  CommandType_MAX = CommandType_CreateCircularBodyPattern
 };
 
-inline const CommandType (&EnumValuesCommandType())[31] {
+inline const CommandType (&EnumValuesCommandType())[65] {
   static const CommandType values[] = {
     CommandType_None,
     CommandType_GetCoreInfo,
@@ -204,13 +238,47 @@ inline const CommandType (&EnumValuesCommandType())[31] {
     CommandType_BeginTransaction,
     CommandType_CommitTransaction,
     CommandType_RollbackTransaction,
-    CommandType_RequestSessionQuery
+    CommandType_RequestSessionQuery,
+    CommandType_CreateDatumPlane,
+    CommandType_CreateDatumAxis,
+    CommandType_CreateDatumPoint,
+    CommandType_UpdateDatum,
+    CommandType_RequestDatum,
+    CommandType_SetSketchProjection,
+    CommandType_RemoveSketchProjection,
+    CommandType_RequestSketchProjection,
+    CommandType_CreateSurfaceLoftSewnSolid,
+    CommandType_DefineConfiguration,
+    CommandType_ActivateConfiguration,
+    CommandType_QueryConfigurations,
+    CommandType_CreateOutwardFacePush,
+    CommandType_SetBodyVisibility,
+    CommandType_CreateInwardFacePocket,
+    CommandType_CreateSurfaceFaceThicken,
+    CommandType_DefineAssemblyConstraint,
+    CommandType_CreateSurfaceExtrude,
+    CommandType_CreateSurfaceRevolve,
+    CommandType_CreateSurfaceLoft,
+    CommandType_CreateSurfaceSew,
+    CommandType_CreateSurfaceOffset,
+    CommandType_CreateSurfaceSweep,
+    CommandType_CreateSurfaceThicken,
+    CommandType_CreateSurfaceTrim,
+    CommandType_CreateSurfaceExtend,
+    CommandType_CreateMoveFace,
+    CommandType_CreateOffsetFace,
+    CommandType_CreateDeleteFace,
+    CommandType_CreateReplaceFace,
+    CommandType_CreateShell,
+    CommandType_CreateMirror,
+    CommandType_CreateBodyPattern,
+    CommandType_CreateCircularBodyPattern
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandType() {
-  static const char * const names[32] = {
+  static const char * const names[66] = {
     "None",
     "GetCoreInfo",
     "CreateDocument",
@@ -242,13 +310,47 @@ inline const char * const *EnumNamesCommandType() {
     "CommitTransaction",
     "RollbackTransaction",
     "RequestSessionQuery",
+    "CreateDatumPlane",
+    "CreateDatumAxis",
+    "CreateDatumPoint",
+    "UpdateDatum",
+    "RequestDatum",
+    "SetSketchProjection",
+    "RemoveSketchProjection",
+    "RequestSketchProjection",
+    "CreateSurfaceLoftSewnSolid",
+    "DefineConfiguration",
+    "ActivateConfiguration",
+    "QueryConfigurations",
+    "CreateOutwardFacePush",
+    "SetBodyVisibility",
+    "CreateInwardFacePocket",
+    "CreateSurfaceFaceThicken",
+    "DefineAssemblyConstraint",
+    "CreateSurfaceExtrude",
+    "CreateSurfaceRevolve",
+    "CreateSurfaceLoft",
+    "CreateSurfaceSew",
+    "CreateSurfaceOffset",
+    "CreateSurfaceSweep",
+    "CreateSurfaceThicken",
+    "CreateSurfaceTrim",
+    "CreateSurfaceExtend",
+    "CreateMoveFace",
+    "CreateOffsetFace",
+    "CreateDeleteFace",
+    "CreateReplaceFace",
+    "CreateShell",
+    "CreateMirror",
+    "CreateBodyPattern",
+    "CreateCircularBodyPattern",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandType(CommandType e) {
-  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_RequestSessionQuery)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_CreateCircularBodyPattern)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandType()[index];
 }
@@ -3557,7 +3659,8 @@ struct MeshUpdate FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_EDGES = 28,
     VT_VOLUME_MM3 = 30,
     VT_BBOX_MM = 32,
-    VT_REVISION = 34
+    VT_REVISION = 34,
+    VT_CURVATURE_MAX_ABS_PER_MM = 36
   };
   const ::flatbuffers::String *feature_id() const {
     return GetPointer<const ::flatbuffers::String *>(VT_FEATURE_ID);
@@ -3607,6 +3710,9 @@ struct MeshUpdate FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   int64_t revision() const {
     return GetField<int64_t>(VT_REVISION, 0);
   }
+  const ::flatbuffers::Vector<uint8_t> *curvature_max_abs_per_mm() const {
+    return GetPointer<const ::flatbuffers::Vector<uint8_t> *>(VT_CURVATURE_MAX_ABS_PER_MM);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3638,6 +3744,8 @@ struct MeshUpdate FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_BBOX_MM) &&
            verifier.VerifyVector(bbox_mm()) &&
            VerifyField<int64_t>(verifier, VT_REVISION, 8) &&
+           VerifyOffset(verifier, VT_CURVATURE_MAX_ABS_PER_MM) &&
+           verifier.VerifyVector(curvature_max_abs_per_mm()) &&
            verifier.EndTable();
   }
 };
@@ -3694,6 +3802,9 @@ struct MeshUpdateBuilder {
   void add_revision(int64_t revision) {
     fbb_.AddElement<int64_t>(MeshUpdate::VT_REVISION, revision, 0);
   }
+  void add_curvature_max_abs_per_mm(::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> curvature_max_abs_per_mm) {
+    fbb_.AddOffset(MeshUpdate::VT_CURVATURE_MAX_ABS_PER_MM, curvature_max_abs_per_mm);
+  }
   explicit MeshUpdateBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3722,10 +3833,12 @@ inline ::flatbuffers::Offset<MeshUpdate> CreateMeshUpdate(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<Kreoda::Protocol::EdgeRange>>> edges = 0,
     double volume_mm3 = 0.0,
     ::flatbuffers::Offset<::flatbuffers::Vector<double>> bbox_mm = 0,
-    int64_t revision = 0) {
+    int64_t revision = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> curvature_max_abs_per_mm = 0) {
   MeshUpdateBuilder builder_(_fbb);
   builder_.add_revision(revision);
   builder_.add_volume_mm3(volume_mm3);
+  builder_.add_curvature_max_abs_per_mm(curvature_max_abs_per_mm);
   builder_.add_bbox_mm(bbox_mm);
   builder_.add_edges(edges);
   builder_.add_faces(faces);
@@ -3760,7 +3873,8 @@ inline ::flatbuffers::Offset<MeshUpdate> CreateMeshUpdateDirect(
     const std::vector<::flatbuffers::Offset<Kreoda::Protocol::EdgeRange>> *edges = nullptr,
     double volume_mm3 = 0.0,
     const std::vector<double> *bbox_mm = nullptr,
-    int64_t revision = 0) {
+    int64_t revision = 0,
+    const std::vector<uint8_t> *curvature_max_abs_per_mm = nullptr) {
   auto feature_id__ = feature_id ? _fbb.CreateString(feature_id) : 0;
   auto body_id__ = body_id ? _fbb.CreateString(body_id) : 0;
   auto request_id__ = request_id ? _fbb.CreateString(request_id) : 0;
@@ -3771,6 +3885,7 @@ inline ::flatbuffers::Offset<MeshUpdate> CreateMeshUpdateDirect(
   auto faces__ = faces ? _fbb.CreateVector<::flatbuffers::Offset<Kreoda::Protocol::FaceRange>>(*faces) : 0;
   auto edges__ = edges ? _fbb.CreateVector<::flatbuffers::Offset<Kreoda::Protocol::EdgeRange>>(*edges) : 0;
   auto bbox_mm__ = bbox_mm ? _fbb.CreateVector<double>(*bbox_mm) : 0;
+  auto curvature_max_abs_per_mm__ = curvature_max_abs_per_mm ? _fbb.CreateVector<uint8_t>(*curvature_max_abs_per_mm) : 0;
   return Kreoda::Protocol::CreateMeshUpdate(
       _fbb,
       feature_id__,
@@ -3788,7 +3903,8 @@ inline ::flatbuffers::Offset<MeshUpdate> CreateMeshUpdateDirect(
       edges__,
       volume_mm3,
       bbox_mm__,
-      revision);
+      revision,
+      curvature_max_abs_per_mm__);
 }
 
 struct SelectionRemap FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

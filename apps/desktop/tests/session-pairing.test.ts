@@ -99,6 +99,23 @@ describe("trusted device WebSocket gate", () => {
     });
   });
 
+  it("accepts an eight digit pairing code and counts valid-shaped schema failures toward shared lockout", async () => {
+    await boot(async (_relay, devices, _calls, socket) => {
+      const c = await socket();
+      const pairing = devices.beginPairing();
+      const wrongCode = `${(Number(pairing.code[0]) + 1) % 10}${pairing.code.slice(1)}`;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const failed = await c.call("pair", {
+          pairingToken: wrongCode,
+          deviceName: attempt % 2 === 0 ? " " : "\u0000",
+        });
+        expect(failed["errorCode"]).toBe("BAD_PARAMS");
+      }
+      expect((await c.call("pair", { pairingToken: pairing.code, deviceName: "Quest" }))["errorCode"]).toBe("UNAUTHORIZED");
+      expect((await c.call("pair", { pairingToken: pairing.token, deviceName: "Quest" }))["errorCode"]).toBe("UNAUTHORIZED");
+    });
+  });
+
   it("revocation closes connected sockets and rejects the stored credential", async () => {
     await boot(async (relay, devices, _calls, socket) => {
       const c = await socket();

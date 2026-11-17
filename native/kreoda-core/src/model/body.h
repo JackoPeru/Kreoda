@@ -42,6 +42,7 @@ struct BodyRecord {
   std::string bodyId;
   std::vector<std::string> history;  // ordered feature ids, predecessors first
   std::string tipFeatureId;          // visible result (normally history.back())
+  bool visible = true;              // false: keep kernel/history, hide display tip
 };
 
 class BodyStore {
@@ -52,6 +53,7 @@ class BodyStore {
   std::vector<BodyRecord> bodies() const;  // creation order
   size_t size() const;
   bool get(const std::string& bodyId, BodyRecord* out) const;
+  bool setVisible(const std::string& bodyId,bool visible);
   bool bodyForFeature(const std::string& featureId, BodyRecord* out) const;
 
   // Incremental commit hook (called by CommitShape AFTER the OCAF mirror

@@ -1,0 +1,18 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = SketchProjectionPublicWire.*
+[==========] Running 4 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 4 tests from SketchProjectionPublicWire
+[ RUN      ] SketchProjectionPublicWire.DispatchesAndSamplesCurvedGeometryReadOnly
+[       OK ] SketchProjectionPublicWire.DispatchesAndSamplesCurvedGeometryReadOnly (10 ms)
+[ RUN      ] SketchProjectionPublicWire.HidesCachedEdgesWhenSourceClosureIsUnavailable
+[       OK ] SketchProjectionPublicWire.HidesCachedEdgesWhenSourceClosureIsUnavailable (0 ms)
+[ RUN      ] SketchProjectionPublicWire.SerializesLineEdgesWithTwoWorldSpaceEndpoints
+[       OK ] SketchProjectionPublicWire.SerializesLineEdgesWithTwoWorldSpaceEndpoints (0 ms)
+[ RUN      ] SketchProjectionPublicWire.ValidatesErrorsAndJoinsOwnerTransaction
+[       OK ] SketchProjectionPublicWire.ValidatesErrorsAndJoinsOwnerTransaction (5 ms)
+[----------] 4 tests from SketchProjectionPublicWire (17 ms total)
+
+[----------] Global test environment tear-down
+[==========] 4 tests from 1 test suite ran. (17 ms total)
+[  PASSED  ] 4 tests.

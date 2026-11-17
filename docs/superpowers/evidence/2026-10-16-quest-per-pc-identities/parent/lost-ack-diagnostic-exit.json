@@ -1,0 +1,20 @@
+{
+  "exitCode": 0,
+  "args": [
+    "-batchmode",
+    "-nographics",
+    "-buildTarget",
+    "Android",
+    "-projectPath",
+    "C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity",
+    "-runTests",
+    "-testPlatform",
+    "EditMode",
+    "-testResults",
+    "C:/Users/matte/Documents/Codex-tools/Native/quest-per-pc-parent-20261017/lost-ack-diagnostic.xml",
+    "-logFile",
+    "C:/Users/matte/Documents/Codex-tools/Native/quest-per-pc-parent-20261017/lost-ack-diagnostic.log",
+    "-testFilter",
+    "Kreoda.QuestRuntime.Tests.QuestConnectionTests.LostBootstrapAcknowledgementReusesPendingIdentityAfterRestart"
+  ]
+}

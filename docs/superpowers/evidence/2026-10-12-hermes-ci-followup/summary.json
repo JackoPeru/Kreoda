@@ -1,0 +1,58 @@
+{
+  "baseCommit": "5b711ebd362780a9a75aea057716e021b06c2af0",
+  "worker": {
+    "thread": "01a12f79-3769-74c1-bb95-a42c172b0324",
+    "model": "gpt-6-luna",
+    "effort": "max",
+    "terminalQuota": false
+  },
+  "hiddenFailure": {
+    "hostedRun": 38228255640,
+    "exactTimeoutReproducedLocally": false,
+    "correction": "disable E2E WebContents background throttling before hide",
+    "correctedHostedPending": true
+  },
+  "lineEndingFailure": {
+    "hostedRun": 38231072324,
+    "redFailed": 7,
+    "greenPassed": 29,
+    "contentChangedRejected": true,
+    "normalization": "CRLF to LF only",
+    "sourceRequirementsUnchanged": true
+  },
+  "managed": {
+    "SessionClient": 125,
+    "ModelingAgent": 33,
+    "HermesBridge": 27,
+    "Benchmark": 29,
+    "total": 214,
+    "failed": 0,
+    "skipped": 0,
+    "environmentPlatform": "x64"
+  },
+  "nativeE2e": {
+    "passed": 3,
+    "seconds": 20.1,
+    "hiddenAtConstruction": true,
+    "offscreenOverride": false,
+    "backgroundThrottlingWrapperOverride": false,
+    "compiledBundleRestored": true
+  },
+  "desktopLint": true,
+  "reviewPending": false,
+  "hermesUserWorkPreserved": true,
+  "liveHermesFixturesRun": 0,
+  "goalComplete": false,
+  "review": {
+    "thread": "01a12f86-a4e1-76b2-8879-09c5e7a235fb",
+    "verdict": "ship-bounded-ci-packet",
+    "model": "gpt-6-sol",
+    "effort": "high",
+    "sandbox": "danger-full-access",
+    "permission": "disabled",
+    "enforcedReadOnly": false,
+    "sourceInputs": 869,
+    "sourceFreeze": "2b87ee3fba40b84a02c09fc3542d661fe8316caeda67cfae25b64919146e1f1b",
+    "sourceChanged": []
+  }
+}

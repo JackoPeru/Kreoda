@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="2" result="Failed(Child)" total="2" passed="0" failed="2" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-16 15:43:24Z" end-time="2026-10-16 15:43:24Z" duration="0,0377791">
+  <test-suite type="TestSuite" id="1000" name="Kreoda Quest" fullname="Kreoda Quest" runstate="Runnable" testcasecount="95" result="Failed" site="Child" start-time="2026-10-16 15:43:24Z" end-time="2026-10-16 15:43:24Z" duration="0.037779" total="2" passed="0" failed="2" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1119" name="Kreoda.QuestRuntime.Tests.dll" fullname="C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity/Library/ScriptAssemblies/Kreoda.QuestRuntime.Tests.dll" runstate="Runnable" testcasecount="95" result="Failed" site="Child" start-time="2026-10-16 15:43:24Z" end-time="2026-10-16 15:43:24Z" duration="0.029483" total="2" passed="0" failed="2" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="48196" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1120" name="Kreoda" fullname="Kreoda" runstate="Runnable" testcasecount="95" result="Failed" site="Child" start-time="2026-10-16 15:43:24Z" end-time="2026-10-16 15:43:24Z" duration="0.028709" total="2" passed="0" failed="2" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1121" name="QuestRuntime" fullname="Kreoda.QuestRuntime" runstate="Runnable" testcasecount="95" result="Failed" site="Child" start-time="2026-10-16 15:43:24Z" end-time="2026-10-16 15:43:24Z" duration="0.028086" total="2" passed="0" failed="2" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1122" name="Tests" fullname="Kreoda.QuestRuntime.Tests" runstate="Runnable" testcasecount="95" result="Failed" site="Child" start-time="2026-10-16 15:43:24Z" end-time="2026-10-16 15:43:24Z" duration="0.027343" total="2" passed="0" failed="2" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestFixture" id="1065" name="QuestEnvironmentTests" fullname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests" classname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests" runstate="Runnable" testcasecount="2" result="Failed" site="Child" start-time="2026-10-16 15:43:24Z" end-time="2026-10-16 15:43:24Z" duration="0.024392" total="2" passed="0" failed="2" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-case id="1067" name="FailedPassthroughStatusNeverClaimsThatRoomIsVisible" fullname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests.FailedPassthroughStatusNeverClaimsThatRoomIsVisible" methodname="FailedPassthroughStatusNeverClaimsThatRoomIsVisible" classname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests" runstate="Runnable" seed="754717443" result="Failed" start-time="2026-10-16 15:43:24Z" end-time="2026-10-16 15:43:24Z" duration="0.013218" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  passthrough status must distinguish initialization failure from visible MR
+  Expected: not null
+  But was:  null
+]]></message>
+                  <stack-trace><![CDATA[at Kreoda.QuestRuntime.Tests.QuestEnvironmentTests.FailedPassthroughStatusNeverClaimsThatRoomIsVisible () [0x00016] in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Assets\Kreoda\Tests\Editor\QuestEnvironmentTests.cs:21
+]]></stack-trace>
+                </failure>
+              </test-case>
+              <test-case id="1066" name="StartupMigratesPreviouslySavedVrPreferenceToPassthrough" fullname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests.StartupMigratesPreviouslySavedVrPreferenceToPassthrough" methodname="StartupMigratesPreviouslySavedVrPreferenceToPassthrough" classname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests" runstate="Runnable" seed="178693188" result="Failed" start-time="2026-10-16 15:43:24Z" end-time="2026-10-16 15:43:24Z" duration="0.000577" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  startup preference migration must be explicit and testable
+  Expected: not null
+  But was:  null
+]]></message>
+                  <stack-trace><![CDATA[at Kreoda.QuestRuntime.Tests.QuestEnvironmentTests.StartupMigratesPreviouslySavedVrPreferenceToPassthrough () [0x00017] in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Assets\Kreoda\Tests\Editor\QuestEnvironmentTests.cs:12
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[Saving results to: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\docs\superpowers\evidence\2026-10-16-quest-home-ui\red-environment.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

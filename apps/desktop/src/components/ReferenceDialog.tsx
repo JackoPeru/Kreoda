@@ -1,7 +1,7 @@
 // Reference images dialog (§29 Stage A): import, list, calibrate by two
 // clicks + real distance (or known width), opacity, plane, delete.
 // Persisted project view aids, outside the CAD undo history.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   addReferencePlane,
   calibrateSize,
@@ -18,7 +18,89 @@ import {
   viewportBeginReferenceMeasure,
   viewportCancelReferenceMeasure,
 } from "../viewport/viewportHandle";
+import { executeCommand } from "../commands/execute";
+import { detectReferenceGeometry, type DetectionResult } from "../reference/detect";
+import { buildReferenceSketch, type ReferenceProposal } from "../reference/propose";
 import { t, useT } from "../i18n";
+
+function imageDataFromUrl(dataUrl: string): Promise<ImageData> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("no 2d context");
+        ctx.drawImage(image, 0, 0);
+        resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      } catch (error) {
+        reject(error);
+      }
+    };
+    image.onerror = () => reject(new Error("cannot decode image"));
+    image.src = dataUrl;
+  });
+}
+
+function DetectionPreview({
+  plane,
+  result,
+}: {
+  plane: ReferencePlane;
+  result: DetectionResult;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (cancelled) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const maxW = 320;
+      const maxH = 180;
+      const scale = Math.min(
+        maxW / plane.imageW,
+        maxH / plane.imageH,
+        1,
+      );
+      canvas.width = Math.max(1, Math.round(plane.imageW * scale));
+      canvas.height = Math.max(1, Math.round(plane.imageH * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const sx = canvas.width / plane.imageW;
+      const sy = canvas.height / plane.imageH;
+      ctx.strokeStyle = "#63F5E9";
+      ctx.lineWidth = 2;
+      for (const line of result.lines) {
+        ctx.beginPath();
+        ctx.moveTo(line.x1 * sx, line.y1 * sy);
+        ctx.lineTo(line.x2 * sx, line.y2 * sy);
+        ctx.stroke();
+      }
+      for (const circle of result.circles) {
+        ctx.beginPath();
+        ctx.arc(circle.cx * sx, circle.cy * sy, circle.r * sx, 0, 2 * Math.PI);
+        ctx.stroke();
+      }
+    };
+    image.src = plane.dataUrl;
+    return () => {
+      cancelled = true;
+    };
+  }, [plane.dataUrl, plane.imageW, plane.imageH, result]);
+  return (
+    <canvas
+      ref={canvasRef}
+      data-testid="reference-detection-preview"
+      aria-label={t("ref.detectPreviewAria")}
+      className="max-w-full rounded-md border border-white/10 bg-black/30"
+    />
+  );
+}
 
 export function ReferenceDialog({ onClose }: { onClose: () => void }) {
   const planes = useReferenceStore((s) => s.planes);
@@ -32,6 +114,13 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
     pts: [number, number][];
   } | null>(null);
   const [pendingDist, setPendingDist] = useState("");
+  const [detecting, setDetecting] = useState<string | null>(null);
+  const [detection, setDetection] = useState<{
+    planeId: string;
+    proposal: ReferenceProposal;
+    result: DetectionResult;
+  } | null>(null);
+  const [creating, setCreating] = useState(false);
   const tt = useT();
 
   // C10: dialog close/unmount must cancel an in-flight measure (the old
@@ -50,6 +139,11 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
     viewportCancelReferenceMeasure();
     setMeasuring(null);
     setPendingPts(null);
+  };
+
+  const updatePlane = (id: string, patch: Partial<ReferencePlane>): void => {
+    updateReferencePlane(id, patch);
+    if (detection?.planeId === id) setDetection(null);
   };
 
   const importImage = async (): Promise<void> => {
@@ -109,7 +203,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
         pendingPts.pts[1]!,
         realMm,
       );
-      updateReferencePlane(plane.id, {
+      updatePlane(plane.id, {
         widthMm: size.widthMm,
         heightMm: size.heightMm,
         mmPerPx: size.mmPerPx,
@@ -137,7 +231,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
         setError(tt("ref.errHeightRange"));
         return;
       }
-      updateReferencePlane(plane.id, {
+      updatePlane(plane.id, {
         widthMm: w,
         heightMm: h,
         mmPerPx,
@@ -148,12 +242,62 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const detect = async (plane: ReferencePlane): Promise<void> => {
+    setError(null);
+    setDetection(null);
+    setDetecting(plane.id);
+    try {
+      if (!plane.mmPerPx) throw new Error(tt("ref.detectCalibrate"));
+      const image = await imageDataFromUrl(plane.dataUrl);
+      const result = detectReferenceGeometry(image);
+      const proposal = buildReferenceSketch(
+        {
+          plane: plane.plane,
+          imageW: plane.imageW,
+          imageH: plane.imageH,
+          mmPerPx: plane.mmPerPx,
+        },
+        result,
+      );
+      setDetection({ planeId: plane.id, proposal, result });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      setError(
+        message.includes("No usable")
+          ? tt("ref.detectEmpty")
+          : message.includes("Calibrate")
+            ? tt("ref.detectCalibrate")
+            : tt("ref.detectFailed"),
+      );
+    } finally {
+      setDetecting(null);
+    }
+  };
+
+  const createSketch = async (plane: ReferencePlane): Promise<void> => {
+    if (!detection || detection.planeId !== plane.id) return;
+    setError(null);
+    setCreating(true);
+    try {
+      await executeCommand("CreateSketch", {
+        planeKind: plane.plane,
+        model: detection.proposal.model,
+      });
+      setDetection(null);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : tt("ref.detectFailed"));
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div
       className="absolute inset-0 z-30 flex items-center justify-center bg-black/60"
       data-testid="reference-dialog"
     >
-      <div className="w-[28rem] max-w-[92vw] rounded-xl border border-white/15 bg-[#141922] p-5 shadow-2xl">
+      <div className="w-[28rem] max-w-[92vw] rounded-xl border border-white/15 bg-[var(--kreoda-float-elevated-bg)] p-5 shadow-2xl">
         <div className="pb-2 text-sm font-semibold">
           {tt("ref.title")}
         </div>
@@ -182,6 +326,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
                 onClick={() => {
                   if (measuring === p.id) cancelMeasure();
                   if (pendingPts?.id === p.id) setPendingPts(null);
+                  if (detection?.planeId === p.id) setDetection(null);
                   removeReferencePlane(p.id);
                 }}
                 className="rounded-md px-2 py-0.5 text-xs text-white/60 hover:bg-white/10"
@@ -193,7 +338,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
               <select
                 value={p.plane}
                 onChange={(e) =>
-                  updateReferencePlane(p.id, {
+                  updatePlane(p.id, {
                     plane: e.target.value as ReferencePlane["plane"],
                   })
                 }
@@ -213,7 +358,7 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
                   step={0.05}
                   value={p.opacity}
                   onChange={(e) =>
-                    updateReferencePlane(p.id, {
+                    updatePlane(p.id, {
                       opacity: Number(e.target.value),
                     })
                   }
@@ -271,7 +416,43 @@ export function ReferenceDialog({ onClose }: { onClose: () => void }) {
               >
                 {tt("common.set")}
               </button>
+              <button
+                onClick={() => void detect(p)}
+                disabled={detecting !== null}
+                data-testid="reference-detect"
+                className="rounded-md bg-cyan-400/15 px-2 py-0.5 font-medium text-cyan-200 hover:bg-cyan-400/25 disabled:opacity-40"
+              >
+                {detecting === p.id ? tt("ref.detecting") : tt("ref.detect")}
+              </button>
             </div>
+            {detection?.planeId === p.id && (
+              <div
+                className="mt-2 rounded-md border border-cyan-300/25 bg-cyan-300/5 p-2"
+                data-testid="reference-detection"
+              >
+                <DetectionPreview plane={p} result={detection.result} />
+                <div className="flex items-center justify-between gap-2 pt-2 text-xs">
+                  <span className="text-white/70">
+                    {tt("ref.detected", {
+                      lines: detection.proposal.lineCount,
+                      circles: detection.proposal.circleCount,
+                      constraints: detection.proposal.model.constraints.length,
+                    })}
+                  </span>
+                  <button
+                    onClick={() => void createSketch(p)}
+                    disabled={creating}
+                    data-testid="reference-create-sketch"
+                    className="rounded-md bg-cyan-400/90 px-2 py-0.5 font-medium text-black hover:bg-cyan-300 disabled:opacity-50"
+                  >
+                    {creating ? tt("ref.creatingSketch") : tt("ref.createSketch")}
+                  </button>
+                </div>
+                <div className="pt-1 text-[11px] text-white/45">
+                  {tt("ref.detectHint")}
+                </div>
+              </div>
+            )}
           </div>
         ))}
         {error && <div className="pt-2 text-xs text-red-300">{error}</div>}

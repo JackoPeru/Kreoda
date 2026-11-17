@@ -1,0 +1,58 @@
+
+> @kreoda/protocol@0.1.0 test C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol
+> vitest run
+
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/packages/protocol
+
+ ❯ src/session-model.test.ts (9 tests | 1 failed) 11ms
+     × applies and removes native datum entities without treating them as meshes 7ms
+ ❯ src/session-generated.test.ts (3 tests | 1 failed) 11ms
+   × validates native datum records and full sketch frames while accepting legacy snapshots 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/session-generated.test.ts > validates native datum records and full sketch frames while accepting legacy snapshots
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/session-generated.test.ts:36:124
+     34|   expect(validators.SessionSnapshotPayload(legacy)).toBe(true);
+     35|   expect(validators.SessionSnapshotPayload({ ...legacy, datums: [datum…
+     36|   expect(validators.SessionSnapshotPayload({ ...legacy, datums: [{ ...…
+       |                                                                                                                            ^
+     37|   expect(validators.SessionSnapshotPayload({ ...legacy, sketches: [{ f…
+     38| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/session-model.test.ts > session model delta application > applies and removes native datum entities without treating them as meshes
+AssertionError: expected 'needs-snapshot' to be 'applied' // Object.is equality
+
+Expected: "applied"
+Received: "needs-snapshot"
+
+ ❯ src/session-model.test.ts:46:26
+     44|       resolved: { originMm: [10, 20, 30], xAxis: [1, 0, 0], yAxis: [0,…
+     45|     const added = applySessionModelDelta(model(), delta({ added: [{ ki…
+     46|     expect(added.status).toBe("applied");
+       |                          ^
+     47|     if (added.status !== "applied") return;
+     48|     expect((added.model as SessionModelSnapshot & { datums: unknown[] …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed | 3 passed (5)
+      Tests  2 failed | 49 passed (51)
+   Start at  10:40:59
+   Duration  1.03s (transform 1.11s, setup 0ms, import 2.19s, tests 62ms, environment 0ms)
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @kreoda/protocol@0.1.0 test: `vitest run`
+Exit status 1

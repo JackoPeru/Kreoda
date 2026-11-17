@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="13" result="Passed" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-16 20:22:25Z" end-time="2026-10-16 20:22:33Z" duration="7,8310815">
+  <test-suite type="TestSuite" id="1000" name="Kreoda Quest" fullname="Kreoda Quest" runstate="Runnable" testcasecount="107" result="Passed" start-time="2026-10-16 20:22:25Z" end-time="2026-10-16 20:22:33Z" duration="7.831082" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1132" name="Kreoda.QuestRuntime.Tests.dll" fullname="C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity/Library/ScriptAssemblies/Kreoda.QuestRuntime.Tests.dll" runstate="Runnable" testcasecount="107" result="Passed" start-time="2026-10-16 20:22:25Z" end-time="2026-10-16 20:22:33Z" duration="7.822715" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="22228" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1133" name="Kreoda" fullname="Kreoda" runstate="Runnable" testcasecount="107" result="Passed" start-time="2026-10-16 20:22:25Z" end-time="2026-10-16 20:22:33Z" duration="7.822391" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1134" name="QuestRuntime" fullname="Kreoda.QuestRuntime" runstate="Runnable" testcasecount="107" result="Passed" start-time="2026-10-16 20:22:25Z" end-time="2026-10-16 20:22:33Z" duration="7.822216" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1135" name="Tests" fullname="Kreoda.QuestRuntime.Tests" runstate="Runnable" testcasecount="107" result="Passed" start-time="2026-10-16 20:22:25Z" end-time="2026-10-16 20:22:33Z" duration="7.821998" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1004" name="QuestConnectionTests" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" testcasecount="13" result="Passed" start-time="2026-10-16 20:22:25Z" end-time="2026-10-16 20:22:33Z" duration="7.819967" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1006" name="DatumObservationsTrackCurrentRevisionRemovalDocumentAndConnectionWithoutMeshes" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.DatumObservationsTrackCurrentRevisionRemovalDocumentAndConnectionWithoutMeshes" methodname="DatumObservationsTrackCurrentRevisionRemovalDocumentAndConnectionWithoutMeshes" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1678614369" result="Passed" start-time="2026-10-16 20:22:25Z" end-time="2026-10-16 20:22:26Z" duration="0.084126" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+]]></output>
+              </test-case>
+              <test-case id="1017" name="DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport" methodname="DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1906585816" result="Passed" start-time="2026-10-16 20:22:26Z" end-time="2026-10-16 20:22:26Z" duration="0.524079" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1005" name="DeviceFileMigratesLegacyCredentialsAndAtomicallyRetainsAutomaticIdentity" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.DeviceFileMigratesLegacyCredentialsAndAtomicallyRetainsAutomaticIdentity" methodname="DeviceFileMigratesLegacyCredentialsAndAtomicallyRetainsAutomaticIdentity" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1020194746" result="Passed" start-time="2026-10-16 20:22:26Z" end-time="2026-10-16 20:22:26Z" duration="0.027476" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1018" name="LateReferenceReplyCannotRetargetSameUuidAfterDocumentReconnect" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.LateReferenceReplyCannotRetargetSameUuidAfterDocumentReconnect" methodname="LateReferenceReplyCannotRetargetSameUuidAfterDocumentReconnect" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1993712448" result="Passed" start-time="2026-10-16 20:22:26Z" end-time="2026-10-16 20:22:29Z" duration="2.649937" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1015" name="LegacyCredentialAutomaticallyUpgradesOnlyAfterPcProvesExistingTrust" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.LegacyCredentialAutomaticallyUpgradesOnlyAfterPcProvesExistingTrust" methodname="LegacyCredentialAutomaticallyUpgradesOnlyAfterPcProvesExistingTrust" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1898208194" result="Passed" start-time="2026-10-16 20:22:29Z" end-time="2026-10-16 20:22:30Z" duration="1.454318" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1014" name="LegacyCredentialReconnectNeverSendsSecretsToAnUnrelatedDiscoveredPc" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.LegacyCredentialReconnectNeverSendsSecretsToAnUnrelatedDiscoveredPc" methodname="LegacyCredentialReconnectNeverSendsSecretsToAnUnrelatedDiscoveredPc" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1846426387" result="Passed" start-time="2026-10-16 20:22:30Z" end-time="2026-10-16 20:22:32Z" duration="1.369134" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1012" name="PairAndReconnectUploadAuthenticNativeMeshThroughActualUnityClient" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.PairAndReconnectUploadAuthenticNativeMeshThroughActualUnityClient" methodname="PairAndReconnectUploadAuthenticNativeMeshThroughActualUnityClient" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1744140812" result="Passed" start-time="2026-10-16 20:22:32Z" end-time="2026-10-16 20:22:32Z" duration="0.158836" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1011" name="ReferenceFailureDistinguishesNativeRejectionFromAcceptedCommandRefreshFailure" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.ReferenceFailureDistinguishesNativeRejectionFromAcceptedCommandRefreshFailure" methodname="ReferenceFailureDistinguishesNativeRejectionFromAcceptedCommandRefreshFailure" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="918290134" result="Passed" start-time="2026-10-16 20:22:32Z" end-time="2026-10-16 20:22:32Z" duration="0.000591" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1010" name="UnconfirmedReferenceErrorsRemainUncertain" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-10-16 20:22:32Z" end-time="2026-10-16 20:22:32Z" duration="0.003035" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1007" name="UnconfirmedReferenceErrorsRemainUncertain(&quot;INVALID_JSON&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain(&quot;INVALID_JSON&quot;)" methodname="UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="2093812036" result="Passed" start-time="2026-10-16 20:22:32Z" end-time="2026-10-16 20:22:32Z" duration="0.000431" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1008" name="UnconfirmedReferenceErrorsRemainUncertain(&quot;UNKNOWN_NATIVE_CODE&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain(&quot;UNKNOWN_NATIVE_CODE&quot;)" methodname="UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1855744090" result="Passed" start-time="2026-10-16 20:22:32Z" end-time="2026-10-16 20:22:32Z" duration="0.000169" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1009" name="UnconfirmedReferenceErrorsRemainUncertain(&quot;CANCELLED&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain(&quot;CANCELLED&quot;)" methodname="UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="935647503" result="Passed" start-time="2026-10-16 20:22:32Z" end-time="2026-10-16 20:22:32Z" duration="0.000101" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-case id="1013" name="UsbBootstrapPairsAndReconnectsOverLoopbackWithActualMesh" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UsbBootstrapPairsAndReconnectsOverLoopbackWithActualMesh" methodname="UsbBootstrapPairsAndReconnectsOverLoopbackWithActualMesh" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1759961355" result="Passed" start-time="2026-10-16 20:22:32Z" end-time="2026-10-16 20:22:32Z" duration="0.159322" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1016" name="Version2SavedEndpointReconnectsWhenOnlyAForeignPcAnswersDiscovery" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.Version2SavedEndpointReconnectsWhenOnlyAForeignPcAnswersDiscovery" methodname="Version2SavedEndpointReconnectsWhenOnlyAForeignPcAnswersDiscovery" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="195067544" result="Passed" start-time="2026-10-16 20:22:32Z" end-time="2026-10-16 20:22:33Z" duration="1.376597" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+Saving results to: C:\Users\matte\Documents\Codex-tools\Native\quest-autoconnect-parent-20261016\editor-v2-fallback.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

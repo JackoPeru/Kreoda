@@ -1,0 +1,61 @@
+{
+  "isolated": true,
+  "responses": [
+    {
+      "requestId": "isolated-0",
+      "status": "ok",
+      "result": null
+    },
+    {
+      "requestId": "isolated-1",
+      "status": "ok",
+      "result": null
+    },
+    {
+      "requestId": "isolated-2",
+      "status": "ok",
+      "result": null
+    },
+    {
+      "requestId": "isolated-3",
+      "status": "ok",
+      "result": {
+        "checks": [
+          {
+            "code": "datum-definition-valid",
+            "detail": "proof-plane",
+            "ok": true
+          },
+          {
+            "code": "sketch-support-is-datum-plane",
+            "detail": "proof-sketch -> proof-plane",
+            "ok": true
+          },
+          {
+            "code": "sketch-points-finite",
+            "detail": "proof-sketch",
+            "ok": true
+          }
+        ],
+        "scope": "kernel",
+        "valid": true
+      }
+    },
+    {
+      "requestId": "isolated-4",
+      "status": "ok",
+      "result": {
+        "checks": [
+          {
+            "id": "proof-plane",
+            "kind": "datumPlane",
+            "ok": true,
+            "owner": "proof-plane"
+          }
+        ],
+        "scope": "kernel-references",
+        "valid": true
+      }
+    }
+  ]
+}

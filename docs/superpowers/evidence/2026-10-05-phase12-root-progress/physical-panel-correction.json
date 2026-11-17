@@ -1,0 +1,98 @@
+{
+  "change": "Physical Quest panel UX correction; hardware retest pending",
+  "baseHead": "f23473cc9166951e8fac41b3b8cddc24793d6630",
+  "actualUserObservation": "Panel text overlapped, panel small/cramped and low, grabbing did not move it. No authenticated CAD client observed.",
+  "tests": {
+    "meaningfulBaselineRed": {
+      "directory": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-panel-final-red-20261010",
+      "total": 19,
+      "passed": 15,
+      "failed": 4,
+      "fontFailure": "PC rendered width0.1157m exceeds padded target0.0665m"
+    },
+    "recoveryRed": {
+      "directory": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-panel-recovery-red-20261010",
+      "total": 22,
+      "passed": 19,
+      "failed": 3
+    },
+    "finalGreen": {
+      "directory": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\QA\\phase12-root-panel-recovery-green-20261010",
+      "total": 22,
+      "passed": 22,
+      "failed": 0,
+      "directExitCode": 0
+    }
+  },
+  "build": {
+    "startedAt": "2026-10-10T13:59:43.223Z",
+    "unity": "C:\\Users\\matte\\Documents\\Codex-tools\\Unity\\Editors\\6000.3.25f1\\Editor\\Unity.exe",
+    "sdk": "C:\\Users\\matte\\AppData\\Local\\Android\\Sdk",
+    "directExitCode": 0,
+    "elapsedSeconds": 73.838,
+    "sourceChangedDuringBuild": [],
+    "sourceManifestSha256": "8d1e1c950c02cba7b01b92369b499d432a67c74eb4aceab5c9abced83c34d4e4",
+    "logSha256": "5e214edf4b3fe0ea5f4a490d6059fe34ef0044df5feef44edfd23a4db39690ec",
+    "apkSha256": "0c388f590547dcbaa7bdbf8e919ea6706736cda3909f08972dc06d77fc3bd695",
+    "packageLockSha256": "ed2ce3a308998dada1e55e96b9e66a173322c531c55a9aed3d055f1559a413b0",
+    "managedManifestSha256": "70479bf9eb239d25bf8f923eb7b5cd7560fb4b22140e8ca06bf7d824a56b43b6",
+    "status": "BUILD_SUCCEEDED_HARDWARE_UNTESTED",
+    "finishedAt": "2026-10-10T14:01:04.447Z"
+  },
+  "buildReport": {
+    "result": "Succeeded",
+    "output": "C:/Users/matte/Documents/Codex-tools/Unity/QA/phase12-root-mr-panel-recovery-fixed-20261010/KreodaQuest.apk",
+    "totalBytes": 777113014,
+    "seconds": 56.9286355,
+    "errors": 0,
+    "warnings": 6
+  },
+  "apkBytes": 36115266,
+  "packagingChecks": {
+    "abi": "arm64-v8a",
+    "permissions": [
+      "android.permission.INTERNET",
+      "com.oculus.permission.HAND_TRACKING"
+    ],
+    "operatorOrMediaProjectionZipEntries": []
+  },
+  "review01": {
+    "thread": "01a12618-af25-7cd3-a1bd-6b932804c4f5",
+    "actualModel": "gpt-6-sol",
+    "actualEffort": "high",
+    "verdict": "FIX-FIRST",
+    "finding": "Recenter reused savedoffset; could leave moved panel unreachable.",
+    "postBuildStableFiles": 761,
+    "postBuildStableManifestSHA": "0474b4c0e316b8eab5eecdcc0a26e86b105f31a1f7e5dcd287e43dca3aa483b5",
+    "boundary": "Original snapshot taken during SDK build captured transient files, not a full review freeze. Stable post-build portion unchanged."
+  },
+  "review02": {
+    "thread": "01a1261d-3bee-7b32-9fcc-863d4e153e71",
+    "actualModel": "gpt-6-sol",
+    "actualEffort": "high",
+    "verdict": "SHIP",
+    "sandbox": "danger-full-access",
+    "permissionProfile": "disabled",
+    "readOnlyEnforced": false,
+    "files": 761,
+    "beforeAfterUnchanged": true,
+    "sourceManifestSHA": "257d628749bf22632ec9e217fcfad85502bbf269ff14d64bfe4428a169c788eb"
+  },
+  "hardware": {
+    "correctedApkInstalled": "Success",
+    "package": "com.kreoda.quest",
+    "launchedPid": 23484,
+    "screenshotOrCameraCapture": false,
+    "uiRetest": "Pending user",
+    "authenticatedCad": "Not yet observed",
+    "remainingAcceptance": "MR walk/placement/scales/selection/sharedtarget/Desktopedit/incrementalupdate/reconnect/performance"
+  },
+  "hosted": {
+    "previousExactHead": "f23473cc9166951e8fac41b3b8cddc24793d6630",
+    "runId": 38054976809,
+    "conclusion": "success",
+    "url": "https://github.com/JackoPeru/Kreoda/actions/runs/38054976809",
+    "correctedUiHead": "Pending commit/push/new run"
+  },
+  "remaining": "Phase12 physical acceptance and new exact hosted source gate; full Phases13-16."
+}

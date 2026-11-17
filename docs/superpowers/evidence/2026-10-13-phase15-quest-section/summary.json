@@ -1,0 +1,69 @@
+{
+  "scope": "Phase15.5 Quest section software candidate",
+  "accepted": false,
+  "base": "8f22b59b04a86c50a054026934b8e4bf59562cf1",
+  "workerThread": "01a13593-9fb3-7fd2-9459-ad6c5fa9056c",
+  "editorWorker": {
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0
+  },
+  "editorParent": {
+    "passed": 55,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0
+  },
+  "managedParent": {
+    "total": 238,
+    "sessionClient": 140,
+    "modelingAgent": 33,
+    "hermesBridge": 32,
+    "benchmark": 33,
+    "failed": 0,
+    "notExecuted": 0
+  },
+  "actualNetstandardParent": {
+    "passed": 140,
+    "failed": 0
+  },
+  "arm64": {
+    "path": "C:/Users/matte/Documents/Codex-tools/Unity/QA/phase15-quest-pending-undo-final-arm64-20261013/KreodaQuest.apk",
+    "sha256": "9a79bbd7ffab43f7dd10f959d3c006b4d16224b0995bf245274c0ef92a2876f7",
+    "bytes": 43173273,
+    "directExitCode": 0,
+    "errors": 0,
+    "warnings": 2,
+    "sourceCount": 916,
+    "sourceChangedDuringBuild": [],
+    "currentSnapshotMatchedBeforeEvidenceUpdate": true
+  },
+  "meta": {
+    "warningRequiredCount": 1,
+    "warningRecommendedCount": 13,
+    "identityUnresolved": true,
+    "ignoredOrSuppressed": false
+  },
+  "physical": {
+    "installed": false,
+    "handsVoiceComfortUntested": true
+  },
+  "review": {
+    "verdict": "unavailable",
+    "thread": "01a13612-7e8e-7200-b842-8e6b6e06299b",
+    "reason": "account usage limit",
+    "independentShip": false
+  },
+  "scene": {
+    "hash": "88a296ba24c9ade73cb4a7a8faa6b0cf17cf91edb2e55cc2e6352838df400179",
+    "restoredByteExact": false,
+    "newBuildFromCorrectAuthoredScene": true,
+    "parentGeneratedBackup": "C:/Users/matte/Documents/Codex-tools/Unity/QA/phase15-parent-full-editmode-generated-20261013.unity"
+  },
+  "pendingUndoRegression": {
+    "redPassed": 1,
+    "redFailed": 1,
+    "fix": "retain observed views while canonical bodies or pending mesh exist",
+    "greenAllPassed": 55
+  }
+}

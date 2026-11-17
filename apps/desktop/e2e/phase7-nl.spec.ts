@@ -2,28 +2,16 @@
 // "box 100 60 10" → plate; "holes 6 4 corners 8" → four editable holes;
 // gibberish without a provider → honest message; "view front" moves camera.
 
-import { test, expect, _electron as electron } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import path from "node:path";
-import { HERE, MAIN, openProject, type Snapshot } from "./helpers";
+import os from "node:os";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { boot, openProject, type Snapshot } from "./helpers";
 
 test("command bar: plate, corner holes, views, honest fallback", async () => {
-  const app = await electron.launch({
-    args: [MAIN, "--no-sandbox", "--lang=en-US"],
-  });
+  const profile = mkdtempSync(path.join(os.tmpdir(), "kreoda-phase7-hermes-"));
+  const { app, window } = await boot({ KREODA_BACKGROUND_TEST: "1", KREODA_VOICE_BRIDGE_TOKEN: "", KREODA_VOICE_CONFIG: "" }, [`--user-data-dir=${profile}`]);
   try {
-    const window = await app.firstWindow({ timeout: 30000 });
-    await window.waitForLoadState("domcontentloaded");
-    await window.getByTestId("home-new-project").click();
-    await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
-      timeout: 20000,
-    });
-    await window.evaluate(() => localStorage.clear());
-    await window.reload();
-    await window.waitForLoadState("domcontentloaded");
-    await window.getByTestId("home-new-project").click();
-    await expect(window.getByText(/core 0\.1\.0/)).toBeVisible({
-      timeout: 20000,
-    });
 
     const snap = (): Promise<Snapshot> =>
       window.evaluate(() =>
@@ -68,10 +56,10 @@ test("command bar: plate, corner holes, views, honest fallback", async () => {
       expect(h.volumeMm3).toBeCloseTo(100 * 60 * 10 - 4 * Math.PI * 9 * 10, 0);
     }
 
-    // 3. Genuine prose without a provider: honest offline message.
+    // 3. Genuine prose without configured Hermes: honest offline message.
     await input.fill("make me a bracket with four holes");
     await input.press("Enter");
-    await expect(window.getByText(/No language model configured/)).toBeVisible({
+    await expect(window.getByText(/Hermes is unavailable or not configured/)).toBeVisible({
       timeout: 5000,
     });
 
@@ -88,7 +76,14 @@ test("command bar: plate, corner holes, views, honest fallback", async () => {
     )) as [number, number, number];
     expect(dir[1]).toBeGreaterThan(0.99);
 
-    await window.screenshot({ path: path.join(HERE, "phase7-nl.png") });
+    const capture = await app.evaluate(async ({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0]!;
+      const image = await window.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true });
+      return { png: image.toPNG().toString("base64"), empty: image.isEmpty(), hidden: !window.isVisible() };
+    });
+    expect(capture.empty).toBe(false);
+    expect(capture.hidden).toBe(true);
+    writeFileSync(path.join(profile, "phase7-nl.png"), Buffer.from(capture.png, "base64"));
   } finally {
     await app.close();
   }

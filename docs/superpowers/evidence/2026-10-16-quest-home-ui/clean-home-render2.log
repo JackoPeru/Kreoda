@@ -1,0 +1,369 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+Built from '6000.3/staging' branch; Version is '6000.3.25f1 (e1dba0a9aba4) revision 14801824'; Using compiler version '194234433'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26300) Professional' Language: 'it' Physical Memory: 32687 MB
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-matte" at "2026-10-18T11:58:24.3930235Z"
+System  architecture: x64
+Process architecture: x64
+Date: 2026-10-18T11:58:24Z
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 25136, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.3+d7ffd15
+  Session Id:              42c33f032b694022976fc510aa19b828
+  Correlation Id:          248282ed82810d696dc93793e0e99260
+  External correlation Id: 880393938802126718
+  Machine Id:              UJeBzVoWvLTi6eZmP1FoENfR3bM=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-matte" (connect: 0.00s, validation: 0.00s, handshake: 0.03s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-matte-notifications" at "2026-10-18T11:58:24.426967Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: 6872221594357-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.00
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Licensing Background thread has ended after 0.04s
+
+COMMAND LINE ARGUMENTS:
+C:\Users\matte\Documents\Codex-tools\Unity\Editors\6000.3.25f1\Editor\Unity.exe
+-batchmode
+-buildTarget
+Android
+-projectPath
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity
+-executeMethod
+Kreoda.QuestEditor.QuestHomeRender.Capture
+-quit
+-logFile
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\docs\superpowers\evidence\2026-10-16-quest-home-ui\clean-home-render2.log
+Successfully changed project path to: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity
+C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-gfx=262144"
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-remapper-allocator-initial-capacity=32768"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+Player connection [20956]  Target information:
+
+Player connection [20956]  * "[IP] 192.168.1.7 [Port] 55504 [Flags] 2 [Guid] 691078842 [EditorId] 691078842 [Version] 1048832 [Id] WindowsEditor(7,PC-Matteo) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [20956]  * "[IP] 100.105.46.6 [Port] 55504 [Flags] 2 [Guid] 691078842 [EditorId] 691078842 [Version] 1048832 [Id] WindowsEditor(7,PC-Matteo) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [20956] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [20956] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-19664" after 0.2 seconds.
+[Licensing::Client] Successfully resolved entitlement details
+Library Redirect Path: Library/
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+Artifact Garbage Collection - Removed 1 unused hashed content files
+[Licensing::Client] Successfully resolved entitlement details
+Targeting platform: Android
+Refreshing native plugins compatible for Editor in 3.37 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.3.25f1 (e1dba0a9aba4)
+[Subsystems] Discovering subsystems at path C:/Users/matte/Documents/Codex-tools/Unity/Editors/6000.3.25f1/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity/Assets
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+d3d12: failed to query info queue interface (0x80004002).
+Direct3D:
+    Version:         Direct3D 12 [level 12.2]
+    Renderer:        NVIDIA GeForce RTX 2070 (ID=0x1f02)
+    Vendor:          NVIDIA
+    VRAM:            8006 MB
+    App VRAM Budget: 7238 MB
+    Driver:          32.0.16.1714
+Initialize mono
+Mono path[0] = 'C:/Users/matte/Documents/Codex-tools/Unity/Editors/6000.3.25f1/Editor/Data/Managed'
+Mono path[1] = 'C:/Users/matte/Documents/Codex-tools/Unity/Editors/6000.3.25f1/Editor/Data/MonoBleedingEdge/lib/mono/unityjit-win32'
+Mono config path = 'C:/Users/matte/Documents/Codex-tools/Unity/Editors/6000.3.25f1/Editor/Data/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56664
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: C:/Users/matte/Documents/Codex-tools/Unity/Editors/6000.3.25f1/Editor/Data/PlaybackEngines/WindowsStandaloneSupport/UnityEditor.WindowsStandalone.Extensions.dll
+Register platform support module: C:/Users/matte/Documents/Codex-tools/Unity/Editors/6000.3.25f1/Editor/Data/PlaybackEngines/AndroidPlayer/UnityEditor.Android.Extensions.dll
+Registered in 0.004141 seconds.
+- Loaded All Assemblies, in  0.439 seconds
+Native extension for Android target not found
+Native extension for WindowsStandalone target not found
+Package Manager log level set to [2]
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:False
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.423 seconds
+Domain Reload Profiling: 857ms
+	BeginReloadAssembly (150ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (9ms)
+	RebuildCommonClasses (38ms)
+	RebuildNativeTypeToScriptingClass (12ms)
+	initialDomainReloadingComplete (56ms)
+	LoadAllAssembliesAndSetupDomain (178ms)
+		LoadAssemblies (136ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (174ms)
+			TypeCache.Refresh (172ms)
+				TypeCache.ScanAssembly (159ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (1ms)
+	FinalizeReload (424ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (382ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (65ms)
+			SetLoadedEditorAssemblies (4ms)
+			BeforeProcessingInitializeOnLoad (88ms)
+			ProcessInitializeOnLoadAttributes (145ms)
+			ProcessInitializeOnLoadMethodAttributes (80ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 28 packages:
+  Packages from [https://npm.developer.oculus.com]:
+    com.meta.xr.sdk.core@207.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.meta.xr.sdk.core@b92212c4ff85)
+  Packages from [https://packages.unity.com]:
+    com.unity.inputsystem@1.20.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.inputsystem@7a4e1a2a8194)
+    com.unity.xr.openxr@1.18.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.xr.openxr@b5b77b4027be)
+    com.unity.xr.core-utils@2.6.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.xr.core-utils@a8b900321199)
+    com.unity.xr.management@4.6.1 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.xr.management@df145a5bc89e)
+    com.unity.xr.legacyinputhelpers@2.1.13 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.xr.legacyinputhelpers@9535ff2c27ac)
+    com.unity.xr.hands@1.7.3 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.xr.hands@3e241be20642)
+    com.unity.mathematics@1.3.3 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.mathematics@19a9377c4ffa)
+  Built-in packages:
+    com.unity.test-framework@1.6.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.test-framework@bd7f943e9647)
+    com.unity.ugui@2.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.ugui@f3ea87521141)
+    com.unity.modules.physics@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.physics2d)
+    com.unity.modules.animation@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.assetbundle)
+    com.unity.modules.xr@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.xr)
+    com.unity.modules.androidjni@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.androidjni)
+    com.unity.modules.ui@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.ui)
+    com.unity.modules.imgui@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.imgui)
+    com.unity.ext.nunit@2.0.5 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.ext.nunit@d8c07649098d)
+    com.unity.modules.jsonserialize@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.jsonserialize)
+    com.unity.modules.uielements@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.uielements)
+    com.unity.modules.audio@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.audio)
+    com.unity.modules.imageconversion@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.imageconversion)
+    com.unity.modules.unitywebrequest@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.vr@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.vr)
+    com.unity.modules.subsystems@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.modules.hierarchycore)
+[Subsystems] Looking for new subsystems at path C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.xr.openxr@b5b77b4027be
+[Subsystems] Novel subsystem found at Library/PackageCache/com.unity.xr.openxr@b5b77b4027be/Runtime/UnitySubsystemsManifest.json
+[Subsystems] Discovering subsystems at path C:/Users/matte/Documents/Codex-tools/Unity/Editors/6000.3.25f1/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity/Assets
+[Subsystems] Discovering subsystems at path C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Library\PackageCache\com.unity.xr.openxr@b5b77b4027be
+[Subsystems] No descriptors matched for  examples in Library/PackageCache/com.unity.xr.openxr@b5b77b4027be/Runtime/UnitySubsystemsManifest.json.
+[Subsystems] 1 'inputs' descriptors matched in Library/PackageCache/com.unity.xr.openxr@b5b77b4027be/Runtime/UnitySubsystemsManifest.json
+[Subsystems] 1 'displays' descriptors matched in Library/PackageCache/com.unity.xr.openxr@b5b77b4027be/Runtime/UnitySubsystemsManifest.json
+[Subsystems] No descriptors matched for  meshings in Library/PackageCache/com.unity.xr.openxr@b5b77b4027be/Runtime/UnitySubsystemsManifest.json.
+[Package Manager] Done registering packages in 0.01 seconds
+[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files
+Starting: C:\Users\matte\Documents\Codex-tools\Unity\Editors\6000.3.25f1\Editor\Data\Tools\BuildPipeline\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1300b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity
+DisplayProgressbar: Compiling Scripts
+ExitCode: 0 Duration: 1s365ms
+[910/919    0s] Csc Library/Bee/artifacts/1300b0aE.dag/Kreoda.QuestRuntime.dll (+2 others)
+[911/919    0s] CopyFiles Library/ScriptAssemblies/Kreoda.QuestRuntime.pdb
+[912/919    0s] CopyFiles Library/ScriptAssemblies/Kreoda.QuestRuntime.dll
+[913/919    0s] Csc Library/Bee/artifacts/1300b0aE.dag/Kreoda.QuestEditor.dll (+2 others)
+Assets\Kreoda\Editor\QuestBuild.cs(54,13): warning CS0618: 'OVRProjectConfig.focusAware' is obsolete: 'Focus awareness is now required. The option will be deprecated.'
+[914/919    0s] CopyFiles Library/ScriptAssemblies/Kreoda.QuestEditor.pdb
+[915/919    0s] CopyFiles Library/ScriptAssemblies/Kreoda.QuestEditor.dll
+[916/919    0s] Csc Library/Bee/artifacts/1300b0aE.dag/Kreoda.QuestRuntime.Tests.dll (+2 others)
+[917/919    0s] CopyFiles Library/ScriptAssemblies/Kreoda.QuestRuntime.Tests.pdb
+[918/919    0s] CopyFiles Library/ScriptAssemblies/Kreoda.QuestRuntime.Tests.dll
+*** Tundra build success (1.33 seconds), 9 items updated, 919 evaluated
+Assets\Kreoda\Editor\QuestBuild.cs(54,13): warning CS0618: 'OVRProjectConfig.focusAware' is obsolete: 'Focus awareness is now required. The option will be deprecated.'
+AssetDatabase: script compilation time: 1.822520s
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in  1.391 seconds
+'Packages/com.meta.xr.sdk.core/Editor/BuildingBlocks/BlocksWindowDetailsExtension.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+'Packages/com.meta.xr.sdk.core/Editor/RuntimeOptimizer/RuntimeOptimizerNetworking.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+'Packages/com.meta.xr.sdk.core/Editor/RuntimeOptimizer/RuntimeOptimizer.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+'Packages/com.meta.xr.sdk.core/Editor/BuildingBlocks/BlocksWindow.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+'Packages/com.meta.xr.sdk.core/Editor/BuildingBlocks/BlocksWindowCollectionsPageExtension.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+'Packages/com.meta.xr.sdk.core/Editor/RuntimeOptimizer/RuntimeOptimizerStyles.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+Refreshing native plugins compatible for Editor in 10.14 ms, found 10 plugins.
+Native extension for Android target not found
+Native extension for WindowsStandalone target not found
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.943 seconds
+Domain Reload Profiling: 2321ms
+	BeginReloadAssembly (335ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (25ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (152ms)
+	RebuildCommonClasses (36ms)
+	RebuildNativeTypeToScriptingClass (12ms)
+	initialDomainReloadingComplete (33ms)
+	LoadAllAssembliesAndSetupDomain (962ms)
+		LoadAssemblies (938ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (131ms)
+			TypeCache.Refresh (89ms)
+				TypeCache.ScanAssembly (80ms)
+			BuildScriptInfoCaches (33ms)
+			ResolveRequiredComponents (6ms)
+	FinalizeReload (943ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (805ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (33ms)
+			SetLoadedEditorAssemblies (5ms)
+			BeforeProcessingInitializeOnLoad (198ms)
+			ProcessInitializeOnLoadAttributes (423ms)
+			ProcessInitializeOnLoadMethodAttributes (133ms)
+			AfterProcessingInitializeOnLoad (12ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (19ms)
+IPCStream (Upm-19664): IPC stream failed to read (Not connected)
+Refreshing native plugins compatible for Editor in 10.25 ms, found 10 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=11138e3583dd3584697678a0a50eece3): Total: 5.350 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=1344 ms
+		Asset DB Callback time: managed=691 ms, native=33 ms
+		Scripting: domain reloads=1, domain reload time=1391 ms, compile time=1824 ms, other=65 ms
+		Project Asset Count: scripts=1048, non-scripts=1070
+		Asset File Changes: new=0, changed=1, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.002ms
+	InvokePackagesCallback: 18.208ms
+	ApplyChangesToAssetFolders: 0.539ms
+	Scan: 125.622ms
+	OnSourceAssetsModified: 1.190ms
+	CategorizeAssetsWithTransientArtifact: 33.586ms
+	ProcessAssetsWithTransientArtifactChanges: 44.547ms
+	CategorizeAssets: 15.191ms
+	ImportOutOfDateAssets: 972.161ms (-852.745ms without children)
+		CompileScripts: 1824.186ms
+		ReloadNativeAssets: 0.004ms
+		UnloadImportedAssets: 0.139ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.333ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.242ms
+	PostProcessAllAssets: 694.459ms
+	Hotreload: 13.614ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.004ms
+	UnloadStreamsBegin: 1.024ms
+	PersistCurrentRevisions: 0.060ms
+	UnloadStreamsEnd: 0.001ms
+	GenerateScriptTypeHashes: 2.425ms
+	Untracked: 3429.531ms
+
+Application.AssetDatabase Initial Refresh End
+Shader 'Oculus/OVRMRCameraFrameLit': fallback shader 'Alpha-Diffuse' not found
+Launched and connected shader compiler UnityShaderCompiler.exe after 0.01 seconds
+Shader 'Oculus/OVRMRCameraFrameLit': fallback shader 'Alpha-Diffuse' not found
+Scanning for USB devices : 10.409ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-Kreoda Quest
+Unloading 128 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 3236 unused Assets / (14.8 MB). Loaded Objects now: 4426.
+Memory consumption went from 168.6 MB to 153.8 MB.
+Total: 13.790600 ms (FindLiveObjects: 0.347200 ms CreateObjectMapping: 0.244900 ms MarkObjects: 10.112200 ms  DeleteObjects: 3.085400 ms)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (2.2 KB). Loaded Objects now: 4428.
+Memory consumption went from 138.4 MB to 138.4 MB.
+Total: 9.280200 ms (FindLiveObjects: 0.142500 ms CreateObjectMapping: 0.086700 ms MarkObjects: 9.045100 ms  DeleteObjects: 0.005400 ms)
+
+Destroy may not be called from edit mode! Use DestroyImmediate instead.
+Destroying an object in edit mode destroys it permanently.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.Object:Destroy (UnityEngine.Object,single)
+UnityEngine.Object:Destroy (UnityEngine.Object)
+Kreoda.QuestRuntime.QuestControls:PointerSphere (string,single,UnityEngine.Material,UnityEngine.MeshRenderer&) (at Assets/Kreoda/Runtime/QuestControls.cs:380)
+Kreoda.QuestRuntime.QuestControls:Start () (at Assets/Kreoda/Runtime/QuestControls.cs:360)
+System.Reflection.RuntimeMethodInfo:Invoke (object,System.Reflection.BindingFlags,System.Reflection.Binder,object[],System.Globalization.CultureInfo)
+System.Reflection.MethodBase:Invoke (object,object[])
+Kreoda.QuestEditor.QuestHomeRender:Capture () (at Assets/Kreoda/Editor/QuestHomeRender.cs:38)
+
+[Assets/Kreoda/Runtime/QuestControls.cs line 360]
+
+Destroy may not be called from edit mode! Use DestroyImmediate instead.
+Destroying an object in edit mode destroys it permanently.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.Object:Destroy (UnityEngine.Object,single)
+UnityEngine.Object:Destroy (UnityEngine.Object)
+Kreoda.QuestRuntime.QuestControls:PointerSphere (string,single,UnityEngine.Material,UnityEngine.MeshRenderer&) (at Assets/Kreoda/Runtime/QuestControls.cs:380)
+Kreoda.QuestRuntime.QuestControls:Start () (at Assets/Kreoda/Runtime/QuestControls.cs:361)
+System.Reflection.RuntimeMethodInfo:Invoke (object,System.Reflection.BindingFlags,System.Reflection.Binder,object[],System.Globalization.CultureInfo)
+System.Reflection.MethodBase:Invoke (object,object[])
+Kreoda.QuestEditor.QuestHomeRender:Capture () (at Assets/Kreoda/Editor/QuestHomeRender.cs:38)
+
+[Assets/Kreoda/Runtime/QuestControls.cs line 361]
+
+Unloading 5 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 4 unused Assets / (15.6 KB). Loaded Objects now: 4432.
+Memory consumption went from 141.7 MB to 141.7 MB.
+Total: 9.787400 ms (FindLiveObjects: 0.185600 ms CreateObjectMapping: 0.105400 ms MarkObjects: 9.476500 ms  DeleteObjects: 0.019300 ms)
+

@@ -1,0 +1,52 @@
+[
+  {
+    "file": "verify.ps1",
+    "originalSha256": "b3acb1e4fb1ad086106396807c8d638f9e34f9b79a67b864c04e52787bc618c2",
+    "archiveSha256": "b3acb1e4fb1ad086106396807c8d638f9e34f9b79a67b864c04e52787bc618c2"
+  },
+  {
+    "file": "build.log",
+    "originalSha256": "d0a152626786a7e2e080869a4ffa8c67b4b97a990d780fec6a31ba58322aa1dd",
+    "archiveSha256": "2632abc32a9f92a2022055e54b543f014d17bdfd80bec59b8066806162efdf13"
+  },
+  {
+    "file": "unit.log",
+    "originalSha256": "8ea172281d71ecc01505e58cbca9b302a7536f4ba5fdda37ae0b6fb2a6095d52",
+    "archiveSha256": "d7120c0f5112c0e21aa169e37e92440bd2caf3eb881fec0f67798547840d9380"
+  },
+  {
+    "file": "unit.xml",
+    "originalSha256": "c01eb063569afe449cb8272806ea2ec50fd79560a012d9f8d7c2c869866fdb59",
+    "archiveSha256": "c01eb063569afe449cb8272806ea2ec50fd79560a012d9f8d7c2c869866fdb59"
+  },
+  {
+    "file": "e2e.log",
+    "originalSha256": "cc929b440e3d3e3a7e18ad772d18510e51e112009ad076ddbc7eda651df80cc1",
+    "archiveSha256": "1dc4185e73eed56988661ad8c0a8986fa596d0657316a46e057875c77617d87a"
+  },
+  {
+    "file": "e2e-corrected.log",
+    "originalSha256": "10f1be904877c0e0d81c8a5769a17a50c06b3d5256ffd016a1b81fa1bab68e2c",
+    "archiveSha256": "1743179b064b2f3fc8fc672e99facdbf9bafaaf002da5c6b6ac5263c5ce65ff8"
+  },
+  {
+    "file": "e2e.xml",
+    "originalSha256": "f187ac36dc4f8c4821251a4300bccdaafa9f20de9f0ca7b63a95ac1dbca607f9",
+    "archiveSha256": "96056a907daf81906d7ca829e1b942c40b52599d24590b6448f41f077af96e3f"
+  },
+  {
+    "file": "source-before.json",
+    "originalSha256": "415ef28bb39b1e54187f43fff0e001af1b804393ca48c574b4aefce09a8cc3dd",
+    "archiveSha256": "3e21773a088a6774204287eb3b24dbb3ccbbe04e92ea540eab391a055376820b"
+  },
+  {
+    "file": "source-after.json",
+    "originalSha256": "415ef28bb39b1e54187f43fff0e001af1b804393ca48c574b4aefce09a8cc3dd",
+    "archiveSha256": "3e21773a088a6774204287eb3b24dbb3ccbbe04e92ea540eab391a055376820b"
+  },
+  {
+    "file": "summary.json",
+    "originalSha256": "03a34cab2476d2becde0ec628f0b0b7287ab9e542275d43eb4898d8e846f705c",
+    "archiveSha256": "8e233b236597af2f4cbf218f5f3a97beec7620c7bd2b8a2441469c5370424942"
+  }
+]

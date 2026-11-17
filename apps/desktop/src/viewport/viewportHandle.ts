@@ -1,11 +1,36 @@
 // Test/E2E bridge to the imperative viewport (no React state involved).
 // Registered on mount; null when unmounted.
 
+import type { SectionPlane } from "../section/plane";
+
 export interface FaceAnchor {
   x: number;
   y: number;
   nx: number;
   ny: number;
+  /** Native outward world-space normal at the selected point. */
+  normal: [number, number, number];
+  /** World-space point used to derive the screen anchor. */
+  point: [number, number, number];
+}
+
+export interface SectionGeometryDiagnostics {
+  capTriangleCount: number;
+  capAreaMm2: number;
+  capCoversSample: boolean;
+  rayCandidates: number;
+  frontSideWallHits: number;
+  frontSideUnoccludedWallHits: number;
+  doubleSideWallHits: number;
+  capOccludesDoubleSideWallHits: number;
+  productionWallHits: number;
+  nativeMaterialSides: string[];
+  nativeFace: {
+    persistentFaceId: string;
+    triangleCount: number;
+    zBoundsMm: [number, number];
+    windingOpposedTriangles: number;
+  } | null;
 }
 
 export type ViewName = "top" | "front" | "right" | "iso" | "bottom" | "back" | "left";
@@ -17,10 +42,32 @@ export interface ViewportRenderStats {
   triangles: number;
   geometries: number;
   textures: number;
+  section: {
+    enabled: boolean;
+    plane: SectionPlane | null;
+    cappedBodies: number;
+    contourSegments: number;
+  };
+}
+
+export interface SurfacePointPick {
+  featureId: string;
+  persistentFaceId: string;
+  pointMm: [number, number, number];
+}
+
+export interface SurfaceEdgePick {
+  featureId: string;
+  persistentEdgeId: string;
 }
 
 interface ViewportHandle {
   faceScreenPoint: (featureId: string, role: string) => FaceAnchor | null;
+  sectionGeometryDiagnostics: (
+    featureId: string,
+    samplePointMm: [number, number, number],
+    faceRole: string,
+  ) => SectionGeometryDiagnostics | null;
   setView: (name: ViewName) => void;
   /** World mm → viewport-element px (DOM overlay space); null if behind. */
   projectPoint: (p: [number, number, number]) => { x: number; y: number } | null;
@@ -29,8 +76,16 @@ interface ViewportHandle {
   /** Next two clicks on a reference plane as image pixels (§29 Stage A). */
   beginReferenceMeasure: (id: string) => Promise<[number, number][] | null>;
   cancelReferenceMeasure: () => void;
+  beginSurfacePointPick: (targetId: string) => Promise<SurfacePointPick | null>;
+  beginSurfaceEdgePick: (targetId: string) => Promise<SurfaceEdgePick | null>;
+  cancelSurfacePick: () => void;
+  isSurfacePickPending: () => boolean;
+  setSurfacePointMarker: (pointMm: [number, number, number] | null) => void;
+  setSurfaceEdgeHighlight: (persistentEdgeId: string | null) => void;
   renderStats: () => ViewportRenderStats | null;
   meshIdentity: (featureId: string) => { geometryId: string; revision: number } | null;
+  sketchProjectionSummary: (featureId: string) => { lineCount: number; pointsMm: [number, number, number][] } | null;
+  sharedTargetSummary: () => { ids: string[]; faceGroups: number; edgeSegments: number } | null;
 }
 
 let handle: ViewportHandle | null = null;
@@ -44,6 +99,14 @@ export function faceScreenPoint(
   role: string,
 ): FaceAnchor | null {
   return handle?.faceScreenPoint(featureId, role) ?? null;
+}
+
+export function viewportSectionGeometryDiagnostics(
+  featureId: string,
+  samplePointMm: [number, number, number],
+  faceRole: string,
+): SectionGeometryDiagnostics | null {
+  return handle?.sectionGeometryDiagnostics(featureId, samplePointMm, faceRole) ?? null;
 }
 
 export function viewportSetView(name: ViewName): boolean {
@@ -73,10 +136,42 @@ export function viewportCancelReferenceMeasure(): void {
   handle?.cancelReferenceMeasure();
 }
 
+export function viewportBeginSurfacePointPick(targetId: string): Promise<SurfacePointPick | null> {
+  return handle?.beginSurfacePointPick(targetId) ?? Promise.resolve(null);
+}
+
+export function viewportBeginSurfaceEdgePick(targetId: string): Promise<SurfaceEdgePick | null> {
+  return handle?.beginSurfaceEdgePick(targetId) ?? Promise.resolve(null);
+}
+
+export function viewportCancelSurfacePick(): void {
+  handle?.cancelSurfacePick();
+}
+
+export function viewportIsSurfacePickPending(): boolean {
+  return handle?.isSurfacePickPending() ?? false;
+}
+
+export function viewportSetSurfacePointMarker(pointMm: [number, number, number] | null): void {
+  handle?.setSurfacePointMarker(pointMm);
+}
+
+export function viewportSetSurfaceEdgeHighlight(persistentEdgeId: string | null): void {
+  handle?.setSurfaceEdgeHighlight(persistentEdgeId);
+}
+
 export function viewportRenderStats(): ViewportRenderStats | null {
   return handle?.renderStats() ?? null;
 }
 
 export function viewportMeshIdentity(featureId: string): { geometryId: string; revision: number } | null {
   return handle?.meshIdentity(featureId) ?? null;
+}
+
+export function viewportSketchProjectionSummary(featureId: string): { lineCount: number; pointsMm: [number, number, number][] } | null {
+  return handle?.sketchProjectionSummary(featureId) ?? null;
+}
+
+export function viewportSharedTargetSummary(): { ids: string[]; faceGroups: number; edgeSegments: number } | null {
+  return handle?.sharedTargetSummary() ?? null;
 }

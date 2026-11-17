@@ -83,6 +83,13 @@ describe("local command parser (§57)", () => {
     expect(planOf("chamfer 2").steps[0]).toMatchObject({
       command: "CreateChamfer",
     });
+    expect(planOf("svuota 2").steps).toEqual([
+      { command: "CreateShell", params: { thicknessMm: 2 } },
+    ]);
+    expect(planOf("shell 2.5").steps[0]).toMatchObject({
+      command: "CreateShell",
+      params: { thicknessMm: 2.5 },
+    });
     expect(planOf("set widthMm 150").steps[0]).toMatchObject({
       command: "SetDimension",
     });
@@ -104,6 +111,24 @@ describe("local command parser (§57)", () => {
     else throw new Error("expected unparsed");
   });
 
+  it("routes coordinate prose with decimal commas to unparsed unchanged", () => {
+    const prompts = [
+      "Crea una piastra100×80×5 lungo XYZ con foro passanteØ10 al centroXY(50,40). Un solido editabile.",
+      "Sketch a 30×20 plate with a through hole at XY(15,10).",
+    ];
+
+    for (const text of prompts) {
+      expect(parseCommand(text)).toEqual({ ok: false, reason: "unparsed", message: text });
+    }
+  });
+
+  it("still rejects decimal commas in recognized local syntax", () => {
+    expect(parseCommand("box 100,5 80 5")).toMatchObject({
+      ok: false,
+      reason: "invalid",
+    });
+  });
+
   it("answers export honestly (toolbar, not silent)", () => {
     const r = parseCommand("export step");
     expect(r.ok).toBe(false);
@@ -116,8 +141,9 @@ describe("local command parser (§57)", () => {
       "Box 100×50×20 mm",
     );
     expect(describeStep(planOf("holes 6 4 corners 8").steps[0]!)).toMatch(
-      /4.*⌀6/,
+      /4.*6/,
     );
+    expect(describeStep(planOf("svuota 2").steps[0]!)).toMatch(/2/);
   });
 
   it("validates plans (empty / too long / unknown command)", () => {

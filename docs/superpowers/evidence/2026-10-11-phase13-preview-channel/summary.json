@@ -1,0 +1,27 @@
+{
+  "nativeTests": 172,
+  "nativeFailures": 0,
+  "nativeSeconds": 69.686,
+  "jsGroups": [
+    4,
+    2,
+    49,
+    10,
+    200
+  ],
+  "jsTotal": 265,
+  "relay": 62,
+  "managedNet8": 93,
+  "managedActualNetstandard": 93,
+  "actualE2e": 1,
+  "kernelSha256": "16588fd2b6131e33fa74aadfb78fd928a54d3af20ee4df003fcf68784f505d27",
+  "reviewerThreadId": "01a12770-aa60-7550-acb6-533647c3d680",
+  "model": "gpt-6-sol",
+  "effort": "high",
+  "verdict": "ship",
+  "sourceFiles": 770,
+  "sourceBeforeAfterSha256": "03f7ae4b0adf25173968c52927f880349ed667a301d3337d94d83577cab87eb2",
+  "behavioralReadOnly": true,
+  "enforcedReadOnly": false,
+  "questDeployment": false
+}

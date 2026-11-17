@@ -6,6 +6,7 @@
 #if KREODA_WITH_OCCT
 // NOTE: OCCT includes must stay OUTSIDE namespace kreoda.
 #include <TopoDS_Shape.hxx>
+#include <gp_Trsf.hxx>
 #endif
 
 namespace kreoda {
@@ -25,6 +26,10 @@ bool RebuildInstanceFromStore(const std::string& featureId,
                               std::string* error);
 
 #if KREODA_WITH_OCCT
+// Shared placement transform: translation * Rz * Ry * Rx.
+bool BuildInstanceTransform(const std::vector<double>& placement,
+                            gp_Trsf* out, std::string* error);
+
 // Pure build (no commit): target shape + placement → placed solid.
 bool BuildInstanceShape(const TopoDS_Shape& target,
                         const std::vector<double>& placement,

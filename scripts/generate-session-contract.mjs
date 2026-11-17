@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { quicktype, InputData, JSONSchemaInput, FetchingJSONSchemaStore } from "quicktype-core";
 import Ajv from "ajv";
 import standalone from "ajv/dist/standalone/index.js";
+import { _ } from "ajv/dist/compile/codegen/index.js";
 import { build } from "esbuild";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -26,33 +27,62 @@ async function dto(lang, rendererOptions) {
 const typescript = await dto("typescript", { "just-types": "true", "prefer-unions": "true" });
 const csharp = await dto("csharp", { framework: "SystemTextJson", features: "attributes-only", namespace: "Kreoda.Session.Generated", "dateonly-timeonly-converters": "false" });
 const methods = contract.methods;
+const maximumControlPayloadBytes = contract.limits?.sessionControlPayloadBytes;
+if (!Number.isSafeInteger(maximumControlPayloadBytes) || maximumControlPayloadBytes <= 0)
+  throw new Error("sessionControlPayloadBytes must be a positive safe integer");
 const control = methods.filter(method => method.plane === "control").map(method => method.method);
 const queries = methods.filter(method => method.plane === "query").map(method => method.method);
 const replay = methods.filter(method => method.operationReplay).map(method => method.method);
 const required = Object.fromEntries(methods.map(method => [method.method, method.required]));
 const tsConst = (name, value) => `export const ${name} = ${JSON.stringify(value, null, 2)} as const;\n`;
-const metadata = header + tsConst("CONTRACT_SCHEMA_SHA256", hash) + tsConst("SESSION_DTO_NAMES", names) + tsConst("SESSION_CONTROL_VERSION", contract.protocolVersion)
+const metadata = header + tsConst("CONTRACT_SCHEMA_SHA256", hash) + tsConst("SESSION_STABLE_FEATURE_ID_SCHEMA", definitions.StableFeatureId)
+  + tsConst("SESSION_DTO_NAMES", names) + tsConst("SESSION_CONTROL_VERSION", contract.protocolVersion)
+  + tsConst("SESSION_CONTROL_MAX_PAYLOAD_BYTES", maximumControlPayloadBytes)
   + tsConst("CONTROL_METHODS", control) + tsConst("QUERY_METHODS_CONTRACT", queries)
   + tsConst("SESSION_CONTROL_METHODS", methods.map(method => method.method)) + tsConst("OPERATION_METHODS", replay)
+  + tsConst("SESSION_SERVER_CAPABILITIES", contract.serverCapabilities)
   + `export const REQUIRED_PARAMS: Readonly<Record<string, readonly string[]>> = ${JSON.stringify(required, null, 2)};\n` + tsConst("SERVER_EVENTS", contract.serverEvents)
   + tsConst("SESSION_EVENT_METADATA", contract.serverEventMetadata);
 const quote = value => JSON.stringify(value);
 const csArray = values => "[" + values.map(quote).join(", ") + "]";
 const csName = name => name[0].toUpperCase() + name.slice(1);
+const capabilityName = capability => capability === "operation-replay"
+  ? "OperationReplayCapability"
+  : capability.split("-").map(part => part[0].toUpperCase() + part.slice(1)).join("") + "Capability";
 const csMetadata = header + `namespace Kreoda.Session;\n\npublic static class SessionMethods\n{\n`
-  + `    public const int ProtocolVersion = ${contract.protocolVersion};\n    public const string ContractSchemaSha256 = "${hash}";\n    public const string OperationReplayCapability = "operation-replay";\n`
+  + `    public const int ProtocolVersion = ${contract.protocolVersion};\n    public const string ContractSchemaSha256 = "${hash}";\n`
+  + contract.serverCapabilities.map(capability => `    public const string ${capabilityName(capability)} = ${quote(capability)};`).join("\n") + "\n"
   + methods.map(method => `    public const string ${csName(method.method)} = ${quote(method.method)};`).join("\n")
   + `\n    public static readonly string[] All = ${csArray(methods.map(method => method.method))};\n`
+  + `    public static readonly string[] ServerCapabilities = ${csArray(contract.serverCapabilities)};\n`
   + `    public static readonly string[] OperationReplayMethods = ${csArray(replay)};\n`
   + `    public static bool SupportsOperationReplay(string method) => Array.IndexOf(OperationReplayMethods, method) >= 0;\n`
   + `    public static readonly IReadOnlyDictionary<string, string[]> RequiredParams = new Dictionary<string, string[]>\n    {\n`
   + methods.map(method => `        [${quote(method.method)}] = ${csArray(method.required)},`).join("\n") + "\n    };\n}\n"
-  + `\npublic static class SessionContract\n{\n    public const long MaximumRevision = ${definitions.SessionSnapshotPayload.properties.revision.maximum};\n    public static readonly IReadOnlyDictionary<string, string[]> DtoRequiredFields = new Dictionary<string, string[]>\n    {\n`
+  + `\npublic static class SessionContract\n{\n    public const long MaximumRevision = ${definitions.SessionSnapshotPayload.properties.revision.maximum};\n    public const int MaximumControlPayloadBytes = ${maximumControlPayloadBytes};\n    public static readonly IReadOnlyDictionary<string, string[]> DtoRequiredFields = new Dictionary<string, string[]>\n    {\n`
   + names.map(name => `        [${quote(name)}] = ${csArray(definitions[name].required ?? [])},`).join("\n") + "\n    };\n}\n";
 
 // Compile once during generation. Bundle the standard runtime helpers so
 // Electron's renderer needs neither Ajv nor dynamic Function/eval at runtime.
 const ajv = new Ajv({ allErrors: true, strict: true, code: { source: true } });
+ajv.addKeyword({
+  keyword: "maxUtf8Bytes",
+  type: "string",
+  schemaType: ["number"],
+  metaSchema: { type: "integer", minimum: 0 },
+  code(cxt) {
+    cxt.fail(_`new TextEncoder().encode(${cxt.data}).length > ${cxt.schemaCode}`);
+  },
+});
+ajv.addKeyword({
+  keyword: "maxJsonUtf8Bytes",
+  type: "object",
+  schemaType: ["number"],
+  metaSchema: { type: "integer", minimum: 0 },
+  code(cxt) {
+    cxt.fail(_`new TextEncoder().encode(JSON.stringify(${cxt.data})).length > ${cxt.schemaCode}`);
+  },
+});
 ajv.addSchema(schema);
 const exports = {};
 for (const name of names) {

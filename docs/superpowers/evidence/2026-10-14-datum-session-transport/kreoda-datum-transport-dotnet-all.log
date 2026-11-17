@@ -1,0 +1,54 @@
+  Individuazione dei progetti da ripristinare...
+  C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.ModelingAgent.Benchmark.Tests\Kreoda.ModelingAgent.Benchmark.Tests.csproj ripristinato (in 411 ms).
+  C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\probes\Kreoda.McpProbe\Kreoda.McpProbe.csproj ripristinato (in 402 ms).
+  C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\Kreoda.HermesBridge.Tests.csproj ripristinato (in 412 ms).
+  C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tools\Kreoda.HermesBridge\Kreoda.HermesBridge.csproj ripristinato (in 409 ms).
+  C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.ModelingAgent.Tests\Kreoda.ModelingAgent.Tests.csproj ripristinato (in 411 ms).
+  C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tools\Kreoda.ModelingAgent.Benchmark\Kreoda.ModelingAgent.Benchmark.csproj ripristinato (in 402 ms).
+  C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.ModelingAgent\Kreoda.ModelingAgent.csproj ripristinato (in 402 ms).
+  4 di 11 progetti sono aggiornati per il ripristino.
+  Kreoda.Protocol -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol\csharp\bin\Debug\net8.0\Kreoda.Protocol.dll
+  Kreoda.McpProbe -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\probes\Kreoda.McpProbe\bin\Release\net8.0\Kreoda.McpProbe.dll
+  Kreoda.Protocol -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol\csharp\bin\Debug\netstandard2.1\Kreoda.Protocol.dll
+  Kreoda.SessionClient -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\bin\Release\net8.0\Kreoda.SessionClient.dll
+  Kreoda.QuestFoundation -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.QuestFoundation\bin\Release\net8.0\Kreoda.QuestFoundation.dll
+  Kreoda.ModelingAgent -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.ModelingAgent\bin\Release\net8.0\Kreoda.ModelingAgent.dll
+  Kreoda.SessionClient.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll
+  Kreoda.ModelingAgent.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.ModelingAgent.Tests\bin\Release\net8.0\Kreoda.ModelingAgent.Tests.dll
+  Kreoda.ModelingAgent.Benchmark -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tools\Kreoda.ModelingAgent.Benchmark\bin\Release\net8.0\Kreoda.ModelingAgent.Benchmark.dll
+  Kreoda.SessionClient -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\bin\Release\netstandard2.1\Kreoda.SessionClient.dll
+  Kreoda.HermesBridge -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tools\Kreoda.HermesBridge\bin\Release\net8.0\Kreoda.HermesBridge.dll
+  Kreoda.ModelingAgent.Benchmark.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.ModelingAgent.Benchmark.Tests\bin\Release\net8.0\Kreoda.ModelingAgent.Benchmark.Tests.dll
+  Kreoda.HermesBridge.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll
+  Kreoda.QuestFoundation -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.QuestFoundation\bin\Release\netstandard2.1\Kreoda.QuestFoundation.dll
+
+Compilazione completata.
+    Avvisi: 0
+    Errori: 0
+
+Tempo trascorso 00:00:14.29
+Esecuzione dei test per C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll (.NETCoreApp,Version=v8.0)
+Un totale di 1 file di test corrisponde al criterio specificato.
+File di risultati: C:\Users\matte\AppData\Local\Temp\kreoda-dotnet-iMwsTL\SessionClient.trx
+
+Superato!     - Non superati:     0. Superati:   141. Ignorati:     0. Totale:   141. Durata: 1 s - Kreoda.SessionClient.Tests.dll (net8.0)
+SessionClient: total=141, passed=141, failed=0, notExecuted=0
+Esecuzione dei test per C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.ModelingAgent.Tests\bin\Release\net8.0\Kreoda.ModelingAgent.Tests.dll (.NETCoreApp,Version=v8.0)
+Un totale di 1 file di test corrisponde al criterio specificato.
+File di risultati: C:\Users\matte\AppData\Local\Temp\kreoda-dotnet-iMwsTL\ModelingAgent.trx
+
+Superato!     - Non superati:     0. Superati:    33. Ignorati:     0. Totale:    33. Durata: 140 ms - Kreoda.ModelingAgent.Tests.dll (net8.0)
+ModelingAgent: total=33, passed=33, failed=0, notExecuted=0
+Esecuzione dei test per C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll (.NETCoreApp,Version=v8.0)
+Un totale di 1 file di test corrisponde al criterio specificato.
+File di risultati: C:\Users\matte\AppData\Local\Temp\kreoda-dotnet-iMwsTL\HermesBridge.trx
+
+Superato!     - Non superati:     0. Superati:    32. Ignorati:     0. Totale:    32. Durata: 1 s - Kreoda.HermesBridge.Tests.dll (net8.0)
+HermesBridge: total=32, passed=32, failed=0, notExecuted=0
+Esecuzione dei test per C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.ModelingAgent.Benchmark.Tests\bin\Release\net8.0\Kreoda.ModelingAgent.Benchmark.Tests.dll (.NETCoreApp,Version=v8.0)
+Un totale di 1 file di test corrisponde al criterio specificato.
+File di risultati: C:\Users\matte\AppData\Local\Temp\kreoda-dotnet-iMwsTL\ModelingBenchmark.trx
+
+Superato!     - Non superati:     0. Superati:    33. Ignorati:     0. Totale:    33. Durata: 253 ms - Kreoda.ModelingAgent.Benchmark.Tests.dll (net8.0)
+ModelingBenchmark: total=33, passed=33, failed=0, notExecuted=0
+.NET tests passed: SessionClient=131+, ModelingAgent=33+, HermesBridge=32+, ModelingBenchmark=33+, total=239, failed=0

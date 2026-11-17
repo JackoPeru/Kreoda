@@ -2,18 +2,30 @@
 // Renderer owns UI/camera/selection state + read-only summaries (§9).
 
 import { create } from "zustand";
-import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
+import type { CoreMeshData, SketchModel, DatumDescriptor, SketchPlaneFrame, SketchProjectionResult } from "@kreoda/protocol";
+import { featureGeometryKind, type SelectionKind as CanonicalSelectionKind } from "@kreoda/command-schema";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 import { t, featureTypeName } from "../i18n";
+import { useSectionStore } from "../section/store";
+import { useZebraStore } from "../analysis/zebra";
 
 export interface SketchEntry extends SketchSummary {
-  model?: SketchModel & { planeKind?: string };
+  model?: SketchModel & { planeKind?: string; plane?: SketchPlaneFrame; supportRef?: string };
+}
+
+export interface SketchProjectionView {
+  documentId: string;
+  sessionId: string;
+  revision: number;
+  epoch: number;
+  connectionGeneration: number;
+  projection: SketchProjectionResult;
 }
 
 export interface ModelTreeItem {
   id: string;
   name: string;
-  kind: "body" | "feature" | "sketch";
+  kind: "body" | "surface" | "feature" | "sketch" | "datum";
   children?: ModelTreeItem[];
 }
 
@@ -29,6 +41,25 @@ export interface BodyInfo {
   bodyId: string;
   history: string[];
   tipFeatureId: string;
+  geometryKind?: "solid" | "surface";
+  visible?: boolean;
+}
+
+function featureGeometryKindFor(featureId: string, known: Map<string, FeatureSummary>): "solid" | "surface" {
+  const feature = known.get(featureId);
+  if (!feature) return "solid";
+  if (featureGeometryKind(feature.type) === "surface") return "surface";
+  if (feature.type !== "Instance" || feature.dependsOn.length !== 1) return "solid";
+  const source = known.get(feature.dependsOn[0]!);
+  return source && featureGeometryKind(source.type) === "surface" ? "surface" : "solid";
+}
+
+/** Effective surface identities for this summary, including supported direct Instances. */
+export function surfaceFeatureIds(features: FeatureSummary[]): Set<string> {
+  const known = new Map(features.map(feature => [feature.featureId, feature]));
+  return new Set(features.filter(feature =>
+    featureGeometryKindFor(feature.featureId, known) === "surface",
+  ).map(feature => feature.featureId));
 }
 
 /** Central feature→body semantics table (mirrors FeatureBodySemantics). */
@@ -46,7 +77,7 @@ export function featureBodySemantics(
   ) {
     return "advances";
   }
-  if (type === "Sketch" || type === "Instance") return "none";
+  if (type === "Sketch" || type === "Instance" || type === "DatumPlane" || type === "DatumAxis" || type === "DatumPoint") return "none";
   return "new";
 }
 
@@ -67,6 +98,7 @@ export function buildBodies(features: FeatureSummary[]): BodyInfo[] {
         bodyId: bodyIdForRoot(f.featureId),
         history: [f.featureId],
         tipFeatureId: f.featureId,
+        geometryKind: featureGeometryKind(f.type),
       });
       return;
     }
@@ -77,11 +109,13 @@ export function buildBodies(features: FeatureSummary[]): BodyInfo[] {
     if (owner) {
       owner.history.push(f.featureId);
       owner.tipFeatureId = f.featureId;
+      owner.geometryKind = featureGeometryKind(f.type);
     } else {
       bodies.push({
         bodyId: bodyIdForRoot(f.featureId),
         history: [f.featureId],
         tipFeatureId: f.featureId,
+        geometryKind: featureGeometryKind(f.type),
       });
     }
   };
@@ -101,6 +135,11 @@ export function buildBodies(features: FeatureSummary[]): BodyInfo[] {
     if (!progress) break;
   }
   for (const f of features) if (!adopted.has(f.featureId)) attach(f);
+  for (const body of bodies) {
+    const tip = features.find(f => f.featureId === body.tipFeatureId);
+    const nativeBody = features.find(f => f.bodyId === body.bodyId && f.bodyTip === true);
+    body.visible = (nativeBody ?? tip)?.bodyVisible !== false;
+  }
   return bodies;
 }
 
@@ -111,7 +150,7 @@ export function buildBodies(features: FeatureSummary[]): BodyInfo[] {
  * for history/recompute but never enter the scene map.
  */
 export function visibleFeatureIds(features: FeatureSummary[]): string[] {
-  const ids = buildBodies(features).map((b) => b.tipFeatureId);
+  const ids = buildBodies(features).filter(b => b.visible !== false).map((b) => b.tipFeatureId);
   for (const f of features) {
     if (f.type === "Instance") ids.push(f.featureId);
   }
@@ -123,6 +162,7 @@ interface DocumentUiState {
   revision: number;
   /** Bumped on every document reset; stale async sets carry the old one. */
   epoch: number;
+  connectionGeneration: number;
   coreRunning: boolean;
   coreVersion: string | null;
   /** Read-only projection of canonical features (§9). */
@@ -135,6 +175,8 @@ interface DocumentUiState {
   bodies: BodyInfo[];
   /** Sketches (2D, rendered as overlay — never B-Rep meshes). */
   sketches: SketchEntry[];
+  projectionViews: Record<string, SketchProjectionView>;
+  datums: DatumDescriptor[];
   /** Render buffers keyed by feature UUID — replaced wholesale per update. */
   meshes: Record<string, CoreMeshData>;
   meshRevision: number;
@@ -142,12 +184,17 @@ interface DocumentUiState {
   redos: number;
   setUndoDepth: (undos: number, redos: number) => void;
   setCoreStatus: (running: boolean, version?: string | null) => void;
+  advanceConnectionGeneration: () => void;
+  setProjectionView: (view: SketchProjectionView) => void;
+  clearSketchProjection: (featureId: string) => void;
+  clearProjectionViews: () => void;
   setFeatures: (
     features: FeatureSummary[],
     revision: number,
     epoch?: number,
   ) => void;
   setSketches: (sketches: SketchEntry[], revision?: number, epoch?: number) => void;
+  setDatums: (datums: DatumDescriptor[], revision?: number, epoch?: number) => void;
   upsertSketch: (sketch: SketchEntry) => void;
   upsertMesh: (
     featureId: string,
@@ -178,6 +225,7 @@ function toTreeItems(
   features: FeatureSummary[],
   sketches: SketchEntry[],
   bodies: BodyInfo[],
+  datums: DatumDescriptor[] = [],
 ): ModelTreeItem[] {
   const skItems = sketches.map((s) => ({
     id: s.featureId,
@@ -194,13 +242,13 @@ function toTreeItems(
       return {
         id: b.history[0]!,
         name: f ? featureLabel(f) : b.history[0]!,
-        kind: "body" as const,
+        kind: b.geometryKind === "surface" ? "surface" as const : "body" as const,
       };
     }
     return {
       id: b.bodyId,
       name: t("tree.body", { n: i + 1 }),
-      kind: "body" as const,
+      kind: b.geometryKind === "surface" ? "surface" as const : "body" as const,
       children: b.history.map((id) => ({
         id,
         name: byId.get(id) ? featureLabel(byId.get(id)!) : id,
@@ -211,26 +259,48 @@ function toTreeItems(
   // NonBody solids outside any body (Instance occurrences) keep flat rows.
   const extraItems = features
     .filter((f) => !covered.has(f.featureId))
-    .map((f) => ({ id: f.featureId, name: featureLabel(f), kind: "body" as const }));
-  return [...skItems, ...bodyItems, ...extraItems];
+    .map((f) => ({ id: f.featureId, name: featureLabel(f),
+      kind: featureGeometryKindFor(f.featureId, byId) === "surface" ? "surface" as const : "body" as const }));
+  return [...datums.map(datum => ({ id: datum.featureId, name: `${featureTypeName(datum.kind)} · ${datum.featureId}`, kind: "datum" as const })), ...skItems, ...bodyItems, ...extraItems];
 }
 
 export const useDocumentUiStore = create<DocumentUiState>((set) => ({
   documentId: "doc-phase1",
   revision: 0,
   epoch: 0,
+  connectionGeneration: 0,
   coreRunning: false,
   coreVersion: null,
   features: [],
   bodies: [],
   sketches: [],
+  projectionViews: {},
+  datums: [],
   meshes: {},
   meshRevision: 0,
   undos: 0,
   redos: 0,
   setUndoDepth: (undos, redos) => set({ undos, redos }),
-  setCoreStatus: (running, version = null) =>
-    set({ coreRunning: running, coreVersion: version ?? null }),
+  setCoreStatus: (running, version = null) => set((s) => running === s.coreRunning
+    ? { coreVersion: version ?? null }
+    : { coreRunning: running, coreVersion: version ?? null,
+        connectionGeneration: s.connectionGeneration + 1, projectionViews: {} }),
+  advanceConnectionGeneration: () => set((s) => ({
+    connectionGeneration: s.connectionGeneration + 1, projectionViews: {},
+  })),
+  setProjectionView: (view) => set((s) => {
+    if (view.documentId !== s.documentId || view.revision !== s.revision ||
+        view.epoch !== s.epoch || view.connectionGeneration !== s.connectionGeneration ||
+        view.projection.featureId === "") return s;
+    return { projectionViews: { ...s.projectionViews, [view.projection.featureId]: view } };
+  }),
+  clearSketchProjection: (featureId) => set((s) => {
+    if (!(featureId in s.projectionViews)) return s;
+    const projectionViews = { ...s.projectionViews };
+    delete projectionViews[featureId];
+    return { projectionViews };
+  }),
+  clearProjectionViews: () => set({ projectionViews: {} }),
   // Staleness guards (C5): async hydrations race (open/autosave/undo).
   // A set carrying an older revision — or an epoch from before a document
   // reset — is dropped instead of overwriting newer state.
@@ -243,9 +313,12 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       // the scene map the moment the model moves on (undo/redo tip steps
       // update the rendered object the same way). History summaries stay —
       // only render buffers are pruned.
-      const visible = new Set<string>(bodies.map((b) => b.tipFeatureId));
+      const visible = new Set<string>(bodies.filter(b => b.visible !== false).map((b) => b.tipFeatureId));
       for (const f of features) {
         if (f.type === "Instance") visible.add(f.featureId);
+      }
+      for (const f of features) {
+        if (f.geometryCurrent === false || f.status === "unavailable") visible.delete(f.featureId);
       }
       let meshes = s.meshes;
       if (Object.keys(meshes).some((id) => !visible.has(id))) {
@@ -257,6 +330,7 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
         features,
         revision,
         bodies,
+        ...(revision !== s.revision ? { projectionViews: {} } : {}),
         ...(meshes !== s.meshes
           ? { meshes, meshRevision: s.meshRevision + 1 }
           : {}),
@@ -266,8 +340,16 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
     set((s) => {
       if (epoch !== undefined && epoch !== s.epoch) return s;
       if (revision !== undefined && revision < s.revision) return s;
-      return { sketches };
+      return revision !== undefined && revision !== s.revision
+        ? { sketches, projectionViews: {} }
+        : { sketches };
     }),
+  setDatums: (datums, revision, epoch) => set(s => {
+    if(epoch !== undefined && epoch !== s.epoch || revision !== undefined && revision < s.revision)return s;
+    const incoming = new Set(datums.map(datum => datum.featureId));
+    clearRemovedDatumSelections(new Set(s.datums.filter(datum => !incoming.has(datum.featureId)).map(datum => datum.featureId)));
+    return { datums };
+  }),
   upsertSketch: (sketch) =>
     set((s) => ({
       sketches: [
@@ -300,7 +382,12 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
         revision,
       };
     }),
-  resetDocument: (documentId) =>
+  resetDocument: (documentId) => {
+    // Document replacement must clear local presentation even while Home
+    // has unmounted the viewport. Ordinary in-document updates never use this.
+    useSectionStore.getState().reset();
+    useZebraStore.getState().reset();
+    clearRemovedDatumSelections(new Set(useDocumentUiStore.getState().datums.map(datum => datum.featureId)));
     set((s) => ({
       documentId,
       revision: 0,
@@ -308,17 +395,21 @@ export const useDocumentUiStore = create<DocumentUiState>((set) => ({
       features: [],
       bodies: [],
       sketches: [],
+      projectionViews: {},
+      datums: [],
       meshes: {},
       meshRevision: 0,
-    })),
+    }));
+  },
 }));
 
 export function buildTreeItems(
   features: FeatureSummary[],
   sketches: SketchEntry[] = [],
   bodies: BodyInfo[] = buildBodies(features),
+  datums: DatumDescriptor[] = [],
 ): ModelTreeItem[] {
-  return toTreeItems(features, sketches, bodies);
+  return toTreeItems(features, sketches, bodies, datums);
 }
 
 export type SelectionMode =
@@ -339,11 +430,16 @@ interface SelectionState {
   setMode: (mode: SelectionMode) => void;
 }
 
-export type SelectionKind = "body" | "face" | "edge" | "sketch";
+export type SelectionKind = CanonicalSelectionKind;
 
-/** Id convention (§0.2): bare UUID = body OR sketch (store lookup decides);
- *  "uuid:role" = face; "uuid:edge…" = edge. */
+/** Id convention (§0.2): registered datum UUIDs keep their native kind; other
+ *  bare UUIDs are body or sketch (store lookup decides); "uuid:role" = face;
+ *  "uuid:edge…" = edge. */
 export function selectionKindOf(id: string): SelectionKind {
+  const datum = useDocumentUiStore.getState().datums.find((item) => item.featureId === id);
+  if (datum?.kind === "DatumPlane") return "datumPlane";
+  if (datum?.kind === "DatumAxis") return "datumAxis";
+  if (datum?.kind === "DatumPoint") return "datumPoint";
   const cut = id.indexOf(":");
   if (cut < 0) return "body";
   return id.slice(cut + 1).startsWith("edge.") ? "edge" : "face";
@@ -372,6 +468,15 @@ export const useSelectionStore = create<SelectionState>((set) => ({
   clear: () => set({ selectedIds: [], hoveredId: null }),
   setMode: (mode) => set({ mode }),
 }));
+
+function clearRemovedDatumSelections(removed: ReadonlySet<string>): void {
+  if (removed.size === 0) return;
+  const state = useSelectionStore.getState();
+  const selectedIds = state.selectedIds.filter(id => !removed.has(id));
+  const hoveredId = state.hoveredId !== null && removed.has(state.hoveredId) ? null : state.hoveredId;
+  if (selectedIds.length !== state.selectedIds.length || hoveredId !== state.hoveredId)
+    useSelectionStore.setState({ selectedIds, hoveredId });
+}
 
 interface ToolState {
   activeTool: string;

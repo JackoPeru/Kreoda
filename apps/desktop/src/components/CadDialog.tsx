@@ -30,7 +30,7 @@ export function CadDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/60" />
         <Dialog.Content
-          className={`fixed left-1/2 z-[70] -translate-x-1/2 rounded-lg border border-white/15 bg-[#141922] p-4 ${contentClassName ?? "top-1/3 w-80"}`}
+          className={`fixed left-1/2 z-[70] -translate-x-1/2 rounded-lg border border-white/15 bg-[var(--kreoda-float-elevated-bg)] p-4 ${contentClassName ?? "top-1/3 w-80"}`}
           {...(testId ? { "data-testid": testId } : {})}
         >
           <Dialog.Title className="text-sm font-semibold">{title}</Dialog.Title>

@@ -1,0 +1,19 @@
+Command:
+dotnet test clients/session-dotnet/tests/Kreoda.SessionClient.Tests/Kreoda.SessionClient.Tests.csproj -c Release -p:KreodaManagedTargetFramework=netstandard2.1 --no-restore --filter FullyQualifiedName~MissingOptionalEdgeVerticesAreAcceptedWhenNoEdgesArePresent
+
+Observed before the fix:
+Esecuzione dei test per C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll (.NETCoreApp,Version=v8.0)
+Un totale di 1 file di test corrisponde al criterio specificato.
+[xUnit.net 00:00:00.48]     Kreoda.SessionClient.Tests.SessionMeshTests.MissingOptionalEdgeVerticesAreAcceptedWhenNoEdgesArePresent [FAIL]
+Non superato Kreoda.SessionClient.Tests.SessionMeshTests.MissingOptionalEdgeVerticesAreAcceptedWhenNoEdgesArePresent [147 ms]
+Messaggio di errore:
+   Kreoda.Session.SessionException : native mesh data vector is missing
+Analisi dello stack:
+   at Kreoda.Session.SessionClient.DecodeMesh(Byte[] raw, MeshUpdate update, PendingMeshCall mesh) in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\SessionClient.cs:line 721
+   at Kreoda.Session.SessionClient.RouteBinary(Byte[] raw) in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\SessionClient.cs:line 645
+--- End of stack trace from previous location ---
+   at Kreoda.Session.SessionClient.RequestMeshLodAsync(String bodyId, Int32 quality, String documentId, Int64 expectedRevision, CancellationToken ct) in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\SessionClient.cs:line 399
+   at Kreoda.SessionClient.Tests.SessionMeshTests.MissingOptionalEdgeVerticesAreAcceptedWhenNoEdgesArePresent() in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\SessionMeshTests.cs:line 162
+Non superato! - Non superati:     1. Superati:     0. Ignorati:     0. Totale:     1. Durata: 147 ms - Kreoda.SessionClient.Tests.dll (net8.0)
+
+The test now passes when edge_vertices is absent and no edge ranges are present.

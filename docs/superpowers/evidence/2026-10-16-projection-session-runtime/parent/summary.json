@@ -1,0 +1,65 @@
+{
+  "protocol-buildExitCode": 0,
+  "protocol-lintExitCode": 0,
+  "command-schema-buildExitCode": 0,
+  "command-schema-lintExitCode": 0,
+  "session-contractExitCode": 0,
+  "protocolExitCode": 0,
+  "protocol": {
+    "cases": 57,
+    "failed": 0,
+    "skipped": 0,
+    "lostPreviousOccurrences": 0
+  },
+  "canonicalExitCode": 0,
+  "canonical": {
+    "cases": 15,
+    "failed": 0,
+    "skipped": 0,
+    "lostPreviousOccurrences": 0
+  },
+  "desktopExitCode": 0,
+  "desktop": {
+    "cases": 295,
+    "failed": 0,
+    "skipped": 0
+  },
+  "desktop-buildExitCode": 0,
+  "desktop-lintExitCode": 0,
+  "managed-solution-buildExitCode": 0,
+  "managedSuites": {
+    "SessionClient": {
+      "cases": 153,
+      "notPassed": [],
+      "lostPreviousOccurrences": 0,
+      "missingRequired": []
+    },
+    "ModelingAgent": {
+      "cases": 34,
+      "notPassed": [],
+      "lostPreviousOccurrences": 0
+    },
+    "HermesBridge": {
+      "cases": 35,
+      "notPassed": [],
+      "lostPreviousOccurrences": 0
+    },
+    "ModelingBenchmark": {
+      "cases": 33,
+      "notPassed": [],
+      "lostPreviousOccurrences": 0
+    }
+  },
+  "managed-SessionClientExitCode": 0,
+  "managed-ModelingAgentExitCode": 0,
+  "managed-HermesBridgeExitCode": 0,
+  "managed-ModelingBenchmarkExitCode": 0,
+  "native-mcp-e2eExitCode": 0,
+  "native-mcp-e2e": {
+    "cases": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "sourceFiles": 445,
+  "sourceUnchanged": true
+}

@@ -1,6 +1,7 @@
 #include "sketch_store.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace kreoda {
 
@@ -66,6 +67,54 @@ SketchPlane PrincipalPlane(const std::string& kind) {
     p.normal[0] = 1; p.normal[1] = 0; p.normal[2] = 0;
   }
   return p;  // default XY
+}
+
+bool ValidateSketchPlane(const SketchPlane& plane, std::string* error) {
+  constexpr double kTolerance = 1e-9;
+  for (double value : plane.origin) {
+    if (!std::isfinite(value)) {
+      if (error) *error = "sketch plane origin must be finite";
+      return false;
+    }
+  }
+  const double* axes[] = {plane.xAxis, plane.yAxis, plane.normal};
+  const char* names[] = {"xAxis", "yAxis", "normal"};
+  for (int axis = 0; axis < 3; ++axis) {
+    double length = 0;
+    for (int component = 0; component < 3; ++component) {
+      if (!std::isfinite(axes[axis][component])) {
+        if (error) *error = std::string("sketch plane ") + names[axis] + " must be finite";
+        return false;
+      }
+      length = std::hypot(length, axes[axis][component]);
+    }
+    if (std::fabs(length - 1.0) > kTolerance) {
+      if (error) *error = std::string("sketch plane ") + names[axis] + " must be unit length";
+      return false;
+    }
+  }
+
+  const auto dot = [](const double* a, const double* b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  };
+  if (std::fabs(dot(plane.xAxis, plane.yAxis)) > kTolerance ||
+      std::fabs(dot(plane.xAxis, plane.normal)) > kTolerance ||
+      std::fabs(dot(plane.yAxis, plane.normal)) > kTolerance) {
+    if (error) *error = "sketch plane basis must be pairwise orthogonal";
+    return false;
+  }
+
+  const double cross[3] = {
+      plane.xAxis[1] * plane.yAxis[2] - plane.xAxis[2] * plane.yAxis[1],
+      plane.xAxis[2] * plane.yAxis[0] - plane.xAxis[0] * plane.yAxis[2],
+      plane.xAxis[0] * plane.yAxis[1] - plane.xAxis[1] * plane.yAxis[0],
+  };
+  if (std::hypot(cross[0] - plane.normal[0], cross[1] - plane.normal[1],
+                 cross[2] - plane.normal[2]) > kTolerance) {
+    if (error) *error = "sketch plane basis must be right-handed";
+    return false;
+  }
+  return true;
 }
 
 SolveResult SolveStoredSketch(const std::string& id, const SolveOptions& opts,

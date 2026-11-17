@@ -1,0 +1,240 @@
+# Phase 12–16 Completion Report
+
+**Status: software scope implemented and verified on this machine; hardware/live-agent acceptance partially open**
+**Software gate: PASS (automated suites + packaged-desktop smoke)**
+**Physical/live gate: OPEN — see "Remaining acceptance" below**
+
+This report covers Phase 12 (Quest spatial client foundation), Phase 13 (Quest interaction & MR UX),
+Phase 14 (autonomous modeling agent), Phase 15 (advanced CAD) and Phase 16 (intent/generative modeling).
+It replaces the earlier interim status in
+[`superpowers/evidence/2026-10-17-phase12-16-integrated-status.md`](superpowers/evidence/2026-10-17-phase12-16-integrated-status.md)
+and the open-work ledger in
+[`superpowers/evidence/2026-11-12-baseline-verification.md`](superpowers/evidence/2026-11-12-baseline-verification.md).
+
+## Verified suites (2026-11-17, current source)
+
+| Suite | Result |
+| --- | --- |
+| Native Release (OCCT 8.0.1) | **446/446 gtest**; **449/449 CTest** including the three crash-barrier controls (94.8 s) |
+| Desktop unit (vitest) | **653/653** across 98 files |
+| Protocol / command schema / units / plugin-SDK | **75/75**, **32/32**, **4/4**, **2/2** |
+| Managed .NET | **474/474** (SessionClient 199, ModelingAgent 94, HermesBridge 148, Benchmark 33), 0 failed/notExecuted |
+| Session contract | `pnpm check:session-contract` exit 0 — 69 DTO schemas regenerated identically |
+| Desktop production build | `tsc --noEmit` + renderer/main/preload Vite builds exit 0 |
+| Desktop E2E (real Electron + real native kernel) | **105 passed / 0 failed / 3 skipped** (`KREODA_BACKGROUND_TEST=1`, serial, 31.5 min). Skips: `phase10-installed` (disposable-CI-runner only), `phase10-file-picker` (native OS dialogs), `phase14-hermes-live` (live gateway). |
+| [solo] native configurations flow | PASS (17.0 s) — two solids, B-Rep, Undo/Redo, persistence and Desktop requery |
+| Crash/recovery gate (`test:e2e:crash:full`, hidden) | **32/32 passed** (6.5 min); `SolverCrashBarrierControl` passed; `PHASE10_CRASH_GATE {"passed":true,"production_core_restored":true}` and the worktree core restored with barriers OFF |
+| Phase 14 deterministic native seven-fixture benchmark | **7/7 geometry, 7/7 fully checked, 0 failures** (1.9 min, real MCP → installed native) |
+| Installed runtime smoke | PASS — packaged `Kreoda.exe` + kernel `C6C533A9…`; hidden box 60000 mm³; ASAR contains the pairing consent and discard guard; `THIRD-PARTY-NOTICES.md` (1742 B) shipped in `resources/` |
+| Installed Desktop payload | `app.asar` `7A6E96C0…` (283,527,406 B) and `kreoda-core.exe` `C6C533A9…` (2,811,392 B) deployed; rollback-14 under `.artifacts/desktop-deploy-20261117-hardening` holds `1BE80547…` / `6C50891B…`; the 45 runtime DLL names are unchanged |
+| Quest Unity EditMode suite | **325/325 passed**, 0 failed, 0 skipped (`Unity -batchmode -nographics -runTests -testPlatform EditMode` with the current managed plugins and `node` on PATH) |
+| Quest ARM64 APK + install | Installed `arm64-20261116-4` (44,393,505 B, `arm64-v8a`, SHA256 `20DA5CEA…`), installed with `adb install -r` on serial `2G0YC1ZFB8043H`: data retained (`firstInstallTime` 2026-10-10), signature accepted, stereo frame shows the three-pill Home belt. The later `QuestConnection`/`QuestVoice` hardening is covered by the 325-test EditMode suite but is not in this installed APK. A current-source APK was rebuilt on 2026-11-17: `KreodaQuest.apk` 44,400,813 B, SHA256 `ce1c9356…`, Unity `Succeeded` 0 errors/35 warnings, source manifest unchanged, at `.artifacts/quest-apk-20261117-hardening`; not installed (no ADB device). |
+| Quest 3 live session | `KREODA_DISCOVERY peers=1` → `KREODA_CONNECTED`; Desktop box `box-qa-1794525479622` (revision 1) delivered as `KREODA_MESH_APPLIED revision=1` and `KREODA_MODEL objects=1 triangles=12`; TCP `192.168.1.11:44414 → 192.168.1.7:63803` established. Evidence: [`superpowers/evidence/2026-11-13-quest-device`](superpowers/evidence/2026-11-13-quest-device/README.md) |
+| Quest 3 on-device performance (heavy meshes) | r=600 mm → 120,582-triangle LOD: **71.73 FPS mean** (min 60, 1 sample <72), tears 0; r=1100 mm → 221,602 triangles: **71.21 FPS mean** (min 57, 2 samples <72), tears 0; app CPU ≤ 2.90 ms, GPU ≤ 0.49 %. Short windows with the headset off-head (proximity keep-alive), a bounded datapoint rather than full roadmap perf acceptance |
+
+The native kernel is built from exactly the committed worktree source (verified by hashing all 175 build
+inputs against the build tree used for the suite).
+
+## Release hardening audit (2026-11-17)
+
+- **Document identity.** The native bootstrap identity is now `doc-phase1`, matching Desktop and the
+  session relay; every non-lifecycle command must name the open document. Empty raw Desktop frames are
+  normalized to the relay identity, lifecycle commands never snapshot an identity before it exists, and a
+  restarted core resets both relay and renderer to `doc-phase1`. Lifecycle commands reject an empty document id.
+- **Desktop trust boundary.** IPC accepts only the app's top-level renderer, using exact URL origin (dev)
+  or a local `file:` path with no host (packaged); navigation, popups and webviews are denied. Permission
+  requests are denied except clipboard writes for the pairing-code copy button.
+- **LAN pairing.** A new installation requires one explicit PC-user consent; known installations reconnect
+  silently. Consent prompts are serialized so a LAN peer cannot stack dialogs.
+- **Private Hermes records.** `/mcp` requires the configured bearer token even when the optional voice
+  gateway is absent or invalid. Unreadable/oversized rollback records keep CAD fenced; corrupt pending
+  enrollments are discarded; corrupt or invalid voice configs disable voice only.
+- **CAD robustness.** Pattern targets must be solid bodies; glTF `.bin`/`.gltf` publish through per-file
+  atomic replacement; `.icad` manifest/xbf reads and writes are bounded; OCAF duplicate labels and transaction
+  expiry are enforced; Open refuses to replace content without a usable OCAF backup; B-Rep metrics failures
+  are reported instead of escaping the command boundary.
+- **Residual dependency risk.** `pnpm audit --prod` reports GHSA-mrhx-c7xc-m3w5 in `zod@3.25.76`
+  (memory exhaustion while validating oversized constrained collections; patched in 4.6.6). The upgrade
+  requires replacing `zod-to-json-schema` and is deferred; external inputs are bounded before validation
+  (262 KiB MCP parameters, session frame caps, trusted renderer/native sources).
+- **Known functional limit.** `CreateHolePattern` accepts 1–4 per-point `featureIds` but commits one
+  cumulative `HolePattern` record under the first id; the remaining ids are correlation-only.
+
+## Phase 12 — Quest spatial client foundation
+
+**Implemented.** LAN discovery/pairing/auto-reconnect (`QuestConnection.cs`, `SessionDiscovery.cs`,
+`session-discovery.ts`, `session-devices.ts`), canonical mesh streaming with incremental deltas and LOD
+(`QuestMeshView.cs`, `SessionMesh.cs`), stereo display and placement (`QuestDisplay.cs`), MR/passthrough Home
+(`QuestHome*.cs`), trusted PC project opening with a Desktop consent dialog and single-use opaque IDs, shared
+targets with revocation, and per-PC identities that survive port changes.
+
+**Evidence.** `phase12-approved-project-open.spec.ts`, `phase12-shared-target-revocation.spec.ts`,
+`agent-automatic-connection.spec.ts`, `quest-automatic-connection.spec.ts`; managed
+`SessionDiscoveryTests`, `SessionMeshTests`, `QuestSceneStateTests`; Quest Editor tests in
+`clients/quest-unity/Assets/Kreoda/Tests/Editor/QuestConnectionTests.cs`, `QuestWireFixture.mjs`.
+
+**Limits.** Physical headset pairing/discovery and on-device stereo/mesh cadence are hardware acceptance, not
+covered by the above. The APK installed on 2026-11-13 (built from the current sources and managed plugins) is the
+packet exercised by the live-session row above; the headset was not worn, so hand-driven UI flows remain open.
+
+## Phase 13 — Quest spatial interaction and MR UX
+
+**Implemented.** Hand-ray + index-pinch routing without controllers (`QuestControls.cs`), two-step local
+parameter review and intent lock, spatial edit/preview with stale-session fencing (`QuestSpatialEdit.cs`),
+exact sketch dimensions (`QuestSketchDimensions.cs`), section plane with signed mm offset (`QuestSection.cs`),
+voice capture/stop/resume with session/document/revision context (`QuestVoice.cs`, `QuestVoiceContext.cs`,
+`QuestVoiceProposal.cs`), typed command-field validation against the live schema
+(`QuestCommandFieldValidationTests.cs`), and the Phase 13 logical workflow probe in managed tests
+(`Phase13LogicalWorkflowProbeTests.cs`).
+
+**Evidence.** `phase13-context-session.spec.ts`, `phase13-preview-session.spec.ts`,
+`phase13-workflow-session.spec.ts`, plus the Quest Editor suites above.
+
+**Limits.** Hands-only completion of the 14-step physical workflow (real surface pull, numeric keyboard, panel
+drag, two-hand scale, voice stop/resume) still requires the headset and the user.
+
+## Phase 14 — Autonomous modeling agent
+
+**Implemented.** Budgeted agent loop, command catalog/allowed read-only query set, typed begin/command/commit/
+cancel request flow with one Undo group, B-Rep + numeric goal validation, rollback on `validation_failed`,
+durable recovery on `uncertain`, MCP server (`/mcp`) exposing `kreoda_project_context`, `kreoda_describe_model`,
+`kreoda_propose_intent`, `kreoda_query`, `kreoda_begin_request`, `kreoda_command`, `kreoda_commit_request`,
+`kreoda_cancel_request`, and the frozen seven-fixture benchmark harness.
+
+**Evidence.** Managed suites plus `phase14-generated-native.spec.ts`, `phase14-hermes-mcp.spec.ts`,
+`phase14-hermes-benchmark.spec.ts`, `phase14-native-seven-benchmark.spec.ts`; frozen requirements
+`docs/superpowers/benchmarks/phase14-requirements.json` (minimum pass 6/7).
+
+**Limits.** The deterministic native seven-fixture benchmark is not an external live Hermes LLM run. A live
+6/7 run with the real remote model remains open.
+
+**Unity Editor / Quest packet (2026-11-13).** With the Editor licensed, the full Unity EditMode suite ran:
+**274/274 passed, 0 failed, 0 skipped** (after staging the current managed plugins, which were stale, and
+putting the Node LTS directory on PATH for the Quest wire fixtures). A fresh ARM64 APK was built from the
+current sources (`5420c648…`, 43,915,653 B, `arm64-v8a`, Unity `Succeeded`, 0 errors, 26 warnings, no source
+file changed during the build) and installed over the existing app with `adb install -r`, preserving app data.
+The installed packet then joined a real Desktop session and received a live delta
+(`KREODA_MESH_APPLIED revision=1`, `KREODA_MODEL objects=1 triangles=12`), recorded in
+[`superpowers/evidence/2026-11-13-quest-device`](superpowers/evidence/2026-11-13-quest-device/README.md).
+
+## Phase 15 — Advanced CAD
+
+**Implemented.** Datum planes/axes/points with persistent typed definitions and sketch support frames
+(`native/kreoda-core/src/features/datum/`), associative sketch projection with repair and broken-source gating
+(`sketch_projection.cpp`), advanced sketch geometry (ellipse, elliptical arc, B-spline, trim/extend, mirror,
+linear pattern, symmetric constraint, construction geometry), surface bodies/extrude/revolve/loft/sweep/offset/
+sew/thicken/trim/extend, body mirror across principal planes and healthy DatumPlanes, bounded linear body
+patterns along global X/Y/Z with editable count/spacing, circular body patterns around global axes with
+editable count/angle, section view on both clients,
+analyses (mass, volume, area, center of mass, draft,
+curvature, zebra, minimum thickness, interference), bounded assembly mates (ground, coincident, distance,
+concentric, parallel, perpendicular, angle), sparse configurations (Small/Medium/Large without duplicating
+geometry), and explicit direct-face history (MoveFace, OffsetFace, DeleteFace, ReplaceFace, imported STEP
+outward push / inward pocket).
+
+**Evidence.** Native suites `test_datum`, `test_sketch_projection`, `test_advanced_sketch`, `test_surface_*`,
+`test_assembly_constraints`, `test_configurations`, `test_direct_face*`, `test_mirror`,
+`test_body_pattern`, `test_circular_body_pattern`, `test_session_geometry`; Desktop `phase15-*.spec.ts`
+including the [solo] native configurations flow, `phase16-mirror-native.spec.ts`,
+`phase16-body-pattern-native.spec.ts` and `phase16-circular-pattern-native.spec.ts`; Quest
+projections/configurations/analysis panels with Editor tests.
+
+**Limits.** General curved-surface thickening, arbitrary face-to-face mating, mirroring across arbitrary planar
+faces, curve-driven body patterns and a full industrial assembly solver are not claimed; principal planes and
+healthy DatumPlanes are supported, body patterns are limited to 2..64 copies along or around global X/Y/Z,
+and the implemented operations are the bounded ones above. On-device display of every
+Phase 15 flow is hardware acceptance.
+
+## Phase 16 — Intent / generative modeling
+
+**Implemented.** Typed intent proposals (`kreoda_propose_intent`) with canonical commands, rationale and
+session/document/revision fences; pattern inference (three authored holes → one reversible pattern in a single
+transaction); symmetry inference with explicit acceptance; constraint suggestions; parametric generators
+(mounting plate, brackets, enclosure, spacer); design-from-function alternatives (explicit choice, never silent);
+Quest-selected geometry/spatial point as intent context (`SpatialVoiceIntent.cs`, `VoiceSelectionContext.cs`);
+reference-guided parametric reconstruction with explicit calibration; calibrated image line/circle detection
+with an explicit, editable sketch proposal (axis/diameter constraints applied where applicable; no automatic
+geometry commit); alternative approval with guarded transactional execution (`VoiceCandidateApproval.cs`).
+
+**Evidence.** `GenerativeIntentTests`, `SemanticInferenceTests`, `SketchConstraintSuggestionsTests`,
+`ReferenceReconstructionTests`, `CadIntentProposalTests`, `SpatialVoiceIntentTests`,
+`VoiceCandidateApprovalTests`; E2E `phase16-brackets-native.spec.ts`, `phase16-enclosure-native.spec.ts`,
+`phase16-native-pattern.spec.ts`, `phase16-manual-hole-inference.spec.ts`,
+`phase16-symmetric-approval-native.spec.ts`, `phase16-approved-alternative-native.spec.ts`,
+`phase16-reference-reconstruction-native.spec.ts`, `phase16-projection-mcp.spec.ts`; Desktop
+`reference-detect.test.ts` (synthetic line/circle detection, mapping and constraints) and E2E
+`phase16-reference-vision.spec.ts` (calibrated image -> detection -> editable sketch in the core).
+
+**Limits.** Stage B/C use deterministic Hough-style line/circle detection tuned for clean, high-contrast
+drawings; noisy photos may need cleanup, and no learned vision model proposes features. Detected geometry
+becomes an ordinary editable sketch only after the explicit "Create editable sketch" action; no opaque mesh
+or silent commit is used. Stage D (editable parametric reconstruction) remains fenced by explicit calibration.
+A live Hermes agent proposal accepted on the physical headset remains open.
+
+## Fixes delivered in this session
+
+- **Hole-pattern joined transaction** (`hole.cpp`): a pattern created inside an existing transaction now commits
+  exactly one document revision when the OCAF command produced a delta, restoring one-revision/one-Undo
+  semantics. Proven with the real installed Bridge proposal on the fixed candidate kernel
+  (`PASS_INSTALLED_BRIDGE_PROPOSAL_APPLIED_TO_EXACT_HISTORY_ON_FIXED_NATIVE_CANDIDATE`,
+  `conversionUndoGroups: 1`).
+- **MCP tool catalog** (`McpProbe`, two E2E specs): the eighth tool `kreoda_propose_intent` is now asserted by
+  name, fixing the whole MCP-backed E2E cluster.
+- **Headless E2E**: `KREODA_BACKGROUND_TEST=1` runs the whole suite with windows never shown; visual specs use a
+  `capturePage` fallback because `page.screenshot` hangs on never-shown windows. Two specs carried CP1252/UTF-8
+  mojibake in their "Box 100×50×20" regexes and could never match; repaired.
+- **Installed runtime**: verified kernel `908b7d5b…` deployed with a hash-checked rollback copy; packaged
+  desktop smoke passed on a hidden isolated profile.
+- **Quest Home belt on-device legibility** (`QuestHome.cs`/`QuestUi.cs`, APK arm64-20261116-4): the
+  five-action belt's outer labels never rendered on the headset (empty pills) although the Editor render
+  showed them. The Home belt is now three centered actions (MODELLA/VISTA/MISURA); CREA/SCHERMO remain
+  reachable from the launch card and rail. Verified on the connected Quest 3: all three labels readable in
+  passthrough.
+- **PC brand refresh / honest Home**: bundled Inter Regular/SemiBold, remapped the PC blue/sky/slate palette to
+  the Quest teal/carbon identity, moved dialog surfaces and the 3D grid/selection to the same tokens, and
+  replaced Home's hardcoded fake render/AI/export task list with an honest empty state. Verified 647/647
+  vitest, Home 2/2, context toolbar 2/2 and golden 3/3. The Home background video remains the supplied
+  photographic asset; the interactive chrome is teal.
+- **PC Home actions made functional** (`09e2700`): Progetti/Modelli open the workspace project drawer; Importa
+  uses the real open-file path; Template opens a real template picker (plate with four holes, open-box native
+  Shell, cylinder) built from the same CreateBox/CreateHolesCorners/CreateShell/CreateCylinder commands as manual
+  editing; Esporta uses the real save/export path; Impostazioni switches and persists the interface language;
+  Disegna creates a sketch and opens the editor; Misura opens the properties/analysis drawer. The fake
+  Materiali/Render entries were removed or renamed to real actions. E2E `phase16-home-actions` 4/4, desktop
+  647/647, Home 2/2, context toolbar 2/2; templates are ordinary undoable features, not locked meshes.
+
+## Remaining acceptance (not software)
+
+1. Physical Quest, with the headset worn: hands-only 14-step Phase 13 flow, panel drag/recenter, numeric
+   keyboard, two-hand scale, microphone/voice stop/resume, passthrough/real-surface alignment. The
+   "Individuazione della posizione" system dialog must be confirmed once by the user; while the headset was
+   off-head it stayed in front of the app and blocked visual capture of the synced box (the mesh delta itself is
+   proven by logcat in the 2026-11-13 evidence bundle).
+   - 2026-11-16 partial device check: the installed APK was launched on the USB-connected Quest 3
+     (serial 2G0YC1ZFB8043H); the Home UI rendered in passthrough with the live PC status
+     ("PC CONNESSO A PC-MATTEO") and Desktop held an established TCP session from 192.168.1.11.
+     Screenshots and logcat are in `.artifacts/quest-live-20261116`. APK arm64-20261116-4
+     (SHA256 `20DA5CEAFDFBECEFC33EE59425A2B29C8509A1C5A3397A0C3A487E48DF046486`) was then installed
+     and the Home belt reads MODELLA/VISTA/MISURA on device. A current-source APK
+     (`.artifacts/quest-apk-20261117-hardening/KreodaQuest.apk`, SHA256 `ce1c9356…`, 44,400,813 B)
+     includes the latest `QuestConnection`/`QuestVoice` hardening and is ready to install when a
+     device is attached. Hands/pointer and the remaining interactions above still require the headset worn.
+2. Live Hermes: one real remote-agent run of the seven frozen fixtures with ≥6/7 success and recorded
+   commands/repairs/timing (the deterministic native baseline is not a substitute).
+   - 2026-11-16 live check: the bridge/MCP and remote `kreoda-agent` are reachable; a real `/voice/turn`
+     answered in 72 s. The CAD voice flow exposed a bridge bug: the agent called `kreoda_begin_request`
+     without the voice origin and received LOCKED. The repo bridge now joins an implicit begin to the one
+     active voice turn (explicit foreign origins still rejected) and the turn prompt states the origin rule;
+     bridge tests 145/145. The remote `kreoda-agent` (Qwen3.8-27B) remains too slow/unreliable for the
+     frozen CAD fixtures: 175 s to the first begin, then no CAD command within 600 s; `hermes-agent` also
+     timed out. The frozen live bridge has not been republished; live text Hermes works, live CAD Hermes
+     still needs a faster remote model or a republished bridge with a longer client timeout.
+3. Pristine LAN pairing on a factory-clean headset (no USB provisioning).
+4. On-device performance acceptance for the current APK (frame cadence/LOD under the roadmap targets).
+5. Any remaining visual sign-off of Phase 15/16 flows on the headset.
+6. Trusted Authenticode code-signing certificate and signed installer/notarization. Only self-signed
+   development certificates are present; Squirrel/ZIP outputs are unsigned.
+7. External security/dependency review. `pnpm audit --prod` retains one high advisory in `zod@3.25.76`
+   (GHSA-mrhx-c7xc-m3w5); the 4.6.6 upgrade needs a `zod-to-json-schema` replacement and is deferred.
+
+Nothing above is claimed as passed by this report.

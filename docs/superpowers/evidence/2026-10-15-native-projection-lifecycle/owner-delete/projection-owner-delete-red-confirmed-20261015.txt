@@ -1,0 +1,30 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = SketchProjectionLifecycle.DeletingTargetReleasesOnlyOwnedBindings
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SketchProjectionLifecycle
+[ RUN      ] SketchProjectionLifecycle.DeletingTargetReleasesOnlyOwnedBindings
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch_projection.cpp(969): error: Value of: resolves(entryA, "owned-target-a", "owned-group-a", bindingsA["entries"][0])
+  Actual: true
+Expected: false
+deleted sketch's private projection selector still resolves
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch_projection.cpp(989): error: Value of: resolves(entryA, "owned-target-a", "owned-group-a", bindingsA["entries"][0])
+  Actual: true
+Expected: false
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch_projection.cpp(1021): error: Value of: resolves(entryA, "owned-target-a", "owned-group-a", bindingsA["entries"][0])
+  Actual: true
+Expected: false
+
+[  FAILED  ] SketchProjectionLifecycle.DeletingTargetReleasesOnlyOwnedBindings (36 ms)
+[----------] 1 test from SketchProjectionLifecycle (36 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (36 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] SketchProjectionLifecycle.DeletingTargetReleasesOnlyOwnedBindings
+
+ 1 FAILED TEST
+FOCUSED_EXIT=1

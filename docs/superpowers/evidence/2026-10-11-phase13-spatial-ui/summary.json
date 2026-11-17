@@ -1,0 +1,42 @@
+{
+  "status": "TASK5_VERIFIED_HARDWARE_DEPLOYMENT_PENDING",
+  "unity": {
+    "passed": 37,
+    "directExitCode": 0,
+    "seconds": 20.15222668647766
+  },
+  "managed": {
+    "net8": 115,
+    "actualNetstandardLibraries": 115
+  },
+  "native": {
+    "passed": 174,
+    "seconds": 66.739
+  },
+  "javascript": {
+    "passed": 265,
+    "lintExitCode": 0
+  },
+  "apk": {
+    "sha256": "781bce243b1902e19ab65682276810ed5cbbd8b38bd29f114b38bf76ff54d88f",
+    "bytes": 36253518,
+    "directExitCode": 0,
+    "seconds": 102.624,
+    "sourceChangedDuringBuild": [],
+    "managedManifestSha256": "f5d267cd04086880553976b03179348a4e7355b7d792ba0ac052216590fab47b",
+    "sourceManifestSha256": "af0778407e1b2202441ec99fbef00b15091bb0b81a76d2afab5bde2627600c2d"
+  },
+  "review": {
+    "threadId": "01a1288a-dc65-7570-b9c6-c3ec89022dc4",
+    "model": "gpt-6-sol",
+    "effort": "high",
+    "verdict": "ship",
+    "readOnlyEnforced": false,
+    "files": 791,
+    "finalBeforeAfterEqual": true,
+    "sourceSha256": "3535c39922325e0c660aa3d0aa64673e04a2800fda36e57061b991fb9f677ddd",
+    "temporaryAssetDifferenceObserved": true
+  },
+  "kernelSha256": "90bae060f3563ef8467daccf245fd24e94db59ad0647bde42c591db080940ae9",
+  "hardwareClaim": false
+}

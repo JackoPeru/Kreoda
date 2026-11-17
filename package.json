@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "build:quest": "node scripts/build-quest-client.mjs",
     "generate:session": "node scripts/generate-session-contract.mjs",
     "check:session-contract": "node scripts/generate-session-contract.mjs --check",
     "dev": "pnpm --filter @kreoda/desktop dev",

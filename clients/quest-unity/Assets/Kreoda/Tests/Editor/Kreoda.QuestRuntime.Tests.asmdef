@@ -1,0 +1,12 @@
+{
+  "name": "Kreoda.QuestRuntime.Tests",
+  "references": ["Kreoda.QuestRuntime", "Kreoda.QuestEditor", "Oculus.VR"],
+  "includePlatforms": ["Editor"],
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "Google.FlatBuffers.dll", "Kreoda.Protocol.dll", "Kreoda.QuestFoundation.dll", "Kreoda.SessionClient.dll",
+    "System.Text.Json.dll", "System.Text.Encodings.Web.dll", "Microsoft.Bcl.AsyncInterfaces.dll",
+    "System.Runtime.CompilerServices.Unsafe.dll", "nunit.framework.dll"
+  ],
+  "optionalUnityReferences": ["TestAssemblies"]
+}

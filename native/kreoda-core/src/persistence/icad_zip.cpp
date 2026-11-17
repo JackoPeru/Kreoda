@@ -6,6 +6,7 @@
 #include <minizip-ng/zip.h>
 #endif
 
+#include <cstdint>
 #include <cstdio>
 #include <vector>
 
@@ -15,8 +16,18 @@ namespace kreoda {
 
 namespace {
 
+constexpr uint64_t kMaxIcadManifestBytes = 128ULL * 1024 * 1024;
+constexpr uint64_t kMaxIcadXbfBytes = 512ULL * 1024 * 1024;
+
 bool writeEntry(zipFile zf, const char* name, const std::string& content,
                 std::string* error) {
+  const uint64_t limit = std::string(name) == "manifest.json"
+                             ? kMaxIcadManifestBytes
+                             : kMaxIcadXbfBytes;
+  if (content.size() > limit) {
+    if (error) *error = std::string("zip: entry too large ") + name;
+    return false;
+  }
   zip_fileinfo zi = {};
   if (zipOpenNewFileInZip(zf, name, &zi, nullptr, 0, nullptr, 0, nullptr,
                           Z_DEFLATED, Z_DEFAULT_COMPRESSION) != ZIP_OK) {
@@ -44,9 +55,33 @@ bool readFileBytes(const std::string& path, std::string* out,
     if (error) *error = "cannot read " + path;
     return false;
   }
-  fseek(f, 0, SEEK_END);
+#ifdef _WIN32
+  if (_fseeki64(f, 0, SEEK_END) != 0) {
+    fclose(f);
+    if (error) *error = "cannot seek " + path;
+    return false;
+  }
+  const int64_t n = _ftelli64(f);
+  if (n < 0 || static_cast<uint64_t>(n) > kMaxIcadXbfBytes ||
+      _fseeki64(f, 0, SEEK_SET) != 0) {
+    fclose(f);
+    if (error) *error = "invalid or oversized file " + path;
+    return false;
+  }
+#else
+  if (fseek(f, 0, SEEK_END) != 0) {
+    fclose(f);
+    if (error) *error = "cannot seek " + path;
+    return false;
+  }
   const long n = ftell(f);
-  fseek(f, 0, SEEK_SET);
+  if (n < 0 || static_cast<uint64_t>(n) > kMaxIcadXbfBytes ||
+      fseek(f, 0, SEEK_SET) != 0) {
+    fclose(f);
+    if (error) *error = "invalid or oversized file " + path;
+    return false;
+  }
+#endif
   out->assign(static_cast<size_t>(n), '\0');
   const size_t got = fread(out->data(), 1, out->size(), f);
   fclose(f);
@@ -96,8 +131,15 @@ bool ReadIcad(const std::string& icadPath, const std::string& outDir,
     }
     if (std::string(name) == "manifest.json" ||
         std::string(name) == "document.xbf") {
-      if (std::string(name) == "manifest.json" && info.uncompressed_size > 128ULL * 1024 * 1024) {
+      if (std::string(name) == "manifest.json" &&
+          info.uncompressed_size > kMaxIcadManifestBytes) {
         if (error) *error = "zip: manifest too large";
+        unzClose(uf);
+        return false;
+      }
+      if (std::string(name) == "document.xbf" &&
+          info.uncompressed_size > kMaxIcadXbfBytes) {
+        if (error) *error = "zip: document.xbf too large";
         unzClose(uf);
         return false;
       }

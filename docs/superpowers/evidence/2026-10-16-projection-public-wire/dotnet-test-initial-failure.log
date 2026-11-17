@@ -1,0 +1,33 @@
+  Individuazione dei progetti da ripristinare...
+  Tutti i progetti sono aggiornati per il ripristino.
+  Kreoda.Protocol -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol\csharp\bin\Debug\net8.0\Kreoda.Protocol.dll
+  Kreoda.SessionClient -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\bin\Debug\net8.0\Kreoda.SessionClient.dll
+  Kreoda.QuestFoundation -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.QuestFoundation\bin\Debug\net8.0\Kreoda.QuestFoundation.dll
+  Kreoda.SessionClient.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Debug\net8.0\Kreoda.SessionClient.Tests.dll
+Esecuzione dei test per C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Debug\net8.0\Kreoda.SessionClient.Tests.dll (.NETCoreApp,Version=v8.0)
+Un totale di 1 file di test corrisponde al criterio specificato.
+[xUnit.net 00:00:01.12]     Kreoda.SessionClient.Tests.SessionControlContractTests.ProjectionDisplayDtosRoundTripTheContractedWireShape [FAIL]
+  Non superato Kreoda.SessionClient.Tests.SessionControlContractTests.ProjectionDisplayDtosRoundTripTheContractedWireShape [15 ms]
+  Messaggio di errore:
+   System.Text.Json.JsonException : The JSON value could not be converted to Kreoda.Session.Generated.SketchProjectionGroupSummaryStatus. Path: $.groups[0].status | LineNumber: 9 | BytePositionInLine: 17.
+  Analisi dello stack:
+     at System.Text.Json.ThrowHelper.ThrowJsonException(String message)
+   at System.Text.Json.Serialization.Converters.EnumConverter`1.Read(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options)
+   at System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1.ReadJsonAndSetMember(Object obj, ReadStack& state, Utf8JsonReader& reader)
+   at System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.JsonCollectionConverter`2.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, TCollection& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1.ReadJsonAndSetMember(Object obj, ReadStack& state, Utf8JsonReader& reader)
+   at System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1.OnTryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value)
+   at System.Text.Json.Serialization.JsonConverter`1.TryRead(Utf8JsonReader& reader, Type typeToConvert, JsonSerializerOptions options, ReadStack& state, T& value, Boolean& isPopulatedValue)
+   at System.Text.Json.Serialization.JsonConverter`1.ReadCore(Utf8JsonReader& reader, JsonSerializerOptions options, ReadStack& state)
+   at System.Text.Json.JsonSerializer.ReadFromSpan[TValue](ReadOnlySpan`1 utf8Json, JsonTypeInfo`1 jsonTypeInfo, Nullable`1 actualByteCount)
+   at System.Text.Json.JsonSerializer.ReadFromSpan[TValue](ReadOnlySpan`1 json, JsonTypeInfo`1 jsonTypeInfo)
+   at System.Text.Json.JsonSerializer.Deserialize[TValue](String json, JsonSerializerOptions options)
+   at Kreoda.SessionClient.Tests.SessionControlContractTests.ProjectionDisplayDtosRoundTripTheContractedWireShape() in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\SessionControlContractTests.cs:line 94
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+File di risultati: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\docs\superpowers\evidence\2026-10-16-projection-public-wire\dotnet\projection-public-wire.trx
+
+Non superato! - Non superati:     1. Superati:   141. Ignorati:     0. Totale:   142. Durata: 1 s - Kreoda.SessionClient.Tests.dll (net8.0)

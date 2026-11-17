@@ -1,0 +1,550 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="90" result="Failed(Child)" total="90" passed="88" failed="2" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-15 08:35:51Z" end-time="2026-10-15 08:35:54Z" duration="2,1858986">
+  <test-suite type="TestSuite" id="1000" name="Kreoda Quest" fullname="Kreoda Quest" runstate="Runnable" testcasecount="90" result="Failed" site="Child" start-time="2026-10-15 08:35:51Z" end-time="2026-10-15 08:35:54Z" duration="2.185899" total="90" passed="88" failed="2" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1112" name="Kreoda.QuestRuntime.Tests.dll" fullname="C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity/Library/ScriptAssemblies/Kreoda.QuestRuntime.Tests.dll" runstate="Runnable" testcasecount="90" result="Failed" site="Child" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:54Z" duration="2.039063" total="90" passed="88" failed="2" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="38660" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1113" name="Kreoda" fullname="Kreoda" runstate="Runnable" testcasecount="90" result="Failed" site="Child" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:54Z" duration="2.038708" total="90" passed="88" failed="2" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1114" name="QuestRuntime" fullname="Kreoda.QuestRuntime" runstate="Runnable" testcasecount="90" result="Failed" site="Child" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:54Z" duration="2.038538" total="90" passed="88" failed="2" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1115" name="Tests" fullname="Kreoda.QuestRuntime.Tests" runstate="Runnable" testcasecount="90" result="Failed" site="Child" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:54Z" duration="2.037510" total="90" passed="88" failed="2" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestFixture" id="1001" name="QuestCommandsTests" fullname="Kreoda.QuestRuntime.Tests.QuestCommandsTests" classname="Kreoda.QuestRuntime.Tests.QuestCommandsTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-10-15 08:35:45Z" end-time="2026-10-15 08:35:45Z" duration="0.041477" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1003" name="CompletedCommandTokenCannotCrashFocusLossCleanup" fullname="Kreoda.QuestRuntime.Tests.QuestCommandsTests.CompletedCommandTokenCannotCrashFocusLossCleanup" methodname="CompletedCommandTokenCannotCrashFocusLossCleanup" classname="Kreoda.QuestRuntime.Tests.QuestCommandsTests" runstate="Runnable" seed="1826506623" result="Passed" start-time="2026-10-15 08:35:45Z" end-time="2026-10-15 08:35:45Z" duration="0.012004" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1002" name="NumericSchemaFieldsRejectNonFiniteValuesAndCannotRetargetBoundSelection" fullname="Kreoda.QuestRuntime.Tests.QuestCommandsTests.NumericSchemaFieldsRejectNonFiniteValuesAndCannotRetargetBoundSelection" methodname="NumericSchemaFieldsRejectNonFiniteValuesAndCannotRetargetBoundSelection" classname="Kreoda.QuestRuntime.Tests.QuestCommandsTests" runstate="Runnable" seed="1800219354" result="Passed" start-time="2026-10-15 08:35:45Z" end-time="2026-10-15 08:35:45Z" duration="0.018878" asserts="0">
+                <properties />
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1004" name="QuestConnectionTests" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-10-15 08:35:45Z" end-time="2026-10-15 08:35:48Z" duration="3.431312" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1005" name="DatumObservationsTrackCurrentRevisionRemovalDocumentAndConnectionWithoutMeshes" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.DatumObservationsTrackCurrentRevisionRemovalDocumentAndConnectionWithoutMeshes" methodname="DatumObservationsTrackCurrentRevisionRemovalDocumentAndConnectionWithoutMeshes" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1656554899" result="Passed" start-time="2026-10-15 08:35:45Z" end-time="2026-10-15 08:35:45Z" duration="0.047181" asserts="0">
+                <properties />
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=0 triangles=0
+]]></output>
+              </test-case>
+              <test-case id="1013" name="DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport" methodname="DatumWirePublishesNativeIdentityAndUsesPcBoundSketchSupport" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="936230524" result="Passed" start-time="2026-10-15 08:35:45Z" end-time="2026-10-15 08:35:45Z" duration="0.478678" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1014" name="LateReferenceReplyCannotRetargetSameUuidAfterDocumentReconnect" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.LateReferenceReplyCannotRetargetSameUuidAfterDocumentReconnect" methodname="LateReferenceReplyCannotRetargetSameUuidAfterDocumentReconnect" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="496890966" result="Passed" start-time="2026-10-15 08:35:45Z" end-time="2026-10-15 08:35:48Z" duration="2.632504" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1011" name="PairAndReconnectUploadAuthenticNativeMeshThroughActualUnityClient" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.PairAndReconnectUploadAuthenticNativeMeshThroughActualUnityClient" methodname="PairAndReconnectUploadAuthenticNativeMeshThroughActualUnityClient" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1362680815" result="Passed" start-time="2026-10-15 08:35:48Z" end-time="2026-10-15 08:35:48Z" duration="0.134104" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+              <test-case id="1010" name="ReferenceFailureDistinguishesNativeRejectionFromAcceptedCommandRefreshFailure" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.ReferenceFailureDistinguishesNativeRejectionFromAcceptedCommandRefreshFailure" methodname="ReferenceFailureDistinguishesNativeRejectionFromAcceptedCommandRefreshFailure" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1236866643" result="Passed" start-time="2026-10-15 08:35:48Z" end-time="2026-10-15 08:35:48Z" duration="0.000481" asserts="0">
+                <properties />
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1009" name="UnconfirmedReferenceErrorsRemainUncertain" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-10-15 08:35:48Z" end-time="2026-10-15 08:35:48Z" duration="0.001148" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1006" name="UnconfirmedReferenceErrorsRemainUncertain(&quot;INVALID_JSON&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain(&quot;INVALID_JSON&quot;)" methodname="UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="20641262" result="Passed" start-time="2026-10-15 08:35:48Z" end-time="2026-10-15 08:35:48Z" duration="0.000411" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1007" name="UnconfirmedReferenceErrorsRemainUncertain(&quot;UNKNOWN_NATIVE_CODE&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain(&quot;UNKNOWN_NATIVE_CODE&quot;)" methodname="UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="860708375" result="Passed" start-time="2026-10-15 08:35:48Z" end-time="2026-10-15 08:35:48Z" duration="0.000089" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1008" name="UnconfirmedReferenceErrorsRemainUncertain(&quot;CANCELLED&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UnconfirmedReferenceErrorsRemainUncertain(&quot;CANCELLED&quot;)" methodname="UnconfirmedReferenceErrorsRemainUncertain" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="1999450624" result="Passed" start-time="2026-10-15 08:35:48Z" end-time="2026-10-15 08:35:48Z" duration="0.000075" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-case id="1012" name="UsbBootstrapPairsAndReconnectsOverLoopbackWithActualMesh" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.UsbBootstrapPairsAndReconnectsOverLoopbackWithActualMesh" methodname="UsbBootstrapPairsAndReconnectsOverLoopbackWithActualMesh" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="159086520" result="Passed" start-time="2026-10-15 08:35:48Z" end-time="2026-10-15 08:35:48Z" duration="0.135562" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                </properties>
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_CONNECTED
+KREODA_MODEL objects=1 triangles=264
+KREODA_MODEL objects=1 triangles=264
+]]></output>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1015" name="QuestControlsTests" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" testcasecount="22" result="Failed" site="Child" start-time="2026-10-15 08:35:48Z" end-time="2026-10-15 08:35:49Z" duration="0.394828" total="22" passed="20" failed="2" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-case id="1035" name="CodeDraftSurvivesKeyboardLosingFocus" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.CodeDraftSurvivesKeyboardLosingFocus" methodname="CodeDraftSurvivesKeyboardLosingFocus" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="585421345" result="Passed" start-time="2026-10-15 08:35:48Z" end-time="2026-10-15 08:35:48Z" duration="0.143742" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1016" name="ControllerFreeDatumSelectionFeedsVoiceAndRejectsStaleOrOfflineIdentity" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.ControllerFreeDatumSelectionFeedsVoiceAndRejectsStaleOrOfflineIdentity" methodname="ControllerFreeDatumSelectionFeedsVoiceAndRejectsStaleOrOfflineIdentity" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="62906260" result="Passed" start-time="2026-10-15 08:35:48Z" end-time="2026-10-15 08:35:48Z" duration="0.015363" asserts="0">
+                <properties />
+                <output><![CDATA[KREODA_MODEL objects=0 triangles=0
+]]></output>
+              </test-case>
+              <test-case id="1037" name="DismissingKeyboardKeepsTheEnteredDraft" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.DismissingKeyboardKeepsTheEnteredDraft" methodname="DismissingKeyboardKeepsTheEnteredDraft" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="1131232614" result="Passed" start-time="2026-10-15 08:35:48Z" end-time="2026-10-15 08:35:49Z" duration="0.009377" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1038" name="DoneCanDeliberatelyClearTheEnteredDraft" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.DoneCanDeliberatelyClearTheEnteredDraft" methodname="DoneCanDeliberatelyClearTheEnteredDraft" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="1042619803" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.009781" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1025" name="EditableReferenceInspectionHasSeparateEditAndBackHitTargets" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.EditableReferenceInspectionHasSeparateEditAndBackHitTargets" methodname="EditableReferenceInspectionHasSeparateEditAndBackHitTargets" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="318121006" result="Failed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.014612" asserts="0">
+                <properties />
+                <failure>
+                  <message><![CDATA[  pinch rays must distinguish Edit from Back across their full hit areas
+  Expected: less than 2.59682298f
+  But was:  2.65845823f
+]]></message>
+                  <stack-trace><![CDATA[at Kreoda.QuestRuntime.Tests.QuestControlsTests.EditableReferenceInspectionHasSeparateEditAndBackHitTargets () [0x000ba] in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Assets\Kreoda\Tests\Editor\QuestControlsTests.cs:315
+]]></stack-trace>
+                </failure>
+              </test-case>
+              <test-case id="1029" name="HeaderGrabMovesWithoutJumpAndReleaseStopsFollowing" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.HeaderGrabMovesWithoutJumpAndReleaseStopsFollowing" methodname="HeaderGrabMovesWithoutJumpAndReleaseStopsFollowing" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="825372911" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.013102" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1021" name="IndexPinchUsesSameCompactSectionButtonActionWithoutController" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.IndexPinchUsesSameCompactSectionButtonActionWithoutController" methodname="IndexPinchUsesSameCompactSectionButtonActionWithoutController" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="498222525" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.010998" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1036" name="LatestEndpointIsKeptWhenKeyboardClosesWithoutDone" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.LatestEndpointIsKeptWhenKeyboardClosesWithoutDone" methodname="LatestEndpointIsKeptWhenKeyboardClosesWithoutDone" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="178860758" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.009608" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1019" name="NumericEditFocusLossDiscardsPendingConfirmation" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.NumericEditFocusLossDiscardsPendingConfirmation" methodname="NumericEditFocusLossDiscardsPendingConfirmation" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="1578037414" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.009990" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1018" name="PanelHasUsablePhysicalSizeAndRecentersAtCurrentEyeHeight" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.PanelHasUsablePhysicalSizeAndRecentersAtCurrentEyeHeight" methodname="PanelHasUsablePhysicalSizeAndRecentersAtCurrentEyeHeight" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="2054655926" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.009775" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1024" name="ReferenceHomeFormAndInspectKeepTextBoundsClearOfNeighboringButtons" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.ReferenceHomeFormAndInspectKeepTextBoundsClearOfNeighboringButtons" methodname="ReferenceHomeFormAndInspectKeepTextBoundsClearOfNeighboringButtons" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="501578535" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.016612" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1023" name="ReferenceKindOperationSourceFieldAndCancelUseIndexPinchButtonRoute" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.ReferenceKindOperationSourceFieldAndCancelUseIndexPinchButtonRoute" methodname="ReferenceKindOperationSourceFieldAndCancelUseIndexPinchButtonRoute" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="1564027857" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.018309" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1022" name="ReferencePageAndCreateEntryUseVisibleIndexPinchButtons" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.ReferencePageAndCreateEntryUseVisibleIndexPinchButtons" methodname="ReferencePageAndCreateEntryUseVisibleIndexPinchButtons" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="1926570697" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.009903" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1026" name="ReferencePageShowsCommandOutcomeStatus" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.ReferencePageShowsCommandOutcomeStatus" methodname="ReferencePageShowsCommandOutcomeStatus" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="224302802" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.010150" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1034" name="ReleasingAnOutOfReachDraftRestoresSafePlacement" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.ReleasingAnOutOfReachDraftRestoresSafePlacement" methodname="ReleasingAnOutOfReachDraftRestoresSafePlacement" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="1874230976" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.010789" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1017" name="RenderedButtonTextFitsItsActualHitTargetIncludingDynamicEndpoint" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.RenderedButtonTextFitsItsActualHitTargetIncludingDynamicEndpoint" methodname="RenderedButtonTextFitsItsActualHitTargetIncludingDynamicEndpoint" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="964591359" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.015313" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1033" name="ShowingPanelResetsBadOffsetsToSafeEyeLevel" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.ShowingPanelResetsBadOffsetsToSafeEyeLevel" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.020218" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1031" name="ShowingPanelResetsBadOffsetsToSafeEyeLevel(0.5f,-0.4f,1.2f)" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.ShowingPanelResetsBadOffsetsToSafeEyeLevel(0.5f,-0.4f,1.2f)" methodname="ShowingPanelResetsBadOffsetsToSafeEyeLevel" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="998866948" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.010142" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1032" name="ShowingPanelResetsBadOffsetsToSafeEyeLevel(20.0f,-10.0f,-8.0f)" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.ShowingPanelResetsBadOffsetsToSafeEyeLevel(20.0f,-10.0f,-8.0f)" methodname="ShowingPanelResetsBadOffsetsToSafeEyeLevel" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="1458566139" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.009750" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-case id="1028" name="SourceHandoffCancelsHeldEditAndRequiresFreshPress" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.SourceHandoffCancelsHeldEditAndRequiresFreshPress" methodname="SourceHandoffCancelsHeldEditAndRequiresFreshPress" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="258305162" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.010152" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1020" name="TrackedHandHasPriorityOverConnectedController" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.TrackedHandHasPriorityOverConnectedController" methodname="TrackedHandHasPriorityOverConnectedController" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="1940731050" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.009421" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1027" name="TrackingLossAndFocusLossCancelReferenceForm" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.TrackingLossAndFocusLossCancelReferenceForm" methodname="TrackingLossAndFocusLossCancelReferenceForm" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="849782140" result="Failed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.013603" asserts="0">
+                <properties />
+                <failure>
+                  <message><![CDATA[  tracking loss must also clear the numeric keyboard intent
+  Expected: False
+  But was:  True
+]]></message>
+                  <stack-trace><![CDATA[at Kreoda.QuestRuntime.Tests.QuestControlsTests.TrackingLossAndFocusLossCancelReferenceForm () [0x00093] in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Assets\Kreoda\Tests\Editor\QuestControlsTests.cs:339
+]]></stack-trace>
+                </failure>
+              </test-case>
+              <test-case id="1030" name="TrackingLossCancelsPanelGrabWithoutMovingCadOrPersistingTheDraft" fullname="Kreoda.QuestRuntime.Tests.QuestControlsTests.TrackingLossCancelsPanelGrabWithoutMovingCadOrPersistingTheDraft" methodname="TrackingLossCancelsPanelGrabWithoutMovingCadOrPersistingTheDraft" classname="Kreoda.QuestRuntime.Tests.QuestControlsTests" runstate="Runnable" seed="393956270" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.010410" asserts="0">
+                <properties />
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1039" name="QuestDatumViewTests" fullname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests" classname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.009775" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1041" name="AxisAndPointKeepTheirNativeUuidAndCanonicalSelectionKind" fullname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests.AxisAndPointKeepTheirNativeUuidAndCanonicalSelectionKind" methodname="AxisAndPointKeepTheirNativeUuidAndCanonicalSelectionKind" classname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests" runstate="Runnable" seed="776033695" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.001186" asserts="0">
+                <properties />
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1048" name="BrokenOrMalformedPlaneCannotBecomeHealthyGeometryOrTarget" fullname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests.BrokenOrMalformedPlaneCannotBecomeHealthyGeometryOrTarget" classname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.001881" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1045" name="BrokenOrMalformedPlaneCannotBecomeHealthyGeometryOrTarget(&quot;broken&quot;,&quot;[0,0,0]&quot;,&quot;[1,0,0]&quot;,&quot;[0,1,0]&quot;,&quot;[0,0,1]&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests.BrokenOrMalformedPlaneCannotBecomeHealthyGeometryOrTarget(&quot;broken&quot;,&quot;[0,0,0]&quot;,&quot;[1,0,0]&quot;,&quot;[0,1,0]&quot;,&quot;[0,0,1]&quot;)" methodname="BrokenOrMalformedPlaneCannotBecomeHealthyGeometryOrTarget" classname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests" runstate="Runnable" seed="1555536869" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.000886" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1046" name="BrokenOrMalformedPlaneCannotBecomeHealthyGeometryOrTarget(&quot;ok&quot;,&quot;[0,0,0]&quot;,&quot;[1,0,0]&quot;,&quot;[0.0001,1,0]&quot;,&quot;[0,0,1]&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests.BrokenOrMalformedPlaneCannotBecomeHealthyGeometryOrTarget(&quot;ok&quot;,&quot;[0,0,0]&quot;,&quot;[1,0,0]&quot;,&quot;[0.0001,1,0]&quot;,&quot;[0,0,1]&quot;)" methodname="BrokenOrMalformedPlaneCannotBecomeHealthyGeometryOrTarget" classname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests" runstate="Runnable" seed="459391078" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.000374" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1047" name="BrokenOrMalformedPlaneCannotBecomeHealthyGeometryOrTarget(&quot;ok&quot;,&quot;[0,0,0]&quot;,&quot;[0,0,0]&quot;,&quot;[0,1,0]&quot;,&quot;[0,0,1]&quot;)" fullname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests.BrokenOrMalformedPlaneCannotBecomeHealthyGeometryOrTarget(&quot;ok&quot;,&quot;[0,0,0]&quot;,&quot;[0,0,0]&quot;,&quot;[0,1,0]&quot;,&quot;[0,0,1]&quot;)" methodname="BrokenOrMalformedPlaneCannotBecomeHealthyGeometryOrTarget" classname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests" runstate="Runnable" seed="136351890" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.000193" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-case id="1043" name="FiniteCadCoordinatesThatOverflowUnityFloatCannotBecomeTargets" fullname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests.FiniteCadCoordinatesThatOverflowUnityFloatCannotBecomeTargets" methodname="FiniteCadCoordinatesThatOverflowUnityFloatCannotBecomeTargets" classname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests" runstate="Runnable" seed="325332209" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.000596" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1042" name="NonUnitAxisCannotBeNormalizedIntoHealthyNativeGeometry" fullname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests.NonUnitAxisCannotBeNormalizedIntoHealthyNativeGeometry" methodname="NonUnitAxisCannotBeNormalizedIntoHealthyNativeGeometry" classname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests" runstate="Runnable" seed="1334730077" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.000421" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1040" name="PlaneUsesCompleteNativeFrameUnderReflectedDisplayRootAndPicksOnlyItsBorder" fullname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests.PlaneUsesCompleteNativeFrameUnderReflectedDisplayRootAndPicksOnlyItsBorder" methodname="PlaneUsesCompleteNativeFrameUnderReflectedDisplayRootAndPicksOnlyItsBorder" classname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests" runstate="Runnable" seed="1122121666" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.003056" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1044" name="RemovedGuideCanDisablePickingBeforeDeferredDestroy" fullname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests.RemovedGuideCanDisablePickingBeforeDeferredDestroy" methodname="RemovedGuideCanDisablePickingBeforeDeferredDestroy" classname="Kreoda.QuestRuntime.Tests.QuestDatumViewTests" runstate="Runnable" seed="1065548196" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.001082" asserts="0">
+                <properties />
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1049" name="QuestDimensionsTests" fullname="Kreoda.QuestRuntime.Tests.QuestDimensionsTests" classname="Kreoda.QuestRuntime.Tests.QuestDimensionsTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.010004" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1050" name="DeclaredAxisHandleRemainsOutsideVisibleBodyInsteadOfHiddenInsideIt" fullname="Kreoda.QuestRuntime.Tests.QuestDimensionsTests.DeclaredAxisHandleRemainsOutsideVisibleBodyInsteadOfHiddenInsideIt" methodname="DeclaredAxisHandleRemainsOutsideVisibleBodyInsteadOfHiddenInsideIt" classname="Kreoda.QuestRuntime.Tests.QuestDimensionsTests" runstate="Runnable" seed="1306972455" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.003669" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1051" name="SelectedQuoteStaysReadableAndVisibleWhenOriginsOverlap" fullname="Kreoda.QuestRuntime.Tests.QuestDimensionsTests.SelectedQuoteStaysReadableAndVisibleWhenOriginsOverlap" methodname="SelectedQuoteStaysReadableAndVisibleWhenOriginsOverlap" classname="Kreoda.QuestRuntime.Tests.QuestDimensionsTests" runstate="Runnable" seed="345938127" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.005684" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1052" name="QuestDisplayTests" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.069329" total="11" passed="11" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="ParameterizedMethod" id="1058" name="DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.019447" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1053" name="DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices(&quot;1:10&quot;,0.1f)" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices(&quot;1:10&quot;,0.1f)" methodname="DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" seed="785717691" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.011370" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1054" name="DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices(&quot;1:5&quot;,0.2f)" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices(&quot;1:5&quot;,0.2f)" methodname="DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" seed="746731973" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.001690" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1055" name="DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices(&quot;1:1&quot;,1.0f)" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices(&quot;1:1&quot;,1.0f)" methodname="DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" seed="115716193" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.002244" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1056" name="DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices(&quot;2:1&quot;,2.0f)" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices(&quot;2:1&quot;,2.0f)" methodname="DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" seed="1091716836" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.001674" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1057" name="DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices(&quot;10:1&quot;,10.0f)" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices(&quot;10:1&quot;,10.0f)" methodname="DisplayMagnificationPreservesChosenSurfaceContactAndNativeVertices" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" seed="388113864" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.001882" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-case id="1063" name="ExplicitPlacementBeforeFirstHydrationPreventsAutomaticRecenterAndScale" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.ExplicitPlacementBeforeFirstHydrationPreventsAutomaticRecenterAndScale" methodname="ExplicitPlacementBeforeFirstHydrationPreventsAutomaticRecenterAndScale" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" seed="261832507" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.001910" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1062" name="FitRejectsEmptyOrDegenerateBoundsWithoutChangingPlacement" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.FitRejectsEmptyOrDegenerateBoundsWithoutChangingPlacement" methodname="FitRejectsEmptyOrDegenerateBoundsWithoutChangingPlacement" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" seed="115041801" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.001740" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1059" name="FitUsesActualMetreBoundsAndCancelRestoresPlacementAfterTrackingLoss" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.FitUsesActualMetreBoundsAndCancelRestoresPlacementAfterTrackingLoss" methodname="FitUsesActualMetreBoundsAndCancelRestoresPlacementAfterTrackingLoss" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" seed="1179088027" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.001847" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1061" name="InitialFitWaitsForTheWholeModelAndDoesNotOverwriteAnExplicitAnchor" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.InitialFitWaitsForTheWholeModelAndDoesNotOverwriteAnExplicitAnchor" methodname="InitialFitWaitsForTheWholeModelAndDoesNotOverwriteAnExplicitAnchor" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" seed="103207597" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.004014" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1064" name="PlacementPreviewIsDistinctTranslucentAndRestoresMaterialsWithoutReplacingGeometry" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.PlacementPreviewIsDistinctTranslucentAndRestoresMaterialsWithoutReplacingGeometry" methodname="PlacementPreviewIsDistinctTranslucentAndRestoresMaterialsWithoutReplacingGeometry" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" seed="309280908" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.036583" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1060" name="TwoHandGestureChangesOnlyDisplayAndTrackingLossRestoresItsStart" fullname="Kreoda.QuestRuntime.Tests.QuestDisplayTests.TwoHandGestureChangesOnlyDisplayAndTrackingLossRestoresItsStart" methodname="TwoHandGestureChangesOnlyDisplayAndTrackingLossRestoresItsStart" classname="Kreoda.QuestRuntime.Tests.QuestDisplayTests" runstate="Runnable" seed="765676788" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.002743" asserts="0">
+                <properties />
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1065" name="QuestMeshViewTests" fullname="Kreoda.QuestRuntime.Tests.QuestMeshViewTests" classname="Kreoda.QuestRuntime.Tests.QuestMeshViewTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.177750" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1066" name="ActualNativeFacesArePickableFromOutsideWithUnchangedTriangleToSemanticMap" fullname="Kreoda.QuestRuntime.Tests.QuestMeshViewTests.ActualNativeFacesArePickableFromOutsideWithUnchangedTriangleToSemanticMap" methodname="ActualNativeFacesArePickableFromOutsideWithUnchangedTriangleToSemanticMap" classname="Kreoda.QuestRuntime.Tests.QuestMeshViewTests" runstate="Runnable" seed="105054349" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:49Z" duration="0.002015" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1068" name="DestroyingBodyDisposesSurfaceEdgesAndSelectionWithoutDestroyingSharedMaterial" fullname="Kreoda.QuestRuntime.Tests.QuestMeshViewTests.DestroyingBodyDisposesSurfaceEdgesAndSelectionWithoutDestroyingSharedMaterial" methodname="DestroyingBodyDisposesSurfaceEdgesAndSelectionWithoutDestroyingSharedMaterial" classname="Kreoda.QuestRuntime.Tests.QuestMeshViewTests" runstate="Runnable" seed="898070684" result="Passed" start-time="2026-10-15 08:35:49Z" end-time="2026-10-15 08:35:52Z" duration="2.875880" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1067" name="ReplacingOneBodyRetainsItsObjectAndDisposesOnlyItsPreviousMesh" fullname="Kreoda.QuestRuntime.Tests.QuestMeshViewTests.ReplacingOneBodyRetainsItsObjectAndDisposesOnlyItsPreviousMesh" methodname="ReplacingOneBodyRetainsItsObjectAndDisposesOnlyItsPreviousMesh" classname="Kreoda.QuestRuntime.Tests.QuestMeshViewTests" runstate="Runnable" seed="1649793940" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.006542" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1069" name="QuestPreviewViewTests" fullname="Kreoda.QuestRuntime.Tests.QuestPreviewViewTests" classname="Kreoda.QuestRuntime.Tests.QuestPreviewViewTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.043029" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1070" name="CandidateIsSeparateUnpickableAndCannotOutliveItsGesture" fullname="Kreoda.QuestRuntime.Tests.QuestPreviewViewTests.CandidateIsSeparateUnpickableAndCannotOutliveItsGesture" methodname="CandidateIsSeparateUnpickableAndCannotOutliveItsGesture" classname="Kreoda.QuestRuntime.Tests.QuestPreviewViewTests" runstate="Runnable" seed="1811377984" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.042395" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1071" name="QuestReferencesTests" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.093286" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1072" name="AllTenDefinitionsKeepCanonicalDiscriminatorsAndStableSourceIdentities" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.AllTenDefinitionsKeepCanonicalDiscriminatorsAndStableSourceIdentities" methodname="AllTenDefinitionsKeepCanonicalDiscriminatorsAndStableSourceIdentities" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="2030055876" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.077115" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1083" name="ContextSchemaRestrictsAvailableConstructors" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.ContextSchemaRestrictsAvailableConstructors" methodname="ContextSchemaRestrictsAvailableConstructors" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="776566663" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.002541" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1080" name="DegreeRangeIsBoundedSeparatelyFromMillimetreInputs" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.DegreeRangeIsBoundedSeparatelyFromMillimetreInputs" methodname="DegreeRangeIsBoundedSeparatelyFromMillimetreInputs" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="190296077" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.000352" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1082" name="EditPayloadRetainsOriginalFeatureUuidAndSelectsCanonicalUpdateCommand" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.EditPayloadRetainsOriginalFeatureUuidAndSelectsCanonicalUpdateCommand" methodname="EditPayloadRetainsOriginalFeatureUuidAndSelectsCanonicalUpdateCommand" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="1931875021" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.001003" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1079" name="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.005250" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1073" name="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;1,25&quot;,True,1.25d)" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;1,25&quot;,True,1.25d)" methodname="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="924631473" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.000980" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1074" name="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;-1000000&quot;,True,-1000000)" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;-1000000&quot;,True,-1000000)" methodname="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="372581200" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.000400" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1075" name="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;1000000.01&quot;,False,0)" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;1000000.01&quot;,False,0)" methodname="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="2044495012" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.002589" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1076" name="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;NaN&quot;,False,0)" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;NaN&quot;,False,0)" methodname="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="505521332" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.000072" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1077" name="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;Infinity&quot;,False,0)" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;Infinity&quot;,False,0)" methodname="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="1377803172" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.000066" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1078" name="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;361&quot;,True,361)" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange(&quot;361&quot;,True,361)" methodname="NumericInputAcceptsCommaAndRejectsNonFiniteOrOutOfRange" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="344765428" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.000067" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-case id="1084" name="PlaneIntersectionRejectsEdgeBecauseAxisRefCannotBeUsedAsPlaneRef" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.PlaneIntersectionRejectsEdgeBecauseAxisRefCannotBeUsedAsPlaneRef" methodname="PlaneIntersectionRejectsEdgeBecauseAxisRefCannotBeUsedAsPlaneRef" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="2018141519" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.003301" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1081" name="WrongDatumKindAndInvalidSourceIdentityCannotBecomeAnonymousGeometry" fullname="Kreoda.QuestRuntime.Tests.QuestReferencesTests.WrongDatumKindAndInvalidSourceIdentityCannotBecomeAnonymousGeometry" methodname="WrongDatumKindAndInvalidSourceIdentityCannotBecomeAnonymousGeometry" classname="Kreoda.QuestRuntime.Tests.QuestReferencesTests" runstate="Runnable" seed="1200039493" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.001191" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1085" name="QuestSceneTests" fullname="Kreoda.QuestRuntime.Tests.QuestSceneTests" classname="Kreoda.QuestRuntime.Tests.QuestSceneTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:53Z" duration="1.248489" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1086" name="ProductAndroidConfigurationSatisfiesRequiredMetaMrPredicates" fullname="Kreoda.QuestRuntime.Tests.QuestSceneTests.ProductAndroidConfigurationSatisfiesRequiredMetaMrPredicates" methodname="ProductAndroidConfigurationSatisfiesRequiredMetaMrPredicates" classname="Kreoda.QuestRuntime.Tests.QuestSceneTests" runstate="Runnable" seed="1236087601" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:52Z" duration="0.513062" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1088" name="ProductSceneHasConnectedCadControlsAndCompactReachableMenu" fullname="Kreoda.QuestRuntime.Tests.QuestSceneTests.ProductSceneHasConnectedCadControlsAndCompactReachableMenu" methodname="ProductSceneHasConnectedCadControlsAndCompactReachableMenu" classname="Kreoda.QuestRuntime.Tests.QuestSceneTests" runstate="Runnable" seed="689324639" result="Passed" start-time="2026-10-15 08:35:52Z" end-time="2026-10-15 08:35:53Z" duration="0.397804" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1087" name="ProductVoiceIsWiredAndStartsQuietWithoutRecording" fullname="Kreoda.QuestRuntime.Tests.QuestSceneTests.ProductVoiceIsWiredAndStartsQuietWithoutRecording" methodname="ProductVoiceIsWiredAndStartsQuietWithoutRecording" classname="Kreoda.QuestRuntime.Tests.QuestSceneTests" runstate="Runnable" seed="859158405" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.334172" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1089" name="QuestSectionTests" fullname="Kreoda.QuestRuntime.Tests.QuestSectionTests" classname="Kreoda.QuestRuntime.Tests.QuestSectionTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.080780" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1090" name="EmptySceneCannotEnableAndNativeMidpointAndExplicitZeroSurviveRemesh" fullname="Kreoda.QuestRuntime.Tests.QuestSectionTests.EmptySceneCannotEnableAndNativeMidpointAndExplicitZeroSurviveRemesh" methodname="EmptySceneCannotEnableAndNativeMidpointAndExplicitZeroSurviveRemesh" classname="Kreoda.QuestRuntime.Tests.QuestSectionTests" runstate="Runnable" seed="1545079581" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.024790" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1096" name="NativeCutHasOpaqueCapAndContourButLeavesBlindHoleApertureOpen" fullname="Kreoda.QuestRuntime.Tests.QuestSectionTests.NativeCutHasOpaqueCapAndContourButLeavesBlindHoleApertureOpen" methodname="NativeCutHasOpaqueCapAndContourButLeavesBlindHoleApertureOpen" classname="Kreoda.QuestRuntime.Tests.QuestSectionTests" runstate="Runnable" seed="1444947369" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.011463" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1095" name="NewSessionLineageResetsSectionEvenWhenDocumentIdStaysTheSame" fullname="Kreoda.QuestRuntime.Tests.QuestSectionTests.NewSessionLineageResetsSectionEvenWhenDocumentIdStaysTheSame" methodname="NewSessionLineageResetsSectionEvenWhenDocumentIdStaysTheSame" classname="Kreoda.QuestRuntime.Tests.QuestSectionTests" runstate="Runnable" seed="790660989" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.002862" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1098" name="OverlayAndStalePreviewComposeSectionPropertiesAndDisableReleasesGeneratedMeshes" fullname="Kreoda.QuestRuntime.Tests.QuestSectionTests.OverlayAndStalePreviewComposeSectionPropertiesAndDisableReleasesGeneratedMeshes" methodname="OverlayAndStalePreviewComposeSectionPropertiesAndDisableReleasesGeneratedMeshes" classname="Kreoda.QuestRuntime.Tests.QuestSectionTests" runstate="Runnable" seed="1591718304" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.004689" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1094" name="RejectedResetWithOutOfRangeTranslatedBoundsPreservesEnabledPlane" fullname="Kreoda.QuestRuntime.Tests.QuestSectionTests.RejectedResetWithOutOfRangeTranslatedBoundsPreservesEnabledPlane" methodname="RejectedResetWithOutOfRangeTranslatedBoundsPreservesEnabledPlane" classname="Kreoda.QuestRuntime.Tests.QuestSectionTests" runstate="Runnable" seed="329914777" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.002985" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1093" name="SameDocumentBoxToHolePendingMeshKeepsSectionUntilHydrationAndTrueEmptyUndo" fullname="Kreoda.QuestRuntime.Tests.QuestSectionTests.SameDocumentBoxToHolePendingMeshKeepsSectionUntilHydrationAndTrueEmptyUndo" classname="Kreoda.QuestRuntime.Tests.QuestSectionTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.023254" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1091" name="SameDocumentBoxToHolePendingMeshKeepsSectionUntilHydrationAndTrueEmptyUndo(False)" fullname="Kreoda.QuestRuntime.Tests.QuestSectionTests.SameDocumentBoxToHolePendingMeshKeepsSectionUntilHydrationAndTrueEmptyUndo(False)" methodname="SameDocumentBoxToHolePendingMeshKeepsSectionUntilHydrationAndTrueEmptyUndo" classname="Kreoda.QuestRuntime.Tests.QuestSectionTests" runstate="Runnable" seed="2098423987" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.019523" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1092" name="SameDocumentBoxToHolePendingMeshKeepsSectionUntilHydrationAndTrueEmptyUndo(True)" fullname="Kreoda.QuestRuntime.Tests.QuestSectionTests.SameDocumentBoxToHolePendingMeshKeepsSectionUntilHydrationAndTrueEmptyUndo(True)" methodname="SameDocumentBoxToHolePendingMeshKeepsSectionUntilHydrationAndTrueEmptyUndo" classname="Kreoda.QuestRuntime.Tests.QuestSectionTests" runstate="Runnable" seed="1140026710" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.003216" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-case id="1097" name="VisibleNativeRayFindsInteriorTriangleBehindHiddenRoofUnderTransformedRoot" fullname="Kreoda.QuestRuntime.Tests.QuestSectionTests.VisibleNativeRayFindsInteriorTriangleBehindHiddenRoofUnderTransformedRoot" methodname="VisibleNativeRayFindsInteriorTriangleBehindHiddenRoofUnderTransformedRoot" classname="Kreoda.QuestRuntime.Tests.QuestSectionTests" runstate="Runnable" seed="1295488517" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.008996" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1099" name="QuestSketchDimensionsTests" fullname="Kreoda.QuestRuntime.Tests.QuestSketchDimensionsTests" classname="Kreoda.QuestRuntime.Tests.QuestSketchDimensionsTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.006265" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1100" name="MalformedNativeSketchBasisCannotRenderAsCurrentSupportedGeometry" fullname="Kreoda.QuestRuntime.Tests.QuestSketchDimensionsTests.MalformedNativeSketchBasisCannotRenderAsCurrentSupportedGeometry" methodname="MalformedNativeSketchBasisCannotRenderAsCurrentSupportedGeometry" classname="Kreoda.QuestRuntime.Tests.QuestSketchDimensionsTests" runstate="Runnable" seed="131571664" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.001817" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1101" name="PreviewLinesUseCapturedPlaneAndRemainUnpickable" fullname="Kreoda.QuestRuntime.Tests.QuestSketchDimensionsTests.PreviewLinesUseCapturedPlaneAndRemainUnpickable" methodname="PreviewLinesUseCapturedPlaneAndRemainUnpickable" classname="Kreoda.QuestRuntime.Tests.QuestSketchDimensionsTests" runstate="Runnable" seed="2097958264" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.003748" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1102" name="QuestSpatialEditTests" fullname="Kreoda.QuestRuntime.Tests.QuestSpatialEditTests" classname="Kreoda.QuestRuntime.Tests.QuestSpatialEditTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.002249" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="ParameterizedMethod" id="1106" name="ActualUnityDisplayFrameConvertsWorldDisplacementOnlyOnce" fullname="Kreoda.QuestRuntime.Tests.QuestSpatialEditTests.ActualUnityDisplayFrameConvertsWorldDisplacementOnlyOnce" classname="Kreoda.QuestRuntime.Tests.QuestSpatialEditTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.001882" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1103" name="ActualUnityDisplayFrameConvertsWorldDisplacementOnlyOnce(0.1f)" fullname="Kreoda.QuestRuntime.Tests.QuestSpatialEditTests.ActualUnityDisplayFrameConvertsWorldDisplacementOnlyOnce(0.1f)" methodname="ActualUnityDisplayFrameConvertsWorldDisplacementOnlyOnce" classname="Kreoda.QuestRuntime.Tests.QuestSpatialEditTests" runstate="Runnable" seed="1198388701" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.001178" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1104" name="ActualUnityDisplayFrameConvertsWorldDisplacementOnlyOnce(1.0f)" fullname="Kreoda.QuestRuntime.Tests.QuestSpatialEditTests.ActualUnityDisplayFrameConvertsWorldDisplacementOnlyOnce(1.0f)" methodname="ActualUnityDisplayFrameConvertsWorldDisplacementOnlyOnce" classname="Kreoda.QuestRuntime.Tests.QuestSpatialEditTests" runstate="Runnable" seed="144936916" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.000090" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1105" name="ActualUnityDisplayFrameConvertsWorldDisplacementOnlyOnce(10.0f)" fullname="Kreoda.QuestRuntime.Tests.QuestSpatialEditTests.ActualUnityDisplayFrameConvertsWorldDisplacementOnlyOnce(10.0f)" methodname="ActualUnityDisplayFrameConvertsWorldDisplacementOnlyOnce" classname="Kreoda.QuestRuntime.Tests.QuestSpatialEditTests" runstate="Runnable" seed="1370909658" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:53Z" duration="0.000103" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+            </test-suite>
+            <test-suite type="TestFixture" id="1107" name="QuestVoiceTests" fullname="Kreoda.QuestRuntime.Tests.QuestVoiceTests" classname="Kreoda.QuestRuntime.Tests.QuestVoiceTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:54Z" duration="0.368562" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1111" name="CompactPalmVoiceControlsDoNotOverlapOtherButtons" fullname="Kreoda.QuestRuntime.Tests.QuestVoiceTests.CompactPalmVoiceControlsDoNotOverlapOtherButtons" methodname="CompactPalmVoiceControlsDoNotOverlapOtherButtons" classname="Kreoda.QuestRuntime.Tests.QuestVoiceTests" runstate="Runnable" seed="1525571755" result="Passed" start-time="2026-10-15 08:35:53Z" end-time="2026-10-15 08:35:54Z" duration="0.360301" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1110" name="FocusLossDiscardsQueuedReplyAndDestroysOnlyOwnedPlayback" fullname="Kreoda.QuestRuntime.Tests.QuestVoiceTests.FocusLossDiscardsQueuedReplyAndDestroysOnlyOwnedPlayback" methodname="FocusLossDiscardsQueuedReplyAndDestroysOnlyOwnedPlayback" classname="Kreoda.QuestRuntime.Tests.QuestVoiceTests" runstate="Runnable" seed="918484685" result="Passed" start-time="2026-10-15 08:35:54Z" end-time="2026-10-15 08:35:54Z" duration="0.003976" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1108" name="ProvisioningAliasRequiresPrivilegedPermissionWhileLauncherRemainsPublic" fullname="Kreoda.QuestRuntime.Tests.QuestVoiceTests.ProvisioningAliasRequiresPrivilegedPermissionWhileLauncherRemainsPublic" methodname="ProvisioningAliasRequiresPrivilegedPermissionWhileLauncherRemainsPublic" classname="Kreoda.QuestRuntime.Tests.QuestVoiceTests" runstate="Runnable" seed="290226708" result="Passed" start-time="2026-10-15 08:35:54Z" end-time="2026-10-15 08:35:54Z" duration="0.001825" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1109" name="PublicLaunchCannotReplaceSavedVoiceConfiguration" fullname="Kreoda.QuestRuntime.Tests.QuestVoiceTests.PublicLaunchCannotReplaceSavedVoiceConfiguration" methodname="PublicLaunchCannotReplaceSavedVoiceConfiguration" classname="Kreoda.QuestRuntime.Tests.QuestVoiceTests" runstate="Runnable" seed="147635692" result="Passed" start-time="2026-10-15 08:35:54Z" end-time="2026-10-15 08:35:54Z" duration="0.001487" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:\Users\matte\Documents\Codex-tools\Unity\QA\phase15-reference-inspect-keyboard-red-20261015\editor-tests.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

@@ -1,16 +1,27 @@
+#include "protocol/json_fields.h"
+#include "features/datum/datum_json.h"
 #include "ocaf_live.h"
 
+#include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <map>
+#include <regex>
+#include <set>
 #include <sstream>
 
 #include "../diagnostics/log.h"
 #include "../document/document_store.h"
 #include "../expressions/expressions.h"
 #include "../features/sketch/sketch_json.h"
+#include "../features/sketch/sketch_projection.h"
+#include "../features/sketch/projected_geometry.h"
+#include "../features/sketch/sketch_face.h"
 #include "../features/hole/hole.h"
 #include "../features/sketch/sketch_store.h"
 #include "../model/body.h"
+#include "../model/feature_graph.h"
+#include "../model/geometry_kind.h"
 
 #if KREODA_WITH_OCCT
 #include <BinXCAFDrivers.hxx>
@@ -37,6 +48,8 @@
 #include <TDocStd_Document.hxx>
 #include <TopAbs_ShapeEnum.hxx>
 #include <TopExp_Explorer.hxx>
+#include <TopExp.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
@@ -54,29 +67,42 @@ OcafLive& OcafLive::instance() {
 }
 
 #if KREODA_WITH_OCCT
+namespace {
+bool FindMetadataRoot(const TDF_Label& main, const char* rootName, TDF_Label* out, std::string* error);
+bool FindSketchesRoot(const TDF_Label& main, TDF_Label* out,
+                      std::string* error);
+}
+
 struct OcafLive::Ocaf {
   Handle(TDocStd_Application) app;
   Handle(TDocStd_Document) doc;
   Handle(XCAFDoc_ShapeTool) shapes;
   TDF_Label selectionsRoot;
   TDF_Label sketchesRoot;
+  TDF_Label datumsRoot;
   TDF_Label expressionsRoot;
+  TDF_Label projectionBindingsRoot;
   std::map<std::string, TDF_Label> featureLabels;
   std::map<std::string, TDF_Label> sketchLabels;
+  std::map<std::string, TDF_Label> datumLabels;
   std::map<std::string, TDF_Label> expressionLabels;
 
-  void AdoptMetadataRoots() {
+  bool AdoptMetadataRoots(std::string* error) {
     selectionsRoot.Nullify();
     sketchesRoot.Nullify();
+    datumsRoot.Nullify();
     expressionsRoot.Nullify();
+    projectionBindingsRoot.Nullify();
+    if (!FindSketchesRoot(doc->Main(), &sketchesRoot, error) ||
+        !FindMetadataRoot(doc->Main(), "Datums", &datumsRoot, error)) return false;
     for (TDF_ChildIterator it(doc->Main(), Standard_False); it.More(); it.Next()) {
       Handle(TDataStd_Name) name;
       if (!it.Value().FindAttribute(TDataStd_Name::GetID(), name)) continue;
       TCollection_AsciiString text(name->Get(), '?');
       const std::string value = text.ToCString();
       if (value == "Selections") selectionsRoot = it.Value();
-      else if (value == "Sketches") sketchesRoot = it.Value();
       else if (value == "Expressions") expressionsRoot = it.Value();
+      else if (value == "ProjectionBindings") projectionBindingsRoot = it.Value();
     }
     // Older documents put selections on XCAF's Shapes label. Preserve their
     // label entries and repair checks; never retain Reset's closed-document label.
@@ -103,7 +129,10 @@ struct OcafLive::Ocaf {
     };
     folder(selectionsRoot, 1001, "Selections");
     folder(sketchesRoot, 1002, "Sketches");
+    folder(datumsRoot, 1004, "Datums");
     folder(expressionsRoot, 1003, "Expressions");
+    folder(projectionBindingsRoot, 1005, "ProjectionBindings");
+    return true;
   }
 
   ~Ocaf() {
@@ -184,7 +213,10 @@ bool DecodeParams(const std::string& s, std::string* type,
         // Consumed by the ref pass below; not a numeric param.
       } else {
         try {
-          params->push_back(std::stod(tok));
+          size_t idx = 0;
+          const double val = std::stod(tok, &idx);
+          if (idx != tok.size() || !std::isfinite(val)) return false;
+          params->push_back(val);
         } catch (...) {
           return false;
         }
@@ -218,12 +250,92 @@ std::string ExtToAscii(const TCollection_ExtendedString& xs) {
   return out;
 }
 
-// See RecordFromLabel: per-face TNaming evolution makes GetShape resolve to
-// a face compound instead of the solid — unwrap the single solid so every
-// resync/load/undo/redo adopts real solids for downstream booleans.
-// M5: a faces-only compound (0 solids) is never a valid feature — callers
-// cull it via the empty record. Multi-solid compounds are left untouched
-// (possible legit boolean results; cutting them is out of scope).
+struct StagedSketch {
+  std::string id;
+  std::string json;
+  SketchFeature feature;
+  TDF_Label label;
+};
+
+bool FindMetadataRoot(const TDF_Label& main, const char* rootName, TDF_Label* out,
+                      std::string* error) {
+  if (!out) {
+    if (error) *error = "OCAF sketch metadata root output is missing";
+    return false;
+  }
+  out->Nullify();
+  for (TDF_ChildIterator it(main, Standard_False); it.More(); it.Next()) {
+    Handle(TDataStd_Name) name;
+    if (it.Value().FindAttribute(TDataStd_Name::GetID(), name) &&
+        ExtToAscii(name->Get()) == rootName) {
+      if (!out->IsNull()) {
+        out->Nullify();
+        if (error) *error = std::string("OCAF metadata has duplicate ") + rootName + " roots";
+        return false;
+      }
+      *out = it.Value();
+    }
+  }
+  return true;
+}
+
+bool FindSketchesRoot(const TDF_Label& main,TDF_Label* out,std::string* error) {
+  return FindMetadataRoot(main,"Sketches",out,error);
+}
+
+bool StageSketches(const TDF_Label& main, std::vector<StagedSketch>* out,
+                   std::string* error) {
+  if (!out) {
+    if (error) *error = "OCAF: missing sketch staging output";
+    return false;
+  }
+  TDF_Label root;
+  if (!FindSketchesRoot(main, &root, error)) return false;
+  std::vector<StagedSketch> staged;
+  std::map<std::string, bool> seen;
+  if (!root.IsNull()) {
+    for (TDF_ChildIterator it(root, Standard_False); it.More(); it.Next()) {
+      Handle(TDataStd_Name) name;
+      Handle(TDataStd_Comment) comment;
+      if (!it.Value().FindAttribute(TDataStd_Name::GetID(), name) ||
+          !it.Value().FindAttribute(TDataStd_Comment::GetID(), comment)) {
+        continue;
+      }
+      StagedSketch record;
+      record.id = ExtToAscii(name->Get());
+      record.json = ExtToAscii(comment->Get());
+      if (record.id.empty()) continue;
+      std::string parseError;
+      if (!ParseSketchFeature(record.json, &record.feature, &parseError)) {
+        if (error) {
+          *error = "OCAF sketch " + record.id + " is invalid: " + parseError;
+        }
+        return false;
+      }
+      if (record.feature.id != record.id) {
+        if (error) {
+          *error = "OCAF sketch " + record.id +
+                   " has mismatched feature id " + record.feature.id;
+        }
+        return false;
+      }
+      if (seen.find(record.id) != seen.end()) {
+        if (error) *error = "OCAF has duplicate sketch label " + record.id;
+        return false;
+      }
+      seen[record.id] = true;
+      record.label = it.Value();
+      staged.push_back(std::move(record));
+    }
+  }
+  *out = std::move(staged);
+  return true;
+}
+
+// See RecordFromLabel: some solid feature labels resolve to compounds of
+// generated faces after resync. Keep the existing solid recovery behavior,
+// while allowing only canonical surface feature records and actual surface
+// Instance B-Reps to survive the faces-only cull.
 TopoDS_Shape ResolveSolid(const TopoDS_Shape& shape, bool* culled) {
   if (culled) *culled = false;
   if (shape.IsNull()) return shape;
@@ -251,19 +363,6 @@ ShapeRecord RecordFromLabel(const TDF_Label& label,
       !label.FindAttribute(TDataStd_Comment::GetID(), comment)) {
     return rec;
   }
-  // Phase 10 (torture find): a feature label carrying per-face TNaming
-  // evolution (recorded on every parametric rebuild) resolves via GetShape
-  // to a COMPOUND of the current faces instead of the solid. Bbox, volume
-  // and face areas all look identical, yet downstream B-Rep booleans on the
-  // compound silently cut wrong geometry after any Undo/Redo/Open. Unwrap
-  // the single solid; exotic multi-solid shapes are left untouched.
-  bool culled = false;
-  TopoDS_Shape shape = ResolveSolid(shapes->GetShape(label), &culled);
-  if (culled) {
-    LogCore("ocaf: culling faces-only compound (no solid to adopt)");
-    return rec;
-  }
-  if (shape.IsNull()) return rec;
   std::string type;
   std::vector<double> params;
   std::vector<std::string> deps;
@@ -272,6 +371,33 @@ ShapeRecord RecordFromLabel(const TDF_Label& label,
                     &refExtra)) {
     return rec;
   }
+  // Phase 10 (torture find): a solid feature label carrying per-face TNaming
+  // evolution can resolve through GetShape to a compound of faces rather
+  // than the solid. Keep unwrapping the single solid for legacy/solid types.
+  // Surface features deliberately have no solid: retain their valid face or
+  // shell B-Rep, and do the same for an Instance only when its actual shape is
+  // surface topology. Unknown and legacy faces-only shapes remain culled.
+  bool culled = false;
+  const TopoDS_Shape storedShape = shapes->GetShape(label);
+  TopoDS_Shape shape;
+  const bool canonicalSurface = IsSurfaceFeatureType(type);
+  const bool surfaceInstance = type == "Instance" &&
+                               HasSurfaceTopology(storedShape);
+  if (canonicalSurface || surfaceInstance) {
+    if (!HasSurfaceTopology(storedShape) ||
+        !BRepCheck_Analyzer(storedShape).IsValid()) {
+      LogCore("ocaf: rejecting invalid faces-only surface record " + type);
+      return rec;
+    }
+    shape = storedShape;
+  } else {
+    shape = ResolveSolid(storedShape, &culled);
+  }
+  if (culled) {
+    LogCore("ocaf: culling faces-only compound (no solid to adopt)");
+    return rec;
+  }
+  if (shape.IsNull()) return rec;
   rec.featureId = ExtToAscii(name->Get());
   if (rec.featureId.empty()) return rec;
   rec.type = type;
@@ -284,14 +410,235 @@ ShapeRecord RecordFromLabel(const TDF_Label& label,
     NormalizeHolePatternParams(rec.refExtra, &rec.paramsMm, nullptr);
   }
   rec.shape = shape;
-  GProp_GProps props;
-  BRepGProp::VolumeProperties(shape, props);
-  rec.volumeMm3 = props.Mass();
+  const bool isSurface = canonicalSurface ||
+                         (type == "Instance" && HasSurfaceTopology(shape));
+  if (isSurface) {
+    rec.volumeMm3 = 0;
+  } else {
+    GProp_GProps props;
+    BRepGProp::VolumeProperties(shape, props);
+    rec.volumeMm3 = props.Mass();
+  }
   Bnd_Box box;
-  BRepBndLib::Add(shape, box);
+  if (isSurface) BRepBndLib::AddOptimal(shape, box);
+  else BRepBndLib::Add(shape, box);
   box.Get(rec.bboxMm[0], rec.bboxMm[1], rec.bboxMm[2], rec.bboxMm[3],
           rec.bboxMm[4], rec.bboxMm[5]);
   return rec;
+}
+
+bool InstanceGeometryMatchesPrototype(const ShapeRecord& record,
+                                      const std::string& prototypeType) {
+  return IsSurfaceFeatureType(prototypeType)
+      ? HasSurfaceTopology(record.shape)
+      : HasSolidTopology(record.shape) && !HasFreeSurfaceTopology(record.shape);
+}
+
+std::vector<ShapeRecord> DatumShapeSources(const TDF_Label& main) {
+  const auto tool=XCAFDoc_DocumentTool::ShapeTool(main); NCollection_Sequence<TDF_Label> labels; tool->GetFreeShapes(labels);
+  std::vector<ShapeRecord> candidates, result;
+  std::map<std::string, const ShapeRecord*> recordsById;
+  for(int i=1;i<=labels.Length();++i) { auto record=RecordFromLabel(labels.Value(i),tool); if(record.featureId.empty()||record.shape.IsNull()||!BRepCheck_Analyzer(record.shape).IsValid()) continue; candidates.push_back(std::move(record)); }
+  for (const auto& record : candidates) recordsById[record.featureId] = &record;
+  for(const auto& record:candidates) {
+    if(record.type=="Instance") {
+      if(record.dependsOn.size()!=1||record.dependsOn[0]==record.featureId) continue;
+      const auto target=recordsById.find(record.dependsOn[0]);
+      if(target==recordsById.end()||target->second->type=="Instance"||
+         !InstanceGeometryMatchesPrototype(record,target->second->type)) continue;
+    }
+    result.push_back(record);
+  }
+  return result;
+}
+
+std::string ProjectionSelectionContext(const std::string& sketchId,
+                                      const std::string& groupId,
+                                      const std::string& sourceIdentity,
+                                      const std::string& featureId,
+                                      const std::string& persistentEdgeId) {
+  return Json{{"kind", "sketchProjection"}, {"sketchId", sketchId},
+              {"groupId", groupId}, {"sourceIdentity", sourceIdentity},
+              {"featureId", featureId},
+              {"persistentEdgeId", persistentEdgeId}}.dump();
+}
+
+bool ResolveCheckedSelection(const TDF_Label& main, const char* rootName,
+                             const std::string& entry,
+                             const std::string& expectedContext,
+                             TopAbs_ShapeEnum expectedType,
+                             TopoDS_Shape* out, std::string* error,
+                             bool followEvolution = false);
+
+ProjectionSelectionResolver ProjectionResolverFor(const TDF_Label& main) {
+  return [main](const std::string& entry, const std::string& sketchId,
+                const std::string& groupId, const std::string& sourceIdentity,
+                const std::string& featureId,
+                const std::string& persistentEdgeId, TopoDS_Edge* out,
+                std::string* error) {
+    TopoDS_Shape selected;
+    const std::string context = ProjectionSelectionContext(
+        sketchId, groupId, sourceIdentity, featureId, persistentEdgeId);
+    if (!ResolveCheckedSelection(main, "ProjectionBindings", entry, context,
+                                 TopAbs_EDGE, &selected, error)) return false;
+    if (out) *out = TopoDS::Edge(selected);
+    return true;
+  };
+}
+
+bool ResolveCheckedSelection(const TDF_Label& main, const char* rootName,
+                             const std::string& entry,
+                             const std::string& expectedContext,
+                             TopAbs_ShapeEnum expectedType,
+                             TopoDS_Shape* out, std::string* error,
+                             bool followEvolution) {
+  try {
+    if (!out) throw std::runtime_error("selection output is missing");
+    if (entry.empty() || entry.size() > 128 ||
+        entry.find_first_not_of("0123456789:") != std::string::npos)
+      throw std::runtime_error("invalid selection entry");
+    TDF_Label root, label;
+    if (!FindMetadataRoot(main, rootName, &root, error)) return false;
+    TDF_Tool::Label(main.Data(), TCollection_AsciiString(entry.c_str()), label,
+                    Standard_False);
+    Handle(TDataStd_Comment) comment;
+    Handle(TNaming_NamedShape) named;
+    if (root.IsNull() || label.IsNull() || label.Father() != root ||
+        !label.FindAttribute(TDataStd_Comment::GetID(), comment) ||
+        ExtToAscii(comment->Get()) != expectedContext ||
+        !label.FindAttribute(TNaming_NamedShape::GetID(), named) || named.IsNull())
+      throw std::runtime_error("selection is missing or belongs to another context");
+    TopoDS_Shape candidate = followEvolution
+        ? TNaming_Tool::CurrentShape(named) : TNaming_Tool::GetShape(named);
+    if (!candidate.IsNull() && candidate.ShapeType() == TopAbs_COMPOUND) {
+      TopTools_IndexedMapOfShape entities;
+      TopExp::MapShapes(candidate, expectedType, entities);
+      if (entities.Extent() != 1)
+        throw std::runtime_error("selection is ambiguous: " +
+                                 std::to_string(entities.Extent()) +
+                                 " native entities");
+      candidate = entities.FindKey(1);
+    }
+    if (candidate.IsNull() || candidate.ShapeType() != expectedType)
+      throw std::runtime_error("selection has the wrong topology kind");
+    *out = candidate;
+    if (error) error->clear();
+    return true;
+  } catch (const Standard_Failure& failure) {
+    if (error) *error = failure.what();
+    return false;
+  } catch (const std::exception& failure) {
+    if (error) *error = failure.what();
+    return false;
+  }
+}
+
+bool BindCheckedSelection(const TDF_Label& root, const TopoDS_Shape& owner,
+                          const TopoDS_Shape& picked,
+                          const std::string& context, TDF_Label* labelOut,
+                          std::string* entryOut, std::string* error) {
+  try {
+    if (root.IsNull() || owner.IsNull() || picked.IsNull() || !labelOut ||
+        !entryOut)
+      throw std::runtime_error("selection binding context is incomplete");
+    if (picked.ShapeType() != TopAbs_EDGE && picked.ShapeType() != TopAbs_FACE)
+      throw std::runtime_error("selection must be a native edge or face");
+    TDF_Label label = labelOut->IsNull() ? root.NewChild() : *labelOut;
+    TNaming_Selector selector(label);
+    // OCCT's geometry-first path faults on Boolean-result sources when
+    // orientation preservation is also enabled. Keep orientation and use the
+    // exact selected subshape below.
+    if (!selector.Select(picked, owner, false, true))
+      throw std::runtime_error("TNaming could not bind native selection");
+    // Preserve the exact picked entity in the named shape. OCCT's selector
+    // migration branch can otherwise publish the full context compound.
+    TNaming_Builder selected(label);
+    selected.Select(picked, picked);
+    TDataStd_Comment::Set(label, TCollection_AsciiString(context.c_str()));
+    TCollection_AsciiString entry;
+    TDF_Tool::Entry(label, entry);
+    *labelOut = label;
+    *entryOut = entry.ToCString();
+    if (error) error->clear();
+    return true;
+  } catch (const Standard_Failure& failure) {
+    if (error) *error = failure.what();
+    return false;
+  } catch (const std::exception& failure) {
+    if (error) *error = failure.what();
+    return false;
+  }
+}
+
+DatumSelectionResolver DatumResolverFor(const TDF_Label& main) {
+  return [main](const std::string& entry,const std::string& datumId,const std::string& featureId,
+                const std::string& role,bool edge,TopoDS_Shape* out,std::string* error) {
+    return ResolveCheckedSelection(
+        main, "Selections", entry,
+        datumId + "|" + featureId + "|" + (edge ? "edge" : "face") + "|" + role,
+        edge ? TopAbs_EDGE : TopAbs_FACE, out, error);
+  };
+}
+bool StageDatums(const TDF_Label& main,const std::vector<StagedSketch>& sketches,
+                 std::vector<DatumRecord>* out,std::string* error) {
+  TDF_Label root; if(!FindMetadataRoot(main,"Datums",&root,error)) return false;
+  std::vector<std::string> records; std::vector<SketchFeature> sketchRecords;
+  if(!root.IsNull()) for(TDF_ChildIterator it(root,Standard_False);it.More();it.Next()) {
+    Handle(TDataStd_Name) name; Handle(TDataStd_Comment) comment;
+    const bool hasName=it.Value().FindAttribute(TDataStd_Name::GetID(),name),hasComment=it.Value().FindAttribute(TDataStd_Comment::GetID(),comment);
+    if(!hasName&&!hasComment) continue;
+    if(!hasName||!hasComment) { if(error)*error="OCAF datum label is incomplete";return false; }
+    const auto text=ExtToAscii(comment->Get()); const auto json=parse_json_object(text);
+    if(!json.is_object()||!json.contains("featureId")||!json.at("featureId").is_string()||json.at("featureId").get<std::string>()!=ExtToAscii(name->Get())) { if(error)*error="OCAF datum label has mismatched featureId";return false; }
+    records.push_back(text);
+  }
+  for(const auto& sketch:sketches) sketchRecords.push_back(sketch.feature);
+  if(!ParseDatumDefinitions(records,DatumShapeSources(main),sketchRecords,out,error,DatumResolverFor(main)))return false;
+  // Persistence must not publish a stale saved frame. Candidate datum edits
+  // validate support in ParseDatumDefinitions, then rebuild their sketches.
+  for(const auto& sketch:sketchRecords) if(sketch.planeKind=="Datum") {
+    const auto support=std::find_if(out->begin(),out->end(),[&](const DatumRecord& datum){return datum.featureId==sketch.supportRef;});
+    if(support==out->end()) { if(error)*error="missing incoming sketch support";return false; }
+    for(int i=0;i<3;++i) if(std::fabs(sketch.plane.origin[i]-support->plane.origin[i])>1e-7||
+      std::fabs(sketch.plane.xAxis[i]-support->plane.xAxis[i])>1e-9||
+      std::fabs(sketch.plane.yAxis[i]-support->plane.yAxis[i])>1e-9||
+      std::fabs(sketch.plane.normal[i]-support->plane.normal[i])>1e-9) {
+      if(error)*error="sketch "+sketch.id+" frame disagrees with incoming DatumPlane "+sketch.supportRef;
+      return false;
+    }
+  }
+  return true;
+}
+
+bool StageProjectionGroups(const TDF_Label& main,
+                           std::vector<StagedSketch>* sketches,
+                           const std::vector<ShapeRecord>& shapes,
+                           const std::vector<DatumRecord>& datums,
+                           std::string* error) {
+  if (!sketches) {
+    if (error) *error = "OCAF projection staging output is missing";
+    return false;
+  }
+  FeatureGraph graph;
+  for (const auto& shape : shapes) graph.addFeature(shape.featureId, shape.dependsOn);
+  for (const auto& sketch : *sketches)
+    graph.addFeature(sketch.id, SketchDependencies(sketch.feature));
+  for (const auto& datum : datums) graph.addFeature(datum.featureId, datum.dependsOn);
+  std::vector<std::string> order;
+  if (!graph.dirtyOrder(&order, error)) return false;
+  for (const auto& id : order) {
+    const auto target = std::find_if(sketches->begin(), sketches->end(),
+        [&](const StagedSketch& item) { return item.id == id; });
+    if (target == sketches->end()) continue;
+    std::vector<SketchFeature> sourceSketches;
+    sourceSketches.reserve(sketches->size());
+    for (const auto& item : *sketches) sourceSketches.push_back(item.feature);
+    if (!ResolveSketchProjectionGroups(
+            &target->feature, shapes, sourceSketches, datums,
+            ProjectionResolverFor(main), "", true, true, nullptr, error))
+      return false;
+  }
+  return true;
 }
 
 }  // namespace
@@ -314,8 +661,12 @@ void OcafLive::Reset() {
   TDataStd_Name::Set(ocaf_->selectionsRoot, "Selections");
   ocaf_->sketchesRoot = ocaf_->doc->Main().FindChild(1002);
   TDataStd_Name::Set(ocaf_->sketchesRoot, "Sketches");
+  ocaf_->datumsRoot = ocaf_->doc->Main().FindChild(1004);
+  TDataStd_Name::Set(ocaf_->datumsRoot, "Datums");
   ocaf_->expressionsRoot = ocaf_->doc->Main().FindChild(1003);
   TDataStd_Name::Set(ocaf_->expressionsRoot, "Expressions");
+  ocaf_->projectionBindingsRoot = ocaf_->doc->Main().FindChild(1005);
+  TDataStd_Name::Set(ocaf_->projectionBindingsRoot, "ProjectionBindings");
 #endif
   // A fresh document owns no transaction (crash-safe by construction:
   // Reset drops the OCAF doc, so no half-open command can survive it).
@@ -328,7 +679,10 @@ bool OcafLive::BeginCommand(std::string* error) {
 #if KREODA_WITH_OCCT
   // §11.12: inside a session transaction every feature op joins the one
   // open OCAF command instead of opening its own (one Undo step for N ops).
-  if (joinTxn_) return true;
+  if (joinTxn_) {
+    txnLastActivity_ = std::chrono::steady_clock::now();
+    return true;
+  }
   if (!ocaf_ || ocaf_->doc.IsNull()) Reset();
   if (ocaf_->doc->HasOpenCommand()) {
     if (error) *error = "nested OCAF command (single queue, §40)";
@@ -403,6 +757,7 @@ bool OcafLive::BeginTransaction(const std::string& transactionId,
   joinTxn_ = true;
   txnTainted_ = false;
   txnOwner_ = transactionId;
+  txnLastActivity_ = std::chrono::steady_clock::now();
   return true;
 #else
   (void)transactionId;
@@ -477,6 +832,30 @@ bool OcafLive::RollbackTransaction(const std::string& transactionId,
 #endif
 }
 
+bool OcafLive::ExpireStaleTransaction() {
+  if (!joinTxn_) return false;
+  if (std::chrono::steady_clock::now() - txnLastActivity_ <= txnTimeout_) {
+    return false;
+  }
+  const std::string owner = txnOwner_;
+  std::string err;
+  return RollbackTransaction(owner, &err);
+}
+
+void OcafLive::ForceAbortOpenCommand() {
+#if KREODA_WITH_OCCT
+  if (joinTxn_) {
+    txnTainted_ = true;
+    return;
+  }
+  if (ocaf_ && !ocaf_->doc.IsNull() && ocaf_->doc->HasOpenCommand()) {
+    ocaf_->doc->AbortCommand();
+    std::string rsErr;
+    ResyncStore(&rsErr);
+  }
+#endif
+}
+
 void OcafLive::ForgetFeatures(const std::vector<std::string>& featureIds) {
 #if KREODA_WITH_OCCT
   if (!ocaf_) return;
@@ -484,6 +863,7 @@ void OcafLive::ForgetFeatures(const std::vector<std::string>& featureIds) {
     ocaf_->featureLabels.erase(fid);
     ocaf_->expressionLabels.erase(fid);
     ocaf_->sketchLabels.erase(fid);
+    ocaf_->datumLabels.erase(fid);
   }
 #else
   (void)featureIds;
@@ -556,9 +936,20 @@ bool OcafLive::ResyncStore(std::string* error) {
     if (error) *error = "no live document";
     return false;
   }
+  std::vector<StagedSketch> stagedSketches;
+  if (!StageSketches(ocaf_->doc->Main(), &stagedSketches, error)) {
+    return false;
+  }
+  std::vector<DatumRecord> stagedDatums;
+  if (!StageDatums(ocaf_->doc->Main(), stagedSketches, &stagedDatums, error)) return false;
+  const auto stagedShapes = DatumShapeSources(ocaf_->doc->Main());
+  if (!StageProjectionGroups(ocaf_->doc->Main(), &stagedSketches,
+                             stagedShapes, stagedDatums, error)) return false;
+  if (!ocaf_->AdoptMetadataRoots(error)) return false;
   ocaf_->shapes = XCAFDoc_DocumentTool::ShapeTool(ocaf_->doc->Main());
   ocaf_->featureLabels.clear();
   ocaf_->sketchLabels.clear();
+  ocaf_->datumLabels.clear();
   ShapeStore::instance().clear();
   std::map<std::string, std::string> registry;
   NCollection_Sequence<TDF_Label> free;
@@ -588,6 +979,8 @@ bool OcafLive::ResyncStore(std::string* error) {
           bad = true; why = "Instance target missing: " + rec.dependsOn[0];
         } else if (tit->second == "Instance") {
           bad = true; why = "nested instances are not supported";
+        } else if (!InstanceGeometryMatchesPrototype(rec, tit->second)) {
+          bad = true; why = "Instance topology differs from its prototype";
         }
       }
       if (bad) {
@@ -599,41 +992,36 @@ bool OcafLive::ResyncStore(std::string* error) {
     ShapeStore::instance().put(rec);
     registry[rec.featureId] = rec.type;
   }
-  ocaf_->AdoptMetadataRoots();
-  // Rebuild SketchStore from sketch labels (inside Sketches folder).
+  // Adopt only after every persisted sketch has parsed successfully.
   SketchStore::instance().clear();
-  if (!ocaf_->sketchesRoot.IsNull()) {
-    for (TDF_ChildIterator it(ocaf_->sketchesRoot, Standard_False); it.More();
-         it.Next()) {
-      Handle(TDataStd_Name) n;
-      Handle(TDataStd_Comment) c;
-      if (!it.Value().FindAttribute(TDataStd_Name::GetID(), n) ||
-          !it.Value().FindAttribute(TDataStd_Comment::GetID(), c)) {
-        continue;
-      }
-      const std::string sid = ExtToAscii(n->Get());
-      if (sid.empty()) continue;
-      ocaf_->sketchLabels[sid] = it.Value();
-      // JSON lives in the comment as plain ASCII (sketch ids are ASCII).
-      const std::string js = ExtToAscii(c->Get());
-      if (!js.empty()) {
-        SketchFeature sf;
-        std::string perr;
-        if (ParseSketchFeature(js, &sf, &perr) && !sf.id.empty()) {
-          SketchStore::instance().put(std::move(sf));
-          registry[sid] = "Sketch";
-        } else {
-          LogCore("ocaf: sketch label did not parse: " + sid);
-        }
-      }
-    }
+  for (auto& record : stagedSketches) {
+    ocaf_->sketchLabels[record.id] = record.label;
+    SketchStore::instance().put(std::move(record.feature));
+    registry[record.id] = "Sketch";
   }
+  DatumStore::instance().clear();
+  for(auto& datum:stagedDatums) {
+    registry[datum.featureId]=datum.kind==DatumKind::Plane?"DatumPlane":datum.kind==DatumKind::Axis?"DatumAxis":"DatumPoint";
+    DatumStore::instance().put(std::move(datum));
+  }
+  if(!ocaf_->datumsRoot.IsNull()) for(TDF_ChildIterator it(ocaf_->datumsRoot,Standard_False);it.More();it.Next()) { Handle(TDataStd_Name) name; Handle(TDataStd_Comment) comment; if(it.Value().FindAttribute(TDataStd_Name::GetID(),name)&&it.Value().FindAttribute(TDataStd_Comment::GetID(),comment)) ocaf_->datumLabels[ExtToAscii(name->Get())]=it.Value(); }
   // Whole-registry replace: stale (undone/deleted) entries vanish (§12).
   DocumentStore::instance().replaceAll(registry);
   // Slice 2: bodies are derived from history order — Undo/Redo/Open resyncs
   // rebuild them deterministically (same rule as legacy-file migration).
   BodyStore::instance().rebuildFromRecords(
       ShapeStore::instance().listInOrder());
+  // Display-only body suppression is document-scoped OCAF metadata, restored
+  // on Undo/Redo/Open without deleting or detaching boolean dependencies.
+  {
+    std::string visibility,error;
+    if (ReadBodyVisibility(&visibility,&error) && !visibility.empty()) {
+      const auto state=parse_json_object(visibility);
+      if (state.is_object()) for (auto it=state.begin();it!=state.end();++it)
+        if (it.value().is_boolean())
+          BodyStore::instance().setVisible(it.key(),it.value().get<bool>());
+    }
+  }
   // Rebuild the expression registry from expression labels (formulas undo
   // and reopen with geometry — same guarantee as sketches).
   // M8: orphan expressions for culled shapes are dropped, never adopted.
@@ -686,8 +1074,11 @@ bool OcafLive::RemoveFeature(const std::string& featureId,
     }
     const auto shape = ocaf_->featureLabels.find(featureId);
     const auto sketch = ocaf_->sketchLabels.find(featureId);
-    if ((shape != ocaf_->featureLabels.end()) ==
-        (sketch != ocaf_->sketchLabels.end())) {
+    const auto datum = ocaf_->datumLabels.find(featureId);
+    const int matches = int(shape != ocaf_->featureLabels.end()) +
+                        int(sketch != ocaf_->sketchLabels.end()) +
+                        int(datum != ocaf_->datumLabels.end());
+    if (matches != 1) {
       if (error) *error = "OCAF feature label is missing or ambiguous";
       return false;
     }
@@ -708,13 +1099,42 @@ bool OcafLive::RemoveFeature(const std::string& featureId,
         }
       }
     }
+    // Projection bindings use a dedicated root and JSON context instead of
+    // the legacy Selections prefix. Remove only selectors owned by this
+    // sketch, inside the caller's command, so Undo/Redo restores them with
+    // the sketch label and other sketches keep their private bindings.
+    if (sketch != ocaf_->sketchLabels.end() &&
+        !ocaf_->projectionBindingsRoot.IsNull()) {
+      std::vector<TDF_Label> ownedProjectionBindings;
+      for (TDF_ChildIterator it(ocaf_->projectionBindingsRoot,
+                                Standard_False);
+           it.More(); it.Next()) {
+        Handle(TDataStd_Comment) comment;
+        if (!it.Value().FindAttribute(TDataStd_Comment::GetID(), comment))
+          continue;
+        const Json context = Json::parse(ExtToAscii(comment->Get()), nullptr,
+                                         false);
+        if (!context.is_object() || !context.contains("kind") ||
+            !context["kind"].is_string() ||
+            context["kind"] != "sketchProjection" ||
+            !context.contains("sketchId") ||
+            !context["sketchId"].is_string() ||
+            context["sketchId"] != featureId)
+          continue;
+        ownedProjectionBindings.push_back(it.Value());
+      }
+      for (const auto& label : ownedProjectionBindings)
+        label.ForgetAllAttributes(Standard_True);
+    }
     if (shape != ocaf_->featureLabels.end()) {
       if (!ocaf_->shapes->RemoveShape(shape->second, Standard_True)) {
         if (error) *error = "XCAF could not remove the feature shape";
         return false;
       }
-    } else {
+    } else if (sketch != ocaf_->sketchLabels.end()) {
       sketch->second.ForgetAllAttributes(Standard_True);
+    } else {
+      datum->second.ForgetAllAttributes(Standard_True);
     }
     return true;
   } catch (const Standard_Failure& f) {
@@ -738,7 +1158,11 @@ bool OcafLive::UpsertFeature(const ShapeRecord& rec, bool isNew,
       return false;
     }
   if (isNew || ocaf_->featureLabels.count(rec.featureId) == 0) {
-    TDF_Label label = ocaf_->shapes->AddShape(rec.shape);
+    // AddShape deduplicates identical TShapes, overwriting an earlier
+    // feature's name/parameters when a boolean returns an input unchanged.
+    // Feature identity owns its label even when geometry is shared.
+    TDF_Label label = ocaf_->shapes->NewShape();
+    ocaf_->shapes->SetShape(label, rec.shape);
     TDataStd_Name::Set(
         label, TCollection_ExtendedString(rec.featureId.c_str()));
     TDataStd_Comment::Set(
@@ -779,6 +1203,93 @@ bool OcafLive::UpsertFeature(const ShapeRecord& rec, bool isNew,
 #endif
 }
 
+DatumSelectionResolver OcafLive::DatumSourceResolver() const {
+#if KREODA_WITH_OCCT
+  if(ocaf_&&!ocaf_->doc.IsNull())return DatumResolverFor(ocaf_->doc->Main());
+#endif
+  return {};
+}
+
+bool OcafLive::BindDatumSources(const std::string& datumId,std::string* definitionJson,std::string* error,bool refreshSemantic,
+                               const DatumSelectionResolver& verifiedRefresh) {
+#if KREODA_WITH_OCCT
+  try {
+    if(!definitionJson||!ocaf_||ocaf_->doc.IsNull()||!ocaf_->doc->HasOpenCommand())
+      throw std::runtime_error("datum source binding requires an open OCAF command");
+    auto definition=Json::parse(*definitionJson);
+    std::function<void(Json&,int)> bind=[&](Json& value,int depth) {
+      if(depth>8)throw std::runtime_error("datum definition nesting is too deep");
+      if(value.is_object()) {
+        const auto type=json_string_field(value,"type","");
+        if(type=="face"||type=="edge") {
+          const auto owner=json_string_field(value,"featureId","");const bool edge=type=="edge";
+          const auto key=edge?"persistentEdgeId":"persistentFaceId";
+          auto role=json_string_field(value,key,"");if(role.find(':')==std::string::npos)role=owner+":"+role;
+          ShapeRecord record;TopoDS_Shape picked;
+          if(!ShapeStore::instance().get(owner,&record))throw std::runtime_error("missing datum source owner");
+          TDF_Label label;bool verifiedPick=false;
+          if(value.contains("selectionEntry")) {
+            if(!refreshSemantic)return;
+            TopoDS_Shape previous;std::string resolveError;
+            const auto entry=json_string_field(value,"selectionEntry","");
+            if(!DatumSourceResolver()(entry,datumId,owner,role,edge,&previous,&resolveError))throw std::runtime_error(resolveError);
+            for(TopExp_Explorer ex(record.shape,edge?TopAbs_EDGE:TopAbs_FACE);ex.More();ex.Next())
+              if(!previous.IsNull()&&ex.Current().IsSame(previous))return;
+            if(verifiedRefresh) {
+              if(!verifiedRefresh(entry,datumId,owner,role,edge,&picked,&resolveError))
+                throw std::runtime_error(resolveError.empty()?"source generator identity changed; repair is required":resolveError);
+              if(picked.IsNull()||picked.ShapeType()!=(edge?TopAbs_EDGE:TopAbs_FACE))
+                throw std::runtime_error("verified source has the wrong topology kind");
+              int matches=0;
+              for(TopExp_Explorer ex(record.shape,edge?TopAbs_EDGE:TopAbs_FACE);ex.More();ex.Next())
+                if(ex.Current().IsSame(picked))++matches;
+              if((edge&&matches==0)||(!edge&&matches!=1))
+                throw std::runtime_error("verified source does not belong to its owner");
+              verifiedPick=true;
+            }
+            if(!verifiedPick&&HasIndexedTopologyRole(role))throw std::runtime_error("datum naming source needs repair; ordinal fallback is disabled");
+            TDF_Tool::Label(ocaf_->doc->GetData(),TCollection_AsciiString(entry.c_str()),label,Standard_False);
+          } else label=ocaf_->selectionsRoot.NewChild();
+          if(!verifiedPick) {
+            if(edge) {TopoDS_Edge candidate;if(!FindEdgeByRole(record.shape,owner,record.type,role,&candidate))throw std::runtime_error("datum edge pick is missing");picked=candidate;}
+            else {TopoDS_Face candidate;if(!FindFaceByRole(record.shape,owner,record.type,role,&candidate))throw std::runtime_error("datum face pick is missing");picked=candidate;}
+          }
+          std::string boundEntry;
+          if(!BindCheckedSelection(ocaf_->selectionsRoot,record.shape,picked,
+                datumId+"|"+owner+"|"+type+"|"+role,&label,&boundEntry,error))
+            throw std::runtime_error(error&& !error->empty()?*error:"TNaming could not bind datum source");
+          value[key]=role;value["selectionEntry"]=boundEntry;
+        }
+        for(auto& item:value.items())bind(item.value(),depth+1);
+      } else if(value.is_array())for(auto& item:value)bind(item,depth+1);
+    };
+    bind(definition,0);*definitionJson=definition.dump();return true;
+  } catch(const Standard_Failure& failure) {if(error)*error=failure.what();return false;}
+    catch(const std::exception& failure) {if(error)*error=failure.what();return false;}
+#else
+  (void)datumId;
+  (void)definitionJson;
+  (void)refreshSemantic;
+  (void)verifiedRefresh;
+  if(error)*error="native datum source binding requires OCCT";return false;
+#endif
+}
+
+bool OcafLive::UpsertDatum(const std::string& datumId,const std::string& datumJson,std::string* error) {
+#if KREODA_WITH_OCCT
+  try {
+    if(!ocaf_||ocaf_->doc.IsNull()||ocaf_->datumsRoot.IsNull()||!ocaf_->doc->HasOpenCommand()) { if(error)*error="datum mirror requires an open OCAF command";return false; }
+    const auto it=ocaf_->datumLabels.find(datumId);
+    const auto label=it==ocaf_->datumLabels.end()?ocaf_->datumsRoot.NewChild():it->second;
+    TDataStd_Name::Set(label,TCollection_ExtendedString(datumId.c_str()));
+    TDataStd_Comment::Set(label,TCollection_AsciiString(datumJson.c_str())); ocaf_->datumLabels[datumId]=label;
+    return true;
+  } catch(const Standard_Failure& failure) { if(error)*error=std::string("OCAF datum mirror failed: ")+failure.what();return false; }
+#else
+  (void)datumId;(void)datumJson;if(error)*error="datum mirror requires OCCT";return false;
+#endif
+}
+
 bool OcafLive::UpsertSketch(const std::string& sketchId,
                             const std::string& sketchJson,
                             std::string* error) {
@@ -814,6 +1325,106 @@ bool OcafLive::UpsertSketch(const std::string& sketchId,
 #endif
 }
 
+#if KREODA_WITH_OCCT
+bool OcafLive::BindSketchProjectionSources(
+    const std::string& sketchId, const std::string& groupId,
+    const std::vector<ProjectionSelection>& selections,
+    std::string* bindingsJson, std::string* error) {
+#if KREODA_WITH_OCCT
+  try {
+    if (!bindingsJson || !ocaf_ || ocaf_->doc.IsNull() ||
+        !ocaf_->doc->HasOpenCommand() || ocaf_->projectionBindingsRoot.IsNull())
+      throw std::runtime_error("projection source binding requires an open OCAF command");
+    Json entries = Json::array();
+    std::set<std::string> sourceIds, labelEntries;
+    for (const auto& selection : selections) {
+      if (selection.edge.IsNull() || selection.sourceIdentity.empty() ||
+          selection.featureId.empty() || selection.persistentEdgeId.empty() ||
+          !sourceIds.insert(selection.sourceIdentity).second)
+        throw std::runtime_error("projection source binding is incomplete or duplicated");
+      ShapeRecord owner;
+      if (!ShapeStore::instance().get(selection.featureId, &owner) || owner.shape.IsNull())
+        throw std::runtime_error("missing projection source owner " + selection.featureId);
+      bool belongs = false;
+      for (TopExp_Explorer it(owner.shape, TopAbs_EDGE); it.More(); it.Next())
+        if (it.Current().IsSame(selection.edge)) { belongs = true; break; }
+      if (!belongs) throw std::runtime_error("projection edge does not belong to its source owner");
+      TDF_Label label;
+      std::string entry;
+      const auto context = ProjectionSelectionContext(
+          sketchId, groupId, selection.sourceIdentity, selection.featureId,
+          selection.persistentEdgeId);
+      if (!BindCheckedSelection(ocaf_->projectionBindingsRoot, owner.shape,
+                                selection.edge, context, &label, &entry, error))
+        throw std::runtime_error(error && !error->empty() ? *error
+                                                          : "TNaming could not bind projection edge");
+      if (!labelEntries.insert(entry).second)
+        throw std::runtime_error("projection sources share a persistent selection label");
+      entries.push_back({{"sourceIdentity", selection.sourceIdentity},
+                         {"selectionEntry", entry}});
+    }
+    *bindingsJson = Json{{"version", 1}, {"entries", entries}}.dump();
+    if (error) error->clear();
+    return true;
+  } catch (const Standard_Failure& failure) {
+    if (error) *error = failure.what();
+    return false;
+  } catch (const std::exception& failure) {
+    if (error) *error = failure.what();
+    return false;
+  }
+#else
+  (void)sketchId; (void)groupId; (void)selections; (void)bindingsJson;
+  if (error) *error = "native projection binding requires OCCT";
+  return false;
+#endif
+}
+
+bool OcafLive::ReleaseSketchProjectionSources(const std::string& sketchId,
+                                               const std::string& groupId,
+                                               std::string* error) {
+#if KREODA_WITH_OCCT
+  try {
+    if (!ocaf_ || ocaf_->doc.IsNull() || !ocaf_->doc->HasOpenCommand() ||
+        ocaf_->projectionBindingsRoot.IsNull())
+      throw std::runtime_error("projection source release requires an open OCAF command");
+    std::vector<TDF_Label> release;
+    for (TDF_ChildIterator it(ocaf_->projectionBindingsRoot, Standard_False);
+         it.More(); it.Next()) {
+      Handle(TDataStd_Comment) comment;
+      if (!it.Value().FindAttribute(TDataStd_Comment::GetID(), comment)) continue;
+      const Json context = Json::parse(ExtToAscii(comment->Get()), nullptr, false);
+      if (context.is_object() && context.value("kind", std::string()) == "sketchProjection" &&
+          context.value("sketchId", std::string()) == sketchId &&
+          context.value("groupId", std::string()) == groupId)
+        release.push_back(it.Value());
+    }
+    for (const auto& label : release) label.ForgetAllAttributes(Standard_True);
+    if (error) error->clear();
+    return true;
+  } catch (const Standard_Failure& failure) {
+    if (error) *error = failure.what();
+    return false;
+  } catch (const std::exception& failure) {
+    if (error) *error = failure.what();
+    return false;
+  }
+#else
+  (void)sketchId; (void)groupId;
+  if (error) *error = "native projection binding requires OCCT";
+  return false;
+#endif
+}
+
+ProjectionSelectionResolver OcafLive::SketchProjectionSourceResolver() const {
+#if KREODA_WITH_OCCT
+  if (!ocaf_ || ocaf_->doc.IsNull()) return {};
+  return ProjectionResolverFor(ocaf_->doc->Main());
+#endif
+  return {};
+}
+#endif
+
 bool OcafLive::UpsertExpressions(const std::string& featureId,
                                  const std::string& exprJson,
                                  std::string* error) {
@@ -848,6 +1459,92 @@ bool OcafLive::UpsertExpressions(const std::string& featureId,
   (void)exprJson;
   if (error) *error = "OCAF requires OCCT (link via vcpkg)";
   return false;
+#endif
+}
+
+bool OcafLive::WriteConfigurations(const std::string& json, std::string* error) {
+#if KREODA_WITH_OCCT
+  try {
+    if (!ocaf_ || ocaf_->doc.IsNull()) { if (error) *error="no live OCAF document"; return false; }
+    const TDF_Label label=ocaf_->doc->Main().FindChild(9001,Standard_True);
+    TDataStd_Comment::Set(label,TCollection_AsciiString(json.c_str()));
+    return true;
+  } catch (const Standard_Failure& ex) {
+    if (error) *error=ex.what(); return false;
+  }
+#else
+  (void)json; if (error) *error="OCAF unavailable"; return false;
+#endif
+}
+
+bool OcafLive::ReadConfigurations(std::string* json, std::string* error) const {
+#if KREODA_WITH_OCCT
+  if (!json) { if (error) *error="null configuration output"; return false; }
+  *json="";
+  if (!ocaf_ || ocaf_->doc.IsNull()) { if (error) *error="no live OCAF document"; return false; }
+  const TDF_Label label=ocaf_->doc->Main().FindChild(9001,Standard_False);
+  if (label.IsNull()) return true;
+  Handle(TDataStd_Comment) attr;
+  if (label.FindAttribute(TDataStd_Comment::GetID(),attr)) *json=ExtToAscii(attr->Get());
+  return true;
+#else
+  (void)json; if (error) *error="OCAF unavailable"; return false;
+#endif
+}
+
+bool OcafLive::WriteBodyVisibility(const std::string& json,std::string* error) {
+#if KREODA_WITH_OCCT
+  try {
+    if (!ocaf_ || ocaf_->doc.IsNull()) { if (error) *error="no live OCAF document"; return false; }
+    TDataStd_Comment::Set(ocaf_->doc->Main().FindChild(9003,Standard_True),
+                          TCollection_AsciiString(json.c_str()));
+    return true;
+  } catch (const Standard_Failure& ex) { if (error) *error=ex.what(); return false; }
+#else
+  (void)json; if (error) *error="OCAF unavailable"; return false;
+#endif
+}
+
+bool OcafLive::ReadBodyVisibility(std::string* json,std::string* error) const {
+#if KREODA_WITH_OCCT
+  if (!json) { if (error) *error="null visibility output"; return false; }
+  *json="";
+  if (!ocaf_ || ocaf_->doc.IsNull()) { if (error) *error="no live OCAF document"; return false; }
+  const TDF_Label label=ocaf_->doc->Main().FindChild(9003,Standard_False);
+  if (label.IsNull()) return true;
+  Handle(TDataStd_Comment) attr;
+  if (label.FindAttribute(TDataStd_Comment::GetID(),attr)) *json=ExtToAscii(attr->Get());
+  return true;
+#else
+  (void)json; if (error) *error="OCAF unavailable"; return false;
+#endif
+}
+
+bool OcafLive::WriteAssemblyConstraints(const std::string& json,std::string* error) {
+#if KREODA_WITH_OCCT
+  try {
+    if (!ocaf_ || ocaf_->doc.IsNull()) { if (error) *error="no live OCAF document"; return false; }
+    TDataStd_Comment::Set(ocaf_->doc->Main().FindChild(9002,Standard_True),
+                          TCollection_AsciiString(json.c_str()));
+    return true;
+  } catch (const Standard_Failure& ex) { if (error) *error=ex.what(); return false; }
+#else
+  (void)json; if (error) *error="OCAF unavailable"; return false;
+#endif
+}
+
+bool OcafLive::ReadAssemblyConstraints(std::string* json,std::string* error) const {
+#if KREODA_WITH_OCCT
+  if (!json) { if (error) *error="null assembly output"; return false; }
+  *json="";
+  if (!ocaf_ || ocaf_->doc.IsNull()) { if (error) *error="no live OCAF document"; return false; }
+  const TDF_Label label=ocaf_->doc->Main().FindChild(9002,Standard_False);
+  if (label.IsNull()) return true;
+  Handle(TDataStd_Comment) attr;
+  if (label.FindAttribute(TDataStd_Comment::GetID(),attr)) *json=ExtToAscii(attr->Get());
+  return true;
+#else
+  (void)json; if (error) *error="OCAF unavailable"; return false;
 #endif
 }
 
@@ -1035,12 +1732,78 @@ bool OcafLive::Save(const std::string& xbfPath, std::string* error) {
 #endif
 }
 
+bool OcafLive::ValidateSketchesInFile(
+    const std::string& xbfPath, std::vector<SketchFeature>* sketches,
+    std::string* error, std::vector<DatumRecord>* datums) const {
+#if KREODA_WITH_OCCT
+  Handle(TDocStd_Application) app;
+  const auto closeDocuments = [&]() {
+    if (app.IsNull()) return;
+    try {
+      while (app->NbDocuments() > 0) app->Close(app->GetDocument(1));
+    } catch (const Standard_Failure&) {
+    }
+  };
+  try {
+    app = new TDocStd_Application;
+    BinXCAFDrivers::DefineFormat(app);
+    Handle(TDocStd_Document) doc;
+    app->NewDocument("BinXCAF", doc);
+    app->Close(doc);
+    if (app->Open(TCollection_ExtendedString(xbfPath.c_str()), doc) !=
+            PCDM_RS_OK ||
+        doc.IsNull()) {
+      if (error) *error = "OCAF: cannot open " + xbfPath;
+      closeDocuments();
+      return false;
+    }
+
+    std::vector<StagedSketch> staged;
+    if (!StageSketches(doc->Main(), &staged, error)) {
+      closeDocuments();
+      return false;
+    }
+    std::vector<DatumRecord> validatedDatums;
+    if(!StageDatums(doc->Main(),staged,&validatedDatums,error)) { closeDocuments();return false; }
+    const auto validatedShapes = DatumShapeSources(doc->Main());
+    if (!StageProjectionGroups(doc->Main(), &staged, validatedShapes,
+                               validatedDatums, error)) {
+      closeDocuments();
+      return false;
+    }
+    std::vector<SketchFeature> validated;
+    validated.reserve(staged.size());
+    for (auto& record : staged) {
+      validated.push_back(std::move(record.feature));
+    }
+    closeDocuments();
+    if (sketches) *sketches = std::move(validated);
+    if (datums) *datums = std::move(validatedDatums);
+    return true;
+  } catch (const Standard_Failure& f) {
+    closeDocuments();
+    if (error) *error = std::string("OCAF sketch validation failed: ") + f.what();
+    return false;
+  }
+#else
+  (void)xbfPath;
+  (void)sketches;
+  (void)datums;
+  if (error) *error = "OCAF requires OCCT (link via vcpkg)";
+  return false;
+#endif
+}
+
 bool OcafLive::Load(const std::string& xbfPath,
                     std::vector<ShapeRecord>* records,
                     std::vector<std::string>* sketchJsons,
                     std::string* error, bool allowEmpty) {
 #if KREODA_WITH_OCCT
   try {
+    std::vector<SketchFeature> validatedSketches;
+    if (!ValidateSketchesInFile(xbfPath, &validatedSketches, error)) {
+      return false;
+    }
     Reset();
     // Reset created a blank baseline; Open replaces it with the loaded doc.
     ocaf_->selectionsRoot.Nullify();
@@ -1067,9 +1830,14 @@ bool OcafLive::Load(const std::string& xbfPath,
   NCollection_Sequence<TDF_Label> free;
   ocaf_->shapes->GetFreeShapes(free);
   std::vector<std::pair<ShapeRecord, TDF_Label>> loadCandidates;
+  std::set<std::string> seenShapeIds;
   for (int i = 1; i <= free.Length(); ++i) {
     const ShapeRecord rec = RecordFromLabel(free.Value(i), ocaf_->shapes);
     if (rec.featureId.empty() || rec.shape.IsNull()) continue;
+    if (!seenShapeIds.insert(rec.featureId).second) {
+      if (error) *error = "OCAF has duplicate feature label " + rec.featureId;
+      return false;
+    }
     if (!BRepCheck_Analyzer(rec.shape).IsValid(rec.shape)) continue;
     loadCandidates.emplace_back(rec, free.Value(i));
   }
@@ -1085,6 +1853,7 @@ bool OcafLive::Load(const std::string& xbfPath,
         auto tit = loadTypes.find(rec.dependsOn[0]);
         if (tit == loadTypes.end()) { bad = true; why = "Instance target missing: " + rec.dependsOn[0]; }
         else if (tit->second == "Instance") { bad = true; why = "nested instances are not supported"; }
+        else if (!InstanceGeometryMatchesPrototype(rec, tit->second)) { bad = true; why = "Instance topology differs from its prototype"; }
       }
       if (bad) {
         LogCore("ocaf: dropping invalid Instance on load " + rec.featureId + ": " + why);
@@ -1095,7 +1864,8 @@ bool OcafLive::Load(const std::string& xbfPath,
     if (records) records->push_back(rec);
     ++recovered;
   }
-  ocaf_->AdoptMetadataRoots();
+  if (!ocaf_->AdoptMetadataRoots(error)) return false;
+  if(!ocaf_->datumsRoot.IsNull()) for(TDF_ChildIterator it(ocaf_->datumsRoot,Standard_False);it.More();it.Next()) { Handle(TDataStd_Name) name; Handle(TDataStd_Comment) comment; if(it.Value().FindAttribute(TDataStd_Name::GetID(),name)&&it.Value().FindAttribute(TDataStd_Comment::GetID(),comment)) ocaf_->datumLabels[ExtToAscii(name->Get())]=it.Value(); }
   // Collect sketch JSON labels (do not fail the open when absent).
   int recoveredSketches = 0;
   if (!ocaf_->sketchesRoot.IsNull()) {

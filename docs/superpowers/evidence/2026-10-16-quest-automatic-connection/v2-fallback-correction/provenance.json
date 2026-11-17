@@ -1,0 +1,50 @@
+[
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\editor-v2-fallback.xml",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/v2-fallback-correction/editor-v2-fallback.xml",
+    "originalSha256": "25f8807fd6700c8242b8b3f36ec5a6d275a26b75b353843983a290bcca6ca1b4",
+    "archivedSha256": "3ed85365a131a50078dba7f902c45da5be98fc38e953a9ddd5e18488bc7a1386",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "3ed85365a131a50078dba7f902c45da5be98fc38e953a9ddd5e18488bc7a1386"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64-v2-fallback\\result.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/v2-fallback-correction/arm64-v2-fallback/result.json",
+    "originalSha256": "394d38a3d660cdb52ebaeec0fbacdf4a6642eab928253d45d2a7d32c2e2ccffb",
+    "archivedSha256": "394d38a3d660cdb52ebaeec0fbacdf4a6642eab928253d45d2a7d32c2e2ccffb",
+    "transformation": "none",
+    "stagedSha256": "394d38a3d660cdb52ebaeec0fbacdf4a6642eab928253d45d2a7d32c2e2ccffb"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64-v2-fallback\\build-report.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/v2-fallback-correction/arm64-v2-fallback/build-report.json",
+    "originalSha256": "5cd7016f2c2441ef0664016ebfcad43791c6bc524377adc6618d5ce38ce7a8ff",
+    "archivedSha256": "e437ff0303730f0d13b1c0b1724c18fa785da90a6ac69da0d320b63e7e30bb01",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "e437ff0303730f0d13b1c0b1724c18fa785da90a6ac69da0d320b63e7e30bb01"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64-v2-fallback\\scoped-inspection.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/v2-fallback-correction/arm64-v2-fallback/scoped-inspection.json",
+    "originalSha256": "7cb0b903d853a650745a99bd2204468778eb36fc7503833e1fbbca1210c0e651",
+    "archivedSha256": "a806596df7bccaf68d7afb72443e7a26d2083cff474ac5d676b547b7daa094ba",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "a806596df7bccaf68d7afb72443e7a26d2083cff474ac5d676b547b7daa094ba"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64-v2-fallback\\source-before.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/v2-fallback-correction/arm64-v2-fallback/source-before.json",
+    "originalSha256": "e3ab15cb06e72e5d1e2c7614aabed96716e6bb119ed02d7698996f0e634fff3f",
+    "archivedSha256": "e3ab15cb06e72e5d1e2c7614aabed96716e6bb119ed02d7698996f0e634fff3f",
+    "transformation": "none",
+    "stagedSha256": "e3ab15cb06e72e5d1e2c7614aabed96716e6bb119ed02d7698996f0e634fff3f"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64-v2-fallback\\source-after.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/v2-fallback-correction/arm64-v2-fallback/source-after.json",
+    "originalSha256": "d1bcb24f25d1f7071484006ae0044ffce20a0f8d22cf0e026241564912b31329",
+    "archivedSha256": "d1bcb24f25d1f7071484006ae0044ffce20a0f8d22cf0e026241564912b31329",
+    "transformation": "none",
+    "stagedSha256": "d1bcb24f25d1f7071484006ae0044ffce20a0f8d22cf0e026241564912b31329"
+  }
+]

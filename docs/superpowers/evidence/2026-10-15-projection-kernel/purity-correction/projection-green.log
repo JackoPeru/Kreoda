@@ -1,0 +1,32 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Projection.*
+[==========] Running 11 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 11 tests from Projection
+[ RUN      ] Projection.EdgesApplySourceLocationAndTiltedTargetFrame
+[       OK ] Projection.EdgesApplySourceLocationAndTiltedTargetFrame (0 ms)
+[ RUN      ] Projection.TrimmedObliqueCircleRetainsAnalyticEllipseAndTrim
+[       OK ] Projection.TrimmedObliqueCircleRetainsAnalyticEllipseAndTrim (0 ms)
+[ RUN      ] Projection.SplineProjectionRetainsNativeCurveAndParameterMapping
+[       OK ] Projection.SplineProjectionRetainsNativeCurveAndParameterMapping (0 ms)
+[ RUN      ] Projection.ClosedProjectedLoopRetainsOrientationAndAnalyticArea
+[       OK ] Projection.ClosedProjectedLoopRetainsOrientationAndAnalyticArea (0 ms)
+[ RUN      ] Projection.SphereSilhouetteIsTargetPlaneCircleAndRepeatable
+[       OK ] Projection.SphereSilhouetteIsTargetPlaneCircleAndRepeatable (4 ms)
+[ RUN      ] Projection.ObliqueBoxSilhouetteHasAnalyticAreaWithoutInternalCreases
+[       OK ] Projection.ObliqueBoxSilhouetteHasAnalyticAreaWithoutInternalCreases (31 ms)
+[ RUN      ] Projection.AnnularFaceSilhouettePreservesInnerContour
+[       OK ] Projection.AnnularFaceSilhouettePreservesInnerContour (1 ms)
+[ RUN      ] Projection.SphereSectionHasAnalyticRadiusInRotatedFrame
+[       OK ] Projection.SphereSectionHasAnalyticRadiusInRotatedFrame (0 ms)
+[ RUN      ] Projection.SectionPreservesSourceTopologyOnSuccessAndFailure
+[       OK ] Projection.SectionPreservesSourceTopologyOnSuccessAndFailure (6 ms)
+[ RUN      ] Projection.NullMalformedNonfiniteUnboundedAndCollapsedInputsFailAtomically
+[       OK ] Projection.NullMalformedNonfiniteUnboundedAndCollapsedInputsFailAtomically (0 ms)
+[ RUN      ] Projection.DisjointSectionAndNullSilhouetteFailWithoutPublishing
+[       OK ] Projection.DisjointSectionAndNullSilhouetteFailWithoutPublishing (0 ms)
+[----------] 11 tests from Projection (46 ms total)
+
+[----------] Global test environment tear-down
+[==========] 11 tests from 1 test suite ran. (46 ms total)
+[  PASSED  ] 11 tests.

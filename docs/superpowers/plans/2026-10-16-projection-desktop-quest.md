@@ -1,0 +1,39 @@
+# Projection Desktop and hands-only Quest continuation
+
+Required continuation after the session/runtime packet. No implementation or acceptance claim. Full Phases12-16 scope remains open. Runtime worker owns relay/managed/schema files; this plan assigns subsequent client work only after its actual interface is inspected.
+
+## Inspected gaps
+
+- Desktop SketchEditor.tsx initializes a rectangle whenever requestSketch returns zero authored points. A projection-only sketch also has zero authored points: opening it currently risks inserting unrelated geometry. The decision must use current projection groups and all authored primitive arrays, not points alone.
+- Desktop coreClient.ts SketchSummary and sync.ts explicitly rebuild sketch summaries and currently omit projectionGroups. FeatureSummary requires volumeMm3 even for unavailable features. Renderer types/parsers/state must preserve native availability and absent measurement semantics from the completed runtime contract.
+- QuestConnection owns typed SessionClient, connection generation and queued scene updates. QuestDatumView demonstrates CAD-to-Unity coordinates and display-root-relative guides. Its datum originMm field differs from SketchPlaneFrame origin; reuse basis/transform logic with correct field names, never substitute XY.
+- QuestControls already supports OVRHand index pinch, tracking-loss release, movable panel and current semantic mesh/datum selection. QuestReferences/QuestCommands show schema-driven forms and stale-selection tickets. Extend these existing seams; never require controllers for new operations.
+
+## Desktop packet contract
+
+1. Typed projection query through existing session read path; stable session/document/revision/per-target freshness and shared DTO validation. Clear derived lines on revision/document/reconnect changes, unavailable results and failed queries; late older replies never restore them.
+2. Preserve projection summaries/status through snapshot/delta, direct command result, summary-only Undo/Redo and open. Explicit geometryCurrent=false removes cached mesh/picks/measurement for the affected feature. Missing volume stays absent throughout consumers; unrelated healthy branches remain visible.
+3. Compact collapsible projection controls owned by the selected sketch. Operations projectEdges/silhouette/section, source selection from current semantic persistent face/edge/feature IDs as allowed by canonical schema. Native definition is authoritative; no output memberIndex or display polyline becomes a persistent source reference. Show source/group identity, status and explicit repair/remove actions. Repair reuses groupId and dependent feature IDs. Do not silently rebind on selection/query.
+4. Display current native projection pointsMm in sketch SVG and world viewport, clearly read-only derived geometry. pointsMm are already world CAD coordinates from the located native curve. For SVG compute local x/y by dot(worldPoint-origin,xAxis/yAxis); for world viewport draw those world coordinates directly. Never apply the sketch frame twice. Incorporate derived bounds into fit view and preserve root transform. Display sampling is visualization, never used to rebuild CAD or claim tolerance.
+5. Opening projection-only or circle/arc-only sketches must not auto-insert a rectangle. Preserve the existing genuinely empty first-run workflow only if no authored primitive and no projection group exists. Wait for authoritative summary/query before deciding; no transient empty cache write. Test exact no-mutation behavior on opening healthy/broken projection-only sketch.
+6. Preserve compact accepted UX, left rotate/right pan/wheel zoom, hole point/two-edge distances, video Home, datum/section UI and ordinary sketch editing.
+
+Provisional exact ownership: apps/desktop/src/ipc/coreClient.ts; model/sync.ts; stores/index.ts; components/SketchEditor.tsx; a minimal selected-sketch projection component under components/workspace; viewport/CadViewport.ts, components/Viewport.tsx, app/App.tsx, a minimal viewport/ProjectionViewport.ts; i18n/{en.ts,it.ts}; focused tests and one hidden real native E2E. No relay/native/schema changes without explicit amendment.
+
+## Quest packet contract
+
+1. Consume completed typed SessionClient query and freshness owner; marshal Unity scene writes onto existing frame-loop queue. Projection view identity includes session/document/revision/connection and current sketch/group, not native generation alone.
+2. Draw sampled curves under DisplayRoot with correct CAD mm to Unity conversion, world-space pointsMm and transformed root. pointsMm already include native sketch placement: convert CAD world coordinates once and attach under DisplayRoot; use SketchPlaneFrame origin/basis only for local sketch UI/fit or validation, not a second placement transform. Keep native memberIndex evaluation-local and unselectable as persistent geometry. Unavailable/invalid data clears curves and disables interaction immediately.
+3. Hands alone: choose sketch; choose current semantic source(s) by pointing/index pinch, select operation, create group; inspect source/status; explicitly replace source/repair same group or remove. Reuse current command schema validation/owner transaction and replay machinery, no anonymous model calls. Existing panel header drag, keyboard numeric fields, release barrier, tracking loss, two-hand manipulation and voice context remain usable.
+4. Source IDs for voice remain real semantic target identity; no display sample or ambiguous mesh hit becomes an editable reference. Preserve datum/section selections, transformed display roots and no stale-selection submission after Undo/reconnect/document switch.
+5. Clear diagnostic for broken group and affected unavailable solid; healthy branches continue. No stale mesh/volume/curve on unavailable results. No automatic repair.
+
+Provisional exact ownership: clients/quest-unity/Assets/Kreoda/Runtime/{QuestConnection.cs,QuestControls.cs,QuestCommands.cs}; minimal new QuestProjections.cs/QuestProjectionView.cs + their .meta; focused Assets/Kreoda/Tests/Editor tests + .meta; Editor/QuestBuild.cs for normal Prepare and ValidatePrepared wiring, Assets/Kreoda/Scenes/KreodaQuest.unity for saved-scene wiring. No asset/settings regeneration outside this set without explicit amendment. Existing authored scene must work without a Prepare step. Avoid modifying QuestReferences except a concrete shared-selection seam authorized by parent.
+
+## Required independent proof
+
+Desktop: focused RED/GREEN for zero-point sketch opening, fields through sync, absent volume/cache invalidation, delayed query/document switch, exact parameter/source IDs. Full affected build/lint/tests, hidden Electron actual native projection creation/source edit/downstream volume/repair/Undo/open proof, compact UI geometry/overflow checks in hidden runtime. No foreground window or screenshot acquisition required.
+
+Quest: Editor tests for non-XY frame and transformed-root rendering, finite/invalid basis/data, stale query suppression including repeated generation, lost tracking/pinch release/no controller connected, explicit create/repair/remove command IDs and same group identity; regression existing hands/datum/section. Source hash before/after, normal ARM64 build with saved scene and no Prepare workaround, compiler zero errors. Software proofs do not establish physical comfort/hand/voice acceptance.
+
+Parent independently verifies artifacts/actual diff and obtains required fresh accumulated review when available. No quota-only reviewer retry; no merge/release from incomplete acceptance. Exact accepted-head hosted CI remains required. User prohibits server/Hermes/SSH/Tailscale/AI probes, device/ADB/install/capture, mic/camera/audio and foreground GUI while Hermes generates images. Hidden local builds/tests allowed. Physical/live gates remain open until permitted; never infer permission from elapsed time.

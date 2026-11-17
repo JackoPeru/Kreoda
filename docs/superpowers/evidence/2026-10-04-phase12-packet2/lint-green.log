@@ -1,0 +1,15 @@
+
+> kreoda@0.1.0 lint C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci
+> pnpm -r lint
+
+Scope: 5 of 6 workspace projects
+packages/plugin-sdk lint$ tsc --noEmit -p tsconfig.json
+packages/protocol lint$ tsc --noEmit -p tsconfig.json
+packages/units lint$ tsc --noEmit -p tsconfig.json
+packages/units lint: Done
+packages/plugin-sdk lint: Done
+packages/protocol lint: Done
+packages/command-schema lint$ tsc --noEmit -p tsconfig.json
+packages/command-schema lint: Done
+apps/desktop lint$ tsc --noEmit
+apps/desktop lint: Done

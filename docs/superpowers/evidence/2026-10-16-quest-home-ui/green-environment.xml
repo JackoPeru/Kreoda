@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="2" result="Passed" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-16 15:51:30Z" end-time="2026-10-16 15:51:30Z" duration="0,0462757">
+  <test-suite type="TestSuite" id="1000" name="Kreoda Quest" fullname="Kreoda Quest" runstate="Runnable" testcasecount="97" result="Passed" start-time="2026-10-16 15:51:30Z" end-time="2026-10-16 15:51:30Z" duration="0.046276" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1121" name="Kreoda.QuestRuntime.Tests.dll" fullname="C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity/Library/ScriptAssemblies/Kreoda.QuestRuntime.Tests.dll" runstate="Runnable" testcasecount="97" result="Passed" start-time="2026-10-16 15:51:30Z" end-time="2026-10-16 15:51:30Z" duration="0.036943" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="38952" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1122" name="Kreoda" fullname="Kreoda" runstate="Runnable" testcasecount="97" result="Passed" start-time="2026-10-16 15:51:30Z" end-time="2026-10-16 15:51:30Z" duration="0.033877" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1123" name="QuestRuntime" fullname="Kreoda.QuestRuntime" runstate="Runnable" testcasecount="97" result="Passed" start-time="2026-10-16 15:51:30Z" end-time="2026-10-16 15:51:30Z" duration="0.032162" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1124" name="Tests" fullname="Kreoda.QuestRuntime.Tests" runstate="Runnable" testcasecount="97" result="Passed" start-time="2026-10-16 15:51:30Z" end-time="2026-10-16 15:51:30Z" duration="0.031446" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1065" name="QuestEnvironmentTests" fullname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests" classname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-10-16 15:51:30Z" end-time="2026-10-16 15:51:30Z" duration="0.029186" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1067" name="FailedPassthroughStatusNeverClaimsThatRoomIsVisible" fullname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests.FailedPassthroughStatusNeverClaimsThatRoomIsVisible" methodname="FailedPassthroughStatusNeverClaimsThatRoomIsVisible" classname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests" runstate="Runnable" seed="920163576" result="Passed" start-time="2026-10-16 15:51:30Z" end-time="2026-10-16 15:51:30Z" duration="0.013696" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1066" name="StartupMigratesPreviouslySavedVrPreferenceToPassthrough" fullname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests.StartupMigratesPreviouslySavedVrPreferenceToPassthrough" methodname="StartupMigratesPreviouslySavedVrPreferenceToPassthrough" classname="Kreoda.QuestRuntime.Tests.QuestEnvironmentTests" runstate="Runnable" seed="165522091" result="Passed" start-time="2026-10-16 15:51:30Z" end-time="2026-10-16 15:51:30Z" duration="0.004039" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\docs\superpowers\evidence\2026-10-16-quest-home-ui\green-environment.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

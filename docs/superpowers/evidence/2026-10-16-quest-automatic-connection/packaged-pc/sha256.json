@@ -1,0 +1,38 @@
+[
+  {
+    "file": "pc-frozen-source.json",
+    "originalSha256": "aeae846caa83f646c23fa7a87ac87c4d55d86cc92c486ffa9c1b189bb098f21c",
+    "archiveSha256": "ad9877203af208fa79b57bac951aa1b259711b373445eb8281654743cdfb5c25",
+    "normalization": "UTF8 without BOM; LF; trailing whitespace removed"
+  },
+  {
+    "file": "pc-frozen-build.log",
+    "originalSha256": "4f3733e7ab0492bc19edc1df1842a6dbc95294cf6c6267a0639fc254ac4eeb97",
+    "archiveSha256": "a8ba841985b88f64d08c7e920eeba0ab6e87d080ba1bffd5ab1f569957cd9230",
+    "normalization": "UTF8 without BOM; LF; trailing whitespace removed"
+  },
+  {
+    "file": "pc-frozen-package.log",
+    "originalSha256": "7e5a04293d2e29f0a06c8696fe61d7339a89f47686ac46587813d77d69688e42",
+    "archiveSha256": "a5c4017cc16091bf072f88e77705dc71d9d48fa41a5f4a7b2f79c06816b14c85",
+    "normalization": "UTF8 without BOM; LF; trailing whitespace removed"
+  },
+  {
+    "file": "packaged-smoke.mjs",
+    "originalSha256": "3260456d85f1a418e8d71fcfbb22ae3834afa8d15e27d77945c08b59c2ade507",
+    "archiveSha256": "3260456d85f1a418e8d71fcfbb22ae3834afa8d15e27d77945c08b59c2ade507",
+    "normalization": "UTF8 without BOM; LF; trailing whitespace removed"
+  },
+  {
+    "file": "packaged-smoke.log",
+    "originalSha256": "466a044e79b8cc43acba8105820dccea9f208b3bb60af6248a2ce870c0576afd",
+    "archiveSha256": "825357be9ec5ea1537e8bb09b5ccf26238001eb9c7dc4e43b90b9cc6e62a974d",
+    "normalization": "UTF8 without BOM; LF; trailing whitespace removed"
+  },
+  {
+    "file": "packaged-smoke-proof.json",
+    "originalSha256": "b9b12f379ecf1a161c2acac9c2dae28aaaac41c8459d3698e8aa8e8f0c38744a",
+    "archiveSha256": "b9b12f379ecf1a161c2acac9c2dae28aaaac41c8459d3698e8aa8e8f0c38744a",
+    "normalization": "UTF8 without BOM; LF; trailing whitespace removed"
+  }
+]

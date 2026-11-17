@@ -1,0 +1,75 @@
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.3823037Z   ok 29 e2e\phase10-crash.spec.ts:559:1 › main process kill relaunches and restores committed autosave [solo] (3.4s)
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4053432Z
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4059540Z
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4072618Z   1) e2e\phase10-crash.spec.ts:376:1 › renderer crash with an uncommitted solved sketch drag restores committed coordinates [solo]
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4073533Z
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4074092Z     Error: expect(received).toEqual(expected) // deep equality
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4074578Z
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4074857Z     - Expected  - 23
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4075422Z     + Received  +  2
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4075646Z
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4076050Z     @@ -1,31 +1,10 @@
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4076509Z       Array [
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4076985Z         Object {
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4077470Z           "constraints": 6,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4078240Z           "id": "sk-dc301f1b-0f4a-4f85-b982-4153c87a4cca",
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4078986Z     -     "modelPlane": Object {
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4079995Z     -       "normal": Array [
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4080513Z     -         0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4080948Z     -         0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4081421Z     -         1,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4081818Z     -       ],
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4082346Z     -       "origin": Array [
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4082880Z     -         0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4083311Z     -         0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4084143Z     -         0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4084538Z     -       ],
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4085054Z     -       "xAxis": Array [
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4086710Z     -         1,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4087174Z     -         0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4087637Z     -         0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4088019Z     -       ],
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4088765Z     -       "yAxis": Array [
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4089273Z     -         0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4089838Z     -         1,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4090303Z     -         0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4090695Z     -       ],
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4091103Z     -     },
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4091668Z     +     "modelPlane": undefined,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4092249Z           "plane": Object {
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4092828Z             "normal": Array [
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4093296Z               0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4093748Z               0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4094168Z               1,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4094564Z     @@ -46,8 +25,8 @@
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4095076Z               0,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4095462Z             ],
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4096078Z           },
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4096612Z           "planeKind": "XY",
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4097123Z           "points": 4,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4097644Z     -     "supportRef": "",
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4098200Z     +     "supportRef": undefined,
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4098699Z         },
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4099079Z       ]
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4099262Z
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4099925Z       68 |     expect(after.bodies[i]!.volumeMm3).toBeCloseTo(body.volumeMm3, 3);
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4100674Z       69 |   }
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4101423Z     > 70 |   expect(after.sketches).toEqual(before.sketches);
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4102146Z          |                          ^
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4102650Z       71 | }
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4103007Z       72 |
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4103903Z       73 | async function crashRendererAndRestore(
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4105371Z         at restore (D:\a\Kreoda\Kreoda\apps\desktop\e2e\phase10-crash.spec.ts:70:26)
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4106696Z         at terminateAndRestore (D:\a\Kreoda\Kreoda\apps\desktop\e2e\phase10-crash.spec.ts:205:3)
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4107941Z         at D:\a\Kreoda\Kreoda\apps\desktop\e2e\phase10-crash.spec.ts:418:24
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4108450Z
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4109474Z     Error Context: test-results\phase10-crash-renderer-cra-a5b37-committed-coordinates-solo-\error-context.md
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4110269Z
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4111362Z     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4112779Z     test-results\phase10-crash-renderer-cra-a5b37-committed-coordinates-solo-\trace.zip
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4113621Z     Usage:
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4113845Z
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4114933Z         pnpm exec playwright show-trace test-results\phase10-crash-renderer-cra-a5b37-committed-coordinates-solo-\trace.zip
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4115766Z
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4119366Z     ────────────────────────────────────────────────────────────────────────────────────────────────
+build-and-test	Full regression (test:all)	2026-10-14T20:18:42.4120146Z

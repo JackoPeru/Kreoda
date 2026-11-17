@@ -1,0 +1,5 @@
+Esecuzione dei test per C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.ModelingAgent.Tests\bin\Release\net8.0\Kreoda.ModelingAgent.Tests.dll (.NETCoreApp,Version=v8.0)
+Un totale di 1 file di test corrisponde al criterio specificato.
+File di risultati: C:\Users\matte\Documents\Codex-tools\Native\phase15-repair-schema-parent-20261016\dotnet\ModelingAgent.trx
+
+Superato!     - Non superati:     0. Superati:    33. Ignorati:     0. Totale:    33. Durata: 27 ms - Kreoda.ModelingAgent.Tests.dll (net8.0)

@@ -1,0 +1,15 @@
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="16.805881000000003">
+<testsuite name="phase16-projection-mcp.spec.ts" timestamp="2026-10-16T15:56:39.749Z" hostname="" tests="1" failures="0" skipped="0" time="15.936" errors="0">
+<testcase name="native projection, repair and lost-ack replay stay coherent through hidden Desktop and official MCP" classname="phase16-projection-mcp.spec.ts" time="15.936">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\..\..\..\Desktop\Saas\Kreoda-phase10-ci\apps\desktop\test-results\phase16-projection-mcp-nat-d01d4-en-Desktop-and-official-MCP\attachments\native-projection-mcp-proof-c17301f7f2edd2e4c9339df5bb31dee5c917d52d.json]]
+
+[[ATTACHMENT|..\..\..\..\Desktop\Saas\Kreoda-phase10-ci\apps\desktop\test-results\phase16-projection-mcp-nat-d01d4-en-Desktop-and-official-MCP\attachments\native-projection-healthy-icad-ba31ce2e6b713610535bdd9909c47bd76bcaa4a7.icad]]
+
+[[ATTACHMENT|..\..\..\..\Desktop\Saas\Kreoda-phase10-ci\apps\desktop\test-results\phase16-projection-mcp-nat-d01d4-en-Desktop-and-official-MCP\attachments\native-projection-broken-icad-cc9f591e78cc07bcfd89941016760c4e33e5bd20.icad]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+</testsuites>

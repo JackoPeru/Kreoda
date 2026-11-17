@@ -1,0 +1,22 @@
+  Individuazione dei progetti da ripristinare...
+  Tutti i progetti sono aggiornati per il ripristino.
+  Kreoda.QuestFoundation -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.QuestFoundation\bin\Release\net8.0\Kreoda.QuestFoundation.dll
+  Kreoda.Protocol -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol\csharp\bin\Release\net8.0\Kreoda.Protocol.dll
+  Kreoda.SessionClient -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\src\Kreoda.SessionClient\bin\Release\net8.0\Kreoda.SessionClient.dll
+  Kreoda.SessionClient.Tests -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll
+Esecuzione dei test per C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll (.NETCoreApp,Version=v8.0)
+Un totale di 1 file di test corrisponde al criterio specificato.
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.31)
+[xUnit.net 00:00:00.15]   Discovering: Kreoda.SessionClient.Tests
+[xUnit.net 00:00:00.18]   Discovered:  Kreoda.SessionClient.Tests
+[xUnit.net 00:00:00.19]   Starting:    Kreoda.SessionClient.Tests
+[xUnit.net 00:00:00.34]   Finished:    Kreoda.SessionClient.Tests
+  Superato Kreoda.SessionClient.Tests.ManagedCompatibilityTests.TestLoadsTheRequestedSessionClientTarget [3 ms]
+  Superato Kreoda.SessionClient.Tests.ManagedCompatibilityTests.GeneratedControlSerializationKeepsTheContractWireShape [38 ms]
+  Superato Kreoda.SessionClient.Tests.ManagedCompatibilityTests.CancellingSnapshotApplyWaitLeavesQueuedUpdatesRunning [66 ms]
+  Superato Kreoda.SessionClient.Tests.ManagedCompatibilityTests.AdvertisedCapabilitiesCannotBeMutatedThroughCollectionInterfaces [6 ms]
+
+L'esecuzione dei test è riuscita.
+Totale test: 4
+     Superati: 4
+ Tempo totale: 0,8516 Secondi

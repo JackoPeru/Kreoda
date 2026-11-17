@@ -1,0 +1,33 @@
+{
+  "scope": "Task2 native datum constructors and read-only source resolution, partial",
+  "accepted": false,
+  "fullDatumFeatureComplete": false,
+  "wholeGoalComplete": false,
+  "implementation": "parent user-authorized quota fallback",
+  "base": "f6c4c1b5ec6955b7960d0561e2ebeb5c0e2e412c",
+  "red": {
+    "passed": 1,
+    "failed": 5
+  },
+  "focused": {
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0
+  },
+  "linkedNative": {
+    "passed": 202,
+    "failed": 0,
+    "seconds": 77.06
+  },
+  "selfTestExit": 0,
+  "definitionDiscriminant": "type",
+  "remaining": [
+    "OCAF datum lifecycle and atomic create/update",
+    "feature graph and supported sketches",
+    "cycle/delete/SetParam and source rebuilds",
+    "native control IDs31-35 and typed records",
+    "Desktop/Quest/MCP and full datum acceptance",
+    "stable TNaming path for indexed topology sources",
+    "independent fresh final review after quota"
+  ]
+}

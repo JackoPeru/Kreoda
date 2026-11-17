@@ -2,13 +2,19 @@
 
 #include <cmath>
 #include <map>
+#include <set>
 
 #include "document/document_store.h"
+#include "features/assembly/assembly_constraints.h"
 #include "features/evaluate.h"
 #include "features/sketch/sketch_json.h"
+#include "features/sketch/sketch_projection.h"
 #include "model/body.h"
 #include "model/feature_graph.h"
+#include "model/model_snapshot.h"
 #include "model/shapes.h"
+#include "model/commit.h"
+#include "features/datum/datum_store.h"
 
 #if KREODA_WITH_OCCT
 #include "persistence/ocaf_live.h"
@@ -39,7 +45,7 @@ bool ValidateSketchRefs(const SketchModel& model, std::string* error) {
   // Entity-count cap: shared 256 MB frame + O(n²) wire chaining (§8, §41).
   constexpr size_t kMaxEntities = 2000;
   if (model.points.size() + model.lines.size() + model.circles.size() +
-          model.arcs.size() + model.constraints.size() >
+          model.arcs.size() + model.ellipses.size() + model.splines.size() + model.constraints.size() >
       kMaxEntities) {
     if (error) *error = "sketch too large (max 2000 entities)";
     return false;
@@ -95,6 +101,35 @@ bool ValidateSketchRefs(const SketchModel& model, std::string* error) {
     }
     arcs[a.id] = true;
   }
+  for (const auto& e : model.ellipses) {
+    if (e.id.empty() || !points.count(e.center) || lines.count(e.id) || circles.count(e.id) || arcs.count(e.id) ||
+        !(e.majorRadius>e.minorRadius && e.minorRadius>1e-9) ||
+        !std::isfinite(e.majorRadius) || !std::isfinite(e.minorRadius) ||
+        !std::isfinite(e.rotationRad) || !std::isfinite(e.startAngleRad) || !std::isfinite(e.endAngleRad) ||
+        (e.arc && !(e.endAngleRad>e.startAngleRad && e.endAngleRad-e.startAngleRad<6.283185307179586))) {
+      if (error) *error="invalid ellipse or elliptical arc"; return false;
+    }
+    arcs[e.id]=true;
+  }
+  for (const auto& s : model.splines) {
+    if (s.id.empty() || lines.count(s.id) || circles.count(s.id) || arcs.count(s.id) ||
+        s.pointIds.size()<3 || s.pointIds.size()>256 ||
+        (s.closed && s.pointIds.size()<4)) {
+      if (error) *error="invalid spline entity"; return false;
+    }
+    for (const auto& id : s.pointIds) if (!points.count(id)) {
+      if (error) *error="spline references unknown point"; return false;
+    }
+    arcs[s.id]=true;
+  }
+  std::set<std::string> constructionSeen;
+  for (const auto& id:model.constructionIds) {
+    if (!constructionSeen.insert(id).second ||
+        !(lines.count(id) || circles.count(id) || arcs.count(id))) {
+      if (error) *error="construction ID must reference one unique sketch entity";
+      return false;
+    }
+  }
   for (const auto& p : model.points) {
     if (std::fabs(p.x) > kMaxCoordMm || std::fabs(p.y) > kMaxCoordMm) {
       if (error) *error = "point coordinates out of range: " + p.id;
@@ -127,6 +162,14 @@ bool ValidateSketchRefs(const SketchModel& model, std::string* error) {
 bool CreateSketchFeature(const std::string& sketchId,
                          const std::string& planeKind,
                          const SketchModel& model, std::string* error) {
+  return CreateSketchFeature(sketchId, planeKind, model,
+                             PrincipalPlane(planeKind), error);
+}
+
+static bool CreateSketchFeatureImpl(const std::string& sketchId,
+                         const std::string& planeKind,
+                         const SketchModel& model, const SketchPlane& plane,
+                         const std::string& supportRef,std::string* error) {
   if (sketchId.empty()) {
     if (error) *error = "sketch id (stable UUID) required";
     return false;
@@ -135,15 +178,13 @@ bool CreateSketchFeature(const std::string& sketchId,
     if (error) *error = "sketch id must match [A-Za-z0-9_-]";
     return false;
   }
-  if (planeKind != "XY" && planeKind != "XZ" && planeKind != "YZ") {
+  if (planeKind != "XY" && planeKind != "XZ" && planeKind != "YZ" &&
+      !(planeKind == "Datum" && !supportRef.empty())) {
     if (error) *error = "planeKind must be XY|XZ|YZ";
     return false;
   }
-  if (SketchStore::instance().contains(sketchId) ||
-      ShapeStore::instance().contains(sketchId)) {
-    if (error) *error = "id already exists: " + sketchId;
-    return false;
-  }
+  if (!ValidateSketchPlane(plane, error)) return false;
+  if (!CheckNewId(sketchId,error)) return false;
   if (!ValidateSketchRefs(model, error)) return false;
   // Solve-before-commit: the stored model always holds solved coordinates.
   auto solver = CreateSketchSolver();
@@ -158,7 +199,8 @@ bool CreateSketchFeature(const std::string& sketchId,
   SketchFeature sketch;
   sketch.id = sketchId;
   sketch.planeKind = planeKind;
-  sketch.plane = PrincipalPlane(planeKind);
+  sketch.plane = plane;
+  sketch.supportRef = supportRef;
   sketch.model = model;
   // Write back solved coordinates.
   for (auto& p : sketch.model.points) {
@@ -176,6 +218,7 @@ bool CreateSketchFeature(const std::string& sketchId,
     const auto it = r.radii.find(a.id);
     if (it != r.radii.end()) a.r = it->second;
   }
+  if (!ApplySolvedEllipseAxes(r, &sketch.model, error)) return false;
 #if KREODA_WITH_OCCT
   if (!OcafLive::instance().BeginCommand(error)) return false;
   SketchStore::instance().put(sketch);
@@ -185,19 +228,30 @@ bool CreateSketchFeature(const std::string& sketchId,
     OcafLive::instance().AbortCommand();
     return false;
   }
-  TheFeatureGraph().addFeature(sketchId);
+  TheFeatureGraph().addFeature(sketchId, SketchDependencies(sketch));
   TheFeatureGraph().clearDirty(sketchId);
   bool hadDelta = false;
   OcafLive::instance().CommitCommand(&hadDelta, nullptr);
   DocumentStore::instance().registerFeature(sketchId, "Sketch");
   return true;
 #else
-  SketchStore::instance().put(std::move(sketch));
-  TheFeatureGraph().addFeature(sketchId);
+  SketchStore::instance().put(sketch);
+  TheFeatureGraph().addFeature(sketchId, SketchDependencies(sketch));
   TheFeatureGraph().clearDirty(sketchId);
   DocumentStore::instance().registerFeature(sketchId, "Sketch");
   return true;
 #endif
+}
+
+bool CreateSketchFeature(const std::string& sketchId,const std::string& planeKind,
+                         const SketchModel& model,const SketchPlane& plane,std::string* error) {
+  return CreateSketchFeatureImpl(sketchId,planeKind,model,plane,"",error);
+}
+bool CreateSketchOnDatumFeature(const std::string& sketchId,const std::string& datumId,
+                                const SketchModel& model,std::string* error) {
+  DatumRecord support;
+  if(!DatumStore::instance().get(datumId,&support)||support.kind!=DatumKind::Plane||support.status!="ok") {if(error)*error="sketch requires a valid DatumPlane";return false;}
+  return CreateSketchFeatureImpl(sketchId,"Datum",model,support.plane,datumId,error);
 }
 
 bool UpdateSketchFeature(const std::string& sketchId,
@@ -232,29 +286,20 @@ bool UpdateSketchFeature(const std::string& sketchId,
     const auto it = r.radii.find(a.id);
     if (it != r.radii.end()) a.r = it->second;
   }
+  if (!ApplySolvedEllipseAxes(r, &next.model, error)) return false;
 #if KREODA_WITH_OCCT
-  // Snapshot the dirty closure (sketch + dependent solids) for rollback.
-  if (!TheFeatureGraph().hasFeature(sketchId)) {
-    TheFeatureGraph().addFeature(sketchId);
-    TheFeatureGraph().clearDirty(sketchId);
-  }
+  const ModelSnapshot before;
+  TheFeatureGraph().addFeature(sketchId, SketchDependencies(next));
   TheFeatureGraph().markDirty(sketchId);
-  std::map<std::string, ShapeRecord> shapeSnap;
-  for (const auto& s : ShapeStore::instance().listInOrder()) {
-    if (TheFeatureGraph().isGeometryDirty(s.featureId)) shapeSnap[s.featureId] = s;
-  }
-  // Slice 3: tip stays at last good on downstream failure.
-  const std::vector<BodyRecord> bodySnap = BodyStore::instance().bodies();
-  std::map<std::string, SketchFeature> sketchSnap{{sketchId, prev}};
   SketchStore::instance().put(next);
   if (!OcafLive::instance().BeginCommand(error)) {
-    SketchStore::instance().put(prev);
+    before.restore();
     return false;
   }
   const std::string js = SerializeSketchFeature(next);
   if (!OcafLive::instance().UpsertSketch(sketchId, js, error)) {
-    SketchStore::instance().put(prev);
     OcafLive::instance().AbortCommand();
+    before.restore();
     return false;
   }
   const auto report = TheFeatureGraph().recompute(
@@ -262,11 +307,17 @@ bool UpdateSketchFeature(const std::string& sketchId,
         return RebuildNodeFromStore(id, e);
       });
   if (!report.ok) {
-    SketchStore::instance().put(prev);
-    for (const auto& [id, s] : shapeSnap) ShapeStore::instance().put(s);
-    BodyStore::instance().replaceAll(bodySnap);
     OcafLive::instance().AbortCommand();
+    before.restore();
     if (error) *error = report.firstError;
+    return false;
+  }
+  std::vector<AssemblyConstraintIssue> assemblyIssues;
+  std::string assemblyError;
+  if(!ReadAssemblyConstraintIssues(&assemblyIssues,&assemblyError)) {
+    OcafLive::instance().AbortCommand();
+    before.restore();
+    if(error)*error=assemblyError;
     return false;
   }
   bool hadDelta = false;
@@ -274,7 +325,8 @@ bool UpdateSketchFeature(const std::string& sketchId,
   DocumentStore::instance().registerFeature(sketchId, "Sketch");
   return true;
 #else
-  SketchStore::instance().put(std::move(next));
+  SketchStore::instance().put(next);
+  TheFeatureGraph().addFeature(sketchId, SketchDependencies(next));
   TheFeatureGraph().markDirty(sketchId);
   DocumentStore::instance().registerFeature(sketchId, "Sketch");
   return true;
@@ -283,9 +335,7 @@ bool UpdateSketchFeature(const std::string& sketchId,
 
 bool PutSketchDirect(const SketchFeature& sketch) {
   SketchStore::instance().put(sketch);
-  if (!TheFeatureGraph().hasFeature(sketch.id)) {
-    TheFeatureGraph().addFeature(sketch.id);
-  }
+  TheFeatureGraph().addFeature(sketch.id, SketchDependencies(sketch));
   TheFeatureGraph().clearDirty(sketch.id);
   return true;
 }

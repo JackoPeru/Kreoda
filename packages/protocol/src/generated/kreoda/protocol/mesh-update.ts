@@ -172,8 +172,23 @@ revision():bigint {
   return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
 }
 
+curvatureMaxAbsPerMm(index: number):number|null {
+  const offset = this.bb!.__offset(this.bb_pos, 36);
+  return offset ? this.bb!.readUint8(this.bb!.__vector(this.bb_pos + offset) + index) : 0;
+}
+
+curvatureMaxAbsPerMmLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 36);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+curvatureMaxAbsPerMmArray():Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 36);
+  return offset ? new Uint8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
 static startMeshUpdate(builder:flatbuffers.Builder) {
-  builder.startObject(16);
+  builder.startObject(17);
 }
 
 static addFeatureId(builder:flatbuffers.Builder, featureIdOffset:flatbuffers.Offset) {
@@ -329,12 +344,28 @@ static addRevision(builder:flatbuffers.Builder, revision:bigint) {
   builder.addFieldInt64(15, revision, BigInt('0'));
 }
 
+static addCurvatureMaxAbsPerMm(builder:flatbuffers.Builder, curvatureMaxAbsPerMmOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(16, curvatureMaxAbsPerMmOffset, 0);
+}
+
+static createCurvatureMaxAbsPerMmVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset {
+  builder.startVector(1, data.length, 1);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addInt8(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startCurvatureMaxAbsPerMmVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(1, numElems, 1);
+}
+
 static endMeshUpdate(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createMeshUpdate(builder:flatbuffers.Builder, featureIdOffset:flatbuffers.Offset, bodyIdOffset:flatbuffers.Offset, lod:number, requestIdOffset:flatbuffers.Offset, positionsCount:number, normalsCount:number, indicesCount:number, positionsOffset:flatbuffers.Offset, normalsOffset:flatbuffers.Offset, indicesOffset:flatbuffers.Offset, edgeVerticesOffset:flatbuffers.Offset, facesOffset:flatbuffers.Offset, edgesOffset:flatbuffers.Offset, volumeMm3:number, bboxMmOffset:flatbuffers.Offset, revision:bigint):flatbuffers.Offset {
+static createMeshUpdate(builder:flatbuffers.Builder, featureIdOffset:flatbuffers.Offset, bodyIdOffset:flatbuffers.Offset, lod:number, requestIdOffset:flatbuffers.Offset, positionsCount:number, normalsCount:number, indicesCount:number, positionsOffset:flatbuffers.Offset, normalsOffset:flatbuffers.Offset, indicesOffset:flatbuffers.Offset, edgeVerticesOffset:flatbuffers.Offset, facesOffset:flatbuffers.Offset, edgesOffset:flatbuffers.Offset, volumeMm3:number, bboxMmOffset:flatbuffers.Offset, revision:bigint, curvatureMaxAbsPerMmOffset:flatbuffers.Offset):flatbuffers.Offset {
   MeshUpdate.startMeshUpdate(builder);
   MeshUpdate.addFeatureId(builder, featureIdOffset);
   MeshUpdate.addBodyId(builder, bodyIdOffset);
@@ -352,6 +383,7 @@ static createMeshUpdate(builder:flatbuffers.Builder, featureIdOffset:flatbuffers
   MeshUpdate.addVolumeMm3(builder, volumeMm3);
   MeshUpdate.addBboxMm(builder, bboxMmOffset);
   MeshUpdate.addRevision(builder, revision);
+  MeshUpdate.addCurvatureMaxAbsPerMm(builder, curvatureMaxAbsPerMmOffset);
   return MeshUpdate.endMeshUpdate(builder);
 }
 }

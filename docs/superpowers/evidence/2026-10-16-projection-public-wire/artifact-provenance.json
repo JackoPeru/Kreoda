@@ -1,0 +1,360 @@
+[
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/command-schema-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\command-schema-build.log",
+    "rawSha256": "f6fc0c751eea3280bfb568daf1543183459dc13b11e04c3a1d26d724cec9311c",
+    "committedSha256": "4a70c3b2bad86dae66fb7030c47305b1e210a8cad857737c91a4bc7d96494d38",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/command-schema-focused.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\command-schema-focused.log",
+    "rawSha256": "7b50d71bc97bae8dd73ca9c50474235c28905098f0604ab3adef305b0e83b78a",
+    "committedSha256": "80cc5aed91c63308b0e668e9e2dccb54814f373ba11643c582151e33fa21d30a",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/command-schema-lint.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\command-schema-lint.log",
+    "rawSha256": "29deb67ced515ff8c52604301131cdc7ac979cb58d13212bbdd92a67df38b1ec",
+    "committedSha256": "991d2bf20c79f75ec566c9eef9d81bb0d9ad6f662299a36305fb20ae6538e613",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/command-schema-test.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\command-schema-test.log",
+    "rawSha256": "9e214f78adb900643779e10ed281231ed9e5cbf1b1b5e486dbab03f21ac7037d",
+    "committedSha256": "2192d5e1ca7f872eea6ab735f01e70ae1f41533f5538257fa6194104f989bc83",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/dotnet/projection-public-wire-initial-failure.trx",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\dotnet\\projection-public-wire-initial-failure.trx",
+    "rawSha256": "4b62b881d6e375b13069d95b10be2c210aaa09601fe363e2fbdd27dc11ee7277",
+    "committedSha256": "938c44a2090d78c20802ed9d2d0db070f2ac9e0a4acb9f0bf95dfd3a1be31410",
+    "whitespaceNormalized": true,
+    "normalization": "Git CRLF-to-LF normalization only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/dotnet/projection-public-wire.trx",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\dotnet\\projection-public-wire.trx",
+    "rawSha256": "6ec5878c36d6f88cf56c0b1cb45a9c3a461d03cec7fa53b478e0c3d56096ca54",
+    "committedSha256": "b011c3be9d067164f2964ba04c6652e38a268b0d8f7c53d3f24dd90084f03c8b",
+    "whitespaceNormalized": true,
+    "normalization": "Git CRLF-to-LF normalization only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/dotnet-summary.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\dotnet-summary.txt",
+    "rawSha256": "cd9634d4ffddbfb84f8e1b864580c2449264de0ae4942fadca305371127c7a93",
+    "committedSha256": "364562bd4faf5cfa65f8f07267531cdb7d62e946b135ba114d76ec04b2eeee4d",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/dotnet-test-initial-failure.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\dotnet-test-initial-failure.log",
+    "rawSha256": "b93e77370ddca835e1b46e8a45a85308273e18604563f2e5bc7bfbf036e86bed",
+    "committedSha256": "d151481909a2fb5f6672e1fedbe9c20903c36bc5fbc3bf48706ef0750141ebf1",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/dotnet-test.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\dotnet-test.log",
+    "rawSha256": "3cc7184aa0eccb14708c21182947d8660f4ad9c47213ef030e61dfd6e84b4792",
+    "committedSha256": "ecbe6cd50eb0d53213edc269e0880f72130e698765c79c89d87e6446fff1629c",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/flatbuffers-generate.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\flatbuffers-generate.log",
+    "rawSha256": "2afa5eed389b93f7f969db2dacfbe792cc57e9557391dfebc9bcae5b5a3a46c1",
+    "committedSha256": "8e3b940e3d877c16cdfbfcbcf3a21e29d7450d302e35a77ef11873f9baa43085",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/generated-after.sha256",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\generated-after.sha256",
+    "rawSha256": "870a7902f6d1d5ab57d4fa08d14a364c58da993a0cd110c3c67ede49596db083",
+    "committedSha256": "9109e65bd3ff4bdc1568a0e03dd418c11f216a53d4985fe60e9c838002da54e3",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/generated-before.sha256",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\generated-before.sha256",
+    "rawSha256": "870a7902f6d1d5ab57d4fa08d14a364c58da993a0cd110c3c67ede49596db083",
+    "committedSha256": "9109e65bd3ff4bdc1568a0e03dd418c11f216a53d4985fe60e9c838002da54e3",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/generated-determinism.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\generated-determinism.log",
+    "rawSha256": "eb92f31171713975b4e7782e00c42c8d8b99a23109613bce2d602735ab7d34c2",
+    "committedSha256": "e40245d498cf7b62104876309f64d3336301cb864f240070fbdaa54b3c108514",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/native-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\native-build.log",
+    "rawSha256": "d5753e5c9297bccabce6029b183013c2fb05be52e87e3cd13ecd007ac5a684af",
+    "committedSha256": "dd4e311736d50f8a621e0078e3a9b1a35c125ef14616d7a1f7537e56cb5d3aa1",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/native-ctest-discovery.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\native-ctest-discovery.log",
+    "rawSha256": "b39afe3c77fe99b047436b038d313eb55711eff80cf338a7416942494d95c44a",
+    "committedSha256": "294d755da9d014d139cbc0345e962dfd01459e456a380deeb4c02252f0f39de3",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/native-ctest-summary.txt",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\native-ctest-summary.txt",
+    "rawSha256": "af318e84047f8514ba929a095f86e4ff0f61690b27d259f4558bf70ab0fbbb02",
+    "committedSha256": "80e4e854d4160c7b33deff4c7957fd357ae80c22973f9db6e233f857f5a5c6b2",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/native-ctest.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\native-ctest.log",
+    "rawSha256": "a398315ee482cc83ca0301ffa5863bde0bb928e390f9298319e4fcc0a2610960",
+    "committedSha256": "e1141eef9b67b3d44e3ef3f2b4d7aacbecd138274e092d380cf32a79332ba2c0",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/native-ctest.xml",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\native-ctest.xml",
+    "rawSha256": "5ea8000d089c99d00bb907fc18b29a82eb8a15b87bc5569f07dc840e2240da95",
+    "committedSha256": "ae60de85d6fb6e670a2948a244eae036b5ba842d6ad4ed94ad870904a5479417",
+    "whitespaceNormalized": true,
+    "normalization": "Git CRLF-to-LF normalization only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/native-focused-initial-failure.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\native-focused-initial-failure.log",
+    "rawSha256": "d89d44616ba67a696847c7e829365cede6b95f3b5238097acb6b8ecd437cc397",
+    "committedSha256": "3f12794e2f3fe59fd38f841363ab5dd4e71386c81c96c035d20099fa9dc2e016",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/native-focused.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\native-focused.log",
+    "rawSha256": "f36a94dfe1e6ed0df469b9e2e3a009f68d508283b7a30c5c22291301ec4b297c",
+    "committedSha256": "eb4b751526193dec2cc38d64df4f1f301d6af1d1decd92c9a304072d4ead5da7",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/native-self-test.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\native-self-test.log",
+    "rawSha256": "22bd40630a91518099667fe67a75369720a73ff35f375a484e92124614f21aa5",
+    "committedSha256": "6d9f01bed3efebf1f274ec4cfe84a30441d640513b2401d90b01cccc0a1bf9d2",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/protocol-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\protocol-build.log",
+    "rawSha256": "36608429a171a56388371db7bb7d73e5ef0ba68bd818d240bd5829cc4ad15ed6",
+    "committedSha256": "6c1619b860e8aac1c507b16508b4df3c3efb093a4fc2677c6a695482cf25d287",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/protocol-focused.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\protocol-focused.log",
+    "rawSha256": "715eff57f25b7d693c3634829cc6a6236781c81d9410f35815f79c192f31a269",
+    "committedSha256": "35221e3c4d3d85cee69a340d7bda8fa6acce546d8f9ca06f85ea982087596024",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/protocol-lint.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\protocol-lint.log",
+    "rawSha256": "9bd4c55885df0ab207dbcbfcab6476f92ff9ba4ae809cfff67d680466b3d5e62",
+    "committedSha256": "5907e96c4cf3e6ba2afdf21d34556887987ed864e2f8b7bd9b37e525109101ad",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/protocol-test.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\protocol-test.log",
+    "rawSha256": "a72e9120c0fec41abf111017d1096dac836324cfbfbb756a41c3f1e336b58003",
+    "committedSha256": "7dd23f4ef23706b531c2aacec34d532f584727fc8696b4168959430a207eb375",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/red-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\red-build.log",
+    "rawSha256": "d5753e5c9297bccabce6029b183013c2fb05be52e87e3cd13ecd007ac5a684af",
+    "committedSha256": "dd4e311736d50f8a621e0078e3a9b1a35c125ef14616d7a1f7537e56cb5d3aa1",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/red-native.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\red-native.log",
+    "rawSha256": "1d4dbc16a917b47838d434f6dd1263e4914341599409b4677d2218ef7024175f",
+    "committedSha256": "227ef9bc01da2b83ee7f5f8d0c6426be301783ee508f70cec5850748cc7f776b",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/session-check.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\session-check.log",
+    "rawSha256": "e6451bf5d905fc0d5689f5dfd07f854c4be5fff5c2106a6f922759170184708c",
+    "committedSha256": "0ca12963db6244223ed0a57c94c1fbbc7684c61e4e12004e9c754ebf554e3424",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/session-contract-check.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\session-contract-check.log",
+    "rawSha256": "e6451bf5d905fc0d5689f5dfd07f854c4be5fff5c2106a6f922759170184708c",
+    "committedSha256": "0ca12963db6244223ed0a57c94c1fbbc7684c61e4e12004e9c754ebf554e3424",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/session-generate.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\worker-raw\\session-generate.log",
+    "rawSha256": "e075d29cd42d9dfaff86a7d7bdae054b62813861c94c3ab02150afeb19e523c9",
+    "committedSha256": "7c0d0f46aa590bab082a16be65cad44e25ae8ca0dc5087fb279101c535de4141",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/verify.py",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\verify.py",
+    "rawSha256": "677edcf63a878079c800edb27d53f18cb7aed66bf545e05b3f86422ee748039d",
+    "committedSha256": "677edcf63a878079c800edb27d53f18cb7aed66bf545e05b3f86422ee748039d",
+    "whitespaceNormalized": false
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/summary.json",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\summary.json",
+    "rawSha256": "2ebd746792c1a70a8cf4ee3058b91970fcedeafc11fa44eaa19069801b136888",
+    "committedSha256": "c20fc8ebe3400250af7df4a1ee1158506f7f5c7783a9052b31929b3d04326f77",
+    "whitespaceNormalized": true,
+    "normalization": "Git CRLF-to-LF normalization only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/source-before.json",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\source-before.json",
+    "rawSha256": "8e783fde03a282a2cf82ca899ef1d3332fd7c738df06562aa8d669d80b1fe53a",
+    "committedSha256": "ac2f551194bff4d813387322233d1ddc5058675786b241a1607e791bf5f9dd96",
+    "whitespaceNormalized": true,
+    "normalization": "Git CRLF-to-LF normalization only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/source-after.json",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\source-after.json",
+    "rawSha256": "8e783fde03a282a2cf82ca899ef1d3332fd7c738df06562aa8d669d80b1fe53a",
+    "committedSha256": "ac2f551194bff4d813387322233d1ddc5058675786b241a1607e791bf5f9dd96",
+    "whitespaceNormalized": true,
+    "normalization": "Git CRLF-to-LF normalization only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/native-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\native-build.log",
+    "rawSha256": "99197d2273a2336d6f3d46d830353f5c6de7046700726d21eb477c084d6c3df0",
+    "committedSha256": "11b7b063e92a704a4f54e165f3b6b56bc7e836f51177aac7dd65eb3ce67fae78",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/native.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\native.log",
+    "rawSha256": "c52c2eb0a2c431943674245c6605d43181199ec58616be648b0725c92d8e4bed",
+    "committedSha256": "c52c2eb0a2c431943674245c6605d43181199ec58616be648b0725c92d8e4bed",
+    "whitespaceNormalized": false
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/native.xml",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\native.xml",
+    "rawSha256": "5d427616f97040fd31031a8cd111110f85705ead914b1e014a307f07a133dd2f",
+    "committedSha256": "286ccee7caf6ee2a1858635efd84383869a4f26950a1b1844e052057975b250f",
+    "whitespaceNormalized": true,
+    "normalization": "Git CRLF-to-LF normalization only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/core-self-test.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\core-self-test.log",
+    "rawSha256": "6d9f01bed3efebf1f274ec4cfe84a30441d640513b2401d90b01cccc0a1bf9d2",
+    "committedSha256": "6d9f01bed3efebf1f274ec4cfe84a30441d640513b2401d90b01cccc0a1bf9d2",
+    "whitespaceNormalized": false
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/protocol-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\protocol-build.log",
+    "rawSha256": "4a32338a94b1fb435749483ac661f0724fadcd6c3a3e8a5d2996e559f6b9a108",
+    "committedSha256": "6c1619b860e8aac1c507b16508b4df3c3efb093a4fc2677c6a695482cf25d287",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/canonical-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\canonical-build.log",
+    "rawSha256": "e8dd0413b0ca69c147c214446ac6ff631c119cc09ba1d171abedc525c1849ee5",
+    "committedSha256": "4a70c3b2bad86dae66fb7030c47305b1e210a8cad857737c91a4bc7d96494d38",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/protocol-lint.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\protocol-lint.log",
+    "rawSha256": "ac93ddaee0658e90e40f7cd4316d79a7209f8fd0d9b1af0e0368cd1630d7c754",
+    "committedSha256": "5907e96c4cf3e6ba2afdf21d34556887987ed864e2f8b7bd9b37e525109101ad",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/canonical-lint.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\canonical-lint.log",
+    "rawSha256": "61c47adfe60a201c425be931a520b9e272a90e80a09bec5032fa796e04356c2c",
+    "committedSha256": "991d2bf20c79f75ec566c9eef9d81bb0d9ad6f662299a36305fb20ae6538e613",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/session-contract.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\session-contract.log",
+    "rawSha256": "0ca12963db6244223ed0a57c94c1fbbc7684c61e4e12004e9c754ebf554e3424",
+    "committedSha256": "0ca12963db6244223ed0a57c94c1fbbc7684c61e4e12004e9c754ebf554e3424",
+    "whitespaceNormalized": false
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/protocol.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\protocol.log",
+    "rawSha256": "0769b82d2c1591e32a7cad8e9de4142cd103a1c8c40e9201207ebed6aaa66ca2",
+    "committedSha256": "0769b82d2c1591e32a7cad8e9de4142cd103a1c8c40e9201207ebed6aaa66ca2",
+    "whitespaceNormalized": false
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/protocol.xml",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\protocol.xml",
+    "rawSha256": "d2bf0e03114be3d667cdeab5384022f8894d81942494c83ee7d92cec9c554e4e",
+    "committedSha256": "d2bf0e03114be3d667cdeab5384022f8894d81942494c83ee7d92cec9c554e4e",
+    "whitespaceNormalized": false
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/canonical.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\canonical.log",
+    "rawSha256": "6a132b5c9896cab2574f0886e3f379479603e938b1c12a42ced0d77166249148",
+    "committedSha256": "6a132b5c9896cab2574f0886e3f379479603e938b1c12a42ced0d77166249148",
+    "whitespaceNormalized": false
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/canonical.xml",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\canonical.xml",
+    "rawSha256": "24a38bb0dde86741605a8b0a2f773ee113ec02b60acdadeacf021bb13592cfb8",
+    "committedSha256": "24a38bb0dde86741605a8b0a2f773ee113ec02b60acdadeacf021bb13592cfb8",
+    "whitespaceNormalized": false
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/managed.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\managed.log",
+    "rawSha256": "cd52280962d783f2b112b65b4a95489cfd8d7911a9f3fc72a19a33c0a958cd87",
+    "committedSha256": "976f669bb11412c365455983710e711057b9fd81d5c4a6a666b5fedb17f109aa",
+    "whitespaceNormalized": true
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/dotnet/managed.trx",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\dotnet\\managed.trx",
+    "rawSha256": "ae9d3819e859973aafa540bb35c9b8271137b1f39acce13bc22f396176296630",
+    "committedSha256": "2a8385d950ea765ba1269a271f74f4cf2c801bd64a43c46be15f70ff206e9edb",
+    "whitespaceNormalized": true,
+    "normalization": "Git CRLF-to-LF normalization only"
+  },
+  {
+    "path": "docs/superpowers/evidence/2026-10-16-projection-public-wire/parent/managed-solution-build.log",
+    "rawPath": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\phase15-public-wire-parent-20261016\\managed-solution-build.log",
+    "rawSha256": "264ebcc84d2d917397a59e29f7d971ac722462bdde0375d18075b17201c914e9",
+    "committedSha256": "32902f30d0a6aea83f4d0ab515a422d9e89bc6023f184ba29c2d3b83a63a91dc",
+    "whitespaceNormalized": true
+  }
+]

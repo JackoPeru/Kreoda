@@ -1,0 +1,15 @@
+{
+  "native/kreoda-core/src/features/sketch/sketch_face.h": "a78038df042fb6592f916fe6d5a5efeb9fe13c21276ea1201a3e903ad055f39a",
+  "native/kreoda-core/src/features/sketch/sketch_face.cpp": "69c0b8603c7c375e5193f175ee87af10f5ed41c8167ed66ec0b67619bf7efb44",
+  "native/kreoda-core/src/features/extrusion/extrude.cpp": "7abb7eb42b941c15e3c4a585aed9718fa104e49561763b879ea22d6860dba7d9",
+  "native/kreoda-core/src/features/revolve/revolve.cpp": "03e7b6c9628d3fe4696c4606d6e062865dfe848c8e49b8268cfe7e2e44d8bbd9",
+  "native/kreoda-core/tests/test_projection.cpp": "50cab7eaa796bef165fd3132f5dfdb4e39b38f0ac4219e62740d768213a8e439",
+  "native/kreoda-core/tests/test_sketch.cpp": "d5ba5110d8fadf90374924b38c262a93ee6f4a7752eb4ba3412f85bc61226898",
+  "native/kreoda-core/src/protocol/dispatcher.cpp": "f9c727194f88cde212ed6d75976855768ab79da79e47b382b8cf2fcdee330041",
+  "native/kreoda-core/src/protocol/save_publish_retry.h": "81833cb0fa9a5baa2eb965af1da589fc75a658a33e7f690c8f43012fcb8ed820",
+  "native/kreoda-core/tests/test_torture_phase10.cpp": "1e9b5263f2cc05475399c7fd9d238067a9de4e7934e7ea016903bf76e4ba612a",
+  "native/kreoda-core/src/features/sketch/projected_geometry.h": "5c6513b59f4ad74304986c23281149607b17546d1ac0bc9704a115f23a06a238",
+  "native/kreoda-core/src/features/sketch/projected_geometry.cpp": "f14d36b750e1f713153ed2140b2e276320c44d4591de271b14c454550058bcd9",
+  "native/kreoda-core/CMakeLists.txt": "60dde7087967b4e06633733c2c49af7f1485e0a02b1c73666055709b83f4753d",
+  "native/kreoda-core/tests/CMakeLists.txt": "eb55fd29cf3f34dab3385143e0394b542d7c6dfd15facd6f3d1827203103d1cf"
+}

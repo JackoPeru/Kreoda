@@ -1,0 +1,8 @@
+{
+  "scope": "Desktop projection packet",
+  "build": { "command": "pnpm --filter @kreoda/desktop build", "status": "passed", "includesTypeScript": true },
+  "unitSuite": { "command": "pnpm --filter @kreoda/desktop test", "filesPassed": 52, "testsPassed": 313, "status": "passed" },
+  "nativeElectronE2e": { "command": "pnpm --filter @kreoda/desktop exec playwright test e2e/projection-desktop.spec.ts", "testsPassed": 1, "status": "passed", "backgroundWindows": true, "screenshots": 0 },
+  "verifiedFlows": ["projection-only sketch open without rectangle mutation", "UI create and remove", "source edit recomputes dependent volume", "persisted broken binding clears volume and mesh", "UI repair preserves group and solid IDs", "Undo restores unavailable state", "Redo and ICAD save/open preserve repaired projection", "SVG and world viewport render read-only projection geometry"],
+  "notClaimed": ["hosted CI", "full Phases 12-16 completion", "physical device acceptance"]
+}

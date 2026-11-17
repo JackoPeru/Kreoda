@@ -144,6 +144,36 @@ TEST(HolePattern, RpcEndToEnd) {
   EXPECT_NE(bad.find("BAD_PARAMS"), std::string::npos);
 }
 
+TEST(HolePattern, JoinedRequestPublishesOneRevision) {
+  NewDoc("hp-txn");
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"hp-txn-box","documentId":"hp-txn","type":3,"featureId":"base","widthMm":100,"heightMm":60,"depthMm":10})")));
+  auto& document = kreoda::DocumentStore::instance();
+  const auto beforeRevision = document.snapshotRevision();
+
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"hp-txn-begin","documentId":"hp-txn","type":27,"transactionId":"hp-owner"})")));
+  const auto pattern = rpc(
+      R"({"protocolVersion":1,"requestId":"hp-txn-pattern","documentId":"hp-txn","type":25,"transactionId":"hp-owner",)"
+      R"("targetId":"base","faceRole":"box.+Z","featureIds":["p1","p2"],"points":[8,8,92,52],)"
+      R"("diameterMm":6,"depthMode":"throughAll","depthMm":0})");
+  ASSERT_TRUE(ok(pattern)) << pattern;
+  EXPECT_EQ(document.snapshotRevision(), beforeRevision);
+
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"hp-txn-commit","documentId":"hp-txn","type":28,"transactionId":"hp-owner"})")));
+  EXPECT_EQ(document.snapshotRevision(), beforeRevision + 1);
+  EXPECT_TRUE(Contains("p1"));
+
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"hp-txn-undo","documentId":"hp-txn","type":8})")));
+  EXPECT_TRUE(Contains("base"));
+  EXPECT_FALSE(Contains("p1"));
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"hp-txn-redo","documentId":"hp-txn","type":9})")));
+  EXPECT_TRUE(Contains("p1"));
+}
+
 // Slice 5 §5.1 (native, permanent): 100×60×10 plate + four Ø6 through holes
 // → 1 body; cumulative volume; Undo drops all four together; Redo restores;
 // Save/Open keeps geometry; a plate-dim edit recomputes the pattern.

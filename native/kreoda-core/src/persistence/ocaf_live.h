@@ -1,12 +1,33 @@
 #pragma once
 
+#include <chrono>
 #include <map>
+#include <functional>
 #include <string>
 #include <vector>
 
+#include "../features/sketch/sketch_store.h"
+#include "../features/datum/datum_store.h"
 #include "../model/shapes.h"
 
+#if KREODA_WITH_OCCT
+#include <TopoDS_Edge.hxx>
+#endif
+
 namespace kreoda {
+
+#if KREODA_WITH_OCCT
+struct ProjectionSelection {
+  std::string sourceIdentity;
+  std::string featureId;
+  std::string persistentEdgeId;
+  TopoDS_Edge edge;
+};
+using ProjectionSelectionResolver = std::function<bool(
+    const std::string&, const std::string&, const std::string&,
+    const std::string&, const std::string&, const std::string&,
+    TopoDS_Edge*, std::string*)>;
+#endif
 
 // Live OCAF document (§3): one BinXCAF document for the process lifetime.
 // Every feature owns a label (UUID name + params comment + XCAF shape).
@@ -44,6 +65,11 @@ class OcafLive {
                            std::string* error);
   bool InTransaction() const { return joinTxn_; }
   std::string TransactionOwner() const { return txnOwner_; }
+  bool ExpireStaleTransaction();
+  void SetTransactionTimeoutForTest(std::chrono::milliseconds timeout) {
+    txnTimeout_ = timeout;
+  }
+  void ForceAbortOpenCommand();
 
   bool Undo(std::string* error);
   bool Redo(std::string* error);
@@ -69,13 +95,39 @@ class OcafLive {
   // command so Undo/Redo restores formulas with geometry.
   bool UpsertExpressions(const std::string& featureId,
                          const std::string& exprJson, std::string* error);
+  // Document-scoped configuration definitions and active name, persisted as
+  // an OCAF attribute (never as copied B-Rep geometry). Caller owns command.
+  bool WriteConfigurations(const std::string& json, std::string* error);
+  bool ReadConfigurations(std::string* json, std::string* error) const;
+  bool WriteAssemblyConstraints(const std::string& json, std::string* error);
+  bool ReadAssemblyConstraints(std::string* json, std::string* error) const;
+  bool WriteBodyVisibility(const std::string& json,std::string* error);
+  bool ReadBodyVisibility(std::string* json,std::string* error) const;
 
   // Sketch labels (§21): sketches live under a Sketches folder as
   // name=sketch UUID + comment=serialized SketchFeature JSON. Mutations run
   // inside the caller's OCAF command so Undo/Redo restores them.
+  bool UpsertDatum(const std::string& datumId, const std::string& datumJson,
+                   std::string* error);
+  // Bind native datum picks within its caller-owned OCAF command.
+  // verifiedRefresh may renew a lost selection only after the caller proves
+  // its parametric generator identity; ordinary indexed references still fail.
+  bool BindDatumSources(const std::string& datumId,std::string* definitionJson,std::string* error,bool refreshSemantic=false,
+                        const DatumSelectionResolver& verifiedRefresh={});
+  DatumSelectionResolver DatumSourceResolver() const;
   bool UpsertSketch(const std::string& sketchId, const std::string& sketchJson,
                     std::string* error);
   bool SketchLabelEntries(std::vector<std::pair<std::string, std::string>>* out);
+#if KREODA_WITH_OCCT
+  bool BindSketchProjectionSources(
+      const std::string& sketchId, const std::string& groupId,
+      const std::vector<ProjectionSelection>& selections,
+      std::string* bindingsJson, std::string* error);
+  bool ReleaseSketchProjectionSources(const std::string& sketchId,
+                                      const std::string& groupId,
+                                      std::string* error);
+  ProjectionSelectionResolver SketchProjectionSourceResolver() const;
+#endif
 
   struct FaceSelection {
     std::string entry;      // TDF_Label entry — stable across save/load
@@ -97,6 +149,11 @@ class OcafLive {
                            bool checkAmbiguity = false) const;
 
   bool Save(const std::string& xbfPath, std::string* error);
+  // Read and validate persisted sketch labels without touching the live doc.
+  bool ValidateSketchesInFile(const std::string& xbfPath,
+                              std::vector<SketchFeature>* sketches,
+                              std::string* error,
+                              std::vector<DatumRecord>* datums = nullptr) const;
   // Opens into the live doc and rebuilds label/selection maps.
   // Fills records (solids) and sketchJsons (serialized SketchFeatures).
   bool Load(const std::string& xbfPath, std::vector<ShapeRecord>* records,
@@ -116,12 +173,14 @@ class OcafLive {
   bool joinTxn_ = false;
   bool txnTainted_ = false;
   std::string txnOwner_;
+  std::chrono::steady_clock::time_point txnLastActivity_{};
+  std::chrono::milliseconds txnTimeout_{660000};
 
 #if KREODA_WITH_OCCT
   struct Ocaf;
   Ocaf* ocaf_ = nullptr;  // pimpl: OCCT handles stay out of the header
 #endif
-  std::string documentId_ = "doc-bootstrap";
+  std::string documentId_ = "doc-phase1";
 };
 
 }  // namespace kreoda

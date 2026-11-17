@@ -127,4 +127,37 @@ describe("crash autosave document versions", () => {
     await clearRecoveryAfterSave();
     expect(await autosaveNow()).toBe("saved");
   });
+
+  it("reports unsaved work until an explicit save or document load", async () => {
+    vi.resetModules();
+    mocks.saveDocument.mockResolvedValue({ features: [], sketches: [] });
+    mocks.openDocument.mockResolvedValue({ features: [], sketches: [], revision: 1 });
+    mocks.requestMesh.mockResolvedValue({});
+    mocks.recoveryPath.mockResolvedValue("/tmp/kreoda-dirty-test.icad");
+    mocks.recoveryExists.mockResolvedValue(true);
+    mocks.recoveryClear.mockResolvedValue(undefined);
+    Object.defineProperty(window, "kreoda", {
+      configurable: true,
+      value: {
+        recoveryPath: mocks.recoveryPath,
+        recoveryExists: mocks.recoveryExists,
+        recoveryClear: mocks.recoveryClear,
+      },
+    });
+    const { useDocumentUiStore } = await import("../src/stores/index.js");
+    const { autosaveNow, clearRecoveryAfterSave, hasUnsavedWork, restoreRecovery } =
+      await import("../src/recovery/autosave.js");
+    expect(hasUnsavedWork()).toBe(false);
+    useDocumentUiStore.getState().setFeatures([box("dirty-a")], 1);
+    expect(hasUnsavedWork()).toBe(true);
+    // A crash snapshot keeps the work but is not a user save.
+    await autosaveNow();
+    expect(hasUnsavedWork()).toBe(true);
+    await clearRecoveryAfterSave();
+    expect(hasUnsavedWork()).toBe(false);
+    useDocumentUiStore.getState().setFeatures([box("dirty-b")], 2);
+    expect(hasUnsavedWork()).toBe(true);
+    await restoreRecovery();
+    expect(hasUnsavedWork()).toBe(false);
+  });
 });

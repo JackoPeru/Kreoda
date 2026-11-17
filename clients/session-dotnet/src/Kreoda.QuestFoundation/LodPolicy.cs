@@ -1,11 +1,12 @@
 namespace Kreoda.QuestFoundation;
 
 /// <summary>Mesh quality levels (§12.5). Values match the core RequestMesh
-/// lod parameter: 0 coarse/preview, 1 interactive.</summary>
+/// lod parameter: 0 coarse/preview, 1 interactive, 2 inspection.</summary>
 public enum MeshLod
 {
     Preview = 0,
     Interactive = 1,
+    Inspection = 2,
 }
 
 /// <summary>LOD selection for the Quest render budget (§12.5, §12.11):
@@ -22,7 +23,9 @@ public static class LodPolicy
     /// (per-body cap keeps one huge import from starving the scene).</summary>
     public static MeshLod ForBody(int triangleCount, int triangleBudget, MeshLod wanted = MeshLod.Interactive)
     {
-        if (triangleBudget <= 0) throw new ArgumentException("budget must be positive", nameof(triangleBudget));
+        if (triangleCount < 0) throw new ArgumentOutOfRangeException(nameof(triangleCount));
+        if (triangleBudget <= 0) throw new ArgumentOutOfRangeException(nameof(triangleBudget));
+        if (wanted < MeshLod.Preview || wanted > MeshLod.Inspection) throw new ArgumentOutOfRangeException(nameof(wanted));
         return triangleCount <= triangleBudget ? wanted : MeshLod.Preview;
     }
 
@@ -30,6 +33,8 @@ public static class LodPolicy
     /// the finest level fitting the total budget.</summary>
     public static MeshLod ForScene(int totalTriangles, int triangleBudget, bool interacting)
     {
+        if (totalTriangles < 0) throw new ArgumentOutOfRangeException(nameof(totalTriangles));
+        if (triangleBudget <= 0) throw new ArgumentOutOfRangeException(nameof(triangleBudget));
         if (interacting) return MeshLod.Preview;
         if (totalTriangles <= triangleBudget) return MeshLod.Interactive;
         return MeshLod.Preview;

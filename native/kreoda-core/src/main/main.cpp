@@ -14,11 +14,14 @@
 
 #include "diagnostics/log.h"
 #include "document/document_store.h"
+#include "persistence/ocaf_live.h"
 #include "protocol/dispatcher.h"
 #include "protocol/framing.h"
 
+#if KREODA_WITH_OCCT
 #include <Message.hxx>
 #include <Message_Messenger.hxx>
+#endif
 
 #if KREODA_WITH_FLATBUFFERS
 #include <flatbuffers/flatbuffers.h>
@@ -217,14 +220,16 @@ int main(int argc, char** argv) {
     }
   }
 
-  kreoda::DocumentStore::instance().create("doc-bootstrap");
+  kreoda::DocumentStore::instance().create("doc-phase1");
   // stdout is framed IPC ONLY (C12): detach every OCCT default-messenger
   // printer once, so no component (transfer stats, healing, meshing) can
   // ever interleave text into the byte stream. Our own LogCore writes to
   // stderr directly and is unaffected. Exchange calls keep their local
   // ScopedMute as defense in depth.
   kreoda::protocol::FrameDecoder decoder;
+#if KREODA_WITH_OCCT
   Message::DefaultMessenger()->ChangePrinters().Clear();
+#endif
   LogCore("sidecar ready (protocol=1)");
 
   // NOTE: std::istream::read(n) blocks until n bytes arrive — unusable for a
@@ -259,7 +264,23 @@ int main(int argc, char** argv) {
             "\"errorCode\":\"BAD_PROTOCOL\",\"errorMessage\":\"expected "
             "protocolVersion 1\"");
       } else {
-        resp = kreoda::handle_command(req);
+        try {
+          resp = kreoda::handle_command(req);
+        } catch (const std::exception& e) {
+          // A command must never take the sidecar down: report, drop any
+          // half-open OCAF command, keep serving.
+          kreoda::OcafLive::instance().ForceAbortOpenCommand();
+          LogCore(std::string("command crashed: ") + e.what());
+          resp = kreoda::make_error_response(
+              kreoda::json_string_field(req, "requestId", ""), "INTERNAL",
+              std::string("internal error: ") + e.what());
+        } catch (...) {
+          kreoda::OcafLive::instance().ForceAbortOpenCommand();
+          LogCore("command crashed: unknown exception");
+          resp = kreoda::make_error_response(
+              kreoda::json_string_field(req, "requestId", ""), "INTERNAL",
+              "internal error: unknown exception");
+        }
       }
       const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                           std::chrono::steady_clock::now() - t0)

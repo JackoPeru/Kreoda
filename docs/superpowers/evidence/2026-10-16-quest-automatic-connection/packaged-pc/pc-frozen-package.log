@@ -1,0 +1,30 @@
+
+> @kreoda/desktop@0.1.0 package C:\Users\matte\Documents\Codex-tools\Native\quest-autoconnect-parent-20261016\pc-frozen-70e3550\apps\desktop
+> electron-forge package
+
+> Checking your system
+> Checking package manager version
+√ Found pnpm@10.34.5
+√ Checking your system
+[?25h> Preparing to package application
+√ Preparing to package application
+> Running packaging hooks
+> Running generateAssets hook
+√ Running generateAssets hook
+> Running prePackage hook
+√ Running prePackage hook
+√ Running packaging hooks
+> Packaging application
+› Determining targets...
+> Packaging for x64 on win32
+> Copying files
+> Preparing native dependencies
+> Finalizing package
+√ Copying files
+√ Preparing native dependencies
+√ Finalizing package
+√ Packaging for x64 on win32
+√ Packaging application
+> Running postPackage hook
+√ Running postPackage hook
+[?25h

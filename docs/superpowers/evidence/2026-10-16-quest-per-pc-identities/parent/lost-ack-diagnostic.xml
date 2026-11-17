@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Passed" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-17 08:30:49Z" end-time="2026-10-17 08:30:58Z" duration="8,101826">
+  <test-suite type="TestSuite" id="1000" name="Kreoda Quest" fullname="Kreoda Quest" runstate="Runnable" testcasecount="125" result="Passed" start-time="2026-10-17 08:30:49Z" end-time="2026-10-17 08:30:58Z" duration="8.101826" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1152" name="Kreoda.QuestRuntime.Tests.dll" fullname="C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity/Library/ScriptAssemblies/Kreoda.QuestRuntime.Tests.dll" runstate="Runnable" testcasecount="125" result="Passed" start-time="2026-10-17 08:30:49Z" end-time="2026-10-17 08:30:58Z" duration="8.093062" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="46872" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1153" name="Kreoda" fullname="Kreoda" runstate="Runnable" testcasecount="125" result="Passed" start-time="2026-10-17 08:30:49Z" end-time="2026-10-17 08:30:58Z" duration="8.092530" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1154" name="QuestRuntime" fullname="Kreoda.QuestRuntime" runstate="Runnable" testcasecount="125" result="Passed" start-time="2026-10-17 08:30:49Z" end-time="2026-10-17 08:30:58Z" duration="8.092211" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1155" name="Tests" fullname="Kreoda.QuestRuntime.Tests" runstate="Runnable" testcasecount="125" result="Passed" start-time="2026-10-17 08:30:49Z" end-time="2026-10-17 08:30:58Z" duration="8.091848" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1004" name="QuestConnectionTests" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" testcasecount="20" result="Passed" start-time="2026-10-17 08:30:49Z" end-time="2026-10-17 08:30:58Z" duration="8.087931" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1021" name="LostBootstrapAcknowledgementReusesPendingIdentityAfterRestart" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.LostBootstrapAcknowledgementReusesPendingIdentityAfterRestart" methodname="LostBootstrapAcknowledgementReusesPendingIdentityAfterRestart" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="933216155" result="Passed" start-time="2026-10-17 08:30:49Z" end-time="2026-10-17 08:30:58Z" duration="8.073952" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[KREODA_CONNECTION_ERROR SessionException CHOOSE_PC
+KREODA_CONNECTED
+KREODA_CONNECTION_ERROR HttpRequestException
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+KREODA_MODEL objects=0 triangles=0
+KREODA_CONNECTED
+Saving results to: C:/Users/matte/Documents/Codex-tools/Native/quest-per-pc-parent-20261017/lost-ack-diagnostic.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

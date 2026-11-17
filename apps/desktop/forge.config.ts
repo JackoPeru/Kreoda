@@ -95,7 +95,11 @@ const config: ForgeConfig = {
     icon: "./assets/icon",
     // Keep the sidecar and its OCCT/runtime DLL set beside each other in resources/.
     // The guard rejects a missing or explicitly stub-configured native build.
-    extraResource: getWindowsCoreResources(),
+    extraResource: [
+      ...getWindowsCoreResources(),
+      // Attribution must ship inside the installed app, not only in git.
+      path.resolve(desktopRoot, "../../THIRD-PARTY-NOTICES.md"),
+    ],
   },
   rebuildConfig: {},
   makers: [

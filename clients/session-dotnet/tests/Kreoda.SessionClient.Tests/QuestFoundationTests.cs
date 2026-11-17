@@ -93,4 +93,16 @@ public sealed class QuestFoundationTests
         Assert.Equal((int)MeshLod.Preview, 0);
         Assert.Equal((int)MeshLod.Interactive, 1);
     }
+
+    [Fact]
+    public void InspectionLodAndBudgetRejectInvalidCounts()
+    {
+        Assert.True(Enum.IsDefined(typeof(MeshLod), 2), "inspection LOD2 must be available");
+        Assert.Equal((MeshLod)2, LodPolicy.ForBody(100, 1000, (MeshLod)2));
+        Assert.Equal(MeshLod.Preview, LodPolicy.ForBody(1001, 1000, (MeshLod)2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => LodPolicy.ForBody(-1, 100));
+        Assert.Throws<ArgumentOutOfRangeException>(() => LodPolicy.ForBody(1, 100, (MeshLod)3));
+        Assert.Throws<ArgumentOutOfRangeException>(() => LodPolicy.ForScene(-1, 100, false));
+        Assert.Throws<ArgumentOutOfRangeException>(() => LodPolicy.ForScene(1, 0, true));
+    }
 }

@@ -2,7 +2,7 @@ export function HomeQuote() {
   return (
     <aside
       data-testid="home-quote"
-      className="flex items-center gap-3 bg-slate-900/55 backdrop-blur-xl border border-white/10 rounded-2xl p-3 max-w-[260px]"
+      className="flex items-center gap-3 bg-slate-900/75 backdrop-blur-md border border-white/10 rounded-2xl p-3 max-w-[260px]"
     >
       <span className="h-16 w-20 shrink-0 overflow-hidden rounded-lg">
         <img
@@ -12,7 +12,7 @@ export function HomeQuote() {
           className="h-full w-full object-cover"
         />
       </span>
-      <p className="text-[13px] italic leading-snug text-[#e6ebf2]">
+      <p className="text-[13px] italic leading-snug text-[var(--kreoda-text-primary)]">
         &ldquo;Ogni spazio racconta una storia.&rdquo;
       </p>
     </aside>

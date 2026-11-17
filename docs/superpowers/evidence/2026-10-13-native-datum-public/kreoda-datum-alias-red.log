@@ -1,0 +1,20 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.IdenticalBoolean*
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen
+C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_datum.cpp(353): error: Value of: ShapeStore::instance().get("solid",&solid)
+  Actual: false
+Expected: true
+
+[  FAILED  ] DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen (15 ms)
+[----------] 1 test from DatumCommands (15 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (15 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen
+
+ 1 FAILED TEST

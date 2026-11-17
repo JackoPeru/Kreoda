@@ -84,6 +84,29 @@ TEST(Expressions, SetEvaluatesAndChains) {
   EXPECT_EQ(stored, "heightMm * 2");
 }
 
+TEST(Expressions, VariableDenominatorParsesReflowsAndRejectsActualZero) {
+  std::vector<std::pair<std::string, std::string>> deps;
+  std::string err;
+  ASSERT_TRUE(kreoda::ParseExpression("1000000 / heightMm", &deps, &err)) << err;
+  ASSERT_EQ(deps.size(), 1u);
+  EXPECT_EQ(deps[0].second, "heightMm");
+  ASSERT_TRUE(kreoda::ParseExpression("10 / 0", &deps, &err)) << err;
+  double value = 0;
+  auto zero = [](const std::string&, const std::string&, double* out, void*) {
+    *out = 0;
+    return true;
+  };
+  EXPECT_FALSE(kreoda::EvaluateExpression("1000000 / heightMm", "ratio", zero,
+                                         nullptr, &value, &err));
+  EXPECT_EQ(err, "division by zero");
+  kreoda::DocumentStore::instance().create("expr-denominator");
+  ASSERT_TRUE(kreoda::CreateBoxFeature("ratio", 100, 1000, 10, &err)) << err;
+  ASSERT_TRUE(setExpr("ratio", "widthMm", "1000000 / heightMm", &err)) << err;
+  EXPECT_DOUBLE_EQ(paramOf("ratio", "widthMm"), 1000);
+  ASSERT_TRUE(kreoda::RebuildFeature("ratio", "heightMm", 2000, &err)) << err;
+  EXPECT_DOUBLE_EQ(paramOf("ratio", "widthMm"), 500);
+}
+
 TEST(Expressions, RejectCyclesTyposAndBadValues) {
   kreoda::DocumentStore::instance().create("expr-doc2");
   std::string err;

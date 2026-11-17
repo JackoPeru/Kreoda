@@ -1,0 +1,21 @@
+{
+  "passed": [
+    "actual-dependent-tip-preview-with-unchanged-committed-model",
+    "generation-replacement-and-cancel",
+    "three-axis-atomic-commit-lost-ack-replay-and-shared-undo"
+  ],
+  "hashes": [
+    "42f24b1ddc4fec1da58612fa15fbba4273c7be42932f4967544f8f4fd1642a21",
+    "074eed79a76e1f734e7f8f36fcc1dafcd3983409128090b88ac6e182ea091aef",
+    "8509f11c49e5051689e448be1603cde7d32ced89d437935b55f5c8d6f7ae88ca"
+  ],
+  "boundary": "Actual OCCT/Electron relay and compiled managed client; no Unity/headset interaction claim.",
+  "exactOutboundHashes": [
+    "42f24b1ddc4fec1da58612fa15fbba4273c7be42932f4967544f8f4fd1642a21",
+    "cf9682e7a6070ddf501297b30d3c72330d4d17f9f86ba464205f04ab335d3b70",
+    "074eed79a76e1f734e7f8f36fcc1dafcd3983409128090b88ac6e182ea091aef",
+    "8509f11c49e5051689e448be1603cde7d32ced89d437935b55f5c8d6f7ae88ca"
+  ],
+  "droppedAcknowledgements": 1,
+  "inputActions": 0
+}

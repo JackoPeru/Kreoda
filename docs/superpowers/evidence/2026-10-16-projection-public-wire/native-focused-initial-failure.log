@@ -1,0 +1,35 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = SketchProjectionPublicWire.*
+[==========] Running 3 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 3 tests from SketchProjectionPublicWire
+[ RUN      ] SketchProjectionPublicWire.DispatchesAndSamplesCurvedGeometryReadOnly
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch_projection.cpp(1713): error: The difference between beforeEdit.volumeMm3 and initialVolume is 1.497538058004011e-06, which exceeds 1e-6, where
+beforeEdit.volumeMm3 evaluates to 50.377555753343366,
+initialVolume evaluates to 50.377557250881424, and
+1e-6 evaluates to 9.9999999999999995e-07.
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch_projection.cpp(1816): error: The difference between afterEdit.volumeMm3 and std::acos(-1.0) * 9 * planeCosine * 5 is 3.369788402096674e-06, which exceeds 1e-6, where
+afterEdit.volumeMm3 evaluates to 113.3495004446948,
+std::acos(-1.0) * 9 * planeCosine * 5 evaluates to 113.3495038144832, and
+1e-6 evaluates to 9.9999999999999995e-07.
+
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch_projection.cpp(1828): error: The difference between afterEdit.volumeMm3 and std::acos(-1.0) * 9 * planeCosine * 5 is 3.369788402096674e-06, which exceeds 1e-6, where
+afterEdit.volumeMm3 evaluates to 113.3495004446948,
+std::acos(-1.0) * 9 * planeCosine * 5 evaluates to 113.3495038144832, and
+1e-6 evaluates to 9.9999999999999995e-07.
+
+[  FAILED  ] SketchProjectionPublicWire.DispatchesAndSamplesCurvedGeometryReadOnly (14 ms)
+[ RUN      ] SketchProjectionPublicWire.HidesCachedEdgesWhenSourceClosureIsUnavailable
+[       OK ] SketchProjectionPublicWire.HidesCachedEdgesWhenSourceClosureIsUnavailable (0 ms)
+[ RUN      ] SketchProjectionPublicWire.ValidatesErrorsAndJoinsOwnerTransaction
+[       OK ] SketchProjectionPublicWire.ValidatesErrorsAndJoinsOwnerTransaction (4 ms)
+[----------] 3 tests from SketchProjectionPublicWire (19 ms total)
+
+[----------] Global test environment tear-down
+[==========] 3 tests from 1 test suite ran. (19 ms total)
+[  PASSED  ] 2 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] SketchProjectionPublicWire.DispatchesAndSamplesCurvedGeometryReadOnly
+
+ 1 FAILED TEST

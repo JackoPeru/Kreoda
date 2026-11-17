@@ -1,0 +1,82 @@
+[
+  {
+    "sha256": "03f1ac60961e1d3b596b4e2bb30306589d4d9b9f636b8a57f5be3c20d43caa65",
+    "path": "apps/desktop/e2e/phase15-datum-mcp.spec.ts"
+  },
+  {
+    "sha256": "f9cdebf60e02b80391e9b8e52a3ae91e228a48c5af490bd3b400b20decb5d49a",
+    "path": "apps/desktop/electron/session-queries.ts"
+  },
+  {
+    "sha256": "b4b43c8f23b347323d2be0bd9a2852519a73362578a6a4da3061663d49f5ac1a",
+    "path": "apps/desktop/src/commands/execute.ts"
+  },
+  {
+    "sha256": "8c24a768214b9271e123e0a342ff8588ea09259bec0116285693dfd183e8bbb2",
+    "path": "apps/desktop/src/components/ContextToolbar.tsx"
+  },
+  {
+    "sha256": "de5afc6c896778519f4ba910ca885f0d878a1bdf20ee6f41baed837909a35ec7",
+    "path": "apps/desktop/src/components/Viewport.tsx"
+  },
+  {
+    "sha256": "ac3f5775464918efb34c7375a541f044d7bb0dd26e0ddc6289e9d2aa8733bbc2",
+    "path": "apps/desktop/src/components/workspace/SharedTargetChip.tsx"
+  },
+  {
+    "sha256": "9fc5fa1c35a6edf3315fc04e4dd4e3359628720211d23107c97023b8fd7743c2",
+    "path": "apps/desktop/src/model/shared-targets.ts"
+  },
+  {
+    "sha256": "55b404db2900c2f79d2167687969e5b28c920e309b7c01b0427273aa2cf0b8b4",
+    "path": "apps/desktop/src/stores/index.ts"
+  },
+  {
+    "sha256": "7459adb1bf4c17fe563ee860d508ba72add5f0e8bad14f7092b03fe52bc79106",
+    "path": "apps/desktop/src/viewport/CadViewport.ts"
+  },
+  {
+    "sha256": "edb0987458dff5df7da523653d84c96260b9378c8cba93020cab903f084c74b3",
+    "path": "apps/desktop/src/viewport/DatumViewport.ts"
+  },
+  {
+    "sha256": "263d39d52f93b8fbe69ed9a466cf83bde7da2f11b07ec389768f61c53eb6c9e4",
+    "path": "apps/desktop/tests/datum-viewport.test.ts"
+  },
+  {
+    "sha256": "c62ceebb31b23f101756039dadb4db65d4e1d17f4970105f9cdf9fe84c94dcd7",
+    "path": "apps/desktop/tests/execute-availability.test.ts"
+  },
+  {
+    "sha256": "34a4265b261a95ea16548ef88967326ffb15989e7cc06e369074250e3b2cbdac",
+    "path": "apps/desktop/tests/session-context.test.ts"
+  },
+  {
+    "sha256": "7b5a005c34f62e199733d8efb086a5eefa254724e97a248181350fcec2fc3019",
+    "path": "apps/desktop/tests/shared-target-chip.test.tsx"
+  },
+  {
+    "sha256": "667ca19de86a3dcf19c48aa93212f3e7ad6a1fd92b6b25ecc6d97e8fa4576a0e",
+    "path": "apps/desktop/tests/shared-targets.test.ts"
+  },
+  {
+    "sha256": "1a29bc7e51b919700c131dfb320763c7a8f9f85d7e22de7b3a2d6785cc66d40e",
+    "path": "packages/command-schema/src/index.ts"
+  },
+  {
+    "sha256": "5722b14db4955ec01085a00fa0d7ebdce1fa4cab7a41e6db3eea9acd43580030",
+    "path": "packages/command-schema/tsconfig.json"
+  },
+  {
+    "sha256": "fce912174b9a620fc0a5f9371304d6413177d4a9c423d961c1ed945343d9251d",
+    "path": "apps/desktop/e2e/phase15-datum-targets.spec.ts"
+  },
+  {
+    "sha256": "0f9def15ccecbb02e2db684c10d5ab1a90947ffb676aaabcc4aca293e431bad7",
+    "path": "apps/desktop/tests/context-toolbar.test.tsx"
+  },
+  {
+    "sha256": "cf29774e4af0e2d20bfa58185b4ea4deb550ed2bc10caa79149dc7bbaf5eea6a",
+    "path": "packages/command-schema/src/selection-kind.test.ts"
+  }
+]

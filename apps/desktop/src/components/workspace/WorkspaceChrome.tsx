@@ -1,16 +1,30 @@
 // UX-1 workspace chrome: viewport-first shell. The 3D viewport fills the
 // window; all UI floats above it (top dock, drawers on demand, bottom
 // command dock, minimal status). No permanent sidebars or footers.
+import { useEffect, useRef } from "react";
 import { Viewport } from "../Viewport";
+import { SharedTargetChip } from "./SharedTargetChip";
 import { ViewCube } from "../ViewCube";
 import { ContextToolbar } from "../ContextToolbar";
 import { DimensionChips } from "../DimensionChips";
 import { CoachingHint, Onboarding } from "../Onboarding";
 import { ObjectTree } from "../ObjectTree";
 import { PropertiesPanel } from "../PropertiesPanel";
+import { MassAnalysisPanel } from "./MassAnalysisPanel";
+import { ConfigurationsPanel } from "./ConfigurationsPanel";
+import { OutwardFacePushPanel } from "./OutwardFacePushPanel";
+import { DirectFaceHistoryPanel } from "./DirectFaceHistoryPanel";
+import { GeometryValidationPanel } from "./GeometryValidationPanel";
+import { DraftAnalysisPanel } from "./DraftAnalysisPanel";
+import { InterferenceAnalysisPanel } from "./InterferenceAnalysisPanel";
+import { ThicknessAnalysisPanel } from "./ThicknessAnalysisPanel";
+import { ZebraAnalysisPanel } from "./ZebraAnalysisPanel";
+import { CurvatureAnalysisPanel } from "./CurvatureAnalysisPanel";
+import { AssemblyMatePanel } from "./AssemblyMatePanel";
 import { useSelectionStore } from "../../stores";
 import { useT } from "../../i18n";
 import { TopToolDock } from "./TopToolDock";
+import { SurfaceToolsPanel } from "./SurfaceToolsPanel";
 import { BottomCommandDock } from "./BottomCommandDock";
 import { WorkspaceHelp, WorkspaceStatus } from "./WorkspaceStatus";
 import type { PrimitiveKind } from "../AddPrimitiveDialog";
@@ -20,15 +34,22 @@ export function WorkspaceChrome({
   onSketch,
   onHole,
   onDressUp,
+  onShell,
   onExtrude,
   onPlugins,
   onReference,
+  onReferenceGeometry,
   onInstance,
+  onMirror,
+  onBodyPattern,
+  onCircularPattern,
   onEditSketch,
   projectOpen,
   onProjectOpenChange,
   propsOpen,
   onPropsOpenChange,
+  surfaceOpen,
+  onSurfaceOpenChange,
   showRecovery,
   onRestoreRecovery,
   onDiscardRecovery,
@@ -49,15 +70,22 @@ export function WorkspaceChrome({
   onSketch: () => void;
   onHole: () => void;
   onDressUp: (kind: "fillet" | "chamfer") => void;
+  onShell: () => void;
   onExtrude: () => void;
   onPlugins: () => void;
   onReference: () => void;
+  onReferenceGeometry: () => void;
   onInstance: () => void;
+  onMirror: () => void;
+  onBodyPattern: () => void;
+  onCircularPattern: () => void;
   onEditSketch: (id: string) => void;
   projectOpen: boolean;
   onProjectOpenChange: (open: boolean) => void;
   propsOpen: boolean;
   onPropsOpenChange: (open: boolean) => void;
+  surfaceOpen: boolean;
+  onSurfaceOpenChange: (open: boolean) => void;
   showRecovery: boolean;
   onRestoreRecovery: () => void;
   onDiscardRecovery: () => void;
@@ -76,6 +104,11 @@ export function WorkspaceChrome({
 }) {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
   const t = useT();
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (surfaceOpen && (projectOpen || propsOpen)) onSurfaceOpenChange(false);
+  }, [projectOpen, propsOpen, surfaceOpen, onSurfaceOpenChange]);
 
   return (
     <div
@@ -137,18 +170,50 @@ export function WorkspaceChrome({
       )}
       <div className="relative min-h-0 flex-1 overflow-hidden">
       <Viewport />
+      <SharedTargetChip />
 
       <div className="pointer-events-none absolute left-3 right-3 top-3 z-50 flex justify-center">
         <TopToolDock
           onAdd={onAdd}
           onSketch={onSketch}
-          onOpenProject={() => onProjectOpenChange(true)}
-          onToggleProps={() => onPropsOpenChange(!propsOpen)}
-          onPlugins={onPlugins}
-          onReference={onReference}
-          onInstance={onInstance}
+          onOpenProject={() => {
+            onSurfaceOpenChange(false);
+            onProjectOpenChange(true);
+          }}
+          onToggleProps={() => {
+            if (!propsOpen) onSurfaceOpenChange(false);
+            onPropsOpenChange(!propsOpen);
+          }}
+          onPlugins={() => {
+            onSurfaceOpenChange(false);
+            onPlugins();
+          }}
+          onReference={() => {
+            onSurfaceOpenChange(false);
+            onReference();
+          }}
+          onReferenceGeometry={() => {
+            onSurfaceOpenChange(false);
+            onReferenceGeometry();
+          }}
+          onInstance={() => {
+            onSurfaceOpenChange(false);
+            onInstance();
+          }}
+          onSurfaces={() => {
+            onProjectOpenChange(false);
+            onPropsOpenChange(false);
+            onSurfaceOpenChange(true);
+          }}
+          moreButtonRef={moreButtonRef}
         />
       </div>
+
+      <SurfaceToolsPanel
+        open={surfaceOpen}
+        onClose={() => onSurfaceOpenChange(false)}
+        returnFocus={() => moreButtonRef.current?.focus()}
+      />
 
       {projectOpen && (
         <div
@@ -176,7 +241,7 @@ export function WorkspaceChrome({
       )}
       {propsOpen && (
         <div
-          className="kreoda-float-elevated absolute bottom-4 right-3 top-[68px] z-30 flex w-72 flex-col p-2"
+          className="kreoda-float-elevated absolute bottom-4 right-3 top-[68px] z-40 flex w-72 flex-col p-2"
           data-testid="properties-drawer"
           role="complementary"
           aria-label={t("common.properties")}
@@ -195,12 +260,28 @@ export function WorkspaceChrome({
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
             {selectedIds.length > 0 ? (
-              <PropertiesPanel onEditSketch={onEditSketch} />
+              <>
+                <PropertiesPanel onEditSketch={onEditSketch} />
+                <MassAnalysisPanel />
+                <DirectFaceHistoryPanel />
+                <details className="mt-2 rounded-md border border-white/10 p-2">
+                  <summary className="cursor-pointer text-xs text-white/55">{t("directFaceHistory.legacyTitle")}</summary>
+                  <OutwardFacePushPanel />
+                </details>
+              </>
             ) : (
               <div className="px-2 py-1.5 text-xs text-white/40">
                 {t("chrome.nothingSelected")}
               </div>
             )}
+            <ConfigurationsPanel />
+            <GeometryValidationPanel />
+            <DraftAnalysisPanel />
+            <ZebraAnalysisPanel />
+            <CurvatureAnalysisPanel />
+            <ThicknessAnalysisPanel />
+            <InterferenceAnalysisPanel />
+            <AssemblyMatePanel />
           </div>
         </div>
       )}
@@ -209,11 +290,18 @@ export function WorkspaceChrome({
       <ContextToolbar
         onHole={onHole}
         onDressUp={onDressUp}
+        onShell={onShell}
         onSketch={onSketch}
         onExtrude={onExtrude}
         onEditSketch={onEditSketch}
         onInstance={onInstance}
-        onOpenProps={() => onPropsOpenChange(true)}
+        onMirror={onMirror}
+        onBodyPattern={onBodyPattern}
+        onCircularPattern={onCircularPattern}
+        onOpenProps={() => {
+          onSurfaceOpenChange(false);
+          onPropsOpenChange(true);
+        }}
       />
       {/* No rAF overlay work behind the fullscreen sketch modal (M11). */}
       {!sketchOpen && <DimensionChips />}

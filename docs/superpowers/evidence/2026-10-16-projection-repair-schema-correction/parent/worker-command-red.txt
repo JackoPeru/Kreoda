@@ -1,0 +1,36 @@
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/packages/command-schema
+
+ ❯ src/native-command.test.ts (13 tests | 1 failed) 41ms
+   × exports strict projection commands with zero allocation and wire parity 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/native-command.test.ts > exports strict projection commands with zero allocation and wire parity
+AssertionError: expected undefined to be 65536 // Object.is equality
+
+- Expected:
+65536
+
++ Received:
+undefined
+
+ ❯ src/native-command.test.ts:50:45
+     48|   expect(parameters.properties.definition).toEqual(expand(contract.def…
+     49|   const definitionSchema = parameters.properties.definition as { maxJs…
+     50|   expect(definitionSchema.maxJsonUtf8Bytes).toBe(65536);
+       |                                             ^
+     51|   type SourceVariant = {
+     52|     properties: {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  11:12:56
+   Duration  2.12s (transform 1.08s, setup 0ms, import 1.83s, tests 41ms, environment 0ms)
+
+undefined
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\command-schema:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/native-command.test.ts

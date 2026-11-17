@@ -11,7 +11,7 @@ export function QuickStart({ onNew, onImport, onTemplate, onAI }: Props) {
   return (
     <div
       data-testid="home-quickstart"
-      className="bg-slate-900/55 backdrop-blur-xl border border-white/10 rounded-2xl p-4 w-[320px]"
+      className="bg-slate-900/75 backdrop-blur-md border border-white/10 rounded-2xl p-4 w-[320px]"
     >
       <h3 className="text-sm font-semibold text-white mb-3">Inizia da qui</h3>
       <div className="grid grid-cols-2 gap-2">

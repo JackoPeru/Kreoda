@@ -1,0 +1,412 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="cc6f4665-1d1f-4464-a9cf-b072fca6798a" name="matte@PC-MATTEO 2026-10-16 17:50:46" runUser="PC-MATTEO\matte" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-16T17:50:46.3481639+02:00" queuing="2026-10-16T17:50:46.3481645+02:00" start="2026-10-16T17:50:43.9963806+02:00" finish="2026-10-16T17:50:48.6298741+02:00" />
+  <TestSettings name="default" id="506e1403-4f5b-4191-8d1e-2d2796a7aaab">
+    <Deployment runDeploymentRoot="matte_PC-MATTEO_2026-10-16_17_50_46" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="6794ac50-22db-4b09-ae10-15b481e855ea" testId="7774fdbe-fc6a-d426-94db-866c9a115c86" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.VoiceCorrectionCannotResetCommandIterationBudget" computerName="PC-MATTEO" duration="00:00:00.0191559" startTime="2026-10-16T17:50:48.3442535+02:00" endTime="2026-10-16T17:50:48.3442537+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6794ac50-22db-4b09-ae10-15b481e855ea" />
+    <UnitTestResult executionId="733e4722-b11c-48cd-a8dc-dd8da39657fe" testId="7bda69d9-c722-6f83-04d7-b182c0b188a2" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.DescribeIncludesDatumDescriptorsAndSupportedSketchFrames" computerName="PC-MATTEO" duration="00:00:00.0809146" startTime="2026-10-16T17:50:48.1388469+02:00" endTime="2026-10-16T17:50:48.1388473+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="733e4722-b11c-48cd-a8dc-dd8da39657fe" />
+    <UnitTestResult executionId="450279be-e660-4bd9-94ad-962ab0ab82f8" testId="786b6177-29e8-d4ef-d168-9bf8f90b81a6" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.EditOmitsUnallocatedFeatureIdAndPreservesExistingTargetInParameters" computerName="PC-MATTEO" duration="00:00:00.6946441" startTime="2026-10-16T17:50:46.7708160+02:00" endTime="2026-10-16T17:50:46.7708164+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="450279be-e660-4bd9-94ad-962ab0ab82f8" />
+    <UnitTestResult executionId="5f81cc8f-6bba-46f5-a680-b18326647d2a" testId="0dc06623-54e5-af86-4f58-3185b43e2bd1" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.FailedRollbackCannotReportCancellationAndBlocksNewWorkWithRecoveryIdentity" computerName="PC-MATTEO" duration="00:00:00.0206292" startTime="2026-10-16T17:50:48.4966428+02:00" endTime="2026-10-16T17:50:48.4966431+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5f81cc8f-6bba-46f5-a680-b18326647d2a" />
+    <UnitTestResult executionId="fc0d8fcc-a1d1-40e4-8fb7-15665b1a218e" testId="484985e7-f89d-533c-a1d0-0bf5b03e1d0c" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.LimitsAndMissingPredicatesFailBeforeMutation" computerName="PC-MATTEO" duration="00:00:00.0237673" startTime="2026-10-16T17:50:48.1762120+02:00" endTime="2026-10-16T17:50:48.1762123+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fc0d8fcc-a1d1-40e4-8fb7-15665b1a218e" />
+    <UnitTestResult executionId="94dd835a-19f2-4dd6-9be9-c9b23cd632f9" testId="03c88107-7f31-9238-d866-1f3711593aa9" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.WrongGoalMeasurementRollsBackAndCannotReportSuccess" computerName="PC-MATTEO" duration="00:00:00.0413074" startTime="2026-10-16T17:50:48.2182607+02:00" endTime="2026-10-16T17:50:48.2182609+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="94dd835a-19f2-4dd6-9be9-c9b23cd632f9" />
+    <UnitTestResult executionId="5e289715-025c-4f63-828f-95ee6a4239ea" testId="97f5ff4d-be6e-be7c-c7f3-54c529d3533d" testName="Kreoda.HermesBridge.Tests.HermesGatewayTests.InvalidAcceptedIdentityIsNotRetained(accepted: &quot;{\&quot;status\&quot;:\&quot;queued\&quot;}&quot;)" computerName="PC-MATTEO" duration="00:00:00.0010000" startTime="2026-10-16T17:50:46.2699462+02:00" endTime="2026-10-16T17:50:46.2699463+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5e289715-025c-4f63-828f-95ee6a4239ea" />
+    <UnitTestResult executionId="158064e5-17af-4db5-ae95-0a08081777fa" testId="d3c8bc90-125a-1784-2f08-a153724fce52" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.MissingMeasurementReturnsAnExplicitFailedValidation" computerName="PC-MATTEO" duration="00:00:00.0104490" startTime="2026-10-16T17:50:48.5091818+02:00" endTime="2026-10-16T17:50:48.5091821+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="158064e5-17af-4db5-ae95-0a08081777fa" />
+    <UnitTestResult executionId="a8dc1b4a-10c5-474f-aaff-c9314d775462" testId="29c99893-8e7b-4944-03e1-290a60ce68b5" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.ExpiryDuringCatalogLoadCannotLeaveAnAssignedRequestWithoutCleanup" computerName="PC-MATTEO" duration="00:00:00.4348384" startTime="2026-10-16T17:50:47.8171693+02:00" endTime="2026-10-16T17:50:47.8171697+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a8dc1b4a-10c5-474f-aaff-c9314d775462" />
+    <UnitTestResult executionId="400bdfbd-1782-46e5-b21a-e2374d78d098" testId="d16f467b-d4ce-0e3f-7cb9-bf20bd894743" testName="Kreoda.HermesBridge.Tests.HermesGatewayTests.CancellationBeforeSubmissionAcknowledgementHasNoRunIdOrStop" computerName="PC-MATTEO" duration="00:00:00.0020627" startTime="2026-10-16T17:50:46.2999007+02:00" endTime="2026-10-16T17:50:46.2999007+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="400bdfbd-1782-46e5-b21a-e2374d78d098" />
+    <UnitTestResult executionId="d727d9d1-66da-44c5-b57f-1969a7e9c3f4" testId="93cc6207-93af-74d9-8a57-5b75b5a61e2f" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.GetDatumQueryReturnsNativeDescriptorWithoutMutation" computerName="PC-MATTEO" duration="00:00:00.0368862" startTime="2026-10-16T17:50:48.0529480+02:00" endTime="2026-10-16T17:50:48.0529492+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d727d9d1-66da-44c5-b57f-1969a7e9c3f4" />
+    <UnitTestResult executionId="aced8ee7-e800-4b10-80c3-27e1d3d19372" testId="e4954253-00f5-8527-2797-17969d90202e" testName="Kreoda.HermesBridge.Tests.HermesGatewayTests.InvalidAcceptedIdentityIsNotRetained(accepted: &quot;{\&quot;run_id\&quot;:\&quot;bad id\&quot;,\&quot;status\&quot;:\&quot;queued\&quot;}&quot;)" computerName="PC-MATTEO" duration="00:00:00.0003511" startTime="2026-10-16T17:50:46.2996751+02:00" endTime="2026-10-16T17:50:46.2996753+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="aced8ee7-e800-4b10-80c3-27e1d3d19372" />
+    <UnitTestResult executionId="9e9d72b1-c878-4b21-96d8-4a931e0aeb3f" testId="d9b9b809-6f74-9aef-31f6-9dc4365b8809" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.IdleRequestExpiresAndReleasesItsOwnedTransaction" computerName="PC-MATTEO" duration="00:00:00.3038447" startTime="2026-10-16T17:50:47.3537453+02:00" endTime="2026-10-16T17:50:47.3537457+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9e9d72b1-c878-4b21-96d8-4a931e0aeb3f" />
+    <UnitTestResult executionId="fa55cb0d-e9d4-4053-bd00-ec3a52528eee" testId="b573869d-f088-7731-8374-cb0dd4b66723" testName="Kreoda.HermesBridge.Tests.VoiceHttpTests.VoiceRequiresDeviceTokenAndReturnsRealTranscriptionWithoutLeakingGatewayKey" computerName="PC-MATTEO" duration="00:00:00.4575396" startTime="2026-10-16T17:50:48.0525477+02:00" endTime="2026-10-16T17:50:48.0525479+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fa55cb0d-e9d4-4053-bd00-ec3a52528eee" />
+    <UnitTestResult executionId="e1c3fa74-80eb-4665-8808-f5dd4d072366" testId="3ba84583-17aa-2378-42a5-fcb270e17a72" testName="Kreoda.HermesBridge.Tests.HermesGatewayTests.NonSuccessHermesStatusCannotBecomeAReply(status: &quot;unknown&quot;)" computerName="PC-MATTEO" duration="00:00:00.0002349" startTime="2026-10-16T17:50:46.2692902+02:00" endTime="2026-10-16T17:50:46.2692903+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e1c3fa74-80eb-4665-8808-f5dd4d072366" />
+    <UnitTestResult executionId="ba74b4d5-9024-449f-8975-908b81c2afe9" testId="e47c6ef5-9e9c-33c1-3268-6401576dadcf" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.VoiceCorrectionCannotResetFeatureBudgetOrWeakenOriginalGoal" computerName="PC-MATTEO" duration="00:00:00.0543402" startTime="2026-10-16T17:50:48.0153400+02:00" endTime="2026-10-16T17:50:48.0153403+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ba74b4d5-9024-449f-8975-908b81c2afe9" />
+    <UnitTestResult executionId="10874c3b-d4c3-4738-add0-e10db47ff433" testId="87ae398a-a75f-bf1f-846c-c928ed858af0" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.CanonicalRequestChecksRealQueryThenCommitsOneGroup" computerName="PC-MATTEO" duration="00:00:00.0385737" startTime="2026-10-16T17:50:47.8780407+02:00" endTime="2026-10-16T17:50:47.8780411+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="10874c3b-d4c3-4738-add0-e10db47ff433" />
+    <UnitTestResult executionId="f39ce4dc-2826-4a53-98c8-519b3e161774" testId="92e2c1c6-ec32-734e-eadd-ed122daf03ac" testName="Kreoda.HermesBridge.Tests.HermesGatewayTests.NonSuccessHermesStatusCannotBecomeAReply(status: &quot;cancelled&quot;)" computerName="PC-MATTEO" duration="00:00:00.0002531" startTime="2026-10-16T17:50:46.2693369+02:00" endTime="2026-10-16T17:50:46.2693370+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f39ce4dc-2826-4a53-98c8-519b3e161774" />
+    <UnitTestResult executionId="353a8767-25c1-4df1-8755-91bb44165f7d" testId="7c0872ec-607e-0c23-d2d8-e10593992bdd" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.VoiceCancellationRollsBackOnlyItsOwnedRequestAndRejectsLateOrigin" computerName="PC-MATTEO" duration="00:00:00.0669190" startTime="2026-10-16T17:50:47.0310797+02:00" endTime="2026-10-16T17:50:47.0310800+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="353a8767-25c1-4df1-8755-91bb44165f7d" />
+    <UnitTestResult executionId="b5e64a64-993c-48d8-91ef-4bf6a969ed68" testId="5dc7d24b-c0cb-b49e-8d65-5f4e5f5aaa80" testName="Kreoda.HermesBridge.Tests.HermesGatewayTests.NonSuccessHermesStatusCannotBecomeAReply(status: &quot;awaiting_approval&quot;)" computerName="PC-MATTEO" duration="00:00:00.0006018" startTime="2026-10-16T17:50:46.2686373+02:00" endTime="2026-10-16T17:50:46.2686374+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b5e64a64-993c-48d8-91ef-4bf6a969ed68" />
+    <UnitTestResult executionId="8461d23c-63ac-4383-8849-c1ccf4bf12a4" testId="f1c02c12-2069-feb1-c3cf-0df2705af8ae" testName="Kreoda.HermesBridge.Tests.HermesGatewayTests.NonSuccessHermesStatusCannotBecomeAReply(status: &quot;failed&quot;)" computerName="PC-MATTEO" duration="00:00:00.1931325" startTime="2026-10-16T17:50:46.2653235+02:00" endTime="2026-10-16T17:50:46.2653513+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8461d23c-63ac-4383-8849-c1ccf4bf12a4" />
+    <UnitTestResult executionId="68eb14d2-1f03-4027-ad8b-bc7151d40390" testId="602d122a-a240-25f8-84d1-b4c111519dab" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.SinglePatternAliasResolvesItsDeclaredIdWithoutAnAllocatedEnvelopeId" computerName="PC-MATTEO" duration="00:00:00.0814393" startTime="2026-10-16T17:50:47.9602275+02:00" endTime="2026-10-16T17:50:47.9602277+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="68eb14d2-1f03-4027-ad8b-bc7151d40390" />
+    <UnitTestResult executionId="c4748db6-863e-43d5-83e6-ddff2d64aba6" testId="04a99cf8-d9e3-b742-3ea6-417c4194de05" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.FailedValidationRollbackPersistsRecoveryAndSurvivesBridgeRestart" computerName="PC-MATTEO" duration="00:00:00.0494708" startTime="2026-10-16T17:50:48.3147105+02:00" endTime="2026-10-16T17:50:48.3147108+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c4748db6-863e-43d5-83e6-ddff2d64aba6" />
+    <UnitTestResult executionId="98b763cb-7688-4821-bb0a-d561eba284a3" testId="ba6c34f9-21d4-ab40-9b7b-f7721d0f564f" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.LostCommitAckReconcilesAndReplaysOnlyTheSameOperation" computerName="PC-MATTEO" duration="00:00:00.0253092" startTime="2026-10-16T17:50:48.2647919+02:00" endTime="2026-10-16T17:50:48.2647922+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="98b763cb-7688-4821-bb0a-d561eba284a3" />
+    <UnitTestResult executionId="f2929874-e03f-449f-bcd6-92c2a28c9c76" testId="2f8eb474-f71f-7807-ea82-788a461dddd6" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.ForeignRequestAndRawInvokeCannotMutateOrReadStagedGeometry" computerName="PC-MATTEO" duration="00:00:00.0258566" startTime="2026-10-16T17:50:47.3812896+02:00" endTime="2026-10-16T17:50:47.3812899+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f2929874-e03f-449f-bcd6-92c2a28c9c76" />
+    <UnitTestResult executionId="35f03594-15c5-4c00-8525-d4c65144e73a" testId="745367ea-bdc6-d2dc-604f-12994ecaf62f" testName="Kreoda.HermesBridge.Tests.HermesGatewayTests.CancellationStopsAcceptedHermesRunWithoutSubmittingAgain" computerName="PC-MATTEO" duration="00:00:00.0014720" startTime="2026-10-16T17:50:46.2999663+02:00" endTime="2026-10-16T17:50:46.2999664+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="35f03594-15c5-4c00-8525-d4c65144e73a" />
+    <UnitTestResult executionId="245f30e7-72c0-488b-804f-b4183d29ff09" testId="3b626eb6-dac4-872b-92dd-56b052ff393f" testName="Kreoda.HermesBridge.Tests.HermesGatewayTests.CallsHermesRunsWithDurableIdentityAndStoresConversationContinuity" computerName="PC-MATTEO" duration="00:00:00.0116922" startTime="2026-10-16T17:50:46.3000323+02:00" endTime="2026-10-16T17:50:46.3000324+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="245f30e7-72c0-488b-804f-b4183d29ff09" />
+    <UnitTestResult executionId="29db3b5e-1f7d-411d-b201-a632ba38ddb3" testId="3f7cfd48-1c55-9b22-a124-3a317c23ffa1" testName="Kreoda.HermesBridge.Tests.HermesGatewayTests.LostSubmissionAckUsesTheSameDurableKeyAndBody" computerName="PC-MATTEO" duration="00:00:00.0029696" startTime="2026-10-16T17:50:46.2694155+02:00" endTime="2026-10-16T17:50:46.2694156+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="29db3b5e-1f7d-411d-b201-a632ba38ddb3" />
+    <UnitTestResult executionId="9617a64a-c6dc-427d-bf12-181ae8e07b92" testId="50732ebd-025e-9b2a-ec3c-df11a8e76535" testName="Kreoda.HermesBridge.Tests.McpHttpTests.OfficialClientListsProjectContextAndRejectsRawInvokeThroughHttp" computerName="PC-MATTEO" duration="00:00:01.6283981" startTime="2026-10-16T17:50:47.6983197+02:00" endTime="2026-10-16T17:50:47.6983204+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9617a64a-c6dc-427d-bf12-181ae8e07b92" />
+    <UnitTestResult executionId="34d859fb-8051-4b8b-b2ad-bef7b4a794f7" testId="eaa49569-4956-61c9-7934-46816280cc72" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.StaleQuestVoiceContextFailsBeforeStartingAgentOrTransaction" computerName="PC-MATTEO" duration="00:00:00.0168490" startTime="2026-10-16T17:50:48.2389091+02:00" endTime="2026-10-16T17:50:48.2389095+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="34d859fb-8051-4b8b-b2ad-bef7b4a794f7" />
+    <UnitTestResult executionId="ba0c894e-6b53-4ea1-b309-d8f13de8a91d" testId="11b22af8-1c0b-196c-2bce-a1eed7885332" testName="Kreoda.HermesBridge.Tests.VoiceHttpTests.UnfinishedCadAfterCompletedReplyKeepsKnownRunId" computerName="PC-MATTEO" duration="00:00:00.2295372" startTime="2026-10-16T17:50:47.5944666+02:00" endTime="2026-10-16T17:50:47.5944669+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ba0c894e-6b53-4ea1-b309-d8f13de8a91d" />
+    <UnitTestResult executionId="90e764b9-b97a-4c1f-91e2-901b3b1c3dfb" testId="d7db8e86-eab1-4e63-9678-fcf998f22aad" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.FailedIdleRollbackRecordsRecoveryWithoutAnUnobservedExpiryFailure" computerName="PC-MATTEO" duration="00:00:00.1293024" startTime="2026-10-16T17:50:48.4754587+02:00" endTime="2026-10-16T17:50:48.4754591+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="90e764b9-b97a-4c1f-91e2-901b3b1c3dfb" />
+    <UnitTestResult executionId="b41f7f6f-12a2-4c6e-8dba-5985d2d238da" testId="4ce72a9d-7c1d-35ce-ce2c-d96be48c7c0c" testName="Kreoda.HermesBridge.Tests.VoiceHttpTests.UpstreamTimeoutReturnsTypedErrorWithoutClaimingCadRollback" computerName="PC-MATTEO" duration="00:00:00.0568224" startTime="2026-10-16T17:50:47.3642520+02:00" endTime="2026-10-16T17:50:47.3642522+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b41f7f6f-12a2-4c6e-8dba-5985d2d238da" />
+    <UnitTestResult executionId="ee2a35ef-cb5d-41cc-a02d-cdeb6691374f" testId="3f3f63e6-e0a4-8359-1f1c-00aa51c96725" testName="Kreoda.HermesBridge.Tests.CadBridgeTests.SketchProjectionQueryUsesTypedRevisionFenceAndClearsCachedDisplayOnFailure" computerName="PC-MATTEO" duration="00:00:00.1901070" startTime="2026-10-16T17:50:46.9633873+02:00" endTime="2026-10-16T17:50:46.9633876+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ee2a35ef-cb5d-41cc-a02d-cdeb6691374f" />
+    <UnitTestResult executionId="48511c31-03f3-4364-80a9-70ce799016b5" testId="34dff6c9-4a2c-e1ad-acbc-7e000637aec0" testName="Kreoda.HermesBridge.Tests.VoiceHttpTests.FailedNativeTurnReturnsOnlyValidatedRunIdInExistingErrorResponse" computerName="PC-MATTEO" duration="00:00:01.2356472" startTime="2026-10-16T17:50:47.3066252+02:00" endTime="2026-10-16T17:50:47.3066256+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="48511c31-03f3-4364-80a9-70ce799016b5" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.MissingMeasurementReturnsAnExplicitFailedValidation" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="d3c8bc90-125a-1784-2f08-a153724fce52">
+      <Execution id="158064e5-17af-4db5-ae95-0a08081777fa" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="MissingMeasurementReturnsAnExplicitFailedValidation" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.StaleQuestVoiceContextFailsBeforeStartingAgentOrTransaction" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="eaa49569-4956-61c9-7934-46816280cc72">
+      <Execution id="34d859fb-8051-4b8b-b2ad-bef7b4a794f7" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="StaleQuestVoiceContextFailsBeforeStartingAgentOrTransaction" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.VoiceHttpTests.UnfinishedCadAfterCompletedReplyKeepsKnownRunId" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="11b22af8-1c0b-196c-2bce-a1eed7885332">
+      <Execution id="ba0c894e-6b53-4ea1-b309-d8f13de8a91d" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.VoiceHttpTests" name="UnfinishedCadAfterCompletedReplyKeepsKnownRunId" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.GetDatumQueryReturnsNativeDescriptorWithoutMutation" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="93cc6207-93af-74d9-8a57-5b75b5a61e2f">
+      <Execution id="d727d9d1-66da-44c5-b57f-1969a7e9c3f4" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="GetDatumQueryReturnsNativeDescriptorWithoutMutation" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.CanonicalRequestChecksRealQueryThenCommitsOneGroup" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="87ae398a-a75f-bf1f-846c-c928ed858af0">
+      <Execution id="10874c3b-d4c3-4738-add0-e10db47ff433" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="CanonicalRequestChecksRealQueryThenCommitsOneGroup" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.FailedRollbackCannotReportCancellationAndBlocksNewWorkWithRecoveryIdentity" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="0dc06623-54e5-af86-4f58-3185b43e2bd1">
+      <Execution id="5f81cc8f-6bba-46f5-a680-b18326647d2a" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="FailedRollbackCannotReportCancellationAndBlocksNewWorkWithRecoveryIdentity" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.VoiceCancellationRollsBackOnlyItsOwnedRequestAndRejectsLateOrigin" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="7c0872ec-607e-0c23-d2d8-e10593992bdd">
+      <Execution id="353a8767-25c1-4df1-8755-91bb44165f7d" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="VoiceCancellationRollsBackOnlyItsOwnedRequestAndRejectsLateOrigin" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.ForeignRequestAndRawInvokeCannotMutateOrReadStagedGeometry" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="2f8eb474-f71f-7807-ea82-788a461dddd6">
+      <Execution id="f2929874-e03f-449f-bcd6-92c2a28c9c76" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="ForeignRequestAndRawInvokeCannotMutateOrReadStagedGeometry" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.DescribeIncludesDatumDescriptorsAndSupportedSketchFrames" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="7bda69d9-c722-6f83-04d7-b182c0b188a2">
+      <Execution id="733e4722-b11c-48cd-a8dc-dd8da39657fe" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="DescribeIncludesDatumDescriptorsAndSupportedSketchFrames" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.McpHttpTests.OfficialClientListsProjectContextAndRejectsRawInvokeThroughHttp" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="50732ebd-025e-9b2a-ec3c-df11a8e76535">
+      <Execution id="9617a64a-c6dc-427d-bf12-181ae8e07b92" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.McpHttpTests" name="OfficialClientListsProjectContextAndRejectsRawInvokeThroughHttp" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.ExpiryDuringCatalogLoadCannotLeaveAnAssignedRequestWithoutCleanup" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="29c99893-8e7b-4944-03e1-290a60ce68b5">
+      <Execution id="a8dc1b4a-10c5-474f-aaff-c9314d775462" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="ExpiryDuringCatalogLoadCannotLeaveAnAssignedRequestWithoutCleanup" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.VoiceHttpTests.UpstreamTimeoutReturnsTypedErrorWithoutClaimingCadRollback" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="4ce72a9d-7c1d-35ce-ce2c-d96be48c7c0c">
+      <Execution id="b41f7f6f-12a2-4c6e-8dba-5985d2d238da" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.VoiceHttpTests" name="UpstreamTimeoutReturnsTypedErrorWithoutClaimingCadRollback" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.LimitsAndMissingPredicatesFailBeforeMutation" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="484985e7-f89d-533c-a1d0-0bf5b03e1d0c">
+      <Execution id="fc0d8fcc-a1d1-40e4-8fb7-15665b1a218e" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="LimitsAndMissingPredicatesFailBeforeMutation" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.HermesGatewayTests.LostSubmissionAckUsesTheSameDurableKeyAndBody" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="3f7cfd48-1c55-9b22-a124-3a317c23ffa1">
+      <Execution id="29db3b5e-1f7d-411d-b201-a632ba38ddb3" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.HermesGatewayTests" name="LostSubmissionAckUsesTheSameDurableKeyAndBody" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.HermesGatewayTests.CallsHermesRunsWithDurableIdentityAndStoresConversationContinuity" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="3b626eb6-dac4-872b-92dd-56b052ff393f">
+      <Execution id="245f30e7-72c0-488b-804f-b4183d29ff09" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.HermesGatewayTests" name="CallsHermesRunsWithDurableIdentityAndStoresConversationContinuity" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.HermesGatewayTests.NonSuccessHermesStatusCannotBecomeAReply(status: &quot;unknown&quot;)" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="3ba84583-17aa-2378-42a5-fcb270e17a72">
+      <Execution id="e1c3fa74-80eb-4665-8808-f5dd4d072366" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.HermesGatewayTests" name="NonSuccessHermesStatusCannotBecomeAReply" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.VoiceCorrectionCannotResetFeatureBudgetOrWeakenOriginalGoal" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="e47c6ef5-9e9c-33c1-3268-6401576dadcf">
+      <Execution id="ba74b4d5-9024-449f-8975-908b81c2afe9" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="VoiceCorrectionCannotResetFeatureBudgetOrWeakenOriginalGoal" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.VoiceHttpTests.VoiceRequiresDeviceTokenAndReturnsRealTranscriptionWithoutLeakingGatewayKey" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="b573869d-f088-7731-8374-cb0dd4b66723">
+      <Execution id="fa55cb0d-e9d4-4053-bd00-ec3a52528eee" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.VoiceHttpTests" name="VoiceRequiresDeviceTokenAndReturnsRealTranscriptionWithoutLeakingGatewayKey" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.HermesGatewayTests.NonSuccessHermesStatusCannotBecomeAReply(status: &quot;failed&quot;)" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="f1c02c12-2069-feb1-c3cf-0df2705af8ae">
+      <Execution id="8461d23c-63ac-4383-8849-c1ccf4bf12a4" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.HermesGatewayTests" name="NonSuccessHermesStatusCannotBecomeAReply" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.FailedIdleRollbackRecordsRecoveryWithoutAnUnobservedExpiryFailure" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="d7db8e86-eab1-4e63-9678-fcf998f22aad">
+      <Execution id="90e764b9-b97a-4c1f-91e2-901b3b1c3dfb" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="FailedIdleRollbackRecordsRecoveryWithoutAnUnobservedExpiryFailure" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.FailedValidationRollbackPersistsRecoveryAndSurvivesBridgeRestart" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="04a99cf8-d9e3-b742-3ea6-417c4194de05">
+      <Execution id="c4748db6-863e-43d5-83e6-ddff2d64aba6" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="FailedValidationRollbackPersistsRecoveryAndSurvivesBridgeRestart" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.HermesGatewayTests.NonSuccessHermesStatusCannotBecomeAReply(status: &quot;cancelled&quot;)" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="92e2c1c6-ec32-734e-eadd-ed122daf03ac">
+      <Execution id="f39ce4dc-2826-4a53-98c8-519b3e161774" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.HermesGatewayTests" name="NonSuccessHermesStatusCannotBecomeAReply" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.SinglePatternAliasResolvesItsDeclaredIdWithoutAnAllocatedEnvelopeId" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="602d122a-a240-25f8-84d1-b4c111519dab">
+      <Execution id="68eb14d2-1f03-4027-ad8b-bc7151d40390" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="SinglePatternAliasResolvesItsDeclaredIdWithoutAnAllocatedEnvelopeId" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.HermesGatewayTests.InvalidAcceptedIdentityIsNotRetained(accepted: &quot;{\&quot;run_id\&quot;:\&quot;bad id\&quot;,\&quot;status\&quot;:\&quot;queued\&quot;}&quot;)" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="e4954253-00f5-8527-2797-17969d90202e">
+      <Execution id="aced8ee7-e800-4b10-80c3-27e1d3d19372" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.HermesGatewayTests" name="InvalidAcceptedIdentityIsNotRetained" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.VoiceHttpTests.FailedNativeTurnReturnsOnlyValidatedRunIdInExistingErrorResponse" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="34dff6c9-4a2c-e1ad-acbc-7e000637aec0">
+      <Execution id="48511c31-03f3-4364-80a9-70ce799016b5" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.VoiceHttpTests" name="FailedNativeTurnReturnsOnlyValidatedRunIdInExistingErrorResponse" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.HermesGatewayTests.InvalidAcceptedIdentityIsNotRetained(accepted: &quot;{\&quot;status\&quot;:\&quot;queued\&quot;}&quot;)" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="97f5ff4d-be6e-be7c-c7f3-54c529d3533d">
+      <Execution id="5e289715-025c-4f63-828f-95ee6a4239ea" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.HermesGatewayTests" name="InvalidAcceptedIdentityIsNotRetained" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.EditOmitsUnallocatedFeatureIdAndPreservesExistingTargetInParameters" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="786b6177-29e8-d4ef-d168-9bf8f90b81a6">
+      <Execution id="450279be-e660-4bd9-94ad-962ab0ab82f8" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="EditOmitsUnallocatedFeatureIdAndPreservesExistingTargetInParameters" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.SketchProjectionQueryUsesTypedRevisionFenceAndClearsCachedDisplayOnFailure" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="3f3f63e6-e0a4-8359-1f1c-00aa51c96725">
+      <Execution id="ee2a35ef-cb5d-41cc-a02d-cdeb6691374f" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="SketchProjectionQueryUsesTypedRevisionFenceAndClearsCachedDisplayOnFailure" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.HermesGatewayTests.CancellationStopsAcceptedHermesRunWithoutSubmittingAgain" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="745367ea-bdc6-d2dc-604f-12994ecaf62f">
+      <Execution id="35f03594-15c5-4c00-8525-d4c65144e73a" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.HermesGatewayTests" name="CancellationStopsAcceptedHermesRunWithoutSubmittingAgain" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.IdleRequestExpiresAndReleasesItsOwnedTransaction" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="d9b9b809-6f74-9aef-31f6-9dc4365b8809">
+      <Execution id="9e9d72b1-c878-4b21-96d8-4a931e0aeb3f" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="IdleRequestExpiresAndReleasesItsOwnedTransaction" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.WrongGoalMeasurementRollsBackAndCannotReportSuccess" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="03c88107-7f31-9238-d866-1f3711593aa9">
+      <Execution id="94dd835a-19f2-4dd6-9be9-c9b23cd632f9" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="WrongGoalMeasurementRollsBackAndCannotReportSuccess" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.LostCommitAckReconcilesAndReplaysOnlyTheSameOperation" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="ba6c34f9-21d4-ab40-9b7b-f7721d0f564f">
+      <Execution id="98b763cb-7688-4821-bb0a-d561eba284a3" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="LostCommitAckReconcilesAndReplaysOnlyTheSameOperation" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.HermesGatewayTests.CancellationBeforeSubmissionAcknowledgementHasNoRunIdOrStop" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="d16f467b-d4ce-0e3f-7cb9-bf20bd894743">
+      <Execution id="400bdfbd-1782-46e5-b21a-e2374d78d098" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.HermesGatewayTests" name="CancellationBeforeSubmissionAcknowledgementHasNoRunIdOrStop" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.HermesGatewayTests.NonSuccessHermesStatusCannotBecomeAReply(status: &quot;awaiting_approval&quot;)" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="5dc7d24b-c0cb-b49e-8d65-5f4e5f5aaa80">
+      <Execution id="b5e64a64-993c-48d8-91ef-4bf6a969ed68" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.HermesGatewayTests" name="NonSuccessHermesStatusCannotBecomeAReply" />
+    </UnitTest>
+    <UnitTest name="Kreoda.HermesBridge.Tests.CadBridgeTests.VoiceCorrectionCannotResetCommandIterationBudget" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.hermesbridge.tests\bin\release\net8.0\kreoda.hermesbridge.tests.dll" id="7774fdbe-fc6a-d426-94db-866c9a115c86">
+      <Execution id="6794ac50-22db-4b09-ae10-15b481e855ea" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0\Kreoda.HermesBridge.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.HermesBridge.Tests.CadBridgeTests" name="VoiceCorrectionCannotResetCommandIterationBudget" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="7774fdbe-fc6a-d426-94db-866c9a115c86" executionId="6794ac50-22db-4b09-ae10-15b481e855ea" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7bda69d9-c722-6f83-04d7-b182c0b188a2" executionId="733e4722-b11c-48cd-a8dc-dd8da39657fe" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="786b6177-29e8-d4ef-d168-9bf8f90b81a6" executionId="450279be-e660-4bd9-94ad-962ab0ab82f8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0dc06623-54e5-af86-4f58-3185b43e2bd1" executionId="5f81cc8f-6bba-46f5-a680-b18326647d2a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="484985e7-f89d-533c-a1d0-0bf5b03e1d0c" executionId="fc0d8fcc-a1d1-40e4-8fb7-15665b1a218e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="03c88107-7f31-9238-d866-1f3711593aa9" executionId="94dd835a-19f2-4dd6-9be9-c9b23cd632f9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="97f5ff4d-be6e-be7c-c7f3-54c529d3533d" executionId="5e289715-025c-4f63-828f-95ee6a4239ea" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d3c8bc90-125a-1784-2f08-a153724fce52" executionId="158064e5-17af-4db5-ae95-0a08081777fa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="29c99893-8e7b-4944-03e1-290a60ce68b5" executionId="a8dc1b4a-10c5-474f-aaff-c9314d775462" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d16f467b-d4ce-0e3f-7cb9-bf20bd894743" executionId="400bdfbd-1782-46e5-b21a-e2374d78d098" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="93cc6207-93af-74d9-8a57-5b75b5a61e2f" executionId="d727d9d1-66da-44c5-b57f-1969a7e9c3f4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e4954253-00f5-8527-2797-17969d90202e" executionId="aced8ee7-e800-4b10-80c3-27e1d3d19372" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d9b9b809-6f74-9aef-31f6-9dc4365b8809" executionId="9e9d72b1-c878-4b21-96d8-4a931e0aeb3f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b573869d-f088-7731-8374-cb0dd4b66723" executionId="fa55cb0d-e9d4-4053-bd00-ec3a52528eee" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3ba84583-17aa-2378-42a5-fcb270e17a72" executionId="e1c3fa74-80eb-4665-8808-f5dd4d072366" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e47c6ef5-9e9c-33c1-3268-6401576dadcf" executionId="ba74b4d5-9024-449f-8975-908b81c2afe9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="87ae398a-a75f-bf1f-846c-c928ed858af0" executionId="10874c3b-d4c3-4738-add0-e10db47ff433" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="92e2c1c6-ec32-734e-eadd-ed122daf03ac" executionId="f39ce4dc-2826-4a53-98c8-519b3e161774" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7c0872ec-607e-0c23-d2d8-e10593992bdd" executionId="353a8767-25c1-4df1-8755-91bb44165f7d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5dc7d24b-c0cb-b49e-8d65-5f4e5f5aaa80" executionId="b5e64a64-993c-48d8-91ef-4bf6a969ed68" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f1c02c12-2069-feb1-c3cf-0df2705af8ae" executionId="8461d23c-63ac-4383-8849-c1ccf4bf12a4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="602d122a-a240-25f8-84d1-b4c111519dab" executionId="68eb14d2-1f03-4027-ad8b-bc7151d40390" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="04a99cf8-d9e3-b742-3ea6-417c4194de05" executionId="c4748db6-863e-43d5-83e6-ddff2d64aba6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ba6c34f9-21d4-ab40-9b7b-f7721d0f564f" executionId="98b763cb-7688-4821-bb0a-d561eba284a3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2f8eb474-f71f-7807-ea82-788a461dddd6" executionId="f2929874-e03f-449f-bcd6-92c2a28c9c76" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="745367ea-bdc6-d2dc-604f-12994ecaf62f" executionId="35f03594-15c5-4c00-8525-d4c65144e73a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3b626eb6-dac4-872b-92dd-56b052ff393f" executionId="245f30e7-72c0-488b-804f-b4183d29ff09" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3f7cfd48-1c55-9b22-a124-3a317c23ffa1" executionId="29db3b5e-1f7d-411d-b201-a632ba38ddb3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="50732ebd-025e-9b2a-ec3c-df11a8e76535" executionId="9617a64a-c6dc-427d-bf12-181ae8e07b92" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="eaa49569-4956-61c9-7934-46816280cc72" executionId="34d859fb-8051-4b8b-b2ad-bef7b4a794f7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="11b22af8-1c0b-196c-2bce-a1eed7885332" executionId="ba0c894e-6b53-4ea1-b309-d8f13de8a91d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d7db8e86-eab1-4e63-9678-fcf998f22aad" executionId="90e764b9-b97a-4c1f-91e2-901b3b1c3dfb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4ce72a9d-7c1d-35ce-ce2c-d96be48c7c0c" executionId="b41f7f6f-12a2-4c6e-8dba-5985d2d238da" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3f3f63e6-e0a4-8359-1f1c-00aa51c96725" executionId="ee2a35ef-cb5d-41cc-a02d-cdeb6691374f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="34dff6c9-4a2c-e1ad-acbc-7e000637aec0" executionId="48511c31-03f3-4364-80a9-70ce799016b5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Risultati non in elenco" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tutti i risultati caricati" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="35" executed="35" passed="35" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.32)&#xD;
+[xUnit.net 00:00:00.79]   Discovering: Kreoda.HermesBridge.Tests&#xD;
+[xUnit.net 00:00:00.85]   Discovered:  Kreoda.HermesBridge.Tests&#xD;
+[xUnit.net 00:00:00.85]   Starting:    Kreoda.HermesBridge.Tests&#xD;
+info: Microsoft.Hosting.Lifetime[14]&#xD;
+      Now listening on: http://127.0.0.1:51223&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Application started. Press Ctrl+C to shut down.&#xD;
+info: Microsoft.Hosting.Lifetime[14]&#xD;
+      Now listening on: http://127.0.0.1:51220&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Application started. Press Ctrl+C to shut down.&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Hosting environment: Production&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Content root path: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Hosting environment: Production&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Content root path: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]&#xD;
+      Request starting HTTP/1.1 POST http://127.0.0.1:51223/voice/turn - application/json;+charset=utf-8 144&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]&#xD;
+      Executing endpoint 'HTTP: POST /voice/turn'&#xD;
+info: Microsoft.AspNetCore.Http.Result.JsonResult[1]&#xD;
+      Setting HTTP status code 502.&#xD;
+info: Microsoft.AspNetCore.Http.Result.JsonResult[3]&#xD;
+      Writing value of type '&lt;&gt;f__AnonymousType2`3' as Json.&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]&#xD;
+      Executed endpoint 'HTTP: POST /voice/turn'&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]&#xD;
+      Request finished HTTP/1.1 POST http://127.0.0.1:51223/voice/turn - 502 - application/json;+charset=utf-8 85.1012ms&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Application is shutting down...&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]&#xD;
+      Request starting HTTP/1.1 POST http://127.0.0.1:51220/mcp - application/json -&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]&#xD;
+      Executing endpoint 'MCP Streamable HTTP | HTTP: POST /mcp/'&#xD;
+info: Microsoft.Hosting.Lifetime[14]&#xD;
+      Now listening on: http://127.0.0.1:51241&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Application started. Press Ctrl+C to shut down.&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Hosting environment: Production&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Content root path: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]&#xD;
+      Request starting HTTP/1.1 POST http://127.0.0.1:51241/voice/speech - application/json;+charset=utf-8 29&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]&#xD;
+      Executing endpoint 'HTTP: POST /voice/speech'&#xD;
+info: Microsoft.AspNetCore.Http.Result.JsonResult[1]&#xD;
+      Setting HTTP status code 504.&#xD;
+info: Microsoft.AspNetCore.Http.Result.JsonResult[3]&#xD;
+      Writing value of type '&lt;&gt;f__AnonymousType1`2' as Json.&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]&#xD;
+      Executed endpoint 'HTTP: POST /voice/speech'&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]&#xD;
+      Request finished HTTP/1.1 POST http://127.0.0.1:51241/voice/speech - 504 - application/json;+charset=utf-8 13.0072ms&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Application is shutting down...&#xD;
+info: Microsoft.Hosting.Lifetime[14]&#xD;
+      Now listening on: http://127.0.0.1:51262&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Application started. Press Ctrl+C to shut down.&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Hosting environment: Production&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Content root path: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0&#xD;
+info: ModelContextProtocol.Server.McpServer[570385771]&#xD;
+      Server (testhost 15.0.0.0), Client (testhost 15.0.0.0) method 'server/discover' request handler called.&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]&#xD;
+      Request starting HTTP/1.1 POST http://127.0.0.1:51262/voice/turn - application/json;+charset=utf-8 144&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]&#xD;
+      Executing endpoint 'HTTP: POST /voice/turn'&#xD;
+info: Microsoft.AspNetCore.Http.Result.JsonResult[1]&#xD;
+      Setting HTTP status code 502.&#xD;
+info: Microsoft.AspNetCore.Http.Result.JsonResult[3]&#xD;
+      Writing value of type '&lt;&gt;f__AnonymousType2`3' as Json.&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]&#xD;
+      Executed endpoint 'HTTP: POST /voice/turn'&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]&#xD;
+      Request finished HTTP/1.1 POST http://127.0.0.1:51262/voice/turn - 502 - application/json;+charset=utf-8 16.0486ms&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Application is shutting down...&#xD;
+info: ModelContextProtocol.Server.McpServer[1867955179]&#xD;
+      Server (testhost 15.0.0.0), Client (testhost 15.0.0.0) method 'server/discover' request handler completed in 19.0496ms.&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]&#xD;
+      Executed endpoint 'MCP Streamable HTTP | HTTP: POST /mcp/'&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]&#xD;
+      Request finished HTTP/1.1 POST http://127.0.0.1:51220/mcp - 200 - text/event-stream 286.4000ms&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]&#xD;
+      Request starting HTTP/1.1 POST http://127.0.0.1:51220/mcp - application/json -&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]&#xD;
+      Executing endpoint 'MCP Streamable HTTP | HTTP: POST /mcp/'&#xD;
+info: ModelContextProtocol.Server.McpServer[570385771]&#xD;
+      Server (testhost 15.0.0.0), Client (testhost 15.0.0.0) method 'tools/list' request handler called.&#xD;
+info: ModelContextProtocol.Server.McpServer[1867955179]&#xD;
+      Server (testhost 15.0.0.0), Client (testhost 15.0.0.0) method 'tools/list' request handler completed in 9.6702ms.&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]&#xD;
+      Executed endpoint 'MCP Streamable HTTP | HTTP: POST /mcp/'&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]&#xD;
+      Request finished HTTP/1.1 POST http://127.0.0.1:51220/mcp - 200 - text/event-stream 15.7638ms&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]&#xD;
+      Request starting HTTP/1.1 POST http://127.0.0.1:51220/mcp - application/json -&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]&#xD;
+      Executing endpoint 'MCP Streamable HTTP | HTTP: POST /mcp/'&#xD;
+info: ModelContextProtocol.Server.McpServer[570385771]&#xD;
+      Server (testhost 15.0.0.0), Client (testhost 15.0.0.0) method 'resources/read' request handler called.&#xD;
+info: ModelContextProtocol.Server.McpServer[2070680514]&#xD;
+      ReadResource "kreoda://project" completed.&#xD;
+info: ModelContextProtocol.Server.McpServer[1867955179]&#xD;
+      Server (testhost 15.0.0.0), Client (testhost 15.0.0.0) method 'resources/read' request handler completed in 11.6462ms.&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]&#xD;
+      Executed endpoint 'MCP Streamable HTTP | HTTP: POST /mcp/'&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]&#xD;
+      Request finished HTTP/1.1 POST http://127.0.0.1:51220/mcp - 200 - text/event-stream 13.6242ms&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]&#xD;
+      Request starting HTTP/1.1 POST http://127.0.0.1:51220/mcp - application/json -&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]&#xD;
+      Executing endpoint 'MCP Streamable HTTP | HTTP: POST /mcp/'&#xD;
+info: ModelContextProtocol.Server.McpServer[570385771]&#xD;
+      Server (testhost 15.0.0.0), Client (testhost 15.0.0.0) method 'tools/call' request handler called.&#xD;
+info: ModelContextProtocol.Server.McpServer[2065726448]&#xD;
+      "kreoda_describe_model" completed. IsError = False.&#xD;
+info: ModelContextProtocol.Server.McpServer[1867955179]&#xD;
+      Server (testhost 15.0.0.0), Client (testhost 15.0.0.0) method 'tools/call' request handler completed in 46.2586ms.&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]&#xD;
+      Executed endpoint 'MCP Streamable HTTP | HTTP: POST /mcp/'&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]&#xD;
+      Request finished HTTP/1.1 POST http://127.0.0.1:51220/mcp - 200 - text/event-stream 48.2933ms&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]&#xD;
+      Request starting HTTP/1.1 POST http://127.0.0.1:51220/mcp - application/json -&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]&#xD;
+      Executing endpoint 'MCP Streamable HTTP | HTTP: POST /mcp/'&#xD;
+info: ModelContextProtocol.Server.McpServer[570385771]&#xD;
+      Server (testhost 15.0.0.0), Client (testhost 15.0.0.0) method 'tools/call' request handler called.&#xD;
+info: ModelContextProtocol.Server.McpServer[2065726448]&#xD;
+      "kreoda_query" completed. IsError = True.&#xD;
+info: ModelContextProtocol.Server.McpServer[1867955179]&#xD;
+      Server (testhost 15.0.0.0), Client (testhost 15.0.0.0) method 'tools/call' request handler completed in 4.5872ms.&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]&#xD;
+      Executed endpoint 'MCP Streamable HTTP | HTTP: POST /mcp/'&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]&#xD;
+      Request finished HTTP/1.1 POST http://127.0.0.1:51220/mcp - 200 - text/event-stream 5.6092ms&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Application is shutting down...&#xD;
+info: Microsoft.Hosting.Lifetime[14]&#xD;
+      Now listening on: http://127.0.0.1:51288&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Application started. Press Ctrl+C to shut down.&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Hosting environment: Production&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Content root path: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.HermesBridge.Tests\bin\Release\net8.0&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]&#xD;
+      Request starting HTTP/1.1 POST http://127.0.0.1:51288/voice/transcribe - - 364&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]&#xD;
+      Executing endpoint 'HTTP: POST /voice/transcribe'&#xD;
+info: Microsoft.AspNetCore.Http.Result.UnauthorizedResult[1]&#xD;
+      Setting HTTP status code 401.&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]&#xD;
+      Executed endpoint 'HTTP: POST /voice/transcribe'&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]&#xD;
+      Request finished HTTP/1.1 POST http://127.0.0.1:51288/voice/transcribe - 401 0 - 63.0946ms&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]&#xD;
+      Request starting HTTP/1.1 POST http://127.0.0.1:51288/voice/transcribe - - 364&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]&#xD;
+      Executing endpoint 'HTTP: POST /voice/transcribe'&#xD;
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]&#xD;
+      Setting HTTP status code 200.&#xD;
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]&#xD;
+      Writing value of type '&lt;&gt;f__AnonymousType6`1' as Json.&#xD;
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]&#xD;
+      Executed endpoint 'HTTP: POST /voice/transcribe'&#xD;
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]&#xD;
+      Request finished HTTP/1.1 POST http://127.0.0.1:51288/voice/transcribe - 200 - application/json;+charset=utf-8 5.4649ms&#xD;
+info: Microsoft.Hosting.Lifetime[0]&#xD;
+      Application is shutting down...&#xD;
+[xUnit.net 00:00:03.35]   Finished:    Kreoda.HermesBridge.Tests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

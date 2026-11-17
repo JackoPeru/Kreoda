@@ -4,6 +4,7 @@ if(NOT GTest_FOUND)
 endif()
 
 add_executable(kreoda-core-tests
+  test_datum.cpp
   test_box.cpp
   test_codegen.cpp
   test_expressions.cpp
@@ -23,7 +24,27 @@ add_executable(kreoda-core-tests
   test_session11.cpp
   test_session_geometry.cpp
   test_sketch.cpp
+  test_sketch_projection.cpp
+  ../src/model/geometry_availability.cpp
+  test_projection.cpp
+  ../src/features/sketch/projected_geometry.cpp
   test_solids.cpp
+  test_shell.cpp
+  test_mirror.cpp
+  test_body_pattern.cpp
+  test_circular_body_pattern.cpp
+  test_surface_loft.cpp
+  test_surface_modeling.cpp
+  test_surface_sew_offset.cpp
+  test_surface_sweep.cpp
+  test_surface_thicken.cpp
+  test_surface_trim_extend.cpp
+  test_configurations.cpp
+  test_composed_config_projection.cpp
+  test_assembly_constraints.cpp
+  test_direct_face.cpp
+  test_direct_face_history.cpp
+  test_advanced_sketch.cpp
   test_step.cpp
   test_stl.cpp
   test_threemf.cpp
@@ -44,17 +65,27 @@ add_executable(kreoda-core-tests
   ../src/model/shapes.cpp
   ../src/model/commit.cpp
   ../src/features/primitives/primitives.cpp
+  ../src/features/direct/face_history.cpp
   ../src/features/rebuild.cpp
+  ../src/features/datum/datum_commands.cpp
+  ../src/features/datum/datum_json.cpp
+  ../src/features/datum/datum_store.cpp
   ../src/features/sketch/sketch_store.cpp
   ../src/features/sketch/sketch_face.cpp
   ../src/features/sketch/sketch_json.cpp
   ../src/features/sketch/sketch_commands.cpp
+  ../src/features/sketch/sketch_projection.cpp
   ../src/features/extrusion/extrude.cpp
   ../src/features/revolve/revolve.cpp
   ../src/features/booleans/boolean.cpp
   ../src/features/hole/hole.cpp
+  ../src/features/assembly/assembly_geometry.cpp
   ../src/features/instance/instance.cpp
+  ../src/features/mirror/mirror.cpp
+  ../src/features/pattern/body_pattern.cpp
+  ../src/features/pattern/circular_body_pattern.cpp
   ../src/features/fillet/fillet.cpp
+  ../src/features/shell/shell.cpp
   ../src/topology/face_roles.cpp
   ../src/tessellation/box_tessellator.cpp
   ../src/tessellation/mesh.cpp
@@ -103,8 +134,8 @@ endif()
 if(OpenCASCADE_FOUND)
   target_link_libraries(kreoda-core-tests PRIVATE
     TKernel TKMath TKCDF TKLCAF TKCAF TKBin TKBinL TKBinXCAF TKXCAF
-    TKBRep TKTopAlgo TKGeomAlgo TKGeomBase TKG3d TKG2d TKPrim TKBO
-    TKMesh TKShHealing TKXSBase TKFillet TKDE TKDESTEP TKDESTL TKDEOBJ
+    TKBRep TKTopAlgo TKGeomAlgo TKGeomBase TKG3d TKG2d TKPrim TKBO TKOffset
+    TKMesh TKShHealing TKXSBase TKFillet TKHLR TKDE TKDESTEP TKDESTL TKDEOBJ
   )
 endif()
 if(TARGET MINIZIP::minizip-ng)

@@ -1,0 +1,96 @@
+﻿{
+    "at":  "2026-11-13T00:19:43.1443208+01:00",
+    "apk":  {
+                "sha256":  "5420c6480b84d1f8c7b817f5dab10e2fb418b7f7cb085fb14f8a2fa2f516e12b",
+                "bytes":  43915653,
+                "buildStatus":  "BUILD_SUCCEEDED_HARDWARE_UNTESTED",
+                "unityWarnings":  26,
+                "path":  "C:\\Users\\matte\\Desktop\\Saas\\Kreoda\\.artifacts\\Codex-tools\\quest-apk\\arm64-20261113-1\\KreodaQuest.apk",
+                "unityErrors":  0,
+                "sourceChangedDuringBuild":  false
+            },
+    "install":  {
+                    "apkSignerSha256":  "7be7c380f31c81c050a86ea8cefd4ec3bd41972ddd864a8edb97b1e20c84823f",
+                    "activity":  "com.kreoda.quest/com.unity3d.player.UnityPlayerGameActivity",
+                    "versionName":  "0.1.0",
+                    "firstInstallTime":  "2026-10-10 15:22:40",
+                    "dataRetained":  true,
+                    "lastUpdateTime":  "2026-11-13 00:09:49",
+                    "signatures":  "f2c96763",
+                    "installedBaseApkSha256":  "5420c6480b84d1f8c7b817f5dab10e2fb418b7f7cb085fb14f8a2fa2f516e12b",
+                    "installedMatchesBuiltApk":  true,
+                    "installedBaseApkBytes":  43915653
+                },
+    "unityEditMode":  {
+                          "passed":  274,
+                          "failed":  0,
+                          "total":  274,
+                          "result":  "Passed",
+                          "resultsXml":  "C:\\Users\\matte\\Desktop\\Saas\\Kreoda\\.artifacts\\unity-editmode-20261113d.xml",
+                          "skipped":  0
+                      },
+    "deviceRun":  {
+                      "tcp":  "192.168.1.11:44414 -\u003e PC 192.168.1.7:63803 ESTABLISHED",
+                      "triangles":  12,
+                      "connected":  true,
+                      "discovery":  "peers=1",
+                      "package":  "com.kreoda.quest",
+                      "appNameLog":  "Kreoda Quest #1521753221",
+                      "xrSession":  "FOCUSED",
+                      "pid":  31170,
+                      "meshApplied":  "revision=1 bodyId=body-...",
+                      "modelObjects":  1
+                  },
+    "desktopSession":  {
+                           "recovery":  ".codex/tmp/kreoda-quest-link-recovery-20261113",
+                           "featureId":  "box-qa-1794525479622",
+                           "profile":  "human-audit-ux-20261003-...-human-session-user-data",
+                           "documentId":  "doc-phase1",
+                           "sessionId":  "394461b1-f4ad-40c3-99a5-b665f204cae8",
+                           "revision":  1
+                       },
+    "screenshots":  {
+                        "homeSha":  "a45c0dac4724f235e158b8a24270606233aa58fd195d3105a7d0076246a49860",
+                        "home":  "quest-home-new-apk.png"
+                    },
+    "limitation":  "Meta system dialog \u0027Individuazione della posizione\u0027 stayed in front of the app when the headset was not worn; the synced box is proven by logcat (KREODA_MESH_APPLIED revision=1, objects=1 triangles=12) but cannot be photographed without a physical click in the headset.",
+    "performance":  {
+                        "vrApiSamples":  12,
+                        "fps":  "72-73 of 72 target",
+                        "tears":  0,
+                        "early":  0,
+                        "stale":  1,
+                        "appCpuMs":  "2.05-2.26",
+                        "gpuPercent":  0.45,
+                        "thermalC":  "38.0",
+                        "note":  "Home with one synced 12-triangle box behind the Meta tracking dialog; short sample, not a full LOD/perf acceptance."
+                    },
+    "resume":  "KREODA_RESUME preserved_connected after the app resumed with the session alive",
+    "trackingDialogNote":  "A 6.7 MB stereo capture showed only Meta\u0027s \u0027Individuazione della posizione\u0027 dialog; reviewed but not committed to keep the repo small.",
+    "performanceHeavy":  {
+                             "samples":  15,
+                             "fpsMean":  71.73,
+                             "fpsMin":  60,
+                             "fpsMax":  73,
+                             "below72":  1,
+                             "tears":  0,
+                             "early":  0,
+                             "stale":  12,
+                             "appMsMean":  2.56,
+                             "appMsMax":  2.9,
+                             "gpuMax":  0.49
+                         },
+    "performanceLarge":  {
+                             "samples":  14,
+                             "fpsMean":  71.21,
+                             "fpsMin":  57,
+                             "fpsMax":  73,
+                             "below72":  2,
+                             "tears":  0,
+                             "early":  0,
+                             "stale":  21,
+                             "appMsMean":  2.3,
+                             "appMsMax":  2.71,
+                             "gpuMax":  0.49
+                         }
+}

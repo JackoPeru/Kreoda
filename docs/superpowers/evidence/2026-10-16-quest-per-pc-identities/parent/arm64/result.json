@@ -1,0 +1,15 @@
+{
+  "startedAt": "2026-10-17T08:33:28.531Z",
+  "unity": "C:/Users/matte/Documents/Codex-tools/Unity/Editors/6000.3.25f1/Editor/Unity.exe",
+  "sdk": "C:/Users/matte/AppData/Local/Android/Sdk",
+  "directExitCode": 0,
+  "elapsedSeconds": 220.234,
+  "sourceChangedDuringBuild": [],
+  "sourceManifestSha256": "6bcea0093d37380f43c84f65484179d1a26e23fe4e5e7ddfc4681ee3a0eed5da",
+  "logSha256": "3e2e530cc8a511a021e6b327c917aa86b2865a58b25ece97c9188c1ee70ec3fd",
+  "apkSha256": "c2078c26ff596591a14e4bc445665b587ab355e9b2c54c2d9a3180ffc72e14cf",
+  "packageLockSha256": "ed2ce3a308998dada1e55e96b9e66a173322c531c55a9aed3d055f1559a413b0",
+  "managedManifestSha256": "36a4fb0e69cfab7e89167a1e75986afce92552691576e175aec569b3f6a2b1e4",
+  "status": "BUILD_SUCCEEDED_HARDWARE_UNTESTED",
+  "finishedAt": "2026-10-17T08:37:20.812Z"
+}

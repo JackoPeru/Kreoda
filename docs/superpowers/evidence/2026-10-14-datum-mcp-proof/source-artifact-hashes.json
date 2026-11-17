@@ -1,0 +1,26 @@
+[
+  {
+    "sha256": "01b547861a1cb52beb27ea2e872a4501901e02077ba13543ca0d29eb8bb6831e",
+    "path": "clients/session-dotnet/probes/Kreoda.McpProbe/Program.cs"
+  },
+  {
+    "sha256": "cc4ef2cbdbf39f7def87d58af464ac449cfe115e252e94b1f623709869a94a47",
+    "path": "native/kreoda-core/src/protocol/session_geometry.cpp"
+  },
+  {
+    "sha256": "5995be11bda9db549df078e931ff75a374a5782e9a43dc85407dce9bf1f5344c",
+    "path": "native/kreoda-core/tests/test_session_geometry.cpp"
+  },
+  {
+    "sha256": "fab33e94fbabad96c20e308087532b237f198bcaed233e3fa8af7ad1ae981a28",
+    "path": "apps/desktop/e2e/phase15-datum-mcp.spec.ts"
+  },
+  {
+    "sha256": "b38a682f34240f9a92049c6cea7cc7c800ebecb232cab559bf41c4c6d8a5476f",
+    "path": "native/kreoda-core/build/Release/kreoda-core.exe"
+  },
+  {
+    "sha256": "c8bad2575198e51ddfd9ee8fbbba0413890d3f16329122d7f8d7c90b3513883f",
+    "path": "clients/session-dotnet/probes/Kreoda.McpProbe/bin/Release/net8.0/Kreoda.McpProbe.dll"
+  }
+]

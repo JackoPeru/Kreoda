@@ -1,14 +1,22 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import type { CoreMeshData, SketchModel } from "@kreoda/protocol";
 import { HomeScreen } from "../components/home/HomeScreen";
+import { openDocument, openDocumentAtPath, saveDocument } from "../components/workspace/WorkspaceActions";
 import { PluginsDialog } from "../components/PluginsDialog";
 import { ReferenceDialog } from "../components/ReferenceDialog";
+import { ReferenceGeometryPanel } from "../components/workspace/ReferenceGeometryPanel";
 import { InstanceDialog } from "../components/InstanceDialog";
+import { MirrorDialog } from "../components/MirrorDialog";
+import { BodyPatternDialog } from "../components/BodyPatternDialog";
+import { CircularPatternDialog } from "../components/CircularPatternDialog";
 import { shouldShowOnboarding } from "../components/Onboarding";
 import { SketchEditor, defaultRectModel } from "../components/SketchEditor";
 import { ExtrudeDialog } from "../components/ExtrudeDialog";
 import { HoleDialog } from "../components/HoleDialog";
 import { DressUpDialog } from "../components/DressUpDialog";
+import { ShellDialog } from "../components/ShellDialog";
+import { TemplateDialog } from "../components/TemplateDialog";
+import { SettingsDialog } from "../components/SettingsDialog";
 import {
   AddPrimitiveDialog,
   type PrimitiveKind,
@@ -32,18 +40,24 @@ import {
   AUTOSAVE_MS,
   autosaveNow,
   discardRecovery,
+  markDocumentClean,
   recoveryAvailable,
   restoreRecovery,
 } from "../recovery/autosave";
 import { executeCommand } from "../commands/execute";
-import { bindOpenedSessionRefresh, pullFeatureMesh, syncFromCoreList, syncOpenedDocument, updateFeatureSummary } from "../model/sync";
+import { bindOpenedSessionRefresh, pullFeatureMesh, syncFromCoreList, syncOpenedDocument, syncSketchProjectionMutation, updateFeatureSummary } from "../model/sync";
 import { createSessionUpdateQueue } from "../model/session-update-queue";
+import { useSharedTargetStore } from "../model/shared-targets";
 import type { FeatureSummary, SketchSummary } from "../ipc/coreClient";
 import {
   faceScreenPoint,
   viewportViewDir,
   viewportRenderStats,
   viewportMeshIdentity,
+  viewportSectionGeometryDiagnostics,
+  viewportProjectPoint,
+  viewportSketchProjectionSummary,
+  viewportSharedTargetSummary,
 } from "../viewport/viewportHandle";
 
 /** Minimal workspace shell (UX-1): viewport-first, floating docks. */
@@ -115,13 +129,21 @@ export function App() {
   const [extruding, setExtruding] = useState(false);
   const [holing, setHoling] = useState(false);
   const [dressUp, setDressUp] = useState<"fillet" | "chamfer" | null>(null);
+  const [shelling, setShelling] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
   const [showReference, setShowReference] = useState(false);
+  const [showReferenceGeometry, setShowReferenceGeometry] = useState(false);
   const [showInstance, setShowInstance] = useState(false);
+  const [showMirror, setShowMirror] = useState(false);
+  const [showBodyPattern, setShowBodyPattern] = useState(false);
+  const [showCircularPattern, setShowCircularPattern] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   // Drawers are closed by default (UX-1): capabilities on demand, never
   // permanently docked.
   const [projectOpen, setProjectOpen] = useState(false);
   const [propsOpen, setPropsOpen] = useState(false);
+  const [surfaceOpen, setSurfaceOpen] = useState(false);
   // Home (§home): schermata principale all'avvio (vedi riferimento UI/home.png).
   // Il workspace CAD si apre da qui (Nuovo/Importa/recenti/orbit/nav).
   const [view, setView] = useState<"home" | "workspace">("home");
@@ -164,6 +186,7 @@ export function App() {
     // A recovery file at boot means the previous session kept unsaved work.
     checkRecovery();
     const offCrash = window.kreoda?.onCoreCrashed?.((info) => {
+      useSharedTargetStore.getState().reset();
       setCrashed(info.code);
       setCoreStatus(false, null);
       // A drag owns solved preview coordinates from the dead engine. Unmount
@@ -219,17 +242,34 @@ export function App() {
         await syncFromCoreList(
           model.features as unknown as FeatureSummary[], model.revision,
           model.sketches as unknown as SketchSummary[], changedMeshIds,
+          model.datums as import("@kreoda/protocol").DatumDescriptor[] ?? [],
         );
+        if (useDocumentUiStore.getState().epoch === epoch)
+          useSharedTargetStore.getState().setContext(model);
       },
       onError: (error) => console.warn("[session] delta apply failed", error),
     });
     const off = window.kreoda?.onSessionDelta?.((delta) => { void updates.push(delta); });
+    const offSelection = window.kreoda?.onSessionSelection?.(event => {
+      const targets = useSharedTargetStore.getState();
+      targets.receive(event);
+      // New/open/edit deltas normally establish context. A target arriving
+      // first requests one authoritative snapshot instead of racing boot.
+      if (!targets.context) void updates.refresh();
+    });
     const unbindOpen = bindOpenedSessionRefresh(updates.refreshAndVerify);
-    const offRestart = window.kreoda?.onCoreRestarted?.(() => { void updates.refresh(); });
+    const offRestart = window.kreoda?.onCoreRestarted?.(() => {
+      useSharedTargetStore.getState().reset();
+      // The restarted core is empty under the bootstrap document identity.
+      coreClient.documentId = "doc-phase1";
+      void updates.refresh();
+    });
     return () => {
       updates.dispose();
       unbindOpen();
       off?.();
+      offSelection?.();
+      useSharedTargetStore.getState().reset();
       offRestart?.();
     };
   }, []);
@@ -249,12 +289,25 @@ export function App() {
         return {
           revision: s.revision,
           references: useReferenceStore.getState().planes,
+          datums: s.datums,
           selectedIds: useSelectionStore.getState().selectedIds,
+          sharedTarget: viewportSharedTargetSummary(),
           sketches: s.sketches.map((k) => ({
             id: k.featureId,
             planeKind: k.planeKind,
+            plane: k.plane,
+            modelPlane: k.model?.plane,
+            supportRef: k.supportRef,
             points: k.points,
+            lines: k.lines,
+            circles: k.circles,
+            arcs: k.model?.arcs?.length ?? 0,
             constraints: k.constraints,
+            projectionGroups: k.projectionGroups ?? [],
+            geometryCurrent: k.geometryCurrent,
+            status: k.status,
+            error: k.error,
+            blockingSourceIds: k.blockingSourceIds ?? [],
           })),
           bodies: s.features.map((f) => {
             const mesh = s.meshes[f.featureId];
@@ -262,7 +315,11 @@ export function App() {
               id: f.featureId,
               type: f.type,
               paramsMm: f.paramsMm,
-              volumeMm3: f.volumeMm3,
+              ...(f.volumeMm3 !== undefined ? { volumeMm3: f.volumeMm3 } : {}),
+              geometryCurrent: f.geometryCurrent,
+              status: f.status,
+              error: f.error,
+              blockingSourceIds: f.blockingSourceIds ?? [],
               expressions: f.expressions ?? {},
               triangles: mesh ? mesh.indices.length / 3 : -1,
               faces: mesh ? mesh.faces.map((r) => r.persistentFaceId) : [],
@@ -289,12 +346,79 @@ export function App() {
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
         ).__kreoda_test.snapshot();
       },
+      // Native-only configuration diagnostics, same IPC authority as the UI.
+      configurationE2E: {
+        query: () => coreClient.queryConfigurations(),
+        define: (name: string, overrides: Record<string, Record<string, number>>) =>
+          coreClient.configurationCommand(40, { name, overrides }),
+        activate: async (name: string) => {
+          await coreClient.configurationCommand(41, { name });
+          const result = await coreClient.requestSnapshot();
+          await syncFromCoreList(result.features, result.revision, result.sketches, null, result.datums);
+        },
+        undo: async () => {
+          const result = await coreClient.undo();
+          await syncFromCoreList(result.features, result.revision, result.sketches, null, result.datums);
+        },
+        redo: async () => {
+          const result = await coreClient.redo();
+          await syncFromCoreList(result.features, result.revision, result.sketches, null, result.datums);
+        },
+      },
+      outwardFacePushE2E: async (owner: string, persistentFaceId: string, distanceMm: number) => {
+        const role = persistentFaceId.startsWith(`${owner}:`) ? persistentFaceId.slice(owner.length + 1) : "";
+        if (!role || /(?:^|[.:])(?:face|edge)\[\d+\]/.test(role)) throw Error("nonpersistent face selection");
+        const before = await coreClient.requestFaceInfo(owner, role);
+        if (!before.normal.every(Number.isFinite)) throw Error("face frame invalid");
+        await coreClient.createOutwardFacePush(owner, role, distanceMm);
+        const snapshot = await coreClient.requestSnapshot();
+        await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+      },
+      inwardFacePocketE2E: async (owner: string, persistentFaceId: string, distanceMm: number) => {
+        const role = persistentFaceId.startsWith(`${owner}:`) ? persistentFaceId.slice(owner.length + 1) : "";
+        if (!role || /(?:^|[.:])(?:face|edge)\[\d+\]/.test(role)) throw Error("nonpersistent face selection");
+        const before = await coreClient.requestFaceInfo(owner, role);
+        if (!before.normal.every(Number.isFinite)) throw Error("face frame invalid");
+        await coreClient.createInwardFacePocket(owner, role, distanceMm);
+        const snapshot = await coreClient.requestSnapshot();
+        await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+      },
+      surfaceFaceThickenE2E: async (owner: string, persistentFaceId: string, thicknessMm: number) => {
+        const role = persistentFaceId.startsWith(`${owner}:`) ? persistentFaceId.slice(owner.length + 1) : "";
+        if (!role || /(?:^|[.:])(?:face|edge)\[\d+\]/.test(role)) throw Error("nonpersistent face selection");
+        const frame = await coreClient.requestFaceInfo(owner, role);
+        if (!frame.normal.every(Number.isFinite)) throw Error("face frame invalid");
+        await coreClient.createSurfaceFaceThicken(owner, role, thicknessMm);
+        const snapshot = await coreClient.requestSnapshot();
+        await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+      },
+      draftAnalysisE2E: (featureId: string, pullDirection: [number, number, number]) =>
+        coreClient.measureDraftAngles({ featureId, pullDirection }),
+      assemblyMateE2E: {
+        instance: async (targetId: string, txMm: number, tyMm: number, tzMm: number) => {
+          const created = await coreClient.createInstance({ targetId, txMm, tyMm, tzMm });
+          const snapshot = await coreClient.requestSnapshot();
+          await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+          return created.featureId;
+        },
+        ground: async (movingId: string) => {
+          await coreClient.defineAssemblyConstraint({ constraintId: `test-ground-${movingId}`, kind: "ground", movingId });
+          const snapshot = await coreClient.requestSnapshot();
+          await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+        },
+        coincident: async (movingId: string, fixedId: string) => {
+          await coreClient.defineAssemblyConstraint({ constraintId: `test-coincident-${movingId}`, kind: "coincident", movingId, fixedId });
+          const snapshot = await coreClient.requestSnapshot();
+          await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+        },
+      },
       openIcad: async (path: string) => {
-        const { features: list, sketches, revision } =
+        const { features: list, sketches, datums, revision } =
           await coreClient.openDocument(path);
         // Document replacement = new epoch (C5): the core revision resets
         // on fresh baselines, so staleness guards key lineage, not numbers.
-        await syncOpenedDocument(list, revision, sketches);
+        await syncOpenedDocument(list, revision, sketches, datums);
+        markDocumentClean();
         return (
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
         ).__kreoda_test.snapshot();
@@ -308,6 +432,7 @@ export function App() {
         return (window as unknown as { __kreoda_test: { snapshot: () => unknown } }).__kreoda_test.snapshot();
       },
       viewportRenderStats,
+      projectionRenderSummary: viewportSketchProjectionSummary,
       // Crash-bundle E2E: same path as the banner button (works anytime).
       crashBundle: () => saveCrashBundle(),
       // Plugin E2E: register from source + run without touching the host dir.
@@ -411,6 +536,9 @@ export function App() {
       },
       faceScreenPoint: (featureId: string, role: string) =>
         faceScreenPoint(featureId, role),
+      sectionGeometryDiagnostics: (featureId: string, samplePointMm: [number, number, number], faceRole: string) =>
+        viewportSectionGeometryDiagnostics(featureId, samplePointMm, faceRole),
+      projectPoint: viewportProjectPoint,
       viewDir: () => viewportViewDir(),
       // Phase 4 acceptance: sketch → extrude through the real core path.
       // Single commit: create with the rect content directly (one Undo step,
@@ -424,6 +552,8 @@ export function App() {
         useDocumentUiStore.getState().upsertSketch({
           featureId,
           planeKind: full.planeKind,
+          plane: full.plane,
+          supportRef: full.supportRef,
           points: full.points.length,
           lines: full.lines.length,
           circles: full.circles.length,
@@ -439,6 +569,52 @@ export function App() {
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
         ).__kreoda_test;
         return hook.snapshot();
+      },
+      createProjectionSketch: async (model: SketchModel) => {
+        const { featureId } = await coreClient.createSketch({ planeKind: "XY", model });
+        const snapshot = await coreClient.requestSnapshot();
+        await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+        const full = await coreClient.requestSketch(featureId);
+        useDocumentUiStore.getState().upsertSketch({
+          featureId, planeKind: full.planeKind, plane: full.plane, supportRef: full.supportRef,
+          points: full.points.length, lines: full.lines.length, circles: full.circles.length,
+          constraints: full.constraints.length, projectionGroups: full.projectionGroups,
+          geometryCurrent: full.geometryCurrent, status: full.status, error: full.error,
+          blockingSourceIds: full.blockingSourceIds, model: full,
+        });
+        useSelectionStore.getState().select(featureId, false);
+        return (window as unknown as { __kreoda_test: { snapshot: () => unknown } }).__kreoda_test.snapshot();
+      },
+      editProjectionSourceCircle: async (featureId: string, radiusMm: number, entityId?: string) => {
+        const full = await coreClient.requestSketch(featureId);
+        const next: SketchModel = {
+          points: full.points,
+          lines: full.lines,
+          circles: full.circles.map((circle, index) => index === 0
+            ? { ...circle, r: radiusMm, ...(entityId ? { id: entityId } : {}) } : circle),
+          arcs: full.arcs ?? [],
+          constraints: full.constraints,
+        };
+        await coreClient.updateSketch({ featureId, model: next });
+        const snapshot = await coreClient.requestSnapshot();
+        await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+        const updated = await coreClient.requestSketch(featureId);
+        const current = useDocumentUiStore.getState().sketches.find(item => item.featureId === featureId);
+        if (current) useDocumentUiStore.getState().upsertSketch({
+          ...current, planeKind: updated.planeKind, plane: updated.plane, supportRef: updated.supportRef,
+          points: updated.points.length, lines: updated.lines.length, circles: updated.circles.length,
+          constraints: updated.constraints.length, projectionGroups: updated.projectionGroups,
+          geometryCurrent: updated.geometryCurrent, status: updated.status, error: updated.error,
+          blockingSourceIds: updated.blockingSourceIds, model: updated,
+        });
+        return (window as unknown as { __kreoda_test: { snapshot: () => unknown } }).__kreoda_test.snapshot();
+      },
+      nativeProjection: (featureId: string, groupId?: string) => coreClient.requestSketchProjection(featureId, groupId),
+      seedProjectionForOpenTest: async (featureId: string, groupId: string, definition: import("@kreoda/protocol").SketchProjectionDefinition) => {
+        const state = useDocumentUiStore.getState();
+        const result = await coreClient.setSketchProjection(featureId, groupId, definition);
+        await syncSketchProjectionMutation(result, state.documentId, state.epoch);
+        return (window as unknown as { __kreoda_test: { snapshot: () => unknown } }).__kreoda_test.snapshot();
       },
       openSketch: (featureId: string) => {
         setEditingSketch(featureId);
@@ -503,12 +679,48 @@ export function App() {
   return (
     <div className="h-full">
       {view === "home" ? (
-        <HomeScreen onEnterWorkspace={enterWorkspace} />
+        <HomeScreen
+          onEnterWorkspace={enterWorkspace}
+          onOpenRecent={async path => {
+            const error = await openDocumentAtPath(path);
+            if (!error) enterWorkspace();
+            return error;
+          }}
+          onOpenProject={() => {
+            enterWorkspace();
+            setProjectOpen(true);
+          }}
+          onImport={() => {
+            void openDocument().then(error => {
+              if (error) window.alert(error);
+              else enterWorkspace();
+            });
+          }}
+          onTemplate={() => setShowTemplates(true)}
+          onDraw={() => {
+            enterWorkspace();
+            void createSketch();
+          }}
+          onMeasure={() => {
+            enterWorkspace();
+            setPropsOpen(true);
+          }}
+          onExport={() => {
+            enterWorkspace();
+            void saveDocument().then(error => {
+              if (error) window.alert(error);
+            });
+          }}
+          onSettings={() => setShowSettings(true)}
+        />
       ) : (
       <>
       <button
         type="button"
-        onClick={() => setView("home")}
+        onClick={() => {
+          setSurfaceOpen(false);
+          setView("home");
+        }}
         data-testid="back-home"
         aria-label="Torna alla home"
         title="Torna alla home"
@@ -528,15 +740,46 @@ export function App() {
         onSketch={() => void createSketch()}
         onHole={() => setHoling(true)}
         onDressUp={(kind) => setDressUp(kind)}
+        onShell={() => {
+          setSurfaceOpen(false);
+          setShelling(true);
+        }}
         onExtrude={() => setExtruding(true)}
         onPlugins={() => setShowPlugins(true)}
         onReference={() => setShowReference(true)}
-        onInstance={() => setShowInstance(true)}
+        onReferenceGeometry={() => {
+          setSurfaceOpen(false);
+          setShowReferenceGeometry(true);
+        }}
+        onInstance={() => {
+          setSurfaceOpen(false);
+          setShowInstance(true);
+        }}
+        onMirror={() => {
+          setSurfaceOpen(false);
+          setShowMirror(true);
+        }}
+        onBodyPattern={() => {
+          setSurfaceOpen(false);
+          setShowBodyPattern(true);
+        }}
+        onCircularPattern={() => {
+          setSurfaceOpen(false);
+          setShowCircularPattern(true);
+        }}
         onEditSketch={openSketchEditor}
         projectOpen={projectOpen}
         onProjectOpenChange={setProjectOpen}
         propsOpen={propsOpen}
         onPropsOpenChange={setPropsOpen}
+        surfaceOpen={surfaceOpen}
+        onSurfaceOpenChange={(open) => {
+          if (open) {
+            setShowReferenceGeometry(false);
+            setShowInstance(false);
+          }
+          setSurfaceOpen(open);
+        }}
         showRecovery={showRecovery}
         onRestoreRecovery={() =>
           restoreRecovery()
@@ -576,16 +819,40 @@ export function App() {
       {showReference && (
         <ReferenceDialog onClose={() => setShowReference(false)} />
       )}
+      {showReferenceGeometry && (
+        <ReferenceGeometryPanel
+          onClose={() => setShowReferenceGeometry(false)}
+          onSketchCreated={openSketchEditor}
+        />
+      )}
       {showInstance && (
         <InstanceDialog onClose={() => setShowInstance(false)} />
+      )}
+      {showMirror && <MirrorDialog onClose={() => setShowMirror(false)} />}
+      {showBodyPattern && (
+        <BodyPatternDialog onClose={() => setShowBodyPattern(false)} />
+      )}
+      {showCircularPattern && (
+        <CircularPatternDialog onClose={() => setShowCircularPattern(false)} />
       )}
       {extruding && <ExtrudeDialog onClose={() => setExtruding(false)} />}
       {holing && <HoleDialog onClose={() => setHoling(false)} />}
       {dressUp && (
         <DressUpDialog kind={dressUp} onClose={() => setDressUp(null)} />
       )}
+      {shelling && <ShellDialog onClose={() => setShelling(false)} />}
       </>
       )}
+      {showTemplates && (
+        <TemplateDialog
+          onClose={() => setShowTemplates(false)}
+          onDone={() => {
+            setShowTemplates(false);
+            enterWorkspace();
+          }}
+        />
+      )}
+      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Failed(Child)" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-16 20:36:16Z" end-time="2026-10-16 20:36:28Z" duration="12,2527027">
+  <test-suite type="TestSuite" id="1000" name="Kreoda Quest" fullname="Kreoda Quest" runstate="Runnable" testcasecount="108" result="Failed" site="Child" start-time="2026-10-16 20:36:16Z" end-time="2026-10-16 20:36:28Z" duration="12.252703" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1133" name="Kreoda.QuestRuntime.Tests.dll" fullname="C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/clients/quest-unity/Library/ScriptAssemblies/Kreoda.QuestRuntime.Tests.dll" runstate="Runnable" testcasecount="108" result="Failed" site="Child" start-time="2026-10-16 20:36:16Z" end-time="2026-10-16 20:36:28Z" duration="12.227442" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="46392" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1134" name="Kreoda" fullname="Kreoda" runstate="Runnable" testcasecount="108" result="Failed" site="Child" start-time="2026-10-16 20:36:16Z" end-time="2026-10-16 20:36:28Z" duration="12.226987" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1135" name="QuestRuntime" fullname="Kreoda.QuestRuntime" runstate="Runnable" testcasecount="108" result="Failed" site="Child" start-time="2026-10-16 20:36:16Z" end-time="2026-10-16 20:36:28Z" duration="12.226715" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1136" name="Tests" fullname="Kreoda.QuestRuntime.Tests" runstate="Runnable" testcasecount="108" result="Failed" site="Child" start-time="2026-10-16 20:36:16Z" end-time="2026-10-16 20:36:28Z" duration="12.224351" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestFixture" id="1004" name="QuestConnectionTests" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" testcasecount="14" result="Failed" site="Child" start-time="2026-10-16 20:36:16Z" end-time="2026-10-16 20:36:28Z" duration="12.221726" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-case id="1017" name="SelectingAnotherPcUsesItsOwnIdentityAndKeepsFirstPcIdentity" fullname="Kreoda.QuestRuntime.Tests.QuestConnectionTests.SelectingAnotherPcUsesItsOwnIdentityAndKeepsFirstPcIdentity" methodname="SelectingAnotherPcUsesItsOwnIdentityAndKeepsFirstPcIdentity" classname="Kreoda.QuestRuntime.Tests.QuestConnectionTests" runstate="Runnable" seed="225521132" result="Failed" start-time="2026-10-16 20:36:16Z" end-time="2026-10-16 20:36:28Z" duration="12.206612" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  Expected: collection containing "11111111-1111-4111-8111-111111111111"
+  But was:  <empty>
+]]></message>
+                  <stack-trace><![CDATA[at Kreoda.QuestRuntime.Tests.QuestConnectionTests+<SelectingAnotherPcUsesItsOwnIdentityAndKeepsFirstPcIdentity>d__17.MoveNext () [0x002a0] in C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\quest-unity\Assets\Kreoda\Tests\Editor\QuestConnectionTests.cs:223
+at UnityEngine.TestTools.TestEnumerator+<Execute>d__7.MoveNext () [0x0003a] in .\Library\PackageCache\com.unity.test-framework@bd7f943e9647\UnityEngine.TestRunner\NUnitExtensions\Attributes\TestEnumerator.cs:44
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[Saving results to: C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\docs\superpowers\evidence\2026-10-16-quest-per-pc-identities\red-select-pc-identity.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

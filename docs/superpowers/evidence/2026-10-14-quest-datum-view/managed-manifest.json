@@ -1,0 +1,291 @@
+{
+  "targetFramework": "netstandard2.1",
+  "configuration": "Release",
+  "packageGraph": [
+    {
+      "project": "Kreoda.Protocol",
+      "packages": [
+        {
+          "id": "Google.FlatBuffers",
+          "version": "25.2.10",
+          "runtimeAssets": [
+            "lib/netstandard2.1/Google.FlatBuffers.dll"
+          ]
+        }
+      ]
+    },
+    {
+      "project": "Kreoda.SessionClient",
+      "packages": [
+        {
+          "id": "Google.FlatBuffers",
+          "version": "25.2.10",
+          "runtimeAssets": [
+            "lib/netstandard2.1/Google.FlatBuffers.dll"
+          ]
+        },
+        {
+          "id": "Microsoft.Bcl.AsyncInterfaces",
+          "version": "8.0.0",
+          "runtimeAssets": [
+            "lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll"
+          ]
+        },
+        {
+          "id": "System.Buffers",
+          "version": "4.5.1",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Buffers.dll"
+          ]
+        },
+        {
+          "id": "System.Memory",
+          "version": "4.5.5",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Memory.dll"
+          ]
+        },
+        {
+          "id": "System.Numerics.Vectors",
+          "version": "4.4.0",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Numerics.Vectors.dll"
+          ]
+        },
+        {
+          "id": "System.Runtime.CompilerServices.Unsafe",
+          "version": "6.0.0",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll"
+          ]
+        },
+        {
+          "id": "System.Text.Encodings.Web",
+          "version": "8.0.0",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Text.Encodings.Web.dll"
+          ]
+        },
+        {
+          "id": "System.Text.Json",
+          "version": "8.0.6",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Text.Json.dll"
+          ]
+        },
+        {
+          "id": "System.Threading.Tasks.Extensions",
+          "version": "4.5.4",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Threading.Tasks.Extensions.dll"
+          ]
+        }
+      ]
+    },
+    {
+      "project": "Kreoda.QuestFoundation",
+      "packages": [
+        {
+          "id": "Google.FlatBuffers",
+          "version": "25.2.10",
+          "runtimeAssets": [
+            "lib/netstandard2.1/Google.FlatBuffers.dll"
+          ]
+        },
+        {
+          "id": "Microsoft.Bcl.AsyncInterfaces",
+          "version": "8.0.0",
+          "runtimeAssets": [
+            "lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll"
+          ]
+        },
+        {
+          "id": "System.Buffers",
+          "version": "4.5.1",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Buffers.dll"
+          ]
+        },
+        {
+          "id": "System.Memory",
+          "version": "4.5.5",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Memory.dll"
+          ]
+        },
+        {
+          "id": "System.Numerics.Vectors",
+          "version": "4.4.0",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Numerics.Vectors.dll"
+          ]
+        },
+        {
+          "id": "System.Runtime.CompilerServices.Unsafe",
+          "version": "6.0.0",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll"
+          ]
+        },
+        {
+          "id": "System.Text.Encodings.Web",
+          "version": "8.0.0",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Text.Encodings.Web.dll"
+          ]
+        },
+        {
+          "id": "System.Text.Json",
+          "version": "8.0.6",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Text.Json.dll"
+          ]
+        },
+        {
+          "id": "System.Threading.Tasks.Extensions",
+          "version": "4.5.4",
+          "runtimeAssets": [
+            "lib/netstandard2.0/System.Threading.Tasks.Extensions.dll"
+          ]
+        }
+      ]
+    }
+  ],
+  "excludedUnityProvidedAssemblies": [
+    {
+      "project": "Kreoda.SessionClient",
+      "library": "System.Buffers/4.5.1",
+      "asset": "lib/netstandard2.0/System.Buffers.dll",
+      "reason": "Unity-provided BCL assembly"
+    },
+    {
+      "project": "Kreoda.SessionClient",
+      "library": "System.Memory/4.5.5",
+      "asset": "lib/netstandard2.0/System.Memory.dll",
+      "reason": "Unity-provided BCL assembly"
+    },
+    {
+      "project": "Kreoda.SessionClient",
+      "library": "System.Numerics.Vectors/4.4.0",
+      "asset": "lib/netstandard2.0/System.Numerics.Vectors.dll",
+      "reason": "Unity-provided BCL assembly"
+    },
+    {
+      "project": "Kreoda.SessionClient",
+      "library": "System.Threading.Tasks.Extensions/4.5.4",
+      "asset": "lib/netstandard2.0/System.Threading.Tasks.Extensions.dll",
+      "reason": "Unity-provided BCL assembly"
+    },
+    {
+      "project": "Kreoda.QuestFoundation",
+      "library": "System.Buffers/4.5.1",
+      "asset": "lib/netstandard2.0/System.Buffers.dll",
+      "reason": "Unity-provided BCL assembly"
+    },
+    {
+      "project": "Kreoda.QuestFoundation",
+      "library": "System.Memory/4.5.5",
+      "asset": "lib/netstandard2.0/System.Memory.dll",
+      "reason": "Unity-provided BCL assembly"
+    },
+    {
+      "project": "Kreoda.QuestFoundation",
+      "library": "System.Numerics.Vectors/4.4.0",
+      "asset": "lib/netstandard2.0/System.Numerics.Vectors.dll",
+      "reason": "Unity-provided BCL assembly"
+    },
+    {
+      "project": "Kreoda.QuestFoundation",
+      "library": "System.Threading.Tasks.Extensions/4.5.4",
+      "asset": "lib/netstandard2.0/System.Threading.Tasks.Extensions.dll",
+      "reason": "Unity-provided BCL assembly"
+    }
+  ],
+  "files": [
+    {
+      "file": "Google.FlatBuffers.dll",
+      "sha256": "8ef8757acb2fb817a1d6859af19f8e19cda72e523dd76c904790045570308453",
+      "origin": "nuget:Google.FlatBuffers/25.2.10/lib/netstandard2.1/Google.FlatBuffers.dll"
+    },
+    {
+      "file": "Google.FlatBuffers.dll.meta",
+      "sha256": "a89d695fd1ffbdc480fa91492b19975953a96a67bcc8a9cac2cba30339cb4748",
+      "origin": "generated Unity PluginImporter settings"
+    },
+    {
+      "file": "Kreoda.Protocol.dll",
+      "sha256": "b26a6a7a8c75792b5d92de2efeab719c5128614d399653fefc63bf3e288f4645",
+      "origin": "msbuild:packages/protocol/csharp/bin/Release/netstandard2.1/Kreoda.Protocol.dll"
+    },
+    {
+      "file": "Kreoda.Protocol.dll.meta",
+      "sha256": "79c80c1b5256604372317c705b698650c82150cf2c4315317c140751316f3884",
+      "origin": "generated Unity PluginImporter settings"
+    },
+    {
+      "file": "Kreoda.QuestFoundation.dll",
+      "sha256": "327cac285cad3e32e769f4c1cb46a2524ffacee55c5f4e7a47ad6e8f2e3852a7",
+      "origin": "msbuild:clients/session-dotnet/src/Kreoda.QuestFoundation/bin/Release/netstandard2.1/Kreoda.QuestFoundation.dll"
+    },
+    {
+      "file": "Kreoda.QuestFoundation.dll.meta",
+      "sha256": "5d0e72e543c55051cbc62c8a184cc8a664bebe3aa8e09b012074ac0dad167fb5",
+      "origin": "generated Unity PluginImporter settings"
+    },
+    {
+      "file": "Kreoda.SessionClient.dll",
+      "sha256": "c9aad20aa578294bfa5068238f26f5d5f31964fd0d77dd9d176eaeb6d5cefa6f",
+      "origin": "msbuild:clients/session-dotnet/src/Kreoda.SessionClient/bin/Release/netstandard2.1/Kreoda.SessionClient.dll"
+    },
+    {
+      "file": "Kreoda.SessionClient.dll.meta",
+      "sha256": "b143208b4ed204876f0cd45c751de06bbface22e4c182d4e008fce9cccb4423b",
+      "origin": "generated Unity PluginImporter settings"
+    },
+    {
+      "file": "link.xml",
+      "sha256": "6174044761366087c65b026d503fb881f1a1dd5d245c87f0e59ce92498fc5b3a",
+      "origin": "clients/session-dotnet/unity/link.xml"
+    },
+    {
+      "file": "Microsoft.Bcl.AsyncInterfaces.dll",
+      "sha256": "136d5965cf4768e8420b547a8bddea882921f426c371833d558a858a2f0c235a",
+      "origin": "nuget:Microsoft.Bcl.AsyncInterfaces/8.0.0/lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll"
+    },
+    {
+      "file": "Microsoft.Bcl.AsyncInterfaces.dll.meta",
+      "sha256": "04497307072bcca1b1be796ab326bbbdd0e67b51cef0dbd077ff3e32383e6861",
+      "origin": "generated Unity PluginImporter settings"
+    },
+    {
+      "file": "System.Runtime.CompilerServices.Unsafe.dll",
+      "sha256": "01748200f2400c742aa689f1f5101bd6298efdfd92c00c18f4fa473847235ba9",
+      "origin": "nuget:System.Runtime.CompilerServices.Unsafe/6.0.0/lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll"
+    },
+    {
+      "file": "System.Runtime.CompilerServices.Unsafe.dll.meta",
+      "sha256": "5319d95f3dc9c561af012994b8f3e8a49e77b554751267e71ff9da2318308dd4",
+      "origin": "generated Unity PluginImporter settings"
+    },
+    {
+      "file": "System.Text.Encodings.Web.dll",
+      "sha256": "5ad1f348223f281c34b9b857445a1c3412a430026ef049aeac641c53a92408be",
+      "origin": "nuget:System.Text.Encodings.Web/8.0.0/lib/netstandard2.0/System.Text.Encodings.Web.dll"
+    },
+    {
+      "file": "System.Text.Encodings.Web.dll.meta",
+      "sha256": "60ae29f40a68b26cc9ae7fe62aa9cdb07d9c5a42fc78953511ce75d93bf9c196",
+      "origin": "generated Unity PluginImporter settings"
+    },
+    {
+      "file": "System.Text.Json.dll",
+      "sha256": "f80c939be592939ca3bbbc9ddf61bb137ce201ec38d70005915cb70acf2d4cc3",
+      "origin": "nuget:System.Text.Json/8.0.6/lib/netstandard2.0/System.Text.Json.dll"
+    },
+    {
+      "file": "System.Text.Json.dll.meta",
+      "sha256": "3f4721468b4000efa0f6857c50022fd0222ec85d6cc5d9945b4d719899b1f6af",
+      "origin": "generated Unity PluginImporter settings"
+    }
+  ]
+}

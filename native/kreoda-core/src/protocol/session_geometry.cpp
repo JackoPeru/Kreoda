@@ -1,28 +1,43 @@
 #include "protocol/session_geometry.h"
+#include "features/assembly/assembly_geometry.h"
+#include "features/assembly/assembly_constraints.h"
+#include "features/datum/datum_json.h"
+#include "persistence/ocaf_live.h"
 #include "document/document_store.h"
 #include "exchange/sew.h"
 #include "features/sketch/sketch_store.h"
 #include "features/hole/hole.h"
+#include "features/surface/surface_trim_extend.h"
 #include "model/body.h"
 #include "model/shapes.h"
+#include "model/geometry_availability.h"
+#include "model/geometry_kind.h"
+#include "analysis/mass_properties.h"
+#include "analysis/minimum_thickness.h"
 #include "topology/face_roles.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <iterator>
 #include <set>
+#include <stdexcept>
 
 #if KREODA_WITH_OCCT
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
+#include <BRepAlgoAPI_Common.hxx>
 #include <BRepBndLib.hxx>
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepExtrema_DistShapeShape.hxx>
 #include <BRepGProp.hxx>
+#include <BRep_Builder.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
 #include <Precision.hxx>
 #include <Standard_Failure.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
+#include <NCollection_List.hxx>
 #endif
 
 namespace kreoda {
@@ -126,9 +141,18 @@ std::vector<Entity> edges(const ShapeRecord& rec) {
 }
 ShapeRecord record(const std::string& id) {
   ShapeRecord rec;
-  if(ShapeStore::instance().get(id,&rec) && !rec.shape.IsNull()) return rec;
+  std::string geometryError;
+  if (ShapeStore::instance().contains(id)) {
+    if (!GetCurrentShapeRecord(id, &rec, &geometryError))
+      fail("GEOMETRY_UNAVAILABLE", geometryError);
+    if (!rec.shape.IsNull()) return rec;
+  }
   BodyRecord b;
-  if(BodyStore::instance().get(id,&b) && ShapeStore::instance().get(b.tipFeatureId,&rec) && !rec.shape.IsNull()) return rec;
+  if (BodyStore::instance().get(id, &b)) {
+    if (!GetCurrentShapeRecord(b.tipFeatureId, &rec, &geometryError))
+      fail("GEOMETRY_UNAVAILABLE", geometryError);
+    if (!rec.shape.IsNull()) return rec;
+  }
   fail("NOT_FOUND","unknown solid feature or body "+id);
 }
 Entity resolve(const std::string& id) {
@@ -153,6 +177,21 @@ std::vector<ShapeRecord> scope(const Json& p) {
   if(!id.empty())return {record(id)};
   std::vector<ShapeRecord> records; std::string error;
   if(ShapeStore::instance().listInOrder().empty())return records;
+  if(p.contains("includeHidden")) {
+    if(!p["includeHidden"].is_boolean())fail("BAD_PARAMS","includeHidden must be boolean");
+    if(p["includeHidden"].get<bool>()) {
+      for(const auto& b:BodyStore::instance().bodies())records.push_back(record(b.tipFeatureId));
+      for(const auto& rec:ShapeStore::instance().listInOrder())
+        if(rec.type=="Instance")records.push_back(record(rec.featureId));
+      return records;
+    }
+  }
+  const auto bodies=BodyStore::instance().bodies();
+  const auto allRecords=ShapeStore::instance().listInOrder();
+  if(std::none_of(bodies.begin(),bodies.end(),
+      [](const BodyRecord& b){return b.visible;}) &&
+      std::none_of(allRecords.begin(),allRecords.end(),
+          [](const ShapeRecord& r){return r.type=="Instance";}))return records;
   if(!CollectExportRecords(&records,&error))fail("QUERY_FAILED",error);
   return records;
 }
@@ -167,13 +206,105 @@ TopoDS_Shape scopedShape(const Json& p, bool allowEmpty, bool* empty) {
     fail("NOT_FOUND","document has no displayed solids");
   }
   if(recs.size()==1)return recs.front().shape;
+  if(p.value("includeHidden",false)) {
+    TopoDS_Compound all; BRep_Builder builder; builder.MakeCompound(all);
+    for(const auto& rec:recs)builder.Add(all,rec.shape);
+    return all;
+  }
   TopoDS_Compound compound; std::string error;
   if(!CollectSolidsCompound(&compound,&error))fail("QUERY_FAILED",error);
+  return compound;
+}
+TopoDS_Shape displayedSolidShape(const Json& p, bool allowEmpty = false,
+                                 bool* empty = nullptr) {
+  const auto records = scope(p);
+  BRep_Builder builder;
+  TopoDS_Compound compound;
+  builder.MakeCompound(compound);
+  size_t count = 0;
+  for (const auto& rec : records) {
+    for (TopExp_Explorer solid(rec.shape, TopAbs_SOLID); solid.More(); solid.Next()) {
+      builder.Add(compound, solid.Current());
+      ++count;
+    }
+  }
+  if (count == 0) {
+    if (empty) *empty = true;
+    if (allowEmpty) return {};
+    if (records.empty()) fail("NOT_FOUND", "document has no displayed solids");
+    fail("QUERY_FAILED", "document contains no solid bodies with enclosed volume");
+  }
+  if (empty) *empty = false;
+  if (count == 1) {
+    for (const auto& rec : records)
+      if (HasSolidTopology(rec.shape)) return rec.shape;
+  }
   return compound;
 }
 double tolerance(const Json& p, const char* key, double fallback) {
   const auto v=json_double_field(p,key,fallback);
   if(v<0)fail("BAD_PARAMS",std::string(key)+" must be non-negative"); return v;
+}
+Json interferences(const Json& p) {
+  for(const auto key:{"referenceId","featureId","bodyId","ownerBody"})
+    if(p.contains(key))fail("BAD_PARAMS","use featureIds to select interference components");
+  const double threshold=tolerance(p,"volumeToleranceMm3",1e-6);
+  std::vector<ShapeRecord> records;
+  if(p.contains("featureIds")) {
+    const auto& ids=p["featureIds"];
+    if(!ids.is_array()||ids.size()<2||ids.size()>128)
+      fail("BAD_PARAMS","featureIds must contain 2 to 128 distinct component IDs");
+    if(p.contains("includeHidden"))fail("BAD_PARAMS","includeHidden is only available for document scope");
+    std::set<std::string> seen;
+    for(const auto& id:ids) {
+      if(!id.is_string()||!ShapeStore::ValidFeatureId(id.get<std::string>()))fail("BAD_PARAMS","invalid component ID");
+      auto rec=record(id.get<std::string>());
+      if(!seen.insert(rec.featureId).second)fail("BAD_PARAMS","duplicate resolved component");
+      records.push_back(std::move(rec));
+    }
+  } else records=scope(p);
+  if(records.size()>128)fail("LIMIT_EXCEEDED","select at most 128 components for interference analysis");
+  struct Component { ShapeRecord record; Bnd_Box box; };
+  std::vector<Component> components;
+  Json skipped=Json::array();
+  for(const auto& rec:records) {
+    if(!TopExp_Explorer(rec.shape,TopAbs_SOLID).More()) {skipped.push_back(rec.featureId);continue;}
+    if(!BRepCheck_Analyzer(rec.shape,true).IsValid())fail("QUERY_FAILED","invalid solid: "+rec.featureId);
+    Bnd_Box box;BRepBndLib::AddOptimal(rec.shape,box,false,false);
+    if(box.IsVoid()||box.IsOpen())fail("QUERY_FAILED","component has no finite bounds: "+rec.featureId);
+    components.push_back({rec,box});
+  }
+  std::vector<std::pair<size_t,size_t>> candidates;
+  for(size_t a=0;a<components.size();++a)for(size_t b=a+1;b<components.size();++b)
+    if(!components[a].box.IsOut(components[b].box)) {
+      if(candidates.size()>=256)fail("LIMIT_EXCEEDED","too many overlapping bounds; select fewer components");
+      candidates.emplace_back(a,b);
+    }
+  Json pairs=Json::array();
+  for(const auto& candidate:candidates) {
+    const auto& a=components[candidate.first].record;
+    const auto& b=components[candidate.second].record;
+    NCollection_List<TopoDS_Shape> arguments,tools;arguments.Append(a.shape);tools.Append(b.shape);
+    BRepAlgoAPI_Common common;
+    common.SetArguments(arguments);common.SetTools(tools);
+    common.SetNonDestructive(true);common.SetRunParallel(false);common.Build();
+    if(!common.IsDone()||common.HasErrors())fail("QUERY_FAILED","intersection failed: "+a.featureId+" / "+b.featureId);
+    const auto shape=common.Shape();
+    if(shape.IsNull()||!TopExp_Explorer(shape,TopAbs_SOLID).More())continue;
+    if(!BRepCheck_Analyzer(shape,true).IsValid())fail("QUERY_FAILED","invalid intersection result");
+    GProp_GProps props;BRepGProp::VolumeProperties(shape,props,true);
+    const double volume=std::abs(props.Mass());
+    const auto center=props.CentreOfMass();
+    if(!std::isfinite(volume)||!std::isfinite(center.X())||!std::isfinite(center.Y())||!std::isfinite(center.Z()))
+      fail("QUERY_FAILED","intersection measurement is not finite");
+    if(volume<=threshold)continue;
+    pairs.push_back({{"featureA",a.featureId},{"featureB",b.featureId},
+        {"bodyA",bodyId(a)},{"bodyB",bodyId(b)},{"volumeMm3",volume},
+        {"centroidMm",xyz(center.XYZ())},{"bboxMm",bounds(shape)}});
+  }
+  return {{"basis","occt-common-volume"},{"componentCount",components.size()},
+      {"candidatePairCount",candidates.size()},{"volumeToleranceMm3",threshold},
+      {"skippedNonSolidFeatureIds",skipped},{"interferences",pairs}};
 }
 bool directionMatches(const Json& p,const Json& summary,const char* key,double angularTolerance) {
   if(!p.contains(key))return true;
@@ -221,10 +352,30 @@ Json find(const std::string& method,const Json& p) {
   Json out=Json::array();
   for(const auto& rec:scope(p)) {
     auto candidates=method=="findFaces"?faces(rec):edges(rec);
+    AssemblySourceBindingMap sourceBindings;
+    AssemblySourceBindingErrors sourceBindingErrors;
+    std::string sourceBindingError;
+    if(rec.type=="Instance"&&!BuildAssemblyInstanceSourceBindings(rec,&sourceBindings,&sourceBindingErrors,&sourceBindingError)) {
+      for(const auto& candidate:candidates)sourceBindingErrors[candidate.id]=sourceBindingError.empty()?"source binding is unavailable":sourceBindingError;
+    }
     for(auto& e:candidates) {
       const auto duplicate=std::count_if(candidates.begin(),candidates.end(),[&](const Entity& other){return other.id==e.id;})>1;
       e.summary["ambiguous"]=duplicate;
       if(duplicate)e.summary["confidence"]=0.25;
+      e.summary["captureRevision"]=DocumentStore::instance().snapshotRevision();
+      if(e.kind=="face")
+        e.summary["sourceFace"]={{"type","face"},{"featureId",rec.featureId},
+                                 {"persistentFaceId",e.id}};
+      if(rec.type=="Instance") {
+        const auto binding=sourceBindings.find(e.id);
+        if(binding!=sourceBindings.end()&&!duplicate)e.summary["sourceBinding"]=binding->second;
+        else {
+          const auto unavailable=sourceBindingErrors.find(e.id);
+          e.summary["sourceBindingUnavailableReason"]=unavailable==sourceBindingErrors.end()
+              ?(duplicate?"world pick ID is ambiguous":"source binding is unavailable")
+              :unavailable->second;
+        }
+      }
       if(matches(p,e,tol,angleTol))out.push_back(e.summary);
     }
   }
@@ -235,11 +386,81 @@ gp_Vec direction(const Entity& e) {
   if(!key)fail("NOT_IMPLEMENTED","angle requires an analytic plane normal, straight edge or rotational axis");
   const auto& a=e.summary[key];return gp_Vec(a[0].get<double>(),a[1].get<double>(),a[2].get<double>());
 }
+void collectDatumReferences(const Json& value,std::set<std::string>* ids,int depth=0) {
+  if(depth>64)throw std::runtime_error("datum definition nesting is too deep");
+  if(value.is_object()) {
+    if(value.value("type",std::string())=="datum"&&value.contains("featureId")&&value["featureId"].is_string())
+      ids->insert(value["featureId"].get<std::string>());
+    for(const auto& item:value.items())collectDatumReferences(item.value(),ids,depth+1);
+  } else if(value.is_array())for(const auto& item:value)collectDatumReferences(item,ids,depth+1);
+}
+bool validateDatumRecords(const std::vector<DatumRecord>& records,
+                          const std::vector<ShapeRecord>& shapes,
+                          const std::vector<SketchFeature>& sketches,
+                          std::vector<DatumRecord>* validated,
+                          std::string* error,
+                          const std::string& onlyFeatureId="") {
+  try {
+    if(!validated)throw std::runtime_error("validated datum output is required");
+    std::vector<DatumRecord> selected;
+    if(onlyFeatureId.empty())selected=records;
+    else {
+      std::vector<std::string> pending{onlyFeatureId};std::set<std::string> included;
+      while(!pending.empty()) {
+        const auto id=std::move(pending.back());pending.pop_back();
+        if(!included.insert(id).second)continue;
+        const auto found=std::find_if(records.begin(),records.end(),[&](const DatumRecord& record){return record.featureId==id;});
+        if(found==records.end()) {
+          if(id==onlyFeatureId)throw std::runtime_error("native datum not found: "+id);
+          continue;
+        }
+        if(std::find_if(std::next(found),records.end(),[&](const DatumRecord& record){return record.featureId==id;})!=records.end())
+          throw std::runtime_error("duplicate native datum feature id: "+id);
+        selected.push_back(*found);
+        std::set<std::string> dependencies;
+        collectDatumReferences(Json::parse(found->definitionJson),&dependencies);
+        pending.insert(pending.end(),dependencies.begin(),dependencies.end());
+      }
+    }
+    std::vector<std::string> definitions;
+    definitions.reserve(selected.size());
+    for(const auto& record:selected) {
+      if(record.status!="ok"||!record.error.empty()) {
+        if(error)*error="broken native datum "+record.featureId+": "+record.error;
+        return false;
+      }
+      definitions.push_back(SerializeDatumDefinition(record));
+    }
+    if(!ParseDatumDefinitions(definitions,shapes,sketches,validated,error,OcafLive::instance().DatumSourceResolver()))return false;
+    for(const auto& record:selected) {
+      const auto canonical=std::find_if(validated->begin(),validated->end(),[&](const DatumRecord& item){return item.featureId==record.featureId;});
+      if(canonical==validated->end()||Json::parse(SerializeDatumRecord(*canonical))!=Json::parse(SerializeDatumRecord(record))) {
+        if(error)*error="native datum record differs from its validated definition: "+record.featureId;
+        return false;
+      }
+    }
+    return true;
+  } catch(const std::exception& failure) {
+    if(error)*error=failure.what();
+    return false;
+  }
+}
 Json referenceCheck(const std::string& id) {
   try {
-    if(SketchStore::instance().contains(id))return {{"id",id},{"ok",true},{"kind","sketch"}};
+    if(SketchStore::instance().contains(id))return {{"id",id},{"ok",true},{"kind","sketch"},{"owner",id}};
+    DatumRecord datum;
+    if(DatumStore::instance().get(id,&datum)) {
+      if(datum.status!="ok"||!datum.error.empty())return {{"id",id},{"ok",false},{"errorCode","BROKEN_REFERENCE"},{"detail","native datum is not healthy"}};
+      std::vector<DatumRecord> validated;std::string error;
+      if(!validateDatumRecords(DatumStore::instance().listInOrder(),ShapeStore::instance().listInOrder(),{},&validated,&error,id))
+        return {{"id",id},{"ok",false},{"errorCode","INVALID_REFERENCE"},{"detail",error}};
+      const char* kind=datum.kind==DatumKind::Plane?"datumPlane":datum.kind==DatumKind::Axis?"datumAxis":"datumPoint";
+      return {{"id",id},{"ok",true},{"kind",kind},{"owner",datum.featureId}};
+    }
     const auto e=resolve(id);
-    return {{"id",id},{"ok",true},{"kind",e.kind},{"confidence",e.summary.value("confidence",1.0)}};
+    const auto kind=e.kind=="shape"?"body":e.kind;
+    return {{"id",id},{"ok",true},{"kind",kind},{"confidence",e.summary.value("confidence",1.0)},
+            {"owner",e.owner.featureId},{"ownerBody",bodyId(e.owner)},{"role",e.role}};
   } catch(const SessionQueryError& e) {return {{"id",id},{"ok",false},{"errorCode",e.code},{"detail",e.what()}};}
 }
 Json manipulators(const Json& p) {
@@ -287,8 +508,23 @@ Json manipulators(const Json& p) {
   else if(rec.type=="Chamfer")add("distance","linear","distanceMm","mm");
   else if(rec.type=="Instance"&&values.size()==6) {
     const Json position=Json::array({values[0],values[1],values[2]});
-    out.push_back({{"id","position"},{"type","position"},{"parameters",{"txMm","tyMm","tzMm"}},{"origin",position},{"unit","mm"}});
-    out.push_back({{"id","rotation"},{"type","angular"},{"parameters",{"rxDeg","ryDeg","rzDeg"}},{"origin",position},{"unit","deg"},{"rotationConvention","extrinsic-ZYX"}});
+    const Json basis=Json::array({{1,0,0},{0,1,0},{0,0,1}});
+    out.push_back({{"id","position"},{"type","position"},{"parameters",{"txMm","tyMm","tzMm"}},{"origin",position},{"unit","mm"},{"basis",basis}});
+    out.push_back({{"id","position-xy"},{"type","planar"},{"parameters",{"txMm","tyMm"}},{"origin",position},{"unit","mm"},
+      {"xAxis",{1,0,0}},{"yAxis",{0,1,0}},{"normal",{0,0,1}}});
+    out.push_back({{"id","rotation"},{"type","angular"},{"parameters",{"rxDeg","ryDeg","rzDeg"}},{"origin",position},{"unit","deg"},{"basis",basis},{"rotationConvention","extrinsic-ZYX"}});
+  }
+  const auto names=DescribeParams(rec.type);
+  for(auto& manip:out) {
+    Json current=Json::object();
+    const Json parameters=manip.contains("parameters")?manip["parameters"]:Json::array({manip["parameter"]});
+    for(const auto& name:parameters) {
+      const auto found=std::find(names.begin(),names.end(),name.get<std::string>());
+      if(found==names.end()||static_cast<std::size_t>(found-names.begin())>=values.size())
+        fail("QUERY_FAILED","manipulator parameter has no canonical value");
+      current[name.get<std::string>()]=values[found-names.begin()];
+    }
+    manip["currentValues"]=std::move(current);
   }
   return {{"featureId",rec.featureId},{"manipulators",out}};
 }
@@ -304,11 +540,14 @@ Json validate(const std::string& method,const Json& p) {
   }
   std::vector<ShapeRecord> recs;
   std::vector<SketchFeature> sketches;
+  std::vector<DatumRecord> datums;
+  std::string datumScopeId;
   if(method=="validateDocument") {
-    recs=ShapeStore::instance().listInOrder();sketches=SketchStore::instance().listInOrder();
+    recs=ShapeStore::instance().listInOrder();sketches=SketchStore::instance().listInOrder();datums=DatumStore::instance().listInOrder();
   } else if(method=="validateFeature") {
-    const auto id=string(p,"featureId",true);SketchFeature sketch;
-    if(SketchStore::instance().get(id,&sketch))sketches.push_back(sketch);else recs.push_back(record(id));
+    const auto id=string(p,"featureId",true);SketchFeature sketch;DatumRecord datum;
+    if(DatumStore::instance().get(id,&datum)){datums=DatumStore::instance().listInOrder();datumScopeId=id;}
+    else if(SketchStore::instance().get(id,&sketch))sketches.push_back(sketch);else recs.push_back(record(id));
   } else {
     const auto id=string(p,"bodyId",true);BodyRecord body;
     if(!BodyStore::instance().get(id,&body))fail("NOT_FOUND","unknown body "+id);
@@ -316,11 +555,36 @@ Json validate(const std::string& method,const Json& p) {
   }
   Json checks=Json::array();bool valid=true;
   auto check=[&](std::string code,std::string detail,bool ok) {checks.push_back({{"code",code},{"detail",detail},{"ok",ok}});valid=valid&&ok;};
+  if(method=="validateDocument") {
+    std::vector<AssemblyConstraintIssue> issues;
+    ReadAssemblyConstraintIssues(&issues);
+    if(issues.empty())check("assembly-constraint-valid","assembly constraints",true);
+    else for(const auto& issue:issues)
+      check("assembly-constraint-valid",issue.id+": "+issue.reason,false);
+  }
+  if(!datums.empty()) {
+    std::vector<DatumRecord> validated;std::string error;
+    const bool datumRecordsValid=validateDatumRecords(datums,ShapeStore::instance().listInOrder(),
+        datumScopeId.empty()?SketchStore::instance().listInOrder():std::vector<SketchFeature>{},&validated,&error,datumScopeId);
+    for(const auto& datum:datums) {
+      if(!datumScopeId.empty()&&datum.featureId!=datumScopeId)continue;
+      const bool present=std::any_of(validated.begin(),validated.end(),[&](const DatumRecord& item){return item.featureId==datum.featureId;});
+      check("datum-definition-valid",datum.featureId,datumRecordsValid&&present);
+    }
+    if(!datumRecordsValid&&!datums.empty())check("datum-validation-detail",error,false);
+  }
   for(const auto& rec:recs) {
     check("brep-valid",rec.featureId,!rec.shape.IsNull()&&BRepCheck_Analyzer(rec.shape,true).IsValid());
-    check("solid-present",rec.featureId,!rec.shape.IsNull()&&TopExp_Explorer(rec.shape,TopAbs_SOLID).More());
+    if (IsSurfaceGeometry(rec))
+      check("surface-present",rec.featureId,HasSurfaceTopology(rec.shape));
+    else
+      check("solid-present",rec.featureId,HasSolidTopology(rec.shape));
     check("params-finite",rec.featureId,std::all_of(rec.paramsMm.begin(),rec.paramsMm.end(),[](double v){return std::isfinite(v);}));
-    for(const auto& dep:rec.dependsOn)check("dependency-resolves",rec.featureId+" -> "+dep,ShapeStore::instance().contains(dep)||SketchStore::instance().contains(dep));
+    for(const auto& dep:rec.dependsOn) {
+      const bool resolves=ShapeStore::instance().contains(dep)||SketchStore::instance().contains(dep)||
+          (DatumStore::instance().contains(dep)&&referenceCheck(dep)["ok"].get<bool>());
+      check("dependency-resolves",rec.featureId+" -> "+dep,resolves);
+    }
     if((rec.type=="Hole"||rec.type=="HolePattern")&&!rec.dependsOn.empty()) {
       const auto start=rec.refExtra.find("face=");
       if(start==std::string::npos)check("reference-resolves",rec.featureId,false);
@@ -341,7 +605,11 @@ Json validate(const std::string& method,const Json& p) {
     }
   }
   for(const auto& sketch:sketches) {
-    if(!sketch.supportRef.empty())check("sketch-support-resolves",sketch.id,referenceCheck(sketch.supportRef)["ok"].get<bool>());
+    if(sketch.planeKind=="Datum"||!sketch.supportRef.empty()) {
+      const auto support=sketch.supportRef.empty()?Json{{"ok",false}}:referenceCheck(sketch.supportRef);
+      const bool isDatumPlane=support.value("ok",false)&&support.contains("kind")&&support["kind"]=="datumPlane";
+      check("sketch-support-is-datum-plane",sketch.id+" -> "+sketch.supportRef,sketch.planeKind=="Datum"&&isDatumPlane);
+    }
     check("sketch-points-finite",sketch.id,std::all_of(sketch.model.points.begin(),sketch.model.points.end(),[](const auto& point){return std::isfinite(point.x)&&std::isfinite(point.y);}));
   }
   return {{"valid",valid},{"checks",checks},{"scope","kernel"}};
@@ -351,9 +619,109 @@ Json validate(const std::string& method,const Json& p) {
 
 Json RunSessionGeometryQuery(const std::string& method,const Json& p) {
   if(!p.is_object())fail("BAD_PARAMS","query params must be an object");
+#if !KREODA_WITH_OCCT
+  (void)method;
+#endif
 #if KREODA_WITH_OCCT
   try {
+    if (method == "resolveSurfacePoint") {
+      for (const auto& field : p.items())
+        if (field.key() != "targetId" && field.key() != "pointMm" &&
+            field.key() != "persistentFaceId" && field.key() != "maxDistanceMm")
+          fail("BAD_PARAMS", "unsupported resolveSurfacePoint parameter: " + field.key());
+      const auto targetId = string(p, "targetId", true);
+      if (!ShapeStore::ValidFeatureId(targetId))
+        fail("BAD_PARAMS", "targetId is invalid");
+      if (!p.contains("pointMm") || !p.at("pointMm").is_array() ||
+          p.at("pointMm").size() != 3)
+        fail("BAD_PARAMS", "pointMm must contain three finite coordinates");
+      std::array<double, 3> coordinates{};
+      for (size_t i = 0; i < coordinates.size(); ++i) {
+        const auto& value = p.at("pointMm").at(i);
+        if (!value.is_number() || !std::isfinite(value.get<double>()))
+          fail("BAD_PARAMS", "pointMm must contain three finite coordinates");
+        coordinates[i] = value.get<double>();
+      }
+      std::string persistentFaceId;
+      if (p.contains("persistentFaceId")) {
+        if (!p.at("persistentFaceId").is_string() ||
+            p.at("persistentFaceId").get<std::string>().empty() ||
+            p.at("persistentFaceId").get<std::string>().size() > 512)
+          fail("BAD_PARAMS", "persistentFaceId must be a non-empty persistent face ID");
+        persistentFaceId = p.at("persistentFaceId").get<std::string>();
+      }
+      double maxDistanceMm = 0.5;
+      if (p.contains("maxDistanceMm")) {
+        if (!p.at("maxDistanceMm").is_number() ||
+            !std::isfinite(p.at("maxDistanceMm").get<double>()))
+          fail("BAD_PARAMS", "maxDistanceMm must be a finite number");
+        maxDistanceMm = p.at("maxDistanceMm").get<double>();
+      }
+      SurfaceTrimExtendJson result;
+      std::string error;
+      if (!surface_trim_extend_detail::ResolveSurfacePoint(record(targetId),
+              gp_Pnt(coordinates[0], coordinates[1], coordinates[2]),
+              persistentFaceId, maxDistanceMm, &result, &error))
+        fail("QUERY_FAILED", error);
+      return result;
+    }
+    if(method=="getDatum") {
+      const auto id=string(p,"featureId",true);DatumRecord datum;
+      if(!ShapeStore::ValidFeatureId(id))fail("BAD_PARAMS","invalid featureId");
+      if(!DatumStore::instance().get(id,&datum))fail("NOT_FOUND",id);
+      return Json::parse(SerializeDatumRecord(datum));
+    }
     if(method=="findFaces"||method=="findEdges")return find(method,p);
+    if(method=="measureInterferences")return interferences(p);
+    if(method=="measureMinimumThickness") {
+      if(p.contains("referenceId"))fail("BAD_PARAMS","select a complete feature or body for thickness analysis");
+      int budget=512;
+      if(p.contains("maxSamples")) {
+        if(!p["maxSamples"].is_number_integer() || p["maxSamples"].get<double>()<32 || p["maxSamples"].get<double>()>4096)
+          fail("BAD_PARAMS","maxSamples must be an integer from 32 to 4096");
+        budget=p["maxSamples"].get<int>();
+      }
+      const auto selected=scope(p);
+      if(selected.size()!=1)fail("BAD_PARAMS","select one feature or body for thickness analysis");
+      MinimumThicknessAnalysis analysis;std::string error;
+      if(!MeasureMinimumThickness(selected.front(),budget,&analysis,&error))fail("QUERY_FAILED",error);
+      Json result={{"basis","occt-sampled-normal-rays"},{"isGlobalMinimum",false},
+        {"featureId",selected.front().featureId},{"requestedSamples",budget},{"solidCount",analysis.solidCount},
+        {"totalFaces",analysis.totalFaces},{"sampledFaces",analysis.sampledFaces},
+        {"attemptedSamples",analysis.attemptedSamples},{"validSamples",analysis.validSamples},
+        {"missedSamples",analysis.attemptedSamples-analysis.validSamples},
+        {"timeBudgetExceeded",analysis.timeBudgetExceeded},{"minimumThicknessMm",nullptr},{"witness",nullptr}};
+      if(analysis.minimumThicknessMm) {
+        result["minimumThicknessMm"]=*analysis.minimumThicknessMm;
+        result["witness"]={{"pointAMm",analysis.pointAMm},{"pointBMm",analysis.pointBMm}};
+      }
+      return result;
+    }
+    if(method=="measureDraftAngles") {
+      if(!p.contains("pullDirection"))fail("BAD_PARAMS","pullDirection is required");
+      const auto components=json_number_array(p,"pullDirection");
+      if(components.size()!=3)fail("BAD_PARAMS","pullDirection must contain three numbers");
+      gp_Vec pull(components[0],components[1],components[2]);
+      if(pull.SquareMagnitude()<=1e-24)fail("BAD_PARAMS","pullDirection cannot be zero");
+      pull.Normalize();
+      const double threshold=tolerance(p,"neutralToleranceDeg",1e-6);
+      if(threshold>=90)fail("BAD_PARAMS","neutralToleranceDeg must be below 90");
+      Json entries=Json::array();
+      for(const auto& rec:scope(p))for(const auto& face:faces(rec)) {
+        if(face.summary.value("surfaceType",std::string())!="plane")
+          fail("NOT_IMPLEMENTED","draft analysis currently supports planar faces only; "+face.id+" is curved");
+        const auto& normal=face.summary["normal"];
+        gp_Vec n(normal[0].get<double>(),normal[1].get<double>(),normal[2].get<double>());
+        const double signedAngle=std::asin(std::clamp(n.Dot(pull),-1.0,1.0))*180/std::acos(-1.0);
+        entries.push_back({{"referenceId",face.id},{"featureId",rec.featureId},
+          {"draftAngleDeg",signedAngle},{"classification",signedAngle>threshold?"positive":
+            signedAngle< -threshold?"negative":"neutral"},
+          {"normal",normal}});
+      }
+      return {{"faces",entries},{"pullDirection",xyz(pull.XYZ())},
+              {"neutralToleranceDeg",threshold},{"basis","occt-planar-face-normal"},
+              {"angleConvention","signed angle between face plane and pull direction; positive when outward normal points along pull"}};
+    }
     if(method=="getManipulators")return manipulators(p);
     if(method=="validateDocument"||method=="validateBody"||method=="validateFeature"||method=="validateReferences")return validate(method,p);
     if(method=="measureDistance"||method=="measureAngle") {
@@ -384,15 +752,69 @@ Json RunSessionGeometryQuery(const std::string& method,const Json& p) {
       if(!ref.empty())result["referenceId"]=ref;else result["featureId"]=string(p,"featureId",true);
       return result;
     }
+    if(method=="measureMassProperties") {
+      // Explicit density is kg/m³; native geometry remains in millimetres.
+      // No default material is assumed for an unassigned CAD body.
+      double density = 0;
+      if(p.contains("densityKgPerM3")) {
+        if(!p.at("densityKgPerM3").is_number())
+          fail("BAD_PARAMS","densityKgPerM3 must be a nonnegative finite number");
+        density=p.at("densityKgPerM3").get<double>();
+        if(!std::isfinite(density)||density<0)
+          fail("BAD_PARAMS","densityKgPerM3 must be a nonnegative finite number");
+      }
+      bool empty=false;
+      const bool hasExplicitScope = p.contains("featureId") || p.contains("bodyId") ||
+                                    p.contains("ownerBody") || p.contains("referenceId");
+      const auto shape=hasExplicitScope ? scopedShape(p,false,&empty) : displayedSolidShape(p);
+      if (!HasSolidTopology(shape))
+        fail("QUERY_FAILED", "selected surface geometry has no enclosed volume or mass");
+      if (HasMixedSolidSurfaceTopology(shape))
+        fail("QUERY_FAILED", "selected geometry mixes solid and free surface faces");
+      ShapeRecord rec;rec.shape=shape;
+      MassProperties properties;
+      std::string error;
+      if(!MeasureMassProperties(rec,density/1e9,&properties,&error))
+        fail("QUERY_FAILED",error);
+      Json result={{"volumeMm3",properties.volumeMm3},
+                   {"areaMm2",properties.surfaceAreaMm2},
+                   {"centroidMm",Json::array({properties.centroidMm[0],properties.centroidMm[1],properties.centroidMm[2]})},
+                   {"densityKgPerM3",density},{"massKg",properties.massKg},{"basis","brep"}};
+      bool selected=false;
+      for(const auto key:{"featureId","bodyId","referenceId","ownerBody"})
+        if(p.contains(key)){result[key]=p[key];selected=true;}
+      result["modelScope"]=selected?"selected-entity":"current-body-tips-and-displayed-instances";
+      return result;
+    }
     if(method=="measureVolume"||method=="measureArea"||method=="getBoundingBox") {
-      bool empty=false;const auto shape=scopedShape(p,method!="getBoundingBox",&empty);
+      bool empty=false;
+      const bool hasExplicitScope = p.contains("featureId") || p.contains("bodyId") ||
+                                    p.contains("ownerBody") || p.contains("referenceId");
+      const auto shape = method=="measureVolume" && !hasExplicitScope
+          ? displayedSolidShape(p, true, &empty)
+          : scopedShape(p,method!="getBoundingBox",&empty);
+      const bool surface = HasSurfaceTopology(shape);
+      if (method=="measureVolume" && HasMixedSolidSurfaceTopology(shape))
+        fail("QUERY_FAILED", "selected geometry mixes solid and free surface faces");
+      if (method=="measureVolume" && !HasSolidTopology(shape))
+        if (!empty) fail("QUERY_FAILED", "selected surface geometry has no enclosed volume");
       GProp_GProps props;
       if(!empty) {
-        if(method=="measureVolume"||method=="getBoundingBox")BRepGProp::VolumeProperties(shape,props,false,false,false);
+        if((method=="measureVolume"||method=="getBoundingBox")&&!surface)BRepGProp::VolumeProperties(shape,props,false,false,false);
         else BRepGProp::SurfaceProperties(shape,props,false,false);
       }
-      Json result={{method=="measureArea"?"areaMm2":"volumeMm3",empty?0:props.Mass()},{"basis","brep"}};
-      if(method=="getBoundingBox")result["bboxMm"]=bounds(shape);
+      const Json measured = method=="measureArea"
+          ? Json(empty?0:props.Mass())
+          : (surface ? Json(nullptr) : Json(empty?0:props.Mass()));
+      Json result={{method=="measureArea"?"areaMm2":"volumeMm3",measured},
+                   {"basis","brep"}};
+      if(method=="getBoundingBox") {
+        result["bboxMm"]=bounds(shape);
+        int solidCount=0;
+        for(TopExp_Explorer ex(shape,TopAbs_SOLID);ex.More();ex.Next())++solidCount;
+        result["solidCount"]=solidCount;
+        if (surface) result["geometryKind"]="surface";
+      }
       bool selected=false;
       for(const auto key:{"featureId","bodyId","referenceId","ownerBody"})if(p.contains(key)){result[key]=p[key];selected=true;}
       result["modelScope"]=selected?"selected-entity":"current-body-tips-and-displayed-instances";

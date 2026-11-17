@@ -1,0 +1,62 @@
+[
+  {
+    "path": "native/kreoda-core/src/features/datum/datum_commands.cpp",
+    "sha256": "c0ef3603af518545600b47f2ced25053f18880f3e73c50becd038a68e20af45e"
+  },
+  {
+    "path": "native/kreoda-core/src/features/datum/datum_commands.h",
+    "sha256": "5074f99d804822d7d47445388d083371155568ebbc9d4f55beddc113f68557c7"
+  },
+  {
+    "path": "native/kreoda-core/src/features/datum/datum_json.cpp",
+    "sha256": "59cdbfe6476b8fd915fd14b6cc4bce50d1fbe61cdcc3197ff0d92db1e9758812"
+  },
+  {
+    "path": "native/kreoda-core/src/features/datum/datum_json.h",
+    "sha256": "f4d14f3c0bdc33323ea2d6fde24885119022edafedbcf79db495207beee0eb67"
+  },
+  {
+    "path": "native/kreoda-core/src/features/primitives/primitives.cpp",
+    "sha256": "c2498ad4cdcbf126521fb04954803a9ef61b3440aa58ef2d7756aadea635ea52"
+  },
+  {
+    "path": "native/kreoda-core/src/persistence/ocaf_live.cpp",
+    "sha256": "cd111ac1d09360eedf15b98cd5d388ccc8b62013570c743398b5f74529f52ea4"
+  },
+  {
+    "path": "native/kreoda-core/src/protocol/dispatcher.cpp",
+    "sha256": "830c261135678726793e0f45f53cd3400333594ee6a40ef88f891fbd9e4689ef"
+  },
+  {
+    "path": "native/kreoda-core/src/protocol/dispatcher.h",
+    "sha256": "deca436ff5ad614d5e5d75396c6deec241fdb099b90ddfeca3b453e4eda71f5c"
+  },
+  {
+    "path": "native/kreoda-core/src/protocol/generated/cad_protocol_generated.h",
+    "sha256": "713338312577835a70352b7e5601cf288a18681c890bf2f4d6d27208d16d586e"
+  },
+  {
+    "path": "native/kreoda-core/src/protocol/session_geometry.cpp",
+    "sha256": "42e2f591d48e4295e84e125316cd8ecf326a7c12f38ef3005a4427daf0e790f7"
+  },
+  {
+    "path": "native/kreoda-core/tests/test_datum.cpp",
+    "sha256": "72d383c71f9f4bf638881f19ab9929cf236486e648d89f5055703b12cf62b820"
+  },
+  {
+    "path": "packages/protocol/csharp/Generated/CommandType.cs",
+    "sha256": "f71b84ddb43903a97215111863fec498b65146314956c162fb41ffe739ea0712"
+  },
+  {
+    "path": "packages/protocol/src/generated/kreoda/protocol/command-type.ts",
+    "sha256": "21064733f2bb9aa73bec31c42a36895420b4bdbc33504509929b070b4a97af5e"
+  },
+  {
+    "path": "packages/protocol/src/index.ts",
+    "sha256": "dd049c41a4a3ac45fd4862d2750ccbd22321caee8167ca7a7571d8434695fc71"
+  },
+  {
+    "path": "schemas/cad_protocol.fbs",
+    "sha256": "f22ae46416d7ef22120e1543a55a59264ae714a3c5a32d21acfe75efdc39d174"
+  }
+]

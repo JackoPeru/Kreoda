@@ -29,6 +29,51 @@ const LABELS: Record<string, { label: EnKey; beginner: EnKey; desc: EnKey }> = {
     beginner: "cmd.extrudeBeginner",
     desc: "cmd.extrudeDesc",
   },
+  CreateSurfaceExtrude: {
+    label: "cmd.surfaceExtrude",
+    beginner: "cmd.surfaceExtrudeBeginner",
+    desc: "cmd.surfaceExtrudeDesc",
+  },
+  CreateSurfaceRevolve: {
+    label: "cmd.surfaceRevolve",
+    beginner: "cmd.surfaceRevolveBeginner",
+    desc: "cmd.surfaceRevolveDesc",
+  },
+  CreateSurfaceLoft: {
+    label: "cmd.surfaceLoft",
+    beginner: "cmd.surfaceLoftBeginner",
+    desc: "cmd.surfaceLoftDesc",
+  },
+  CreateSurfaceSew: {
+    label: "cmd.surfaceSew",
+    beginner: "cmd.surfaceSewBeginner",
+    desc: "cmd.surfaceSewDesc",
+  },
+  CreateSurfaceOffset: {
+    label: "cmd.surfaceOffset",
+    beginner: "cmd.surfaceOffsetBeginner",
+    desc: "cmd.surfaceOffsetDesc",
+  },
+  CreateSurfaceSweep: {
+    label: "cmd.surfaceSweep",
+    beginner: "cmd.surfaceSweepBeginner",
+    desc: "cmd.surfaceSweepDesc",
+  },
+  CreateSurfaceThicken: {
+    label: "cmd.surfaceThicken",
+    beginner: "cmd.surfaceThickenBeginner",
+    desc: "cmd.surfaceThickenDesc",
+  },
+  CreateSurfaceTrim: {
+    label: "cmd.surfaceTrim",
+    beginner: "cmd.surfaceTrimBeginner",
+    desc: "cmd.surfaceTrimDesc",
+  },
+  CreateSurfaceExtend: {
+    label: "cmd.surfaceExtend",
+    beginner: "cmd.surfaceExtendBeginner",
+    desc: "cmd.surfaceExtendDesc",
+  },
   CreateBoolean: {
     label: "cmd.boolean",
     beginner: "cmd.booleanBeginner",
@@ -50,10 +95,30 @@ const LABELS: Record<string, { label: EnKey; beginner: EnKey; desc: EnKey }> = {
     beginner: "cmd.chamferBeginner",
     desc: "cmd.chamferDesc",
   },
+  CreateShell: {
+    label: "cmd.shell",
+    beginner: "cmd.shellBeginner",
+    desc: "cmd.shellDesc",
+  },
   CreateInstance: {
     label: "cmd.instance",
     beginner: "cmd.instanceBeginner",
     desc: "cmd.instanceDesc",
+  },
+  CreateMirror: {
+    label: "cmd.mirror",
+    beginner: "cmd.mirrorBeginner",
+    desc: "cmd.mirrorDesc",
+  },
+  CreateBodyPattern: {
+    label: "cmd.bodyPattern",
+    beginner: "cmd.bodyPatternBeginner",
+    desc: "cmd.bodyPatternDesc",
+  },
+  CreateCircularBodyPattern: {
+    label: "cmd.circularPattern",
+    beginner: "cmd.circularPatternBeginner",
+    desc: "cmd.circularPatternDesc",
   },
   Undo: { label: "cmd.undo", beginner: "cmd.undo", desc: "cmd.undoDesc" },
   Redo: { label: "cmd.redo", beginner: "cmd.redo", desc: "cmd.redoDesc" },

@@ -1,0 +1,12 @@
+
+> @kreoda/desktop@0.1.0 test C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop
+> vitest run "tests/session-context.test.ts" "tests/session-relay.test.ts" "tests/session-bodies.test.ts"
+
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop
+
+
+ Test Files  3 passed (3)
+      Tests  77 passed (77)
+   Start at  10:57:23
+   Duration  3.79s (transform 2.89s, setup 40ms, import 4.86s, tests 1.37s, environment 1.90s)

@@ -1,0 +1,37 @@
+{
+  "scope": "Task2 datum persistence and prospective preflight, partial",
+  "accepted": false,
+  "fullDatumFeatureComplete": false,
+  "goalComplete": false,
+  "base": "ae77b37d94bf69db6fec0b20c446216aa1a09957",
+  "implementation": "parent explicit quota fallback",
+  "focused": {
+    "passed": 16,
+    "failed": 0,
+    "skipped": 0
+  },
+  "native": {
+    "passed": 209,
+    "failed": 0,
+    "seconds": 91.54
+  },
+  "selfTestExit": 0,
+  "actualOcaf": {
+    "roundtrip": true,
+    "undoRedo": true,
+    "removeUndo": true,
+    "invalidOpenPreservesPriorDocument": true
+  },
+  "actualIcad": {
+    "openKeepsDatums": true,
+    "reopenedLabelsEditable": true
+  },
+  "remaining": [
+    "atomic public create/update and complete downstream recompute",
+    "cycle/delete guards and SetParam",
+    "supported sketches/native solid chain",
+    "persistent naming for indexed source roles",
+    "native commands31-35 and all client/schema/MCP exposure",
+    "independent final review"
+  ]
+}

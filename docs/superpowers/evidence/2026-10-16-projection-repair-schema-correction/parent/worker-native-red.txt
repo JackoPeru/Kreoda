@@ -1,0 +1,31 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = SketchProjectionRecovery.*
+[==========] Running 3 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 3 tests from SketchProjectionRecovery
+[ RUN      ] SketchProjectionRecovery.RepairsTwoBrokenGroupsWithoutPublishingStaleGeometry
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch_projection.cpp(343): error: Value of: kreoda::SetSketchProjectionGroup( fixture.targetId, fixture.groupAId, fixture.definitionA.dump(), &error)
+  Actual: false
+Expected: true
+selection is missing or belongs to another context
+
+[  FAILED  ] SketchProjectionRecovery.RepairsTwoBrokenGroupsWithoutPublishingStaleGeometry (51 ms)
+[ RUN      ] SketchProjectionRecovery.RemovesOneBrokenGroupAndLastProfileRemovalIsAtomic
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_sketch_projection.cpp(462): error: Value of: kreoda::RemoveSketchProjectionGroup( fixture.targetId, fixture.groupAId, &error)
+  Actual: false
+Expected: true
+selection is missing or belongs to another context
+
+[  FAILED  ] SketchProjectionRecovery.RemovesOneBrokenGroupAndLastProfileRemovalIsAtomic (46 ms)
+[ RUN      ] SketchProjectionRecovery.AggregateOverflowCannotBreakALaterHealthyGroup
+[       OK ] SketchProjectionRecovery.AggregateOverflowCannotBreakALaterHealthyGroup (706 ms)
+[----------] 3 tests from SketchProjectionRecovery (804 ms total)
+
+[----------] Global test environment tear-down
+[==========] 3 tests from 1 test suite ran. (804 ms total)
+[  PASSED  ] 1 test.
+[  FAILED  ] 2 tests, listed below:
+[  FAILED  ] SketchProjectionRecovery.RepairsTwoBrokenGroupsWithoutPublishingStaleGeometry
+[  FAILED  ] SketchProjectionRecovery.RemovesOneBrokenGroupAndLastProfileRemovalIsAtomic
+
+ 2 FAILED TESTS

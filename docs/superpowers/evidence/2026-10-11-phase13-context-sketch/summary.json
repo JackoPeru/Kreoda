@@ -1,0 +1,27 @@
+{
+  "status": "TASK6_VERIFIED_DEPLOYMENT_PENDING",
+  "native": 176,
+  "managedNet8": 119,
+  "managedActualNetstandard": 119,
+  "javascript": 272,
+  "desktop": 207,
+  "unity": 40,
+  "actualOcctElectronCSharpProof": 1,
+  "review": {
+    "threadId": "01a12a7e-f1b4-7590-a2c0-288dd20feef6",
+    "model": "gpt-6-sol",
+    "effort": "high",
+    "verdict": "ship",
+    "readOnlyEnforced": false,
+    "finalFiles": 808,
+    "finalMatchesBuild": true,
+    "manifestSha256": "6e17ea64e08298a7309d582119a1e59af0eaf1f3622282b415e266bbb7fb408a"
+  },
+  "apk": {
+    "sha256": "4a85ea0077b74800d5c9423e3567d47e59853cca5c26243b15c064e87e69945c",
+    "bytes": 36299166,
+    "directExitCode": 0,
+    "hardwareTested": false
+  },
+  "phase13Complete": false
+}

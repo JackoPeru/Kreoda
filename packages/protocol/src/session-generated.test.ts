@@ -25,3 +25,14 @@ it("validates snapshot and delta wire shapes generated from the same source", ()
   expect(validators.SessionIncrementalEvent({ ...delta, added: [{ kind: "unknown", id: "a", index: 0, value: {} }] })).toBe(false);
   expect(validators.SessionIncrementalEvent({ ...delta, changedMeshIds: [3] })).toBe(false);
 });
+
+it("validates native datum records and full sketch frames while accepting legacy snapshots", () => {
+  const frame = { originMm: [10, 20, 30], xAxis: [1, 0, 0], yAxis: [0, 1, 0], normal: [0, 0, 1] };
+  const datum = { featureId: "plane", type: "DatumPlane", kind: "DatumPlane", definition: { type: "principal", planeKind: "XY" },
+    dependsOn: [], resolved: frame, status: "ok", error: "" };
+  const legacy = { sessionId: "11111111-1111-4111-8111-111111111111", documentId: "doc", revision: 0, features: [], sketches: [], bodies: [] };
+  expect(validators.SessionSnapshotPayload(legacy)).toBe(true);
+  expect(validators.SessionSnapshotPayload({ ...legacy, datums: [datum] })).toBe(true);
+  expect(validators.SessionSnapshotPayload({ ...legacy, datums: [{ ...datum, resolved: { ...frame, normal: [0, 1] } }] })).toBe(false);
+  expect(validators.SessionSnapshotPayload({ ...legacy, sketches: [{ featureId: "sketch", plane: { origin: [0, 1], xAxis: frame.xAxis, yAxis: frame.yAxis, normal: frame.normal } }] })).toBe(false);
+});

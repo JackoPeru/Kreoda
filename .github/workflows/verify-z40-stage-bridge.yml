@@ -1,0 +1,454 @@
+name: verify-z40-stage-bridge
+
+# NEW independent Stage D + Bridge HTTP MCP acceptance on the exact already-
+# accepted NEW z40 draft bytes (never original ZIP SHA036C or old ASAR).
+# A narrow push trigger registers this new workflow directly on the QA branch;
+# manual workflow_dispatch by itself is unavailable until registration on main.
+on:
+  push:
+    branches:
+      - codex/phase12-quest-foundation
+    paths:
+      - .github/workflows/verify-z40-stage-bridge.yml
+      - scripts/ci/candidate-z40-stage-d-bridge-packaged-smoke.mjs
+  workflow_dispatch:
+
+permissions:
+  # Authenticated draft releases require a write-capable repository principal;
+  # this token is scoped only to the download step, never the packaged process.
+  contents: write
+  actions: read
+
+jobs:
+  z40-stage-d-bridge-packaged-acceptance:
+    # Never skip an incorrect ref as a green job: run and FAIL in the first gate.
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      Z40_TAG: kreoda-z40-candidate-20261114-9d11ef58-22519955-1cca3180
+      Z40_DRAFT_RELEASE_ID: 445203521
+      Z40_BASE_COMMIT: 9d11ef58c7cd5af97cd7b580f40aaf98f002ff38
+      Z40_UI_SHA256: 225199551549cebe7a35ee5a02f71bbda743a80dd0e9a99d34941871a408a993
+      Z40_RELEASE_ID: 0.1.0-integrated-renderer-z40-9d11ef58-225199551549
+      Z40_ZIP_NAME: Kreoda-0.1.0-integrated-renderer-z40-9d11ef58-225199551549-Desktop-Bridge-Quest.zip
+      Z40_ZIP_SHA256: 1cca3180578c35d3a5f81f0405d931eea66de63df50d0727d4bc76ccfb57a8b4
+      Z40_ZIP_BYTES: 400539445
+      Z40_RECEIPT_SHA256: a89c263a88acbb3ec2145fda313c312afcb3803012be8949e1e8efd8bfb4985b
+      Z40_MANIFEST_SHA256: fc62d7e8bad7ebdebd37e15c226ef13dc5467118d39e27cf4fc35a4a7374119e
+      Z40_EXE_SHA256: f273568c294ace3dee30b15df9fc514999bfec309c2b9987f4a7f92888963e23
+      Z40_ASAR_SHA256: 121b8083d3dec16f0cfa3343ff0b0b31753813c1451f14ade266d31782998f5e
+      Z40_CORE_SHA256: f003945f69bdf04e7ab66ea1319b50e22723b5e716047e8dbb2f4e21dc3710b4
+      Z40_BRIDGE_SHA256: e1d9cbe0a91480f1b1f608e499ede409ef5a97daa8e38ca30eb27817415f6af0
+      Z40_QUEST_SHA256: 827ed6025777c3b1538ce01610984d61300cd4fbcced9d641f66dbc1915dd7bb
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Reject wrong runner, source branch and foreign processes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows' -or
+              $env:PROCESSOR_ARCHITECTURE -ne 'AMD64' -or $env:GITHUB_ACTIONS -ne 'true') {
+            throw 'Z40 requires a fresh GitHub-hosted Windows x64 runner'
+          }
+           if ($env:GITHUB_REF -cne 'refs/heads/codex/phase12-quest-foundation' -or
+               $env:GITHUB_REF_TYPE -cne 'branch' -or
+               $env:GITHUB_EVENT_NAME -notin @('push', 'workflow_dispatch')) {
+            throw 'Unexpected GitHub ref or event'
+          }
+          $head = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $head -cne $env:GITHUB_SHA) {
+            throw 'Checkout is not exact GitHub workflow invocation commit'
+          }
+          git merge-base --is-ancestor $env:Z40_BASE_COMMIT $head
+          if ($LASTEXITCODE -ne 0) { throw 'Z40 BASE source is not an ancestor of smoke harness' }
+          if (-not (Test-Path -LiteralPath 'scripts/ci/candidate-z40-stage-d-bridge-packaged-smoke.mjs' -PathType Leaf)) {
+            throw 'NEW z40 Stage D/Bridge packaged smoke driver missing'
+          }
+          $foreign = @(Get-Process -Name 'Kreoda','kreoda-core','Kreoda.HermesBridge' -ErrorAction SilentlyContinue)
+          if ($foreign.Count -ne 0) { throw 'Unexpected pre-existing Kreoda processes on hosted runner' }
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      # The NEW script builds an independently SHA-pinned official net8.0
+      # MCP probe; the published Bridge executable is never rebuilt.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install frozen smoke dependencies
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen smoke dependencies unavailable' }
+
+      - name: Download exclusively two original SHA-pinned NEW z40 PRIVATE DRAFT assets
+        id: download
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $all = gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot authenticate release listing' }
+          $matching = @($all | Where-Object {
+            $_.tag_name -ceq $env:Z40_TAG -and $_.draft -eq $true -and $_.prerelease -eq $true
+          })
+          if ($matching.Count -ne 1 -or
+              [long]$matching[0].id -ne [long]$env:Z40_DRAFT_RELEASE_ID -or
+              $matching[0].target_commitish -cne $env:Z40_BASE_COMMIT) {
+            throw 'Missing/ambiguous unpublished z40 draft, release ID, or BASE source mismatch'
+          }
+          $release = $matching[0]
+          if (@($release.assets).Count -ne 2) { throw 'Draft must contain exactly two NEW candidate assets' }
+          $expected = @(
+            @{ name = $env:Z40_ZIP_NAME; bytes = 400539445L; sha = $env:Z40_ZIP_SHA256 },
+            @{ name = 'candidate-zip-verification.json'; bytes = 50659L; sha = $env:Z40_RECEIPT_SHA256 }
+          )
+          $dest = Join-Path $env:GITHUB_WORKSPACE '.artifacts/z40-stage-bridge-pinned-download'
+          if (Test-Path -LiteralPath $dest) { throw 'Prior z40 input directory exists' }
+          New-Item -ItemType Directory -Path $dest | Out-Null
+          foreach ($pin in $expected) {
+            $matches = @($release.assets | Where-Object { $_.name -ceq $pin.name })
+            if ($matches.Count -ne 1 -or [long]$matches[0].size -ne $pin.bytes -or
+                $matches[0].state -cne 'uploaded') {
+              throw "Wrong draft asset size/name/state: $($pin.name)"
+            }
+            $file = Join-Path $dest $pin.name
+            $url = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/assets/$($matches[0].id)"
+            & curl.exe --fail --silent --show-error --location --header 'Accept: application/octet-stream' --header 'X-GitHub-Api-Version: 2022-11-28' --header "Authorization: Bearer $env:GH_TOKEN" --output $file $url
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $file -PathType Leaf) -or
+                (Get-Item -LiteralPath $file).Length -ne $pin.bytes -or
+                (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ine $pin.sha) {
+              throw "Downloaded asset fails immutable SHA/size: $($pin.name)"
+            }
+          }
+
+      - name: Verify 156 safe ZIP entries, every SHA, manifest and all binaries
+        id: verify-bundle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $download = Join-Path $env:GITHUB_WORKSPACE '.artifacts/z40-stage-bridge-pinned-download'
+          $zipFile = Join-Path $download $env:Z40_ZIP_NAME
+          $receiptFile = Join-Path $download 'candidate-zip-verification.json'
+          if ((Get-FileHash -LiteralPath $zipFile -Algorithm SHA256).Hash -ine $env:Z40_ZIP_SHA256 -or
+              (Get-Item -LiteralPath $zipFile).Length -ne 400539445L -or
+              (Get-FileHash -LiteralPath $receiptFile -Algorithm SHA256).Hash -ine $env:Z40_RECEIPT_SHA256) {
+            throw 'Pinned candidate download mutated between workflow steps'
+          }
+          $proof = Get-Content -LiteralPath $receiptFile -Raw | ConvertFrom-Json
+          if ($proof.status -cne 'DRAFT_UNVERIFIED' -or
+              $proof.sourceBaseCommit -cne $env:Z40_BASE_COMMIT -or
+              $proof.releaseId -cne $env:Z40_RELEASE_ID -or
+              $proof.zipSha256 -ine $env:Z40_ZIP_SHA256 -or
+              [long]$proof.zipBytes -ne 400539445L -or
+              [int]$proof.fileCount -ne 156 -or
+              $proof.entriesUseForwardSlashes -ne $true -or
+              $proof.everyEntryHashVerified -ne $true -or
+              $proof.packagedSmokeExecuted -ne $false -or
+              @($proof.entries).Count -ne 156) {
+            throw 'Unexpected NEW z40 receipt schema or provenance'
+          }
+          $map = @{}
+          $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+          $prefix = $env:Z40_RELEASE_ID + '/'
+          $totalBytes = 0L
+          foreach ($entry in $proof.entries) {
+            $item = [string]$entry.path
+            if (-not $item.StartsWith($prefix, [StringComparison]::Ordinal) -or
+                $item.Contains('\') -or $item -match '[\x00-\x1f:"<>|*?]' -or
+                -not $seen.Add($item) -or
+                [string]$entry.sha256 -notmatch '^[0-9a-fA-F]{64}$') {
+              throw "Unsafe or duplicate receipt entry: $item"
+            }
+            foreach ($segment in $item.Substring($prefix.Length).Split('/')) {
+              if (-not $segment -or $segment -eq '.' -or $segment -eq '..' -or
+                  $segment -cne $segment.TrimEnd([char[]]@(' ','.')) -or
+                  $segment -match '^(?i:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$') {
+                throw "Unsafe Windows ZIP path segment: $item"
+              }
+            }
+            if ([long]$entry.size -lt 0 -or [long]$entry.size -gt 300000000L) {
+              throw "Unsafe candidate file size: $item"
+            }
+            $map[$item] = $entry
+            $totalBytes += [long]$entry.size
+          }
+          if ($map.Count -ne 156 -or $totalBytes -ne 745868018L) {
+            throw 'Pinned z40 uncompressed file count/size differs'
+          }
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($zipFile)
+          try {
+            if ($zip.Entries.Count -ne 156) { throw 'ZIP file count differs from SHA-pinned receipt' }
+            foreach ($entry in $zip.Entries) {
+              if (-not $entry.Name -or -not $map.ContainsKey($entry.FullName) -or
+                  [long]$entry.Length -ne [long]$map[$entry.FullName].size) {
+                throw "Unverified ZIP entry: $($entry.FullName)"
+              }
+              $stream = $entry.Open()
+              $sha = [System.Security.Cryptography.SHA256]::Create()
+              try { $actual = [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','').ToLowerInvariant() }
+              finally { $stream.Dispose(); $sha.Dispose() }
+              if ($actual -ne [string]$map[$entry.FullName].sha256) {
+                throw "ZIP entry SHA mismatch: $($entry.FullName)"
+              }
+            }
+          } finally { $zip.Dispose() }
+          $extract = Join-Path $env:GITHUB_WORKSPACE '.artifacts/z40-stage-bridge-extracted'
+          if (Test-Path -LiteralPath $extract) { throw 'Unexpected pre-existing candidate extraction folder' }
+          Expand-Archive -LiteralPath $zipFile -DestinationPath $extract -ErrorAction Stop
+          $release = Join-Path $extract $env:Z40_RELEASE_ID
+          $manifestFile = Join-Path $release 'release-manifest.json'
+          if ((Get-FileHash -LiteralPath $manifestFile -Algorithm SHA256).Hash -ine $env:Z40_MANIFEST_SHA256) {
+            throw 'NEW z40 manifest SHA mismatch'
+          }
+          if (@(Get-ChildItem -LiteralPath $release -Recurse -File).Count -ne 156) {
+            throw 'Missing/unexpected extracted package files'
+          }
+          foreach ($item in $map.Keys) {
+            $relative = $item.Substring($prefix.Length).Replace('/', [IO.Path]::DirectorySeparatorChar)
+            $file = Join-Path $release $relative
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or
+                (Get-Item -LiteralPath $file).Length -ne [long]$map[$item].size -or
+                (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ine [string]$map[$item].sha256) {
+              throw "Extracted package SHA/size mismatch: $item"
+            }
+          }
+          $manifest = Get-Content -LiteralPath $manifestFile -Raw | ConvertFrom-Json
+          if ($manifest.status -cne 'DRAFT_UNVERIFIED' -or
+              $manifest.releaseId -cne $env:Z40_RELEASE_ID -or
+              $manifest.sourceBaseCommit -cne $env:Z40_BASE_COMMIT -or
+              $manifest.sourceUiSha256 -ine $env:Z40_UI_SHA256 -or
+              $manifest.sourceArchiveSha256 -ine 'af8875c3920a3d308032209c76a7493946460b9860fabded796619fc5d21a300' -or
+              $manifest.newExeSha256 -ine $env:Z40_EXE_SHA256 -or
+              $manifest.newAsarSha256 -ine $env:Z40_ASAR_SHA256 -or
+              $manifest.originalAsarSha256 -ine 'e22221c092c28f1c1ce9115c3e3ac883ea37fa1c903ef14cde55ff09ee01fdae' -or
+              $manifest.nativeCoreSha256 -ine $env:Z40_CORE_SHA256 -or
+              $manifest.bridgeExeSha256 -ine $env:Z40_BRIDGE_SHA256 -or
+              $manifest.questApkSha256 -ine $env:Z40_QUEST_SHA256 -or
+              [int]$manifest.nativeDllCountReused -ne 45 -or
+              [int]$manifest.bridgePublishedFilesReused -ne 35 -or
+              $manifest.nativeCompilePerformed -ne $false -or
+              $manifest.bridgePublishPerformed -ne $false -or
+              $manifest.questRebuildPerformed -ne $false -or
+              $manifest.packagedSmokeExecuted -ne $false -or
+              $manifest.acceptedRelease -ne $false) {
+            throw 'NEW z40 manifest provenance failed closed'
+          }
+          $pinned = @{
+            'Kreoda-win32-x64/Kreoda.exe' = $env:Z40_EXE_SHA256
+            'Kreoda-win32-x64/resources/app.asar' = $env:Z40_ASAR_SHA256
+            'Kreoda-win32-x64/resources/kreoda-core.exe' = $env:Z40_CORE_SHA256
+            'Kreoda.HermesBridge-net8.0/Kreoda.HermesBridge.exe' = $env:Z40_BRIDGE_SHA256
+            'KreodaQuest.apk' = $env:Z40_QUEST_SHA256
+          }
+          foreach ($relative in $pinned.Keys) {
+            $file = Join-Path $release $relative.Replace('/', [IO.Path]::DirectorySeparatorChar)
+            if ((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ine $pinned[$relative]) {
+              throw "NEW z40 executable/component digest differs: $relative"
+            }
+          }
+          $dlls = @(Get-ChildItem -LiteralPath (Join-Path $release 'Kreoda-win32-x64/resources') -File -Filter '*.dll')
+          $bridgeFiles = @(Get-ChildItem -LiteralPath (Join-Path $release 'Kreoda.HermesBridge-net8.0') -File -Recurse)
+          if ($dlls.Count -ne 45 -or $bridgeFiles.Count -ne 35 -or
+              $env:Z40_ASAR_SHA256 -ieq 'e22221c092c28f1c1ce9115c3e3ac883ea37fa1c903ef14cde55ff09ee01fdae' -or
+              $env:Z40_EXE_SHA256 -ieq 'a09ee422ccf2c678db1b41ed3d2dbbcf987be1585e0a7cdbbc858321778a35b4') {
+            throw 'Native/Bridge inventory mismatch or stale original Desktop'
+          }
+          'NEW z40 156/156 files and exact EXE/ASAR/OCCT/Bridge/Quest accepted for testing.'
+
+      - name: Run REAL NEW z40 packaged Stage D six constraints and official Bridge HTTP MCP
+        id: packaged-smoke
+        if: steps.verify-bundle.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 12
+        shell: pwsh
+        env:
+          KREODA_Z40_EXTRACTED_ROOT: ${{ github.workspace }}\.artifacts\z40-stage-bridge-extracted\0.1.0-integrated-renderer-z40-9d11ef58-225199551549
+          KREODA_Z40_CANDIDATE_ZIP: ${{ github.workspace }}\.artifacts\z40-stage-bridge-pinned-download\Kreoda-0.1.0-integrated-renderer-z40-9d11ef58-225199551549-Desktop-Bridge-Quest.zip
+          KREODA_HERMES_CONFIG: ''
+          KREODA_CAD_SESSION_URL: ''
+          KREODA_CAD_PAIR: ''
+          KREODA_VOICE_TOKEN: ''
+          KREODA_UPDATE_FEED: ''
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path -LiteralPath $env:KREODA_Z40_EXTRACTED_ROOT -PathType Container)) {
+            throw 'Verified z40 Stage D/Bridge release root not found'
+          }
+          Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+          node scripts/ci/candidate-z40-stage-d-bridge-packaged-smoke.mjs '--prime-z40-stage-d-bridge-grant=PRIME_APPROVED_GITHUB_HOSTED_Z40_STAGE_D_BRIDGE'
+          if ($LASTEXITCODE -ne 0) { throw 'REAL z40 Stage D + Bridge MCP packaged test failed' }
+
+      - name: Validate fresh Stage D six-constraint and official HTTP MCP functional receipt
+        id: functional-receipt
+        if: steps.packaged-smoke.outcome == 'success'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $proofDir = Join-Path $env:GITHUB_WORKSPACE '.artifacts/kreoda-z40-stage-bridge'
+          if (-not (Test-Path -LiteralPath $proofDir -PathType Container)) {
+            throw 'NEW Stage D/HTTP MCP hosted receipt directory missing'
+          }
+          $receipts = @(Get-ChildItem -LiteralPath $proofDir -Recurse -File -Filter 'receipt.json')
+          if ($receipts.Count -ne 1 -or
+              (Split-Path -Leaf (Split-Path -Parent $receipts[0].FullName)) -cnotmatch '^hosted-[a-zA-Z0-9-]+$') {
+            throw 'Exactly one new hosted Stage D/Bridge acceptance receipt required'
+          }
+          $r = Get-Content -LiteralPath $receipts[0].FullName -Raw | ConvertFrom-Json
+          if ($r.status -cne 'PASS_Z40_PACKAGED_STAGE_D_BRIDGE' -or
+              $r.releaseId -cne $env:Z40_RELEASE_ID -or
+              $r.zipSha256 -ine $env:Z40_ZIP_SHA256 -or
+              $r.zipReceiptSha256 -ine $env:Z40_RECEIPT_SHA256 -or
+              $r.manifestSha256 -ine $env:Z40_MANIFEST_SHA256 -or
+              $r.sourceUiSha256 -ine $env:Z40_UI_SHA256 -or
+              $r.exeSha256 -ine $env:Z40_EXE_SHA256 -or
+              $r.asarSha256 -ine $env:Z40_ASAR_SHA256 -or
+              $r.coreSha256 -ine $env:Z40_CORE_SHA256 -or
+              $r.bridgeSha256 -ine $env:Z40_BRIDGE_SHA256 -or
+              $r.originalBundleSha256 -ine '036cff37ed0b5850926224cb0afc75a159a558897d77ffc1f74e314bccf85b1d' -or
+              $r.originalAsarSha256 -ine 'e22221c092c28f1c1ce9115c3e3ac883ea37fa1c903ef14cde55ff09ee01fdae' -or
+              $r.runner -cne 'github-hosted-windows-x64' -or
+              $r.scenario -cne 'actual-NEW-z40-packaged-StageD-PrivateCadConnection-and-official-HTTP-MCP' -or
+              -not $r.startedAtUtc -or -not $r.finishedAtUtc -or
+              [datetime]$r.finishedAtUtc -le [datetime]$r.startedAtUtc -or
+              $null -ne $r.failure -or $null -ne $r.cleanupIssue -or
+              $null -ne $r.cleanupFailures -or $null -ne $r.postflightError) {
+            throw 'NEW candidate or packaged Stage D/HTTP MCP provenance not accepted'
+          }
+          if ($r.probe.tfm -cne 'net8.0' -or
+              $r.probe.sdkBuild -cne 'fresh-Release-on-hosted' -or
+              $r.probe.programSha256 -ine '7acefde7ed025ea0ca0bfa70cadf37ac4b52ed0fe1d99e7d34a12aa2a8bb7b9a' -or
+              $r.probe.projectSha256 -ine 'c98422cbe006543703c440ce4addc8f25bcc7befbbcacdb8e8c250b6d0368f6d' -or
+              [string]$r.probe.releaseDllSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+            throw 'Fresh official .NET 8 MCP probe build not authenticated'
+          }
+          $requiredNames = @(
+            'fresh-official-dotnet8-release-mcpprobe-source-pinned',
+            'stage-d-actual-new-z40-packaged-native-OCCT-PID-proof',
+            'stage-d-real-published-Bridge-HTTP-health',
+            'stage-d-privatecadconnection-real-200x100px-calibration-rollback-six-constraints',
+            'stage-d-actual-native-width-90-height-40-volume28800',
+            'stage-d-genuine-ICAD-save-reopen-six-constraints',
+            'stage-d-actual-native-height-50-volume36000',
+            'stage-d-packaged-Desktop-Undo-restores-28800-six-constraints',
+            'http-mcp-actual-new-z40-packaged-native-OCCT-PID-proof',
+            'http-mcp-real-published-Bridge-HTTP-health',
+            'http-mcp-official-eight-tools-resources-schema-empty-description',
+            'http-mcp-native-CreateBox-volume100000-12triangles-shared-renderer',
+            'http-mcp-Desktop-Undo-shares-one-native-document',
+            'http-mcp-authenticated-UNAUTHORIZED-after-Desktop-device-revoke'
+          )
+          $tests = @($r.tests)
+          if ($tests.Count -ne $requiredNames.Count -or
+              @($tests | Where-Object { $_.pass -ne $true }).Count -ne 0 -or
+              @($tests | Group-Object -Property name | Where-Object { $_.Count -ne 1 }).Count -ne 0) {
+            throw 'NEW Stage D/MCP required test count, uniqueness, or any result flag invalid'
+          }
+          foreach ($name in $requiredNames) {
+            if (@($tests | Where-Object { $_.name -ceq $name -and $_.pass -eq $true }).Count -ne 1) {
+              throw "Required NEW packaged Stage D/MCP test missing or duplicated: $name"
+            }
+          }
+          $life = @($r.lifecycle)
+          if ($life.Count -ne 2 -or
+              @($life | Where-Object { $_.scenario -ceq 'stage-d' }).Count -ne 1 -or
+              @($life | Where-Object { $_.scenario -ceq 'http-mcp' }).Count -ne 1) {
+            throw 'Missing two independent packaged Electron/native OCCT lifecycles'
+          }
+          foreach ($item in $life) {
+            $p = $item.process
+            if ($item.occtVersion -cne '8.0.1-native' -or
+                $p.nativeDirectMainChild -ne $true -or
+                -not $p.mainPid -or -not $p.corePid -or
+                $p.mainPid -eq $p.corePid -or
+                $p.newExeSha256 -ine $env:Z40_EXE_SHA256 -or
+                $p.newAsarSha256 -ine $env:Z40_ASAR_SHA256 -or
+                $p.coreSha256 -ine $env:Z40_CORE_SHA256 -or
+                @($p.ancestry).Count -lt 2) {
+              throw 'Packaged Stage D/MCP real Win32 direct-child OCCT proof missing'
+            }
+          }
+          $stage = $r.stageD
+          if ($stage.nativeConstraints -ne 6 -or
+              $stage.sourceId -cne 'calibrated-source-01' -or
+              $stage.calibrationMmPerPixel -ne 0.5 -or
+              [string]$stage.createdFeatureId -eq '' -or
+              [string]$stage.sketchId -eq '' -or
+              [long]$stage.icadBytes -le 100 -or
+              [string]$stage.icadSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+            throw 'Real Stage D solver six-constraint calibration or ICAD persistence missing'
+          }
+          $first = @($tests | Where-Object { $_.name -ceq $requiredNames[3] })[0]
+          $width = @($tests | Where-Object { $_.name -ceq $requiredNames[4] })[0]
+          $saved = @($tests | Where-Object { $_.name -ceq $requiredNames[5] })[0]
+          $height = @($tests | Where-Object { $_.name -ceq $requiredNames[6] })[0]
+          $undo = @($tests | Where-Object { $_.name -ceq $requiredNames[7] })[0]
+          if ($first.calibrationMmPerPixel -ne 0.5 -or
+              $first.rollbackVerified -ne $true -or
+              $first.solver.constraints -ne 6 -or $first.solver.fixedOrigin -ne $true -or
+              [math]::Abs([double]$first.volumeMm3 - 25600) -gt 0.01 -or
+              [math]::Abs([double]$width.volumeMm3 - 28800) -gt 0.01 -or
+              [math]::Abs([double]$saved.volumeMm3 - 28800) -gt 0.01 -or
+              $saved.icadSha256 -ine $stage.icadSha256 -or
+              [math]::Abs([double]$height.volumeMm3 - 36000) -gt 0.01 -or
+              [math]::Abs([double]$undo.volumeMm3 - 28800) -gt 0.01 -or
+              [long]$undo.revision -le [long]$height.revision) {
+            throw 'Real six-constraint native width/height/Undo/ICAD volume sequence not proven'
+          }
+          $empty = @($tests | Where-Object { $_.name -ceq $requiredNames[10] })[0]
+          $created = @($tests | Where-Object { $_.name -ceq $requiredNames[11] })[0]
+          $mcpUndo = @($tests | Where-Object { $_.name -ceq $requiredNames[12] })[0]
+          $revoke = @($tests | Where-Object { $_.name -ceq $requiredNames[13] })[0]
+          if ($empty.persistedActualDeviceBinding -ne $true -or
+              $empty.baseline.features -ne 0 -or $empty.baseline.bodies -ne 0 -or
+              $empty.baseline.sketches -ne 0 -or
+              [math]::Abs([double]$created.volumeMm3 - 100000) -gt 0.01 -or
+              $created.triangles -ne 12 -or
+              $mcpUndo.nativeBodies -ne 0 -or
+              [long]$mcpUndo.afterUndoRevision -le [long]$mcpUndo.beforeRevision -or
+              $revoke.authenticatedDenialCode -cne 'UNAUTHORIZED' -or
+              $revoke.stillLiveHttpMcp -ne $true) {
+            throw 'New official HTTP MCP empty/create/shared Undo/authenticated revoke not proven'
+          }
+          if (@($tests | Where-Object {
+              $_.name -like '*-real-published-Bridge-HTTP-health' -and
+              ($_.bridgeSha256 -ine $env:Z40_BRIDGE_SHA256 -or
+               $_.voiceConfigured -ne $false)
+            }).Count -ne 0) {
+            throw 'Published Bridge SHA or voice isolation failed'
+          }
+          'NEW_Z40_STAGE_D_BRIDGE_RECEIPT_SHA256=' +
+            (Get-FileHash -LiteralPath $receipts[0].FullName -Algorithm SHA256).Hash
+
+      - name: REQUIRE every NEW packaged Stage D and Bridge gate (not workflow color)
+        if: always()
+        shell: pwsh
+        run: |
+          if ('${{ steps.download.outcome }}' -ne 'success' -or
+              '${{ steps.verify-bundle.outcome }}' -ne 'success' -or
+              '${{ steps.packaged-smoke.outcome }}' -ne 'success' -or
+              '${{ steps.functional-receipt.outcome }}' -ne 'success') {
+            throw 'NEW Z40 STAGE D/BRIDGE REJECTED: draft, 156-entry package, dual-lifecycle smoke, or new receipt did not PASS'
+          }
+
+      - name: Retain NEW Stage D/Bridge functional receipts and diagnostics even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: z40-stage-d-bridge-packaged-acceptance-${{ github.run_id }}
+          if-no-files-found: warn
+          path: |
+            .artifacts/kreoda-z40-stage-bridge/**/*
+            .artifacts/z40-stage-bridge-pinned-download/candidate-zip-verification.json

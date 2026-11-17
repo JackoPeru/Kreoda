@@ -1,23 +1,31 @@
 #include "mesh.h"
 #include "mesh_parameters.h"
 #include "diagnostics/crash_barrier.h"
+#include "model/geometry_availability.h"
 
 #include <cmath>
+#include <limits>
+#include <optional>
 
 #include "model/shapes.h"
 #include "tessellation/box_tessellator.h"
 #if KREODA_WITH_OCCT
 #include "topology/face_roles.h"
 #include <BRepAdaptor_Curve.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <BRepLProp_SLProps.hxx>
 #include <BRepBndLib.hxx>
 #include <BRepGProp.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
+#include <BRepLib_ToolTriangulatedShape.hxx>
 #include <BRep_Tool.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
 #include <GCPnts_UniformDeflection.hxx>
 #include <Poly_Triangulation.hxx>
+#include <Precision.hxx>
 #include <Standard.hxx>
+#include <Standard_Failure.hxx>
 #include <TopAbs_ShapeEnum.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopLoc_Location.hxx>
@@ -25,6 +33,8 @@
 #include <TopoDS_Edge.hxx>
 #include <TopoDS_Face.hxx>
 #include <gp_Pnt.hxx>
+#include <gp_Cylinder.hxx>
+#include <gp_Sphere.hxx>
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
 #if KREODA_CRASH_TEST_BARRIERS
@@ -55,10 +65,27 @@ void appendFaceTriangles(CoreMesh& mesh, const TopoDS_Face& face,
   const Handle(Poly_Triangulation)& tri =
       BRep_Tool::Triangulation(face, loc);
   if (tri.IsNull() || tri->NbTriangles() < 1) return;
+  // Use surface/UV normals, including OCCT's singular-node fallback. Assigning
+  // each incident triangle's normal to shared nodes made smooth faces jagged.
+  BRepLib_ToolTriangulatedShape::ComputeNormals(face, tri);
   const gp_Trsf& trsf = loc.Transformation();
   const uint32_t triStart =
       static_cast<uint32_t>(mesh.indices.size() / 3);
   const int nNodes = tri->NbNodes();
+  // Sample the authoritative B-Rep at the SAME UV nodes as this face mesh.
+  // Constant analytic surfaces avoid derivatives at singular sphere poles.
+  float constantCurvature = -1;
+  std::optional<BRepLProp_SLProps> curvature;
+  try {
+    BRepAdaptor_Surface surface(face);
+    double value = -1;
+    if (surface.GetType() == GeomAbs_Plane) value = 0;
+    else if (surface.GetType() == GeomAbs_Cylinder) value = 1 / surface.Cylinder().Radius();
+    else if (surface.GetType() == GeomAbs_Sphere) value = 1 / surface.Sphere().Radius();
+    else if (tri->HasUVNodes()) curvature.emplace(surface, 2, Precision::Confusion());
+    if (std::isfinite(value) && value >= 0 && value <= std::numeric_limits<float>::max())
+      constantCurvature = static_cast<float>(value);
+  } catch (const Standard_Failure&) { /* Undefined analysis must not invalidate valid geometry. */ }
   // Node map may be 1-based; copy via Node(i).
   const uint32_t base =
       static_cast<uint32_t>(mesh.positions.size() / 3);
@@ -68,7 +95,25 @@ void appendFaceTriangles(CoreMesh& mesh, const TopoDS_Face& face,
     mesh.positions.push_back(static_cast<float>(p.X()));
     mesh.positions.push_back(static_cast<float>(p.Y()));
     mesh.positions.push_back(static_cast<float>(p.Z()));
-    mesh.normals.insert(mesh.normals.end(), {0.f, 0.f, 0.f});
+    gp_Dir normal = tri->Normal(i);
+    normal.Transform(trsf);
+    if (face.Orientation() == TopAbs_REVERSED) normal.Reverse();
+    mesh.normals.insert(mesh.normals.end(), {static_cast<float>(normal.X()),
+      static_cast<float>(normal.Y()), static_cast<float>(normal.Z())});
+    float value = constantCurvature;
+    if (curvature) {
+      try {
+        const auto uv = tri->UVNode(i);
+        curvature->SetParameters(uv.X(), uv.Y());
+        if (curvature->IsCurvatureDefined()) {
+          const double magnitude = std::max(std::abs(curvature->MinCurvature()),
+                                           std::abs(curvature->MaxCurvature()));
+          if (std::isfinite(magnitude) && magnitude <= std::numeric_limits<float>::max())
+            value = static_cast<float>(magnitude);
+        }
+      } catch (const Standard_Failure&) { value = -1; }
+    }
+    mesh.curvatureMaxAbsPerMm.push_back(value);
   }
   for (int i = 1; i <= tri->NbTriangles(); ++i) {
     int a, b, c;
@@ -77,31 +122,6 @@ void appendFaceTriangles(CoreMesh& mesh, const TopoDS_Face& face,
     const uint32_t ib = base + static_cast<uint32_t>(b - 1);
     const uint32_t ic = base + static_cast<uint32_t>(c - 1);
     mesh.indices.insert(mesh.indices.end(), {ia, ib, ic});
-    // Flat facet normal (robust everywhere; smooth normals are Phase 2).
-    const float ax = mesh.positions[3 * ia], ay = mesh.positions[3 * ia + 1],
-                az = mesh.positions[3 * ia + 2];
-    const float ux = mesh.positions[3 * ib] - ax,
-                uy = mesh.positions[3 * ib + 1] - ay,
-                uz = mesh.positions[3 * ib + 2] - az;
-    const float vx = mesh.positions[3 * ic] - ax,
-                vy = mesh.positions[3 * ic + 1] - ay,
-                vz = mesh.positions[3 * ic + 2] - az;
-    float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz,
-          nz = ux * vy - uy * vx;
-    const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
-    if (len > 1e-12f) {
-      nx /= len;
-      ny /= len;
-      nz /= len;
-    }
-    // Respect face orientation: reversed faces need flipped normals.
-    const float s =
-        (face.Orientation() == TopAbs_REVERSED) ? -1.f : 1.f;
-    for (uint32_t vi : {ia, ib, ic}) {
-      mesh.normals[3 * vi] = s * nx;
-      mesh.normals[3 * vi + 1] = s * ny;
-      mesh.normals[3 * vi + 2] = s * nz;
-    }
   }
   FaceRangeDto range;
   range.persistentFaceId = role;
@@ -117,17 +137,29 @@ void appendFaceTriangles(CoreMesh& mesh, const TopoDS_Face& face,
 CoreMesh TessellateFeature(const std::string& featureId, int lod,
                            std::string* error) {
   ShapeRecord rec;
-  if (!ShapeStore::instance().get(featureId, &rec)) {
-    if (error) *error = "unknown feature " + featureId;
+  if (!GetCurrentShapeRecord(featureId, &rec, error)) {
     return {};
   }
   return TessellateRecord(rec, lod, error);
 }
 
-CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
-                          std::string* error) {
+static CoreMesh TessellateRecordImpl(const ShapeRecord& rec, int lod,
+                                     std::string* error,
+                                     bool validateCurrent) {
   const std::string& featureId = rec.featureId;
 #if KREODA_WITH_OCCT
+  if (validateCurrent && ShapeStore::instance().contains(rec.featureId)) {
+    ShapeRecord current;
+    if (!GetCurrentShapeRecord(rec.featureId, &current, error)) return {};
+    if (!current.shape.IsSame(rec.shape)) {
+      if (error) *error = "stale native record geometry for " + rec.featureId;
+      return {};
+    }
+  } else if (validateCurrent) {
+    for (const auto& dependency : rec.dependsOn) {
+      if (!EnsureGeometryAvailable(dependency, error)) return {};
+    }
+  }
   if (rec.shape.IsNull()) {
     if (error) *error = "feature has no B-Rep shape";
     return {};
@@ -156,9 +188,22 @@ CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
   // Mass props from the tessellated shape itself — never trusted blindly,
   // so transient previews report their own volume/bbox (§13, §41).
   {
-    GProp_GProps props;
-    BRepGProp::VolumeProperties(rec.shape, props);
-    mesh.volumeMm3 = props.Mass();
+    // Only physical solids contribute volume. A closed B-Rep face (for
+    // example a full-revolution cylinder side) can have a nonzero signed
+    // volume integral even though it encloses no solid in the model.
+    const auto addSolidVolume = [&](const TopoDS_Shape& solid) {
+      GProp_GProps props;
+      BRepGProp::VolumeProperties(solid, props);
+      mesh.volumeMm3 += props.Mass();
+    };
+    if (rec.shape.ShapeType() == TopAbs_SOLID) {
+      addSolidVolume(rec.shape);
+    } else {
+      for (TopExp_Explorer solid(rec.shape, TopAbs_SOLID); solid.More();
+           solid.Next()) {
+        addSolidVolume(solid.Current());
+      }
+    }
     Bnd_Box box;
     BRepBndLib::Add(rec.shape, box);
     box.Get(mesh.bboxMm[0], mesh.bboxMm[1], mesh.bboxMm[2], mesh.bboxMm[3],
@@ -203,6 +248,7 @@ CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
 #else
   // Stub: exact box only (cylinder/sphere need OCCT).
   (void)lod;
+  (void)validateCurrent;
   if (rec.type != "Box" || rec.paramsMm.size() != 3) {
     if (error) *error = "stub core tessellates Box only (link OCCT)";
     return {};
@@ -224,6 +270,19 @@ CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
   }
   return mesh;
 #endif
+}
+
+CoreMesh TessellateRecord(const ShapeRecord& rec, int lod,
+                          std::string* error) {
+  return TessellateRecordImpl(rec, lod, error, true);
+}
+
+// Internal preview geometry is intentionally a candidate shape with the
+// owner's existing featureId. The live direct-record API keeps its stale
+// geometry guard; previews validate their dependency chain before calling here.
+CoreMesh TessellatePreviewRecord(const ShapeRecord& rec, int lod,
+                                std::string* error) {
+  return TessellateRecordImpl(rec, lod, error, false);
 }
 
 }  // namespace kreoda

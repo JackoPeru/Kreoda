@@ -27,6 +27,11 @@ std::vector<uint8_t> make_response(const std::string& requestId,
                                    const std::string& status,
                                    const std::string& bodyJson);
 
+// Escaped error envelope for failures caught outside the dispatcher.
+std::vector<uint8_t> make_error_response(const std::string& requestId,
+                                         const std::string& code,
+                                         const std::string& message);
+
 std::vector<uint8_t> handle_command(const std::string& requestJson);
 
 // Command ids (§65 + Phase-1 extension + Phase-4 sketches + Phase-5 solids;
@@ -62,6 +67,40 @@ enum CommandId {
   kCommitTransaction = 28,
   kRollbackTransaction = 29,
   kRequestSessionQuery = 30,
+  kCreateDatumPlane = 31,
+  kCreateDatumAxis = 32,
+  kCreateDatumPoint = 33,
+  kUpdateDatum = 34,
+  kRequestDatum = 35,
+  kSetSketchProjection = 36,
+  kRemoveSketchProjection = 37,
+  kRequestSketchProjection = 38,
+  kCreateSurfaceLoftSewnSolid = 39,
+  kDefineConfiguration = 40,
+  kActivateConfiguration = 41,
+  kQueryConfigurations = 42,
+  kCreateOutwardFacePush = 43,
+  kSetBodyVisibility = 44,
+  kCreateInwardFacePocket = 45,
+  kCreateSurfaceFaceThicken = 46,
+  kDefineAssemblyConstraint = 47,
+  kCreateSurfaceExtrude = 48,
+  kCreateSurfaceRevolve = 49,
+  kCreateSurfaceLoft = 50,
+  kCreateSurfaceSew = 51,
+  kCreateSurfaceOffset = 52,
+  kCreateSurfaceSweep = 53,
+  kCreateSurfaceThicken = 54,
+  kCreateSurfaceTrim = 55,
+  kCreateSurfaceExtend = 56,
+  kCreateMoveFace = 57,
+  kCreateOffsetFace = 58,
+  kCreateDeleteFace = 59,
+  kCreateReplaceFace = 60,
+  kCreateShell = 61,
+  kCreateMirror = 62,
+  kCreateBodyPattern = 63,
+  kCreateCircularBodyPattern = 64
 };
 
 }  // namespace kreoda

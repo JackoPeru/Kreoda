@@ -34,7 +34,7 @@ export function PluginsDialog({ onClose }: { onClose: () => void }) {
       className="absolute inset-0 z-30 flex items-center justify-center bg-black/60"
       data-testid="plugins-dialog"
     >
-      <div className="w-[26rem] max-w-[90vw] rounded-xl border border-white/15 bg-[#141922] p-5 shadow-2xl">
+      <div className="w-[26rem] max-w-[90vw] rounded-xl border border-white/15 bg-[var(--kreoda-float-elevated-bg)] p-5 shadow-2xl">
         <div className="pb-2 text-sm font-semibold">{tt("plugins.title")}</div>
         {plugins.length === 0 && (
           <div className="pb-2 text-xs text-white/50">

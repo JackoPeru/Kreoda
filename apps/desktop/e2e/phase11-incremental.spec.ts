@@ -29,7 +29,11 @@ test("incremental Desktop applies remote edits, keeps other geometry, and recove
     await client.connect("isolated-incremental-test", port, undefined, ["incremental-deltas"]);
     const kernel = await client.call("invoke", { type: 1 });
     expect(kernel["occtVersion"]).toBe("8.0.1-native");
-    await client.call("invoke", { type: 2 });
+    // Remote NewDocument/OpenDocument now require Desktop consent; the shell
+    // already owns an empty doc-phase1, so assert that and edit it remotely.
+    const initial = await snapOf(window);
+    expect(initial.revision).toBe(0);
+    expect(initial.bodies).toHaveLength(0);
     const a = `box-${crypto.randomUUID()}`, b = `box-${crypto.randomUUID()}`;
     for (const featureId of [a, b])
       await client.call("invoke", { type: 3, fields: { featureId, widthMm: 100, heightMm: 60, depthMm: 10 } });

@@ -1,0 +1,25 @@
+{
+  "apkSha256": "4c0c89339de033cc3e39269e0086eca98d947935fc699a40719903ddc2e3015c",
+  "nativeLibraries": [
+    "lib/arm64-v8a/LibRuntimeOptimizer.so",
+    "lib/arm64-v8a/libOVRMetricsTool.so",
+    "lib/arm64-v8a/libOVRPlugin.so",
+    "lib/arm64-v8a/libUnityOpenXR.so",
+    "lib/arm64-v8a/libUnityOpenXRHands.so",
+    "lib/arm64-v8a/libc++_shared.so",
+    "lib/arm64-v8a/libgame.so",
+    "lib/arm64-v8a/libil2cpp.so",
+    "lib/arm64-v8a/libloaderimpl.so",
+    "lib/arm64-v8a/libmain.so",
+    "lib/arm64-v8a/libopenxr_loader.so",
+    "lib/arm64-v8a/libswappywrapper.so",
+    "lib/arm64-v8a/libunity.so"
+  ],
+  "questProductSourceChanges": [],
+  "unrelatedConcurrentSourceChanges": [
+    "apps/desktop/src/components/SketchEditor.tsx",
+    "apps/desktop/src/model/sync.ts",
+    "apps/desktop/src/viewport/ProjectionViewport.ts"
+  ],
+  "hardwareTested": false
+}

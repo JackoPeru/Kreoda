@@ -106,6 +106,9 @@ jobs:
       - name: Build paired C# acceptance client
         run: dotnet build clients/session-dotnet/probes/Kreoda.DeviceProbe/Kreoda.DeviceProbe.csproj -c Release -p:Platform=AnyCPU --nologo
 
+      - name: Build C# session mesh acceptance client
+        run: dotnet build clients/session-dotnet/probes/Kreoda.SessionProbe/Kreoda.SessionProbe.csproj -c Release -p:Platform=AnyCPU --nologo
+
       - name: Build desktop shell
         id: desktop-build
         run: pnpm --filter @kreoda/desktop build

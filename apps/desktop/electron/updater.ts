@@ -162,6 +162,12 @@ export async function downloadPinned(
   const partial = `${dest}.partial`;
   const hash = createHash("sha256");
   const out = createWriteStream(partial, { mode: 0o600 });
+  // Attach immediately: a disk-full/unplugged-media error must fail this
+  // download, not surface as an unhandled 'error' event in the main process.
+  let writeError: Error | null = null;
+  out.on("error", (error) => {
+    writeError = error;
+  });
   try {
     // NOTE: socket backpressure is not applied chunk-by-chunk; the byte cap
     // still bounds total memory through the socket buffer.
@@ -169,6 +175,7 @@ export async function downloadPinned(
       hash.update(chunk);
       out.write(chunk);
     });
+    if (writeError) throw writeError;
   } catch (e) {
     try {
       out.destroy();

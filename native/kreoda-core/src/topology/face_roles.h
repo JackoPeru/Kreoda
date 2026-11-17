@@ -12,18 +12,22 @@
 namespace kreoda {
 
 // Phase-1 role classifier (§4, step 2: explicit feature-role reference).
-// Derives a stable role string per face from geometry (type + orientation),
-// so the id survives parameter edits. OCAF/TNaming becomes the primary
-// mechanism in Phase 2 (§3); roles remain as the documented fallback.
+// Unique geometric roles survive parameter edits. When every face belongs to
+// the sole solid, axis roles identify outer support faces; pure-surface
+// collisions use indexed picks persisted through OCAF/TNaming. Multi-solid
+// collisions stay ambiguous.
 // Order follows the explorer sequence of the tessellator call.
 #if KREODA_WITH_OCCT
 // Ordinal roles can silently change owners when topology is inserted.
 bool HasIndexedTopologyRole(const std::string& reference);
+// Exact isoparametric boundary identity, or empty for other edges.
+std::string ParameterBoundaryRole(const TopoDS_Edge& edge, const TopoDS_Face& face);
 std::vector<std::string> ClassifyFaceRoles(const TopoDS_Shape& shape,
                                            const std::string& featureType,
                                            const std::string& featureId);
 
 // Full persistent id is "<featureId>:<role>"; bare "<role>" also matches.
+// Face lookup succeeds only when the requested role matches exactly one face.
 bool FindFaceByRole(const TopoDS_Shape& shape, const std::string& featureId,
                     const std::string& featureType, const std::string& role,
                     TopoDS_Face* out);
@@ -35,10 +39,13 @@ bool FaceFrameInfo(const TopoDS_Shape& shape, const std::string& featureId,
                    const std::string& featureType, const std::string& role,
                    double origin[3], double xAxis[3], double yAxis[3],
                    double normal[3]);
+bool FaceFrameInfo(const TopoDS_Face& face,double origin[3],double xAxis[3],
+                   double yAxis[3],double normal[3]);
 
 // Edge roles (§4): "<featureId>:edge.<curve>.<adjA>~<adjB>" where adj are the
 // short roles of the adjacent faces (sorted), e.g. "edge.lin.box.+Z~box.+X".
-// Seam/degenerate edges keep type + order fallback ("edge.seam.0").
+// On pure surfaces, colliding free boundaries can use exact uMin/uMax/vMin/vMax
+// identities on a uniquely named face; others use edge.<curve>.free.<index>.
 struct EdgeRoleDto {
   std::string persistentEdgeId;
   TopoDS_Edge edge;
@@ -48,6 +55,7 @@ std::vector<EdgeRoleDto> ClassifyEdgeRoles(
     const std::string& featureId);
 
 // Full persistent id is "<featureId>:<edge role>"; bare role also matches.
+// Pure surface references require exactly one match; solid lookup is unchanged.
 bool FindEdgeByRole(const TopoDS_Shape& shape, const std::string& featureId,
                     const std::string& featureType, const std::string& role,
                     TopoDS_Edge* out);

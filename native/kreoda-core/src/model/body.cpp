@@ -7,11 +7,13 @@ namespace kreoda {
 
 BodySemantics FeatureBodySemantics(const std::string& type) {
   if (type == "Hole" || type == "HolePattern" || type == "Fillet" ||
-      type == "Chamfer" || type == "Union" || type == "Subtract" ||
-      type == "Intersect") {
+      type == "Chamfer" || type == "Shell" || type == "Union" || type == "Subtract" ||
+      type == "Intersect" || type == "MoveFace" || type == "OffsetFace" ||
+      type == "DeleteFace" || type == "ReplaceFace") {
     return BodySemantics::AdvancesBody;
   }
-  if (type == "Sketch" || type == "Instance") {
+  if (type == "Sketch" || type == "Instance" || type == "DatumPlane" ||
+      type == "DatumAxis" || type == "DatumPoint") {
     return BodySemantics::NonBody;
   }
   return BodySemantics::NewBody;
@@ -34,6 +36,14 @@ bool BodyStore::get(const std::string& bodyId, BodyRecord* out) const {
       if (out) *out = b;
       return true;
     }
+  }
+  return false;
+}
+
+bool BodyStore::setVisible(const std::string& bodyId,bool visible) {
+  for (auto& b:bodies_) if (b.bodyId==bodyId) {
+    b.visible=visible;
+    return true;
   }
   return false;
 }
@@ -177,7 +187,8 @@ std::string SerializeBodiesJson() {
       if (i) s += ",";
       s += "\"" + b.history[i] + "\"";
     }
-    s += "],\"tip\":\"" + b.tipFeatureId + "\"}";
+    s += "],\"tip\":\"" + b.tipFeatureId + "\",\"visible\":" +
+         (b.visible ? "true" : "false") + "}";
   }
   return s + "]";
 }
@@ -227,6 +238,16 @@ bool ParseBodiesJson(const std::string& manifest,
     BodyRecord b;
     if (!ExtractStringField(obj, "id", &b.bodyId)) return false;
     if (!ExtractStringField(obj, "tip", &b.tipFeatureId)) return false;
+    const size_t vk=obj.find("\"visible\"");
+    if (vk!=std::string::npos) {
+      const size_t colon=obj.find(':',vk);
+      if (colon==std::string::npos) return false;
+      const size_t value=obj.find_first_not_of(" \t\r\n",colon+1);
+      if (value==std::string::npos) return false;
+      if (obj.compare(value,4,"true")==0) b.visible=true;
+      else if (obj.compare(value,5,"false")==0) b.visible=false;
+      else return false;
+    }
     // history array: collect every quoted string inside it.
     const size_t hk = obj.find("\"history\"");
     if (hk == std::string::npos) return false;

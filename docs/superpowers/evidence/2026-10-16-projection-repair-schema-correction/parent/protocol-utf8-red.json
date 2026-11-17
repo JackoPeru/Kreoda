@@ -1,0 +1,12 @@
+{
+  "baselineHead": "29fe5036950e2b973887c1fcf860c95b852da0f5",
+  "artifact": "packages/protocol/dist/index.js from the preceding parent build",
+  "probe": "owner-qualified source edge id: source: followed by 300 U+00E9 characters; same source nested in SketchProjectionGroupResult",
+  "utf8Bytes": 607,
+  "characters": 307,
+  "nativeDeclaredByteLimit": 512,
+  "standaloneAccepts": true,
+  "nestedAccepts": true,
+  "observation": "Independent parent read-only Node probe reproduced the public-validator mismatch; no native mutation was attempted.",
+  "toolChunk": "b23275"
+}

@@ -1,0 +1,7 @@
+{
+  "native/kreoda-core/CMakeLists.txt": "60dde7087967b4e06633733c2c49af7f1485e0a02b1c73666055709b83f4753d",
+  "native/kreoda-core/tests/CMakeLists.txt": "eb55fd29cf3f34dab3385143e0394b542d7c6dfd15facd6f3d1827203103d1cf",
+  "native/kreoda-core/src/features/sketch/projected_geometry.h": "5c6513b59f4ad74304986c23281149607b17546d1ac0bc9704a115f23a06a238",
+  "native/kreoda-core/src/features/sketch/projected_geometry.cpp": "f14d36b750e1f713153ed2140b2e276320c44d4591de271b14c454550058bcd9",
+  "native/kreoda-core/tests/test_projection.cpp": "064d94c80207e3eee28e3714292c7b0b18a5296ff00ebba3030aa636b689512e"
+}

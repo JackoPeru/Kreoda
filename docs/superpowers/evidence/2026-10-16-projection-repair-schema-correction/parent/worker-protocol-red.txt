@@ -1,0 +1,29 @@
+
+ RUN  v4.1.11 C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/packages/protocol
+
+ ❯ src/session-control.test.ts (10 tests | 1 failed) 25ms
+     × enforces UTF-8 byte limits in standalone and nested validators 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/session-control.test.ts > projection DTO contract > enforces UTF-8 byte limits in standalone and nested validators
+AssertionError: expected [Function] to throw an error
+ ❯ src/session-control.test.ts:239:65
+    237|     expect(SketchProjectionSourceSchema.parse(edgeBelow)).toEqual(edge…
+    238|     expect(SketchProjectionSourceSchema.parse(entityBelow)).toEqual(en…
+    239|     expect(() => SketchProjectionSourceSchema.parse(edgeAbove)).toThro…
+       |                                                                 ^
+    240|     expect(() => SketchProjectionSourceSchema.parse(entityAbove)).toTh…
+    241|     expect(() => SketchProjectionDefinitionSchema.parse({ ...definitio…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  11:12:39
+   Duration  1.21s (transform 623ms, setup 0ms, import 926ms, tests 25ms, environment 0ms)
+
+undefined
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\packages\protocol:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/session-control.test.ts

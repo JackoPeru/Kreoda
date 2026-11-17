@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
-import { HERE, boot, openMore, openProject, runBar, snapOf, type Snapshot } from "./helpers";
+import { HERE, boot, openMore, openProject, runBar, snapOf, type Snapshot, shot} from "./helpers";
 
 async function closeFixture(app: Awaited<ReturnType<typeof boot>>["app"] | undefined, fixture: string) {
   try {
@@ -326,7 +326,7 @@ test("golden A: parametric bracket with pattern, fillet, expression", async () =
     expect(s.bodies[0]!.volumeMm3).toBeCloseTo(fresh.volumeMm3, 1);
     expect(s.treeBodies!).toHaveLength(1);
 
-    await window.screenshot({ path: path.join(HERE, "phase10-golden-a.png") });
+    await shot(window, app, path.join(HERE, "phase10-golden-a.png"));
   } finally {
     await closeFixture(app, fixture);
   }
@@ -392,7 +392,7 @@ test("golden B: assembly follows source edits across reopen", async () => {
     console.log(`PHASE10_ASSEMBLY_REOPEN ${JSON.stringify({ independent_bodies: 2, placed_instances: 1,
       cold_restart: true, source_edit_after_reopen: true, source_volume_mm3: source.volumeMm3,
       instance_volume_mm3: instance.volumeMm3, translation_x_mm: instance.paramsMm[0] })}`);
-    await window.screenshot({ path: path.join(HERE, "phase10-golden-b.png") });
+    await shot(window, app, path.join(HERE, "phase10-golden-b.png"));
   } finally {
     await closeFixture(app, fixture);
   }
@@ -500,7 +500,7 @@ test("golden C: calibrated reference sizes traced geometry", async () => {
       widthMm: 100, heightMm: 50, mmPerPx: 0.5, plane: "XY", opacity: 0.85,
     });
 
-    await window.screenshot({ path: path.join(HERE, "phase10-golden-c.png") });
+    await shot(window, app, path.join(HERE, "phase10-golden-c.png"));
   } finally {
     await closeFixture(app, fixture);
   }

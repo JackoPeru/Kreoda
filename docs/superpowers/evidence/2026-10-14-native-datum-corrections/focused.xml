@@ -1,0 +1,748 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Win32-MSBuild"
+	tests="46"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname="PC-Matteo"
+	time="14"
+	timestamp="2026-10-14T15:14:55"
+	>
+	<testcase name="Datum.OffsetAndOpposedMidplanesRetainFirstBasis" classname="Datum.OffsetAndOpposedMidplanesRetainFirstBasis" time="0.0292348" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.OffsetAndOpposedMidplanesRetainFirstBasis
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.OffsetAndOpposedMidplanesRetainFirstBasis
+[       OK ] Datum.OffsetAndOpposedMidplanesRetainFirstBasis (0 ms)
+[----------] 1 test from Datum (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Datum.AngleUsesDirectedAxisAndDegrees" classname="Datum.AngleUsesDirectedAxisAndDegrees" time="0.0264745" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.AngleUsesDirectedAxisAndDegrees
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.AngleUsesDirectedAxisAndDegrees
+[       OK ] Datum.AngleUsesDirectedAxisAndDegrees (0 ms)
+[----------] 1 test from Datum (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Datum.ThreePointPlaneAndAxesUseFiniteNativeFrame" classname="Datum.ThreePointPlaneAndAxesUseFiniteNativeFrame" time="0.0260227" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.ThreePointPlaneAndAxesUseFiniteNativeFrame
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.ThreePointPlaneAndAxesUseFiniteNativeFrame
+[       OK ] Datum.ThreePointPlaneAndAxesUseFiniteNativeFrame (0 ms)
+[----------] 1 test from Datum (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Datum.IntersectionAxisSatisfiesBothOffsetPlanes" classname="Datum.IntersectionAxisSatisfiesBothOffsetPlanes" time="0.130609" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.IntersectionAxisSatisfiesBothOffsetPlanes
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.IntersectionAxisSatisfiesBothOffsetPlanes
+[       OK ] Datum.IntersectionAxisSatisfiesBothOffsetPlanes (0 ms)
+[----------] 1 test from Datum (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Datum.CoordinateAndMidpointRecordsAreReadOnlyAndKeepSources" classname="Datum.CoordinateAndMidpointRecordsAreReadOnlyAndKeepSources" time="0.0271452" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.CoordinateAndMidpointRecordsAreReadOnlyAndKeepSources
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.CoordinateAndMidpointRecordsAreReadOnlyAndKeepSources
+[       OK ] Datum.CoordinateAndMidpointRecordsAreReadOnlyAndKeepSources (0 ms)
+[----------] 1 test from Datum (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Datum.InvalidSourcesAndDegeneracyLeaveOutputUntouched" classname="Datum.InvalidSourcesAndDegeneracyLeaveOutputUntouched" time="0.0259555" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.InvalidSourcesAndDegeneracyLeaveOutputUntouched
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.InvalidSourcesAndDegeneracyLeaveOutputUntouched
+[       OK ] Datum.InvalidSourcesAndDegeneracyLeaveOutputUntouched (0 ms)
+[----------] 1 test from Datum (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict" classname="Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict" time="0.0262499" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict
+[       OK ] Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict (0 ms)
+[----------] 1 test from Datum (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Datum.ActualOcctFaceAndLineReferencesKeepNativeBodiesUnchanged" classname="Datum.ActualOcctFaceAndLineReferencesKeepNativeBodiesUnchanged" time="0.0295088" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.ActualOcctFaceAndLineReferencesKeepNativeBodiesUnchanged
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.ActualOcctFaceAndLineReferencesKeepNativeBodiesUnchanged
+[       OK ] Datum.ActualOcctFaceAndLineReferencesKeepNativeBodiesUnchanged (1 ms)
+[----------] 1 test from Datum (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Datum.CurvedAndAmbiguousNativeSourcesRejectWithoutFallback" classname="Datum.CurvedAndAmbiguousNativeSourcesRejectWithoutFallback" time="0.0295868" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.CurvedAndAmbiguousNativeSourcesRejectWithoutFallback
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.CurvedAndAmbiguousNativeSourcesRejectWithoutFallback
+[       OK ] Datum.CurvedAndAmbiguousNativeSourcesRejectWithoutFallback (2 ms)
+[----------] 1 test from Datum (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Datum.WrongKindBrokenSourcesAndInvalidJsonKeepAcceptedOutput" classname="Datum.WrongKindBrokenSourcesAndInvalidJsonKeepAcceptedOutput" time="0.0277553" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.WrongKindBrokenSourcesAndInvalidJsonKeepAcceptedOutput
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.WrongKindBrokenSourcesAndInvalidJsonKeepAcceptedOutput
+[       OK ] Datum.WrongKindBrokenSourcesAndInvalidJsonKeepAcceptedOutput (0 ms)
+[----------] 1 test from Datum (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Datum.ProspectiveRecordsNeverResolveAgainstTheCurrentDocument" classname="Datum.ProspectiveRecordsNeverResolveAgainstTheCurrentDocument" time="0.0270073" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.ProspectiveRecordsNeverResolveAgainstTheCurrentDocument
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.ProspectiveRecordsNeverResolveAgainstTheCurrentDocument
+[       OK ] Datum.ProspectiveRecordsNeverResolveAgainstTheCurrentDocument (0 ms)
+[----------] 1 test from Datum (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Datum.ProspectiveOcctFacesUseTheIncomingGeometryOnly" classname="Datum.ProspectiveOcctFacesUseTheIncomingGeometryOnly" time="0.0288002" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Datum.ProspectiveOcctFacesUseTheIncomingGeometryOnly
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Datum
+[ RUN      ] Datum.ProspectiveOcctFacesUseTheIncomingGeometryOnly
+[       OK ] Datum.ProspectiveOcctFacesUseTheIncomingGeometryOnly (1 ms)
+[----------] 1 test from Datum (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumPersistence.DefinitionsResolveInDependencyOrderWithoutCachedGeometry" classname="DatumPersistence.DefinitionsResolveInDependencyOrderWithoutCachedGeometry" time="0.0273245" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumPersistence.DefinitionsResolveInDependencyOrderWithoutCachedGeometry
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumPersistence
+[ RUN      ] DatumPersistence.DefinitionsResolveInDependencyOrderWithoutCachedGeometry
+[       OK ] DatumPersistence.DefinitionsResolveInDependencyOrderWithoutCachedGeometry (0 ms)
+[----------] 1 test from DatumPersistence (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumPersistence.MissingDuplicateCyclicAndMalformedDefinitionsAreAtomic" classname="DatumPersistence.MissingDuplicateCyclicAndMalformedDefinitionsAreAtomic" time="0.0264439" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumPersistence.MissingDuplicateCyclicAndMalformedDefinitionsAreAtomic
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumPersistence
+[ RUN      ] DatumPersistence.MissingDuplicateCyclicAndMalformedDefinitionsAreAtomic
+[       OK ] DatumPersistence.MissingDuplicateCyclicAndMalformedDefinitionsAreAtomic (0 ms)
+[----------] 1 test from DatumPersistence (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumPersistence.ActualOcafRoundTripAndUndoRetainDefinitionsAndSources" classname="DatumPersistence.ActualOcafRoundTripAndUndoRetainDefinitionsAndSources" time="0.0405636" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumPersistence.ActualOcafRoundTripAndUndoRetainDefinitionsAndSources
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumPersistence
+[ RUN      ] DatumPersistence.ActualOcafRoundTripAndUndoRetainDefinitionsAndSources
+[       OK ] DatumPersistence.ActualOcafRoundTripAndUndoRetainDefinitionsAndSources (13 ms)
+[----------] 1 test from DatumPersistence (13 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (13 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumPersistence.BadIncomingSourcesRejectBeforeReplacingTheLiveDocument" classname="DatumPersistence.BadIncomingSourcesRejectBeforeReplacingTheLiveDocument" time="0.0383061" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumPersistence.BadIncomingSourcesRejectBeforeReplacingTheLiveDocument
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumPersistence
+[ RUN      ] DatumPersistence.BadIncomingSourcesRejectBeforeReplacingTheLiveDocument
+[       OK ] DatumPersistence.BadIncomingSourcesRejectBeforeReplacingTheLiveDocument (10 ms)
+[----------] 1 test from DatumPersistence (10 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (10 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumPersistence.ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable" classname="DatumPersistence.ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable" time="0.0518581" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumPersistence.ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumPersistence
+[ RUN      ] DatumPersistence.ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable
+[       OK ] DatumPersistence.ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable (24 ms)
+[----------] 1 test from DatumPersistence (24 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (24 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically" classname="DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically" time="0.117599" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumPersistence
+[ RUN      ] DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically
+[       OK ] DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically (87 ms)
+[----------] 1 test from DatumPersistence (87 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (87 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumCommands.CreateUpdateAndUndoAreSingleNonBodyMutations" classname="DatumCommands.CreateUpdateAndUndoAreSingleNonBodyMutations" time="0.126876" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.CreateUpdateAndUndoAreSingleNonBodyMutations
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.CreateUpdateAndUndoAreSingleNonBodyMutations
+[       OK ] DatumCommands.CreateUpdateAndUndoAreSingleNonBodyMutations (0 ms)
+[----------] 1 test from DatumCommands (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumCommands.ExtraDefinitionKeysRejectBeforeMutation" classname="DatumCommands.ExtraDefinitionKeysRejectBeforeMutation" time="0.0293325" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.ExtraDefinitionKeysRejectBeforeMutation
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.ExtraDefinitionKeysRejectBeforeMutation
+[       OK ] DatumCommands.ExtraDefinitionKeysRejectBeforeMutation (1 ms)
+[----------] 1 test from DatumCommands (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumCommands.CyclicAndInvalidUpdatesPreserveRegistryRevisionAndUndo" classname="DatumCommands.CyclicAndInvalidUpdatesPreserveRegistryRevisionAndUndo" time="0.0289589" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.CyclicAndInvalidUpdatesPreserveRegistryRevisionAndUndo
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.CyclicAndInvalidUpdatesPreserveRegistryRevisionAndUndo
+[       OK ] DatumCommands.CyclicAndInvalidUpdatesPreserveRegistryRevisionAndUndo (0 ms)
+[----------] 1 test from DatumCommands (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumCommands.PointPlaneSketchExtrudeRecomputesAndRejectsDegenerateSourceAtomically" classname="DatumCommands.PointPlaneSketchExtrudeRecomputesAndRejectsDegenerateSourceAtomically" time="0.0796435" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.PointPlaneSketchExtrudeRecomputesAndRejectsDegenerateSourceAtomically
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.PointPlaneSketchExtrudeRecomputesAndRejectsDegenerateSourceAtomically
+[       OK ] DatumCommands.PointPlaneSketchExtrudeRecomputesAndRejectsDegenerateSourceAtomically (52 ms)
+[----------] 1 test from DatumCommands (52 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (52 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumCommands.NativeSourceParameterEditRebuildsDatumSketchAndSolid" classname="DatumCommands.NativeSourceParameterEditRebuildsDatumSketchAndSolid" time="0.0417096" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.NativeSourceParameterEditRebuildsDatumSketchAndSolid
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.NativeSourceParameterEditRebuildsDatumSketchAndSolid
+[       OK ] DatumCommands.NativeSourceParameterEditRebuildsDatumSketchAndSolid (14 ms)
+[----------] 1 test from DatumCommands (14 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (14 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumCommands.FailedUpstreamBodyEditRestoresDatumSketchSolidAndGraph" classname="DatumCommands.FailedUpstreamBodyEditRestoresDatumSketchSolidAndGraph" time="0.0585588" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.FailedUpstreamBodyEditRestoresDatumSketchSolidAndGraph
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.FailedUpstreamBodyEditRestoresDatumSketchSolidAndGraph
+[       OK ] DatumCommands.FailedUpstreamBodyEditRestoresDatumSketchSolidAndGraph (30 ms)
+[----------] 1 test from DatumCommands (30 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (30 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen" classname="DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen" time="0.0628062" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen
+[       OK ] DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen (33 ms)
+[----------] 1 test from DatumCommands (33 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (33 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames" classname="DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames" time="0.060908" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames
+[       OK ] DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames (32 ms)
+[----------] 1 test from DatumCommands (32 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (33 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumCommands.OrientedDatumSupportsMeasuredRevolveUndoAndRealIcadReopen" classname="DatumCommands.OrientedDatumSupportsMeasuredRevolveUndoAndRealIcadReopen" time="0.0535584" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumCommands.OrientedDatumSupportsMeasuredRevolveUndoAndRealIcadReopen
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumCommands
+[ RUN      ] DatumCommands.OrientedDatumSupportsMeasuredRevolveUndoAndRealIcadReopen
+[       OK ] DatumCommands.OrientedDatumSupportsMeasuredRevolveUndoAndRealIcadReopen (25 ms)
+[----------] 1 test from DatumCommands (25 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (25 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen" classname="DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen" time="0.100974" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumNaming
+[ RUN      ] DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen
+[       OK ] DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen (72 ms)
+[----------] 1 test from DatumNaming (72 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (72 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumNaming.ForgedWrongOwnerAndStaleSelectionsRejectWithoutOrdinalFallback" classname="DatumNaming.ForgedWrongOwnerAndStaleSelectionsRejectWithoutOrdinalFallback" time="0.0339252" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumNaming.ForgedWrongOwnerAndStaleSelectionsRejectWithoutOrdinalFallback
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumNaming
+[ RUN      ] DatumNaming.ForgedWrongOwnerAndStaleSelectionsRejectWithoutOrdinalFallback
+[       OK ] DatumNaming.ForgedWrongOwnerAndStaleSelectionsRejectWithoutOrdinalFallback (4 ms)
+[----------] 1 test from DatumNaming (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (4 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumProtocol.PublicCommandsQueryAndNumericEditsKeepNativeIdentity" classname="DatumProtocol.PublicCommandsQueryAndNumericEditsKeepNativeIdentity" time="0.0297062" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumProtocol.PublicCommandsQueryAndNumericEditsKeepNativeIdentity
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumProtocol
+[ RUN      ] DatumProtocol.PublicCommandsQueryAndNumericEditsKeepNativeIdentity
+[       OK ] DatumProtocol.PublicCommandsQueryAndNumericEditsKeepNativeIdentity (1 ms)
+[----------] 1 test from DatumProtocol (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumProtocol.ReferencedDatumsCannotBeDeletedAndUnreferencedDeleteIsUndoable" classname="DatumProtocol.ReferencedDatumsCannotBeDeletedAndUnreferencedDeleteIsUndoable" time="0.0284596" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumProtocol.ReferencedDatumsCannotBeDeletedAndUnreferencedDeleteIsUndoable
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumProtocol
+[ RUN      ] DatumProtocol.ReferencedDatumsCannotBeDeletedAndUnreferencedDeleteIsUndoable
+[       OK ] DatumProtocol.ReferencedDatumsCannotBeDeletedAndUnreferencedDeleteIsUndoable (1 ms)
+[----------] 1 test from DatumProtocol (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumProtocol.SnapshotIncludesNativeSupportAndQueriesAreReadOnly" classname="DatumProtocol.SnapshotIncludesNativeSupportAndQueriesAreReadOnly" time="0.0290937" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumProtocol.SnapshotIncludesNativeSupportAndQueriesAreReadOnly
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumProtocol
+[ RUN      ] DatumProtocol.SnapshotIncludesNativeSupportAndQueriesAreReadOnly
+[       OK ] DatumProtocol.SnapshotIncludesNativeSupportAndQueriesAreReadOnly (1 ms)
+[----------] 1 test from DatumProtocol (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumProtocol.JoinedEditsCommitOnceAndRollbackRestoresDefinitions" classname="DatumProtocol.JoinedEditsCommitOnceAndRollbackRestoresDefinitions" time="0.0288317" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumProtocol.JoinedEditsCommitOnceAndRollbackRestoresDefinitions
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumProtocol
+[ RUN      ] DatumProtocol.JoinedEditsCommitOnceAndRollbackRestoresDefinitions
+[       OK ] DatumProtocol.JoinedEditsCommitOnceAndRollbackRestoresDefinitions (1 ms)
+[----------] 1 test from DatumProtocol (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumProtocol.CompleteJoinedDatumSketchSolidChainHasOneRevisionAndUndo" classname="DatumProtocol.CompleteJoinedDatumSketchSolidChainHasOneRevisionAndUndo" time="0.0353736" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumProtocol.CompleteJoinedDatumSketchSolidChainHasOneRevisionAndUndo
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumProtocol
+[ RUN      ] DatumProtocol.CompleteJoinedDatumSketchSolidChainHasOneRevisionAndUndo
+[       OK ] DatumProtocol.CompleteJoinedDatumSketchSolidChainHasOneRevisionAndUndo (8 ms)
+[----------] 1 test from DatumProtocol (8 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (8 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumProtocol.TaintedDependentFailureRollsBackEarlierJoinedCreationAndKeepsRevision" classname="DatumProtocol.TaintedDependentFailureRollsBackEarlierJoinedCreationAndKeepsRevision" time="0.0463608" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumProtocol.TaintedDependentFailureRollsBackEarlierJoinedCreationAndKeepsRevision
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumProtocol
+[ RUN      ] DatumProtocol.TaintedDependentFailureRollsBackEarlierJoinedCreationAndKeepsRevision
+[       OK ] DatumProtocol.TaintedDependentFailureRollsBackEarlierJoinedCreationAndKeepsRevision (18 ms)
+[----------] 1 test from DatumProtocol (19 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (19 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DatumProtocol.NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically" classname="DatumProtocol.NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically" time="0.0316013" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumProtocol.NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumProtocol
+[ RUN      ] DatumProtocol.NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically
+[       OK ] DatumProtocol.NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically (2 ms)
+[----------] 1 test from DatumProtocol (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Persistence.SaveReopenRoundTrip" classname="Persistence.SaveReopenRoundTrip" time="0.0592118" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Persistence.SaveReopenRoundTrip
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Persistence
+[ RUN      ] Persistence.SaveReopenRoundTrip
+[       OK ] Persistence.SaveReopenRoundTrip (31 ms)
+[----------] 1 test from Persistence (31 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (31 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Persistence.OpenMissingFileFailsHonestly" classname="Persistence.OpenMissingFileFailsHonestly" time="0.0268934" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Persistence.OpenMissingFileFailsHonestly
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Persistence
+[ RUN      ] Persistence.OpenMissingFileFailsHonestly
+[       OK ] Persistence.OpenMissingFileFailsHonestly (0 ms)
+[----------] 1 test from Persistence (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Persistence.CustomSketchFrameSurvivesOCAFOpenAndPostOpenEdit" classname="Persistence.CustomSketchFrameSurvivesOCAFOpenAndPostOpenEdit" time="0.0634628" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Persistence.CustomSketchFrameSurvivesOCAFOpenAndPostOpenEdit
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Persistence
+[ RUN      ] Persistence.CustomSketchFrameSurvivesOCAFOpenAndPostOpenEdit
+[       OK ] Persistence.CustomSketchFrameSurvivesOCAFOpenAndPostOpenEdit (36 ms)
+[----------] 1 test from Persistence (36 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (36 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Persistence.ResyncRejectsMalformedSketchWithoutChangingLiveCaches" classname="Persistence.ResyncRejectsMalformedSketchWithoutChangingLiveCaches" time="0.035568" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Persistence.ResyncRejectsMalformedSketchWithoutChangingLiveCaches
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Persistence
+[ RUN      ] Persistence.ResyncRejectsMalformedSketchWithoutChangingLiveCaches
+[       OK ] Persistence.ResyncRejectsMalformedSketchWithoutChangingLiveCaches (7 ms)
+[----------] 1 test from Persistence (7 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (7 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Persistence.LoadRejectsMalformedSketchBeforeResettingLiveDocument" classname="Persistence.LoadRejectsMalformedSketchBeforeResettingLiveDocument" time="0.0582658" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Persistence.LoadRejectsMalformedSketchBeforeResettingLiveDocument
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Persistence
+[ RUN      ] Persistence.LoadRejectsMalformedSketchBeforeResettingLiveDocument
+[       OK ] Persistence.LoadRejectsMalformedSketchBeforeResettingLiveDocument (30 ms)
+[----------] 1 test from Persistence (30 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (30 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Persistence.OpenRejectsMalformedSketchWithoutLosingUndoRedo" classname="Persistence.OpenRejectsMalformedSketchWithoutLosingUndoRedo" time="0.0596642" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Persistence.OpenRejectsMalformedSketchWithoutLosingUndoRedo
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Persistence
+[ RUN      ] Persistence.OpenRejectsMalformedSketchWithoutLosingUndoRedo
+[       OK ] Persistence.OpenRejectsMalformedSketchWithoutLosingUndoRedo (32 ms)
+[----------] 1 test from Persistence (32 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (32 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Persistence.DuplicateSketchMetadataRootsRejectEitherRootOrder" classname="Persistence.DuplicateSketchMetadataRootsRejectEitherRootOrder" time="0.116329" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Persistence.DuplicateSketchMetadataRootsRejectEitherRootOrder
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Persistence
+[ RUN      ] Persistence.DuplicateSketchMetadataRootsRejectEitherRootOrder
+[       OK ] Persistence.DuplicateSketchMetadataRootsRejectEitherRootOrder (85 ms)
+[----------] 1 test from Persistence (85 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (85 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="HolePattern.CountEditPreservesLayoutUndoAndPersistence" classname="HolePattern.CountEditPreservesLayoutUndoAndPersistence" time="0.161571" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = HolePattern.CountEditPreservesLayoutUndoAndPersistence
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from HolePattern
+[ RUN      ] HolePattern.CountEditPreservesLayoutUndoAndPersistence
+[       OK ] HolePattern.CountEditPreservesLayoutUndoAndPersistence (132 ms)
+[----------] 1 test from HolePattern (132 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (132 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Torture10.CompletePersistenceSequence100Cycles" classname="Torture10.CompletePersistenceSequence100Cycles" time="12.3479" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Torture10.CompletePersistenceSequence100Cycles
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Torture10
+[ RUN      ] Torture10.CompletePersistenceSequence100Cycles
+PHASE10_PERSISTENCE_SEQUENCE {"cycles":100,"features":4,"bodies":2,"placed_instances":1,"sequence":"edit-save-close-open-edit-save_as-undo-redo-close-open","reference_metadata":true,"revision_scope":"new session baseline plus one increment per committed mutation"}
+[       OK ] Torture10.CompletePersistenceSequence100Cycles (12319 ms)
+[----------] 1 test from Torture10 (12319 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (12319 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="Torture10.DeleteFeatureDependentsUndoRedoAndPersistence" classname="Torture10.DeleteFeatureDependentsUndoRedoAndPersistence" time="0.0748068" status="run">
+		<properties/>
+		<system-out>Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Torture10.DeleteFeatureDependentsUndoRedoAndPersistence
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Torture10
+[ RUN      ] Torture10.DeleteFeatureDependentsUndoRedoAndPersistence
+[       OK ] Torture10.DeleteFeatureDependentsUndoRedoAndPersistence (45 ms)
+[----------] 1 test from Torture10 (45 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (45 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+</testsuite>

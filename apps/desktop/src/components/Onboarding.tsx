@@ -76,7 +76,7 @@ export function Onboarding({
   };
 
   const start = (
-    <div className="pointer-events-auto w-80 rounded-xl border border-white/15 bg-[#141922]/95 p-5 shadow-2xl" data-testid="onboarding">
+    <div className="pointer-events-auto w-80 rounded-xl border border-white/15 bg-[var(--kreoda-float-elevated-bg)] p-5 shadow-2xl" data-testid="onboarding">
       <div className="pb-1 text-base font-semibold">
         {tt("onboard.title")}
       </div>

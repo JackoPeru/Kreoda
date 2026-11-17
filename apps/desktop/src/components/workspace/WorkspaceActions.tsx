@@ -7,8 +7,9 @@ import { useDocumentUiStore } from "../../stores";
 import { coreClient } from "../../ipc/coreClient";
 import { syncOpenedDocument } from "../../model/sync";
 import { executeCommand } from "../../commands/execute";
-import { clearRecoveryAfterSave } from "../../recovery/autosave";
+import { clearRecoveryAfterSave, hasUnsavedWork, markDocumentClean } from "../../recovery/autosave";
 import { t, useT } from "../../i18n";
+import { recordRecentProject } from "../../model/recent-projects";
 
 /** Shared Save path (top-right button and More → Save reuse this). */
 export async function saveDocument(): Promise<string | null> {
@@ -16,6 +17,7 @@ export async function saveDocument(): Promise<string | null> {
     const path = await window.kreoda.saveDialog("project.icad");
     if (!path) return null;
     await coreClient.saveDocument(path);
+    await recordRecentProject(path);
     // Explicit save supersedes the crash snapshot (Phase 8 recovery).
     await clearRecoveryAfterSave();
     return null;
@@ -27,12 +29,35 @@ export async function saveDocument(): Promise<string | null> {
 /** Shared Open path (More menu). Document replacement = new epoch (C5). */
 export async function openDocument(): Promise<string | null> {
   try {
+    if (!(await confirmReplace())) return null;
     const path = await window.kreoda.openDialog();
     if (!path) return null;
-    const { features: list, sketches, revision } =
-      await coreClient.openDocument(path);
-    await syncOpenedDocument(list, revision, sketches);
-    return null;
+    return await replaceDocument(path);
+  } catch (e) {
+    return e instanceof Error ? e.message : t("actions.errOpenFailed");
+  }
+}
+
+/** Opening another project replaces the live document: warn before losing it. */
+async function confirmReplace(): Promise<boolean> {
+  if (!hasUnsavedWork()) return true;
+  return window.kreoda.confirmDiscardChanges
+    ? window.kreoda.confirmDiscardChanges()
+    : true;
+}
+
+async function replaceDocument(path: string): Promise<string | null> {
+  const { features: list, sketches, datums, revision } = await coreClient.openDocument(path);
+  await syncOpenedDocument(list, revision, sketches, datums);
+  markDocumentClean();
+  await recordRecentProject(path);
+  return null;
+}
+
+export async function openDocumentAtPath(path: string): Promise<string | null> {
+  try {
+    if (!(await confirmReplace())) return null;
+    return await replaceDocument(path);
   } catch (e) {
     return e instanceof Error ? e.message : t("actions.errOpenFailed");
   }

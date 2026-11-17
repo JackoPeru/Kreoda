@@ -1,0 +1,41 @@
+{
+  "status": "TASK4_VERIFIED_UNITY_INTEGRATION_PENDING",
+  "managed": {
+    "net8": 114,
+    "actualNetstandardLibraries": 114
+  },
+  "native": {
+    "tests": 173,
+    "failures": 0,
+    "seconds": 64.321
+  },
+  "review": {
+    "threadId": "01a1286f-635f-7751-a26b-5a89057f8f41",
+    "model": "gpt-6-sol",
+    "effort": "high",
+    "verdict": "ship",
+    "readOnlyEnforced": false,
+    "sourceFiles": 777,
+    "beforeAfterSha256": "794cb2b00dee050ad62d2ebaa15d50f23c0a22d711271a2050a4116bc75784d2",
+    "unchanged": true
+  },
+  "artifacts": {
+    "kreoda-phase13-spatial-canonical-net8.log": {
+      "sha256": "290869f5d889e359c4fa18f1890086ddf3664b76e65c636d3882d64c30ae8068"
+    },
+    "kreoda-phase13-spatial-canonical-netstandard.log": {
+      "sha256": "2f66059fa5c93c3e119db008926b9f68df5a5b9568777ee4a928bad3c1bbfe55"
+    },
+    "kreoda-phase13-spatial-native-tests.xml": {
+      "sha256": "d0b4c13627ab360ed2aa6430958e8eaabd58189bf31873b97afe90383211e207"
+    },
+    "kreoda-phase13-spatial-corrections-red.log": {
+      "sha256": "eabb5e9714f80b2bd4c862719d8c5694f83a286d4ad4357a3b12609c996c9459"
+    },
+    "kreoda-phase13-spatial-canonical-red.log": {
+      "sha256": "2201e40639b701982af4332a0539d6bd0d3a16893a4313c048dc35fc81604ad1"
+    }
+  },
+  "kernelSha256": "3542d46565828e7a8c782b8656d7cd628124361b5bc71d747ccaba46ea426c50",
+  "hardwareClaim": false
+}

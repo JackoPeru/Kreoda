@@ -4,7 +4,7 @@
 // covered by workspace-shell.spec.ts and phase6-ux.spec.ts T1.)
 import { test, expect } from "@playwright/test";
 import path from "node:path";
-import { HERE, boot, runBar, snapOf, type Snapshot } from "./helpers";
+import { HERE, boot, runBar, snapOf, type Snapshot, shot} from "./helpers";
 
 test("context toolbar stays docked when the selected face changes", async () => {
   const { app, window } = await boot();
@@ -43,7 +43,10 @@ test("context toolbar stays docked when the selected face changes", async () => 
     expect(first).not.toBeNull();
     expect(Math.abs(first!.x + first!.width / 2 - 768)).toBeLessThan(8);
     expect(first!.y).toBeGreaterThanOrEqual(0);
-    expect(first!.y).toBeLessThan(100);
+    // Anchored under the workspace top chrome (68px toolbar offset + the
+    // chrome band above it). Assert the upper region without pinning the exact
+    // chrome height, which legitimately changed with the UX-1 shell.
+    expect(first!.y).toBeLessThan(140);
 
     await selectFace(roleB);
     const second = await bar.boundingBox();
@@ -53,7 +56,7 @@ test("context toolbar stays docked when the selected face changes", async () => 
     expect(Math.abs(second!.width - first!.width)).toBeLessThan(1);
     expect(Math.abs(second!.height - first!.height)).toBeLessThan(1);
 
-    await window.screenshot({ path: path.join(HERE, "context-face.png") });
+    await shot(window, app, path.join(HERE, "context-face.png"));
   } finally {
     await app.close();
   }
@@ -205,7 +208,7 @@ test("toolbar actions change with selection kind", async () => {
       timeout: 5000,
     });
 
-    await window.screenshot({ path: path.join(HERE, "context-actions.png") });
+    await shot(window, app, path.join(HERE, "context-actions.png"));
   } finally {
     await app.close();
   }

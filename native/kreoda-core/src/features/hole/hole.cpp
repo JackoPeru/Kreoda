@@ -11,27 +11,39 @@
 #include "document/document_store.h"
 #include "model/body.h"
 #include "model/commit.h"
+#include "model/geometry_availability.h"
 #include "model/feature_graph.h"
 #include "model/shapes.h"
 #include "topology/face_roles.h"
 #include "features/sketch/sketch_store.h"
+#include "features/datum/datum_store.h"
 #include "features/fillet/fillet.h"
+#include "features/assembly/assembly_constraints.h"
 #include "features/primitives/primitives.h"
 
 #if KREODA_WITH_OCCT
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepBndLib.hxx>
+#include <BRepBuilderAPI_Copy.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepClass_FaceClassifier.hxx>
 #include <BRepCheck_Analyzer.hxx>
 #include <BRepGProp.hxx>
+#include <BRepTools.hxx>
+#include <BRep_Tool.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
 #include <Geom_Plane.hxx>
+#include <Precision.hxx>
 #include <Standard_Failure.hxx>
 #include <TopAbs_ShapeEnum.hxx>
+#include <TopAbs_State.hxx>
+#include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
+#include <TopoDS_Wire.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Dir.hxx>
 #include <gp_Pln.hxx>
@@ -245,40 +257,77 @@ bool BuildHoleShape(const TopoDS_Shape& target, const std::string& targetId,
     if (error) *error = "hole needs a planar face";
     return false;
   }
-  const gp_Pln pln = adapt.Plane();
-  const gp_Pnt loc = pln.Location();
-  const gp_Dir nx = pln.XAxis().Direction();
-  const gp_Dir ny = pln.YAxis().Direction();
-  gp_Dir normal = pln.Axis().Direction();
-  if (face.Orientation() == TopAbs_REVERSED) normal.Reverse();
-  // Face-local point: location + x*nx + y*ny.
-  const gp_Pnt center(loc.XYZ() + nx.XYZ() * xMm + ny.XYZ() * yMm);
-  const double radius = diameterMm / 2.0;
-  Bnd_Box bbox;
-  BRepBndLib::Add(target, bbox);
-  double xmin, ymin, zmin, xmax, ymax, zmax;
-  bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
-  const double diag =
-      std::sqrt((xmax - xmin) * (xmax - xmin) + (ymax - ymin) * (ymax - ymin) +
-                (zmax - zmin) * (zmax - zmin));
-  gp_Pnt base;
-  double height = 0;
-  if (mode == "throughAll") {
-    // Start outside on the +normal side, drill past the far side.
-    base = gp_Pnt(center.XYZ() + normal.XYZ() * (diag + 1.0));
-    height = 2.0 * (diag + 1.0);
-  } else if (mode == "blind") {
-    if (!(depthMm > 0 && depthMm <= 100000)) {
-      if (error) *error = "blind depth must be in (0, 100000] mm";
+  try {
+    const gp_Pln pln = adapt.Plane();
+    const gp_Pnt loc = pln.Location();
+    const gp_Dir nx = pln.XAxis().Direction();
+    const gp_Dir ny = pln.YAxis().Direction();
+    gp_Dir normal = pln.Axis().Direction();
+    if (face.Orientation() == TopAbs_REVERSED) normal.Reverse();
+    // Face-local point: location + x*nx + y*ny.
+    const gp_Pnt center(loc.XYZ() + nx.XYZ() * xMm + ny.XYZ() * yMm);
+    const TopoDS_Wire outerWire = BRepTools::OuterWire(face);
+    if (outerWire.IsNull()) {
+      if (error) *error = "Hole: selected face has no valid outer boundary";
       return false;
     }
-    base = gp_Pnt(center.XYZ() + normal.XYZ() * 0.5);
-    height = depthMm + 0.5;
-  } else {
-    if (error) *error = "depthMode must be throughAll|blind";
-    return false;
-  }
-  try {
+    // MakeFace may add pcurves to wire edges. Work on copied topology so this
+    // validation-only face cannot modify the target B-Rep.
+    BRepBuilderAPI_Copy wireCopy(outerWire);
+    if (wireCopy.Shape().IsNull()) {
+      if (error) *error = "Hole: selected face outer boundary is invalid";
+      return false;
+    }
+    const TopoDS_Wire copiedOuterWire = TopoDS::Wire(wireCopy.Shape());
+    BRepBuilderAPI_MakeFace outerFaceBuilder(pln, copiedOuterWire);
+    if (!outerFaceBuilder.IsDone()) {
+      if (error) *error = "Hole: selected face outer boundary is invalid";
+      return false;
+    }
+    const TopoDS_Face outerBoundaryFace = outerFaceBuilder.Face();
+    if (outerBoundaryFace.IsNull() ||
+        !BRepCheck_Analyzer(outerBoundaryFace).IsValid(outerBoundaryFace)) {
+      if (error) *error = "Hole: selected face outer boundary is invalid";
+      return false;
+    }
+    const double faceTolerance =
+        std::max(Precision::Confusion(), BRep_Tool::Tolerance(face));
+    BRepClass_FaceClassifier centerClassifier(outerBoundaryFace, center,
+                                              faceTolerance);
+    const TopAbs_State centerState = centerClassifier.State();
+    if (centerState != TopAbs_IN && centerState != TopAbs_ON) {
+      if (error) {
+        *error = centerState == TopAbs_OUT
+                     ? "Hole: center lies outside selected face"
+                     : "Hole: center could not be classified on selected face";
+      }
+      return false;
+    }
+    const double radius = diameterMm / 2.0;
+    Bnd_Box bbox;
+    BRepBndLib::Add(target, bbox);
+    double xmin, ymin, zmin, xmax, ymax, zmax;
+    bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+    const double diag =
+        std::sqrt((xmax - xmin) * (xmax - xmin) + (ymax - ymin) * (ymax - ymin) +
+                  (zmax - zmin) * (zmax - zmin));
+    gp_Pnt base;
+    double height = 0;
+    if (mode == "throughAll") {
+      // Start outside on the +normal side, drill past the far side.
+      base = gp_Pnt(center.XYZ() + normal.XYZ() * (diag + 1.0));
+      height = 2.0 * (diag + 1.0);
+    } else if (mode == "blind") {
+      if (!(depthMm > 0 && depthMm <= 100000)) {
+        if (error) *error = "blind depth must be in (0, 100000] mm";
+        return false;
+      }
+      base = gp_Pnt(center.XYZ() + normal.XYZ() * 0.5);
+      height = depthMm + 0.5;
+    } else {
+      if (error) *error = "depthMode must be throughAll|blind";
+      return false;
+    }
     // Cylinder axis points INTO the solid (-normal), base above the face.
     const gp_Dir inward = normal.Reversed();
     BRepPrimAPI_MakeCylinder mk(gp_Ax2(base, inward), radius, height);
@@ -350,8 +399,8 @@ bool CreateHoleFeature(const std::string& featureId,
     return false;
   }
   ShapeRecord target;
-  if (!ShapeStore::instance().get(targetId, &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(targetId, &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) *error = "unknown target " + targetId;
     return false;
   }
@@ -383,7 +432,7 @@ bool CreateHoleFeature(const std::string& featureId,
       if (error) *error = "upstream insertion requires its own command (close the session transaction first)";
       return false;
     }
-    if (!ShapeStore::instance().get(insertBeforeId, &before) ||
+    if (!GetCurrentShapeRecord(insertBeforeId, &before, error) ||
         FeatureBodySemantics(before.type) != BodySemantics::AdvancesBody ||
         before.dependsOn.empty() || before.dependsOn[0] != targetId ||
         !BodyStore::instance().bodyForFeature(insertBeforeId, &body)) {
@@ -399,7 +448,7 @@ bool CreateHoleFeature(const std::string& featureId,
     // which branch becomes the tip. Require one explicit linear chain.
     for (size_t i = 1; i < body.history.size(); ++i) {
       ShapeRecord member;
-      if (!ShapeStore::instance().get(body.history[i], &member) || member.dependsOn.empty() ||
+      if (!GetCurrentShapeRecord(body.history[i], &member, error) || member.dependsOn.empty() ||
           member.dependsOn[0] != body.history[i - 1]) {
         if (error) *error = "upstream insertion requires a linear body history (branched history needs repair)";
         return false;
@@ -465,8 +514,8 @@ bool CreateHoleFeature(const std::string& featureId,
       // During insertion, duplicated semantic roles are ambiguous too.
       // Verify each affected reference before invoking its evaluator.
       ShapeRecord rec, target;
-      ShapeStore::instance().get(id, &rec);
-      if (!rec.dependsOn.empty() && ShapeStore::instance().get(rec.dependsOn[0], &target)) {
+      if (!GetCurrentShapeRecord(id, &rec, e)) return false;
+      if (!rec.dependsOn.empty() && GetCurrentShapeRecord(rec.dependsOn[0], &target, e)) {
         if (rec.type == "Fillet" || rec.type == "Chamfer") {
           const auto edges = ClassifyEdgeRoles(target.shape, target.type, target.featureId);
           for (const auto& ref : SplitEdgeIds(rec.refExtra)) {
@@ -493,6 +542,12 @@ bool CreateHoleFeature(const std::string& featureId,
     if (OcafLive::instance().SelectionsNeedRepair(affected, true)) {
       if (error) *error = "persistent face selection needs repair after insertion";
       rollback(); return false;
+    }
+    std::vector<AssemblyConstraintIssue> assemblyIssues;
+    std::string assemblyError;
+    if(!ReadAssemblyConstraintIssues(&assemblyIssues,&assemblyError)) {
+      if(error)*error=assemblyError;
+      rollback();return false;
     }
     BodyStore::instance().rebuildFromRecords(ShapeStore::instance().listInOrder());
     bool delta = false;
@@ -544,7 +599,8 @@ bool CreateHolePatternFeature(
       return false;
     }
     if (ShapeStore::instance().contains(fid) ||
-        SketchStore::instance().contains(fid)) {
+        SketchStore::instance().contains(fid) ||
+        DatumStore::instance().contains(fid)) {
       if (error) *error = "id already exists: " + fid;
       return false;
     }
@@ -566,8 +622,8 @@ bool CreateHolePatternFeature(
   }
 #if KREODA_WITH_OCCT
   ShapeRecord target;
-  if (!ShapeStore::instance().get(targetId, &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(targetId, &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) *error = "unknown target " + targetId;
     return false;
   }
@@ -612,7 +668,7 @@ bool CreateHolePatternFeature(
   }
   bool hadDelta = false;
   OcafLive::instance().CommitCommand(&hadDelta, nullptr);
-  DocumentStore::instance().commit();
+  if (hadDelta) DocumentStore::instance().commit();
   if (createdIds) *createdIds = {featureIds[0]};
   return true;
 #else
@@ -642,8 +698,8 @@ bool RebuildHoleFromStore(const std::string& featureId, std::string* error) {
     return false;
   }
   ShapeRecord target;
-  if (!ShapeStore::instance().get(rec.dependsOn[0], &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(rec.dependsOn[0], &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) {
       *error = "hole target vanished (needs repair): " + rec.dependsOn[0];
     }
@@ -673,8 +729,8 @@ bool RebuildHolePatternFromStore(const std::string& featureId,
   }
   if (!NormalizeHolePatternParams(rec.refExtra, &rec.paramsMm, error)) return false;
   ShapeRecord target;
-  if (!ShapeStore::instance().get(rec.dependsOn[0], &target) ||
-      target.shape.IsNull()) {
+  if (!GetCurrentShapeRecord(rec.dependsOn[0], &target, error)) return false;
+  if (target.shape.IsNull()) {
     if (error) {
       *error =
           "hole pattern target vanished (needs repair): " + rec.dependsOn[0];
@@ -700,6 +756,15 @@ bool CreateHoleFeature(const std::string&, const std::string&,
 }
 
 bool RebuildHoleFromStore(const std::string&, std::string* error) {
+  if (error) *error = "holes require OCCT (link via vcpkg)";
+  return false;
+}
+
+bool CreateHolePatternFeature(
+    const std::string&, const std::string&,
+    const std::vector<std::pair<double, double>>&, double,
+    const std::string&, double, const std::vector<std::string>&,
+    std::vector<std::string>*, std::string* error) {
   if (error) *error = "holes require OCCT (link via vcpkg)";
   return false;
 }

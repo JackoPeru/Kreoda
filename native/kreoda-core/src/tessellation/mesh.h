@@ -32,6 +32,9 @@ struct CoreMesh {
   std::vector<EdgeRangeDto> edges;
   double volumeMm3 = 0.0;
   double bboxMm[6] = {0, 0, 0, 0, 0, 0};
+  // One native surface sample per vertex, inverse mm; -1 = undefined.
+  // Empty means unavailable (legacy/stub mesh), never a synthetic flat field.
+  std::vector<float> curvatureMaxAbsPerMm;
 };
 
 // LOD policy (§14): 0 = coarse/preview, 1 = interactive, 2 = export.

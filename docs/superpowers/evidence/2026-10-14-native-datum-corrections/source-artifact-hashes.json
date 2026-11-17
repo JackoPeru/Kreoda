@@ -1,0 +1,22 @@
+[
+  {
+    "path": "native/kreoda-core/src/features/datum/datum_store.cpp",
+    "sha256": "1674c1acb0fddadd3b9760624d1db3995383b8b239e10e0002e46162120a95e3"
+  },
+  {
+    "path": "native/kreoda-core/src/features/datum/datum_json.cpp",
+    "sha256": "0a8d2855da1f9d0343f2cc8c22e30590eaff1f86bfb9f842d9461ee8b0a45fa8"
+  },
+  {
+    "path": "native/kreoda-core/src/persistence/ocaf_live.cpp",
+    "sha256": "3574f12a929cde5766d7ed57bf12e77c5fc317cca5568814f4a64336bacb7036"
+  },
+  {
+    "path": "native/kreoda-core/tests/test_datum.cpp",
+    "sha256": "f344533a65e22fb2bff5804b454829e3152766ee9b3be42956a11166bda0a9b4"
+  },
+  {
+    "path": "native/kreoda-core/build/Release/kreoda-core.exe",
+    "sha256": "bc4f32de1f2e0a924caea69a59ef277bef3fd430ebce53317dbed1f824051fef"
+  }
+]

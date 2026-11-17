@@ -1,0 +1,72 @@
+{
+  "baseCommit": "3ed8b77e03b996753b54af642092831a21037338",
+  "implementer": {
+    "thread": "01a12d1d-8721-7172-892b-4a50ef9c5d54",
+    "model": "gpt-6-luna",
+    "effort": "max",
+    "terminalQuota": true,
+    "rootFallbackAuthorized": true
+  },
+  "requirementsSha256": "78f72a3026a93c7ccf2102f29ab943b71c8c19b12e89007681cafd31a93af24a",
+  "managedTests": {
+    "SessionClient": 125,
+    "ModelingAgent": 33,
+    "HermesBridge": 27,
+    "ModelingBenchmark": 26,
+    "failed": 0,
+    "skipped": 0,
+    "platformEnvironment": "x64"
+  },
+  "nativeBoundaryE2e": {
+    "passed": 1,
+    "seconds": 4.5,
+    "unavailableVoiceHttp": 404,
+    "occupiedDocumentUnchanged": true,
+    "oneUndoEmpty": true,
+    "hidden": true,
+    "compiledMainRestored": true
+  },
+  "desktopLint": true,
+  "reviewPending": false,
+  "liveHermesFixturesRun": 0,
+  "acceptedFixtures": 0,
+  "fullCommandArgumentsRecorded": false,
+  "singleSolidIndependentlyVerified": false,
+  "physicalHandsVoiceVerified": false,
+  "hermesUserWorkPreserved": true,
+  "goalComplete": false,
+  "priorReview": {
+    "thread": "01a12f6c-fb54-7b70-be7e-cb1d528257cc",
+    "verdict": "fix-first",
+    "model": "gpt-6-sol",
+    "effort": "high",
+    "sandbox": "danger-full-access",
+    "permission": "disabled",
+    "enforcedReadOnly": false,
+    "correctionsApplied": true
+  },
+  "review": {
+    "thread": "01a12f72-4cd5-7273-b7e2-39e6809f0332",
+    "verdict": "ship-partial-harness",
+    "model": "gpt-6-sol",
+    "effort": "high",
+    "sandbox": "danger-full-access",
+    "permission": "disabled",
+    "sourceInputs": 864,
+    "sourceFreeze": "5c4c568e87e80a3f7a193c255bb6c93a5a1878509f6af420f52aeb9f8be47596",
+    "sourceChanged": [],
+    "enforcedReadOnly": false
+  },
+  "failedTurnCommandEventsAvailable": false,
+  "hostedBaseRun": {
+    "id": 38228255640,
+    "head": "3ed8b77e03b996753b54af642092831a21037338",
+    "conclusion": "failure",
+    "dotnetBuildTestsPassed": true,
+    "failedE2e": [
+      "phase13-workflow-session",
+      "phase14-hermes-mcp"
+    ],
+    "causePending": "Hidden window click actionability at home-new-project"
+  }
+}

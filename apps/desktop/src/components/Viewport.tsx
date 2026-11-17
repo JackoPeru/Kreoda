@@ -1,13 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSharedTargetStore, visibleSharedTargets } from "../model/shared-targets";
 import { CadViewport } from "../viewport/CadViewport";
-import { useDocumentUiStore, useSelectionStore, useToolStore } from "../stores";
+import { surfaceFeatureIds, useDocumentUiStore, useSelectionStore, useToolStore } from "../stores";
 import { clampDimension, resolvePullTarget } from "../interaction/pull";
 import { coreClient } from "../ipc/coreClient";
 import { executeCommand } from "../commands/execute";
-import { setViewportHandle } from "../viewport/viewportHandle";
+import { setViewportHandle, viewportIsSurfacePickPending } from "../viewport/viewportHandle";
 import { markPullLearned } from "./Onboarding";
 import { useReferenceStore } from "../reference/store";
 import { t } from "../i18n";
+import { useSectionStore } from "../section/store";
+import { refreshSketchProjection } from "../model/sync";
+import { useZebraStore } from "../analysis/zebra";
 
 interface PullSession {
   pointerId: number;
@@ -35,8 +39,26 @@ export function Viewport() {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
   const mode = useSelectionStore((s) => s.mode);
   const activeTool = useToolStore((s) => s.activeTool);
+  const zebraEnabled = useZebraStore(s => s.enabled);
+  const zebraBands = useZebraStore(s => s.bands);
+  const zebraAngle = useZebraStore(s => s.angleDeg);
+  const curvature = useZebraStore(s => s.curvature);
   const meshes = useDocumentUiStore((s) => s.meshes);
+  const bodies = useDocumentUiStore((s) => s.bodies);
+  const features = useDocumentUiStore((s) => s.features);
+  const datums = useDocumentUiStore(s => s.datums);
+  const sketches = useDocumentUiStore(s => s.sketches);
+  const projectionViews = useDocumentUiStore(s => s.projectionViews);
+  const connectionGeneration = useDocumentUiStore(s => s.connectionGeneration);
   const meshRevision = useDocumentUiStore((s) => s.meshRevision);
+  const targetEvents = useSharedTargetStore(s => s.events);
+  const targetContext = useSharedTargetStore(s => s.context);
+  const documentId = useDocumentUiStore(s => s.documentId);
+  const revision = useDocumentUiStore(s => s.revision);
+  const sectionEnabled = useSectionStore((s) => s.enabled);
+  const sectionPlane = useSectionStore((s) => s.plane);
+  const sharedIds = useMemo(() => visibleSharedTargets(meshes, { documentId, revision }, datums).flatMap(target => target.ids),
+    [meshes, meshRevision, datums, targetEvents, targetContext, documentId, revision]);
   const refPlanes = useReferenceStore((s) => s.planes);
   const [pullHint, setPullHint] = useState<string | null>(null);
 
@@ -61,17 +83,28 @@ export function Viewport() {
     setViewportHandle({
       faceScreenPoint: (featureId, role) =>
         vpRef.current?.faceScreenPoint(featureId, role) ?? null,
+      sectionGeometryDiagnostics: (featureId, samplePointMm, faceRole) =>
+        vpRef.current?.sectionGeometryDiagnostics(featureId, samplePointMm, faceRole) ?? null,
       setView: (name) => vpRef.current?.setView(name),
       projectPoint: (p) => vpRef.current?.projectPoint(p) ?? null,
       viewDir: () => vpRef.current?.viewDir() ?? null,
       beginReferenceMeasure: (id) =>
         vpRef.current?.beginReferenceMeasure(id) ?? Promise.resolve(null),
       cancelReferenceMeasure: () => vpRef.current?.cancelReferenceMeasure(),
+      beginSurfacePointPick: (targetId) => vpRef.current?.beginSurfacePointPick(targetId) ?? Promise.resolve(null),
+      beginSurfaceEdgePick: (targetId) => vpRef.current?.beginSurfaceEdgePick(targetId) ?? Promise.resolve(null),
+      cancelSurfacePick: () => vpRef.current?.cancelSurfacePick(),
+      isSurfacePickPending: () => vpRef.current?.isSurfacePickPending() ?? false,
+      setSurfacePointMarker: (pointMm) => vpRef.current?.setSurfacePointMarker(pointMm),
+      setSurfaceEdgeHighlight: (edgeId) => vpRef.current?.setSurfaceEdgeHighlight(edgeId),
       renderStats: () => vpRef.current?.renderStats() ?? null,
       meshIdentity: (featureId) => vpRef.current?.meshIdentity(featureId) ?? null,
+      sketchProjectionSummary: (featureId) => vpRef.current?.sketchProjectionSummary(featureId) ?? null,
+      sharedTargetSummary: () => vpRef.current?.sharedTargetSummary() ?? null,
     });
     return () => {
       try {
+        vpRef.current?.cancelSurfacePick();
         vpRef.current?.cancelReferenceMeasure();
       } catch {
         // Best-effort: unmount must never throw.
@@ -82,21 +115,46 @@ export function Viewport() {
     };
   }, [hover, select]);
 
+  useEffect(() => {
+    if (sectionEnabled && Object.keys(meshes).length === 0 && bodies.length === 0 &&
+        !features.some((feature) => feature.type === "Instance")) {
+      useSectionStore.getState().reset();
+      vpRef.current?.setSection(null);
+      return;
+    }
+    vpRef.current?.setSection(sectionEnabled ? sectionPlane : null);
+  }, [sectionEnabled, sectionPlane, meshes, meshRevision, bodies, features]);
+
+  useEffect(() => {
+    vpRef.current?.setZebra({ enabled: zebraEnabled, bands: zebraBands, angleDeg: zebraAngle });
+  }, [zebraEnabled, zebraBands, zebraAngle]);
+  useEffect(() => { vpRef.current?.setCurvature(curvature); }, [curvature]);
+
   // Canonical → scene sync (§66): only on committed mesh updates, never on
   // pointer frequency. Slice 4: the meshes map holds VISIBLE tips only
   // (one entry per physical object) — syncMeshes reconciles the rest away.
   useEffect(() => {
-    vpRef.current?.syncMeshes(meshes);
-  }, [meshes, meshRevision]);
+    vpRef.current?.syncMeshes(meshes, surfaceFeatureIds(features));
+  }, [meshes, meshRevision, features]);
 
   // Reference planes (§29 Stage A): view aids, reconciled like meshes.
   useEffect(() => {
     vpRef.current?.syncReferencePlanes(refPlanes);
   }, [refPlanes]);
+  useEffect(() => { vpRef.current?.syncDatums(datums); },[datums]);
+  useEffect(() => { vpRef.current?.syncSketchProjections?.(projectionViews); }, [projectionViews]);
+
+  useEffect(() => {
+    for (const sketch of sketches) {
+      if (sketch.projectionGroups?.length) void refreshSketchProjection(sketch.featureId).catch(() => {});
+    }
+  }, [sketches, documentId, revision, connectionGeneration]);
 
   useEffect(() => {
     vpRef.current?.setSelected(selectedIds);
   }, [selectedIds]);
+
+  useEffect(() => { vpRef.current?.setSharedTargets(sharedIds); }, [sharedIds]);
 
   useEffect(() => {
     // auto = contextual face picking (§16); body/edge/face force the filter.
@@ -126,7 +184,7 @@ export function Viewport() {
 
     const onPointerDown = (e: PointerEvent): void => {
       const vp = vpRef.current;
-      if (!vp || activeTool !== "pull" || e.button !== 0) return;
+      if (!vp || viewportIsSurfacePickPending() || activeTool !== "pull" || e.button !== 0) return;
       const hit = vp.pickFaceAt(e.clientX, e.clientY);
       if (!hit) {
         setPullHint(t("viewport.pullFree"));

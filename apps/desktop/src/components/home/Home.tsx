@@ -10,6 +10,9 @@ export function Home({ header, children }: { header: ReactNode; children?: React
   const [reducedMotion, setReducedMotion] = useState(() =>
     typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
+  const [pageVisible, setPageVisible] = useState(() =>
+    typeof document === "undefined" || document.visibilityState !== "hidden",
+  );
   const [videoError, setVideoError] = useState(false);
 
   useLayoutEffect(() => {
@@ -32,9 +35,15 @@ export function Home({ header, children }: { header: ReactNode; children?: React
   }, []);
 
   useEffect(() => {
+    const update = (): void => setPageVisible(document.visibilityState !== "hidden");
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, []);
+
+  useEffect(() => {
     const element = video.current;
     if (!element) return;
-    if (reducedMotion || videoError) {
+    if (!pageVisible || reducedMotion || videoError) {
       element.pause();
       return;
     }
@@ -43,7 +52,7 @@ export function Home({ header, children }: { header: ReactNode; children?: React
       if (active) setVideoError(true);
     });
     return () => { active = false; };
-  }, [reducedMotion, videoError]);
+  }, [pageVisible, reducedMotion, videoError]);
 
   return (
     <div

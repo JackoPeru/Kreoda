@@ -1,0 +1,40 @@
+{
+  "baseCommit": "e4bbb978bd9118bc5fc7bea1bd00bb5ecadbfdac",
+  "failedHostedRun": 38178491797,
+  "cause": "clean hosted checkout lacked bridge/probe Release artifacts; solution and test runner excluded new projects",
+  "worker": {
+    "thread": "01a12d09-7253-7ca0-aeda-51fecf13e0dc",
+    "model": "gpt-6-luna",
+    "effort": "max",
+    "terminalQuota": false
+  },
+  "parent": {
+    "existingCheckoutManaged185": true,
+    "cleanArchiveNoBinObjBeforeBuild": true,
+    "cleanManaged": {
+      "SessionClient": 125,
+      "ModelingAgent": 33,
+      "HermesBridge": 27,
+      "failed": 0,
+      "notExecuted": 0
+    },
+    "actualNativeMcpE2e": 1,
+    "oneDesktopUndo": true,
+    "compiledMainRestored": true,
+    "hiddenWindowWrapper": true
+  },
+  "benchmarkRequirementSha256": "78f72a3026a93c7ccf2102f29ab943b71c8c19b12e89007681cafd31a93af24a",
+  "benchmarkExecuted": false,
+  "hostedNewHeadPending": true,
+  "reviewPending": false,
+  "physicalHandsVoiceVerified": false,
+  "goalComplete": false,
+  "review": {
+    "verdict": "ship",
+    "thread": "01a12d19-77b2-7422-a955-2d7879f636d3",
+    "model": "gpt-6-sol",
+    "effort": "high",
+    "behaviorallyReadOnly": true,
+    "enforcedReadOnly": false
+  }
+}

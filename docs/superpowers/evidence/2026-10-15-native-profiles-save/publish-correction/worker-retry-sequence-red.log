@@ -1,0 +1,22 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Torture10.SavePublishRetryDecisionSequence
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Torture10
+[ RUN      ] Torture10.SavePublishRetryDecisionSequence
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_torture_phase10.cpp(773): error: Expected equality of these values:
+  Decide(TargetState::DeleteAvailable, retriedWithDeleteAvailable)
+    Which is: 4-byte object <00-00 00-00>
+  Decision::RetryNow
+    Which is: 4-byte object <01-00 00-00>
+
+[  FAILED  ] Torture10.SavePublishRetryDecisionSequence (0 ms)
+[----------] 1 test from Torture10 (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] Torture10.SavePublishRetryDecisionSequence
+
+ 1 FAILED TEST

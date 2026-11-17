@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="9" failures="0" disabled="0" errors="0" time="0.055" timestamp="2026-10-13T17:39:43.743" name="AllTests">
+  <testsuite name="Persistence" tests="1" failures="0" disabled="0" skipped="0" errors="0" time="0.044" timestamp="2026-10-13T17:39:43.743">
+    <testcase name="CustomSketchFrameSurvivesOCAFOpenAndPostOpenEdit" file="C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_persistence.cpp" line="143" status="run" result="completed" time="0.044" timestamp="2026-10-13T17:39:43.743" classname="Persistence" />
+  </testsuite>
+  <testsuite name="UndoRedo" tests="1" failures="0" disabled="0" skipped="0" errors="0" time="0.006" timestamp="2026-10-13T17:39:43.788">
+    <testcase name="CustomSketchFrameSurvivesEditUndoRedo" file="C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_undo.cpp" line="174" status="run" result="completed" time="0.006" timestamp="2026-10-13T17:39:43.788" classname="UndoRedo" />
+  </testsuite>
+  <testsuite name="SketchJson" tests="4" failures="0" disabled="0" skipped="0" errors="0" time="0.001" timestamp="2026-10-13T17:39:43.794">
+    <testcase name="StrictModelFieldsIgnoreNestedKeysAndRejectWrongTypes" file="C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_sketch.cpp" line="29" status="run" result="completed" time="0." timestamp="2026-10-13T17:39:43.794" classname="SketchJson" />
+    <testcase name="FeatureRoundTripsFullFrameAndOpaqueSupportRef" file="C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_sketch.cpp" line="43" status="run" result="completed" time="0." timestamp="2026-10-13T17:39:43.795" classname="SketchJson" />
+    <testcase name="MissingLegacyFrameUsesEachPrincipalPlane" file="C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_sketch.cpp" line="74" status="run" result="completed" time="0." timestamp="2026-10-13T17:39:43.795" classname="SketchJson" />
+    <testcase name="InvalidPresentFrameFailsWithoutChangingOutput" file="C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_sketch.cpp" line="93" status="run" result="completed" time="0." timestamp="2026-10-13T17:39:43.795" classname="SketchJson" />
+  </testsuite>
+  <testsuite name="SketchPlane" tests="1" failures="0" disabled="0" skipped="0" errors="0" time="0." timestamp="2026-10-13T17:39:43.795">
+    <testcase name="ValidationRequiresFiniteOrthonormalRightHandedFrame" file="C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_sketch.cpp" line="218" status="run" result="completed" time="0." timestamp="2026-10-13T17:39:43.795" classname="SketchPlane" />
+  </testsuite>
+  <testsuite name="Sketch" tests="2" failures="0" disabled="0" skipped="0" errors="0" time="0.002" timestamp="2026-10-13T17:39:43.795">
+    <testcase name="ExplicitFrameExtrudesAtStoredOriginAndBasis" file="C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_sketch.cpp" line="247" status="run" result="completed" time="0.002" timestamp="2026-10-13T17:39:43.795" classname="Sketch" />
+    <testcase name="InvalidExplicitFrameLeavesDocumentAndUndoUntouched" file="C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_sketch.cpp" line="286" status="run" result="completed" time="0." timestamp="2026-10-13T17:39:43.798" classname="Sketch" />
+  </testsuite>
+</testsuites>

@@ -3,7 +3,10 @@
 #if KREODA_WITH_OCCT
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
+#include <BRepTools.hxx>
 #include <BRep_Tool.hxx>
+#include <Geom2dAdaptor_Curve.hxx>
+#include <Geom2d_Curve.hxx>
 #include <GeomAbs_CurveType.hxx>
 #include <GeomAbs_SurfaceType.hxx>
 #include <TopAbs_ShapeEnum.hxx>
@@ -11,6 +14,7 @@
 #include <TopExp_Explorer.hxx>
 #include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
 #include <TopTools_ListOfShape.hxx>
+#include <Precision.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Edge.hxx>
 #include <TopoDS_Face.hxx>
@@ -18,6 +22,9 @@
 #include <cmath>
 #include <gp_Dir.hxx>
 #include <gp_Pln.hxx>
+#include <gp_Pnt.hxx>
+#include <map>
+#include <set>
 
 namespace kreoda {
 
@@ -31,6 +38,29 @@ const char* axisRole(double nx, double ny, double nz, double tol,
 }
 
 }  // namespace
+
+std::string ParameterBoundaryRole(const TopoDS_Edge& edge, const TopoDS_Face& face) {
+  if (face.IsNull()) return {};
+  Standard_Real first = 0, last = 0;
+  const auto curve = BRep_Tool::CurveOnSurface(edge, face, first, last);
+  if (curve.IsNull() || !std::isfinite(first) || !std::isfinite(last) ||
+      Geom2dAdaptor_Curve(curve).GetType() != GeomAbs_Line) return {};
+  double u0, u1, v0, v1;
+  BRepTools::UVBounds(face, u0, u1, v0, v1);
+  if (!std::isfinite(u0) || !std::isfinite(u1) ||
+      !std::isfinite(v0) || !std::isfinite(v1)) return {};
+  const auto a = curve->Value(first), b = curve->Value(last);
+  const double tolerance = Precision::PConfusion();
+  if (std::abs(a.X() - b.X()) <= tolerance) {
+    if (std::abs(a.X() - u0) <= tolerance) return "uMin";
+    if (std::abs(a.X() - u1) <= tolerance) return "uMax";
+  }
+  if (std::abs(a.Y() - b.Y()) <= tolerance) {
+    if (std::abs(a.Y() - v0) <= tolerance) return "vMin";
+    if (std::abs(a.Y() - v1) <= tolerance) return "vMax";
+  }
+  return {};
+}
 
 bool HasIndexedTopologyRole(const std::string& reference) {
   for (const auto* token : {"wall.", "face.", "free.", "ring.", "cone.", "sph."}) {
@@ -47,11 +77,37 @@ std::vector<std::string> ClassifyFaceRoles(const TopoDS_Shape& shape,
                                            const std::string& featureType,
                                            const std::string& featureId) {
   std::vector<std::string> roles;
+  std::vector<std::string> fallbackRoles;
+  std::vector<std::string> supportRoles;
+  std::vector<gp_Dir> supportNormals;
+  std::vector<gp_Pnt> supportPoints;
+  std::vector<double> supportTolerances;
+  std::size_t solidCount = 0;
+  TopoDS_Shape soleSolid;
+  for (TopExp_Explorer ex(shape, TopAbs_SOLID); ex.More(); ex.Next()) {
+    ++solidCount;
+    if (solidCount == 1) soleSolid = ex.Current();
+  }
+  bool supportFilterEligible = false;
+  if (solidCount == 1) {
+    std::size_t shapeFaceCount = 0;
+    std::size_t solidFaceCount = 0;
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next())
+      ++shapeFaceCount;
+    for (TopExp_Explorer ex(soleSolid, TopAbs_FACE); ex.More(); ex.Next())
+      ++solidFaceCount;
+    supportFilterEligible = shapeFaceCount == solidFaceCount;
+  }
   int plain = 0, wall = 0, cap = 0;
   for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
     const TopoDS_Face& face = TopoDS::Face(ex.Current());
     BRepAdaptor_Surface adapt(face);
-    std::string role = "face." + std::to_string(plain++);
+    const std::string fallbackRole = "face." + std::to_string(plain++);
+    std::string role = fallbackRole;
+    std::string supportRole;
+    gp_Dir supportNormal;
+    gp_Pnt supportPoint;
+    double supportTolerance = Precision::Confusion();
     const GeomAbs_SurfaceType st = adapt.GetType();
     if (st == GeomAbs_Plane) {
       gp_Dir n = adapt.Plane().Axis().Direction();
@@ -63,17 +119,37 @@ std::vector<std::string> ClassifyFaceRoles(const TopoDS_Shape& shape,
       if (!r) r = axisRole(nz, nx, ny, tol, "box.-Z", "box.+Z");
       if (featureType == "Cylinder") {
         // Axial caps keep +Z/-Z roles; any other plane is a side patch.
-        role = (r && (std::string(r) == "box.+Z" || std::string(r) == "box.-Z"))
-                   ? ("cyl." + std::string(r).substr(4))
-                   : "cyl.side";
+        if (r && (std::string(r) == "box.+Z" || std::string(r) == "box.-Z")) {
+          role = "cyl." + std::string(r).substr(4);
+          supportRole = r;
+        } else {
+          role = "cyl.side";
+        }
       } else if (featureType == "Extrude") {
         // Prism caps: axis-aligned planes keep axis roles under the extrude
         // prefix (stable across distance edits); other planes are side walls.
-        role = r ? ("extrude." + std::string(r).substr(4)) : "extrude.side";
+        if (r) {
+          role = "extrude." + std::string(r).substr(4);
+          supportRole = r;
+        } else {
+          role = "extrude.side";
+        }
       } else if (featureType == "Revolve") {
-        role = r ? ("revolve." + std::string(r).substr(4)) : "revolve.side";
+        if (r) {
+          role = "revolve." + std::string(r).substr(4);
+          supportRole = r;
+        } else {
+          role = "revolve.side";
+        }
       } else if (r) {
         role = r;
+        supportRole = r;
+      }
+      if (!supportRole.empty()) {
+        supportNormal = n;
+        supportPoint = adapt.Plane().Location();
+        supportTolerance = std::max(Precision::Confusion(),
+                                    BRep_Tool::Tolerance(face));
       }
     } else if (st == GeomAbs_Cylinder) {
       if (featureType == "Cylinder") {
@@ -97,7 +173,41 @@ std::vector<std::string> ClassifyFaceRoles(const TopoDS_Shape& shape,
       role = "free." + std::to_string(cap++);
     }
     roles.push_back(featureId + ":" + role);
+    fallbackRoles.push_back(fallbackRole);
+    supportRoles.push_back(supportRole);
+    supportNormals.push_back(supportNormal);
+    supportPoints.push_back(supportPoint);
+    supportTolerances.push_back(supportTolerance);
   }
+  if (supportFilterEligible) {
+    // Axis roles tolerate near-axis normals; support filtering must only
+    // compare parallel oriented planes and use translation-invariant offsets.
+    for (std::size_t i = 0; i < roles.size(); ++i) {
+      if (supportRoles[i].empty()) continue;
+      for (std::size_t j = 0; j < roles.size(); ++j) {
+        if (i == j || supportRoles[j] != supportRoles[i] ||
+            !supportNormals[i].IsEqual(supportNormals[j], Precision::Angular()))
+          continue;
+        const double relativeSupport =
+            supportNormals[i].X() * (supportPoints[j].X() - supportPoints[i].X()) +
+            supportNormals[i].Y() * (supportPoints[j].Y() - supportPoints[i].Y()) +
+            supportNormals[i].Z() * (supportPoints[j].Z() - supportPoints[i].Z());
+        const double tolerance = std::max(
+            {Precision::Confusion(), supportTolerances[i], supportTolerances[j]});
+        if (relativeSupport > tolerance) {
+          roles[i] = featureId + ":" + fallbackRoles[i];
+          break;
+        }
+      }
+    }
+  }
+  // Pure surface picks need distinct acquisition IDs; solid role collisions
+  // remain visible to the established ambiguity checks and solid tools.
+  if (solidCount != 0) return roles;
+  std::map<std::string, std::size_t> counts;
+  for (const auto& role : roles) ++counts[role];
+  for (std::size_t i = 0; i < roles.size(); ++i)
+    if (counts[roles[i]] > 1) roles[i] = featureId + ":face." + std::to_string(i);
   return roles;
 }
 
@@ -108,15 +218,19 @@ bool FindFaceByRole(const TopoDS_Shape& shape, const std::string& featureId,
   const std::vector<std::string> roles =
       ClassifyFaceRoles(shape, featureType, featureId);
   size_t fi = 0;
+  TopoDS_Face match;
+  std::size_t matches = 0;
   for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More();
        ex.Next(), ++fi) {
     if (fi < roles.size() &&
         (roles[fi] == full || roles[fi] == role)) {
-      if (out) *out = TopoDS::Face(ex.Current());
-      return true;
+      match = TopoDS::Face(ex.Current());
+      ++matches;
     }
   }
-  return false;
+  if (matches != 1) return false;
+  if (out) *out = match;
+  return true;
 }
 
 std::vector<EdgeRoleDto> ClassifyEdgeRoles(
@@ -143,6 +257,9 @@ std::vector<EdgeRoleDto> ClassifyEdgeRoles(
   TopTools_IndexedDataMapOfShapeListOfShape edgeFaces;
   TopExp::MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edgeFaces);
   std::vector<TopoDS_Edge> seen;
+  struct PendingRole { std::string role, curve; TopoDS_Edge edge; TopoDS_Face face; };
+  std::vector<PendingRole> pending;
+  std::map<std::string, std::size_t> roleCounts;
   int freeCount = 0;
   for (TopExp_Explorer ex(shape, TopAbs_EDGE); ex.More(); ex.Next()) {
     const TopoDS_Edge edge = TopoDS::Edge(ex.Current());
@@ -186,7 +303,37 @@ std::vector<EdgeRoleDto> ClassifyEdgeRoles(
       role = std::string("edge.") + curve + ".free." +
              std::to_string(freeCount++);
     }
-    out.push_back({featureId + ":" + role, edge});
+    ++roleCounts[role];
+    TopoDS_Face parameterFace;
+    if (adj.size() == 1 && !HasIndexedTopologyRole(adj.front()))
+      parameterFace = TopoDS::Face(edgeFaces.FindFromKey(edge).First());
+    pending.push_back({std::move(role), curve, edge, parameterFace});
+  }
+  if (TopExp_Explorer(shape, TopAbs_SOLID).More()) {
+    for (const auto& item : pending) out.push_back({featureId + ":" + item.role, item.edge});
+    return out;
+  }
+  for (auto& item : pending) {
+    if (roleCounts[item.role] <= 1) continue;
+    const auto boundary = ParameterBoundaryRole(item.edge, item.face);
+    if (!boundary.empty()) item.role += "." + boundary;
+  }
+  roleCounts.clear();
+  for (const auto& item : pending) ++roleCounts[item.role];
+  std::set<std::string> used;
+  for (const auto& item : pending)
+    if (roleCounts[item.role] == 1) used.insert(item.role);
+  out.reserve(pending.size());
+  for (std::size_t i = 0; i < pending.size(); ++i) {
+    const auto& item = pending[i];
+    std::string role = item.role;
+    if (roleCounts[role] > 1) {
+      std::size_t index = i;
+      do { role = "edge." + item.curve + ".free." + std::to_string(index++); }
+      while (used.count(role));
+      used.insert(role);
+    }
+    out.push_back({featureId + ":" + role, item.edge});
   }
   return out;
 }
@@ -195,13 +342,21 @@ bool FindEdgeByRole(const TopoDS_Shape& shape, const std::string& featureId,
                     const std::string& featureType, const std::string& role,
                     TopoDS_Edge* out) {
   const std::string full = featureId + ":" + role;
+  TopoDS_Edge match;
+  std::size_t matches = 0;
   for (const auto& er : ClassifyEdgeRoles(shape, featureType, featureId)) {
     if (er.persistentEdgeId == full || er.persistentEdgeId == role) {
-      if (out) *out = er.edge;
-      return true;
+      if (TopExp_Explorer(shape, TopAbs_SOLID).More()) {
+        if (out) *out = er.edge;
+        return true;
+      }
+      match = er.edge;
+      ++matches;
     }
   }
-  return false;
+  if (matches != 1) return false;
+  if (out) *out = match;
+  return true;
 }
 
 bool FaceFrameInfo(const TopoDS_Shape& shape, const std::string& featureId,
@@ -212,6 +367,11 @@ bool FaceFrameInfo(const TopoDS_Shape& shape, const std::string& featureId,
   if (!FindFaceByRole(shape, featureId, featureType, role, &face)) {
     return false;
   }
+  return FaceFrameInfo(face,origin,xAxis,yAxis,normal);
+}
+
+bool FaceFrameInfo(const TopoDS_Face& face,double origin[3],double xAxis[3],
+                   double yAxis[3],double normal[3]) {
   BRepAdaptor_Surface adapt(face);
   if (adapt.GetType() != GeomAbs_Plane) return false;
   const gp_Pln pln = adapt.Plane();

@@ -4,6 +4,7 @@
 import {
   coreClient,
   type FeatureSummary,
+  type SketchProjectionMutation,
   type SketchSummary,
 } from "../ipc/coreClient";
 import {
@@ -11,8 +12,11 @@ import {
   useSelectionStore,
   visibleFeatureIds,
 } from "../stores";
+import type { DatumDescriptor, SketchProjectionResult } from "@kreoda/protocol";
 
 let refreshOpenedSession: (() => Promise<void>) | null = null;
+const projectionTickets = new Map<string, number>();
+let nextProjectionTicket = 0;
 
 /** Open and recovery await the same queue that owns incoming session events. */
 export function bindOpenedSessionRefresh(refresh: () => Promise<void>): () => void {
@@ -20,14 +24,100 @@ export function bindOpenedSessionRefresh(refresh: () => Promise<void>): () => vo
   return () => { if (refreshOpenedSession === refresh) refreshOpenedSession = null; };
 }
 
-export async function syncOpenedDocument(features: FeatureSummary[], revision: number, sketches: SketchSummary[]): Promise<number> {
+export async function syncOpenedDocument(features: FeatureSummary[], revision: number, sketches: SketchSummary[], datums: DatumDescriptor[] = []): Promise<number> {
   if (refreshOpenedSession) {
     await refreshOpenedSession();
   } else {
     useDocumentUiStore.getState().resetDocument(coreClient.documentId);
-    await syncFromCoreList(features, revision, sketches);
+    await syncFromCoreList(features, revision, sketches, null, datums);
   }
   return useDocumentUiStore.getState().epoch;
+}
+
+/** Read native projection curves only for the exact current session view. */
+export async function refreshSketchProjection(featureId: string): Promise<SketchProjectionResult | null> {
+  const ticket = ++nextProjectionTicket;
+  projectionTickets.set(featureId, ticket);
+  const initial = useDocumentUiStore.getState();
+  const context = {
+    documentId: initial.documentId,
+    revision: initial.revision,
+    epoch: initial.epoch,
+    connectionGeneration: initial.connectionGeneration,
+  };
+  initial.clearSketchProjection(featureId);
+
+  try {
+    const before = await window.kreoda.sessionSnapshot() as { sessionId?: string; documentId: string; revision: number };
+    if (projectionTickets.get(featureId) !== ticket) return null;
+    const current = useDocumentUiStore.getState();
+    if (before.documentId !== context.documentId || before.revision !== context.revision ||
+        current.documentId !== context.documentId || current.revision !== context.revision ||
+        current.epoch !== context.epoch || current.connectionGeneration !== context.connectionGeneration ||
+        typeof before.sessionId !== "string" || coreClient.documentId !== context.documentId) return null;
+
+    const response = await coreClient.requestSketchProjection(featureId);
+    const after = await window.kreoda.sessionSnapshot() as { sessionId?: string; documentId: string; revision: number };
+    const latest = useDocumentUiStore.getState();
+    if (projectionTickets.get(featureId) !== ticket || response.documentId !== context.documentId ||
+        response.revision !== context.revision || response.projection.featureId !== featureId ||
+        after.sessionId !== before.sessionId || after.documentId !== context.documentId || after.revision !== context.revision ||
+        latest.documentId !== context.documentId || latest.revision !== context.revision || latest.epoch !== context.epoch ||
+        latest.connectionGeneration !== context.connectionGeneration) return null;
+
+    const projection = response.projection.geometryCurrent ? response.projection : {
+      ...response.projection,
+      groups: response.projection.groups.map(group => ({ ...group, edges: [] })),
+    };
+    latest.setProjectionView({ ...context, sessionId: before.sessionId, projection });
+    return projection;
+  } catch (error) {
+    if (projectionTickets.get(featureId) === ticket) {
+      const current = useDocumentUiStore.getState();
+      if (current.documentId === context.documentId && current.epoch === context.epoch &&
+          current.revision === context.revision && current.connectionGeneration === context.connectionGeneration)
+        current.clearSketchProjection(featureId);
+    }
+    throw error;
+  }
+}
+
+/** Consume direct 36/37 sketch state, then await ordered full snapshot sync. */
+export async function syncSketchProjectionMutation(
+  result: SketchProjectionMutation,
+  documentId: string,
+  epoch: number,
+): Promise<void> {
+  const state = useDocumentUiStore.getState();
+  if (state.documentId !== documentId || state.epoch !== epoch || coreClient.documentId !== documentId || result.revision < state.revision) return;
+  const model = { ...result.model, planeKind: result.planeKind, ...(result.plane ? { plane: result.plane } : {}), ...(result.supportRef !== undefined ? { supportRef: result.supportRef } : {}) };
+  const sketch = state.sketches.find(item => item.featureId === result.featureId);
+  state.setSketches([
+    ...state.sketches.filter(item => item.featureId !== result.featureId),
+    {
+      ...sketch,
+      featureId: result.featureId,
+      planeKind: result.planeKind,
+      plane: result.plane,
+      supportRef: result.supportRef,
+      points: model.points.length,
+      lines: model.lines.length,
+      circles: model.circles.length,
+      constraints: model.constraints.length,
+      projectionGroups: result.projectionGroups,
+      geometryCurrent: result.geometryCurrent,
+      status: result.status,
+      error: result.error,
+      blockingSourceIds: result.blockingSourceIds,
+      model,
+    },
+  ], result.revision, epoch);
+  state.clearSketchProjection(result.featureId);
+  if (refreshOpenedSession) await refreshOpenedSession();
+  else {
+    const snapshot = await coreClient.requestSnapshot();
+    await syncFromCoreList(snapshot.features, snapshot.revision, snapshot.sketches, null, snapshot.datums);
+  }
 }
 
 /** Re-request + store the mesh for one feature at the given core revision. */
@@ -83,20 +173,55 @@ export async function syncFromCoreList(
   revision: number,
   sketches: SketchSummary[] = [],
   changedMeshIds: readonly string[] | null = null,
+  datums: DatumDescriptor[] | null = null,
+  currentContextGuard?: () => boolean,
 ): Promise<void> {
+  const assertCurrentContext = (): void => {
+    if (currentContextGuard && !currentContextGuard()) throw new Error("stale surface sync");
+  };
+  assertCurrentContext();
+  // Native Undo/Redo returns counts only. Use the session's ordered full-model
+  // refresh instead of replacing a supported sketch cache with an empty model.
+  if (refreshOpenedSession && sketches.some(sketch => !sketch.model)) {
+    if (currentContextGuard) throw new Error("surface refresh requires full canonical sketch models");
+    await refreshOpenedSession();
+    return;
+  }
   const s = useDocumentUiStore.getState();
   const epoch = s.epoch;
+  assertCurrentContext();
   s.setFeatures(features, revision, epoch);
+  if(datums !== null)s.setDatums(datums,revision,epoch);
   s.setSketches(
-    sketches.map((k) => ({
-      featureId: k.featureId,
-      planeKind: k.planeKind,
-      points: k.points,
-      lines: k.lines,
-      circles: k.circles,
-      constraints: k.constraints,
-      ...(k.model ? { model: k.model } : {}),
-    })),
+    sketches.map((k) => {
+      const cached = k.model as (typeof k.model & {
+        plane?: SketchSummary["plane"];
+        supportRef?: string;
+      }) | undefined;
+      const plane = k.plane ?? cached?.plane;
+      const supportRef = k.supportRef !== undefined ? k.supportRef : cached?.supportRef;
+      return {
+        featureId: k.featureId,
+        planeKind: k.planeKind,
+        points: k.points,
+        lines: k.lines,
+        circles: k.circles,
+        constraints: k.constraints,
+        ...(k.projectionGroups !== undefined ? { projectionGroups: k.projectionGroups } : {}),
+        geometryCurrent: k.geometryCurrent,
+        status: k.status,
+        error: k.error,
+        blockingSourceIds: k.blockingSourceIds,
+        ...(k.model ? { model: {
+          ...k.model,
+          planeKind: k.planeKind,
+          ...(plane !== undefined ? { plane } : {}),
+          ...(supportRef !== undefined ? { supportRef } : {}),
+        } } : {}),
+        ...(plane !== undefined ? { plane } : {}),
+        ...(supportRef !== undefined ? { supportRef } : {}),
+      };
+    }),
     revision,
     epoch,
   );
@@ -105,9 +230,19 @@ export async function syncFromCoreList(
   // enough to saturate local IPC without bursting the sidecar). Per-feature
   // errors collected — fail-fast would strand the summaries behind (C4).
   // Historical meshes stay core-side, pulled on demand.
-  const visible = visibleFeatureIds(features);
+  // Persisted documents can contain broken dependents whose native feature
+  // summaries intentionally omit volume and geometry. Keep their history in
+  // the model tree, but do not request or retain a stale viewport mesh.
+  const unavailable = new Set(features.filter(feature =>
+    feature.geometryCurrent === false || feature.status === "unavailable").map(feature => feature.featureId));
+  const visible = visibleFeatureIds(features).filter(id => !unavailable.has(id));
   const changed = changedMeshIds === null ? null : new Set(changedMeshIds);
   const hydrate = visible.filter((id) => changed === null || changed.has(id) || !s.meshes[id]);
+  // Only retained unchanged buffers are valid while changed geometry hydrates.
+  // Their native creation revision may precede this document revision.
+  const retained = changed === null ? {} : Object.fromEntries(
+    visible.filter(id => !changed.has(id) && s.meshes[id]).map(id => [id, s.meshes[id]!]));
+  s.replaceAllMeshes(retained, revision, epoch);
   const results: (
     | { ok: true; id: string; mesh: Awaited<ReturnType<typeof coreClient.requestMesh>> }
     | { ok: false; id: string; error: string }
@@ -126,13 +261,13 @@ export async function syncFromCoreList(
     }
   }
   await Promise.all(Array.from({ length: Math.min(LANES, hydrate.length) }, lane));
-  const meshes: Record<string, Parameters<typeof s.upsertMesh>[1]> = changed === null ? {} :
-    Object.fromEntries(visible.filter((id) => !changed.has(id) && s.meshes[id]).map((id) => [id, s.meshes[id]!]));
+  const meshes: Record<string, Parameters<typeof s.upsertMesh>[1]> = { ...retained };
   const failed: string[] = [];
   for (const r of results) {
     if (r.ok) meshes[r.id] = r.mesh;
     else failed.push(`${r.id}: ${r.error}`);
   }
+  assertCurrentContext();
   useDocumentUiStore.getState().replaceAllMeshes(meshes, revision, epoch);
   if (failed.length > 0) {
     throw new Error(
@@ -141,11 +276,13 @@ export async function syncFromCoreList(
   }
   // Drop selections pointing at features that no longer exist (solids AND
   // sketches — sketch nouns select by bare UUID too, §26).
+  assertCurrentContext();
   const current = useDocumentUiStore.getState();
   if (current.epoch !== epoch || current.revision !== revision) return;
   const alive = new Set([
     ...features.map((f) => f.featureId),
     ...sketches.map((k) => k.featureId),
+    ...(datums ?? current.datums).map(datum => datum.featureId),
   ]);
   const sel = useSelectionStore.getState();
   const kept = sel.selectedIds.filter((id) => {

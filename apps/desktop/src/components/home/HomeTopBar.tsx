@@ -1,29 +1,19 @@
 import { useEffect, useState } from "react";
 import {
   Atom,
-  Box,
   ChevronDown,
+  Download,
   Folder,
   Flower2,
   Home,
   Settings,
 } from "lucide-react";
 
-function RenderGlyph({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-      <rect x="3" y="3" width="18" height="18" rx="4" />
-      <circle cx="12" cy="12" r="3.2" />
-    </svg>
-  );
-}
-
 const ITEMS = [
   { key: "home", label: "Home", Icon: Home },
   { key: "progetti", label: "Progetti", Icon: Folder },
   { key: "modelli", label: "Modelli", Icon: Flower2 },
-  { key: "materiali", label: "Materiali", Icon: Box },
-  { key: "render", label: "Render", Icon: RenderGlyph },
+  { key: "export", label: "Esporta", Icon: Download },
   { key: "ai", label: "AI", Icon: Atom },
   { key: "impostazioni", label: "Impostazioni", Icon: Settings },
 ];
@@ -48,9 +38,9 @@ export function HomeTopBar({ onNavigate }: { onNavigate?: (key: string) => void 
     >
       <div className="flex items-center gap-5">
         <svg aria-hidden="true" className="size-8 shrink-0" viewBox="0 0 32 34" fill="none">
-          <path d="M3 2C3 1 4 0 5 0H9V34H5C4 34 3 33 3 32V2Z" fill="#DDE6FF" />
-          <path d="M12 14L24 0H31L17 18L12 14Z" fill="#9BC2FF" />
-          <path d="M12 20L17 16L31 34H24L12 20Z" fill="#A8AAFF" />
+          <path d="M3 2C3 1 4 0 5 0H9V34H5C4 34 3 33 3 32V2Z" fill="#F5FAFC" />
+          <path d="M12 14L24 0H31L17 18L12 14Z" fill="#63F5E9" />
+          <path d="M12 20L17 16L31 34H24L12 20Z" fill="#2FB8AE" />
         </svg>
         <span className="leading-tight">
           <span className="block text-lg font-semibold tracking-[0.25em] text-white">
@@ -69,6 +59,7 @@ export function HomeTopBar({ onNavigate }: { onNavigate?: (key: string) => void 
             <button
               key={key}
               type="button"
+              data-testid={`home-nav-${key}`}
               onClick={() => onNavigate?.(key)}
               className={`relative flex flex-col items-center gap-1 pb-1.5 text-xs transition-colors ${
                 active ? "text-white" : "text-white/60 hover:text-white/90"

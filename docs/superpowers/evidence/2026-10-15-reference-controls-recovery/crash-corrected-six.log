@@ -1,0 +1,17 @@
+
+Running 6 tests using 1 worker
+
+(node:27396) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PHASE10_RENDERER_TERMINATION {"rendererPid":38756,"mainPid":38784,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 38756 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":38756,"replacementPid":30940,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":30940,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok 1 e2e\phase10-crash.spec.ts:376:1 › renderer crash with an uncommitted solved sketch drag restores committed coordinates [solo] (10.1s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":36256,"mainPid":21112,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 36256 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":36256,"replacementPid":38440,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":38440,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok 2 e2e\phase10-crash.spec.ts:427:1 › renderer crash restores native datum sketch frame, support and geometry before ordinary Undo [solo] (18.3s)
+  ok 3 e2e\phase10-crash.spec.ts:376:1 › main crash with an uncommitted solved sketch drag restores committed coordinates [solo] (11.7s)
+  ok 4 e2e\phase10-crash.spec.ts:427:1 › main crash restores native datum sketch frame, support and geometry before ordinary Undo [solo] (27.8s)
+  ok 5 e2e\phase10-crash.spec.ts:376:1 › core crash with an uncommitted solved sketch drag restores committed coordinates [solo] (10.9s)
+  ok 6 e2e\phase10-crash.spec.ts:427:1 › core crash restores native datum sketch frame, support and geometry before ordinary Undo [solo] (25.9s)
+
+  6 passed (1.8m)

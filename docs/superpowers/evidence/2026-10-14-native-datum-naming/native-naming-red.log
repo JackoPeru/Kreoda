@@ -1,0 +1,21 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = DatumNaming.*
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DatumNaming
+[ RUN      ] DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen
+C:\Users\matte\Desktop\Saas\Kreoda-phase15-sketch-frame-20261013\native\kreoda-core\tests\test_datum.cpp(430): error: Value of: CreateDatumFeature("plane",DatumKind::Plane,Json{{"type","offset"},{"base",{{"type","face"},{"featureId","imported"},{"persistentFaceId",faceId}}},{"offsetMm",2}}.dump(),&error)
+  Actual: false
+Expected: true
+datum definition: indexed face source is not persistent
+
+[  FAILED  ] DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen (2 ms)
+[----------] 1 test from DatumNaming (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen
+
+ 1 FAILED TEST

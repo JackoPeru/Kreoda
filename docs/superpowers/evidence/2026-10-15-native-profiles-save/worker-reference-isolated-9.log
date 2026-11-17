@@ -1,0 +1,22 @@
+Running main() from C:\vcpkg\buildtrees\gtest\src\v1.18.0-e6987f02b9.clean\googletest\src\gtest_main.cc
+Note: Google Test filter = Torture10.ReferenceMetadata100CyclesAndFailedSave
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Torture10
+[ RUN      ] Torture10.ReferenceMetadata100CyclesAndFailedSave
+save diagnostic cycle=39 response={"protocolVersion":1,"requestId":"refs-save","status":"error","errorCode":"SAVE_FAILED","errorMessage":"save: publish failed: Accesso negato."}
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\tests\test_torture_phase10.cpp(682): error: Value of: ok(saveResponse)
+  Actual: false
+Expected: true
+cycle=39 response={"protocolVersion":1,"requestId":"refs-save","status":"error","errorCode":"SAVE_FAILED","errorMessage":"save: publish failed: Accesso negato."}
+
+[  FAILED  ] Torture10.ReferenceMetadata100CyclesAndFailedSave (643 ms)
+[----------] 1 test from Torture10 (643 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (643 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] Torture10.ReferenceMetadata100CyclesAndFailedSave
+
+ 1 FAILED TEST

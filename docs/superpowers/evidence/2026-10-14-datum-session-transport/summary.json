@@ -1,0 +1,55 @@
+{
+  "scope": "Task3 generated datum session contracts, ordered reducers and relay queries, partial",
+  "accepted": false,
+  "goalComplete": false,
+  "base": "bba080f8606ab6c14ba17c3e02af28625fde60ac",
+  "generated": {
+    "artifacts": 5,
+    "dtoSchemas": 43,
+    "sourceHash": "fc27989e6b39fd8d12cafa770f72ab89f26e7bb0f9d14b635f687b3ebbdfe6ce",
+    "checkExit": 0
+  },
+  "protocolTests": {
+    "passed": 51,
+    "failed": 0
+  },
+  "catalogTests": {
+    "passed": 19,
+    "failed": 0
+  },
+  "desktop": {
+    "passed": 241,
+    "failed": 0,
+    "files": 38,
+    "maxWorkers": 2,
+    "initialDefaultRun": "240 passed; Windows device ACL persistence test timed out; isolated12 and complete rerun241 passed without test or production timeout changes"
+  },
+  "managed": {
+    "SessionClient": 141,
+    "ModelingAgent": 33,
+    "HermesBridge": 32,
+    "ModelingBenchmark": 33,
+    "total": 239,
+    "failed": 0,
+    "skipped": 0,
+    "focusedTrx": 7,
+    "actualNetstandardBuild": true
+  },
+  "typescriptExit": 0,
+  "proofs": [
+    "typed datum definitions/native geometry and sketch frames",
+    "legacy snapshots omit datums and six-argument managed constructor remains valid",
+    "datum create/edit/removal ordered patches preserve data without mesh requests",
+    "getDatum delegates authoritative native query and checks descriptor",
+    "full semantic context preserves native frame/supportRef/model",
+    "canonical Zod definitions equal generated contract definitions"
+  ],
+  "remaining": [
+    "real native client/MCP and crash recovery proof",
+    "Desktop datum controls rendering selection",
+    "Quest datum full frame hand semantic views",
+    "normal ARM64 and exact integrated CI",
+    "fresh independent review",
+    "physical/live acceptance"
+  ]
+}

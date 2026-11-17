@@ -1,0 +1,186 @@
+[
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\desktop-final.xml",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/desktop-final.xml",
+    "originalSha256": "6421e9615ad78bb92411e8d907c64541e23e15c8b9bf2da0b28fa32a873cbc87",
+    "archivedSha256": "6421e9615ad78bb92411e8d907c64541e23e15c8b9bf2da0b28fa32a873cbc87",
+    "transformation": "none",
+    "stagedSha256": "6421e9615ad78bb92411e8d907c64541e23e15c8b9bf2da0b28fa32a873cbc87"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\desktop-final.log",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/desktop-final.log",
+    "originalSha256": "1371d6fbc0175f7da175a28f8e6a1571373ab5cdd272a7797eb9338b265204d1",
+    "archivedSha256": "25c039740fb6f9ed49609a831046b7742bb60471167f9d7e2fc1f2dc11f49cd3",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "25c039740fb6f9ed49609a831046b7742bb60471167f9d7e2fc1f2dc11f49cd3"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\desktop-build-final.log",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/desktop-build-final.log",
+    "originalSha256": "681c4d4a9f629bde0f6fb8415873fcc312d05aee639180e824159f9c62937f0a",
+    "archivedSha256": "763cb5d52eadffe74415e3b7f2718153c5f9b8136839cb254bd8e905a2d37b8c",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "763cb5d52eadffe74415e3b7f2718153c5f9b8136839cb254bd8e905a2d37b8c"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\managed-build.log",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/managed-build.log",
+    "originalSha256": "d22f4e5799d908b330d9cf98e56262a5d8b73fed3e71bf55cad8705cb9b4d447",
+    "archivedSha256": "dc67fc065d2df4a48e7efac81124e30eebfd3c55c8731d63b3fee9bc3c3f6c5d",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "dc67fc065d2df4a48e7efac81124e30eebfd3c55c8731d63b3fee9bc3c3f6c5d"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\managed-summary.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/managed-summary.json",
+    "originalSha256": "6d12e83932f746aac7ed9213621359c99d7c3318411f26f36328363b24dce02a",
+    "archivedSha256": "fa0ec309ce33cef31d39dc8a07b38ebce9eb67df931a14048fc0b24a799c1f8f",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "fa0ec309ce33cef31d39dc8a07b38ebce9eb67df931a14048fc0b24a799c1f8f"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\editor-corrected.xml",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/editor-corrected.xml",
+    "originalSha256": "cc6d2c4731f05767f72067dd9d1b6a9b042c8a00899c7e0e04834c19df6064cc",
+    "archivedSha256": "9deb471da0020883659efdd221a9da8843d5777a09f88e3dd221f34b117cebf6",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "9deb471da0020883659efdd221a9da8843d5777a09f88e3dd221f34b117cebf6"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\editor-saved-scene.xml",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/editor-saved-scene.xml",
+    "originalSha256": "7967c1030700bb77aed900b4e2b4b127a7d5d9f55c7884998b57e81d0cd7ca1e",
+    "archivedSha256": "5e5957330be89c96262132be64a7c87092675f52d916920f2077fd94bd080052",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "5e5957330be89c96262132be64a7c87092675f52d916920f2077fd94bd080052"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\editor-source-before.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/editor-source-before.json",
+    "originalSha256": "d27696298ffe139eb7387757413ef36f2e6d380b2fb713ba6dcbf2f038bdf79e",
+    "archivedSha256": "86863dd1e1048903341a23a6e2d2357e225c8ad881767f7733a7a20daf9a6a66",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "86863dd1e1048903341a23a6e2d2357e225c8ad881767f7733a7a20daf9a6a66"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\electron-managed-cleanup-fixed.xml",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/electron-managed-cleanup-fixed.xml",
+    "originalSha256": "c43f90716f119e9b955b1b9cedda0bb573b21266177f70377aef5ddef730d682",
+    "archivedSha256": "95abfe3dbe711158b32fd87c62e1c5ed554e5e7687b8bfa8c704e7ec7e43b121",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "95abfe3dbe711158b32fd87c62e1c5ed554e5e7687b8bfa8c704e7ec7e43b121"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\electron-managed-cleanup-fixed.log",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/electron-managed-cleanup-fixed.log",
+    "originalSha256": "7b0a8b641216702bb99855396ad2d2daa068e5b8eab595dea68888825bcec42a",
+    "archivedSha256": "f3a18b3f878066b9a0c92a2580991f2b4c4976c2b998f9611bdc82bc1c3249cb",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "f3a18b3f878066b9a0c92a2580991f2b4c4976c2b998f9611bdc82bc1c3249cb"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\electron-managed-final.xml",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/electron-managed-final.xml",
+    "originalSha256": "7296d2f1fa06912918523b1c76f407453c78523d00eca3ea612bebb95718d7de",
+    "archivedSha256": "5e619abbd6d2dbd4e304d07c49216d9749a18821b209ebe4f4c276c63167daa3",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "5e619abbd6d2dbd4e304d07c49216d9749a18821b209ebe4f4c276c63167daa3"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\electron-managed-final.log",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/electron-managed-final.log",
+    "originalSha256": "657058999fc62b2f6f85d7c1184fff7ecfadf2f821f16b63b2a88f4c7e082a13",
+    "archivedSha256": "ac60b7dfde60c2d94c95fd3881dddc456805b3fd690427e30054c96e1edff2ac",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "ac60b7dfde60c2d94c95fd3881dddc456805b3fd690427e30054c96e1edff2ac"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\dotnet\\SessionClient.trx",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/dotnet/SessionClient.trx",
+    "originalSha256": "33342371c898fbb4406eaf62031f72f8c7f2671ebe632a01323324e16189c3dd",
+    "archivedSha256": "4ec89cee7b286c3217d541befb45ecff74e33c73155558bf24ca2770ed7b67cf",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "4ec89cee7b286c3217d541befb45ecff74e33c73155558bf24ca2770ed7b67cf"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\dotnet\\ModelingAgent.trx",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/dotnet/ModelingAgent.trx",
+    "originalSha256": "8027dbb53ace68385ea58b7443b1dcf54eed047fd688a62bcdc59e5888cfe55e",
+    "archivedSha256": "b17810712ec4e1aea84cb40a915a8e5275540804ea118ff260e03f82be7fc3c6",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "b17810712ec4e1aea84cb40a915a8e5275540804ea118ff260e03f82be7fc3c6"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\dotnet\\HermesBridge.trx",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/dotnet/HermesBridge.trx",
+    "originalSha256": "deaee27a5da0b85b2734375e96728508ac07b8093009bce2621bd1a51f57480a",
+    "archivedSha256": "bc2cd143cf569667319af16f7be665e5eee98ac1af0c4818431523a17d9dacf8",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "bc2cd143cf569667319af16f7be665e5eee98ac1af0c4818431523a17d9dacf8"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\dotnet\\ModelingAgent.Benchmark.trx",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/dotnet/ModelingAgent.Benchmark.trx",
+    "originalSha256": "230c3bc7bdc59a4a5ec38ddfb5ae853645d758b8955e2b3e8a75c6eafa146c7a",
+    "archivedSha256": "2547c73e15dfd372b81d6da645e116493a97fcffd283a9e575f357065bd4ff44",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "2547c73e15dfd372b81d6da645e116493a97fcffd283a9e575f357065bd4ff44"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64\\result.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/arm64/result.json",
+    "originalSha256": "53fccac1556256604589f835c512892e2ee571a6cd1db0a09627a6c5994e099a",
+    "archivedSha256": "53fccac1556256604589f835c512892e2ee571a6cd1db0a09627a6c5994e099a",
+    "transformation": "none",
+    "stagedSha256": "53fccac1556256604589f835c512892e2ee571a6cd1db0a09627a6c5994e099a"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64\\build-report.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/arm64/build-report.json",
+    "originalSha256": "59c3cfd0d6256f3b4f83337e9dafbf186de8ec12b87a890b86804995241cb09d",
+    "archivedSha256": "4400fcb0d0751d72f101384963e590343972d126b695cc46585000e9c9383201",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "4400fcb0d0751d72f101384963e590343972d126b695cc46585000e9c9383201"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64\\apk-inspection.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/arm64/apk-inspection.json",
+    "originalSha256": "49a56a098f5674630d53df9e556b3e450d0daae8174cd31e871f372da396ab01",
+    "archivedSha256": "0c7a0e6aa39dedd61900cd7ac418f14802df137ab726a435e32ad31f27cb0a96",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "0c7a0e6aa39dedd61900cd7ac418f14802df137ab726a435e32ad31f27cb0a96"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64\\source-before.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/arm64/source-before.json",
+    "originalSha256": "19171ad9b6f515c95c00f0d893350de4c44622e23cf78bcdf8e8fd4d06d11106",
+    "archivedSha256": "19171ad9b6f515c95c00f0d893350de4c44622e23cf78bcdf8e8fd4d06d11106",
+    "transformation": "none",
+    "stagedSha256": "19171ad9b6f515c95c00f0d893350de4c44622e23cf78bcdf8e8fd4d06d11106"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64\\source-after.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/arm64/source-after.json",
+    "originalSha256": "19171ad9b6f515c95c00f0d893350de4c44622e23cf78bcdf8e8fd4d06d11106",
+    "archivedSha256": "19171ad9b6f515c95c00f0d893350de4c44622e23cf78bcdf8e8fd4d06d11106",
+    "transformation": "none",
+    "stagedSha256": "19171ad9b6f515c95c00f0d893350de4c44622e23cf78bcdf8e8fd4d06d11106"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64\\managed\\manifest.json",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/arm64/managed/manifest.json",
+    "originalSha256": "63dbc748dff57dfb2fa1cf6f929befeb742d58299d956345286d4683256529a7",
+    "archivedSha256": "63dbc748dff57dfb2fa1cf6f929befeb742d58299d956345286d4683256529a7",
+    "transformation": "none",
+    "stagedSha256": "63dbc748dff57dfb2fa1cf6f929befeb742d58299d956345286d4683256529a7"
+  },
+  {
+    "source": "C:\\Users\\matte\\Documents\\Codex-tools\\Native\\quest-autoconnect-parent-20261016\\arm64\\unity-build.log",
+    "path": "docs/superpowers/evidence/2026-10-16-quest-automatic-connection/arm64/unity-build.log",
+    "originalSha256": "f111d011952449451e7ecc313dbaeceff0a35a1d83056d59417e69303e0480d0",
+    "archivedSha256": "07116617de9f37d128504b41534cc16071ca14ba473fedc110a19a0d2e67f65f",
+    "transformation": "UTF8 BOM/LF/trailing whitespace normalization",
+    "stagedSha256": "07116617de9f37d128504b41534cc16071ca14ba473fedc110a19a0d2e67f65f"
+  }
+]

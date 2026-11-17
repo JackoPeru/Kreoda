@@ -17,7 +17,16 @@ export interface IntentRequest {
   text: string;
   selection: { kind: string; persistentId: string }[];
   model: {
-    bodies: { id: string; type: string; paramsMm: number[]; volumeMm3: number }[];
+    bodies: {
+      id: string;
+      type: string;
+      paramsMm: number[];
+      volumeMm3?: number;
+      geometryCurrent?: boolean;
+      status?: string;
+      error?: string;
+      blockingSourceIds?: string[];
+    }[];
   };
   units: "mm";
 }
@@ -43,7 +52,12 @@ export function buildIntentRequest(text: string): IntentRequest {
         id: f.featureId,
         type: f.type,
         paramsMm: f.paramsMm.slice(0, 12),
-        volumeMm3: f.volumeMm3,
+        ...(f.geometryCurrent !== false && f.status !== "unavailable" && typeof f.volumeMm3 === "number"
+          ? { volumeMm3: f.volumeMm3 } : {}),
+        ...(f.geometryCurrent !== undefined ? { geometryCurrent: f.geometryCurrent } : {}),
+        ...(f.status !== undefined ? { status: f.status } : {}),
+        ...(f.error !== undefined ? { error: f.error } : {}),
+        ...(f.blockingSourceIds !== undefined ? { blockingSourceIds: [...f.blockingSourceIds] } : {}),
       })),
     },
     units: "mm",
@@ -237,6 +251,7 @@ export class HttpLlmProvider implements IntentModelProvider {
         "CreateHole",
         "CreateFillet",
         "CreateChamfer",
+        "CreateShell",
         "CreateInstance",
         "SetDimension",
         "Undo",
@@ -283,6 +298,11 @@ export class HttpLlmProvider implements IntentModelProvider {
               edgeIds: { type: "array", items: { type: "string" } },
               distanceMm: numProp(0.01, 50000),
             } : {}),
+            ...(c.id === "CreateShell" ? {
+              targetId: { type: "string" },
+              faceRole: { type: "string" },
+              thicknessMm: numProp(0.01, 50000),
+            } : {}),
             ...(c.id === "CreateInstance" ? {
               targetId: { type: "string" },
               txMm: { type: "number" },
@@ -305,9 +325,11 @@ export class HttpLlmProvider implements IntentModelProvider {
             ? ["widthMm", "heightMm", "depthMm"]
             : c.id === "CreateHole"
               ? ["targetId", "faceRole", "xMm", "yMm", "diameterMm", "depthMode"]
-              : c.id === "CreateInstance"
-                ? ["targetId"]
-                : c.id === "SetDimension"
+              : c.id === "CreateShell"
+                ? ["targetId", "faceRole", "thicknessMm"]
+                : c.id === "CreateInstance"
+                  ? ["targetId"]
+                  : c.id === "SetDimension"
                   ? ["featureId", "paramName"]
                   : [],
           ...(c.id === "SetDimension"
@@ -669,6 +691,19 @@ export async function runPlan(plan: IntentPlan): Promise<PlanResult> {
             diameterMm: p.diameterMm,
             depthMode: p.depthMode,
             depthMm: p.depthMm,
+          }, { skipAvailability: true });
+          break;
+        }
+        case "CreateShell": {
+          const p = step.params as { targetId?: string; faceRole?: string; thicknessMm: number };
+          const face = p.targetId && p.faceRole
+            ? { targetId: p.targetId, faceRole: p.faceRole }
+            : selectedFace();
+          if (!face) throw new Error(t("cmd.reasonFace"));
+          await executeCommand("CreateShell", {
+            targetId: face.targetId,
+            faceRole: face.faceRole,
+            thicknessMm: p.thicknessMm,
           }, { skipAvailability: true });
           break;
         }

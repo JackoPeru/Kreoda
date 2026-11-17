@@ -357,6 +357,7 @@ describe("Slice 6 TEST G: session Body semantics", () => {
         bodyId: `body-${boxId}`,
         tip: filletId,
         history: [boxId, holeId, filletId],
+        visible: true,
       });
       expect(bodies.result.tips).toEqual([filletId]);
 
@@ -413,6 +414,7 @@ describe("Slice 6 TEST G: session Body semantics", () => {
         bodyId: `body-${boxId}`,
         tip: filletId,
         history: [boxId, holeId, filletId],
+        visible: true,
       });
     } finally {
       desktop.closeRaw();

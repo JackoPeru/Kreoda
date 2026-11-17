@@ -1,0 +1,11 @@
+# Canonical datum command schemas — Task3 in progress
+
+Root continues the user's terminal-quota fallback. Native datum stack from isolated194726a was cherry-picked into the current development worktree on basefa78baf, producing b9a72f8. git diff between isolated and integrated native/kreoda-core sources is empty. The primary dirty checkout remains untouched. No merge/release or new-head hosted CI claim; remote branch still points to previously verifiedfa78baf until a later coherent push.
+
+Two actual RED tests showed missing datum catalog commands. Shared protocol datum.ts now defines principal/offset/mid/angle/three-point planes, two-point/normal/intersection axes, coordinate/midpoint points and typed native/datum source refs. Coordinate limits±1e6mm, angle±360degrees, finite tuples, stable source IDs and native naming-entry format are validated. Native remains authoritative for degeneracy, source kind, reference validity and actual geometry.
+
+Canonical command registry adds CreateDatumPlane/Axis/Point31–33, UpdateDatum34 and RequestDatum35. Exported creation metadata is1 for each constructor and0 for update/query, consumed by existing agent metadata budgets. Integer and named translation share the registry. CreateSketch preserves optional supportRef to an actual native datum plane. Protocol imports stable ID validation from session-control without a module initialization cycle.
+
+Protocol and command-schema builds/lints pass. Canonical command tests18/18 and protocol tests49/49 pass. Tests cover all ten constructor variants, invalid kind/source IDs/vector size/numeric limits, one/zero creation metadata, native translation and supportRef preservation. Included original RED and current logs.
+
+Remaining Task3: generated session snapshots/deltas and native frame contracts, managed client/context/query adapter, Desktop reference UI/rendering/selection, Quest full-frame/hand/semantic reference views, actual local MCP/native client proof, current-head E2E/managed/Unity/ARM64/CI and independent final review. This packet is partial and accepted=false; new advanced catalog entries alone do not prove usable product flows. Full original Phases12–16 requirements unchanged. No Hermes/server/SSH/AI calls, device capture/installation, microphone/camera/audio or foreground GUI.

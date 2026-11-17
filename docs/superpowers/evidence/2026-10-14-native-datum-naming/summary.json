@@ -1,0 +1,36 @@
+{
+  "scope": "Native datum persistent face and edge selections, partial Phase15.1",
+  "accepted": false,
+  "goalComplete": false,
+  "base": "989daa5e5ddedbefdacc794702729642e33c645c",
+  "focused": {
+    "passed": 33,
+    "failed": 0,
+    "skipped": 0
+  },
+  "fullNative": {
+    "passed": 226,
+    "failed": 0,
+    "seconds": 73.53
+  },
+  "selfTestExit": 0,
+  "sourceFiles": 10,
+  "proofs": [
+    "indexed planar face and linear edge bound with owner-checked naming entries",
+    "actual Undo/Redo and icad reopen into a different live document",
+    "reordered native owner topology retains original selected entity",
+    "supported native sketch/extrusion and parameter edit after reopen",
+    "semantic source parameter edit refreshes selected native entity",
+    "forged entries wrong owner wrong topology kind and stale replacement reject atomically",
+    "explicit prospective sources never borrow live naming context"
+  ],
+  "remaining": [
+    "client and crash recovery evidence",
+    "full canonical command and generated session contracts",
+    "Desktop Quest MCP integration",
+    "fresh final review",
+    "exact integrated head CI",
+    "physical and live Hermes gates"
+  ],
+  "limitation": "A replacement that loses the actual indexed native entity requires explicit repair; ordinal fallback is prohibited."
+}

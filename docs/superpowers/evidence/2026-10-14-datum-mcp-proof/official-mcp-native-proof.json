@@ -1,0 +1,136 @@
+{
+  "scenario": "datum",
+  "status": "committed",
+  "passed": [
+    "official-mcp-http-discovery-and-project-context",
+    "actual-command-metadata31-35-and-creation-budget",
+    "official-mcp-native-datum-sketch-solid-transaction",
+    "committed-datum-description-frame-and-brep"
+  ],
+  "commandMetadata": [
+    {
+      "id": "CreateDatumPlane",
+      "nativeType": 31,
+      "creation": {
+        "fixedCount": 1
+      }
+    },
+    {
+      "id": "CreateDatumAxis",
+      "nativeType": 32,
+      "creation": {
+        "fixedCount": 1
+      }
+    },
+    {
+      "id": "CreateDatumPoint",
+      "nativeType": 33,
+      "creation": {
+        "fixedCount": 1
+      }
+    },
+    {
+      "id": "UpdateDatum",
+      "nativeType": 34,
+      "creation": {
+        "fixedCount": 0
+      }
+    },
+    {
+      "id": "RequestDatum",
+      "nativeType": 35,
+      "creation": {
+        "fixedCount": 0
+      }
+    }
+  ],
+  "featureIds": {
+    "plane": "07f7d191-6ef4-4267-a204-f2f7ec7c1d01",
+    "sketch": "0291499f-9376-40ba-b405-9030484d190d",
+    "solid": "63578229-be21-429e-8b0f-11a14d224468"
+  },
+  "initialRevision": 0,
+  "finalRevision": 1,
+  "volumeMm3": 35000,
+  "solidCount": 1,
+  "bboxMm": [
+    0,
+    0,
+    24,
+    100,
+    50,
+    31
+  ],
+  "datum": {
+    "definition": {
+      "base": {
+        "planeKind": "XY",
+        "type": "principal"
+      },
+      "offsetMm": 24,
+      "type": "offset"
+    },
+    "dependsOn": [],
+    "error": "",
+    "featureId": "07f7d191-6ef4-4267-a204-f2f7ec7c1d01",
+    "kind": "DatumPlane",
+    "resolved": {
+      "normal": [
+        0,
+        0,
+        1
+      ],
+      "originMm": [
+        0,
+        0,
+        24
+      ],
+      "xAxis": [
+        1,
+        0,
+        0
+      ],
+      "yAxis": [
+        0,
+        1,
+        0
+      ]
+    },
+    "status": "ok",
+    "type": "DatumPlane"
+  },
+  "sketch": {
+    "featureId": "0291499f-9376-40ba-b405-9030484d190d",
+    "supportRef": "07f7d191-6ef4-4267-a204-f2f7ec7c1d01",
+    "plane": {
+      "origin": [
+        0,
+        0,
+        24
+      ],
+      "xAxis": [
+        1,
+        0,
+        0
+      ],
+      "yAxis": [
+        0,
+        1,
+        0
+      ],
+      "normal": [
+        0,
+        0,
+        1
+      ]
+    },
+    "points": 4,
+    "lines": 4
+  },
+  "boundary": "Official MCP SDK to actual OCCT via SessionClient and local SessionRelay; Desktop undo/redo is verified by the hidden Electron E2E.",
+  "kernel": "8.0.1-native",
+  "desktopObserved": true,
+  "oneUndoRestoredEmptyDocument": true,
+  "redoRestoredOriginalIdsAndFrame": true,
+  "screenshots": 0
+}

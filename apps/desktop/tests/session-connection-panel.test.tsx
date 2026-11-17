@@ -17,7 +17,7 @@ it("enables the selected interface, pairs explicitly and revokes a connected dev
     status = { ...status, listener: { host, port }, devices: [{ deviceId: "device-test", name: "Laptop", pairedAt: new Date().toISOString() }],
       clients: [{ deviceId: "device-test", name: "Laptop", clientType: "test", capabilities: [] }] };return status;
   });
-  const sessionPair = vi.fn(async () => ({ token: "p".repeat(43), expiresAt: new Date(Date.now() + 300000).toISOString() }));
+  const sessionPair = vi.fn(async () => ({ token: "p".repeat(43), code: "00123456", expiresAt: new Date(Date.now() + 300000).toISOString() }));
   const sessionCancelPair = vi.fn(async () => {});
   const sessionRevoke = vi.fn(async () => { status = { ...status, clients: [], devices: [] };return status; });
   Object.defineProperty(window, "kreoda", { configurable: true, value: {
@@ -31,7 +31,9 @@ it("enables the selected interface, pairs explicitly and revokes a connected dev
   await screen.findByDisplayValue("ws://192.168.1.10:9860");
   expect(sessionEnable).toHaveBeenCalledWith("192.168.1.10", 9860);
   fireEvent.click(screen.getByRole("button", { name: "Pair a device" }));
-  await screen.findByLabelText("Pairing token");
+  await screen.findByDisplayValue("0012 3456");
+  expect((screen.getByLabelText("Pairing code") as HTMLInputElement).value).toBe("0012 3456");
+  expect((screen.getByLabelText("Legacy pairing token") as HTMLInputElement).value).toBe("p".repeat(43));
   expect(sessionPair).toHaveBeenCalledOnce();
   fireEvent.click(screen.getByRole("button", { name: "Revoke" }));
   await screen.findByText("No paired devices");

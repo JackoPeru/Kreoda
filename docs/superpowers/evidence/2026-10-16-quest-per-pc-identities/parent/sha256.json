@@ -1,0 +1,107 @@
+[
+  {
+    "file": "run-unity.mjs",
+    "originalSha256": "ec51821676899272f5cedf357af1fdf7e26ecc70f9db04988ad8f74d2d8a4e45",
+    "archiveSha256": "ec51821676899272f5cedf357af1fdf7e26ecc70f9db04988ad8f74d2d8a4e45"
+  },
+  {
+    "file": "connection-expanded.xml",
+    "originalSha256": "5ec19073e0079e9bf422609a8bf56140728a427ce989591966573b1a43a0f8a6",
+    "archiveSha256": "633612593e1ac6c8802b9a90888a953772821a24d05b07a9a5e94f6a5899eecc"
+  },
+  {
+    "file": "connection-expanded-exit.json",
+    "originalSha256": "e6be7abecd5a1410becbd5903a25ee9bfc789d0b01752b46748605ceae534808",
+    "archiveSha256": "6ec2013eaebf2b1c347c4f130e5c51f138028d0c109793e9152ec84c7d0bd26c"
+  },
+  {
+    "file": "full-editor.xml",
+    "originalSha256": "6ffcd11a7fc269dd0ffcd7ff0ad68ceb2016cb1c5d1a6cff4e17f21929360289",
+    "archiveSha256": "dfb9c4aef8e1664ae35c2526a3313276cd44b5c9ed31515ae12836e8f6d3736b"
+  },
+  {
+    "file": "full-editor-exit.json",
+    "originalSha256": "a7e487918ae07eead944f9099e6b5bcc17add09d581d4bdafda23bd540cf495c",
+    "archiveSha256": "0f74b16527989bfa0047991d0d89a84926089c972be90f4e87949e24b7597a67"
+  },
+  {
+    "file": "lost-ack-diagnostic.xml",
+    "originalSha256": "c992c7a93f11780f67f9625b6198be2bd922c7fe6074fcc222d9bb6f5b079533",
+    "archiveSha256": "10c6458aae9272cea76de640c201d44e84c027a5b1d4528c03d97a7d993c0eb0"
+  },
+  {
+    "file": "lost-ack-diagnostic-exit.json",
+    "originalSha256": "d19ace9d4b1bbe3ccf38b7adb727fc3013b719f0393c058b3e09847dd6ebf6d3",
+    "archiveSha256": "53039f2d38a51c0dd31ee115482f0901b9b2456ef48eb30b9dfae220e2739ad6"
+  },
+  {
+    "file": "full-editor-corrected.xml",
+    "originalSha256": "b614b4f8b7e6a2723c6eb8e087b59b68e5031260ecd0cad7977bd617848c816c",
+    "archiveSha256": "f916b96da211ebab833fbcd9d2b7bb81cfa494bd43a63588855af3012564a8a7"
+  },
+  {
+    "file": "full-editor-corrected-exit.json",
+    "originalSha256": "a750529120023b0bc2aa73225e54dfc22d7427ad3f274d70530e738ac3bddaa4",
+    "archiveSha256": "b6cc0c6fd8dc36e5c181f0e483470c03d3639ca817ebcf2be5d2ce8edf8248a2"
+  },
+  {
+    "file": "saved-scene.xml",
+    "originalSha256": "514504e6c2298bbb271437520c7da6498d4e8f42fc1d31fbfa25d6568a2366d8",
+    "archiveSha256": "7367b6782f0bf88b43862cae6ebc464e0dba978320fe4b363968729e7f1e673c"
+  },
+  {
+    "file": "saved-scene-exit.json",
+    "originalSha256": "86cb6e6c402ca55d24b020e7b2fd92123ffc47b01986a4ee9d38c2739cb83e17",
+    "archiveSha256": "d2130c47635e5af7ce021294db03d856d6d3d95136f5b728de37c4ba88b58951"
+  },
+  {
+    "file": "baseline-coverage.json",
+    "originalSha256": "1cd7837c0cdb5f7a41063d706b457678a5d5673fb9f9fa31e7fb1037b809d2f6",
+    "archiveSha256": "6c6cb6cab64491b80e1c1325848fac6b826f13ba4083d28fdcf5d648aa6f1c14"
+  },
+  {
+    "file": "apk-inspection.json",
+    "originalSha256": "ed166f20c55e85394698277e20a0af911643dd479d23469a1b7cfcf29d83fe37",
+    "archiveSha256": "44d23acf6be1053d32f7759247bd2c17c9ba792d90c76f112ba2a71e54c5a831"
+  },
+  {
+    "file": "hosted-prior-head.json",
+    "originalSha256": "3feabcf054d04c84044c87a79597fde82e92c75a14c2e78392194d1b37bff023",
+    "archiveSha256": "6e4981a1a5874f5adfcede2d925bcf1ad48cd04a9e45da88b6fe2cac8d85df12"
+  },
+  {
+    "file": "packaged-smoke.mjs",
+    "originalSha256": "3aed4426e15df50c3bfb44fc1d895771fd6b5214bbc1f867ab1d18eb5607241c",
+    "archiveSha256": "3aed4426e15df50c3bfb44fc1d895771fd6b5214bbc1f867ab1d18eb5607241c"
+  },
+  {
+    "file": "packaged-smoke-proof.json",
+    "originalSha256": "2d81ca60ef3059feb7c4b7150167dc541cc862db395f0b6e561470fddd17322b",
+    "archiveSha256": "2d81ca60ef3059feb7c4b7150167dc541cc862db395f0b6e561470fddd17322b"
+  },
+  {
+    "file": "packaged-smoke.log",
+    "originalSha256": "466a044e79b8cc43acba8105820dccea9f208b3bb60af6248a2ce870c0576afd",
+    "archiveSha256": "825357be9ec5ea1537e8bb09b5ccf26238001eb9c7dc4e43b90b9cc6e62a974d"
+  },
+  {
+    "file": "desktop-package.log",
+    "originalSha256": "d93b94d8d0f848811f0e4a352fa6daa27b09e7e047e03b7a4a3b69188f714950",
+    "archiveSha256": "ea2d7012c7e7f41102d3216320d04bc09cc3b9edbc10726b8aff32d574204d0e"
+  },
+  {
+    "file": "arm64/result.json",
+    "originalSha256": "b26b360987b5fa69d655b19b5e9f18e5d04ed6a61e3a12b289c5f96925a465eb",
+    "archiveSha256": "b26b360987b5fa69d655b19b5e9f18e5d04ed6a61e3a12b289c5f96925a465eb"
+  },
+  {
+    "file": "arm64/build-report.json",
+    "originalSha256": "169e1b14043a916f68e3f192e4ad3f69742a5424a3f010d49573de609347e380",
+    "archiveSha256": "4e87272032a9eb7783b6aff4ddea5296ef856bbca79ef2e80ceca98c88ef2097"
+  },
+  {
+    "file": "arm64/managed/manifest.json",
+    "originalSha256": "36a4fb0e69cfab7e89167a1e75986afce92552691576e175aec569b3f6a2b1e4",
+    "archiveSha256": "36a4fb0e69cfab7e89167a1e75986afce92552691576e175aec569b3f6a2b1e4"
+  }
+]

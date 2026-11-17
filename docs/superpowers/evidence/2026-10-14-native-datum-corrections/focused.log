@@ -1,0 +1,97 @@
+Test project C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build
+      Start   1: Datum.OffsetAndOpposedMidplanesRetainFirstBasis
+ 1/46 Test   #1: Datum.OffsetAndOpposedMidplanesRetainFirstBasis ..........................................   Passed    0.03 sec
+      Start   2: Datum.AngleUsesDirectedAxisAndDegrees
+ 2/46 Test   #2: Datum.AngleUsesDirectedAxisAndDegrees ....................................................   Passed    0.03 sec
+      Start   3: Datum.ThreePointPlaneAndAxesUseFiniteNativeFrame
+ 3/46 Test   #3: Datum.ThreePointPlaneAndAxesUseFiniteNativeFrame .........................................   Passed    0.03 sec
+      Start   4: Datum.IntersectionAxisSatisfiesBothOffsetPlanes
+ 4/46 Test   #4: Datum.IntersectionAxisSatisfiesBothOffsetPlanes ..........................................   Passed    0.13 sec
+      Start   5: Datum.CoordinateAndMidpointRecordsAreReadOnlyAndKeepSources
+ 5/46 Test   #5: Datum.CoordinateAndMidpointRecordsAreReadOnlyAndKeepSources ..............................   Passed    0.03 sec
+      Start   6: Datum.InvalidSourcesAndDegeneracyLeaveOutputUntouched
+ 6/46 Test   #6: Datum.InvalidSourcesAndDegeneracyLeaveOutputUntouched ....................................   Passed    0.03 sec
+      Start   7: Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict
+ 7/46 Test   #7: Datum.CanonicalDefinitionAndNestedReferenceKeysAreStrict .................................   Passed    0.03 sec
+      Start   8: Datum.ActualOcctFaceAndLineReferencesKeepNativeBodiesUnchanged
+ 8/46 Test   #8: Datum.ActualOcctFaceAndLineReferencesKeepNativeBodiesUnchanged ...........................   Passed    0.03 sec
+      Start   9: Datum.CurvedAndAmbiguousNativeSourcesRejectWithoutFallback
+ 9/46 Test   #9: Datum.CurvedAndAmbiguousNativeSourcesRejectWithoutFallback ...............................   Passed    0.03 sec
+      Start  10: Datum.WrongKindBrokenSourcesAndInvalidJsonKeepAcceptedOutput
+10/46 Test  #10: Datum.WrongKindBrokenSourcesAndInvalidJsonKeepAcceptedOutput .............................   Passed    0.03 sec
+      Start  11: Datum.ProspectiveRecordsNeverResolveAgainstTheCurrentDocument
+11/46 Test  #11: Datum.ProspectiveRecordsNeverResolveAgainstTheCurrentDocument ............................   Passed    0.03 sec
+      Start  12: Datum.ProspectiveOcctFacesUseTheIncomingGeometryOnly
+12/46 Test  #12: Datum.ProspectiveOcctFacesUseTheIncomingGeometryOnly .....................................   Passed    0.03 sec
+      Start  13: DatumPersistence.DefinitionsResolveInDependencyOrderWithoutCachedGeometry
+13/46 Test  #13: DatumPersistence.DefinitionsResolveInDependencyOrderWithoutCachedGeometry ................   Passed    0.03 sec
+      Start  14: DatumPersistence.MissingDuplicateCyclicAndMalformedDefinitionsAreAtomic
+14/46 Test  #14: DatumPersistence.MissingDuplicateCyclicAndMalformedDefinitionsAreAtomic ..................   Passed    0.03 sec
+      Start  15: DatumPersistence.ActualOcafRoundTripAndUndoRetainDefinitionsAndSources
+15/46 Test  #15: DatumPersistence.ActualOcafRoundTripAndUndoRetainDefinitionsAndSources ...................   Passed    0.04 sec
+      Start  16: DatumPersistence.BadIncomingSourcesRejectBeforeReplacingTheLiveDocument
+16/46 Test  #16: DatumPersistence.BadIncomingSourcesRejectBeforeReplacingTheLiveDocument ..................   Passed    0.04 sec
+      Start  17: DatumPersistence.ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable
+17/46 Test  #17: DatumPersistence.ActualIcadOpenKeepsDatumsAndReopenedLabelsRemainEditable ................   Passed    0.05 sec
+      Start  18: DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically
+18/46 Test  #18: DatumPersistence.InvalidIncomingSketchSupportsRejectRealIcadAtomically ...................   Passed    0.12 sec
+      Start  19: DatumCommands.CreateUpdateAndUndoAreSingleNonBodyMutations
+19/46 Test  #19: DatumCommands.CreateUpdateAndUndoAreSingleNonBodyMutations ...............................   Passed    0.13 sec
+      Start  20: DatumCommands.ExtraDefinitionKeysRejectBeforeMutation
+20/46 Test  #20: DatumCommands.ExtraDefinitionKeysRejectBeforeMutation ....................................   Passed    0.03 sec
+      Start  21: DatumCommands.CyclicAndInvalidUpdatesPreserveRegistryRevisionAndUndo
+21/46 Test  #21: DatumCommands.CyclicAndInvalidUpdatesPreserveRegistryRevisionAndUndo .....................   Passed    0.03 sec
+      Start  22: DatumCommands.PointPlaneSketchExtrudeRecomputesAndRejectsDegenerateSourceAtomically
+22/46 Test  #22: DatumCommands.PointPlaneSketchExtrudeRecomputesAndRejectsDegenerateSourceAtomically ......   Passed    0.08 sec
+      Start  23: DatumCommands.NativeSourceParameterEditRebuildsDatumSketchAndSolid
+23/46 Test  #23: DatumCommands.NativeSourceParameterEditRebuildsDatumSketchAndSolid .......................   Passed    0.04 sec
+      Start  24: DatumCommands.FailedUpstreamBodyEditRestoresDatumSketchSolidAndGraph
+24/46 Test  #24: DatumCommands.FailedUpstreamBodyEditRestoresDatumSketchSolidAndGraph .....................   Passed    0.06 sec
+      Start  25: DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen
+25/46 Test  #25: DatumCommands.IdenticalBooleanGeometryRetainsDistinctFeatureLabelsAfterResyncAndReopen ...   Passed    0.06 sec
+      Start  26: DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames
+26/46 Test  #26: DatumCommands.FailedSourceSketchEditRestoresDependentDatumAndSketchFrames ................   Passed    0.06 sec
+      Start  27: DatumCommands.OrientedDatumSupportsMeasuredRevolveUndoAndRealIcadReopen
+27/46 Test  #27: DatumCommands.OrientedDatumSupportsMeasuredRevolveUndoAndRealIcadReopen ..................   Passed    0.05 sec
+      Start  28: DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen
+28/46 Test  #28: DatumNaming.IndexedNativeFaceAndEdgeBindNamingEntriesAndSurviveRealReopen ................   Passed    0.10 sec
+      Start  29: DatumNaming.ForgedWrongOwnerAndStaleSelectionsRejectWithoutOrdinalFallback
+29/46 Test  #29: DatumNaming.ForgedWrongOwnerAndStaleSelectionsRejectWithoutOrdinalFallback ...............   Passed    0.03 sec
+      Start  30: DatumProtocol.PublicCommandsQueryAndNumericEditsKeepNativeIdentity
+30/46 Test  #30: DatumProtocol.PublicCommandsQueryAndNumericEditsKeepNativeIdentity .......................   Passed    0.03 sec
+      Start  31: DatumProtocol.ReferencedDatumsCannotBeDeletedAndUnreferencedDeleteIsUndoable
+31/46 Test  #31: DatumProtocol.ReferencedDatumsCannotBeDeletedAndUnreferencedDeleteIsUndoable .............   Passed    0.03 sec
+      Start  32: DatumProtocol.SnapshotIncludesNativeSupportAndQueriesAreReadOnly
+32/46 Test  #32: DatumProtocol.SnapshotIncludesNativeSupportAndQueriesAreReadOnly .........................   Passed    0.03 sec
+      Start  33: DatumProtocol.JoinedEditsCommitOnceAndRollbackRestoresDefinitions
+33/46 Test  #33: DatumProtocol.JoinedEditsCommitOnceAndRollbackRestoresDefinitions ........................   Passed    0.03 sec
+      Start  34: DatumProtocol.CompleteJoinedDatumSketchSolidChainHasOneRevisionAndUndo
+34/46 Test  #34: DatumProtocol.CompleteJoinedDatumSketchSolidChainHasOneRevisionAndUndo ...................   Passed    0.04 sec
+      Start  35: DatumProtocol.TaintedDependentFailureRollsBackEarlierJoinedCreationAndKeepsRevision
+35/46 Test  #35: DatumProtocol.TaintedDependentFailureRollsBackEarlierJoinedCreationAndKeepsRevision ......   Passed    0.05 sec
+      Start  36: DatumProtocol.NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically
+36/46 Test  #36: DatumProtocol.NumericCoordinateOffsetAndAngleEditsRejectInvalidInputsAtomically ..........   Passed    0.03 sec
+      Start  63: Persistence.SaveReopenRoundTrip
+37/46 Test  #63: Persistence.SaveReopenRoundTrip ..........................................................   Passed    0.06 sec
+      Start  64: Persistence.OpenMissingFileFailsHonestly
+38/46 Test  #64: Persistence.OpenMissingFileFailsHonestly .................................................   Passed    0.03 sec
+      Start  65: Persistence.CustomSketchFrameSurvivesOCAFOpenAndPostOpenEdit
+39/46 Test  #65: Persistence.CustomSketchFrameSurvivesOCAFOpenAndPostOpenEdit .............................   Passed    0.06 sec
+      Start  66: Persistence.ResyncRejectsMalformedSketchWithoutChangingLiveCaches
+40/46 Test  #66: Persistence.ResyncRejectsMalformedSketchWithoutChangingLiveCaches ........................   Passed    0.04 sec
+      Start  67: Persistence.LoadRejectsMalformedSketchBeforeResettingLiveDocument
+41/46 Test  #67: Persistence.LoadRejectsMalformedSketchBeforeResettingLiveDocument ........................   Passed    0.06 sec
+      Start  68: Persistence.OpenRejectsMalformedSketchWithoutLosingUndoRedo
+42/46 Test  #68: Persistence.OpenRejectsMalformedSketchWithoutLosingUndoRedo ..............................   Passed    0.06 sec
+      Start  69: Persistence.DuplicateSketchMetadataRootsRejectEitherRootOrder
+43/46 Test  #69: Persistence.DuplicateSketchMetadataRootsRejectEitherRootOrder ............................   Passed    0.12 sec
+      Start 124: HolePattern.CountEditPreservesLayoutUndoAndPersistence
+44/46 Test #124: HolePattern.CountEditPreservesLayoutUndoAndPersistence ...................................   Passed    0.16 sec
+      Start 140: Torture10.CompletePersistenceSequence100Cycles
+45/46 Test #140: Torture10.CompletePersistenceSequence100Cycles ...........................................   Passed   12.35 sec
+      Start 142: Torture10.DeleteFeatureDependentsUndoRedoAndPersistence
+46/46 Test #142: Torture10.DeleteFeatureDependentsUndoRedoAndPersistence ..................................   Passed    0.07 sec
+
+100% tests passed out of 46
+
+Total Test time (real) =  14.71 sec

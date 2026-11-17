@@ -1,0 +1,442 @@
+
+> kreoda@0.1.0 test:e2e:crash:full C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci
+> node scripts/run-crash-tests.mjs
+
+-- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.26200.
+-- OCCT found: 8.0.1
+-- Configuring done (1.4s)
+-- Generating done (1.3s)
+-- Build files have been written to: C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build
+Versione di MSBuild 17.14.60+43b635718 per .NET Framework
+
+  1>
+  Analisi delle origini per cercare le dipendenze del modulo...
+  Geo.cpp
+  SubSystem.cpp
+  qp_eq.cpp
+  GCS.cpp
+  Constraints.cpp
+  In fase di compilazione...
+  SubSystem.cpp
+  Geo.cpp
+  Constraints.cpp
+  GCS.cpp
+  qp_eq.cpp
+  planegcs.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\Release\planegcs.lib
+  main.cpp
+  framing.cpp
+  dispatcher.cpp
+  session_geometry.cpp
+  mesh_fb.cpp
+  document_store.cpp
+  gltf_exchange.cpp
+  obj_exchange.cpp
+  sew.cpp
+  step_exchange.cpp
+  stl_exchange.cpp
+  threemf_exchange.cpp
+  expressions.cpp
+  feature_graph.cpp
+  body.cpp
+  shapes.cpp
+  commit.cpp
+  primitives.cpp
+  rebuild.cpp
+  datum_commands.cpp
+  Generazione del codice in corso...
+  Compilazione in corso...
+  datum_json.cpp
+  datum_store.cpp
+  sketch_store.cpp
+  sketch_face.cpp
+  sketch_json.cpp
+  sketch_commands.cpp
+  extrude.cpp
+  revolve.cpp
+  boolean.cpp
+  hole.cpp
+  instance.cpp
+  fillet.cpp
+  face_roles.cpp
+C:\Users\matte\Desktop\Saas\Kreoda\Kreoda\native\kreoda-core\build\vcpkg_installed\x64-windows\include\opencascade\TopTools_ListOfShape.hxx(27): warning : TopTools_ListOfShape.hxx is deprecated since OCCT 8.0.0. Use NCollection types directly. [C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\kreoda-core.vcxproj]
+C:\Users\matte\Desktop\Saas\Kreoda\Kreoda\native\kreoda-core\build\vcpkg_installed\x64-windows\include\opencascade\TopTools_IndexedDataMapOfShapeListOfShape.hxx(31): warning : TopTools_IndexedDataMapOfShapeListOfShape.hxx is deprecated since OCCT 8.0.0. Use NCollection_IndexedDataMap<TopoDS_Shape, TopTools_ListOfShape, TopTools_ShapeMapHasher> directly. [C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\kreoda-core.vcxproj]
+  box_tessellator.cpp
+  mesh.cpp
+  ocaf_live.cpp
+C:\Users\matte\Desktop\Saas\Kreoda\Kreoda\native\kreoda-core\build\vcpkg_installed\x64-windows\include\opencascade\TopTools_IndexedMapOfShape.hxx(28): warning : TopTools_IndexedMapOfShape.hxx is deprecated since OCCT 8.0.0. Use NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> directly. [C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\kreoda-core.vcxproj]
+  icad_zip.cpp
+  log.cpp
+  planegcs_solver.cpp
+  Generazione del codice in corso...
+     Creazione della libreria C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build/Release/kreoda-core.lib e dell'oggetto C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build/Release/kreoda-core.exp
+  kreoda-core.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\Release\kreoda-core.exe
+    Staging release MSVC runtime DLLs beside kreoda-core
+Versione di MSBuild 17.14.60+43b635718 per .NET Framework
+
+  Analisi delle origini per cercare le dipendenze del modulo...
+  planegcs.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\Release\planegcs.lib
+  test_solver_crash_barrier.cpp
+  planegcs_solver.cpp
+  Generazione del codice in corso...
+  kreoda-solver-crash-control.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\tests\Release\kreoda-solver-crash-control.exe
+Test project C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build
+    Start 233: SolverCrashBarrierControl
+1/1 Test #233: SolverCrashBarrierControl ........   Passed    0.23 sec
+
+100% tests passed out of 1
+
+Total Test time (real) =   0.29 sec
+
+> kreoda@0.1.0 test:e2e:crash C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci
+> pnpm --filter @kreoda/desktop exec playwright test e2e/phase10-crash.spec.ts
+
+
+Running 32 tests using 1 worker
+
+(node:32704) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 e2e\phase10-crash.spec.ts:227:1 › sidecar kill restores committed autosave [solo] (6.0s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":40232,"mainPid":41364,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 40232 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":40232,"replacementPid":42256,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":42256,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok  2 e2e\phase10-crash.spec.ts:243:1 › renderer kill before atomic save publication keeps a complete project file [solo] (4.4s)
+  ok  3 e2e\phase10-crash.spec.ts:243:1 › main kill before atomic save publication keeps a complete project file [solo] (7.4s)
+  ok  4 e2e\phase10-crash.spec.ts:243:1 › core kill before atomic save publication keeps a complete project file [solo] (4.9s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":25996,"mainPid":40052,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 25996 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":25996,"replacementPid":22168,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":22168,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok  5 e2e\phase10-crash.spec.ts:291:1 › renderer crash reloads and restores committed autosave [solo] (4.3s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":13828,"mainPid":18812,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 13828 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":13828,"replacementPid":32652,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":32652,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok  6 e2e\phase10-crash.spec.ts:304:3 › renderer kill during recompute restores the committed autosave [solo] (5.1s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":29072,"mainPid":26988,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 29072 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":29072,"replacementPid":35340,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":35340,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok  7 e2e\phase10-crash.spec.ts:304:3 › renderer kill during step-import restores the committed autosave [solo] (4.1s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":9052,"mainPid":9944,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 9052 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":9052,"replacementPid":23624,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":23624,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok  8 e2e\phase10-crash.spec.ts:304:3 › renderer kill during tessellation-500k restores the committed autosave [solo] (10.9s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":35952,"mainPid":29568,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 35952 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":35952,"replacementPid":30732,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":30732,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok  9 e2e\phase10-crash.spec.ts:304:3 › renderer kill during tessellation-1M restores the committed autosave [solo] (19.6s)
+  ok 10 e2e\phase10-crash.spec.ts:304:3 › main kill during recompute restores the committed autosave [solo] (6.8s)
+  ok 11 e2e\phase10-crash.spec.ts:304:3 › main kill during step-import restores the committed autosave [solo] (5.9s)
+  ok 12 e2e\phase10-crash.spec.ts:304:3 › main kill during tessellation-500k restores the committed autosave [solo] (12.5s)
+  ok 13 e2e\phase10-crash.spec.ts:304:3 › main kill during tessellation-1M restores the committed autosave [solo] (17.6s)
+  ok 14 e2e\phase10-crash.spec.ts:304:3 › core kill during recompute restores the committed autosave [solo] (6.1s)
+  ok 15 e2e\phase10-crash.spec.ts:304:3 › core kill during step-import restores the committed autosave [solo] (4.9s)
+  ok 16 e2e\phase10-crash.spec.ts:304:3 › core kill during tessellation-500k restores the committed autosave [solo] (12.7s)
+  ok 17 e2e\phase10-crash.spec.ts:304:3 › core kill during tessellation-1M restores the committed autosave [solo] (18.4s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":35132,"mainPid":40556,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 35132 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":35132,"replacementPid":40028,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":40028,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok 18 e2e\phase10-crash.spec.ts:359:1 › renderer crash during command preview restores the last committed model [solo] (4.0s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":35016,"mainPid":32088,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 35016 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":35016,"replacementPid":16112,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":16112,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok 19 e2e\phase10-crash.spec.ts:376:1 › renderer crash with an uncommitted solved sketch drag restores committed coordinates [solo] (9.9s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":1492,"mainPid":32116,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 1492 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":1492,"replacementPid":41860,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":41860,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  x  20 e2e\phase10-crash.spec.ts:427:1 › renderer crash restores native datum sketch frame, support and geometry before ordinary Undo [solo] (18.4s)
+(node:6860) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PHASE10_RENDERER_TERMINATION {"rendererPid":32724,"mainPid":38320,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 32724 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":32724,"replacementPid":30184,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":30184,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok 21 e2e\phase10-crash.spec.ts:513:1 › renderer kill inside the native sketch solver restores committed coordinates [solo] (8.2s)
+  ok 22 e2e\phase10-crash.spec.ts:359:1 › main crash during command preview restores the last committed model [solo] (8.0s)
+  ok 23 e2e\phase10-crash.spec.ts:376:1 › main crash with an uncommitted solved sketch drag restores committed coordinates [solo] (11.7s)
+  x  24 e2e\phase10-crash.spec.ts:427:1 › main crash restores native datum sketch frame, support and geometry before ordinary Undo [solo] (23.9s)
+(node:13904) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 25 e2e\phase10-crash.spec.ts:513:1 › main kill inside the native sketch solver restores committed coordinates [solo] (7.8s)
+  ok 26 e2e\phase10-crash.spec.ts:359:1 › core crash during command preview restores the last committed model [solo] (5.0s)
+  ok 27 e2e\phase10-crash.spec.ts:376:1 › core crash with an uncommitted solved sketch drag restores committed coordinates [solo] (11.0s)
+  x  28 e2e\phase10-crash.spec.ts:427:1 › core crash restores native datum sketch frame, support and geometry before ordinary Undo [solo] (24.0s)
+(node:23420) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 29 e2e\phase10-crash.spec.ts:513:1 › core kill inside the native sketch solver restores committed coordinates [solo] (7.0s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":32124,"mainPid":13260,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 32124 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":32124,"replacementPid":10560,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":10560,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok 30 e2e\phase10-crash.spec.ts:554:1 › recompute and completed save survive a later preview crash [solo] (10.3s)
+PHASE10_RENDERER_TERMINATION {"rendererPid":40144,"mainPid":39868,"observedWindowId":1,"mappedWindowId":1,"termination":"OPERAZIONE RIUSCITA: il processo con il PID 40144 � stato terminato.","osPidStatus":"ESRCH"}
+PHASE10_RENDERER_RECOVERY {"rendererPid":40144,"replacementPid":25868,"loaded":true,"recovery":"killed","recoveryPid":0,"exit":"killed","failure":"none","currentPid":25868,"loading":false,"url":"file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/apps/desktop/dist/index.html"}
+  ok 31 e2e\phase10-crash.spec.ts:593:1 › renderer crash after STEP import restores the imported solid [solo] (10.3s)
+  ok 32 e2e\phase10-crash.spec.ts:645:1 › main process kill relaunches and restores committed autosave [solo] (6.0s)
+
+
+  1) e2e\phase10-crash.spec.ts:427:1 › renderer crash restores native datum sketch frame, support and geometry before ordinary Undo [solo]
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 22
+    + Received  +  1
+
+    @@ -1,31 +1,10 @@
+      Array [
+        Object {
+          "constraints": 6,
+          "id": "sk-6da95e1b-1c62-44a6-8d6f-5e389f8d1a86",
+    -     "modelPlane": Object {
+    -       "normal": Array [
+    -         0.01147607294463029,
+    -         -0.8492293979026416,
+    -         0.5278993554529935,
+    -       ],
+    -       "origin": Array [
+    -         10,
+    -         20,
+    -         30,
+    -       ],
+    -       "xAxis": Array [
+    -         0.9407208683835973,
+    -         0.18814417367671946,
+    -         0.2822162605150792,
+    -       ],
+    -       "yAxis": Array [
+    -         -0.338987533011732,
+    -         0.4933672056890495,
+    -         0.8010469729130737,
+    -       ],
+    -     },
+    +     "modelPlane": undefined,
+          "plane": Object {
+            "normal": Array [
+              0.01147607294463029,
+              -0.8492293979026416,
+              0.5278993554529935,
+
+      500 |     await window.getByRole("button", { name: "Undo" }).click();
+      501 |     await expect.poll(async () => (await snapOf(window)).bodies).toHaveLength(before.bodies.length);
+    > 502 |     expect((await snapOf(window)).sketches).toEqual(before.sketches);
+          |                                             ^
+      503 |     await expect.poll(async () => (await snapOf(window)).datums?.map((item) => item.featureId) ?? []).toEqual([datumId]);
+      504 |     await window.getByRole("button", { name: "Redo" }).click();
+      505 |     const redone = await snapOf(window);
+        at C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop\e2e\phase10-crash.spec.ts:502:45
+
+    Error Context: test-results\phase10-crash-renderer-cra-51dba--before-ordinary-Undo-solo-\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\phase10-crash-renderer-cra-51dba--before-ordinary-Undo-solo-\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results\phase10-crash-renderer-cra-51dba--before-ordinary-Undo-solo-\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) e2e\phase10-crash.spec.ts:427:1 › main crash restores native datum sketch frame, support and geometry before ordinary Undo [solo]
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 22
+    + Received  +  1
+
+    @@ -1,31 +1,10 @@
+      Array [
+        Object {
+          "constraints": 6,
+          "id": "sk-9b16e39d-f328-490a-bc72-78976ff439bc",
+    -     "modelPlane": Object {
+    -       "normal": Array [
+    -         0.01147607294463029,
+    -         -0.8492293979026416,
+    -         0.5278993554529935,
+    -       ],
+    -       "origin": Array [
+    -         10,
+    -         20,
+    -         30,
+    -       ],
+    -       "xAxis": Array [
+    -         0.9407208683835973,
+    -         0.18814417367671946,
+    -         0.2822162605150792,
+    -       ],
+    -       "yAxis": Array [
+    -         -0.338987533011732,
+    -         0.4933672056890495,
+    -         0.8010469729130737,
+    -       ],
+    -     },
+    +     "modelPlane": undefined,
+          "plane": Object {
+            "normal": Array [
+              0.01147607294463029,
+              -0.8492293979026416,
+              0.5278993554529935,
+
+      500 |     await window.getByRole("button", { name: "Undo" }).click();
+      501 |     await expect.poll(async () => (await snapOf(window)).bodies).toHaveLength(before.bodies.length);
+    > 502 |     expect((await snapOf(window)).sketches).toEqual(before.sketches);
+          |                                             ^
+      503 |     await expect.poll(async () => (await snapOf(window)).datums?.map((item) => item.featureId) ?? []).toEqual([datumId]);
+      504 |     await window.getByRole("button", { name: "Redo" }).click();
+      505 |     const redone = await snapOf(window);
+        at C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop\e2e\phase10-crash.spec.ts:502:45
+
+    Error Context: test-results\phase10-crash-main-crash-r-05b80--before-ordinary-Undo-solo-\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\phase10-crash-main-crash-r-05b80--before-ordinary-Undo-solo-\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results\phase10-crash-main-crash-r-05b80--before-ordinary-Undo-solo-\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) e2e\phase10-crash.spec.ts:427:1 › core crash restores native datum sketch frame, support and geometry before ordinary Undo [solo]
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 22
+    + Received  +  1
+
+    @@ -1,31 +1,10 @@
+      Array [
+        Object {
+          "constraints": 6,
+          "id": "sk-fd114da9-b966-4783-86d3-bf7a8c4a37c2",
+    -     "modelPlane": Object {
+    -       "normal": Array [
+    -         0.01147607294463029,
+    -         -0.8492293979026416,
+    -         0.5278993554529935,
+    -       ],
+    -       "origin": Array [
+    -         10,
+    -         20,
+    -         30,
+    -       ],
+    -       "xAxis": Array [
+    -         0.9407208683835973,
+    -         0.18814417367671946,
+    -         0.2822162605150792,
+    -       ],
+    -       "yAxis": Array [
+    -         -0.338987533011732,
+    -         0.4933672056890495,
+    -         0.8010469729130737,
+    -       ],
+    -     },
+    +     "modelPlane": undefined,
+          "plane": Object {
+            "normal": Array [
+              0.01147607294463029,
+              -0.8492293979026416,
+              0.5278993554529935,
+
+      500 |     await window.getByRole("button", { name: "Undo" }).click();
+      501 |     await expect.poll(async () => (await snapOf(window)).bodies).toHaveLength(before.bodies.length);
+    > 502 |     expect((await snapOf(window)).sketches).toEqual(before.sketches);
+          |                                             ^
+      503 |     await expect.poll(async () => (await snapOf(window)).datums?.map((item) => item.featureId) ?? []).toEqual([datumId]);
+      504 |     await window.getByRole("button", { name: "Redo" }).click();
+      505 |     const redone = await snapOf(window);
+        at C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop\e2e\phase10-crash.spec.ts:502:45
+
+    Error Context: test-results\phase10-crash-core-crash-r-2f880--before-ordinary-Undo-solo-\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\phase10-crash-core-crash-r-2f880--before-ordinary-Undo-solo-\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results\phase10-crash-core-crash-r-2f880--before-ordinary-Undo-solo-\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    e2e\phase10-crash.spec.ts:427:1 › renderer crash restores native datum sketch frame, support and geometry before ordinary Undo [solo]
+    e2e\phase10-crash.spec.ts:427:1 › main crash restores native datum sketch frame, support and geometry before ordinary Undo [solo]
+    e2e\phase10-crash.spec.ts:427:1 › core crash restores native datum sketch frame, support and geometry before ordinary Undo [solo]
+  29 passed (5.3m)
+undefined
+C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\apps\desktop:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test e2e/phase10-crash.spec.ts
+ ELIFECYCLE  Command failed with exit code 1.
+Error: C:\Users\matte\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v24.19.0-win-x64\node.exe failed: 1
+    at run (file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/scripts/run-crash-tests.mjs:25:11)
+    at file:///C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/scripts/run-crash-tests.mjs:41:3
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+-- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.26200.
+-- OCCT found: 8.0.1
+-- Configuring done (0.6s)
+-- Generating done (0.7s)
+-- Build files have been written to: C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build
+Versione di MSBuild 17.14.60+43b635718 per .NET Framework
+
+  1>
+  Analisi delle origini per cercare le dipendenze del modulo...
+  Geo.cpp
+  SubSystem.cpp
+  Constraints.cpp
+  qp_eq.cpp
+  GCS.cpp
+  In fase di compilazione...
+  Constraints.cpp
+  qp_eq.cpp
+  Geo.cpp
+  SubSystem.cpp
+  GCS.cpp
+  planegcs.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\Release\planegcs.lib
+  main.cpp
+  framing.cpp
+  dispatcher.cpp
+  session_geometry.cpp
+  mesh_fb.cpp
+  document_store.cpp
+  gltf_exchange.cpp
+  obj_exchange.cpp
+  sew.cpp
+  step_exchange.cpp
+  stl_exchange.cpp
+  threemf_exchange.cpp
+  expressions.cpp
+  feature_graph.cpp
+  body.cpp
+  shapes.cpp
+  commit.cpp
+  primitives.cpp
+  rebuild.cpp
+  datum_commands.cpp
+  Generazione del codice in corso...
+  Compilazione in corso...
+  datum_json.cpp
+  datum_store.cpp
+  sketch_store.cpp
+  sketch_face.cpp
+  sketch_json.cpp
+  sketch_commands.cpp
+  extrude.cpp
+  revolve.cpp
+  boolean.cpp
+  hole.cpp
+  instance.cpp
+  fillet.cpp
+  face_roles.cpp
+C:\Users\matte\Desktop\Saas\Kreoda\Kreoda\native\kreoda-core\build\vcpkg_installed\x64-windows\include\opencascade\TopTools_ListOfShape.hxx(27): warning : TopTools_ListOfShape.hxx is deprecated since OCCT 8.0.0. Use NCollection types directly. [C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\kreoda-core.vcxproj]
+C:\Users\matte\Desktop\Saas\Kreoda\Kreoda\native\kreoda-core\build\vcpkg_installed\x64-windows\include\opencascade\TopTools_IndexedDataMapOfShapeListOfShape.hxx(31): warning : TopTools_IndexedDataMapOfShapeListOfShape.hxx is deprecated since OCCT 8.0.0. Use NCollection_IndexedDataMap<TopoDS_Shape, TopTools_ListOfShape, TopTools_ShapeMapHasher> directly. [C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\kreoda-core.vcxproj]
+  box_tessellator.cpp
+  mesh.cpp
+  ocaf_live.cpp
+C:\Users\matte\Desktop\Saas\Kreoda\Kreoda\native\kreoda-core\build\vcpkg_installed\x64-windows\include\opencascade\TopTools_IndexedMapOfShape.hxx(28): warning : TopTools_IndexedMapOfShape.hxx is deprecated since OCCT 8.0.0. Use NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> directly. [C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\kreoda-core.vcxproj]
+  icad_zip.cpp
+  log.cpp
+  planegcs_solver.cpp
+  Generazione del codice in corso...
+     Creazione della libreria C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build/Release/kreoda-core.lib e dell'oggetto C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build/Release/kreoda-core.exp
+  kreoda-core.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\Release\kreoda-core.exe
+    Staging release MSVC runtime DLLs beside kreoda-core
+Versione di MSBuild 17.14.60+43b635718 per .NET Framework
+
+  Analisi delle origini per cercare le dipendenze del modulo...
+  planegcs.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\Release\planegcs.lib
+  test_solver_crash_barrier.cpp
+  planegcs_solver.cpp
+  Generazione del codice in corso...
+  kreoda-solver-crash-control.vcxproj -> C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\native\kreoda-core\build\tests\Release\kreoda-solver-crash-control.exe
+Test project C:/Users/matte/Desktop/Saas/Kreoda-phase10-ci/native/kreoda-core/build
+    Start 233: SolverCrashBarrierControl
+1/1 Test #233: SolverCrashBarrierControl ........   Passed    0.06 sec
+
+100% tests passed out of 1
+
+Total Test time (real) =   0.09 sec
+PHASE10_CRASH_GATE {"passed":false,"production_core_restored":true}
+ ELIFECYCLE  Command failed with exit code 1.

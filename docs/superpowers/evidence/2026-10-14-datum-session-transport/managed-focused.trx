@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="f80274d1-fcbc-4ba0-b6f2-fbcf5bd87343" name="matte@PC-MATTEO 2026-10-14 10:48:50" runUser="PC-MATTEO\matte" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-14T10:48:50.1238173+02:00" queuing="2026-10-14T10:48:50.1238175+02:00" start="2026-10-14T10:48:49.1426514+02:00" finish="2026-10-14T10:48:50.1291353+02:00" />
+  <TestSettings name="default" id="b9b8f4a4-6352-489b-be27-95e2aeac726b">
+    <Deployment runDeploymentRoot="matte_PC-MATTEO_2026-10-14_10_48_50" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="8be19ead-c426-4911-877a-e809831c2510" testId="0c5346b5-3e3a-1df1-cf54-5a9302eafddb" testName="Kreoda.SessionClient.Tests.SessionModelTests.DuplicateGapAndNewLineageHaveDifferentOutcomes(sessionId: &quot;s&quot;, before: 0, after: 1, expected: Duplicate)" computerName="PC-MATTEO" duration="00:00:00.0897341" startTime="2026-10-14T10:48:50.0063779+02:00" endTime="2026-10-14T10:48:50.0063924+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8be19ead-c426-4911-877a-e809831c2510" />
+    <UnitTestResult executionId="a93dae30-9708-4acc-94b4-f211c9bd9f5d" testId="406a1f17-d1a3-6c0f-0f52-db0e96bf5856" testName="Kreoda.SessionClient.Tests.SessionModelTests.DuplicateGapAndNewLineageHaveDifferentOutcomes(sessionId: &quot;s&quot;, before: 3, after: 4, expected: NeedsSnapshot)" computerName="PC-MATTEO" duration="00:00:00.0003114" startTime="2026-10-14T10:48:50.0084533+02:00" endTime="2026-10-14T10:48:50.0084534+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a93dae30-9708-4acc-94b4-f211c9bd9f5d" />
+    <UnitTestResult executionId="4318fa59-af67-4b41-991b-bb23d6892775" testId="74b19f02-9f16-5888-4e81-05ab0fb9a1b6" testName="Kreoda.SessionClient.Tests.SessionModelTests.DatumSnapshotsAndDeltasPreserveDefinitionsFramesAndLegacyConstructor" computerName="PC-MATTEO" duration="00:00:00.0106039" startTime="2026-10-14T10:48:50.0355853+02:00" endTime="2026-10-14T10:48:50.0355854+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4318fa59-af67-4b41-991b-bb23d6892775" />
+    <UnitTestResult executionId="e0e6c724-99a3-4e1e-9d88-dfeaa25089e7" testId="ffd188b4-aeda-9868-4f7b-a80402d59c7d" testName="Kreoda.SessionClient.Tests.SessionModelTests.GeneratedRequiredFieldsRejectMissingPatchMetadataAndNullArrays" computerName="PC-MATTEO" duration="00:00:00.0005881" startTime="2026-10-14T10:48:50.0362027+02:00" endTime="2026-10-14T10:48:50.0362028+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e0e6c724-99a3-4e1e-9d88-dfeaa25089e7" />
+    <UnitTestResult executionId="e6481561-02b5-43c6-8cb7-807aa2b41349" testId="07d06d62-be45-2a02-bd8a-85e14e154966" testName="Kreoda.SessionClient.Tests.SessionModelTests.MalformedIndexAndFullArraysRequireRecoveryWithoutPartialApplication" computerName="PC-MATTEO" duration="00:00:00.0008880" startTime="2026-10-14T10:48:50.0249045+02:00" endTime="2026-10-14T10:48:50.0249045+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e6481561-02b5-43c6-8cb7-807aa2b41349" />
+    <UnitTestResult executionId="f05d36be-79b2-46de-9681-7a6a6762d835" testId="852e8e20-99b2-4902-6fcd-c5437e680f1b" testName="Kreoda.SessionClient.Tests.SessionModelTests.DuplicateGapAndNewLineageHaveDifferentOutcomes(sessionId: &quot;new-session&quot;, before: 0, after: 1, expected: NeedsSnapshot)" computerName="PC-MATTEO" duration="00:00:00.0000757" startTime="2026-10-14T10:48:50.0086748+02:00" endTime="2026-10-14T10:48:50.0086749+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f05d36be-79b2-46de-9681-7a6a6762d835" />
+    <UnitTestResult executionId="0143d094-dcea-433d-88c8-fb345206360f" testId="22a7e98b-417f-ee2d-961c-dc06dbf1e519" testName="Kreoda.SessionClient.Tests.SessionModelTests.OrderedChangesPreserveOtherEntitiesAndApplySharedFeatureSketchIds" computerName="PC-MATTEO" duration="00:00:00.0175295" startTime="2026-10-14T10:48:50.0239785+02:00" endTime="2026-10-14T10:48:50.0239787+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0143d094-dcea-433d-88c8-fb345206360f" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Kreoda.SessionClient.Tests.SessionModelTests.DuplicateGapAndNewLineageHaveDifferentOutcomes(sessionId: &quot;s&quot;, before: 0, after: 1, expected: Duplicate)" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.sessionclient.tests\bin\release\net8.0\kreoda.sessionclient.tests.dll" id="0c5346b5-3e3a-1df1-cf54-5a9302eafddb">
+      <Execution id="8be19ead-c426-4911-877a-e809831c2510" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.SessionClient.Tests.SessionModelTests" name="DuplicateGapAndNewLineageHaveDifferentOutcomes" />
+    </UnitTest>
+    <UnitTest name="Kreoda.SessionClient.Tests.SessionModelTests.DuplicateGapAndNewLineageHaveDifferentOutcomes(sessionId: &quot;new-session&quot;, before: 0, after: 1, expected: NeedsSnapshot)" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.sessionclient.tests\bin\release\net8.0\kreoda.sessionclient.tests.dll" id="852e8e20-99b2-4902-6fcd-c5437e680f1b">
+      <Execution id="f05d36be-79b2-46de-9681-7a6a6762d835" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.SessionClient.Tests.SessionModelTests" name="DuplicateGapAndNewLineageHaveDifferentOutcomes" />
+    </UnitTest>
+    <UnitTest name="Kreoda.SessionClient.Tests.SessionModelTests.DatumSnapshotsAndDeltasPreserveDefinitionsFramesAndLegacyConstructor" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.sessionclient.tests\bin\release\net8.0\kreoda.sessionclient.tests.dll" id="74b19f02-9f16-5888-4e81-05ab0fb9a1b6">
+      <Execution id="4318fa59-af67-4b41-991b-bb23d6892775" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.SessionClient.Tests.SessionModelTests" name="DatumSnapshotsAndDeltasPreserveDefinitionsFramesAndLegacyConstructor" />
+    </UnitTest>
+    <UnitTest name="Kreoda.SessionClient.Tests.SessionModelTests.GeneratedRequiredFieldsRejectMissingPatchMetadataAndNullArrays" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.sessionclient.tests\bin\release\net8.0\kreoda.sessionclient.tests.dll" id="ffd188b4-aeda-9868-4f7b-a80402d59c7d">
+      <Execution id="e0e6c724-99a3-4e1e-9d88-dfeaa25089e7" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.SessionClient.Tests.SessionModelTests" name="GeneratedRequiredFieldsRejectMissingPatchMetadataAndNullArrays" />
+    </UnitTest>
+    <UnitTest name="Kreoda.SessionClient.Tests.SessionModelTests.DuplicateGapAndNewLineageHaveDifferentOutcomes(sessionId: &quot;s&quot;, before: 3, after: 4, expected: NeedsSnapshot)" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.sessionclient.tests\bin\release\net8.0\kreoda.sessionclient.tests.dll" id="406a1f17-d1a3-6c0f-0f52-db0e96bf5856">
+      <Execution id="a93dae30-9708-4acc-94b4-f211c9bd9f5d" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.SessionClient.Tests.SessionModelTests" name="DuplicateGapAndNewLineageHaveDifferentOutcomes" />
+    </UnitTest>
+    <UnitTest name="Kreoda.SessionClient.Tests.SessionModelTests.MalformedIndexAndFullArraysRequireRecoveryWithoutPartialApplication" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.sessionclient.tests\bin\release\net8.0\kreoda.sessionclient.tests.dll" id="07d06d62-be45-2a02-bd8a-85e14e154966">
+      <Execution id="e6481561-02b5-43c6-8cb7-807aa2b41349" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.SessionClient.Tests.SessionModelTests" name="MalformedIndexAndFullArraysRequireRecoveryWithoutPartialApplication" />
+    </UnitTest>
+    <UnitTest name="Kreoda.SessionClient.Tests.SessionModelTests.OrderedChangesPreserveOtherEntitiesAndApplySharedFeatureSketchIds" storage="c:\users\matte\desktop\saas\kreoda-phase10-ci\clients\session-dotnet\tests\kreoda.sessionclient.tests\bin\release\net8.0\kreoda.sessionclient.tests.dll" id="22a7e98b-417f-ee2d-961c-dc06dbf1e519">
+      <Execution id="0143d094-dcea-433d-88c8-fb345206360f" />
+      <TestMethod codeBase="C:\Users\matte\Desktop\Saas\Kreoda-phase10-ci\clients\session-dotnet\tests\Kreoda.SessionClient.Tests\bin\Release\net8.0\Kreoda.SessionClient.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Kreoda.SessionClient.Tests.SessionModelTests" name="OrderedChangesPreserveOtherEntitiesAndApplySharedFeatureSketchIds" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="0c5346b5-3e3a-1df1-cf54-5a9302eafddb" executionId="8be19ead-c426-4911-877a-e809831c2510" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="406a1f17-d1a3-6c0f-0f52-db0e96bf5856" executionId="a93dae30-9708-4acc-94b4-f211c9bd9f5d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="74b19f02-9f16-5888-4e81-05ab0fb9a1b6" executionId="4318fa59-af67-4b41-991b-bb23d6892775" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ffd188b4-aeda-9868-4f7b-a80402d59c7d" executionId="e0e6c724-99a3-4e1e-9d88-dfeaa25089e7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="07d06d62-be45-2a02-bd8a-85e14e154966" executionId="e6481561-02b5-43c6-8cb7-807aa2b41349" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="852e8e20-99b2-4902-6fcd-c5437e680f1b" executionId="f05d36be-79b2-46de-9681-7a6a6762d835" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="22a7e98b-417f-ee2d-961c-dc06dbf1e519" executionId="0143d094-dcea-433d-88c8-fb345206360f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Risultati non in elenco" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tutti i risultati caricati" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="7" executed="7" passed="7" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.32)&#xD;
+[xUnit.net 00:00:00.28]   Discovering: Kreoda.SessionClient.Tests&#xD;
+[xUnit.net 00:00:00.33]   Discovered:  Kreoda.SessionClient.Tests&#xD;
+[xUnit.net 00:00:00.33]   Starting:    Kreoda.SessionClient.Tests&#xD;
+[xUnit.net 00:00:00.48]   Finished:    Kreoda.SessionClient.Tests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

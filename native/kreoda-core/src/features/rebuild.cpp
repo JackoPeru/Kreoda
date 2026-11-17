@@ -7,10 +7,27 @@
 #include "features/booleans/boolean.h"
 #include "features/extrusion/extrude.h"
 #include "features/fillet/fillet.h"
+#include "features/shell/shell.h"
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
+#include "features/mirror/mirror.h"
+#include "features/pattern/body_pattern.h"
+#include "features/pattern/circular_body_pattern.h"
 #include "features/revolve/revolve.h"
+#include "features/surface/loft_sew.h"
+#include "features/surface/face_thicken.h"
+#include "features/surface/surface_modeling.h"
+#include "features/surface/surface_sew_offset.h"
+#include "features/surface/surface_thicken.h"
+#include "features/surface/surface_sweep.h"
+#include "features/surface/surface_trim_extend.h"
+#include "features/direct/offset_face.h"
+#include "features/direct/face_history.h"
 #include "features/sketch/sketch_store.h"
+#include "features/sketch/sketch_json.h"
+#include "features/sketch/sketch_projection.h"
+#include "features/datum/datum_commands.h"
+#include "persistence/ocaf_live.h"
 #include "model/commit.h"
 #include "model/shapes.h"
 
@@ -24,9 +41,26 @@ bool RebuildNodeFromStore(const std::string& featureId, std::string* error) {
 #if KREODA_WITH_OCCT
   // Sketch nodes live in SketchStore (no B-Rep of their own): re-validate
   // by re-solving; dependent solids rebuild in their own steps (§53).
+  if (DatumStore::instance().contains(featureId)) return RebuildDatumFromStore(featureId,error);
   if (SketchStore::instance().contains(featureId)) {
+    SketchFeature sketch;SketchStore::instance().get(featureId,&sketch);
+    if(sketch.planeKind=="Datum") {
+      DatumRecord support;if(!DatumStore::instance().get(sketch.supportRef,&support)||support.kind!=DatumKind::Plane||support.status!="ok") {if(error)*error="sketch datum support is missing or broken";return false;}
+      sketch.plane=support.plane;SketchStore::instance().put(sketch);
+    }
     SolveResult r = SolveStoredSketch(featureId, SolveOptions{}, error);
-    return r.ok;
+    if(!r.ok)return false;
+    SketchStore::instance().get(featureId,&sketch);
+    const auto shapes = ShapeStore::instance().listInOrder();
+    auto sketches = SketchStore::instance().listInOrder();
+    const auto datums = DatumStore::instance().listInOrder();
+    for (auto& source : sketches) if (source.id == featureId) source = sketch;
+    if (!ResolveSketchProjectionGroups(
+            &sketch, shapes, sketches, datums,
+            OcafLive::instance().SketchProjectionSourceResolver(), "", true,
+            false, nullptr, error)) return false;
+    SketchStore::instance().put(sketch);
+    return OcafLive::instance().UpsertSketch(featureId,SerializeSketchFeature(sketch),error);
   }
   ShapeRecord rec;
   if (!ShapeStore::instance().get(featureId, &rec)) {
@@ -39,6 +73,30 @@ bool RebuildNodeFromStore(const std::string& featureId, std::string* error) {
   if (rec.type == "Revolve") {
     return RebuildRevolveFromStore(featureId, error);
   }
+  if (rec.type == "SurfaceLoftSewnSolid") {
+    return RebuildSurfaceLoftSewnSolidFromStore(featureId,error);
+  }
+  if (rec.type == "SurfaceExtrude" || rec.type == "SurfaceRevolve" ||
+      rec.type == "SurfaceLoft")
+    return RebuildSurfaceFeatureFromStore(featureId,error);
+  if (rec.type == "SurfaceFaceThicken") return RebuildSurfaceFaceThickenFromStore(featureId,error);
+  if (rec.type == "SurfaceSew" || rec.type == "SurfaceSewnSolid" ||
+      rec.type == "SurfaceOffset")
+    return RebuildSurfaceSewOffsetFromStore(featureId, error);
+  if (rec.type == "SurfaceSweep")
+    return RebuildSurfaceSweepFromStore(featureId, error);
+  if (rec.type == "SurfaceThicken")
+    return RebuildSurfaceThickenFromStore(featureId, error);
+  if (rec.type == "SurfaceTrim")
+    return RebuildSurfaceTrimFromStore(featureId, error);
+  if (rec.type == "SurfaceExtend")
+    return RebuildSurfaceExtendFromStore(featureId, error);
+  if (rec.type == "OutwardFacePush") return RebuildOutwardFacePushFromStore(featureId,error);
+  if (rec.type == "InwardFacePocket") return RebuildInwardFacePocketFromStore(featureId,error);
+  if (rec.type == "MoveFace") return RebuildMoveFaceFromStore(featureId,error);
+  if (rec.type == "OffsetFace") return RebuildOffsetFaceFromStore(featureId,error);
+  if (rec.type == "DeleteFace") return RebuildDeleteFaceFromStore(featureId,error);
+  if (rec.type == "ReplaceFace") return RebuildReplaceFaceFromStore(featureId,error);
   if (rec.type == "Union" || rec.type == "Subtract" ||
       rec.type == "Intersect") {
     return RebuildBooleanFromStore(featureId, error);
@@ -52,8 +110,18 @@ bool RebuildNodeFromStore(const std::string& featureId, std::string* error) {
   if (rec.type == "Fillet" || rec.type == "Chamfer") {
     return RebuildFilletFromStore(featureId, error);
   }
+  if (rec.type == "Shell") return RebuildShellFromStore(featureId, error);
   if (rec.type == "Instance") {
     return RebuildInstanceFromStore(featureId, error);
+  }
+  if (rec.type == "Mirror") {
+    return RebuildMirrorFromStore(featureId, error);
+  }
+  if (rec.type == "BodyPattern") {
+    return RebuildBodyPatternFromStore(featureId, error);
+  }
+  if (rec.type == "CircularBodyPattern") {
+    return RebuildCircularBodyPatternFromStore(featureId, error);
   }
   TopoDS_Shape shape;
   bool built = false;
