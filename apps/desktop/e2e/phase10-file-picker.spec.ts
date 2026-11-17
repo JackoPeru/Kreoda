@@ -63,6 +63,18 @@ test("native file pickers: Save/Open cancellation and editable project round tri
           return result;
         },
       });
+      // The native picker test intentionally opens while the document is dirty.
+      // The product guard is correct; this harness approves it so the native
+      // Open dialog can be exercised.
+      dialog.showMessageBox = new Proxy(dialog.showMessageBox, {
+        async apply(target, receiver, args) {
+          const options = args[1] as Electron.MessageBoxOptions | undefined;
+          if (options?.title === "Unsaved changes") {
+            return { response: 1, checkboxChecked: false };
+          }
+          return Reflect.apply(target, receiver, args);
+        },
+      });
     });
     const dialogResults = () => app.evaluate(() =>
       (globalThis as unknown as { __kreoda_picker_results: PickerResult[] }).__kreoda_picker_results);
