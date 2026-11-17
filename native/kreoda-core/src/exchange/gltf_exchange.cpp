@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <memory>
@@ -581,8 +582,31 @@ bool ExportGltf(const std::string& path, std::string* error) {
     std::vector<uint8_t> bin;
     FillBlocks(meshes, &blocks, &bin);
     const std::string text = BuildJsonText(blocks, bin, binName);
-    if (!WriteBytes(binPath, bin.data(), bin.size(), error)) return false;
-    if (!WriteBytes(path, text.data(), text.size(), error)) return false;
+    // Publish only after both files are complete. std::filesystem::rename
+    // replaces an existing target atomically (no delete-then-rename gap).
+    const std::string binTmp = binPath + ".tmp";
+    const std::string textTmp = path + ".tmp";
+    if (!WriteBytes(binTmp, bin.data(), bin.size(), error)) {
+      std::remove(binTmp.c_str());
+      return false;
+    }
+    if (!WriteBytes(textTmp, text.data(), text.size(), error)) {
+      std::remove(binTmp.c_str());std::remove(textTmp.c_str());
+      return false;
+    }
+    std::error_code renameError;
+    std::filesystem::rename(binTmp, binPath, renameError);
+    if (renameError) {
+      std::remove(binTmp.c_str());std::remove(textTmp.c_str());
+      if (error) *error = "cannot publish file: " + binPath;
+      return false;
+    }
+    std::filesystem::rename(textTmp, path, renameError);
+    if (renameError) {
+      std::remove(textTmp.c_str());
+      if (error) *error = "cannot publish file: " + path;
+      return false;
+    }
     return true;
   } catch (const Standard_Failure& f) {
     if (error) *error = std::string("glTF export failed: ") + f.what();

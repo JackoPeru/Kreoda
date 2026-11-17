@@ -324,6 +324,43 @@ bool ResolveParamsForEdit(const ShapeRecord& rec, const std::string& paramName,
     if (error) *error = "SurfaceExtend parameters are outside their supported ranges";
     return false;
   }
+  if (rec.type == "Shell" &&
+      (params.size() != 1 || !std::isfinite(params[0]) || params[0] <= 0 ||
+       params[0] > 100000.0)) {
+    if (error) *error = "Shell thicknessMm must be in (0, 100000] mm";
+    return false;
+  }
+  if ((rec.type == "Fillet" || rec.type == "Chamfer") &&
+      (params.size() != 1 || !std::isfinite(params[0]) || params[0] <= 0 ||
+       params[0] > 100000.0)) {
+    if (error) *error = rec.type + " parameter must be in (0, 100000] mm";
+    return false;
+  }
+  if (rec.type == "Hole" &&
+      (params.size() != 2 || !std::isfinite(params[0]) || params[0] <= 0 ||
+       params[0] > 100000.0 || !std::isfinite(params[1]) ||
+       (rec.refExtra.find("mode=blind") != std::string::npos &&
+        (params[1] <= 0 || params[1] > 100000.0)))) {
+    if (error) *error = "Hole parameters are outside their supported ranges";
+    return false;
+  }
+  if (rec.type == "BodyPattern" &&
+      (params.size() != 2 || !std::isfinite(params[0]) || params[0] < 2 ||
+       params[0] > 64 ||
+       static_cast<double>(static_cast<int>(params[0])) != params[0] ||
+       !std::isfinite(params[1]) || std::abs(params[1]) < 1e-6 ||
+       std::abs(params[1]) > 100000.0)) {
+    if (error) *error = "BodyPattern parameters are outside their supported ranges";
+    return false;
+  }
+  if (rec.type == "CircularBodyPattern" &&
+      (params.size() != 2 || !std::isfinite(params[0]) || params[0] < 2 ||
+       params[0] > 64 ||
+       static_cast<double>(static_cast<int>(params[0])) != params[0] ||
+       !std::isfinite(params[1]) || params[1] <= 0 || params[1] > 360.0)) {
+    if (error) *error = "CircularBodyPattern parameters are outside their supported ranges";
+    return false;
+  }
 #endif
 #if KREODA_WITH_OCCT
   if (rec.type == "HolePattern" &&

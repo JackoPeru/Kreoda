@@ -28,6 +28,8 @@ export function ContextToolbar({
   onEditSketch,
   onInstance,
   onMirror,
+  onBodyPattern,
+  onCircularPattern,
   onOpenProps,
 }: {
   onHole: () => void;
@@ -38,6 +40,8 @@ export function ContextToolbar({
   onEditSketch: (id: string) => void;
   onInstance: () => void;
   onMirror: () => void;
+  onBodyPattern: () => void;
+  onCircularPattern: () => void;
   onOpenProps: () => void;
 }) {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -90,10 +94,12 @@ export function ContextToolbar({
       }
       candidates.push({ id: "EditSketch", label: t("ctx.editSketch"), hint: t("ctx.editSketchHint") });
     }
-    // Single solid body: the only supported transform is a placed copy.
+    // Single solid body: placed copy, mirror and linear pattern.
     if (bareIds.length > 0 && sketchId === undefined && commandAvailability("CreateInstance").available) {
       candidates.push({ id: "CopyPlaced", label: t("ctx.copyPlaced"), hint: t("ctx.copyPlacedHint") });
       candidates.push({ id: "CreateMirror", label: t("ctx.mirror"), hint: t("ctx.mirrorHint") });
+      candidates.push({ id: "CreateBodyPattern", label: t("ctx.bodyPattern"), hint: t("ctx.bodyPatternHint") });
+      candidates.push({ id: "CreateCircularBodyPattern", label: t("ctx.circularPattern"), hint: t("ctx.circularPatternHint") });
     }
     if (kinds.has("face") && selectedIds.length === 1) {
       candidates.push({ id: "SelectSimilar", label: t("ctx.similar"), hint: t("ctx.similarHint") });
@@ -155,6 +161,8 @@ export function ContextToolbar({
     else if (id === "EditSketch" && sketchId !== undefined) onEditSketch(sketchId);
     else if (id === "CopyPlaced") onInstance();
     else if (id === "CreateMirror") onMirror();
+    else if (id === "CreateBodyPattern") onBodyPattern();
+    else if (id === "CreateCircularBodyPattern") onCircularPattern();
     else if (id === "SelectSimilar") {
       const faceId = selectedIds[0]!;
       const meshes = useDocumentUiStore.getState().meshes;
@@ -174,6 +182,8 @@ export function ContextToolbar({
       id === "EditSketch" ||
       id === "CopyPlaced" ||
       id === "CreateMirror" ||
+      id === "CreateBodyPattern" ||
+      id === "CreateCircularBodyPattern" ||
       id === "SelectSimilar" ||
       id === "SelectConnected" ||
       id === "BooleanFuse" ||

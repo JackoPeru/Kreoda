@@ -21,7 +21,7 @@ test("body context Mirror creates a native mirrored body and survives Undo/Redo"
     await mirrorAction.click();
     const dialog = window.getByTestId("mirror-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
-    await dialog.getByTestId("mirror-plane").selectOption("YZ");
+    await dialog.getByTestId("mirror-plane").selectOption("plane:YZ");
     await dialog.getByRole("button", { name: "Mirror" }).click();
     await expect(dialog).toBeHidden({ timeout: 60000 });
     await expect.poll(async () => (await snapOf(window)).bodies.some(body => body.type === "Mirror"), {

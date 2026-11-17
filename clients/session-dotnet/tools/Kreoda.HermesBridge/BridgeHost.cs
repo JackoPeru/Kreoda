@@ -18,11 +18,31 @@ public static class BridgeHost
         builder.Services.AddMcpServer().WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
             .WithTools<CadTools>().WithResources<ProjectResources>();
         var app = builder.Build();
-        app.MapMcp("/mcp");
+        // The MCP endpoint drives CAD. Any configured device token protects
+        // it, even when the optional voice gateway failed to load.
+        var tokenDigest = string.IsNullOrEmpty(voiceToken)
+            ? null : SHA256.HashData(Encoding.UTF8.GetBytes(voiceToken));
         var voiceConfigured = hermes is not null && voiceToken is { Length: >= 16 };
+        if (tokenDigest is not null) {
+            app.Use(async (context, next) => {
+                if (context.Request.Path.StartsWithSegments("/mcp") &&
+                    !BearerAuthorized(context.Request, tokenDigest)) {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return;
+                }
+                await next();
+            });
+        }
+        app.MapMcp("/mcp");
         app.MapGet("/health", () => Results.Ok(new { service = "kreoda-hermes-bridge", mcp = true, voiceConfigured }));
         if (voiceConfigured) MapVoice(app, cad, hermes!, voiceToken!);
         return app;
+    }
+    static bool BearerAuthorized(HttpRequest request, byte[] expected)
+    {
+        var auth = request.Headers.Authorization.ToString();
+        return auth.StartsWith("Bearer ", StringComparison.Ordinal) &&
+               CryptographicOperations.FixedTimeEquals(expected, SHA256.HashData(Encoding.UTF8.GetBytes(auth[7..])));
     }
     sealed record VoiceTurn(string Text, JsonElement Context);
     static IResult VoiceError(string error, string stage, int statusCode, Exception cause)
@@ -37,9 +57,7 @@ public static class BridgeHost
         var expected = SHA256.HashData(Encoding.UTF8.GetBytes(token));
         var turnGate = new SemaphoreSlim(1, 1);
         var group = app.MapGroup("/voice").AddEndpointFilter(async (invocation, next) => {
-            var auth = invocation.HttpContext.Request.Headers.Authorization.ToString();
-            if (!auth.StartsWith("Bearer ", StringComparison.Ordinal) ||
-                !CryptographicOperations.FixedTimeEquals(expected, SHA256.HashData(Encoding.UTF8.GetBytes(auth[7..]))))
+            if (!BearerAuthorized(invocation.HttpContext.Request, expected))
                 return Results.Unauthorized();
             try { return await next(invocation); }
             catch (CadRecoveryRequiredException error) {

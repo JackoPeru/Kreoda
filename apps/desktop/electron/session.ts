@@ -744,11 +744,16 @@ export class SessionRelay {
         if (fields["isPreview"] === true && [6, 14].includes(type) && !this.localPreviews.has(featureId)) {
           this.localPreviews.set(featureId, this.reserve("desktop", mutationFeatures(type, fields)));added = true;
         }
+        // Desktop may omit documentId (legacy raw callers); the relay owns the
+        // active identity, so forward the normalized one, not the empty frame.
+        const normalizedFrame = request["documentId"] === documentId
+          ? framed
+          : frameMessage(new TextEncoder().encode(JSON.stringify({ ...request, documentId })));
         try {
           // Engine metadata follows queue order but survives document replacement.
           const response = await this.orderedRead("desktop", type === 1 ? null : documentId, async () => {
             const sidecar = this.sidecar();if (!sidecar) throw coded("CORE_FAILED", "geometry engine not running");
-            if (!scopedSketchRead) return sidecar.invoke(framed);
+            if (!scopedSketchRead) return sidecar.invoke(normalizedFrame);
             const lineage = this.sessionId;
             const before = await this.coreSnapshot(documentId);
             if (generation !== this.localGeneration)
@@ -965,6 +970,8 @@ export class SessionRelay {
     this.txn = null;
     this.revisionCache = null;
     this.revisionPending = null;
+    // A restarted native core starts empty under the bootstrap identity.
+    this.documentId = "doc-phase1";
     this.lastBroadcastRevision = null;
     this.lastSent = null;
     const note = JSON.stringify({
@@ -2365,7 +2372,7 @@ export class SessionRelay {
           err.code = "NO_TRANSACTION";
           throw err;
         }
-      } else if (baseRevision !== null) {
+      } else if (baseRevision !== null && type !== 2) {
         const current = await this.currentRevision();
         if (baseRevision !== current) {
           const err = new Error(
@@ -2384,6 +2391,10 @@ export class SessionRelay {
           before = this.transactionBaseline;
         } else if (terminalTxn) {
           before = this.transactionBaseline;
+        } else if (type === 2 || type === 11) {
+          // Lifecycle replaces the document: the post-mutation snapshot below
+          // is authoritative. Never snapshot the new identity before it exists.
+          before = null;
         } else {
           // Capture inside the serialized queue, immediately before native
           // mutation. This detects changes made through Desktop-local paths

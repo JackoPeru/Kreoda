@@ -146,6 +146,8 @@ set(CORE_SOURCES
   src/features/assembly/assembly_geometry.cpp
   src/features/instance/instance.cpp
   src/features/mirror/mirror.cpp
+  src/features/pattern/body_pattern.cpp
+  src/features/pattern/circular_body_pattern.cpp
   src/features/fillet/fillet.cpp
   src/features/shell/shell.cpp
   src/topology/face_roles.cpp

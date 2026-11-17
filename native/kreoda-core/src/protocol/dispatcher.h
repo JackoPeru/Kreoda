@@ -27,6 +27,11 @@ std::vector<uint8_t> make_response(const std::string& requestId,
                                    const std::string& status,
                                    const std::string& bodyJson);
 
+// Escaped error envelope for failures caught outside the dispatcher.
+std::vector<uint8_t> make_error_response(const std::string& requestId,
+                                         const std::string& code,
+                                         const std::string& message);
+
 std::vector<uint8_t> handle_command(const std::string& requestJson);
 
 // Command ids (§65 + Phase-1 extension + Phase-4 sketches + Phase-5 solids;
@@ -94,6 +99,8 @@ enum CommandId {
   kCreateReplaceFace = 60,
   kCreateShell = 61,
   kCreateMirror = 62,
+  kCreateBodyPattern = 63,
+  kCreateCircularBodyPattern = 64
 };
 
 }  // namespace kreoda

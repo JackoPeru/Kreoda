@@ -51,7 +51,7 @@ test("benchmark records unavailable Hermes and refuses occupied native document"
     const token = "benchmark-test-only-voice-token";
     bridge = spawn("dotnet", [path.join(sessionRoot, "tools/Kreoda.HermesBridge/bin/Release/net8.0/Kreoda.HermesBridge.dll")], {
       windowsHide: true, env: { ...process.env, KREODA_HERMES_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, KREODA_CAD_SESSION_URL: `ws://127.0.0.1:${sessionPort}/`,
-        KREODA_CAD_PAIR: pairing.token, KREODA_CAD_DEVICE_FILE: path.join(profile, "cad-device.json"), KREODA_HERMES_CONFIG: "", KREODA_VOICE_TOKEN: token } });
+        KREODA_CAD_PAIR: pairing.token, KREODA_CAD_DEVICE_FILE: path.join(profile, "cad-device.json"), KREODA_HERMES_CONFIG: "" } });
     await expect.poll(async () => { try { return (await fetch(`http://127.0.0.1:${bridgePort}/health`)).ok; } catch { return false; } }).toBe(true);
     const voiceConfig = path.join(profile, "voice.json");writeFileSync(voiceConfig, JSON.stringify({ endpoint: `http://127.0.0.1:${bridgePort}`, token }));
     const env = { ...process.env, KREODA_BENCHMARK_MCP_URL: `http://127.0.0.1:${bridgePort}/mcp`, KREODA_BENCHMARK_VOICE_CONFIG: voiceConfig, KREODA_BENCHMARK_HERMES_CONFIG: "" };

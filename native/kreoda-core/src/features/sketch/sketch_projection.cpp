@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <regex>
 #include <set>
 #include <stdexcept>
@@ -696,6 +697,8 @@ bool SetSketchProjectionGroup(const std::string& sketchId,
                               const std::string& definitionJson,
                               std::string* error) {
 #if KREODA_WITH_OCCT
+  std::optional<ModelSnapshot> before;
+  bool commandOpen = false;
   try {
     SketchFeature previous;
     if (!SketchStore::instance().get(sketchId, &previous))
@@ -747,13 +750,13 @@ bool SetSketchProjectionGroup(const std::string& sketchId,
     std::vector<std::string> order;
     if (!graph.dirtyOrder(&order, error)) return false;
 
-    const ModelSnapshot before;
+    before.emplace();
     auto& ocaf = OcafLive::instance();
     if (!ocaf.BeginCommand(error)) return false;
-    bool commandOpen = true;
+    commandOpen = true;
     auto rollback = [&](const std::string& why) {
-      if (commandOpen) ocaf.AbortCommand();
-      before.restore();
+      if (commandOpen) { ocaf.AbortCommand(); commandOpen = false; }
+      before->restore();
       if (error) *error = why;
       return false;
     };
@@ -819,6 +822,8 @@ bool SetSketchProjectionGroup(const std::string& sketchId,
     commandOpen = false;
     return true;
   } catch (const std::exception& failure) {
+    if (commandOpen) OcafLive::instance().AbortCommand();
+    if (before) before->restore();
     if (error) *error = failure.what();
     return false;
   }
@@ -833,6 +838,8 @@ bool RemoveSketchProjectionGroup(const std::string& sketchId,
                                  const std::string& groupId,
                                  std::string* error) {
 #if KREODA_WITH_OCCT
+  std::optional<ModelSnapshot> before;
+  bool commandOpen = false;
   try {
     SketchFeature previous;
     if (!SketchStore::instance().get(sketchId, &previous))
@@ -859,13 +866,13 @@ bool RemoveSketchProjectionGroup(const std::string& sketchId,
     std::vector<std::string> order;
     if (!graph.dirtyOrder(&order, error)) return false;
 
-    const ModelSnapshot before;
+    before.emplace();
     auto& ocaf = OcafLive::instance();
     if (!ocaf.BeginCommand(error)) return false;
-    bool commandOpen = true;
+    commandOpen = true;
     auto rollback = [&](const std::string& why) {
-      if (commandOpen) ocaf.AbortCommand();
-      before.restore();
+      if (commandOpen) { ocaf.AbortCommand(); commandOpen = false; }
+      before->restore();
       if (error) *error = why;
       return false;
     };
@@ -904,6 +911,8 @@ bool RemoveSketchProjectionGroup(const std::string& sketchId,
     commandOpen = false;
     return true;
   } catch (const std::exception& failure) {
+    if (commandOpen) OcafLive::instance().AbortCommand();
+    if (before) before->restore();
     if (error) *error = failure.what();
     return false;
   }

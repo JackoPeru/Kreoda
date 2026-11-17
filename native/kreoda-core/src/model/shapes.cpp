@@ -92,6 +92,8 @@ std::vector<std::string> DescribeParams(const std::string& type) {
   if (type == "Chamfer") return {"distanceMm"};
   if (type == "Shell") return {"thicknessMm"};
   if (type == "Instance") return {"txMm", "tyMm", "tzMm", "rxDeg", "ryDeg", "rzDeg"};
+  if (type == "BodyPattern") return {"count", "spacingMm"};
+  if (type == "CircularBodyPattern") return {"count", "angleDeg"};
   return {};
 }
 

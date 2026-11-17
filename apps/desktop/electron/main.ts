@@ -1,7 +1,7 @@
 // Electron main — window lifecycle, dialogs, updater, sidecar lifecycle (§7).
 // Security: contextIsolation true, sandbox true, no Node in renderer (§48).
 
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -34,9 +34,45 @@ let automaticSession: AutomaticSessionHost | null = null;
 const isDev = !app.isPackaged;
 const devRendererUrl = isDev ? process.env["VITE_DEV_SERVER_URL"] : undefined;
 const rendererFile = path.join(__dirname, "../../dist/index.html");
-const rendererUrl = devRendererUrl || pathToFileURL(rendererFile).href;
+const rendererFileUrl = pathToFileURL(rendererFile);
+const devOrigin = (() => {
+  try { return devRendererUrl ? new URL(devRendererUrl).origin : null; }
+  catch { return null; }
+})();
+const rendererUrl = devRendererUrl || rendererFileUrl.href;
 const backgroundTest = process.env["KREODA_BACKGROUND_TEST"] === "1";
 const startHidden = backgroundTest || process.argv.includes("--start-hidden");
+
+// Only the app's own top-level page may drive IPC. Navigation and new
+// windows are denied so a compromised renderer cannot reach privileged
+// handlers from a foreign origin.
+function trustedRendererUrl(target: string): boolean {
+  try {
+    const url = new URL(target);
+    // Origin equality, not startsWith: "http://host:port@evil" must not pass.
+    if (devRendererUrl) return devOrigin !== null && url.origin === devOrigin;
+    return url.protocol === "file:" && url.host === "" &&
+      decodeURIComponent(url.pathname).toLowerCase() ===
+        decodeURIComponent(rendererFileUrl.pathname).toLowerCase();
+  } catch {
+    return false;
+  }
+}
+function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
+  const frame = event.senderFrame;
+  if (!frame || frame.parent || !trustedRendererUrl(frame.url)) {
+    throw new Error("untrusted IPC sender");
+  }
+}
+const registerIpc = (
+  channel: string,
+  handler: (event: Electron.IpcMainInvokeEvent, ...args: never[]) => unknown,
+): void => {
+  ipcMain.handle(channel, (event, ...args) => {
+    assertTrustedSender(event);
+    return handler(event, ...(args as never[]));
+  });
+};
 // Normal desktop sessions own one native core, relay and UDP discovery socket.
 // E2E test profiles retain independent lifecycle and isolated endpoints.
 if (!backgroundTest && !app.requestSingleInstanceLock()) {
@@ -49,6 +85,14 @@ if (!backgroundTest && !app.requestSingleInstanceLock()) {
     mainWindow.focus();
   });
 }
+
+app.on("web-contents-created", (_event, contents) => {
+  contents.setWindowOpenHandler(() => ({ action: "deny" }));
+  contents.on("will-navigate", (event, target) => {
+    if (!trustedRendererUrl(target)) event.preventDefault();
+  });
+  contents.on("will-attach-webview", (event) => event.preventDefault());
+});
 
 function createWindow(previous?: BrowserWindow): void {
   mainWindow = new BrowserWindow({
@@ -119,9 +163,16 @@ async function initSidecar(): Promise<void> {
 }
 
 if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async () => {
+  // The renderer needs only clipboard writes (copy pairing code); every
+  // camera/microphone/notification/geolocation request is denied.
+  const allowedPermissions = new Set(["clipboard-sanitized-write", "clipboard-write"]);
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) =>
+    callback(allowedPermissions.has(permission)));
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) =>
+    allowedPermissions.has(permission));
   const recentProjectStore = new RecentProjectStore(app.getPath("userData"));
-  ipcMain.handle("kreoda:recent-projects", () => recentProjectStore.list());
-  ipcMain.handle("kreoda:record-recent-project", (_event, filePath: unknown) => {
+  registerIpc("kreoda:recent-projects", () => recentProjectStore.list());
+  registerIpc("kreoda:record-recent-project", (_event, filePath: unknown) => {
     if (typeof filePath !== "string") throw new Error("Invalid project path");
     return recentProjectStore.record(filePath);
   });
@@ -180,7 +231,25 @@ if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async ()
   // Normal startup discovers native Quest clients. Hidden test profiles never advertise on LAN.
   const automaticLoopbackTest = backgroundTest && process.env["KREODA_AUTOMATIC_LOOPBACK_TEST"] === "1";
   if (devices && (!backgroundTest || automaticLoopbackTest) && !sessionRelay.connectionStatus().listener) {
-    automaticSession = new AutomaticSessionHost(devices, sessionRelay, hostname(), automaticLoopbackTest);
+    automaticSession = new AutomaticSessionHost(devices, sessionRelay, hostname(), automaticLoopbackTest,
+      {
+        // Hidden test runs auto-approve like the discard dialog: no user is
+        // present, and production keeps the explicit consent prompt.
+        authorizePair: automaticLoopbackTest ? async () => true : async (name) => {
+          if (!mainWindow || mainWindow.isDestroyed()) return false;
+          const safeName = name.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 64);
+          const decision = await Promise.race([
+            dialog.showMessageBox(mainWindow, {
+              type: "question", title: "Kreoda device pairing",
+              message: `Allow "${safeName}" to connect to this PC?`,
+              detail: "The device is on your local network. Approve only if you started pairing it now.",
+              buttons: ["Deny", "Allow"], defaultId: 0, cancelId: 0, noLink: true,
+            }).then(result => result.response === 1),
+            new Promise<false>(resolve => setTimeout(() => resolve(false), 30_000)),
+          ]);
+          return decision;
+        },
+      });
     await automaticSession.start();
   }
   // Signed-update check runs after boot; inert without a feed (§61).
@@ -189,7 +258,7 @@ if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async ()
   }, 5000);
 
   // Typed IPC routing main ⇄ sidecar (§7-§8). Renderer never spawns processes.
-  ipcMain.handle("kreoda:session-snapshot", () => {
+  registerIpc("kreoda:session-snapshot", () => {
     if (!sessionRelay) throw new Error("session service not running");
     return sessionRelay.localSnapshot();
   });
@@ -205,39 +274,39 @@ if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async ()
     const pending = connectionQueue.then(run);
     connectionQueue = pending.then(() => {}, () => {});return pending;
   };
-  ipcMain.handle("kreoda:session-status", () => control(connectionStatus));
-  ipcMain.handle("kreoda:session-enable", (_event, host: unknown, port: unknown) => control(async () => {
+  registerIpc("kreoda:session-status", () => control(connectionStatus));
+  registerIpc("kreoda:session-enable", (_event, host: unknown, port: unknown) => control(async () => {
     if (typeof host !== "string" || typeof port !== "number") throw new Error("invalid session address");
     if (!devices) throw new Error("trusted device storage unavailable");
     await automaticSession?.stop();automaticSession = null;
     await sessionRelay!.enableListener({ host, port });return connectionStatus();
   }));
-  ipcMain.handle("kreoda:session-disable", () => control(async () => {
+  registerIpc("kreoda:session-disable", () => control(async () => {
     await automaticSession?.stop();automaticSession = null;
     await sessionRelay!.disableListener();return connectionStatus();
   }));
-  ipcMain.handle("kreoda:session-pair", () => control(() => {
+  registerIpc("kreoda:session-pair", () => control(() => {
     if (!devices || !sessionRelay!.connectionStatus().listener) throw new Error("enable a session listener first");
     return devices.beginPairing();
   }));
-  ipcMain.handle("kreoda:session-cancel-pair", () => control(() => devices?.cancelPairing()));
-  ipcMain.handle("kreoda:session-revoke", (_event, deviceId: unknown) => control(async () => {
+  registerIpc("kreoda:session-cancel-pair", () => control(() => devices?.cancelPairing()));
+  registerIpc("kreoda:session-revoke", (_event, deviceId: unknown) => control(async () => {
     if (typeof deviceId !== "string") throw new Error("invalid device identity");
     await sessionRelay!.revokeDevice(deviceId);return connectionStatus();
   }));
-  ipcMain.handle("kreoda:invoke", async (_event, framedBase64: string) => {
+  registerIpc("kreoda:invoke", async (_event, framedBase64: string) => {
     if (!sessionRelay) throw new Error("session service not running");
     if (typeof framedBase64 !== "string" || framedBase64.length > Math.ceil((new FrameDecoder().maxFrameBytes + 4) / 3) * 4) throw new Error("invalid framed command");
     const bytes = Buffer.from(framedBase64, "base64");
     const response = await sessionRelay.invokeLocal(bytes);
     return Buffer.from(response).toString("base64");
   });
-  ipcMain.handle("kreoda:session-cancel-edit", async (_event, featureId: unknown) => {
+  registerIpc("kreoda:session-cancel-edit", async (_event, featureId: unknown) => {
     if (typeof featureId !== "string" || !featureId || featureId.length > 128) throw new Error("invalid feature identity");
     await sessionRelay?.cancelLocalEdit(featureId);
   });
 
-  ipcMain.handle("kreoda:core-info", async () => {
+  registerIpc("kreoda:core-info", async () => {
     if (!sidecar) return { running: false };
     return { running: sidecar.isRunning(), pid: sidecar.pid() };
   });
@@ -245,7 +314,7 @@ if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async ()
   // Signed updates (Phase 8 §61): inert unless KREODA_UPDATE_FEED points
   // at a manifest feed. Renderer can trigger a check; downloads only land
   // after Ed25519 verification + sha256 pinning (see updater.ts).
-  ipcMain.handle("kreoda:check-updates", async () => {
+  registerIpc("kreoda:check-updates", async () => {
     const feed = process.env["KREODA_UPDATE_FEED"];
     if (!feed) return { available: false as const, reason: "no-feed" };
     try {
@@ -328,14 +397,14 @@ if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async ()
     path.join(app.getPath("userData"), "recovery");
   const recoveryFile = path.join(recoveryDir, "autosave.icad");
 
-  ipcMain.handle("kreoda:recovery-path", async () => {
+  registerIpc("kreoda:recovery-path", async () => {
     fs.mkdirSync(recoveryDir, { recursive: true });
     return recoveryFile;
   });
 
-  ipcMain.handle("kreoda:recovery-exists", async () => fs.existsSync(recoveryFile));
+  registerIpc("kreoda:recovery-exists", async () => fs.existsSync(recoveryFile));
 
-  ipcMain.handle("kreoda:recovery-clear", async () => {
+  registerIpc("kreoda:recovery-clear", async () => {
     try {
       fs.unlinkSync(recoveryFile);
     } catch {
@@ -345,7 +414,7 @@ if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async ()
 
   // Plugin sources (§47, Phase 9b): the main process owns the plugins dir;  // the renderer never touches fs. Bounded: 20 files × 256 KiB, .js only.
   // KREODA_PLUGINS_DIR overrides the location (E2E isolation).
-  ipcMain.handle("kreoda:plugins-list", async () => {
+  registerIpc("kreoda:plugins-list", async () => {
     const dir =
       process.env["KREODA_PLUGINS_DIR"] ||
       path.join(app.getPath("userData"), "plugins");
@@ -387,9 +456,13 @@ if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async ()
   // by default only counts/types flow into the bundle (M12: no silent PII).
   // Pass includeModel=true (explicit banner checkbox) to attach the full
   // summary for hard geometry bugs.
-  ipcMain.handle(
+  registerIpc(
     "kreoda:crash-bundle",
     async (_event, snapshotJson: string, includeModel?: boolean) => {
+      // Bound what the renderer can make us hold and write.
+      if (typeof snapshotJson !== "string" || snapshotJson.length > 8 * 1024 * 1024) {
+        throw new Error("invalid crash snapshot");
+      }
       let snapshot: unknown = null;
       try {
         snapshot = JSON.parse(snapshotJson);
@@ -454,7 +527,7 @@ if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async ()
     },
   );
 
-  ipcMain.handle("kreoda:save-dialog", async (_event, filename: string) => {
+  registerIpc("kreoda:save-dialog", async (_event, filename: string) => {
     const res = await dialog.showSaveDialog(mainWindow!, {
       defaultPath: filename,
       filters: [
@@ -469,7 +542,7 @@ if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async ()
     return res.filePath ?? null;
   });
 
-  ipcMain.handle("kreoda:open-dialog", async () => {
+  registerIpc("kreoda:open-dialog", async () => {
     const res = await dialog.showOpenDialog(mainWindow!, {
       filters: [
         { name: "Kreoda project", extensions: ["icad"] },
@@ -484,15 +557,32 @@ if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async ()
     return res.filePaths[0] ?? null;
   });
 
+  // Opening another project discards unsaved edits. Hidden test runs never
+  // block on a modal, same as the pairing consent.
+  registerIpc("kreoda:confirm-discard", async () => {
+    if (backgroundTest || !mainWindow || mainWindow.isDestroyed()) return true;
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: "warning",
+      title: "Unsaved changes",
+      message: "Open another project and discard the current unsaved changes?",
+      detail: "The current model has changes that were not saved to a project file.",
+      buttons: ["Cancel", "Discard and open"],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    });
+    return response === 1;
+  });
+
   // Reference image import (§29 Stage A, Phase 9c): file → data URL.
   // Bounded (8 MiB); the renderer decodes dimensions itself. mime comes
   // from the picked extension, never sniffed.
-  ipcMain.handle("kreoda:reference-import", async () => {
+  registerIpc("kreoda:reference-import", async () => {
     const res = await dialog.showOpenDialog(mainWindow!, {
       filters: [
         {
           name: "Images",
-          extensions: ["png", "jpg", "jpeg", "bmp"],
+          extensions: ["png", "jpg", "jpeg"],
         },
       ],
       properties: ["openFile"],
@@ -500,12 +590,10 @@ if (backgroundTest || app.hasSingleInstanceLock()) app.whenReady().then(async ()
     const file = res.filePaths[0];
     if (!file) return null;
     const ext = path.extname(file).toLowerCase();
-    const mime =
-      ext === ".png"
-        ? "image/png"
-        : ext === ".bmp"
-          ? "image/bmp"
-          : "image/jpeg";
+    // BMP is deliberately rejected: the project manifest only accepts
+    // png/jpeg/webp data URLs, so a BMP reference would fail the next save.
+    if (ext !== ".png" && ext !== ".jpg" && ext !== ".jpeg") return null;
+    const mime = ext === ".png" ? "image/png" : "image/jpeg";
     let stat: fs.Stats;
     try {
       stat = fs.statSync(file);

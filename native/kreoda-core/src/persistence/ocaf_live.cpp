@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <map>
 #include <regex>
+#include <set>
 #include <sstream>
 
 #include "../diagnostics/log.h"
@@ -212,7 +213,10 @@ bool DecodeParams(const std::string& s, std::string* type,
         // Consumed by the ref pass below; not a numeric param.
       } else {
         try {
-          params->push_back(std::stod(tok));
+          size_t idx = 0;
+          const double val = std::stod(tok, &idx);
+          if (idx != tok.size() || !std::isfinite(val)) return false;
+          params->push_back(val);
         } catch (...) {
           return false;
         }
@@ -675,7 +679,10 @@ bool OcafLive::BeginCommand(std::string* error) {
 #if KREODA_WITH_OCCT
   // §11.12: inside a session transaction every feature op joins the one
   // open OCAF command instead of opening its own (one Undo step for N ops).
-  if (joinTxn_) return true;
+  if (joinTxn_) {
+    txnLastActivity_ = std::chrono::steady_clock::now();
+    return true;
+  }
   if (!ocaf_ || ocaf_->doc.IsNull()) Reset();
   if (ocaf_->doc->HasOpenCommand()) {
     if (error) *error = "nested OCAF command (single queue, §40)";
@@ -750,6 +757,7 @@ bool OcafLive::BeginTransaction(const std::string& transactionId,
   joinTxn_ = true;
   txnTainted_ = false;
   txnOwner_ = transactionId;
+  txnLastActivity_ = std::chrono::steady_clock::now();
   return true;
 #else
   (void)transactionId;
@@ -821,6 +829,30 @@ bool OcafLive::RollbackTransaction(const std::string& transactionId,
   (void)transactionId;
   if (error) *error = "OCAF requires OCCT (link via vcpkg)";
   return false;
+#endif
+}
+
+bool OcafLive::ExpireStaleTransaction() {
+  if (!joinTxn_) return false;
+  if (std::chrono::steady_clock::now() - txnLastActivity_ <= txnTimeout_) {
+    return false;
+  }
+  const std::string owner = txnOwner_;
+  std::string err;
+  return RollbackTransaction(owner, &err);
+}
+
+void OcafLive::ForceAbortOpenCommand() {
+#if KREODA_WITH_OCCT
+  if (joinTxn_) {
+    txnTainted_ = true;
+    return;
+  }
+  if (ocaf_ && !ocaf_->doc.IsNull() && ocaf_->doc->HasOpenCommand()) {
+    ocaf_->doc->AbortCommand();
+    std::string rsErr;
+    ResyncStore(&rsErr);
+  }
 #endif
 }
 
@@ -913,6 +945,7 @@ bool OcafLive::ResyncStore(std::string* error) {
   const auto stagedShapes = DatumShapeSources(ocaf_->doc->Main());
   if (!StageProjectionGroups(ocaf_->doc->Main(), &stagedSketches,
                              stagedShapes, stagedDatums, error)) return false;
+  if (!ocaf_->AdoptMetadataRoots(error)) return false;
   ocaf_->shapes = XCAFDoc_DocumentTool::ShapeTool(ocaf_->doc->Main());
   ocaf_->featureLabels.clear();
   ocaf_->sketchLabels.clear();
@@ -959,7 +992,6 @@ bool OcafLive::ResyncStore(std::string* error) {
     ShapeStore::instance().put(rec);
     registry[rec.featureId] = rec.type;
   }
-  if (!ocaf_->AdoptMetadataRoots(error)) return false;
   // Adopt only after every persisted sketch has parsed successfully.
   SketchStore::instance().clear();
   for (auto& record : stagedSketches) {
@@ -1798,9 +1830,14 @@ bool OcafLive::Load(const std::string& xbfPath,
   NCollection_Sequence<TDF_Label> free;
   ocaf_->shapes->GetFreeShapes(free);
   std::vector<std::pair<ShapeRecord, TDF_Label>> loadCandidates;
+  std::set<std::string> seenShapeIds;
   for (int i = 1; i <= free.Length(); ++i) {
     const ShapeRecord rec = RecordFromLabel(free.Value(i), ocaf_->shapes);
     if (rec.featureId.empty() || rec.shape.IsNull()) continue;
+    if (!seenShapeIds.insert(rec.featureId).second) {
+      if (error) *error = "OCAF has duplicate feature label " + rec.featureId;
+      return false;
+    }
     if (!BRepCheck_Analyzer(rec.shape).IsValid(rec.shape)) continue;
     loadCandidates.emplace_back(rec, free.Value(i));
   }

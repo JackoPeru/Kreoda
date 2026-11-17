@@ -95,18 +95,27 @@ bool CommitShape(const std::string& featureId, const std::string& type,
       }
     }
   }
-  BRepCheck_Analyzer analyzer(shape);
-  if (!analyzer.IsValid(shape)) {
-    if (error) *error = type + ": BRepCheck validation failed";
+  double volumeMm3 = 0;
+  double xmin = 0, ymin = 0, zmin = 0, xmax = 0, ymax = 0, zmax = 0;
+  try {
+    BRepCheck_Analyzer analyzer(shape);
+    if (!analyzer.IsValid(shape)) {
+      if (error) *error = type + ": BRepCheck validation failed";
+      return false;
+    }
+    GProp_GProps props;
+    if (!surface) BRepGProp::VolumeProperties(shape, props);
+    volumeMm3 = surface ? 0 : props.Mass();
+    Bnd_Box box;
+    if (surface) BRepBndLib::AddOptimal(shape, box, false, false);
+    else BRepBndLib::Add(shape, box);
+    box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+  } catch (const Standard_Failure& f) {
+    if (error) {
+      *error = type + ": BRep validation/metrics failed: " + f.what();
+    }
     return false;
   }
-  GProp_GProps props;
-  if (!surface) BRepGProp::VolumeProperties(shape, props);
-  Bnd_Box box;
-  if (surface) BRepBndLib::AddOptimal(shape, box, false, false);
-  else BRepBndLib::Add(shape, box);
-  double xmin, ymin, zmin, xmax, ymax, zmax;
-  box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
   const bool isNew = !ShapeStore::instance().contains(featureId);
   ShapeRecord rec;
   rec.featureId = featureId;
@@ -115,7 +124,7 @@ bool CommitShape(const std::string& featureId, const std::string& type,
   rec.dependsOn = std::move(deps);
   rec.refExtra = std::move(refExtra);
   rec.shape = shape;
-  rec.volumeMm3 = surface ? 0 : props.Mass();
+  rec.volumeMm3 = volumeMm3;
   rec.bboxMm[0] = xmin;
   rec.bboxMm[1] = ymin;
   rec.bboxMm[2] = zmin;

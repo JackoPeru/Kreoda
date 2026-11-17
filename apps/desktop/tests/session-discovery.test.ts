@@ -38,14 +38,18 @@ describe("automatic local pairing", () => {
     for (const address of ["192.168.1.8", "10.2.3.4", "172.16.0.1", "::ffff:192.168.1.8"])
       expect(privatePeer(address)).toBe(true);
   });
-  it("discovers and pairs without input, persists identity, and respects revocation", async () => {
+  it("discovers, pairs after consent, persists identity, and respects revocation", async () => {
     const root = await mkdtemp(join(tmpdir(), "kreoda-auto-pair-"));
     const devices = new SessionDevices(root);
     let service: SessionDiscovery | undefined;
     const socket = createSocket("udp4");
     try {
       await devices.load();
-      service = new SessionDiscovery(devices, "Studio", { host: "127.0.0.1", sessionPort: 9876, discoveryPort: 0, allowLoopback: true });
+      // New installations need PC-user consent; reconnects must not ask again.
+      let approvals = 0;
+      service = new SessionDiscovery(devices, "Studio", { host: "127.0.0.1", sessionPort: 9876, discoveryPort: 0, allowLoopback: true,
+        authorizePair: async () => { approvals++; return true; },
+        isKnownPair: installation => devices.hasAutomatic(installation) });
       await service.start();
       const nonce = randomUUID();
       const received = new Promise<Buffer>(resolve => socket.once("message", resolve));
@@ -78,6 +82,7 @@ describe("automatic local pairing", () => {
       expect(bound.value.proof).toBe(signed([reply.pcId, paired.deviceId, nonce, "127.0.0.1", "9876", String(reply.bootstrapPort)]));
       expect((await identify(99)).status).toBe(400);
       expect((await request()).ok).toBe(true);
+      expect(approvals).toBe(1);
       expect(devices.list()).toHaveLength(1);
       const restarted = new SessionDevices(root);
       await restarted.load();
@@ -89,6 +94,58 @@ describe("automatic local pairing", () => {
       await revoked.load();
       await expect(revoked.pairAutomatic(installationId, credential, "Quest 3")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     } finally { socket.close(); await service?.stop(); await rm(root, { recursive: true, force: true }); }
+  }, 30000);
+
+  it("denies LAN auto-enrollment until the PC user approves the device", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kreoda-auto-deny-"));
+    const devices = new SessionDevices(root);
+    let service: SessionDiscovery | undefined;
+    try {
+      await devices.load();
+      let asked = "";
+      service = new SessionDiscovery(devices, "Studio", { host: "127.0.0.1", sessionPort: 9876, discoveryPort: 0, allowLoopback: true,
+        authorizePair: async name => { asked = name; return false; },
+        isKnownPair: installation => devices.hasAutomatic(installation) });
+      await service.start();
+      const response = await fetch(`http://127.0.0.1:${service.bootstrapPort}/pair`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version: 1, pcId: devices.pcId, installationId: randomUUID(),
+          credential: randomBytes(32).toString("base64url"), name: "Unknown Quest" }),
+      });
+      expect(response.status).toBe(403);
+      expect(asked).toBe("Unknown Quest");
+      expect(devices.list()).toHaveLength(0);
+    } finally { await service?.stop(); await rm(root, { recursive: true, force: true }); }
+  }, 30000);
+
+  it("serializes LAN pairing consent so one dialog cannot be stacked", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kreoda-auto-consent-"));
+    const devices = new SessionDevices(root);
+    let service: SessionDiscovery | undefined;
+    let release!: (approved: boolean) => void;
+    let begun!: () => void;
+    const gate = new Promise<boolean>(resolve => { release = resolve; });
+    const started = new Promise<void>(resolve => { begun = resolve; });
+    try {
+      await devices.load();
+      service = new SessionDiscovery(devices, "Studio", { host: "127.0.0.1", sessionPort: 9876, discoveryPort: 0, allowLoopback: true,
+        authorizePair: async () => { begun(); return gate; }, isKnownPair: () => false });
+      await service.start();
+      const url = `http://127.0.0.1:${service.bootstrapPort}/pair`;
+      const request = () => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version: 1, pcId: devices.pcId, installationId: randomUUID(),
+          credential: randomBytes(32).toString("base64url"), name: "Quest" }) });
+      const first = request();
+      await started;
+      expect((await request()).status).toBe(429);
+      release(false);
+      expect((await first).status).toBe(403);
+      expect(devices.list()).toHaveLength(0);
+    } finally {
+      release?.(false);
+      await service?.stop();
+      await rm(root, { recursive: true, force: true });
+    }
   }, 30000);
 
   it("rejects browser origins, oversized bodies and mismatched PC identity", async () => {

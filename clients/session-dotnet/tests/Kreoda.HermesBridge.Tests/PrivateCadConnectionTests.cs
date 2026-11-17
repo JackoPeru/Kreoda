@@ -214,4 +214,18 @@ public sealed class PrivateCadConnectionTests
         Assert.Single(pc.Discovery.PairRequests);Assert.Equal(2,pc.Discovery.DeviceCount);
         Assert.False(File.Exists(files.Active+".pending.json"));Assert.Equal(pc.DocumentId,client.Model!.DocumentId);
     }
+
+    [Fact]
+    public async Task CorruptPendingEnrollmentIsDiscardedAndReenrolled()
+    {
+        using var files=new Files();await using var pc=new Pc();
+        await File.WriteAllTextAsync(files.Active+".pending.json","{\"pcId\":\"not-a-guid\"}");
+        using var deadline=new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        await using var client=await new PrivateCadConnection(files.Active,null,null,
+            pc.Discovery.DiscoveryTarget).ConnectAsync(deadline.Token);
+        Assert.Equal(pc.DocumentId,client.Model!.DocumentId);
+        Assert.Single(pc.Discovery.PairRequests);
+        Assert.True(File.Exists(files.Active));
+        Assert.False(File.Exists(files.Active+".pending.json"));
+    }
 }

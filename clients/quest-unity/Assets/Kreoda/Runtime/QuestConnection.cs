@@ -451,7 +451,32 @@ namespace Kreoda.QuestRuntime
                         if (update.Kind == SessionModelUpdateKind.Applied)
                             Capture(run, connectedClient, generation, update.Model, update.Delta);
                     };
+                    Action<SessionException> failed = _error =>
+                    {
+                        // A rejected delta/snapshot drops the authoritative
+                        // model: pull a full snapshot instead of showing stale
+                        // geometry until the next reconnect.
+                        Post(run, () =>
+                        {
+                            if (_scene.ConnectionGeneration != generation ||
+                                !ReferenceEquals(_client, connectedClient)) return;
+                            Status = "Sincronizzazione del modello…";
+                        });
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                                deadline.CancelAfter(TimeSpan.FromSeconds(5));
+                                var info = await connectedClient.SessionInfoAsync(deadline.Token).ConfigureAwait(false);
+                                var docId = !string.IsNullOrEmpty(info?.DocumentId) ? info.DocumentId : "doc-phase1";
+                                await connectedClient.SnapshotAsync(docId, deadline.Token).ConfigureAwait(false);
+                            }
+                            catch { /* the reconnect loop retries */ }
+                        }, CancellationToken.None);
+                    };
                     client.ModelChanged += changed;
+                    client.ModelError += failed;
                     try
                     {
                         if (client.Model == null) throw new SessionException("BAD_MODEL", "snapshot missing");
@@ -478,13 +503,18 @@ namespace Kreoda.QuestRuntime
                             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
                             deadline.CancelAfter(TimeSpan.FromSeconds(5));
                             var watch = Stopwatch.StartNew();
-                            await connectedClient.SessionInfoAsync(deadline.Token).ConfigureAwait(false);
+                            var info = await connectedClient.SessionInfoAsync(deadline.Token).ConfigureAwait(false);
+                            if (connectedClient.Model == null)
+                            {
+                                var docId = !string.IsNullOrEmpty(info?.DocumentId) ? info.DocumentId : "doc-phase1";
+                                await connectedClient.SnapshotAsync(docId, deadline.Token).ConfigureAwait(false);
+                            }
                             var elapsed = watch.Elapsed.TotalMilliseconds;
                             Post(run, () => { if (_scene.ConnectionGeneration == generation &&
                                 ReferenceEquals(_client, connectedClient)) RttMilliseconds = elapsed; });
                         }
                     }
-                    finally { client.ModelChanged -= changed; }
+                    finally { client.ModelChanged -= changed; client.ModelError -= failed; }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
                 catch (Exception error)

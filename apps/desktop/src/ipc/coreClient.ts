@@ -1374,11 +1374,42 @@ export class CoreClient {
 
   async createMirror(params: {
     targetId: string;
-    planeKind: "XY" | "XZ" | "YZ";
+    planeKind?: "XY" | "XZ" | "YZ";
+    datumId?: string;
   }): Promise<CreatedFeature> {
     const featureId = newFeatureId("mir");
     const parsed = await this.invoke(
       CommandType.CreateMirror,
+      this.documentId,
+      { featureId, ...params },
+    );
+    return CreatedFeatureSchema.parse(parsed);
+  }
+
+  async createBodyPattern(params: {
+    targetId: string;
+    axis: "X" | "Y" | "Z";
+    count: number;
+    spacingMm: number;
+  }): Promise<CreatedFeature> {
+    const featureId = newFeatureId("pat");
+    const parsed = await this.invoke(
+      CommandType.CreateBodyPattern,
+      this.documentId,
+      { featureId, ...params },
+    );
+    return CreatedFeatureSchema.parse(parsed);
+  }
+
+  async createCircularBodyPattern(params: {
+    targetId: string;
+    axis: "X" | "Y" | "Z";
+    count: number;
+    angleDeg: number;
+  }): Promise<CreatedFeature> {
+    const featureId = newFeatureId("cpat");
+    const parsed = await this.invoke(
+      CommandType.CreateCircularBodyPattern,
       this.documentId,
       { featureId, ...params },
     );

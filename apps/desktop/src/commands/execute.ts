@@ -408,7 +408,35 @@ async function dispatchCommand(
     }
     case "CreateMirror": {
       const created = await coreClient.createMirror(
-        p as { targetId: string; planeKind: "XY" | "XZ" | "YZ" },
+        p as {
+          targetId: string;
+          planeKind?: "XY" | "XZ" | "YZ";
+          datumId?: string;
+        },
+      );
+      await pullAndAppend(created);
+      return { kind: "created", feature: created };
+    }
+    case "CreateBodyPattern": {
+      const created = await coreClient.createBodyPattern(
+        p as {
+          targetId: string;
+          axis: "X" | "Y" | "Z";
+          count: number;
+          spacingMm: number;
+        },
+      );
+      await pullAndAppend(created);
+      return { kind: "created", feature: created };
+    }
+    case "CreateCircularBodyPattern": {
+      const created = await coreClient.createCircularBodyPattern(
+        p as {
+          targetId: string;
+          axis: "X" | "Y" | "Z";
+          count: number;
+          angleDeg: number;
+        },
       );
       await pullAndAppend(created);
       return { kind: "created", feature: created };

@@ -200,11 +200,13 @@ enum CommandType : uint16_t {
   CommandType_CreateReplaceFace = 60,
   CommandType_CreateShell = 61,
   CommandType_CreateMirror = 62,
+  CommandType_CreateBodyPattern = 63,
+  CommandType_CreateCircularBodyPattern = 64,
   CommandType_MIN = CommandType_None,
-  CommandType_MAX = CommandType_CreateMirror
+  CommandType_MAX = CommandType_CreateCircularBodyPattern
 };
 
-inline const CommandType (&EnumValuesCommandType())[63] {
+inline const CommandType (&EnumValuesCommandType())[65] {
   static const CommandType values[] = {
     CommandType_None,
     CommandType_GetCoreInfo,
@@ -268,13 +270,15 @@ inline const CommandType (&EnumValuesCommandType())[63] {
     CommandType_CreateDeleteFace,
     CommandType_CreateReplaceFace,
     CommandType_CreateShell,
-    CommandType_CreateMirror
+    CommandType_CreateMirror,
+    CommandType_CreateBodyPattern,
+    CommandType_CreateCircularBodyPattern
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandType() {
-  static const char * const names[64] = {
+  static const char * const names[66] = {
     "None",
     "GetCoreInfo",
     "CreateDocument",
@@ -338,13 +342,15 @@ inline const char * const *EnumNamesCommandType() {
     "CreateReplaceFace",
     "CreateShell",
     "CreateMirror",
+    "CreateBodyPattern",
+    "CreateCircularBodyPattern",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandType(CommandType e) {
-  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_CreateMirror)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandType_None, CommandType_CreateCircularBodyPattern)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandType()[index];
 }

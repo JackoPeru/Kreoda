@@ -282,6 +282,18 @@ namespace Kreoda.QuestRuntime
                 Status = "Servizi vocali in avvio…";_nextProbeAt = Time.realtimeSinceStartup;
                 return;
             }
+            // Older PCs expose only the legacy Hermes voice proxy; the config
+            // installed by that PC's provisioning intent remains usable there.
+            if (!string.IsNullOrEmpty(_legacyEndpoint) && !string.IsNullOrEmpty(_legacyToken))
+            {
+                try
+                {
+                    Bind(source, new HermesVoiceClient(new Uri(_legacyEndpoint), _legacyToken), legacy: true, ready: true);
+                    Status = "Hermes pronto · premi Parla";
+                    return;
+                }
+                catch { /* fall through: no usable configuration */ }
+            }
             Status = "Voce non configurata sul PC";
         }
 

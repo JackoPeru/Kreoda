@@ -330,7 +330,7 @@ TEST(SurfaceTrimExtendPublicWire, Command55TrimsRealPublicSurfaceBodies) {
 }
 
 TEST(SurfaceTrimExtendPublicWire, Command56ExtendsOneMeasuredFreeBoundary) {
-  kreoda::DocumentStore::instance().create("surface-extend-wire-doc");
+  kreoda::DocumentStore::instance().create("surface-trim-extend-doc");
   createPublicSurface("extend-target", gp_Pnt2d(0, 0), gp_Pnt2d(10, 0));
   const auto edges = rpc({{"type", kreoda::kRequestSessionQuery},
       {"method", "findEdges"}, {"params", {{"featureId", "extend-target"}}}});

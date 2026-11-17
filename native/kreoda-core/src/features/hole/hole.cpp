@@ -16,6 +16,7 @@
 #include "model/shapes.h"
 #include "topology/face_roles.h"
 #include "features/sketch/sketch_store.h"
+#include "features/datum/datum_store.h"
 #include "features/fillet/fillet.h"
 #include "features/assembly/assembly_constraints.h"
 #include "features/primitives/primitives.h"
@@ -598,7 +599,8 @@ bool CreateHolePatternFeature(
       return false;
     }
     if (ShapeStore::instance().contains(fid) ||
-        SketchStore::instance().contains(fid)) {
+        SketchStore::instance().contains(fid) ||
+        DatumStore::instance().contains(fid)) {
       if (error) *error = "id already exists: " + fid;
       return false;
     }

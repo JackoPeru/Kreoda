@@ -20,6 +20,7 @@ export interface KreodaApi {
   coreInfo: () => Promise<{ running: boolean; pid?: number }>;
   saveDialog: (filename: string) => Promise<string | null>;
   openDialog: () => Promise<string | null>;
+  confirmDiscardChanges: () => Promise<boolean>;
   recoveryPath: () => Promise<string>;
   recoveryExists: () => Promise<boolean>;
   recoveryClear: () => Promise<void>;
@@ -86,6 +87,8 @@ const api: KreodaApi = {
     >,
   openDialog: () =>
     ipcRenderer.invoke("kreoda:open-dialog") as Promise<string | null>,
+  confirmDiscardChanges: () =>
+    ipcRenderer.invoke("kreoda:confirm-discard") as Promise<boolean>,
   recoveryPath: () =>
     ipcRenderer.invoke("kreoda:recovery-path") as Promise<string>,
   recoveryExists: () =>

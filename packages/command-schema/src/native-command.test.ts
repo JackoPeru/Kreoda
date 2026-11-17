@@ -12,6 +12,53 @@ it("exposes CreateMirror as native 62 with principal planes", () => {
     .toEqual({ type: 62, fields: { featureId: "mirror-1", targetId: "body-1", planeKind: "YZ" } });
   expect(() => commandNativeRequest("CreateMirror", { targetId: "body-1", planeKind: "AB" }, "mirror-1"))
     .toThrow();
+  expect(commandNativeRequest("CreateMirror", { targetId: "body-1", datumId: "datum-plane-1" }, "mirror-2"))
+    .toEqual({ type: 62, fields: { featureId: "mirror-2", targetId: "body-1", datumId: "datum-plane-1" } });
+  expect(() => commandNativeRequest("CreateMirror", { targetId: "body-1", planeKind: "YZ", datumId: "datum-plane-1" }, "mirror-3"))
+    .toThrow();
+});
+
+it("exposes CreateBodyPattern as native 63 with bounded count and spacing", () => {
+  expect(commandJsonSchema("CreateBodyPattern")).toMatchObject({
+    nativeType: 63,
+    selectionBindings: { targetId: "owner" },
+  });
+  expect(commandNativeRequest("CreateBodyPattern", {
+    targetId: "body-1", axis: "Y", count: 3, spacingMm: 20,
+  }, "pattern-1")).toEqual({
+    type: 63,
+    fields: { featureId: "pattern-1", targetId: "body-1", axis: "Y", count: 3, spacingMm: 20 },
+  });
+  for (const invalid of [
+    { targetId: "body-1", axis: "X", count: 1, spacingMm: 20 },
+    { targetId: "body-1", axis: "X", count: 65, spacingMm: 20 },
+    { targetId: "body-1", axis: "X", count: 3, spacingMm: 0 },
+    { targetId: "body-1", axis: "W", count: 3, spacingMm: 20 },
+  ]) {
+    expect(() => commandNativeRequest("CreateBodyPattern", invalid, "pattern-2")).toThrow();
+  }
+});
+
+it("exposes CreateCircularBodyPattern as native 64 with bounded angle", () => {
+  expect(commandJsonSchema("CreateCircularBodyPattern")).toMatchObject({
+    nativeType: 64,
+    selectionBindings: { targetId: "owner" },
+  });
+  expect(commandNativeRequest("CreateCircularBodyPattern", {
+    targetId: "body-1", axis: "Z", count: 4, angleDeg: 360,
+  }, "circular-1")).toEqual({
+    type: 64,
+    fields: { featureId: "circular-1", targetId: "body-1", axis: "Z", count: 4, angleDeg: 360 },
+  });
+  for (const invalid of [
+    { targetId: "body-1", axis: "X", count: 1, angleDeg: 360 },
+    { targetId: "body-1", axis: "X", count: 65, angleDeg: 360 },
+    { targetId: "body-1", axis: "X", count: 4, angleDeg: 0 },
+    { targetId: "body-1", axis: "X", count: 4, angleDeg: 361 },
+    { targetId: "body-1", axis: "W", count: 4, angleDeg: 360 },
+  ]) {
+    expect(() => commandNativeRequest("CreateCircularBodyPattern", invalid, "circular-2")).toThrow();
+  }
 });
 
 it("exposes strict surface extrude, revolve and ordered loft commands as native 48-50", () => {

@@ -21,6 +21,8 @@ function toolbar() {
     onEditSketch={vi.fn()}
     onInstance={vi.fn()}
   onMirror={vi.fn()}
+    onBodyPattern={vi.fn()}
+    onCircularPattern={vi.fn()}
     onOpenProps={vi.fn()}
   />);
 }

@@ -7,6 +7,8 @@ import { ReferenceDialog } from "../components/ReferenceDialog";
 import { ReferenceGeometryPanel } from "../components/workspace/ReferenceGeometryPanel";
 import { InstanceDialog } from "../components/InstanceDialog";
 import { MirrorDialog } from "../components/MirrorDialog";
+import { BodyPatternDialog } from "../components/BodyPatternDialog";
+import { CircularPatternDialog } from "../components/CircularPatternDialog";
 import { shouldShowOnboarding } from "../components/Onboarding";
 import { SketchEditor, defaultRectModel } from "../components/SketchEditor";
 import { ExtrudeDialog } from "../components/ExtrudeDialog";
@@ -38,6 +40,7 @@ import {
   AUTOSAVE_MS,
   autosaveNow,
   discardRecovery,
+  markDocumentClean,
   recoveryAvailable,
   restoreRecovery,
 } from "../recovery/autosave";
@@ -132,6 +135,8 @@ export function App() {
   const [showReferenceGeometry, setShowReferenceGeometry] = useState(false);
   const [showInstance, setShowInstance] = useState(false);
   const [showMirror, setShowMirror] = useState(false);
+  const [showBodyPattern, setShowBodyPattern] = useState(false);
+  const [showCircularPattern, setShowCircularPattern] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   // Drawers are closed by default (UX-1): capabilities on demand, never
@@ -255,6 +260,8 @@ export function App() {
     const unbindOpen = bindOpenedSessionRefresh(updates.refreshAndVerify);
     const offRestart = window.kreoda?.onCoreRestarted?.(() => {
       useSharedTargetStore.getState().reset();
+      // The restarted core is empty under the bootstrap document identity.
+      coreClient.documentId = "doc-phase1";
       void updates.refresh();
     });
     return () => {
@@ -411,6 +418,7 @@ export function App() {
         // Document replacement = new epoch (C5): the core revision resets
         // on fresh baselines, so staleness guards key lineage, not numbers.
         await syncOpenedDocument(list, revision, sketches, datums);
+        markDocumentClean();
         return (
           window as unknown as { __kreoda_test: { snapshot: () => unknown } }
         ).__kreoda_test.snapshot();
@@ -751,6 +759,14 @@ export function App() {
           setSurfaceOpen(false);
           setShowMirror(true);
         }}
+        onBodyPattern={() => {
+          setSurfaceOpen(false);
+          setShowBodyPattern(true);
+        }}
+        onCircularPattern={() => {
+          setSurfaceOpen(false);
+          setShowCircularPattern(true);
+        }}
         onEditSketch={openSketchEditor}
         projectOpen={projectOpen}
         onProjectOpenChange={setProjectOpen}
@@ -813,6 +829,12 @@ export function App() {
         <InstanceDialog onClose={() => setShowInstance(false)} />
       )}
       {showMirror && <MirrorDialog onClose={() => setShowMirror(false)} />}
+      {showBodyPattern && (
+        <BodyPatternDialog onClose={() => setShowBodyPattern(false)} />
+      )}
+      {showCircularPattern && (
+        <CircularPatternDialog onClose={() => setShowCircularPattern(false)} />
+      )}
       {extruding && <ExtrudeDialog onClose={() => setExtruding(false)} />}
       {holing && <HoleDialog onClose={() => setHoling(false)} />}
       {dressUp && (

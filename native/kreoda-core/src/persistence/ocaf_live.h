@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <map>
 #include <functional>
 #include <string>
@@ -64,6 +65,11 @@ class OcafLive {
                            std::string* error);
   bool InTransaction() const { return joinTxn_; }
   std::string TransactionOwner() const { return txnOwner_; }
+  bool ExpireStaleTransaction();
+  void SetTransactionTimeoutForTest(std::chrono::milliseconds timeout) {
+    txnTimeout_ = timeout;
+  }
+  void ForceAbortOpenCommand();
 
   bool Undo(std::string* error);
   bool Redo(std::string* error);
@@ -167,12 +173,14 @@ class OcafLive {
   bool joinTxn_ = false;
   bool txnTainted_ = false;
   std::string txnOwner_;
+  std::chrono::steady_clock::time_point txnLastActivity_{};
+  std::chrono::milliseconds txnTimeout_{660000};
 
 #if KREODA_WITH_OCCT
   struct Ocaf;
   Ocaf* ocaf_ = nullptr;  // pimpl: OCCT handles stay out of the header
 #endif
-  std::string documentId_ = "doc-bootstrap";
+  std::string documentId_ = "doc-phase1";
 };
 
 }  // namespace kreoda

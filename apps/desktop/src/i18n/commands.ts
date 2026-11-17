@@ -110,6 +110,16 @@ const LABELS: Record<string, { label: EnKey; beginner: EnKey; desc: EnKey }> = {
     beginner: "cmd.mirrorBeginner",
     desc: "cmd.mirrorDesc",
   },
+  CreateBodyPattern: {
+    label: "cmd.bodyPattern",
+    beginner: "cmd.bodyPatternBeginner",
+    desc: "cmd.bodyPatternDesc",
+  },
+  CreateCircularBodyPattern: {
+    label: "cmd.circularPattern",
+    beginner: "cmd.circularPatternBeginner",
+    desc: "cmd.circularPatternDesc",
+  },
   Undo: { label: "cmd.undo", beginner: "cmd.undo", desc: "cmd.undoDesc" },
   Redo: { label: "cmd.redo", beginner: "cmd.redo", desc: "cmd.redoDesc" },
 };

@@ -197,6 +197,11 @@ bool RebuildShellFromStore(const std::string& featureId, std::string* error) {
     if (error) *error = "cannot rebuild " + rec.type;
     return false;
   }
+  if (!std::isfinite(rec.paramsMm[0]) ||
+      !(rec.paramsMm[0] > 0 && rec.paramsMm[0] <= 100000)) {
+    if (error) *error = "thickness must be in (0, 100000] mm";
+    return false;
+  }
   ShapeRecord target;
   if (!GetCurrentShapeRecord(rec.dependsOn[0], &target, error)) return false;
   if (target.shape.IsNull()) {

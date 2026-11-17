@@ -36,7 +36,7 @@ class DocumentStore {
  private:
   DocumentStore() = default;
   mutable std::mutex mutex_;
-  std::string documentId_ = "doc-bootstrap";
+  std::string documentId_ = "doc-phase1";
   int64_t revision_ = 0;
   std::string referencePlanesJson_ = "[]";
   std::map<std::string, std::string> features_;

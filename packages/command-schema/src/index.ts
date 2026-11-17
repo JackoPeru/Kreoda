@@ -440,11 +440,65 @@ export const COMMANDS: CadCommandDefinition[] = [
     nativeType: CommandType.CreateMirror,
     label: "Mirror",
     beginnerLabel: "Mirror body",
-    description: "Mirror the selected solid across a principal plane.",
+    description: "Mirror the selected solid across a principal or datum plane.",
+    icon: "copy",
+    parameterSchema: z
+      .object({
+        targetId: StableFeatureIdSchema,
+        planeKind: z.enum(["XY", "XZ", "YZ"]).optional(),
+        datumId: StableFeatureIdSchema.optional(),
+      })
+      .refine((v) => !(v.planeKind && v.datumId), {
+        message: "Choose a principal plane or a datum plane, not both",
+      }),
+    supportsPreview: false,
+    beginnerVisible: false,
+    advancedVisible: true,
+    availability: (ctx) =>
+      ctx.selection.some((s) => s.kind === "body")
+        ? always
+        : { available: false, reason: "Select a solid body first" },
+  },
+  {
+    id: "CreateBodyPattern",
+    selectionBindings: { targetId: "owner" },
+    nativeType: CommandType.CreateBodyPattern,
+    label: "Linear pattern",
+    beginnerLabel: "Pattern body",
+    description: "Repeat the selected solid along X, Y or Z as one editable body.",
     icon: "copy",
     parameterSchema: z.object({
       targetId: StableFeatureIdSchema,
-      planeKind: z.enum(["XY", "XZ", "YZ"]).default("XY"),
+      axis: z.enum(["X", "Y", "Z"]).default("X"),
+      count: z.number().int().min(2).max(64),
+      spacingMm: z
+        .number()
+        .finite()
+        .min(-100000)
+        .max(100000)
+        .refine((v) => Math.abs(v) >= 1e-6, "spacing must be non-zero"),
+    }),
+    supportsPreview: false,
+    beginnerVisible: false,
+    advancedVisible: true,
+    availability: (ctx) =>
+      ctx.selection.some((s) => s.kind === "body")
+        ? always
+        : { available: false, reason: "Select a solid body first" },
+  },
+  {
+    id: "CreateCircularBodyPattern",
+    selectionBindings: { targetId: "owner" },
+    nativeType: CommandType.CreateCircularBodyPattern,
+    label: "Circular pattern",
+    beginnerLabel: "Circular body pattern",
+    description: "Repeat the selected solid around a global axis as one editable body.",
+    icon: "copy",
+    parameterSchema: z.object({
+      targetId: StableFeatureIdSchema,
+      axis: z.enum(["X", "Y", "Z"]).default("Z"),
+      count: z.number().int().min(2).max(64),
+      angleDeg: z.number().finite().gt(0).max(360),
     }),
     supportsPreview: false,
     beginnerVisible: false,

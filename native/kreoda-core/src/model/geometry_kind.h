@@ -36,7 +36,8 @@ inline bool IsKnownSolidFeatureType(const std::string& type) {
          type == "MoveFace" || type == "OffsetFace" ||
          type == "DeleteFace" || type == "ReplaceFace" ||
          type == "StepImport" || type == "MeshImport" || type == "Instance" ||
-         type == "Mirror";
+         type == "Mirror" || type == "BodyPattern" ||
+         type == "CircularBodyPattern";
 }
 
 #if KREODA_WITH_OCCT

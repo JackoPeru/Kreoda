@@ -667,6 +667,36 @@ describe("SessionRelay", () => {
     expect(mesh).toEqual(direct);
   });
 
+  it("opens a named project and snapshots only the new identity", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    expect(await local(relay, 2, {}, "doc-old")).toMatchObject({ status: "ok" });
+    const before = fake.envelopeTexts.length;
+    expect(await local(relay, 11, { path: "C:\\private\\design.icad" }, "doc-new"))
+      .toMatchObject({ status: "ok" });
+    const snapshots = fake.envelopeTexts.slice(before).map(text => JSON.parse(text) as Record<string, unknown>)
+      .filter(envelope => envelope["type"] === 26);
+    expect(snapshots[0]).toMatchObject({ documentId: "doc-new" });
+    expect((relay as unknown as { documentId: string }).documentId).toBe("doc-new");
+  });
+
+  it("creates a named document without snapshotting the new identity first", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    const before = fake.calls.length;
+    expect(await local(relay, 2, {}, "doc-new")).toMatchObject({ status: "ok" });
+    expect(fake.calls.slice(before)[0]).toBe(2);
+    expect((relay as unknown as { documentId: string }).documentId).toBe("doc-new");
+  });
+
+  it("normalizes an omitted Desktop document id to the active relay identity", async () => {
+    const fake = fakeSidecar();
+    const relay = new SessionRelay(() => fake.manager);
+    const result = await local(relay, 26, {}, "");
+    expect(result).toMatchObject({ status: "ok" });
+    expect(fake.envelopeTexts.at(-1)).toContain('"documentId":"doc-phase1"');
+  });
+
   it("rejects unsupported Desktop previews before dispatch or document changes", async () => {
     const fake = fakeSidecar();const events: unknown[] = [];
     const relay = new SessionRelay(() => fake.manager, delta => events.push(delta));
@@ -1409,6 +1439,7 @@ describe("SessionRelay", () => {
       relay.onSidecarCrashed();
       const restart = client.events.find((event) => event["event"] === "core-restarted");
       expect(restart?.["sessionId"]).not.toBe(oldSession);
+      expect((relay as unknown as { documentId: string }).documentId).toBe("doc-phase1");
       await expect(client.call("invoke", params, metadata))
         .rejects.toMatchObject({ code: "NEED_FULL_SNAPSHOT" });
       expect(fake.calls.filter((type) => type === 3)).toHaveLength(nativeCalls);

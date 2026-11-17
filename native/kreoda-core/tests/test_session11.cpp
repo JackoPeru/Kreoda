@@ -4,7 +4,9 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <string>
+#include <thread>
 
 #include "../src/document/document_store.h"
 #include "../src/features/hole/hole.h"
@@ -46,6 +48,23 @@ TEST(Session11Json, DoesNotCoerceScalarsOrAcceptMalformedObjects) {
   for (const auto& malformed : {"[]", "null", "{\"type\":1,}", "{\"type\":1}garbage"}) {
     EXPECT_TRUE(has(rpc(malformed), "BAD_ENVELOPE")) << malformed;
   }
+}
+
+TEST(Session11Json, RejectsCommandsForAnotherDocumentButAllowsLifecycle) {
+  kreoda::DocumentStore::instance().create("doc-alpha");
+  const auto mismatched = rpc(
+      R"({"protocolVersion":1,"requestId":"x1","documentId":"doc-beta","type":3,"featureId":"wrong-box","widthMm":10,"heightMm":10,"depthMm":10})");
+  EXPECT_TRUE(has(mismatched, "DOCUMENT_MISMATCH")) << mismatched;
+  EXPECT_FALSE(kreoda::ShapeStore::instance().contains("wrong-box"));
+  // Lifecycle commands must name the document they create.
+  EXPECT_TRUE(has(rpc(
+      R"({"protocolVersion":1,"requestId":"x0","documentId":"","type":2})"),
+      "BAD_ENVELOPE"));
+  // Lifecycle commands name the document they create and then match it.
+  EXPECT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"x2","documentId":"doc-beta","type":2})")));
+  EXPECT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"x3","documentId":"doc-beta","type":3,"featureId":"right-box","widthMm":10,"heightMm":10,"depthMm":10})")));
 }
 
 TEST(Session11Json, NestedTransactionCannotJoinAnOpenUnit) {
@@ -213,4 +232,31 @@ TEST(Session11, TransactionOwnerRules) {
       R"({"protocolVersion":1,"requestId":"o8","documentId":"txn-doc3","type":29,"transactionId":"owner"})")));
   EXPECT_TRUE(kreoda::ShapeStore::instance().contains("ob"));
   EXPECT_EQ(kreoda::OcafLive::instance().AvailableUndos(), 1);
+}
+
+// An abandoned transaction must not fence the document forever: once its
+// owner is idle past the timeout, the next command rolls it back.
+TEST(Session11, AbandonedTransactionExpiresAndUnfences) {
+  auto& ocaf = kreoda::OcafLive::instance();
+  kreoda::DocumentStore::instance().create("txn-doc4");
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"e1","documentId":"txn-doc4","type":27,"transactionId":"gone"})")));
+  ASSERT_TRUE(ocaf.InTransaction());
+  ocaf.SetTransactionTimeoutForTest(std::chrono::milliseconds(1));
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  EXPECT_TRUE(ocaf.ExpireStaleTransaction());
+  EXPECT_FALSE(ocaf.InTransaction());
+  // The fence is gone: lifecycle commands run again without the owner id.
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"e2","documentId":"txn-doc4","type":2})")));
+  ocaf.SetTransactionTimeoutForTest(std::chrono::milliseconds(660000));
+  // A stale transaction also expires implicitly on the next dispatch.
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"e3","documentId":"txn-doc4","type":27,"transactionId":"gone2"})")));
+  ocaf.SetTransactionTimeoutForTest(std::chrono::milliseconds(1));
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  ASSERT_TRUE(ok(rpc(
+      R"({"protocolVersion":1,"requestId":"e4","documentId":"txn-doc4","type":2})")));
+  EXPECT_FALSE(ocaf.InTransaction());
+  ocaf.SetTransactionTimeoutForTest(std::chrono::milliseconds(660000));
 }

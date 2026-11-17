@@ -11,29 +11,54 @@ It replaces the earlier interim status in
 and the open-work ledger in
 [`superpowers/evidence/2026-11-12-baseline-verification.md`](superpowers/evidence/2026-11-12-baseline-verification.md).
 
-## Verified suites (2026-11-12, current source)
+## Verified suites (2026-11-17, current source)
 
 | Suite | Result |
 | --- | --- |
-| Native Release (OCCT 8.0.1) | **430/430 gtest** (86.4 s) in the worktree build; **433/433 CTest** including the three crash-barrier controls |
-| Desktop unit (vitest) | **640/640** across 96 files |
-| Protocol / command schema / units / plugin-SDK | **75/75**, **28/28**, **4/4**, **2/2** |
-| Managed .NET | **465/465** (SessionClient 197, ModelingAgent 91, HermesBridge 144, Benchmark 33), 0 failed/notExecuted |
+| Native Release (OCCT 8.0.1) | **446/446 gtest**; **449/449 CTest** including the three crash-barrier controls (94.8 s) |
+| Desktop unit (vitest) | **653/653** across 98 files |
+| Protocol / command schema / units / plugin-SDK | **75/75**, **32/32**, **4/4**, **2/2** |
+| Managed .NET | **474/474** (SessionClient 199, ModelingAgent 94, HermesBridge 148, Benchmark 33), 0 failed/notExecuted |
 | Session contract | `pnpm check:session-contract` exit 0 — 69 DTO schemas regenerated identically |
 | Desktop production build | `tsc --noEmit` + renderer/main/preload Vite builds exit 0 |
-| Desktop E2E (real Electron + real native kernel) | **93 passed / 0 failed / 2 skipped** (`KREODA_BACKGROUND_TEST=1`, serial, 26.8 min). Skips: `phase10-installed` (disposable-CI-runner only) and `phase10-file-picker` (needs native OS dialogs). |
+| Desktop E2E (real Electron + real native kernel) | **105 passed / 0 failed / 3 skipped** (`KREODA_BACKGROUND_TEST=1`, serial, 31.5 min). Skips: `phase10-installed` (disposable-CI-runner only), `phase10-file-picker` (native OS dialogs), `phase14-hermes-live` (live gateway). |
 | [solo] native configurations flow | PASS (17.0 s) — two solids, B-Rep, Undo/Redo, persistence and Desktop requery |
 | Crash/recovery gate (`test:e2e:crash:full`, hidden) | **32/32 passed** (6.5 min); `SolverCrashBarrierControl` passed; `PHASE10_CRASH_GATE {"passed":true,"production_core_restored":true}` and the worktree core restored with barriers OFF |
 | Phase 14 deterministic native seven-fixture benchmark | **7/7 geometry, 7/7 fully checked, 0 failures** (1.9 min, real MCP → installed native) |
-| Installed runtime smoke | PASS — packaged `Kreoda.exe` + kernel `908b7d5b…`; box 40000 mm³ → 4-hole pattern 39434.51332235384 mm³ → Undo → Redo |
-| Installed Desktop payload | `app.asar` `a13b0345…` extracted and compared with the current build: **170/170 files byte-identical** (`src` 96/96, `electron` 15/15, `dist` 31/31, `.vite/build` 27/27, `package.json`). No Desktop redeploy was needed; only the native kernel was stale and has been replaced. |
-| Quest Unity EditMode suite | **274/274 passed**, 0 failed, 0 skipped (`Unity -batchmode -runTests -testPlatform EditMode` with the current managed plugins and `node` on PATH) |
-| Quest ARM64 APK + install | Built `5420c648…` (43,915,653 B, `arm64-v8a`, Unity `Succeeded`, 0 errors, 26 warnings, no source changed), installed with `adb install -r`: data retained (`firstInstallTime` 2026-10-10), `lastUpdateTime` 2026-11-13 00:09:49, signature accepted. The device's `base.apk` was pulled back and hashes to the same `5420c648…` / 43,915,653 bytes |
+| Installed runtime smoke | PASS — packaged `Kreoda.exe` + kernel `C6C533A9…`; hidden box 60000 mm³; ASAR contains the pairing consent and discard guard; `THIRD-PARTY-NOTICES.md` (1742 B) shipped in `resources/` |
+| Installed Desktop payload | `app.asar` `7A6E96C0…` (283,527,406 B) and `kreoda-core.exe` `C6C533A9…` (2,811,392 B) deployed; rollback-14 under `.artifacts/desktop-deploy-20261117-hardening` holds `1BE80547…` / `6C50891B…`; the 45 runtime DLL names are unchanged |
+| Quest Unity EditMode suite | **325/325 passed**, 0 failed, 0 skipped (`Unity -batchmode -nographics -runTests -testPlatform EditMode` with the current managed plugins and `node` on PATH) |
+| Quest ARM64 APK + install | Installed `arm64-20261116-4` (44,393,505 B, `arm64-v8a`, SHA256 `20DA5CEA…`), installed with `adb install -r` on serial `2G0YC1ZFB8043H`: data retained (`firstInstallTime` 2026-10-10), signature accepted, stereo frame shows the three-pill Home belt. The later `QuestConnection`/`QuestVoice` hardening is covered by the 325-test EditMode suite but is not in this installed APK. A current-source APK was rebuilt on 2026-11-17: `KreodaQuest.apk` 44,400,813 B, SHA256 `ce1c9356…`, Unity `Succeeded` 0 errors/35 warnings, source manifest unchanged, at `.artifacts/quest-apk-20261117-hardening`; not installed (no ADB device). |
 | Quest 3 live session | `KREODA_DISCOVERY peers=1` → `KREODA_CONNECTED`; Desktop box `box-qa-1794525479622` (revision 1) delivered as `KREODA_MESH_APPLIED revision=1` and `KREODA_MODEL objects=1 triangles=12`; TCP `192.168.1.11:44414 → 192.168.1.7:63803` established. Evidence: [`superpowers/evidence/2026-11-13-quest-device`](superpowers/evidence/2026-11-13-quest-device/README.md) |
 | Quest 3 on-device performance (heavy meshes) | r=600 mm → 120,582-triangle LOD: **71.73 FPS mean** (min 60, 1 sample <72), tears 0; r=1100 mm → 221,602 triangles: **71.21 FPS mean** (min 57, 2 samples <72), tears 0; app CPU ≤ 2.90 ms, GPU ≤ 0.49 %. Short windows with the headset off-head (proximity keep-alive), a bounded datapoint rather than full roadmap perf acceptance |
 
 The native kernel is built from exactly the committed worktree source (verified by hashing all 175 build
 inputs against the build tree used for the suite).
+
+## Release hardening audit (2026-11-17)
+
+- **Document identity.** The native bootstrap identity is now `doc-phase1`, matching Desktop and the
+  session relay; every non-lifecycle command must name the open document. Empty raw Desktop frames are
+  normalized to the relay identity, lifecycle commands never snapshot an identity before it exists, and a
+  restarted core resets both relay and renderer to `doc-phase1`. Lifecycle commands reject an empty document id.
+- **Desktop trust boundary.** IPC accepts only the app's top-level renderer, using exact URL origin (dev)
+  or a local `file:` path with no host (packaged); navigation, popups and webviews are denied. Permission
+  requests are denied except clipboard writes for the pairing-code copy button.
+- **LAN pairing.** A new installation requires one explicit PC-user consent; known installations reconnect
+  silently. Consent prompts are serialized so a LAN peer cannot stack dialogs.
+- **Private Hermes records.** `/mcp` requires the configured bearer token even when the optional voice
+  gateway is absent or invalid. Unreadable/oversized rollback records keep CAD fenced; corrupt pending
+  enrollments are discarded; corrupt or invalid voice configs disable voice only.
+- **CAD robustness.** Pattern targets must be solid bodies; glTF `.bin`/`.gltf` publish through per-file
+  atomic replacement; `.icad` manifest/xbf reads and writes are bounded; OCAF duplicate labels and transaction
+  expiry are enforced; Open refuses to replace content without a usable OCAF backup; B-Rep metrics failures
+  are reported instead of escaping the command boundary.
+- **Residual dependency risk.** `pnpm audit --prod` reports GHSA-mrhx-c7xc-m3w5 in `zod@3.25.76`
+  (memory exhaustion while validating oversized constrained collections; patched in 4.6.6). The upgrade
+  requires replacing `zod-to-json-schema` and is deferred; external inputs are bounded before validation
+  (262 KiB MCP parameters, session frame caps, trusted renderer/native sources).
+- **Known functional limit.** `CreateHolePattern` accepts 1–4 per-point `featureIds` but commits one
+  cumulative `HolePattern` record under the first id; the remaining ids are correlation-only.
 
 ## Phase 12 — Quest spatial client foundation
 
@@ -98,7 +123,9 @@ The installed packet then joined a real Desktop session and received a live delt
 (`native/kreoda-core/src/features/datum/`), associative sketch projection with repair and broken-source gating
 (`sketch_projection.cpp`), advanced sketch geometry (ellipse, elliptical arc, B-spline, trim/extend, mirror,
 linear pattern, symmetric constraint, construction geometry), surface bodies/extrude/revolve/loft/sweep/offset/
-sew/thicken/trim/extend, body mirror across principal planes (XY/XZ/YZ), section view on both clients,
+sew/thicken/trim/extend, body mirror across principal planes and healthy DatumPlanes, bounded linear body
+patterns along global X/Y/Z with editable count/spacing, circular body patterns around global axes with
+editable count/angle, section view on both clients,
 analyses (mass, volume, area, center of mass, draft,
 curvature, zebra, minimum thickness, interference), bounded assembly mates (ground, coincident, distance,
 concentric, parallel, perpendicular, angle), sparse configurations (Small/Medium/Large without duplicating
@@ -107,12 +134,15 @@ outward push / inward pocket).
 
 **Evidence.** Native suites `test_datum`, `test_sketch_projection`, `test_advanced_sketch`, `test_surface_*`,
 `test_assembly_constraints`, `test_configurations`, `test_direct_face*`, `test_mirror`,
-`test_session_geometry`; Desktop `phase15-*.spec.ts` including the [solo] native configurations flow and
-`phase16-mirror-native.spec.ts`; Quest projections/configurations/analysis panels with Editor tests.
+`test_body_pattern`, `test_circular_body_pattern`, `test_session_geometry`; Desktop `phase15-*.spec.ts`
+including the [solo] native configurations flow, `phase16-mirror-native.spec.ts`,
+`phase16-body-pattern-native.spec.ts` and `phase16-circular-pattern-native.spec.ts`; Quest
+projections/configurations/analysis panels with Editor tests.
 
-**Limits.** General curved-surface thickening, arbitrary face-to-face mating, mirroring across arbitrary datum
-planes and a full industrial assembly solver are not claimed; the implemented operations are the bounded ones
-above. On-device display of every
+**Limits.** General curved-surface thickening, arbitrary face-to-face mating, mirroring across arbitrary planar
+faces, curve-driven body patterns and a full industrial assembly solver are not claimed; principal planes and
+healthy DatumPlanes are supported, body patterns are limited to 2..64 copies along or around global X/Y/Z,
+and the implemented operations are the bounded ones above. On-device display of every
 Phase 15 flow is hardware acceptance.
 
 ## Phase 16 — Intent / generative modeling
@@ -185,8 +215,10 @@ A live Hermes agent proposal accepted on the physical headset remains open.
      ("PC CONNESSO A PC-MATTEO") and Desktop held an established TCP session from 192.168.1.11.
      Screenshots and logcat are in `.artifacts/quest-live-20261116`. APK arm64-20261116-4
      (SHA256 `20DA5CEAFDFBECEFC33EE59425A2B29C8509A1C5A3397A0C3A487E48DF046486`) was then installed
-     and the Home belt reads MODELLA/VISTA/MISURA on device. Hands/pointer and the remaining
-     interactions above still require the headset worn.
+     and the Home belt reads MODELLA/VISTA/MISURA on device. A current-source APK
+     (`.artifacts/quest-apk-20261117-hardening/KreodaQuest.apk`, SHA256 `ce1c9356…`, 44,400,813 B)
+     includes the latest `QuestConnection`/`QuestVoice` hardening and is ready to install when a
+     device is attached. Hands/pointer and the remaining interactions above still require the headset worn.
 2. Live Hermes: one real remote-agent run of the seven frozen fixtures with ≥6/7 success and recorded
    commands/repairs/timing (the deterministic native baseline is not a substitute).
    - 2026-11-16 live check: the bridge/MCP and remote `kreoda-agent` are reachable; a real `/voice/turn`
@@ -200,5 +232,9 @@ A live Hermes agent proposal accepted on the physical headset remains open.
 3. Pristine LAN pairing on a factory-clean headset (no USB provisioning).
 4. On-device performance acceptance for the current APK (frame cadence/LOD under the roadmap targets).
 5. Any remaining visual sign-off of Phase 15/16 flows on the headset.
+6. Trusted Authenticode code-signing certificate and signed installer/notarization. Only self-signed
+   development certificates are present; Squirrel/ZIP outputs are unsigned.
+7. External security/dependency review. `pnpm audit --prod` retains one high advisory in `zod@3.25.76`
+   (GHSA-mrhx-c7xc-m3w5); the 4.6.6 upgrade needs a `zod-to-json-schema` replacement and is deferred.
 
 Nothing above is claimed as passed by this report.

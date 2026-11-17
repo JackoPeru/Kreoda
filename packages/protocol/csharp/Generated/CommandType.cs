@@ -70,6 +70,8 @@ public enum CommandType : ushort
   CreateReplaceFace = 60,
   CreateShell = 61,
   CreateMirror = 62,
+  CreateBodyPattern = 63,
+  CreateCircularBodyPattern = 64,
 };
 
 

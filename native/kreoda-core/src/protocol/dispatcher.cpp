@@ -54,6 +54,8 @@
 #include "features/hole/hole.h"
 #include "features/instance/instance.h"
 #include "features/mirror/mirror.h"
+#include "features/pattern/body_pattern.h"
+#include "features/pattern/circular_body_pattern.h"
 #include "features/assembly/assembly_constraints.h"
 #include "features/primitives/primitives.h"
 #include "features/revolve/revolve.h"
@@ -535,6 +537,7 @@ struct DocSnapshot {
   std::string ocafBackupDir;
   std::string ocafBackupXbf;
   bool hasOcafBackup = false;
+  bool hadContent = false;
 };
 
 DocSnapshot takeDocSnapshot(const std::string& docId) {
@@ -549,8 +552,9 @@ DocSnapshot takeDocSnapshot(const std::string& docId) {
   s.docId = DocumentStore::instance().snapshotDocumentId();
   s.references = DocumentStore::instance().referencePlanesJson();
   (void)docId;
+  s.hadContent = !s.shapes.empty() || !s.sketches.empty() || !s.datums.empty();
 #if KREODA_WITH_OCCT
-  if (!s.shapes.empty() || !s.sketches.empty() || !s.datums.empty()) {
+  if (s.hadContent) {
     std::error_code ec;
     std::string tmp = uniqueTempDir("kreoda-backup", ec);
     if (!tmp.empty()) {
@@ -755,6 +759,12 @@ std::vector<uint8_t> make_response(const std::string& requestId,
   return std::vector<uint8_t>(s.begin(), s.end());
 }
 
+std::vector<uint8_t> make_error_response(const std::string& requestId,
+                                         const std::string& code,
+                                         const std::string& message) {
+  return make_response(requestId, "error", error_body(code, message));
+}
+
 namespace {
 // Mesh success responses (§8: mesh data must not be JSON). Errors stay JSON.
 // The encoded-mesh cache lives here (file scope) so fresh baselines can
@@ -792,7 +802,7 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
   const std::string requestId = json_string_field(requestJson, "requestId", "");
   const int type = json_int_field(requestJson, "type", 0);
   const std::string documentId =
-      json_string_field(requestJson, "documentId", "doc-bootstrap");
+      json_string_field(requestJson, "documentId", "doc-phase1");
 
   // Envelope gate (§63.10, bug-hunt C3): ids/paths must be inert strings —
   // no quotes/controls that could confuse field extraction or the fs layer.
@@ -812,6 +822,21 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
     return make_response(requestId, "error",
                          error_body("BAD_ENVELOPE", "bad documentId"));
   }
+  if ((type == kCreateDocument || type == kOpenDocument) &&
+      documentId.empty()) {
+    return make_response(requestId, "error",
+                         error_body("BAD_ENVELOPE",
+                                    "documentId is required for lifecycle"));
+  }
+  // A stale or confused client must not mutate whichever document happens
+  // to be active: every command except document lifecycle must name it.
+  if (type != kCreateDocument && type != kOpenDocument &&
+      type != kGetCoreInfo &&
+      documentId != DocumentStore::instance().snapshotDocumentId()) {
+    return make_response(requestId, "error",
+                         error_body("DOCUMENT_MISMATCH",
+                                    "documentId is not the open document"));
+  }
   // Paths reach both field extraction and the fs layer: quotes/controls
   // are never legitimate there (C3).
   auto cleanPath = [](const std::string& s) {
@@ -821,6 +846,10 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
     }
     return true;
   };
+
+  // An abandoned transaction must not fence the document forever: roll it
+  // back once its owner has been idle past the timeout.
+  OcafLive::instance().ExpireStaleTransaction();
 
   // §11.12 transaction fence: while a session transaction is open, only
   // joined mutating commands (carrying the owner's transactionId), the
@@ -1255,8 +1284,18 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       std::string ext = fs::path(path).extension().string();
       for (char& c : ext) c = static_cast<char>(std::tolower(c));
       // C5: snapshot BEFORE any create() — every branch below replaces the
-      // document, and a corrupt file must not destroy current work.
+      // document, and a corrupt file must not destroy current work. If the
+      // current document has content but OCAF could not be backed up, the
+      // restore below could not bring it back: refuse instead of risking a
+      // silent wipe.
       DocSnapshot backup = takeDocSnapshot(documentId);
+      if (backup.hadContent && !backup.hasOcafBackup) {
+        return make_response(requestId, "error",
+                             error_body("OPEN_FAILED",
+                                        "cannot open safely: OCAF backup "
+                                        "unavailable; current document was "
+                                        "left untouched"));
+      }
       if (ext == ".step" || ext == ".stp") {
         // STEP import replaces the document (same as Open): fresh baseline,
         // one StepImport feature per solid in a single Undo step.
@@ -2516,11 +2555,68 @@ static std::vector<uint8_t> handle_command_typed(const Json& requestJson) {
       const std::string targetId =
           json_string_field(requestJson, "targetId", "");
       const std::string planeKind =
-          json_string_field(requestJson, "planeKind", "XY");
+          json_string_field(requestJson, "planeKind", "");
+      const std::string datumId =
+          json_string_field(requestJson, "datumId", "");
       std::string error;
-      if (!CreateMirrorFeature(featureId, targetId, planeKind, &error)) {
+      if (!CreateMirrorFeature(featureId, targetId, planeKind, datumId,
+                               &error)) {
         return make_response(requestId, "error",
                              error_body("MIRROR_FAILED", error));
+      }
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateBodyPattern: {
+      const std::string featureId =
+          json_string_field(requestJson, "featureId", "");
+      const std::string targetId =
+          json_string_field(requestJson, "targetId", "");
+      const std::string axis = json_string_field(requestJson, "axis", "X");
+      if (!json_has_key(requestJson, "count") ||
+          !requestJson["count"].is_number_integer()) {
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "count must be a JSON integer"));
+      }
+      const int count = json_int_field(requestJson, "count");
+      double spacingMm = 0;
+      if (!json_double_strict(requestJson, "spacingMm", &spacingMm)) {
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "spacingMm must be a JSON number"));
+      }
+      std::string error;
+      if (!CreateBodyPatternFeature(featureId, targetId, axis, count,
+                                    spacingMm, &error)) {
+        return make_response(requestId, "error",
+                             error_body("PATTERN_FAILED", error));
+      }
+      ShapeRecord rec;
+      ShapeStore::instance().get(featureId, &rec);
+      return make_response(requestId, "ok", shape_body(rec));
+    }
+    case kCreateCircularBodyPattern: {
+      const std::string featureId =
+          json_string_field(requestJson, "featureId", "");
+      const std::string targetId =
+          json_string_field(requestJson, "targetId", "");
+      const std::string axis = json_string_field(requestJson, "axis", "Z");
+      if (!json_has_key(requestJson, "count") ||
+          !requestJson["count"].is_number_integer()) {
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "count must be a JSON integer"));
+      }
+      const int count = json_int_field(requestJson, "count");
+      double angleDeg = 0;
+      if (!json_double_strict(requestJson, "angleDeg", &angleDeg)) {
+        return make_response(requestId, "error",
+                             error_body("BAD_PARAMS", "angleDeg must be a JSON number"));
+      }
+      std::string error;
+      if (!CreateCircularBodyPatternFeature(featureId, targetId, axis, count,
+                                            angleDeg, &error)) {
+        return make_response(requestId, "error",
+                             error_body("PATTERN_FAILED", error));
       }
       ShapeRecord rec;
       ShapeStore::instance().get(featureId, &rec);

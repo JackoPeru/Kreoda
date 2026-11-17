@@ -17,7 +17,7 @@ DocumentStore& DocumentStore::instance() {
 
 void DocumentStore::create(const std::string& documentId) {
   std::lock_guard<std::mutex> lock(mutex_);
-  documentId_ = documentId.empty() ? "doc-bootstrap" : documentId;
+  documentId_ = documentId.empty() ? "doc-phase1" : documentId;
   ShapeStore::instance().clear();  // new document owns an empty model (§9)
   BodyStore::instance().clear();  // bodies rebuild from history (Slice 2)
   DatumStore::instance().clear();

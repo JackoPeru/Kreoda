@@ -83,6 +83,14 @@ const SLOTS: Record<string, { param: string; label: EnKey }[]> = {
     { param: "pzMm", label: "props.slotPivotZ" },
   ],
   OffsetFace: [{ param: "distanceMm", label: "props.slotDistance" }],
+  BodyPattern: [
+    { param: "count", label: "props.slotCopies" },
+    { param: "spacingMm", label: "props.slotSpacing" },
+  ],
+  CircularBodyPattern: [
+    { param: "count", label: "props.slotCopies" },
+    { param: "angleDeg", label: "props.slotAngle" },
+  ],
 };
 
 const ANGLE_PARAMS = new Set(["angleDeg", "rxDeg", "ryDeg", "rzDeg"]);
@@ -210,6 +218,8 @@ export function PropertiesPanel({ onEditSketch }: { onEditSketch: (id: string) =
     Instance: { txMm: 0, tyMm: 1, tzMm: 2, rxDeg: 3, ryDeg: 4, rzDeg: 5 },
     MoveFace: { txMm: 0, tyMm: 1, tzMm: 2, rxDeg: 3, ryDeg: 4, rzDeg: 5, pxMm: 6, pyMm: 7, pzMm: 8 },
     OffsetFace: { distanceMm: 0 },
+    BodyPattern: { count: 0, spacingMm: 1 },
+    CircularBodyPattern: { count: 0, angleDeg: 1 },
   };
   const paramIndex = (param: string): number =>
     SLOT_INDEX[feature.type]?.[param] ?? -1;

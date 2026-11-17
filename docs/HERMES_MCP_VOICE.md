@@ -23,9 +23,9 @@ Environment configuration:
 | `KREODA_CAD_SESSION_URL` | CAD WebSocket address for initial pairing |
 | `KREODA_CAD_PAIR` | One-use bootstrap pairing value, held privately |
 | `KREODA_HERMES_CONFIG` | Private JSON containing gateway URL/key, stable session key and saved conversation ID |
-| `KREODA_VOICE_TOKEN` | Separate device token for the voice endpoints |
+| `KREODA_VOICE_TOKEN` | Device token for the voice endpoints and `/mcp`; when non-empty, `/mcp` requires the same `Authorization: Bearer` header even if the optional Hermes voice configuration failed to load |
 
-Later starts use the saved CAD device credential. The Hermes key stays on the PC; it is not included in the scene, repository, APK, MCP context or tool output. Conversation IDs are written atomically to the private configuration.
+Later starts use the saved CAD device credential. The Hermes key stays on the PC; it is not included in the scene, repository, APK, MCP context or tool output. Conversation IDs are written atomically to the private configuration. `/health` remains unauthenticated so supervisors can probe liveness; every mutating `/mcp` request is rejected with 401 without the bearer token.
 
 Quest receives `kreoda.voice-url` and `kreoda.voice-token` through the `com.kreoda.quest.AdbProvisioning` activity alias protected by Android DUMP permission and stores them in its app directory. Android declares `RECORD_AUDIO`; the operator can grant it via ADB. Recording starts only after the user presses Parla; Invia submits the complete recording. Stop, focus/tracking loss and component shutdown clear recording, network work, queued callbacks and owned playback. Reply audio is played sequentially on the headset. HTTP and WAV sizes/durations are bounded.
 
@@ -42,3 +42,5 @@ Both voice and CAD pairing reject provisioning extras delivered through the publ
 ## Unconfirmed rollback recovery
 
 Rollback failure is reported as `uncertain` with original request/transaction/session/document/base revision and owner client identity. Disconnect fallback is not proof of rollback. New CAD/voice work is fenced; Describe reports the recovery record. The production bridge saves the record beside its private CAD device file as `.rollback-uncertain.json` and loads the fence on restart. Expiry failures are recorded without an unobserved background exception. Reconcile the recorded transaction through the Desktop/session status and authorized recovery path before removing that record; force rollback is not exposed to Hermes. If private persistence fails, the response explicitly says recoveryPersisted=false and still includes the identity.
+
+Private bridge records may be damaged by a power loss. An unreadable `.rollback-uncertain.json` keeps CAD fenced (`recoveryUnreadable`) until a person inspects it; an unreadable pending enrollment is discarded and the device enrolls again; an unreadable voice configuration disables voice only, leaving `/mcp` and CAD available.

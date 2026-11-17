@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -97,6 +100,66 @@ public sealed class McpHttpTests
                 ["method"] = "invoke", ["parameters"] = new Dictionary<string, object?> { ["type"] = 3 },
             });
             Assert.True(invalid.IsError);Assert.Equal(0, wire.Commands);
+        } finally { await app.StopAsync(); }
+    }
+
+    [Fact]
+    public async Task McpRequiresDeviceTokenEvenWhenVoiceConfigurationIsUnavailable()
+    {
+        await using var wire = new CadBridgeTests.Wire();await using var session = await wire.Connect();
+        await using var bridge = new CadBridge(_ => Task.FromResult(session));
+        await using var app = BridgeHost.Build(bridge, "http://127.0.0.1:0", hermes: null, voiceToken: "quest-device-fixture-token");
+        await app.StartAsync();
+        try {
+            using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
+            const string initialize = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"auth-test\",\"version\":\"1\"}}}";
+            async Task<HttpResponseMessage> Send(string? authorization) {
+                using var request = new HttpRequestMessage(HttpMethod.Post, "/mcp") {
+                    Content = new StringContent(initialize, Encoding.UTF8, "application/json"),
+                };
+                request.Headers.Accept.ParseAdd("application/json");
+                request.Headers.Accept.ParseAdd("text/event-stream");
+                if (authorization is not null)
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authorization);
+                return await client.SendAsync(request);
+            }
+            using (var rejected = await Send(null)) Assert.Equal(HttpStatusCode.Unauthorized, rejected.StatusCode);
+            using (var accepted = await Send("quest-device-fixture-token")) Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+            using var health = await client.GetAsync("/health");
+            Assert.Equal(HttpStatusCode.OK, health.StatusCode);
+        } finally { await app.StopAsync(); }
+    }
+
+    // The MCP endpoint can mutate CAD. When the bridge holds a device token,
+    // an unauthenticated local process must not drive it.
+    [Fact]
+    public async Task McpRequiresDeviceTokenWhenVoiceIsConfigured()
+    {
+        await using var wire = new CadBridgeTests.Wire();await using var session = await wire.Connect();
+        await using var bridge = new CadBridge(_ => Task.FromResult(session));
+        using var upstream = new HttpClient(new HttpClientHandler());
+        var hermes = new HermesGatewayClient(upstream, new(new Uri("http://127.0.0.1:8642/v1/"), "gateway-fixture-secret", "kreoda-project"), pollInterval: TimeSpan.FromMilliseconds(1));
+        await using var app = BridgeHost.Build(bridge, "http://127.0.0.1:0", hermes, "quest-device-fixture-token");
+        await app.StartAsync();
+        try {
+            using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
+            const string initialize = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"auth-test\",\"version\":\"1\"}}}";
+            async Task<HttpResponseMessage> Send(string? authorization) {
+                using var request = new HttpRequestMessage(HttpMethod.Post, "/mcp") {
+                    Content = new StringContent(initialize, Encoding.UTF8, "application/json"),
+                };
+                request.Headers.Accept.ParseAdd("application/json");
+                request.Headers.Accept.ParseAdd("text/event-stream");
+                if (authorization is not null)
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authorization);
+                return await client.SendAsync(request);
+            }
+            using (var rejected = await Send(null)) Assert.Equal(HttpStatusCode.Unauthorized, rejected.StatusCode);
+            using (var wrong = await Send("not-the-device-token")) Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+            using (var accepted = await Send("quest-device-fixture-token")) Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+            // Liveness stays unauthenticated for supervisors.
+            using var health = await client.GetAsync("/health");
+            Assert.Equal(HttpStatusCode.OK, health.StatusCode);
         } finally { await app.StopAsync(); }
     }
 }

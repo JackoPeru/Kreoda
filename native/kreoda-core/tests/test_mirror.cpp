@@ -21,6 +21,12 @@ kreoda::Json MirrorRpc(const std::string& documentId, int type, kreoda::Json fie
   return kreoda::Json::parse(bytes.begin(), bytes.end());
 }
 
+kreoda::Json OffsetYzDatum(double offsetMm) {
+  return {{"type", "offset"},
+          {"base", {{"type", "principal"}, {"planeKind", "YZ"}}},
+          {"offsetMm", offsetMm}};
+}
+
 }  // namespace
 
 TEST(Mirror, InstanceMirrorsAcrossPrincipalPlaneAndRebuilds) {
@@ -64,6 +70,43 @@ TEST(Mirror, InstanceMirrorsAcrossPrincipalPlaneAndRebuilds) {
   EXPECT_NEAR(reopened.volumeMm3, mirror.volumeMm3, 1e-6);
   EXPECT_EQ(reopened.refExtra, "YZ");
   fs::remove(path);
+}
+
+TEST(Mirror, InstanceMirrorsAcrossDatumPlaneAndFollowsDatumUpdate) {
+  kreoda::DocumentStore::instance().create("mirror-datum-doc");
+  std::string error;
+  ASSERT_TRUE(kreoda::CreateBoxFeature("mirror-datum-box", 20, 10, 5, &error)) << error;
+  ASSERT_TRUE(kreoda::CreateInstanceFeature("mirror-datum-inst", "mirror-datum-box",
+                                            {30, 0, 0, 0, 0, 0}, &error)) << error;
+
+  const auto datum = MirrorRpc("mirror-datum-doc", 31,
+      {{"requestId", "mirror-datum-create"}, {"featureId", "mirror-plane"},
+       {"definition", OffsetYzDatum(10)}});
+  ASSERT_EQ(datum["status"], "ok") << datum;
+
+  const auto created = MirrorRpc("mirror-datum-doc", 62,
+      {{"requestId", "mirror-datum-create-mirror"}, {"featureId", "mirror-datum"},
+       {"targetId", "mirror-datum-inst"}, {"datumId", "mirror-plane"}});
+  ASSERT_EQ(created["status"], "ok") << created;
+  kreoda::ShapeRecord mirror;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("mirror-datum", &mirror));
+  EXPECT_EQ(mirror.type, "Mirror");
+  EXPECT_EQ(mirror.dependsOn,
+            (std::vector<std::string>{"mirror-datum-inst", "mirror-plane"}));
+  EXPECT_EQ(mirror.refExtra, "datum:mirror-plane");
+  EXPECT_NEAR(mirror.volumeMm3, 1000.0, 1e-6);
+  EXPECT_NEAR(mirror.bboxMm[0], -30.0, 1e-6);
+  EXPECT_NEAR(mirror.bboxMm[3], -10.0, 1e-6);
+
+  const auto updated = MirrorRpc("mirror-datum-doc", 34,
+      {{"requestId", "mirror-datum-update"}, {"featureId", "mirror-plane"},
+       {"definition", OffsetYzDatum(20)}});
+  ASSERT_EQ(updated["status"], "ok") << updated;
+  kreoda::ShapeRecord rebuilt;
+  ASSERT_TRUE(kreoda::ShapeStore::instance().get("mirror-datum", &rebuilt));
+  EXPECT_NEAR(rebuilt.volumeMm3, 1000.0, 1e-6);
+  EXPECT_NEAR(rebuilt.bboxMm[0], -10.0, 1e-6);
+  EXPECT_NEAR(rebuilt.bboxMm[3], 10.0, 1e-6);
 }
 
 TEST(Mirror, InvalidPlaneSelfTargetAndMissingTargetAreRejected) {

@@ -111,11 +111,11 @@ namespace Kreoda.QuestRuntime.Tests
             foreach (var card in new[] { "ENTRA NELLO SPAZIO card", "CONNETTI PC card", "HERMES card" })
                 Assert.That(page.Find(card), Is.Not.Null, card);
             foreach (var id in new[] { "home:design", "home:pc", "home:ai", "home:project:select",
-                "home:project:open", "home:model", "home:view", "home:measure", "home:render" })
+                "home:project:open", "home:model", "home:view", "home:measure" })
                 Assert.That(ActionButton(page, id), Is.Not.Null, id);
             var belt = page.Find("Spatial context belt");
             Assert.That(belt, Is.Not.Null);
-            Assert.That(belt.GetComponentsInChildren<QuestButton>(true).Length, Is.EqualTo(5));
+            Assert.That(belt.GetComponentsInChildren<QuestButton>(true).Length, Is.EqualTo(3));
             var left = page.Find("ENTRA NELLO SPAZIO card");
             var rail = (Transform)Field("_toolRail");
             Assert.That(left, Is.Not.Null);
@@ -288,7 +288,7 @@ namespace Kreoda.QuestRuntime.Tests
             Assert.That(home.gameObject.activeSelf, Is.True, "Home must be the first visible page");
             var labels = home.GetComponentsInChildren<TextMesh>(true).Select(label => label.text).ToArray();
             foreach (var expected in new[] { "ENTRA NELLO SPAZIO", "CONNETTI PC", "HERMES",
-                "NESSUN PROGETTO CARICATO", "DISEGNA", "MODELLA", "VISTA", "MISURA", "DISPLAY", "PC non connesso" })
+                "NESSUN PROGETTO CARICATO", "MODELLA", "VISTA", "MISURA", "PC non connesso" })
                 Assert.That(labels, Does.Contain(expected), "missing spatial Home label: " + expected);
             Assert.That(labels.Any(label => label.Contains("Cucina_Villa_Costa") || label.Contains("Scale_Moderne")), Is.False,
                 "Desktop demo filenames must not appear as Quest user projects");

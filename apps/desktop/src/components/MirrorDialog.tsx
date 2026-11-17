@@ -4,11 +4,12 @@ import { useDocumentUiStore, useSelectionStore } from "../stores";
 import { CadActions, CadDialog } from "./CadDialog";
 import { featureTypeName, useT } from "../i18n";
 
-/** Mirrored copy of the selected solid across a principal plane at the origin. */
+/** Mirrored copy of the selected solid across a principal or datum plane. */
 export function MirrorDialog({ onClose }: { onClose: () => void }) {
   const selectedIds = useSelectionStore((s) => s.selectedIds);
   const features = useDocumentUiStore((s) => s.features);
-  const [plane, setPlane] = useState<"XY" | "XZ" | "YZ">("XY");
+  const datums = useDocumentUiStore((s) => s.datums);
+  const [planeRef, setPlaneRef] = useState("plane:XY");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const tt = useT();
@@ -21,15 +22,23 @@ export function MirrorDialog({ onClose }: { onClose: () => void }) {
     return { featureId: bare, type: feature.type };
   }, [selectedIds, features]);
 
+  const datumPlanes = useMemo(
+    () => datums.filter((d) => d.kind === "DatumPlane" && d.status === "ok"),
+    [datums],
+  );
+
   const submit = async (): Promise<void> => {
     setError(null);
     setBusy(true);
     try {
       if (!target) throw new Error(tt("mirror.errNoTarget"));
-      await executeCommand("CreateMirror", {
-        targetId: target.featureId,
-        planeKind: plane,
-      });
+      const params = planeRef.startsWith("datum:")
+        ? { targetId: target.featureId, datumId: planeRef.slice("datum:".length) }
+        : {
+            targetId: target.featureId,
+            planeKind: planeRef.slice("plane:".length) as "XY" | "XZ" | "YZ",
+          };
+      await executeCommand("CreateMirror", params);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : tt("mirror.errFailed"));
@@ -63,14 +72,25 @@ export function MirrorDialog({ onClose }: { onClose: () => void }) {
       <label className="mb-2 block text-xs text-white/70">
         {tt("mirror.plane")}
         <select
-          value={plane}
-          onChange={(e) => setPlane(e.target.value as "XY" | "XZ" | "YZ")}
+          value={planeRef}
+          onChange={(e) => setPlaneRef(e.target.value)}
           data-testid="mirror-plane"
           className="mt-1 w-full rounded-md bg-white/5 px-2 py-1.5 text-sm text-white outline-none focus:bg-white/10"
         >
-          <option value="XY">XY (Z = 0)</option>
-          <option value="XZ">XZ (Y = 0)</option>
-          <option value="YZ">YZ (X = 0)</option>
+          <optgroup label={tt("mirror.principalGroup")}>
+            <option value="plane:XY">XY (Z = 0)</option>
+            <option value="plane:XZ">XZ (Y = 0)</option>
+            <option value="plane:YZ">YZ (X = 0)</option>
+          </optgroup>
+          {datumPlanes.length > 0 && (
+            <optgroup label={tt("mirror.datumGroup")}>
+              {datumPlanes.map((datum) => (
+                <option key={datum.featureId} value={`datum:${datum.featureId}`}>
+                  {featureTypeName(datum.kind)} · {datum.featureId}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </label>
     </CadDialog>

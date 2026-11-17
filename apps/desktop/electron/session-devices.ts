@@ -224,6 +224,11 @@ export class SessionDevices {
     const expected = this.sessionTokens.get(deviceId);return !!expected && sameSecret(token, expected.digest);
   }
   isTrusted(deviceId: string): boolean { return this.loaded && this.records.has(deviceId); }
+  /** True when this installation was already enrolled (no consent prompt). */
+  hasAutomatic(installationId: string): boolean {
+    const automaticId = digest(installationId);
+    return [...this.records.values()].some(record => record.automaticId === automaticId);
+  }
   revoke(deviceId: string): Promise<void> {
     return this.serial(async () => {
       this.ready();if (!this.records.has(deviceId)) throw Object.assign(new Error("unknown trusted device"), { code: "NOT_FOUND" });

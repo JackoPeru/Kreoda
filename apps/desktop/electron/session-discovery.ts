@@ -24,7 +24,8 @@ export class AutomaticSessionHost {
   constructor(private readonly devices: SessionDevices,
     private readonly relay: Pick<SessionRelay, "enableListener" | "disableListener" | "connectionStatus">,
     private readonly name: string, private readonly loopbackTest = false,
-    private readonly hooks?: { addresses: () => string[]; discovery: (host: string, port: number) => Pick<SessionDiscovery, "start" | "stop"> }) {}
+    private readonly hooks?: { addresses?: () => string[]; discovery?: (host: string, port: number) => Pick<SessionDiscovery, "start" | "stop">;
+      authorizePair?: (name: string) => Promise<boolean> }) {}
   async start(): Promise<void> {
     this.enabled = true;
     await this.refresh();
@@ -33,7 +34,7 @@ export class AutomaticSessionHost {
   private refresh(): Promise<void> {
     const next = this.queue.then(async () => {
       if (!this.enabled) return;
-      const addresses = this.hooks?.addresses() ?? (this.loopbackTest ? ["127.0.0.1"] : sessionInterfaces().filter(item => !item.localOnly).map(item => item.address));
+      const addresses = this.hooks?.addresses?.() ?? (this.loopbackTest ? ["127.0.0.1"] : sessionInterfaces().filter(item => !item.localOnly).map(item => item.address));
       addresses.sort((a, b) => Number(b.startsWith("192.168.")) - Number(a.startsWith("192.168.")) || a.localeCompare(b));
       const host = this.host && addresses.includes(this.host) ? this.host : addresses[0] ?? null;
       if (host === this.host) return;
@@ -44,8 +45,10 @@ export class AutomaticSessionHost {
       await this.relay.enableListener({ host, port: 0 });
       try {
         const port = this.relay.connectionStatus().listener!.port;
-        const discovery = this.hooks?.discovery(host, port) ?? new SessionDiscovery(this.devices, this.name,
-          { host, sessionPort: port, allowLoopback: this.loopbackTest });
+        const discovery = this.hooks?.discovery?.(host, port) ?? new SessionDiscovery(this.devices, this.name,
+          { host, sessionPort: port, allowLoopback: this.loopbackTest,
+            authorizePair: this.hooks?.authorizePair,
+            isKnownPair: id => this.devices.hasAutomatic(id) });
         await discovery.start();
         this.discovery = discovery;this.host = host;
       } catch (error) { await this.relay.disableListener();throw error; }
@@ -68,10 +71,12 @@ export class SessionDiscovery {
   private udp: Socket | null = null;
   private http: Server | null = null;
   private readonly rates = new Map<string, { since: number; count: number }>();
+  private consentPending = false;
   port = 0;
   bootstrapPort = 0;
   constructor(private readonly devices: SessionDevices, private readonly name: string,
-    private readonly options: { host: string; sessionPort: number; discoveryPort?: number; allowLoopback?: boolean }) {}
+    private readonly options: { host: string; sessionPort: number; discoveryPort?: number; allowLoopback?: boolean;
+      authorizePair?: (name: string) => Promise<boolean>; isKnownPair?: (installationId: string) => boolean }) {}
 
   async start(): Promise<void> {
     if (this.udp || this.http) throw new Error("discovery already started");
@@ -106,6 +111,18 @@ export class SessionDiscovery {
         if (!body || body.version !== 1 || body.pcId !== this.devices.pcId ||
             typeof body.installationId !== "string" || typeof body.credential !== "string" || typeof body.name !== "string") {
           send(400, { error: "BAD_PARAMS" });return;
+        }
+        // Silent LAN auto-enrollment would trust any private peer: a new
+        // installation needs the PC user's explicit consent. Reconnects from
+        // an already paired installation stay silent and idempotent.
+        if (!this.options.isKnownPair?.(body.installationId)) {
+          // One modal at a time: a LAN peer cannot stack consent dialogs.
+          if (this.consentPending) { send(429, { error: "PAIRING_BUSY" });return; }
+          this.consentPending = true;
+          let approved = false;
+          try { approved = (await this.options.authorizePair?.(body.name)) === true; }
+          finally { this.consentPending = false; }
+          if (!approved) { send(403, { error: "PAIRING_DENIED" });return; }
         }
         const paired = await this.devices.pairAutomatic(body.installationId, body.credential, body.name);
         send(200, { version: 1, pcId: this.devices.pcId, ...paired });

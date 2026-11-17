@@ -25,6 +25,7 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
+    - _Aspect: 1
     - _BorderSize: 0.012
     - _Radius: 0.08
     - _Sheen: 0.24

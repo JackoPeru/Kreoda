@@ -20,9 +20,14 @@ using var requirements=JsonDocument.Parse(requirementBytes);
 var fixture=requirements.RootElement.GetProperty("fixtures").EnumerateArray().Single(f=>f.GetProperty("id").GetString()==args[1]).Clone();
 using var configuration=JsonDocument.Parse(File.ReadAllBytes(Environment.GetEnvironmentVariable("KREODA_BENCHMARK_VOICE_CONFIG")??throw new InvalidOperationException("Private voice config required")));
 var privateVoice=configuration.RootElement;
-using var voice=new HermesVoiceClient(new Uri(privateVoice.GetProperty("endpoint").GetString()!),privateVoice.GetProperty("token").GetString()!);
+var voiceToken=privateVoice.GetProperty("token").GetString()!;
+using var voice=new HermesVoiceClient(new Uri(privateVoice.GetProperty("endpoint").GetString()!),voiceToken);
 using var deadline=new CancellationTokenSource(TimeSpan.FromSeconds(660));var ct=deadline.Token;
-await using var transport=new HttpClientTransport(new() { Endpoint=new Uri(Environment.GetEnvironmentVariable("KREODA_BENCHMARK_MCP_URL")??"http://127.0.0.1:9843/mcp") });
+// The same device token protects /mcp; the bridge requires it whenever the
+// voice token is configured.
+using var mcpHttp=new HttpClient();
+mcpHttp.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",voiceToken);
+await using var transport=new HttpClientTransport(new() { Endpoint=new Uri(Environment.GetEnvironmentVariable("KREODA_BENCHMARK_MCP_URL")??"http://127.0.0.1:9843/mcp") },mcpHttp,null,false);
 await using var mcp=await McpClient.CreateAsync(transport,cancellationToken:ct);
 async Task<JsonElement> Tool(string name,Dictionary<string,object?>? args=null) {
     var response=await mcp.CallToolAsync(name,args??new(),cancellationToken:ct);

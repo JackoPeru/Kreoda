@@ -11,6 +11,11 @@ const MAX_RECENT = 20;
 // Keep the read bound above the largest file our own writer can create.
 const MAX_FILE_BYTES = 256 * 1024;
 
+/** UNC and device paths would make Windows authenticate to a remote host. */
+function isNetworkPath(value: string): boolean {
+  return /^[\\/]{2}/.test(value);
+}
+
 /** PC-owned recent projects. Only successful opens/saves should call record(). */
 export class RecentProjectStore {
   private readonly filename: string;
@@ -26,6 +31,7 @@ export class RecentProjectStore {
       if (!Array.isArray(parsed)) return [];
       return parsed.filter((entry): entry is StoredRecentProject =>
         !!entry && typeof entry.path === "string" && path.isAbsolute(entry.path) &&
+        !isNetworkPath(entry.path) &&
         entry.path.length <= 4096 && path.extname(entry.path).toLowerCase() === ".icad" &&
         typeof entry.openedAt === "number" && Number.isSafeInteger(entry.openedAt) &&
         entry.openedAt > 0).slice(0, MAX_RECENT);
@@ -36,9 +42,10 @@ export class RecentProjectStore {
 
   record(filePath: string): StoredRecentProject[] {
     if (typeof filePath !== "string" || !path.isAbsolute(filePath) ||
-        filePath.length > 4096 || path.extname(filePath).toLowerCase() !== ".icad" ||
+        isNetworkPath(filePath) || filePath.length > 4096 ||
+        path.extname(filePath).toLowerCase() !== ".icad" ||
         !fs.statSync(filePath).isFile()) {
-      throw new Error("Recent project must be an existing .icad file");
+      throw new Error("Recent project must be an existing local .icad file");
     }
     const normalized = path.normalize(filePath);
     const updated = [

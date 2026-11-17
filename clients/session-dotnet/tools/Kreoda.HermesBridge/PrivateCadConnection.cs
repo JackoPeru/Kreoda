@@ -61,12 +61,20 @@ public sealed class PrivateCadConnection(string file, string? sessionUrl, string
         }
 
         var pendingFile = file + ".pending.json";
-        var pending = File.Exists(pendingFile) ? await ReadAsync<PendingEnrollment>(pendingFile, ct) : null;
-        if (pending != null) {
-            if (!Guid.TryParseExact(pending.PcId, "D", out _) || !Guid.TryParseExact(pending.InstallationId, "D", out _) ||
-                !ValidSecret(pending.Credential) || !ValidId(pending.LogicalClientId, "client-") ||
-                (pending.DeviceId != null && !ValidId(pending.DeviceId, "device-")) ||
-                (preferredPcId != null && pending.PcId != preferredPcId)) throw InvalidConfiguration();
+        PendingEnrollment? pending = null;
+        if (File.Exists(pendingFile)) {
+            try { pending = await ReadAsync<PendingEnrollment>(pendingFile, ct); }
+            catch (SessionException) { pending = null; }
+            if (pending != null &&
+                (!Guid.TryParseExact(pending.PcId, "D", out _) || !Guid.TryParseExact(pending.InstallationId, "D", out _) ||
+                 !ValidSecret(pending.Credential) || !ValidId(pending.LogicalClientId, "client-") ||
+                 (pending.DeviceId != null && !ValidId(pending.DeviceId, "device-")) ||
+                 (preferredPcId != null && pending.PcId != preferredPcId))) pending = null;
+            // A corrupt pending enrollment holds no authority: discard it and
+            // enroll again instead of failing every future connection.
+            if (pending == null) {
+                try { File.Delete(pendingFile); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            }
         }
         var found = await SessionDiscovery.FindAsync(ct, discoveryTarget);
         var pc = SessionDiscovery.Choose(found, pending?.PcId ?? preferredPcId)
